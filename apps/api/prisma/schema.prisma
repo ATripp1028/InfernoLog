@@ -1,0 +1,620 @@
+// InfernoLog — Prisma Schema
+// Database: PostgreSQL (Neon)
+// See DATA_MODEL.md for full entity documentation and rationale
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────────
+
+enum Role {
+  USER
+  MODERATOR
+  ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+enum RatingMode {
+  SIMPLE
+  WEIGHTED
+}
+
+enum DateFormatPreference {
+  MDY // MM/DD/YYYY — US
+  DMY // DD/MM/YYYY — International
+  YMD // YYYY/MM/DD — ISO with slashes
+  ISO // YYYY-MM-DD — ISO with dashes
+}
+
+enum LevelType {
+  CLASSIC
+  PLATFORMER
+}
+
+enum LevelProgressStatus {
+  IN_PROGRESS
+  DROPPED
+  COMPLETED
+}
+
+enum EntryVisibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum ListType {
+  WANT_TO_BEAT
+  FAVORITES
+  LEAST_FAVORITES
+  CUSTOM
+}
+
+enum ListSource {
+  GDDL
+  POINTERCRATE
+  AREDL
+  NLW
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  DISMISSED
+  ACTIONED
+}
+
+enum AppealStatus {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+enum ModerationActionType {
+  WARN
+  SUSPEND
+  BAN
+  UNBAN
+  VERIFY
+  UNVERIFY
+}
+
+enum RatingDisplayScale {
+  ZERO_TO_TEN     // Displayed as 0.0-10.0 with one decimal e.g. 7.5
+  ZERO_TO_HUNDRED // Displayed as 0-100 integer e.g. 75
+  // Stored internally as 0-100 integer regardless of display preference.
+  // Conversion: ZERO_TO_TEN display = internal / 10
+  //             ZERO_TO_HUNDRED display = internal (no conversion)
+}
+
+// ─────────────────────────────────────────────
+// USERS
+// ─────────────────────────────────────────────
+
+model User {
+  id                    String               @id @default(uuid())
+  username              String               @unique
+  usernameChangedAt     DateTime?
+  previousUsername      String?
+  email                 String               @unique
+  discordId             String?              @unique
+  googleId              String?              @unique
+
+  // Privacy
+  profilePublic         Boolean              @default(true)
+  discordPublic         Boolean              @default(true)
+
+  // Role & status
+  role                  Role                 @default(USER)
+  accountStatus         AccountStatus        @default(ACTIVE)
+  suspensionUntil       DateTime?
+
+  // Verification
+  isVerified            Boolean              @default(false)
+  verifiedAt            DateTime?
+
+  // GDDL integration — key stored encrypted, never exposed to frontend
+  gddlApiKeyEncrypted   String?
+
+  // Preferences
+  ratingMode            RatingMode           @default(SIMPLE)
+  // Stored as ordered array of ListSource enum values
+  // e.g. ["GDDL", "AREDL", "POINTERCRATE", "NLW", "OTHER"]
+  listPriorityOrder     ListSource[]         @default([GDDL, AREDL, POINTERCRATE, NLW, OTHER])
+  progressNudgeDays     Int                  @default(2)
+  timeMachineTopN       Int                  @default(10)
+  dateFormatPreference  DateFormatPreference @default(MDY)
+  ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
+
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  // Relations
+  levelProgress         LevelProgress[]
+  classicRankings       ClassicRanking[]
+  userLists             UserList[]
+  apiKeys               ApiKey[]
+  ratingCategories      RatingCategory[]
+  levelUpdateNotifs     LevelUpdateNotification[]
+  progressNudges        ProgressNudge[]
+  reportsSubmitted      Report[]             @relation("ReporterRelation")
+  reportsReceived       Report[]             @relation("ReportedUserRelation")
+  reportsModerated      Report[]             @relation("AssignedModeratorRelation")
+  banAppeals            BanAppeal[]
+  moderationActionsBy   ModerationAction[]   @relation("ModeratorRelation")
+  moderationActionsOn   ModerationAction[]   @relation("TargetUserRelation")
+  banAppealsReviewed    BanAppeal[]          @relation("ReviewedByRelation")
+
+  @@map("users")
+}
+
+// ─────────────────────────────────────────────
+// LEVELS (shared cache, keyed by in-game ID)
+// ─────────────────────────────────────────────
+
+model Level {
+  // Primary key is the in-game GD level ID, not a UUID.
+  // Every GD API uses this as source of truth.
+  // Reuploads share the same in-game data and are treated as the same level.
+  inGameId              String               @id
+  levelType             LevelType            @default(CLASSIC)
+  isRated               Boolean              @default(false)
+
+  // Core metadata — populated by GDBrowser autofill
+  name                  String?
+  creator               String?
+  songName              String?              // Newgrounds song
+  songAuthor            String?
+
+  // NONG fields (v2) — manually entered by user
+  isNong                Boolean              @default(false)
+  nongSongTitle         String?
+  nongArtist            String?
+  nongSourceUrl         String?
+
+  // Additional metadata (v2)
+  peakMusicBpm          Int?                 // Music BPM, not heart rate
+
+  // Data provenance
+  dataSource            String               @default("manual") // "gdbrowser_autofill" | "manual"
+
+  // Monthly sync job fields
+  // See EXTERNAL_APIS.md — EventBridge fires on the 1st of each month
+  lastCheckedAt         DateTime?
+  hasPendingUpdate      Boolean              @default(false)
+  pendingName           String?
+  pendingCreator        String?
+  pendingSongName       String?
+  pendingSongAuthor     String?
+
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  // Relations
+  levelProgress         LevelProgress[]
+  levelListEntries      LevelListEntry[]
+  levelUpdateNotifs     LevelUpdateNotification[]
+
+  @@map("levels")
+}
+
+// ─────────────────────────────────────────────
+// LEVEL PROGRESS
+// One row per user per level.
+// Created when the user logs their FIRST progress update.
+// NOT created by adding a level to the want-to-beat list.
+// ─────────────────────────────────────────────
+
+model LevelProgress {
+  id              String               @id @default(uuid())
+  userId          String
+  levelId         String               // FK → levels.inGameId
+
+  status          LevelProgressStatus  @default(IN_PROGRESS)
+
+  // Drop-specific fields
+  droppedReason   String?
+  droppedAt       DateTime?
+
+  // Per-entry privacy — independent of global profile visibility.
+  // Use case: hide a completion until YouTube video goes live.
+  visibility      EntryVisibility      @default(PUBLIC)
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level           Level                @relation(fields: [levelId], references: [inGameId])
+  progressUpdates ProgressUpdate[]
+  classicRanking  ClassicRanking?
+  progressNudge   ProgressNudge?
+
+  @@unique([userId, levelId]) // One LevelProgress per user per level
+  @@map("level_progress")
+}
+
+// ─────────────────────────────────────────────
+// PROGRESS UPDATES
+// Every logged data point for a level.
+// A completion is a ProgressUpdate with isCompletion = true.
+// All fields optional except levelProgressId and loggedAt.
+// Non-completion entries hidden throughout UI unless toggle enabled.
+// ─────────────────────────────────────────────
+
+model ProgressUpdate {
+  id                    String          @id @default(uuid())
+  levelProgressId       String
+
+  // Completion flag — user explicitly marks this as their beat.
+  // Only one per LevelProgress may be true (enforced at application level).
+  isCompletion          Boolean         @default(false)
+
+  // Progress data
+  // percentage: classic levels only (0-100). Null for platformer.
+  percentage            Decimal?        @db.Decimal(5, 2)
+  // runFrom/runTo: best run range e.g. 44-87
+  runFrom               Int?
+  runTo                 Int?
+  // completionTime: platformer levels only (v2). Null for classic.
+  completionTime        Int?            // stored as seconds
+
+  // Attempt tracking
+  // Convention: cumulative attempts across ALL uploads/copies of the level.
+  // Honor system — cannot be enforced technically. Documented in UI tooltip.
+  attempts              Int?
+
+  // Session metadata
+  date                  DateTime?       @db.Date
+  dateUncertain         Boolean         @default(false)
+  onStream              Boolean         @default(false)
+  fps                   Int?
+  peakHeartRateBpm      Int?            // v2 — heart rate monitor data
+
+  // Ratings
+  enjoyment             Int?            // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
+  // simpleRating: used when user is in SIMPLE rating mode
+  simpleRating          Int?            // 0-100 internally
+  // Weighted mode scores stored in RatingScore relation
+
+  // Contextual metadata
+  // Snapshot of in-game difficulty rating at time of logging
+  // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
+  inGameDifficulty      String?
+  notes                 String?
+
+  // Media
+  videoUrl              String?         // Completion video
+  highlightUrl          String?         // Highlight reel — independent of onStream
+
+  // Ranking snapshot — only populated for completion entries
+  top5AtTime            Boolean         @default(false)
+  top5Position          Int?            // 1-5, null if not top 5
+
+  loggedAt              DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  // Relations
+  levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+  listReferences        ListReference[]
+  ratingScores          RatingScore[]
+  recordAcceptances     RecordAcceptance[]
+
+  @@map("progress_updates")
+}
+
+// ─────────────────────────────────────────────
+// LIST REFERENCES
+// Tier/rank values from community lists.
+// Attached to a ProgressUpdate (typically the completion update).
+// Deleted when parent ProgressUpdate is deleted.
+// ─────────────────────────────────────────────
+
+model ListReference {
+  id                  String          @id @default(uuid())
+  progressUpdateId    String
+
+  listSource          ListSource
+  // Raw value — varies by list (numeric tier, numeric rank, named tier)
+  // e.g. "28" for GDDL, "47" for Pointercrate, "Hard" for NLW
+  tierOrRank          String
+  // Whether this was the value at time of logging (true)
+  // or added retroactively (false)
+  atTimeOfLogging     Boolean         @default(true)
+
+  addedAt             DateTime        @default(now())
+
+  // Relations
+  progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+
+  @@map("list_references")
+}
+
+// ─────────────────────────────────────────────
+// RECORD ACCEPTANCES
+// Whether a completion has an accepted record on each ranking authority.
+// Manually set by user — not synced from external APIs.
+// GDDL acceptance is v1. Other authorities follow their integration phases.
+// ─────────────────────────────────────────────
+
+model RecordAcceptance {
+  id                  String          @id @default(uuid())
+  // Must reference a ProgressUpdate where isCompletion = true
+  // Enforced at application level, not database level
+  progressUpdateId    String
+
+  listSource          ListSource
+  isAccepted          Boolean         @default(false)
+  acceptedAt          DateTime?
+
+  // Relations
+  progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+
+  @@unique([progressUpdateId, listSource])
+  @@map("record_acceptances")
+}
+
+// ─────────────────────────────────────────────
+// RATING CATEGORIES (Weighted Mode)
+// User-configured categories for weighted average rating.
+// Default categories: Gameplay, Decoration, Song
+// ─────────────────────────────────────────────
+
+model RatingCategory {
+  id                String          @id @default(uuid())
+  userId            String
+
+  name              String
+  weight            Decimal         @db.Decimal(5, 2)
+  // Whether enjoyment score factors into weighted average.
+  // Off by default — enjoyment is a standalone field.
+  includeEnjoyment  Boolean         @default(false)
+  sortOrder         Int
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Soft delete: scores preserved if category deleted, restored if recreated
+  ratingScores      RatingScore[]
+
+  @@map("rating_categories")
+}
+
+// ─────────────────────────────────────────────
+// RATING SCORES
+// Per-category scores per progress update.
+// Weighted average computed at query time — never stored.
+// ─────────────────────────────────────────────
+
+model RatingScore {
+  id                String          @id @default(uuid())
+  progressUpdateId  String
+  categoryId        String
+
+  score             Int             // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
+
+  // Relations
+  progressUpdate    ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+  ratingCategory    RatingCategory  @relation(fields: [categoryId], references: [id])
+
+  @@unique([progressUpdateId, categoryId])
+  @@map("rating_scores")
+}
+
+// ─────────────────────────────────────────────
+// CLASSIC RANKING
+// Personal difficulty ranking of classic completions.
+// Fractional indexing — positions stored as Decimal to allow
+// insertion between existing entries without renumbering.
+//
+// Example:
+//   1.0 ── 2.0 ── 3.0  (initial)
+//   Insert between 2 and 3 → 2.5
+//   Insert between 2 and 2.5 → 2.25
+//   Gap < 0.0001 → rebalancing job renormalizes to integers
+//
+// Only LevelProgress entries with status = COMPLETED appear here.
+// Must have at least one ListReference to appear in the Time Machine.
+// ─────────────────────────────────────────────
+
+model ClassicRanking {
+  id                String          @id @default(uuid())
+  userId            String
+  levelProgressId   String          @unique // One ranking entry per level
+
+  // Fractional index — lower = easier, higher = harder
+  rankingIndex      Decimal         @db.Decimal(20, 10)
+
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+
+  @@map("classic_ranking")
+}
+
+// ─────────────────────────────────────────────
+// USER LISTS
+// Favorites, least favorites, want-to-beat, and custom lists.
+// Adding to want-to-beat does NOT create a LevelProgress entry.
+// ─────────────────────────────────────────────
+
+model UserList {
+  id          String          @id @default(uuid())
+  userId      String
+
+  name        String
+  type        ListType
+  description String?
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries     LevelListEntry[]
+
+  @@map("user_lists")
+}
+
+model LevelListEntry {
+  id        String    @id @default(uuid())
+  listId    String
+  levelId   String    // FK → levels.inGameId
+
+  position  Int
+  addedAt   DateTime  @default(now())
+
+  // Relations
+  list      UserList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  level     Level     @relation(fields: [levelId], references: [inGameId])
+
+  @@unique([listId, levelId]) // A level can only appear once per list
+  @@map("level_list_entries")
+}
+
+// ─────────────────────────────────────────────
+// API KEYS
+// Third-party access tokens (e.g. Geode mod, community tools).
+// Max 5 per user. Keys never stored in plaintext — only hash stored.
+// ─────────────────────────────────────────────
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  userId      String
+
+  name        String    // e.g. "Geode Mod", "Community Dashboard"
+  keyHash     String    @unique
+  scopes      String[]  // e.g. ["completions:read", "completions:write"]
+
+  createdAt   DateTime  @default(now())
+  lastUsedAt  DateTime?
+  revokedAt   DateTime?
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("api_keys")
+}
+
+// ─────────────────────────────────────────────
+// LEVEL UPDATE NOTIFICATIONS
+// Created by monthly EventBridge sync job when level metadata changes.
+// Nudge-worthy changes: name, creator, song name, song author.
+// One row per user per level update event.
+// ─────────────────────────────────────────────
+
+model LevelUpdateNotification {
+  id        String    @id @default(uuid())
+  userId    String
+  levelId   String
+
+  seen      Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  // Relations
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level     Level     @relation(fields: [levelId], references: [inGameId])
+
+  @@map("level_update_notifications")
+}
+
+// ─────────────────────────────────────────────
+// PROGRESS NUDGES
+// Tracks last nudge sent per in-progress level.
+// Nudge fires when: now() - lastNudgedAt > user.progressNudgeDays
+// Resets on each new progress update logged for that level.
+// Delivered as toast notification.
+// ─────────────────────────────────────────────
+
+model ProgressNudge {
+  id                String        @id @default(uuid())
+  userId            String
+  levelProgressId   String        @unique
+
+  lastNudgedAt      DateTime      @default(now())
+
+  // Relations
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelProgress     LevelProgress @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+
+  @@map("progress_nudges")
+}
+
+// ─────────────────────────────────────────────
+// MODERATION
+// ─────────────────────────────────────────────
+
+model Report {
+  id                  String        @id @default(uuid())
+  reporterId          String
+  reportedUserId      String
+
+  reason              String
+  status              ReportStatus  @default(PENDING)
+  // Never equals reportedUserId — enforced at application level.
+  // Prevents reported moderator from seeing their own report.
+  assignedModeratorId String?
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  // Relations
+  reporter            User          @relation("ReporterRelation", fields: [reporterId], references: [id])
+  reportedUser        User          @relation("ReportedUserRelation", fields: [reportedUserId], references: [id])
+  assignedModerator   User?         @relation("AssignedModeratorRelation", fields: [assignedModeratorId], references: [id])
+
+  @@map("reports")
+}
+
+model BanAppeal {
+  id            String        @id @default(uuid())
+  userId        String
+
+  appealText    String
+  status        AppealStatus  @default(PENDING)
+  // One appeal per ban enforced at application level
+  reviewedBy    String?
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  user          User          @relation(fields: [userId], references: [id])
+  reviewer      User?         @relation("ReviewedByRelation", fields: [reviewedBy], references: [id])
+
+  @@map("ban_appeals")
+}
+
+// Permanent audit log of all moderation decisions.
+// Never deleted — used for accountability and consistency review.
+model ModerationAction {
+  id              String                @id @default(uuid())
+  moderatorId     String
+  targetUserId    String
+
+  action          ModerationActionType
+  reason          String
+  durationHours   Int?                  // Nullable — only for suspensions
+
+  createdAt       DateTime              @default(now())
+
+  // Relations
+  moderator       User                  @relation("ModeratorRelation", fields: [moderatorId], references: [id])
+  targetUser      User                  @relation("TargetUserRelation", fields: [targetUserId], references: [id])
+
+  @@map("moderation_actions")
+}
