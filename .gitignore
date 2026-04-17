@@ -161,3 +161,14 @@ Thumbs.db
 
 # Prisma
 prisma/migrations/dev/
+
+.env
+.sst/
+.turbo/
+dist/
+build/
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+prisma/migrations/dev/

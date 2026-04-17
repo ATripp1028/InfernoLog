@@ -1,0 +1,10 @@
+{
+  "extends": "@infernolog/tsconfig/api.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}
