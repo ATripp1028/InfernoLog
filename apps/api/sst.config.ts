@@ -3,11 +3,14 @@
 export default $config({
   app(input) {
     return {
-      name: "api",
+      name: "infernolog",
       removal: input?.stage === "production" ? "retain" : "remove",
+      home: "aws",
       providers: {
-        aws: {}
-      }
+        aws: {
+          region: "us-east-1",
+        },
+      },
     };
   },
   async run() {
@@ -17,27 +20,29 @@ export default $config({
     const COGNITO_CLIENT_ID = new sst.Secret("COGNITO_CLIENT_ID");
     const SENTRY_DSN = new sst.Secret("SENTRY_DSN");
 
-    const api = new sst.aws.ApiGatewayV2("api", {
-      // Set the custom domain based on stage
-      domain: $app.stage === "production" ? "api.infernolog.com" : undefined,
+    const api = new sst.aws.ApiGatewayV2("InfernoLogApi", {
+      domain:
+        $app.stage === "production"
+          ? {
+              name: "api.infernolog.com",
+              dns: sst.aws.dns(),
+            }
+          : undefined,
     });
 
-    api.route("$default", {
+    api.route("GET /health", {
       handler: "src/index.handler",
       link: [
-        DATABASE_URL, 
-        DATABASE_URL_DIRECT, 
-        COGNITO_USER_POOL_ID, 
-        COGNITO_CLIENT_ID, 
-        SENTRY_DSN
+        DATABASE_URL,
+        DATABASE_URL_DIRECT,
+        COGNITO_USER_POOL_ID,
+        COGNITO_CLIENT_ID,
+        SENTRY_DSN,
       ],
-      environment: {
-        DATABASE_URL: DATABASE_URL.value,
-        DATABASE_URL_DIRECT: DATABASE_URL_DIRECT.value,
-        COGNITO_USER_POOL_ID: COGNITO_USER_POOL_ID.value,
-        COGNITO_CLIENT_ID: COGNITO_CLIENT_ID.value,
-        SENTRY_DSN: SENTRY_DSN.value,
-      }
     });
+
+    return {
+      api: api.url,
+    };
   },
 });
