@@ -32,6 +32,9 @@ importers:
       '@sentry/aws-serverless':
         specifier: ^10.49.0
         version: 10.49.0(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.7.0(@opentelemetry/api@1.9.1))
+      dotenv:
+        specifier: ^17.4.2
+        version: 17.4.2
       hono:
         specifier: ^4.12.14
         version: 4.12.14
@@ -39,6 +42,9 @@ importers:
       '@infernolog/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@types/aws-lambda':
+        specifier: ^8.10.161
+        version: 8.10.161
       '@types/node':
         specifier: ^25.6.0
         version: 25.6.0
@@ -2384,6 +2390,10 @@ packages:
   detect-libc@2.1.2:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
+
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+    engines: {node: '>=12'}
 
   electron-to-chromium@1.5.340:
     resolution: {integrity: sha512-908qahOGocRMinT2nM3ajCEM99H4iPdv84eagPP3FfZy/1ZGeOy2CZYzjhms81ckOPCXPlW7LkY4XpxD8r1DrA==}
@@ -5799,6 +5809,8 @@ snapshots:
       robust-predicates: 3.0.3
 
   detect-libc@2.1.2: {}
+
+  dotenv@17.4.2: {}
 
   electron-to-chromium@1.5.340: {}
 

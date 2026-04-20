@@ -6,14 +6,6 @@
 
 declare module "sst" {
   export interface Resource {
-    "COGNITO_CLIENT_ID": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
-    "COGNITO_USER_POOL_ID": {
-      "type": "sst.sst.Secret"
-      "value": string
-    }
     "DATABASE_URL": {
       "type": "sst.sst.Secret"
       "value": string
@@ -22,9 +14,21 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "GOOGLE_CLIENT_ID": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "GOOGLE_CLIENT_SECRET": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "InfernoLogApi": {
       "type": "sst.aws.ApiGatewayV2"
       "url": string
+    }
+    "InfernoLogUserPool": {
+      "id": string
+      "type": "sst.aws.CognitoUserPool"
     }
     "SENTRY_DSN": {
       "type": "sst.sst.Secret"

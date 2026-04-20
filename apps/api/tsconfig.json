@@ -1,8 +1,10 @@
 {
   "extends": "@infernolog/tsconfig/api.json",
   "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@prisma/client": ["./node_modules/.prisma/client"]
     }
   },
   "include": ["src"]

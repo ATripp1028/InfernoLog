@@ -2,11 +2,16 @@ import { useAuth } from './hooks/useAuth'
 import { AuthCallback } from './pages/AuthCallback'
 
 export default function App() {
-  const { user, loading, signIn } = useAuth()
-
+  // Handle auth callback before anything else
   if (window.location.pathname === '/auth/callback') {
     return <AuthCallback />
   }
+
+  return <AuthenticatedApp />
+}
+
+function AuthenticatedApp() {
+  const { user, loading, signIn, signOut } = useAuth()
 
   if (loading) {
     return (
@@ -30,6 +35,7 @@ export default function App() {
       <h1>InfernoLog</h1>
       <p>Welcome, {user.name}</p>
       <p>Email: {user.email}</p>
+      <button onClick={signOut}>Sign out</button>
     </div>
   )
 }
