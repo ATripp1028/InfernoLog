@@ -138,6 +138,8 @@ model User {
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
+  includeEnjoyment      Boolean              @default(false)
+  enjoymentWeight       Decimal              @default(1) @db.Decimal(5, 2)
 
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
@@ -379,9 +381,6 @@ model RatingCategory {
 
   name              String
   weight            Decimal         @db.Decimal(5, 2)
-  // Whether enjoyment score factors into weighted average.
-  // Off by default — enjoyment is a standalone field.
-  includeEnjoyment  Boolean         @default(false)
   sortOrder         Int
 
   createdAt         DateTime        @default(now())
