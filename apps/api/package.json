@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "sst dev",
-    "build": "tsc --noEmit",
+    "build": "prisma generate && tsc --noEmit",
     "lint": "eslint src"
   },
   "type": "module",
