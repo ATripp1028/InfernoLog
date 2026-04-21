@@ -1,12 +1,17 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './hooks/useAuth'
 import { AuthCallback } from './pages/AuthCallback'
 import { Onboarding } from './pages/Onboarding'
 
 export default function App() {
-  if (window.location.pathname === '/auth/callback') {
-    return <AuthCallback />
-  }
-  return <AuthenticatedApp />
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/auth/callback" element={<AuthCallback />} />
+        <Route path="/*" element={<AuthenticatedApp />} />
+      </Routes>
+    </BrowserRouter>
+  )
 }
 
 function AuthenticatedApp() {
@@ -30,14 +35,15 @@ function AuthenticatedApp() {
   }
 
   if (!user.onboardingCompleted) {
-    return <Onboarding />
+    return <Navigate to="/onboarding" replace />
   }
 
   return (
-    <div style={{ padding: '24px' }}>
-      <h1>InfernoLog</h1>
-      <p>Welcome, {user.username}</p>
-      <button onClick={signOut}>Sign out</button>
-    </div>
+    <Routes>
+      <Route path="/onboarding" element={<Onboarding />} />
+      <Route path="/list" element={<div style={{ padding: '24px' }}><h1>The List</h1><p>Welcome, {user.username}</p><button onClick={signOut}>Sign out</button></div>} />
+      <Route path="/" element={<Navigate to="/list" replace />} />
+      <Route path="*" element={<Navigate to="/list" replace />} />
+    </Routes>
   )
 }

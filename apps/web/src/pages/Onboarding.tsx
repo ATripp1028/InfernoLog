@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 
 export function Onboarding() {
   const { getIdToken } = useAuth()
+  const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<
     'idle' | 'checking' | 'available' | 'taken' | 'invalid'
@@ -66,7 +68,7 @@ export function Onboarding() {
       )
 
       if (res.ok) {
-        window.location.href = '/list'
+        navigate('/list', { replace: true })
       } else {
         const data = await res.json()
         setError(data.error || 'Something went wrong')

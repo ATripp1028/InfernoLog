@@ -89,6 +89,14 @@ export default $config({
     // API — API Gateway + Lambda
     // ─────────────────────────────────────────────
     const api = new sst.aws.ApiGatewayV2("InfernoLogApi", {
+      cors: {
+        allowOrigins: [
+          "http://localhost:5173",
+          "https://infernolog.com",
+        ],
+        allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowHeaders: ["Content-Type", "Authorization"],
+      },
       domain:
         $app.stage === "production"
           ? {
@@ -120,7 +128,25 @@ export default $config({
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
-    });
+    })
+
+    api.route("GET /v1/me", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: sharedEnvironment,
+    })
+
+    api.route("POST /v1/me/onboarding", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: sharedEnvironment,
+    })
+
+    api.route("GET /v1/users/check-username", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: sharedEnvironment,
+    })
 
     // ─────────────────────────────────────────────
     // OUTPUTS

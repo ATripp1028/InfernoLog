@@ -1,36 +1,30 @@
 import { useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { fetchAuthSession } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import { getCurrentUser } from 'aws-amplify/auth'
 
 export function AuthCallback() {
+  const navigate = useNavigate()
+
   useEffect(() => {
     console.log('AuthCallback: setting up Hub listener')
-    console.log('Current URL:', window.location.href)
 
     const unsubscribe = Hub.listen('auth', async ({ payload }) => {
       console.log('Hub auth event:', payload.event)
-      
+
       if (payload.event === 'signedIn') {
-        console.log('Hub: user signed in')
-        try {
-          const user = await getCurrentUser()
-          console.log('Hub: got user', user)
-          window.location.href = '/list'
-        } catch (error) {
-          console.error('Hub: error getting user', error)
-          window.location.href = '/'
-        }
+        navigate('/list', { replace: true })
       }
 
       if (payload.event === 'signInWithRedirect_failure') {
         console.error('Hub: sign in failed', payload.data)
-        window.location.href = '/'
+        navigate('/', { replace: true })
       }
     })
 
-    // Cleanup listener on unmount
     return () => unsubscribe()
-  }, [])
+  }, [navigate])
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>

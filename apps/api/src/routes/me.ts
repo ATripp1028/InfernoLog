@@ -5,7 +5,7 @@ import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-const prisma = new PrismaClient({
+const getPrisma = () => new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL!,
 })
 
@@ -36,6 +36,8 @@ const onboardingSchema = z.object({
 // GET /v1/me
 app.get('/me', async (c) => {
   const userId = c.get('userId') as string
+
+  const prisma = getPrisma()
 
   try {
     const user = await prisma.user.findUnique({
@@ -71,6 +73,7 @@ app.get('/me', async (c) => {
 // POST /v1/me/onboarding
 app.post('/me/onboarding', async (c) => {
   const userId = c.get('userId') as string
+  const prisma = getPrisma()
 
   try {
     const body = await c.req.json()
@@ -121,6 +124,7 @@ app.post('/me/onboarding', async (c) => {
 // GET /v1/users/check-username
 app.get('/users/check-username', async (c) => {
   const username = c.req.query('username')
+  const prisma = getPrisma()
 
   if (!username) {
     return c.json({ error: 'Username is required' }, 400)
