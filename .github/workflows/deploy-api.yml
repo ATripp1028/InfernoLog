@@ -1,0 +1,32 @@
+name: Deploy API
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'apps/api/**'
+      - 'packages/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Deploy SST
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          STAGE: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+        run: pnpm --filter @infernolog/api sst deploy --stage $STAGE

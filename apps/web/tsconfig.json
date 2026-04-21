@@ -1,0 +1,12 @@
+{
+  "extends": "@infernolog/tsconfig/web.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"],
+  "references": [{ "path": "./tsconfig.node.json" }],
+  "outDir": "dist"
+}

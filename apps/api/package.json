@@ -1,0 +1,35 @@
+{
+  "name": "@infernolog/api",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "sst dev",
+    "build": "prisma generate && tsc --noEmit",
+    "lint": "eslint src"
+  },
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1032.0",
+    "@hono/node-server": "^1.19.14",
+    "@infernolog/core": "workspace:*",
+    "@prisma/client": "5.22.0",
+    "@sentry/aws-serverless": "^10.49.0",
+    "aws-jwt-verify": "^5.1.1",
+    "dotenv": "^17.4.2",
+    "hono": "^4.12.14",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@infernolog/tsconfig": "workspace:*",
+    "@types/aws-lambda": "^8.10.161",
+    "@types/node": "^25.6.0",
+    "@typescript-eslint/eslint-plugin": "^8.59.0",
+    "@typescript-eslint/parser": "^8.59.0",
+    "eslint": "^10.2.1",
+    "prisma": "5.22.0",
+    "sst": "4.7.9",
+    "typescript": "^5.7.3",
+    "wrangler": "^4.83.0"
+  },
+  "packageManager": "pnpm@8.15.5"
+}
