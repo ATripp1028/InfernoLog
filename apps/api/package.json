@@ -14,8 +14,10 @@
     "@infernolog/core": "workspace:*",
     "@prisma/client": "5.22.0",
     "@sentry/aws-serverless": "^10.49.0",
+    "aws-jwt-verify": "^5.1.1",
     "dotenv": "^17.4.2",
-    "hono": "^4.12.14"
+    "hono": "^4.12.14",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@infernolog/tsconfig": "workspace:*",

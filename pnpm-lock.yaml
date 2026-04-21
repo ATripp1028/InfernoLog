@@ -32,12 +32,18 @@ importers:
       '@sentry/aws-serverless':
         specifier: ^10.49.0
         version: 10.49.0(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.7.0(@opentelemetry/api@1.9.1))
+      aws-jwt-verify:
+        specifier: ^5.1.1
+        version: 5.1.1
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
       hono:
         specifier: ^4.12.14
         version: 4.12.14
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@infernolog/tsconfig':
         specifier: workspace:*
@@ -2189,6 +2195,10 @@ packages:
   aws-amplify@6.16.4:
     resolution: {integrity: sha512-BeeLmYMz+J9BLsKHOW/iMrewyG9GwlkmIyqYRcfByo6RHNOz5BFgKn+ASo0RtbMX+duBK1llNWcjfdTbGMcTBw==}
 
+  aws-jwt-verify@5.1.1:
+    resolution: {integrity: sha512-j6whGdGJmQ27agk4ijY8RPv6itb8JLb7SCJ86fEnneTcSBrpxuwL8kLq6y5WVH95aIknyAloEqAsaOLS1J8ITQ==}
+    engines: {node: '>=18.0.0'}
+
   aws4fetch@1.0.18:
     resolution: {integrity: sha512-3Cf+YaUl07p24MoQ46rFwulAmiyCwH2+1zw1ZyPAX5OtJ34Hh185DwB8y/qRLb6cYYYtSFJ9pthyLc0MD4e8sQ==}
 
@@ -3044,6 +3054,9 @@ packages:
 
   zod@3.25.76:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
 snapshots:
 
@@ -5646,6 +5659,8 @@ snapshots:
       - '@aws-amplify/react-native'
       - aws-crt
 
+  aws-jwt-verify@5.1.1: {}
+
   aws4fetch@1.0.18: {}
 
   balanced-match@0.4.2: {}
@@ -6471,3 +6486,5 @@ snapshots:
       youch-core: 0.3.3
 
   zod@3.25.76: {}
+
+  zod@4.3.6: {}

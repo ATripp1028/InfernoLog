@@ -5,6 +5,8 @@ interface AuthUser {
   userId: string
   email: string
   name: string
+  username: string
+  onboardingCompleted: boolean
 }
 
 export function useAuth() {
@@ -20,12 +22,24 @@ export function useAuth() {
       const currentUser = await getCurrentUser()
       const session = await fetchAuthSession()
       const idToken = session.tokens?.idToken
-      
-      setUser({
-        userId: currentUser.userId,
-        email: idToken?.payload.email as string,
-        name: idToken?.payload.name as string,
+      const token = idToken?.toString()
+
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
+        headers: { Authorization: `Bearer ${token}` },
       })
+
+      if (res.ok) {
+        const { data } = await res.json()
+        setUser({
+          userId: currentUser.userId,
+          email: data.email,
+          name: idToken?.payload.name as string,
+          username: data.username,
+          onboardingCompleted: data.onboardingCompleted,
+        })
+      } else {
+        setUser(null)
+      }
     } catch {
       setUser(null)
     } finally {
@@ -37,5 +51,12 @@ export function useAuth() {
   
   const handleSignOut = () => signOut()
 
-  return { user, loading, signIn, signOut: handleSignOut }
+  const getIdToken = async (): Promise<string> => {
+    const session = await fetchAuthSession()
+    const token = session.tokens?.idToken?.toString()
+    if (!token) throw new Error('No token available')
+      return token
+  }
+
+  return { user, loading, signIn, signOut: handleSignOut, getIdToken }
 }

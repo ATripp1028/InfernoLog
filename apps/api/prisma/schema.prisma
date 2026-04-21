@@ -112,6 +112,7 @@ model User {
   email                 String               @unique
   discordId             String?              @unique
   googleId              String?              @unique
+  onboardingCompleted   Boolean              @default(false)
 
   // Privacy
   profilePublic         Boolean              @default(true)

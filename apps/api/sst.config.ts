@@ -40,52 +40,50 @@ export default $config({
       },
     });
 
-    // Add domain separately using the raw AWS provider
     new aws.cognito.UserPoolDomain("InfernoLogDomain", {
       domain: "infernolog",
       userPoolId: userPool.id,
     });
 
-    const googleProvider = new aws.cognito.IdentityProvider(
-      "GoogleProvider",
-      {
-        userPoolId: userPool.id,
-        providerName: "Google",
-        providerType: "Google",
-        providerDetails: {
-          client_id: GOOGLE_CLIENT_ID.value,
-          client_secret: GOOGLE_CLIENT_SECRET.value,
-          authorize_scopes: "email openid profile",
-        },
-        attributeMapping: {
-          email: "email",
-          name: "name",
-          username: "sub",
-        },
-      }
-    );
-
-    const userPoolClient = new aws.cognito.UserPoolClient("InfernoLogWebClient", {
-      name: "InfernoLogWebClient",
+    const googleProvider = new aws.cognito.IdentityProvider("GoogleProvider", {
       userPoolId: userPool.id,
-      generateSecret: false,
-      allowedOauthFlows: ["code"],
-      allowedOauthFlowsUserPoolClient: true,
-      allowedOauthScopes: ["email", "openid", "profile"],
-      callbackUrls: [
-        "http://localhost:5173/auth/callback",
-        "https://infernolog.com/auth/callback",
-      ],
-      logoutUrls: [
-        "http://localhost:5173",
-        "https://infernolog.com",
-      ],
-      defaultRedirectUri: "http://localhost:5173/auth/callback",
-      supportedIdentityProviders: ["Google", "COGNITO"],
-      explicitAuthFlows: [
-        "ALLOW_REFRESH_TOKEN_AUTH",
-      ],
-    }, { dependsOn: [googleProvider] });
+      providerName: "Google",
+      providerType: "Google",
+      providerDetails: {
+        client_id: GOOGLE_CLIENT_ID.value,
+        client_secret: GOOGLE_CLIENT_SECRET.value,
+        authorize_scopes: "email openid profile",
+      },
+      attributeMapping: {
+        email: "email",
+        name: "name",
+        username: "sub",
+      },
+    });
+
+    const userPoolClient = new aws.cognito.UserPoolClient(
+      "InfernoLogWebClient",
+      {
+        name: "InfernoLogWebClient",
+        userPoolId: userPool.id,
+        generateSecret: false,
+        allowedOauthFlows: ["code"],
+        allowedOauthFlowsUserPoolClient: true,
+        allowedOauthScopes: ["email", "openid", "profile"],
+        callbackUrls: [
+          "http://localhost:5173/auth/callback",
+          "https://infernolog.com/auth/callback",
+        ],
+        logoutUrls: [
+          "http://localhost:5173",
+          "https://infernolog.com",
+        ],
+        defaultRedirectUri: "http://localhost:5173/auth/callback",
+        supportedIdentityProviders: ["Google", "COGNITO"],
+        explicitAuthFlows: ["ALLOW_REFRESH_TOKEN_AUTH"],
+      },
+      { dependsOn: [googleProvider] }
+    );
 
     // ─────────────────────────────────────────────
     // API — API Gateway + Lambda
@@ -100,15 +98,28 @@ export default $config({
           : undefined,
     });
 
+    // Shared environment for all API Lambda functions
+    const sharedEnvironment = {
+      DATABASE_URL: DATABASE_URL.value,
+      DATABASE_URL_DIRECT: DATABASE_URL_DIRECT.value,
+      COGNITO_USER_POOL_ID: userPool.id,
+      COGNITO_CLIENT_ID: userPoolClient.id,
+      SENTRY_DSN: SENTRY_DSN.value,
+    };
+
+    // Shared links for all API Lambda functions
+    const sharedLinks = [
+      DATABASE_URL,
+      DATABASE_URL_DIRECT,
+      SENTRY_DSN,
+      userPool,
+      userPoolClient,
+    ];
+
     api.route("GET /health", {
       handler: "src/index.handler",
-      link: [
-        DATABASE_URL,
-        DATABASE_URL_DIRECT,
-        SENTRY_DSN,
-        userPool,
-        userPoolClient,
-      ],
+      link: sharedLinks,
+      environment: sharedEnvironment,
     });
 
     // ─────────────────────────────────────────────

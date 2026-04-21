@@ -1,12 +1,11 @@
 import { useAuth } from './hooks/useAuth'
 import { AuthCallback } from './pages/AuthCallback'
+import { Onboarding } from './pages/Onboarding'
 
 export default function App() {
-  // Handle auth callback before anything else
   if (window.location.pathname === '/auth/callback') {
     return <AuthCallback />
   }
-
   return <AuthenticatedApp />
 }
 
@@ -30,11 +29,14 @@ function AuthenticatedApp() {
     )
   }
 
+  if (!user.onboardingCompleted) {
+    return <Onboarding />
+  }
+
   return (
     <div style={{ padding: '24px' }}>
       <h1>InfernoLog</h1>
-      <p>Welcome, {user.name}</p>
-      <p>Email: {user.email}</p>
+      <p>Welcome, {user.username}</p>
       <button onClick={signOut}>Sign out</button>
     </div>
   )
