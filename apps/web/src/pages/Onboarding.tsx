@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../hooks/useAuth'
+import { useAuth } from '../context/AuthContext'
 import { useNavigate } from 'react-router-dom'
 
 export function Onboarding() {
-  const { getIdToken } = useAuth()
+  const { getIdToken, updateUser, user } = useAuth()
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<
@@ -43,6 +43,12 @@ export function Onboarding() {
     return () => clearTimeout(timer)
   }, [username])
 
+  useEffect(() => {
+    if (user?.onboardingCompleted) {
+      navigate('/list', { replace: true })
+    }
+  }, [user?.onboardingCompleted, navigate])
+
   const handleSubmit = async () => {
     if (usernameStatus !== 'available') return
     setSubmitting(true)
@@ -68,6 +74,11 @@ export function Onboarding() {
       )
 
       if (res.ok) {
+        const { data } = await res.json()
+        updateUser({ 
+          username: data.username,
+          onboardingCompleted: data.onboardingCompleted 
+        })
         navigate('/list', { replace: true })
       } else {
         const data = await res.json()

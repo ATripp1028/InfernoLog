@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './hooks/useAuth'
+import { useAuth } from './context/AuthContext'
 import { AuthCallback } from './pages/AuthCallback'
 import { Onboarding } from './pages/Onboarding'
 
@@ -34,16 +34,37 @@ function AuthenticatedApp() {
     )
   }
 
-  if (!user.onboardingCompleted) {
-    return <Navigate to="/onboarding" replace />
-  }
-
   return (
     <Routes>
-      <Route path="/onboarding" element={<Onboarding />} />
-      <Route path="/list" element={<div style={{ padding: '24px' }}><h1>The List</h1><p>Welcome, {user.username}</p><button onClick={signOut}>Sign out</button></div>} />
-      <Route path="/" element={<Navigate to="/list" replace />} />
-      <Route path="*" element={<Navigate to="/list" replace />} />
+      {/* Onboarding gate — redirect to onboarding if not completed */}
+      <Route
+        path="/onboarding"
+        element={
+          user.onboardingCompleted
+            ? <Navigate to="/list" replace />
+            : <Onboarding />
+        }
+      />
+
+      {/* Protected routes — redirect to onboarding if not completed */}
+      <Route
+        path="/list"
+        element={
+          user.onboardingCompleted
+            ? <div style={{ padding: '24px' }}><h1>The List</h1><p>Welcome, {user.username}</p><button onClick={signOut}>Sign out</button></div>
+            : <Navigate to="/onboarding" replace />
+        }
+      />
+
+      {/* Default redirect */}
+      <Route
+        path="*"
+        element={
+          user.onboardingCompleted
+            ? <Navigate to="/list" replace />
+            : <Navigate to="/onboarding" replace />
+        }
+      />
     </Routes>
   )
 }

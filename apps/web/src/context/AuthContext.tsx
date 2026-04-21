@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut, getCurrentUser } from 'aws-amplify/auth'
 
 interface AuthUser {
@@ -9,7 +9,18 @@ interface AuthUser {
   onboardingCompleted: boolean
 }
 
-export function useAuth() {
+interface AuthContextType {
+  user: AuthUser | null
+  loading: boolean
+  signIn: () => void
+  signOut: () => void
+  getIdToken: () => Promise<string>
+  updateUser: (updates: Partial<AuthUser>) => void
+}
+
+const AuthContext = createContext<AuthContextType | null>(null)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -47,16 +58,36 @@ export function useAuth() {
     }
   }
 
-  const signIn = () => signInWithRedirect({ provider: 'Google' })
-  
-  const handleSignOut = () => signOut()
-
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()
     const token = session.tokens?.idToken?.toString()
     if (!token) throw new Error('No token available')
-      return token
+    return token
   }
 
-  return { user, loading, signIn, signOut: handleSignOut, getIdToken }
+  const updateUser = (updates: Partial<AuthUser>) => {
+    setUser(prev => prev ? { ...prev, ...updates } : null)
+  }
+
+  const handleSignIn = () => signInWithRedirect({ provider: 'Google' })
+  const handleSignOut = () => signOut()
+
+  return (
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      signIn: handleSignIn,
+      signOut: handleSignOut,
+      getIdToken,
+      updateUser,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  )
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext)
+  if (!context) throw new Error('useAuth must be used within AuthProvider')
+  return context
 }

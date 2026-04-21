@@ -1,5 +1,6 @@
 import { createMiddleware } from 'hono/factory'
 import { CognitoJwtVerifier } from 'aws-jwt-verify'
+import { PrismaClient } from '@prisma/client'
 import type { HonoVariables } from '../types/hono'
 
 const verifier = CognitoJwtVerifier.create({
@@ -20,8 +21,31 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
 
     try {
       const payload = await verifier.verify(token)
-      c.set('userId', payload.sub)
-      c.set('userEmail', payload.email as string)
+      const cognitoSub = payload.sub
+      const userEmail = payload.email as string
+
+      // Resolve Cognito sub to internal Prisma user ID
+      const prisma = new PrismaClient({
+        datasourceUrl: process.env.DATABASE_URL!,
+      })
+
+      try {
+        const user = await prisma.user.findFirst({
+          where: { googleId: cognitoSub },
+          select: { id: true },
+        })
+
+        if (!user) {
+          return c.json({ error: 'User not found' }, 404)
+        }
+
+        // Set internal UUID as userId — all routes use this
+        c.set('userId', user.id)
+        c.set('userEmail', userEmail)
+      } finally {
+        await prisma.$disconnect()
+      }
+
       await next()
     } catch {
       return c.json({ error: 'Invalid token' }, 401)

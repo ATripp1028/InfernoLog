@@ -35,13 +35,12 @@ const onboardingSchema = z.object({
 
 // GET /v1/me
 app.get('/me', async (c) => {
-  const userId = c.get('userId') as string
-
   const prisma = getPrisma()
+  const userId = c.get('userId') as string // this is the Cognito sub
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId as string },
+    const user = await prisma.user.findFirst({
+      where: { id: userId }, // look up by id
       select: {
         id: true,
         username: true,
@@ -67,9 +66,10 @@ app.get('/me', async (c) => {
   } catch (error) {
     console.error('GET /me error:', error)
     return c.json({ error: 'Internal server error' }, 500)
+  } finally {
+    await prisma.$disconnect()
   }
 })
-
 // POST /v1/me/onboarding
 app.post('/me/onboarding', async (c) => {
   const userId = c.get('userId') as string
@@ -118,6 +118,8 @@ app.post('/me/onboarding', async (c) => {
   } catch (error) {
     console.error('POST /me/onboarding error:', error)
     return c.json({ error: 'Internal server error' }, 500)
+  } finally {
+    await prisma.$disconnect()
   }
 })
 
