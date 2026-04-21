@@ -41,7 +41,7 @@ export function Onboarding() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [username])
+  }, [username, setUsernameStatus, setUsernameError])
 
   useEffect(() => {
     if (user?.onboardingCompleted) {

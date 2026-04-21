@@ -1,8 +1,6 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { fetchAuthSession } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
-import { getCurrentUser } from 'aws-amplify/auth'
 
 export function AuthCallback() {
   const navigate = useNavigate()

@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut, getCurrentUser } from 'aws-amplify/auth'
 
 interface AuthUser {
@@ -24,39 +24,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    checkUser()
-  }, [])
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser()
-      const session = await fetchAuthSession()
-      const idToken = session.tokens?.idToken
-      const token = idToken?.toString()
+        const currentUser = await getCurrentUser()
+        const session = await fetchAuthSession()
+        const idToken = session.tokens?.idToken
+        const token = idToken?.toString()
 
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (res.ok) {
-        const { data } = await res.json()
-        setUser({
-          userId: currentUser.userId,
-          email: data.email,
-          name: idToken?.payload.name as string,
-          username: data.username,
-          onboardingCompleted: data.onboardingCompleted,
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
+            headers: { Authorization: `Bearer ${token}` },
         })
-      } else {
-        setUser(null)
-      }
+
+        if (res.ok) {
+            const { data } = await res.json()
+            setUser({
+            userId: currentUser.userId,
+            email: data.email,
+            name: idToken?.payload.name as string,
+            username: data.username,
+            onboardingCompleted: data.onboardingCompleted,
+            })
+        } else {
+            setUser(null)
+        }
     } catch {
-      setUser(null)
+        setUser(null)
     } finally {
-      setLoading(false)
+        setLoading(false)
     }
-  }
+    }, []) // no dependencies since it only uses stable setUser/setLoading
+
+    useEffect(() => {
+        checkUser()
+    }, [checkUser])
 
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()
