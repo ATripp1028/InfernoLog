@@ -6,7 +6,9 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
-    "typecheck": "turbo run typecheck"
+    "typecheck": "turbo run typecheck",
+    "deploy:staging": "pnpm --filter @infernolog/api deploy:staging && pnpm --filter @infernolog/web deploy:staging",
+    "remove:staging": "pnpm --filter @infernolog/api remove:staging && pnpm --filter @infernolog/web remove:staging"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
