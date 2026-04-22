@@ -73,10 +73,16 @@ export default $config({
         callbackUrls: [
           "http://localhost:5173/auth/callback",
           "https://infernolog.com/auth/callback",
+          ...$app.stage !== "production" && $app.stage !== "alextripp"
+            ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
+            : [],
         ],
         logoutUrls: [
           "http://localhost:5173",
           "https://infernolog.com",
+          ...$app.stage !== "production" && $app.stage !== "alextripp"
+            ? [`https://d1r4gy6uhfg2w9.cloudfront.net`]
+            : [],
         ],
         defaultRedirectUri: "http://localhost:5173/auth/callback",
         supportedIdentityProviders: ["Google", "COGNITO"],
@@ -90,10 +96,10 @@ export default $config({
     // ─────────────────────────────────────────────
     const api = new sst.aws.ApiGatewayV2("InfernoLogApi", {
       cors: {
-        allowOrigins: [
-          "http://localhost:5173",
-          "https://infernolog.com",
-        ],
+        allowOrigins:
+          $app.stage === "production"
+            ? ["https://infernolog.com"]
+            : ["http://localhost:5173", "*"],
         allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
       },
