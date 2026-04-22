@@ -1,0 +1,26 @@
+name: Deploy Development
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'apps/**'
+      - 'packages/**'
+
+jobs:
+  deploy-api:
+    uses: ./.github/workflows/deploy-api.yml
+    with:
+      stage: dev
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  deploy-web:
+    uses: ./.github/workflows/deploy-web.yml
+    needs: deploy-api
+    with:
+      stage: dev
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
