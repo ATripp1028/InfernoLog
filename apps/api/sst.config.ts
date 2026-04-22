@@ -41,7 +41,7 @@ export default $config({
     });
 
     new aws.cognito.UserPoolDomain("InfernoLogDomain", {
-      domain: "infernolog",
+      domain: $app.stage === "production" ? "infernolog" : `infernolog-${$app.stage}`,
       userPoolId: userPool.id,
     });
 
@@ -73,10 +73,16 @@ export default $config({
         callbackUrls: [
           "http://localhost:5173/auth/callback",
           "https://infernolog.com/auth/callback",
+          ...$app.stage !== "production" && $app.stage !== "alextripp"
+            ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
+            : [],
         ],
         logoutUrls: [
           "http://localhost:5173",
           "https://infernolog.com",
+          ...$app.stage !== "production" && $app.stage !== "alextripp"
+            ? [`https://d1r4gy6uhfg2w9.cloudfront.net`]
+            : [],
         ],
         defaultRedirectUri: "http://localhost:5173/auth/callback",
         supportedIdentityProviders: ["Google", "COGNITO"],
@@ -90,10 +96,10 @@ export default $config({
     // ─────────────────────────────────────────────
     const api = new sst.aws.ApiGatewayV2("InfernoLogApi", {
       cors: {
-        allowOrigins: [
-          "http://localhost:5173",
-          "https://infernolog.com",
-        ],
+        allowOrigins:
+          $app.stage === "production"
+            ? ["https://infernolog.com"]
+            : ["http://localhost:5173", "*"],
         allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
       },
@@ -146,6 +152,35 @@ export default $config({
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+    })
+
+    // ─────────────────────────────────────────────
+    // SSM OUTPUTS — read by apps/web/sst.config.ts
+    // ─────────────────────────────────────────────
+    new aws.ssm.Parameter("SsmApiUrl", {
+      name: `/infernolog/${$app.stage}/api-url`,
+      type: "String",
+      value: api.url,
+    })
+
+    new aws.ssm.Parameter("SsmUserPoolId", {
+      name: `/infernolog/${$app.stage}/user-pool-id`,
+      type: "String",
+      value: userPool.id,
+    })
+
+    new aws.ssm.Parameter("SsmUserPoolClientId", {
+      name: `/infernolog/${$app.stage}/user-pool-client-id`,
+      type: "String",
+      value: userPoolClient.id,
+    })
+
+    new aws.ssm.Parameter("SsmCognitoDomain", {
+      name: `/infernolog/${$app.stage}/cognito-domain`,
+      type: "String",
+      value: $app.stage === "production"
+        ? "infernolog.auth.us-east-1.amazoncognito.com"
+        : `infernolog-${$app.stage}.auth.us-east-1.amazoncognito.com`,
     })
 
     // ─────────────────────────────────────────────

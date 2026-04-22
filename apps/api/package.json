@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "sst dev",
+    "deploy:staging": "sst deploy --stage staging",
+    "deploy:prod": "sst deploy --stage production",
+    "remove:staging": "sst remove --stage staging",
     "build": "prisma generate && tsc --noEmit",
     "lint": "eslint src"
   },

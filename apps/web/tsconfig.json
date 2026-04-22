@@ -2,11 +2,12 @@
   "extends": "@infernolog/tsconfig/web.json",
   "compilerOptions": {
     "baseUrl": ".",
+    "outDir": "dist",
+    "noEmit": true,
     "paths": {
       "@/*": ["./src/*"]
     }
   },
   "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }],
-  "outDir": "dist"
+  "references": [{ "path": "./tsconfig.node.json" }]
 }
