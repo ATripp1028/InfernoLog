@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { PrismaClient } from '@prisma/client'
+import prisma from '../utils/prisma'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
 import { logger } from '../utils/logger'
@@ -7,14 +7,8 @@ import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL!,
-})
-
-// Reserved usernames
 const RESERVED_USERNAMES = ['admin', 'moderator', 'infernolog']
 
-// Username validation schema
 const usernameSchema = z
   .string()
   .min(2, 'Username must be at least 2 characters')
@@ -37,11 +31,11 @@ const onboardingSchema = z.object({
 
 // GET /v1/me
 app.get('/me', async (c) => {  
-  const userId = c.get('userId') as string // this is the Cognito sub
+  const userId = c.get('userId') as string
 
   try {
     const user = await prisma.user.findFirst({
-      where: { id: userId }, // look up by id
+      where: { id: userId },
       select: {
         id: true,
         username: true,
@@ -68,8 +62,6 @@ app.get('/me', async (c) => {
     console.error('GET /me error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
-  } finally {
-    await prisma.$disconnect()
   }
 })
 // POST /v1/me/onboarding
@@ -87,7 +79,6 @@ app.post('/me/onboarding', async (c) => {
     const { username, dateFormatPreference, ratingMode, ratingDisplayScale } =
       parsed.data
 
-    // Check username uniqueness (case insensitive)
     const existing = await prisma.user.findFirst({
       where: {
         username: { equals: username, mode: 'insensitive' },
@@ -122,8 +113,6 @@ app.post('/me/onboarding', async (c) => {
     console.error('POST /me/onboarding error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
-  } finally {
-    await prisma.$disconnect()
   }
 })
 

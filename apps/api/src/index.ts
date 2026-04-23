@@ -5,6 +5,7 @@ import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
 import meRoutes from './routes/me'
 import type { HonoVariables } from './types/hono'
+import prisma from './utils/prisma'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -21,20 +22,10 @@ app.get('/health', (c) => c.json({ status: 'ok', app: 'InfernoLog' }))
 app.get('/v1/users/check-username', async (c) => {
   const username = c.req.query('username')
   if (!username) return c.json({ error: 'Username is required' }, 400)
-
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL!,
+  const existing = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: 'insensitive' } },
   })
-
-  try {
-    const existing = await prisma.user.findFirst({
-      where: { username: { equals: username, mode: 'insensitive' } },
-    })
-    return c.json({ available: !existing })
-  } finally {
-    await prisma.$disconnect()
-  }
+  return c.json({ available: !existing })
 })
 
 // Authenticated routes
