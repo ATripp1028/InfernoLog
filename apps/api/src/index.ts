@@ -1,15 +1,17 @@
 import './sentry'
 import { Hono } from 'hono'
 import { handle } from 'hono/aws-lambda'
+import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
 import meRoutes from './routes/me'
 import type { HonoVariables } from './types/hono'
+import prisma from './utils/prisma'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 // Log every request
 app.use('*', async (c, next) => {
-  console.log(`${c.req.method} ${c.req.path}`)
+  logger.info({ method: c.req.method, path: c.req.path }, 'Incoming Request')
   await next()
 })
 
@@ -20,20 +22,10 @@ app.get('/health', (c) => c.json({ status: 'ok', app: 'InfernoLog' }))
 app.get('/v1/users/check-username', async (c) => {
   const username = c.req.query('username')
   if (!username) return c.json({ error: 'Username is required' }, 400)
-
-  const { PrismaClient } = await import('@prisma/client')
-  const prisma = new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL!,
+  const existing = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: 'insensitive' } },
   })
-
-  try {
-    const existing = await prisma.user.findFirst({
-      where: { username: { equals: username, mode: 'insensitive' } },
-    })
-    return c.json({ available: !existing })
-  } finally {
-    await prisma.$disconnect()
-  }
+  return c.json({ available: !existing })
 })
 
 // Authenticated routes
@@ -42,7 +34,7 @@ app.route('/v1', meRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {
-  console.log(`No route matched: ${c.req.method} ${c.req.path}`)
+  logger.warn({ method: c.req.method, path: c.req.path }, 'No route matched')
   return c.json({ error: 'Not found', path: c.req.path }, 404)
 })
 

@@ -23,6 +23,27 @@ export default $config({
     const GOOGLE_CLIENT_ID = new sst.Secret("GOOGLE_CLIENT_ID");
     const GOOGLE_CLIENT_SECRET = new sst.Secret("GOOGLE_CLIENT_SECRET");
 
+    // Node.js options for Lambda functions that use Prisma/Sentry
+    const sharedNodeOptions = {
+      nodejs: {
+        install: ['@sentry/aws-serverless'],
+      },
+      copyFiles: [
+        {
+          from: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
+          to: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node"
+        },
+        {
+          from: "node_modules/.prisma/client/libquery_engine-linux-arm64-openssl-3.0.x.so.node",
+          to: "node_modules/.prisma/client/libquery_engine-linux-arm64-openssl-3.0.x.so.node"
+        },
+        {
+          from: "node_modules/.prisma/client/schema.prisma",
+          to: "node_modules/.prisma/client/schema.prisma"
+        }
+      ]
+    };
+
     // ─────────────────────────────────────────────
     // AUTH — Cognito User Pool
     // ─────────────────────────────────────────────
@@ -37,6 +58,7 @@ export default $config({
             DATABASE_URL_DIRECT: DATABASE_URL_DIRECT.value,
             SENTRY_DSN: SENTRY_DSN.value,
           },
+          ...sharedNodeOptions,
         },
       },
     });
@@ -120,6 +142,7 @@ export default $config({
       COGNITO_USER_POOL_ID: userPool.id,
       COGNITO_CLIENT_ID: userPoolClient.id,
       SENTRY_DSN: SENTRY_DSN.value,
+      NODE_OPTIONS: "--import @sentry/aws-serverless/awslambda-auto"
     };
 
     // Shared links for all API Lambda functions
@@ -135,24 +158,28 @@ export default $config({
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     api.route("GET /v1/me", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     api.route("POST /v1/me/onboarding", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions
     })
 
     api.route("GET /v1/users/check-username", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     // ─────────────────────────────────────────────

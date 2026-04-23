@@ -4,6 +4,10 @@ import { PrismaClient } from '@prisma/client'
 import * as Sentry from '@sentry/node'
 import type { HonoVariables } from '../types/hono'
 
+const prisma = new PrismaClient({
+  datasourceUrl: process.env.DATABASE_URL!,
+})
+
 const verifier = CognitoJwtVerifier.create({
   userPoolId: process.env.COGNITO_USER_POOL_ID!,
   tokenUse: 'id',
@@ -25,32 +29,23 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
       const cognitoSub = payload.sub
       const userEmail = payload.email as string
 
-      // Resolve Cognito sub to internal Prisma user ID
-      const prisma = new PrismaClient({
-        datasourceUrl: process.env.DATABASE_URL!,
+      const user = await prisma.user.findFirst({
+        where: { googleId: cognitoSub },
+        select: { id: true },
       })
 
-      try {
-        const user = await prisma.user.findFirst({
-          where: { googleId: cognitoSub },
-          select: { id: true },
-        })
-
-        if (!user) {
-          return c.json({ error: 'User not found' }, 404)
-        }
-
-        // Set internal UUID as userId — all routes use this
-        c.set('userId', user.id)
-        c.set('userEmail', userEmail)
-      } finally {
-        await prisma.$disconnect()
+      if (!user) {
+        return c.json({ error: 'User not found' }, 404)
       }
+
+      // Set internal UUID as userId — all routes use this
+      c.set('userId', user.id)
+      c.set('userEmail', userEmail)
 
       await next()
     } catch (err) {
       Sentry.captureException(err)
-      return c.json({ error: 'Invalid token' }, 401)
+      return c.json({ error: 'Authentication failed' }, 401)
     }
   }
 )

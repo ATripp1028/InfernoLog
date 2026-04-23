@@ -8,7 +8,8 @@
     "deploy:prod": "sst deploy --stage production",
     "remove:staging": "sst remove --stage staging",
     "build": "prisma generate && tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "postinstall": "prisma generate"
   },
   "type": "module",
   "dependencies": {
@@ -21,6 +22,7 @@
     "aws-jwt-verify": "^5.1.1",
     "dotenv": "^17.4.2",
     "hono": "^4.12.14",
+    "pino": "^10.3.1",
     "sentry": "^0.28.1",
     "zod": "^4.3.6"
   },

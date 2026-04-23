@@ -1,8 +1,9 @@
 import * as dotenv from 'dotenv'
+
 dotenv.config()
 
 import { PostAuthenticationTriggerHandler } from 'aws-lambda'
-import { PrismaClient } from '@prisma/client'
+import prisma from '../utils/prisma'
 import * as Sentry from '@sentry/node'
 
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
@@ -14,10 +15,6 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
     DATABASE_URL_DIRECT: process.env.DATABASE_URL_DIRECT ? 'SET' : 'NOT SET',
     NODE_ENV: process.env.NODE_ENV,
     PWD: process.env.PWD,
-  })
-
-  const prisma = new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL!,
   })
 
   const { email, name, sub } = event.request.userAttributes
