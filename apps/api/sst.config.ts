@@ -126,7 +126,7 @@ export default $config({
     // Node.js options for Lambda functions that use Sentry
     const sharedNodeOptions = {
       nodejs: {
-        install: ['@sentry/aws-serverless', '@prisma/client', 'prisma'],
+        install: ['@sentry/aws-serverless'],
       }
     };
 
