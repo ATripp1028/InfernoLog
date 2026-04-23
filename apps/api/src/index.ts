@@ -1,3 +1,4 @@
+import './sentry'
 import { Hono } from 'hono'
 import { handle } from 'hono/aws-lambda'
 import { authMiddleware } from './middleware/auth'

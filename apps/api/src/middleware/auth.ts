@@ -1,6 +1,7 @@
 import { createMiddleware } from 'hono/factory'
 import { CognitoJwtVerifier } from 'aws-jwt-verify'
 import { PrismaClient } from '@prisma/client'
+import * as Sentry from '@sentry/node'
 import type { HonoVariables } from '../types/hono'
 
 const verifier = CognitoJwtVerifier.create({
@@ -47,7 +48,8 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
       }
 
       await next()
-    } catch {
+    } catch (err) {
+      Sentry.captureException(err)
       return c.json({ error: 'Invalid token' }, 401)
     }
   }

@@ -3,6 +3,7 @@ dotenv.config()
 
 import { PostAuthenticationTriggerHandler } from 'aws-lambda'
 import { PrismaClient } from '@prisma/client'
+import * as Sentry from '@sentry/node'
 
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
   console.log('postAuthentication event:', JSON.stringify(event, null, 2))
@@ -58,6 +59,7 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
       console.log('User already exists, skipping creation')
     }
   } catch (error) {
+    Sentry.captureException(error)
     console.error('Database error:', error)
     console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
   }

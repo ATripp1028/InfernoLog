@@ -31,10 +31,11 @@ export default $config({
       triggers: {
         postAuthentication: {
           handler: "src/triggers/postAuthentication.handler",
-          link: [DATABASE_URL, DATABASE_URL_DIRECT],
+          link: [DATABASE_URL, DATABASE_URL_DIRECT, SENTRY_DSN],
           environment: {
             DATABASE_URL: DATABASE_URL.value,
             DATABASE_URL_DIRECT: DATABASE_URL_DIRECT.value,
+            SENTRY_DSN: SENTRY_DSN.value,
           },
         },
       },
