@@ -120,6 +120,14 @@ export default $config({
       COGNITO_USER_POOL_ID: userPool.id,
       COGNITO_CLIENT_ID: userPoolClient.id,
       SENTRY_DSN: SENTRY_DSN.value,
+      NODE_OPTIONS: "--import @sentry/aws-serverless/awslambda-auto"
+    };
+
+    // Node.js options for Lambda functions that use Sentry
+    const sharedNodeOptions = {
+      nodejs: {
+        install: ['@sentry/aws-serverless', '@prisma/client', 'prisma'],
+      }
     };
 
     // Shared links for all API Lambda functions
@@ -135,24 +143,28 @@ export default $config({
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     api.route("GET /v1/me", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     api.route("POST /v1/me/onboarding", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions
     })
 
     api.route("GET /v1/users/check-username", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
     })
 
     // ─────────────────────────────────────────────
