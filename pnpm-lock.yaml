@@ -41,6 +41,9 @@ importers:
       '@sentry/aws-serverless':
         specifier: ^10.49.0
         version: 10.49.0(@opentelemetry/core@2.7.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.7.0(@opentelemetry/api@1.9.1))
+      '@sentry/node':
+        specifier: ^10.49.0
+        version: 10.49.0
       aws-jwt-verify:
         specifier: ^5.1.1
         version: 5.1.1
@@ -50,6 +53,9 @@ importers:
       hono:
         specifier: ^4.12.14
         version: 4.12.14
+      sentry:
+        specifier: ^0.28.1
+        version: 0.28.1
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -3339,6 +3345,11 @@ packages:
   semver@7.7.4:
     resolution: {integrity: sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA==}
     engines: {node: '>=10'}
+    hasBin: true
+
+  sentry@0.28.1:
+    resolution: {integrity: sha512-W6CvGLgNBVB3eqtxiSlZo4fjJNGioTe2KXe0xRJG8FUsntVGuV4XmSY42l0tplg7g4XoNMAcOAh60ZKLg35u4g==}
+    engines: {node: '>=22'}
     hasBin: true
 
   set-cookie-parser@2.7.2:
@@ -7446,6 +7457,8 @@ snapshots:
   semver@6.3.1: {}
 
   semver@7.7.4: {}
+
+  sentry@0.28.1: {}
 
   set-cookie-parser@2.7.2: {}
 

@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
+import * as Sentry from '@sentry/node'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -65,6 +66,7 @@ app.get('/me', async (c) => {
     return c.json({ data: user })
   } catch (error) {
     console.error('GET /me error:', error)
+    Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   } finally {
     await prisma.$disconnect()
@@ -117,6 +119,7 @@ app.post('/me/onboarding', async (c) => {
     return c.json({ data: updated })
   } catch (error) {
     console.error('POST /me/onboarding error:', error)
+    Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   } finally {
     await prisma.$disconnect()
