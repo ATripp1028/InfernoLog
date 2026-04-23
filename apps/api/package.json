@@ -8,7 +8,8 @@
     "deploy:prod": "sst deploy --stage production",
     "remove:staging": "sst remove --stage staging",
     "build": "prisma generate && tsc --noEmit",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "postinstall": "prisma generate"
   },
   "type": "module",
   "dependencies": {
