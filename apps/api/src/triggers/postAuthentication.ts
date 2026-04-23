@@ -5,6 +5,10 @@ import { PostAuthenticationTriggerHandler } from 'aws-lambda'
 import { PrismaClient } from '@prisma/client'
 import * as Sentry from '@sentry/node'
 
+const prisma = new PrismaClient({
+    datasourceUrl: process.env.DATABASE_URL!,
+  })
+
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
   console.log('postAuthentication event:', JSON.stringify(event, null, 2))
   console.log('userAttributes:', JSON.stringify(event.request.userAttributes, null, 2))
@@ -14,10 +18,6 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
     DATABASE_URL_DIRECT: process.env.DATABASE_URL_DIRECT ? 'SET' : 'NOT SET',
     NODE_ENV: process.env.NODE_ENV,
     PWD: process.env.PWD,
-  })
-
-  const prisma = new PrismaClient({
-    datasourceUrl: process.env.DATABASE_URL!,
   })
 
   const { email, name, sub } = event.request.userAttributes

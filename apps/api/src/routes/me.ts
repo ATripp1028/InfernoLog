@@ -2,9 +2,12 @@ import { Hono } from 'hono'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
+import pino from 'pino'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
+
+const logger = pino()
 
 const prisma = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL!,
@@ -36,7 +39,8 @@ const onboardingSchema = z.object({
 
 // GET /v1/me
 app.get('/me', async (c) => {
-  //console.log('GET /me - userId from auth middleware:', c) // Debug log
+  logger.info({ userId: c.get('userId') }, 'GET /me endpoint hit.');
+  
   const userId = c.get('userId') as string // this is the Cognito sub
 
   try {
