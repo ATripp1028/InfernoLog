@@ -2,12 +2,10 @@ import { Hono } from 'hono'
 import { PrismaClient } from '@prisma/client'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
-import pino from 'pino'
+import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
-
-const logger = pino()
 
 const prisma = new PrismaClient({
   datasourceUrl: process.env.DATABASE_URL!,
@@ -38,9 +36,7 @@ const onboardingSchema = z.object({
 })
 
 // GET /v1/me
-app.get('/me', async (c) => {
-  logger.info({ userId: c.get('userId') }, 'GET /me endpoint hit.');
-  
+app.get('/me', async (c) => {  
   const userId = c.get('userId') as string // this is the Cognito sub
 
   try {
@@ -66,7 +62,7 @@ app.get('/me', async (c) => {
     if (!user) {
       return c.json({ error: 'User not found' }, 404)
     }
-
+    logger.info({ userId }, 'Fetched user profile')
     return c.json({ data: user })
   } catch (error) {
     console.error('GET /me error:', error)
@@ -118,6 +114,8 @@ app.post('/me/onboarding', async (c) => {
         onboardingCompleted: true,
       },
     })
+
+    logger.info({ userId }, 'Completed onboarding')
 
     return c.json({ data: updated })
   } catch (error) {
