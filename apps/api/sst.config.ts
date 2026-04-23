@@ -127,7 +127,21 @@ export default $config({
     const sharedNodeOptions = {
       nodejs: {
         install: ['@sentry/aws-serverless'],
-      }
+      },
+      copyFiles: [
+        {
+          from: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
+          to: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node"
+        },
+        {
+          from: "node_modules/.prisma/client/libquery_engine-linux-arm64-openssl-3.0.x.so.node",
+          to: "node_modules/.prisma/client/libquery_engine-linux-arm64-openssl-3.0.x.so.node"
+        },
+        {
+          from: "node_modules/.prisma/client/schema.prisma",
+          to: "node_modules/.prisma/client/schema.prisma"
+        }
+      ]
     };
 
     // Shared links for all API Lambda functions

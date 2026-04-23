@@ -45,7 +45,7 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
       await next()
     } catch (err) {
       Sentry.captureException(err)
-      return c.json({ error: 'Invalid token' }, 401)
+      return c.json({ error: 'Authentication failed' }, 401)
     }
   }
 )
