@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '@tanstack/react-router'
 
 export function Onboarding() {
   const { getIdToken, updateUser, user } = useAuth()
@@ -45,7 +45,7 @@ export function Onboarding() {
 
   useEffect(() => {
     if (user?.onboardingCompleted) {
-      navigate('/list', { replace: true })
+      navigate({ to: '/list', replace: true })
     }
   }, [user?.onboardingCompleted, navigate])
 
@@ -79,7 +79,7 @@ export function Onboarding() {
           username: data.username,
           onboardingCompleted: data.onboardingCompleted 
         })
-        navigate('/list', { replace: true })
+        navigate({ to: '/list', replace: true })
       } else {
         const data = await res.json()
         setError(data.error || 'Something went wrong')

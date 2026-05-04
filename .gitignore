@@ -149,6 +149,9 @@ vite.config.ts.timestamp-*
 .sst/
 sst-env.d.ts
 
+# TanStack Router (auto-generated)
+routeTree.gen.ts
+
 # Turborepo
 .turbo/
 

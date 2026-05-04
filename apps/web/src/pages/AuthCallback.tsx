@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from '@tanstack/react-router'
 import { Hub } from 'aws-amplify/utils'
 
 export function AuthCallback() {
@@ -12,12 +12,12 @@ export function AuthCallback() {
       console.log('Hub auth event:', payload.event)
 
       if (payload.event === 'signedIn') {
-        navigate('/list', { replace: true })
+        navigate({ to: '/list', replace: true })
       }
 
       if (payload.event === 'signInWithRedirect_failure') {
         console.error('Hub: sign in failed', payload.data)
-        navigate('/', { replace: true })
+        navigate({ to: '/', replace: true })
       }
     })
 
