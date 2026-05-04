@@ -88,12 +88,15 @@ jobs:
     steps:
       - name: Verify staging health
         run: |
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-            https://$(aws ssm get-parameter \
-              --name /infernolog/staging/api-url \
-              --query Parameter.Value \
-              --output text \
-              --region us-east-1)/health)
+          API_URL=$(aws ssm get-parameter \
+            --name /infernolog/staging/api-url \
+            --query Parameter.Value \
+            --output text \
+            --region us-east-1)
+          # Strip trailing slash so we don't end up with double slashes
+          API_URL=${API_URL%/}
+          echo "Health-checking ${API_URL}/health"
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${API_URL}/health")
           if [ "$RESPONSE" != "200" ]; then
             echo "Staging health check failed with status $RESPONSE"
             exit 1
