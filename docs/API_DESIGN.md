@@ -2,7 +2,7 @@
 
 ## Overview
 
-InfernoLog exposes a public REST API for community developers and first-party integrations (including the planned Geode mod). The API is versioned, rate-limited, and documented via an OpenAPI spec hosted in the `infernolog-app` repo.
+InfernoLog exposes a public REST API for community developers and first-party integrations (including the planned Geode mod). The API is versioned, rate-limited, and documented via an OpenAPI spec.
 
 Interactive documentation is available at `api.infernolog.gg/docs`.
 
@@ -79,33 +79,19 @@ Returns public profile data. 403 if private. Accepts both username and UUID — 
 
 ---
 
-### Completions
+### Progress
 
 ```
-GET    /v1/users/{usernameOrId}/completions
-GET    /v1/users/{usernameOrId}/completions/{levelId}
-POST   /v1/users/{usernameOrId}/completions
-PATCH  /v1/users/{usernameOrId}/completions/{levelId}
-DELETE /v1/users/{usernameOrId}/completions/{levelId}
+GET    /v1/users/{usernameOrId}/progress
+GET    /v1/users/{usernameOrId}/progress/{levelId}
+POST   /v1/users/{usernameOrId}/progress
+PATCH  /v1/users/{usernameOrId}/progress/{levelId}
+DELETE /v1/users/{usernameOrId}/progress/{levelId}
 ```
 
 - `GET` (list): Paginated. Sortable by any logged metric via `?sort=` and `?order=` params. Filterable by list source, tier range, date range.
-- `POST` / `PATCH` / `DELETE`: Require `completions:write` scope (API key) or Cognito JWT for own account.
+- `POST` / `PATCH` / `DELETE`: Require `progress:write` scope (API key) or Cognito JWT for own account.
 - Write operations on another user's account are forbidden regardless of scope.
-
----
-
-### Dropped Levels
-
-```
-GET    /v1/users/{usernameOrId}/dropped
-GET    /v1/users/{usernameOrId}/dropped/{levelId}
-POST   /v1/users/{usernameOrId}/dropped
-PATCH  /v1/users/{usernameOrId}/dropped/{levelId}
-DELETE /v1/users/{usernameOrId}/dropped/{levelId}
-```
-
-Same auth and privacy rules as completions.
 
 ---
 
@@ -132,9 +118,9 @@ Returns the user's personal difficulty ranking in order. Supports `?includeUnrat
 
 ---
 
-## API Key Management (Authenticated)
+## API Key Management (Authenticated) *(v3)*
 
-These routes are first-party only (Cognito JWT). Not part of the public API surface for third-party tools.
+Not implemented in v1 or v2. Introduced in v3 alongside the Geode mod. These routes are first-party only (Cognito JWT). Not part of the public API surface for third-party tools.
 
 ```
 GET    /v1/me/api-keys
@@ -157,7 +143,7 @@ Returns a `.xlsx` file of the user's completion log. Query params control whethe
 
 ## OpenAPI Spec
 
-The OpenAPI spec (`openapi.yaml`) lives in the `infernolog-app` repo and is the source of truth for the API contract. The frontend uses `openapi-typescript` to auto-generate TypeScript types from this spec. The backend implements against it.
+The OpenAPI spec (`openapi.yaml`) is the source of truth for the API contract. The frontend uses `openapi-typescript` to auto-generate TypeScript types from this spec. The backend implements against it.
 
 Any API change requires updating the spec first, then implementing. This enforces spec-first development.
 
@@ -167,8 +153,7 @@ Any API change requires updating the spec first, then implementing. This enforce
 
 The Geode mod (future) communicates with InfernoLog exclusively via this public API using a user's API key. The mod's primary use cases map to existing endpoints:
 
-- Auto-log a completion on level complete: `POST /v1/users/{usernameOrId}/completions` with `completions:write` scope
+- Auto-log a completion on level complete: `POST /v1/users/{usernameOrId}/progress` with `progress:write` scope
 - Read attempt count from the game natively (GD exposes this), pass in request body
-- Prompt drop logging: `POST /v1/users/{usernameOrId}/dropped` with `drops:write` scope
 
 The API is designed with a native client in mind. No mod-specific endpoints are needed — the general API surface covers all planned mod functionality.

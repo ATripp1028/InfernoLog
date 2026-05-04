@@ -6,21 +6,66 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy-prod.yml'
+      - '.github/workflows/deploy-api.yml'
+      - '.github/workflows/deploy-web.yml'
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  deployments: write
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'apps/api/**'
+              - 'packages/core/**'
+              - 'packages/tsconfig/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - '.github/workflows/deploy-api.yml'
+              - '.github/workflows/deploy-prod.yml'
+            web:
+              - 'apps/web/**'
+              - 'packages/core/**'
+              - 'packages/tsconfig/**'
+              - 'pnpm-lock.yaml'
+              - 'package.json'
+              - '.github/workflows/deploy-web.yml'
+              - '.github/workflows/deploy-prod.yml'
+
   deploy-api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     uses: ./.github/workflows/deploy-api.yml
     with:
       stage: production
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      environment: production
+    secrets: inherit
 
   deploy-web:
+    needs: [changes, deploy-api]
+    if: |
+      always() &&
+      needs.changes.outputs.web == 'true' &&
+      (needs.deploy-api.result == 'success' || needs.deploy-api.result == 'skipped')
     uses: ./.github/workflows/deploy-web.yml
-    needs: deploy-api
     with:
       stage: production
-    secrets:
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      environment: production
+    secrets: inherit

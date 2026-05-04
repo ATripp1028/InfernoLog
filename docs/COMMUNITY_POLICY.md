@@ -6,7 +6,7 @@ Welcome to InfernoLog. This policy applies to all user-generated content on the 
 
 ## What InfernoLog Is
 
-InfernoLog is a personal logging tool for Geometry Dash demon completions. It is built for the GD community, by someone in the GD community. The goal is to give players a better home for their records than a spreadsheet.
+InfernoLog is a personal logging tool for Geometry Dash demon completions. I built it for the GD community as a member of the GD community. The goal is to give players a better home for their records than a spreadsheet.
 
 ---
 
@@ -21,7 +21,7 @@ InfernoLog is a space for honest personal records and opinions. This includes:
 - Foul language used to express genuine feelings about a level
 - Negative commentary directed at a level (not a person)
 
-We understand that beating a brutal demon can inspire strong feelings. Level notes are your personal log, and we are not here to sanitize your experience.
+I'm not here to police your emotions, you reserve the right to write the same feelings you would vent in a spreadsheet of YouTube description.
 
 ### What Is Not Allowed
 
@@ -33,7 +33,7 @@ The following content will result in moderation action:
 - **Content that attacks a person based on** race, ethnicity, religion, national origin, gender, sexual orientation, disability, or other protected status
 - **Spam or abuse of platform features**, including submitting reports with no legitimate basis
 
-The distinction is between expressing how a **level** made you feel versus attacking a **person**. The former is human and expected. The latter is not welcome here.
+The distinction is between expressing how a **level** made you feel versus attacking a **person**. The former is human and expected. The latter is not welcome here and makes others feel unsafe and unwelcome.
 
 ---
 

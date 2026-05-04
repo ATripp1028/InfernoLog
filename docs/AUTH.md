@@ -17,9 +17,11 @@ All auth flows go through Cognito. The backend validates Cognito-issued JWTs on 
 
 ---
 
-## API Keys (Third-Party Access)
+## API Keys (Third-Party Access) *(v3)*
 
-API keys allow third-party tools (e.g. the future Geode mod, community tools) to perform operations on behalf of a user.
+API keys are not built in v1 or v2. They are introduced in v3 to coincide with the Geode mod launch. The `api_keys` table schema is defined in `DATA_MODEL.md` for reference but should not be implemented until v3.
+
+API keys allow third-party tools (e.g. the Geode mod, community tools) to perform operations on behalf of a user.
 
 ### Rules
 - Maximum **5 API keys** per user
