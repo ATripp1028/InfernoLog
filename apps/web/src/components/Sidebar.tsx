@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { NAV_ITEMS, type NavItem } from './navConfig'
+import { NAV_ITEMS, type NavItem } from '../utils/navConfig'
 
 export function Sidebar() {
   const location = useLocation()
@@ -32,7 +32,7 @@ function SidebarItem({ item, active }: SidebarItemProps) {
   // available = secondary fg + hover; disabled = dimmed, no hover.
   const stateClasses = active
     ? 'bg-primary-dim text-primary'
-    : item.status === 'available'
+    : item.status === 'enabled'
     ? 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
     : 'text-text-tertiary opacity-70 cursor-not-allowed'
 
@@ -61,7 +61,7 @@ function SidebarItem({ item, active }: SidebarItemProps) {
     )
   }
 
-  if (item.status === 'available' && item.to) {
+  if (item.status === 'enabled' && item.to) {
     return (
       <Link to={item.to} className={`${baseClasses} ${stateClasses}`}>
         {content}

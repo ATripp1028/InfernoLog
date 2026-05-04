@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, Plus } from 'lucide-react'
-import { NAV_ITEMS, MOBILE_OVERFLOW_KEYS, type NavItem } from './navConfig'
+import { NAV_ITEMS, MOBILE_OVERFLOW_KEYS, type NavItem } from '../utils/navConfig'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
