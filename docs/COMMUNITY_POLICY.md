@@ -21,7 +21,7 @@ InfernoLog is a space for honest personal records and opinions. This includes:
 - Foul language used to express genuine feelings about a level
 - Negative commentary directed at a level (not a person)
 
-I'm not here to police your emotions, you reserve the write to write the same feelings you would vent in a spreadsheet of YouTube description.
+I'm not here to police your emotions, you reserve the right to write the same feelings you would vent in a spreadsheet of YouTube description.
 
 ### What Is Not Allowed
 

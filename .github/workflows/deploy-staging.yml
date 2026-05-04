@@ -22,6 +22,11 @@ concurrency:
   group: deploy-staging-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  pull-requests: read
+  deployments: write
+
 jobs:
   changes:
     runs-on: ubuntu-latest
