@@ -1,7 +1,12 @@
 import { useAuth } from "../context/AuthContext";
+import { Loading } from "./Loading";
 
 export function List() {
-    const { user, signOut } = useAuth();
+    const { user, loading, signOut } = useAuth();
+
+    if (loading) {
+        return <Loading />;
+    }
 
     return (
         <div style={{ padding: '24px' }}>

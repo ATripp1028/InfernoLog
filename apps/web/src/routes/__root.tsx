@@ -36,10 +36,6 @@ function RootComponent() {
     }
   }, [user, loading, isAuthCallback, location.pathname, navigate])
 
-  if (isAuthCallback) {
-    return <Outlet />
-  }
-
   if (loading) {
     return <Loading />
   }

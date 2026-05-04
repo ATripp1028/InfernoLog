@@ -143,7 +143,7 @@ Returns a `.xlsx` file of the user's completion log. Query params control whethe
 
 ## OpenAPI Spec
 
-The OpenAPI spec (`openapi.yaml`) \ is the source of truth for the API contract. The frontend uses `openapi-typescript` to auto-generate TypeScript types from this spec. The backend implements against it.
+The OpenAPI spec (`openapi.yaml`) is the source of truth for the API contract. The frontend uses `openapi-typescript` to auto-generate TypeScript types from this spec. The backend implements against it.
 
 Any API change requires updating the spec first, then implementing. This enforces spec-first development.
 
