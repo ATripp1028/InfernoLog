@@ -1,12 +1,8 @@
 import { createMiddleware } from 'hono/factory'
 import { CognitoJwtVerifier } from 'aws-jwt-verify'
-import { PrismaClient } from '@prisma/client'
 import * as Sentry from '@sentry/node'
+import prisma from '../utils/prisma'
 import type { HonoVariables } from '../types/hono'
-
-const prisma = new PrismaClient({
-  datasourceUrl: process.env.DATABASE_URL!,
-})
 
 const verifier = CognitoJwtVerifier.create({
   userPoolId: process.env.COGNITO_USER_POOL_ID!,
