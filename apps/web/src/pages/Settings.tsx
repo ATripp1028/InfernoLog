@@ -2,7 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { Loading } from "./Loading";
 
 export function Settings() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return <Loading />;

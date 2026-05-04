@@ -2,7 +2,7 @@ import { useAuth } from "../context/AuthContext";
 import { Loading } from "./Loading";
 
 export function Ranking() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return <Loading />;
