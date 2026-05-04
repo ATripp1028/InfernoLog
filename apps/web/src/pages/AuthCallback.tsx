@@ -1,20 +1,26 @@
 import { useEffect } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { Hub } from 'aws-amplify/utils'
+import { useAuth } from '../context/AuthContext'
 
 export function AuthCallback() {
   const navigate = useNavigate()
+  const { user, loading } = useAuth()
+
+  // Amplify can emit `signedIn` before this component mounts (during its
+  // redirect-handling on app init), so a Hub listener alone races and gets
+  // stuck. Once AuthContext has loaded a user, we know auth succeeded.
+  useEffect(() => {
+    if (!loading && user) {
+      navigate({ to: '/list', replace: true })
+    }
+  }, [loading, user, navigate])
 
   useEffect(() => {
-    console.log('AuthCallback: setting up Hub listener')
-
-    const unsubscribe = Hub.listen('auth', async ({ payload }) => {
-      console.log('Hub auth event:', payload.event)
-
+    const unsubscribe = Hub.listen('auth', ({ payload }) => {
       if (payload.event === 'signedIn') {
         navigate({ to: '/list', replace: true })
       }
-
       if (payload.event === 'signInWithRedirect_failure') {
         console.error('Hub: sign in failed', payload.data)
         navigate({ to: '/', replace: true })
