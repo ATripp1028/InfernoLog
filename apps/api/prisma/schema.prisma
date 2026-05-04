@@ -136,7 +136,6 @@ model User {
   // Stored as ordered array of ListSource enum values
   // e.g. ["GDDL", "AREDL", "POINTERCRATE", "NLW", "OTHER"]
   listPriorityOrder     ListSource[]         @default([GDDL, AREDL, POINTERCRATE, NLW, OTHER])
-  progressNudgeDays     Int                  @default(2)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
@@ -153,7 +152,6 @@ model User {
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
   levelUpdateNotifs     LevelUpdateNotification[]
-  progressNudges        ProgressNudge[]
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
   reportsModerated      Report[]             @relation("AssignedModeratorRelation")
@@ -245,7 +243,6 @@ model LevelProgress {
   level           Level                @relation(fields: [levelId], references: [inGameId])
   progressUpdates ProgressUpdate[]
   classicRanking  ClassicRanking?
-  progressNudge   ProgressNudge?
 
   @@unique([userId, levelId]) // One LevelProgress per user per level
   @@map("level_progress")
@@ -532,28 +529,6 @@ model LevelUpdateNotification {
   level     Level     @relation(fields: [levelId], references: [inGameId])
 
   @@map("level_update_notifications")
-}
-
-// ─────────────────────────────────────────────
-// PROGRESS NUDGES
-// Tracks last nudge sent per in-progress level.
-// Nudge fires when: now() - lastNudgedAt > user.progressNudgeDays
-// Resets on each new progress update logged for that level.
-// Delivered as toast notification.
-// ─────────────────────────────────────────────
-
-model ProgressNudge {
-  id                String        @id @default(uuid())
-  userId            String
-  levelProgressId   String        @unique
-
-  lastNudgedAt      DateTime      @default(now())
-
-  // Relations
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  levelProgress     LevelProgress @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-
-  @@map("progress_nudges")
 }
 
 // ─────────────────────────────────────────────
