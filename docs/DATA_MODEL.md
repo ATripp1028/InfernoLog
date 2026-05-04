@@ -18,11 +18,11 @@
 │    users    │
 └──────┬──────┘
        │
-       ├──────────────────┬─────────────────┬──────────────────┐
-       │                  │                 │                  │
-┌──────▼──────┐   ┌───────▼──────┐  ┌──────▼──────┐  ┌───────▼──────┐
-│level_progress│   │classic_ranking│  │ user_lists  │  │  api_keys   │
-└──────┬──────┘   └───────────────┘  └──────┬──────┘  └─────────────┘
+       ├──────────────────┬─────────────────┐
+       │                  │                 │
+┌──────▼──────┐   ┌───────▼──────┐  ┌──────▼──────┐
+│level_progress│   │classic_ranking│  │ user_lists  │
+└──────┬──────┘   └───────────────┘  └──────┬──────┘
        │                                     │
        ├─────────────────┐          ┌────────▼────────┐
        │                 │          │level_list_entries│
@@ -95,7 +95,6 @@
 | `gddl_api_key_encrypted` | VARCHAR | Encrypted at rest, never exposed to frontend |
 | `rating_mode` | ENUM | `simple`, `weighted`. Default `simple` |
 | `list_priority_order` | VARCHAR[] | User-configured list priority chain |
-| `progress_nudge_days` | INTEGER | Days between nudge prompts. Default 2 |
 | `time_machine_top_n` | INTEGER | How many levels to track in Time Machine. Default 10 |
 | `date_format_preference` | ENUM | `mdy`, `dmy`, `ymd`. Used for display and import |
 | `created_at` | TIMESTAMP | |
@@ -255,7 +254,9 @@ Only entries where the associated `level_progress` has a completion update appea
 
 Adding a level to the want-to-beat list does **not** create a `level_progress` entry. That only happens when the first progress update is logged.
 
-### `api_keys`
+### `api_keys` *(v3)*
+
+Not built in v1 or v2. Introduced in v3 to coincide with the Geode mod.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -279,18 +280,6 @@ Max 5 per user.
 | `level_id` | VARCHAR | FK → levels.in_game_id |
 | `seen` | BOOLEAN | Default false |
 | `created_at` | TIMESTAMP | |
-
-### `progress_nudges`
-
-Tracks when the last nudge was sent per in-progress level, to enforce the user's configured nudge interval.
-
-| Column | Type | Notes |
-|---|---|---|
-| `id` | UUID | |
-| `level_progress_id` | UUID | FK → level_progress |
-| `last_nudged_at` | TIMESTAMP | |
-
-Nudge fires when `now() - last_nudged_at > user.progress_nudge_days`. Resets on each new progress update logged for that level.
 
 ### `reports`
 

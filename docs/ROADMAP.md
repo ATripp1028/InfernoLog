@@ -13,7 +13,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 - All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, simple or weighted rating, in-game difficulty snapshot, notes, completion video URL, highlight video URL
 - Non-completion entries hidden by default, revealed by toggle
 - One completion per user per level (rebeat handling v3)
-- In-progress levels (currently attempting) — up to 10 simultaneous, per-entry privacy, periodic nudge (default 2 days since last update, toast notification)
+- In-progress levels (currently attempting) — up to 10 simultaneous, per-entry privacy
 - Dropped level logging — status flag on level_progress, drop reason, date, full progress history preserved
 - Beating a dropped level archives the drop entry naturally (completion logged on same level_progress)
 
@@ -62,7 +62,6 @@ Attempts represent cumulative attempts across all uploads and copies of the leve
 - Public/private profile toggle
 - Discord visibility toggle
 - Per-entry visibility (public/private per level_progress)
-- Up to 5 named scoped API keys
 
 ### Import & Export
 - Spreadsheet import (separate tabs for completions and dropped)
@@ -149,6 +148,7 @@ Goal: Make the app actively useful rather than a passive record.
 
 ### Infrastructure
 - `/v2/` API routes if breaking changes accumulated
+- API keys — up to 5 named scoped keys per user, key management UI, settings page integration
 - Geode mod (C++ via Geode framework, uses public API)
 
 ---

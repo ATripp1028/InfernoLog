@@ -140,7 +140,6 @@ In-progress levels are `level_progress` entries with `status = in_progress` and 
 
 - Up to **10 simultaneous in-progress levels** (soft cap, subject to revision)
 - Progress is a manually updated snapshot — the user logs updates whenever they have something worth recording
-- **Periodic nudge** — toast notification after the user's configured interval (default 2 days) since their last progress update for that level. Resets on each new update logged
 - Per-entry privacy — each in-progress entry can be set public or private independently
 
 **Motivating example for per-entry privacy:** A well-known player may want to hide a completion entry until their video goes live (e.g. KrMaL verifying Low Death in mid-March but holding the video until April 1st). Per-entry privacy supports this without requiring the entire profile to go private.

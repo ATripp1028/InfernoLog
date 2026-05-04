@@ -132,9 +132,9 @@ Returns the user's personal difficulty ranking in order. Supports `?includeUnrat
 
 ---
 
-## API Key Management (Authenticated)
+## API Key Management (Authenticated) *(v3)*
 
-These routes are first-party only (Cognito JWT). Not part of the public API surface for third-party tools.
+Not implemented in v1 or v2. Introduced in v3 alongside the Geode mod. These routes are first-party only (Cognito JWT). Not part of the public API surface for third-party tools.
 
 ```
 GET    /v1/me/api-keys

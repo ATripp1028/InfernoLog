@@ -105,9 +105,7 @@ The `levels` table in the database, which stores GDBrowser-autofilled level meta
 The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against GDBrowser for nudge-worthy changes (name, creator, song name, song author).
 
 **Nudge**
-A notification prompting user action. Two types:
-- **Level update nudge** — informs the user that cached level metadata has changed. Delivered as a persistent notification and visual indicator on the affected entry.
-- **Progress nudge** — reminds the user to log progress on an in-progress level they haven't updated recently. Delivered as a toast notification after the user's configured interval (default 2 days since last progress entry).
+A notification informing the user that cached level metadata has changed (name, creator, song name, song author). Delivered as a persistent notification and visual indicator on the affected entry. Sometimes called a **level update nudge** to distinguish it from other notification types.
 
 ---
 
