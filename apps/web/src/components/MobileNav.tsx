@@ -90,9 +90,8 @@ function MoreTab({ active, onClick }: { active: boolean; onClick: () => void }) 
       onClick={onClick}
       aria-expanded={active}
       aria-label="More"
-      className={`flex w-16 flex-col items-center justify-center gap-1 ${
-        active ? 'text-primary' : 'text-text-secondary'
-      }`}
+      className={`flex w-16 flex-col items-center justify-center gap-1 ${active ? 'text-primary' : 'text-text-secondary'
+        }`}
     >
       <Menu size={22} />
       <span className="text-[11px] font-medium">More</span>

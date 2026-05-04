@@ -26,37 +26,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const checkUser = useCallback(async () => {
     try {
-        const currentUser = await getCurrentUser()
-        const session = await fetchAuthSession()
-        const idToken = session.tokens?.idToken
-        const token = idToken?.toString()
+      const currentUser = await getCurrentUser()
+      const session = await fetchAuthSession()
+      const idToken = session.tokens?.idToken
+      const token = idToken?.toString()
 
-        const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
-            headers: { Authorization: `Bearer ${token}` },
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+
+      if (res.ok) {
+        const { data } = await res.json()
+        setUser({
+          userId: currentUser.userId,
+          email: data.email,
+          name: idToken?.payload.name as string,
+          username: data.username,
+          onboardingCompleted: data.onboardingCompleted,
         })
-
-        if (res.ok) {
-            const { data } = await res.json()
-            setUser({
-            userId: currentUser.userId,
-            email: data.email,
-            name: idToken?.payload.name as string,
-            username: data.username,
-            onboardingCompleted: data.onboardingCompleted,
-            })
-        } else {
-            setUser(null)
-        }
-    } catch {
+      } else {
         setUser(null)
+      }
+    } catch {
+      setUser(null)
     } finally {
-        setLoading(false)
+      setLoading(false)
     }
-    }, []) // no dependencies since it only uses stable setUser/setLoading
+  }, []) // no dependencies since it only uses stable setUser/setLoading
 
-    useEffect(() => {
-        checkUser()
-    }, [checkUser])
+  useEffect(() => {
+    checkUser()
+  }, [checkUser])
 
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()

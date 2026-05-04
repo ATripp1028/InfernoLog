@@ -75,9 +75,9 @@ export function Onboarding() {
 
       if (res.ok) {
         const { data } = await res.json()
-        updateUser({ 
+        updateUser({
           username: data.username,
-          onboardingCompleted: data.onboardingCompleted 
+          onboardingCompleted: data.onboardingCompleted
         })
         navigate({ to: '/list', replace: true })
       } else {

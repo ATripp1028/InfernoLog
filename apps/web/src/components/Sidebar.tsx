@@ -33,16 +33,15 @@ function SidebarItem({ item, active }: SidebarItemProps) {
   const stateClasses = active
     ? 'bg-primary-dim text-primary'
     : item.status === 'enabled'
-    ? 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
-    : 'text-text-tertiary opacity-70 cursor-not-allowed'
+      ? 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
+      : 'text-text-tertiary opacity-70 cursor-not-allowed'
 
   const content = (
     <>
       <span
         aria-hidden
-        className={`absolute left-0 h-5 w-[3px] rounded-sm bg-primary transition-opacity ${
-          active ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute left-0 h-5 w-[3px] rounded-sm bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'
+          }`}
       />
       <Icon size={18} className="shrink-0" />
       <span className="hidden text-sm font-medium xl:inline">{item.label}</span>
