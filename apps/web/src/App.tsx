@@ -4,6 +4,7 @@ import { AuthCallback } from './pages/AuthCallback'
 import { Onboarding } from './pages/Onboarding'
 import { UnauthenticatedRoutes } from './UnauthenticatedRoutes'
 import { AuthenticatedRoutes } from './AuthenticatedRoutes'
+import { Loading } from './pages/Loading'
 
 export default function App() {
   const { user, loading } = useAuth()
@@ -11,7 +12,6 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/login" element={<UnauthenticatedRoutes />} />
         <Route path="/*" element={<RootApp />} />
       </Routes>
     </BrowserRouter>
@@ -23,15 +23,13 @@ function RootApp() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <p>Loading...</p>
-      </div>
+      <Loading />
     )
   }
 
   if (!user) {
     return (
-      <Navigate to="/login" replace />
+      <UnauthenticatedRoutes />
     )
   }
 
