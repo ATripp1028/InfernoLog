@@ -47,9 +47,9 @@ export function MobileNav() {
         className="fixed inset-x-0 bottom-0 z-40 flex h-[72px] items-center justify-around border-t border-border-subtle bg-bg-surface px-2"
       >
         <BarTab item={list} active={location.pathname === list.to} />
-        <BarTab item={ranking} />
+        <BarTab item={ranking} active={location.pathname === ranking.to} />
         <FabSlot />
-        <BarTab item={log} />
+        <BarTab item={log} active={location.pathname === log.to} />
         <MoreTab
           active={overflowOpen}
           onClick={() => setOverflowOpen(v => !v)}
@@ -77,7 +77,7 @@ function BarTab({ item, active = false }: { item: NavItem; active?: boolean }) {
       </Link>
     )
   }
-  if (item.status === 'available' && item.to) {
+  if (item.status === 'enabled' && item.to) {
     return <Link to={item.to} className={className}>{content}</Link>
   }
   return <div className={className} aria-disabled>{content}</div>
