@@ -173,3 +173,6 @@ Thumbs.db
 .vscode/
 .idea/
 prisma/migrations/dev/
+
+#AI Tools
+CLAUDE.md
