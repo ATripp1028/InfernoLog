@@ -18,7 +18,7 @@ const usernameSchema = z
     'Username can only contain letters, numbers, underscores, and hyphens'
   )
   .refine(
-    (val:any) => !RESERVED_USERNAMES.includes(val.toLowerCase()),
+    (val: any) => !RESERVED_USERNAMES.includes(val.toLowerCase()),
     'This username is reserved'
   )
 
@@ -30,7 +30,7 @@ const onboardingSchema = z.object({
 })
 
 // GET /v1/me
-app.get('/me', async (c) => {  
+app.get('/me', async (c) => {
   const userId = c.get('userId') as string
 
   try {

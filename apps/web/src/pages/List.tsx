@@ -2,17 +2,16 @@ import { useAuth } from "../context/AuthContext";
 import { Loading } from "./Loading";
 
 export function List() {
-    const { user, loading, signOut } = useAuth();
+  const { user, loading } = useAuth();
 
-    if (loading) {
-        return <Loading />;
-    }
+  if (loading) {
+    return <Loading />;
+  }
 
-    return (
-        <div style={{ padding: '24px' }}>
-            <h1>The List</h1>
-            <p>Welcome, {user!.username}</p>
-            <button onClick={signOut}>Sign out</button>
-        </div>
-    );
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-semibold">List</h1>
+      <p className="mt-2 text-text-secondary">Welcome, {user!.username}</p>
+    </div>
+  );
 }
