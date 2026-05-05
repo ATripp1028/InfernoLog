@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
-import { useQueryClient } from '@tanstack/react-query'
+import { queryClient } from '../lib/queryClient'
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -16,7 +16,6 @@ const AuthContext = createContext<AuthContextType | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAuthInitializing, setIsAuthInitializing] = useState(true)
-  const queryClient = useQueryClient()
 
   const refreshAuthStatus = useCallback(async () => {
     try {
@@ -45,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     })
     return () => unsubscribe()
-  }, [queryClient])
+  }, [])
 
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()

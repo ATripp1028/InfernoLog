@@ -26,15 +26,13 @@ function AuthenticatedLayout() {
     }
   }, [me.data, navigate])
 
-  const showLoader =
-    isAuthInitializing ||
-    !isAuthenticated ||
-    me.isPending ||
-    (me.data && !me.data.onboardingCompleted)
+  if (isAuthInitializing || !isAuthenticated || me.isPending || !me.data?.onboardingCompleted) {
+    return <PageLoading />
+  }
 
   return (
     <Shell>
-      {showLoader ? <PageLoading /> : <Outlet />}
+      <Outlet />
     </Shell>
   )
 }
