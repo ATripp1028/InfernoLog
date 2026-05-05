@@ -1,6 +1,21 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
 import { Onboarding } from '@/pages/Onboarding'
+import { useAuth } from '@/context/AuthContext'
 
 export const Route = createFileRoute('/onboarding')({
-  component: Onboarding,
+  component: OnboardingRoute,
 })
+
+function OnboardingRoute() {
+  const { isAuthenticated, isAuthInitializing } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!isAuthInitializing && !isAuthenticated) {
+      navigate({ to: '/login', replace: true })
+    }
+  }, [isAuthInitializing, isAuthenticated, navigate])
+
+  return <Onboarding />
+}

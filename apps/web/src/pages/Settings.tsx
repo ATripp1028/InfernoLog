@@ -1,13 +1,4 @@
-import { useAuth } from "../context/AuthContext";
-import { Loading } from "./Loading";
-
 export function Settings() {
-  const { loading } = useAuth();
-
-  if (loading) {
-    return <Loading />;
-  }
-
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold">Settings</h1>

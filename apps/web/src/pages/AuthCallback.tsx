@@ -5,16 +5,13 @@ import { useAuth } from '../context/AuthContext'
 
 export function AuthCallback() {
   const navigate = useNavigate()
-  const { user, loading } = useAuth()
+  const { isAuthenticated } = useAuth()
 
-  // Amplify can emit `signedIn` before this component mounts (during its
-  // redirect-handling on app init), so a Hub listener alone races and gets
-  // stuck. Once AuthContext has loaded a user, we know auth succeeded.
   useEffect(() => {
-    if (!loading && user) {
+    if (isAuthenticated) {
       navigate({ to: '/list', replace: true })
     }
-  }, [loading, user, navigate])
+  }, [isAuthenticated, navigate])
 
   useEffect(() => {
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
