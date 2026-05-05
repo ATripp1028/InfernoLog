@@ -23,17 +23,17 @@ export default $config({
     const GOOGLE_CLIENT_ID = new sst.Secret("GOOGLE_CLIENT_ID");
     const GOOGLE_CLIENT_SECRET = new sst.Secret("GOOGLE_CLIENT_SECRET");
 
-    // Node.js options for Lambda functions that use Sentry
+    // Shared options for all Lambda functions
     const sharedNodeOptions = {
       nodejs: {
         install: ['@sentry/aws-serverless'],
-        copyFiles: [
-          {
-            from: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
-            to: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
-          },
-        ],
       },
+      copyFiles: [
+        {
+          from: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
+          to: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
+        },
+      ],
     };
 
     // ─────────────────────────────────────────────
