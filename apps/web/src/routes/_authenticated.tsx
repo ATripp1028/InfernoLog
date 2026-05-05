@@ -21,12 +21,31 @@ function AuthenticatedLayout() {
   }, [isAuthInitializing, isAuthenticated, navigate])
 
   useEffect(() => {
-    if (me.data && !me.data.onboardingCompleted) {
+    if (!isAuthInitializing && isAuthenticated && me.isError) {
+      navigate({ to: '/login', replace: true })
+    }
+  }, [isAuthInitializing, isAuthenticated, me.isError, navigate])
+
+  useEffect(() => {
+    if (
+      !isAuthInitializing &&
+      isAuthenticated &&
+      me.data &&
+      !me.data.onboardingCompleted
+    ) {
       navigate({ to: '/onboarding', replace: true })
     }
-  }, [me.data, navigate])
+  }, [isAuthInitializing, isAuthenticated, me.data, navigate])
 
-  if (me.isPending || !me.data?.onboardingCompleted) {
+  if (isAuthInitializing || !isAuthenticated) {
+    return <PageLoading />
+  }
+
+  if (me.isPending) {
+    return <PageLoading />
+  }
+
+  if (me.isError || !me.data?.onboardingCompleted) {
     return <PageLoading />
   }
 
