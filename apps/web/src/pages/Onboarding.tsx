@@ -1,10 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useAuth } from '../context/AuthContext'
 import { useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../context/AuthContext'
+import { useMe, meQueryKey, MeData } from '../lib/api/me'
+import { PageLoading } from '../components/PageLoading'
 
 export function Onboarding() {
-  const { getIdToken, updateUser, user } = useAuth()
+  const { getIdToken } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const me = useMe()
   const [username, setUsername] = useState('')
   const [usernameStatus, setUsernameStatus] = useState<
     'idle' | 'checking' | 'available' | 'taken' | 'invalid'
@@ -41,13 +46,13 @@ export function Onboarding() {
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [username, setUsernameStatus, setUsernameError])
+  }, [username])
 
   useEffect(() => {
-    if (user?.onboardingCompleted) {
+    if (me.data?.onboardingCompleted) {
       navigate({ to: '/list', replace: true })
     }
-  }, [user?.onboardingCompleted, navigate])
+  }, [me.data?.onboardingCompleted, navigate])
 
   const handleSubmit = async () => {
     if (usernameStatus !== 'available') return
@@ -75,10 +80,12 @@ export function Onboarding() {
 
       if (res.ok) {
         const { data } = await res.json()
-        updateUser({
-          username: data.username,
-          onboardingCompleted: data.onboardingCompleted
-        })
+        queryClient.setQueryData<MeData | undefined>(meQueryKey, (prev) =>
+          prev
+            ? { ...prev, username: data.username, onboardingCompleted: data.onboardingCompleted }
+            : prev
+        )
+        await queryClient.invalidateQueries({ queryKey: meQueryKey })
         navigate({ to: '/list', replace: true })
       } else {
         const data = await res.json()
@@ -89,6 +96,10 @@ export function Onboarding() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  if (me.isPending) {
+    return <PageLoading />
   }
 
   const usernameMessage = {

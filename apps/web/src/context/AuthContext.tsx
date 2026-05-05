@@ -1,62 +1,52 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
-import { fetchAuthSession, signInWithRedirect, signOut, getCurrentUser } from 'aws-amplify/auth'
-
-interface AuthUser {
-  userId: string
-  email: string
-  name: string
-  username: string
-  onboardingCompleted: boolean
-}
+import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
+import { Hub } from 'aws-amplify/utils'
+import { queryClient } from '../lib/queryClient'
+import { persister } from '../lib/persister'
 
 interface AuthContextType {
-  user: AuthUser | null
-  loading: boolean
+  isAuthenticated: boolean
+  isAuthInitializing: boolean
   signIn: () => void
   signOut: () => void
   getIdToken: () => Promise<string>
-  updateUser: (updates: Partial<AuthUser>) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthInitializing, setIsAuthInitializing] = useState(true)
 
-  const checkUser = useCallback(async () => {
+  const refreshAuthStatus = useCallback(async () => {
     try {
-      const currentUser = await getCurrentUser()
       const session = await fetchAuthSession()
-      const idToken = session.tokens?.idToken
-      const token = idToken?.toString()
-
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (res.ok) {
-        const { data } = await res.json()
-        setUser({
-          userId: currentUser.userId,
-          email: data.email,
-          name: idToken?.payload.name as string,
-          username: data.username,
-          onboardingCompleted: data.onboardingCompleted,
-        })
-      } else {
-        setUser(null)
-      }
+      setIsAuthenticated(!!session.tokens?.idToken)
     } catch {
-      setUser(null)
-    } finally {
-      setLoading(false)
+      setIsAuthenticated(false)
     }
-  }, []) // no dependencies since it only uses stable setUser/setLoading
+  }, [])
 
   useEffect(() => {
-    checkUser()
-  }, [checkUser])
+    refreshAuthStatus().finally(() => setIsAuthInitializing(false))
+  }, [refreshAuthStatus])
+
+  useEffect(() => {
+    const unsubscribe = Hub.listen('auth', ({ payload }) => {
+      switch (payload.event) {
+        case 'signedIn':
+          setIsAuthenticated(true)
+          break
+        case 'signedOut':
+        case 'tokenRefresh_failure':
+          setIsAuthenticated(false)
+          queryClient.clear()
+          persister.removeClient()
+          break
+      }
+    })
+    return () => unsubscribe()
+  }, [])
 
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()
@@ -65,21 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return token
   }
 
-  const updateUser = (updates: Partial<AuthUser>) => {
-    setUser(prev => prev ? { ...prev, ...updates } : null)
-  }
-
   const handleSignIn = () => signInWithRedirect({ provider: 'Google' })
   const handleSignOut = () => signOut()
 
   return (
     <AuthContext.Provider value={{
-      user,
-      loading,
+      isAuthenticated,
+      isAuthInitializing,
       signIn: handleSignIn,
       signOut: handleSignOut,
       getIdToken,
-      updateUser,
     }}>
       {children}
     </AuthContext.Provider>

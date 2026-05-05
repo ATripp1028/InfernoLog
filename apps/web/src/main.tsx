@@ -1,8 +1,10 @@
 import './lib/auth'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { queryClient } from './lib/queryClient'
+import { persister, MAX_AGE } from './lib/persister'
 import { AuthProvider } from './context/AuthContext'
 import { routeTree } from './routeTree.gen'
 import './index.css'
@@ -15,24 +17,15 @@ declare module '@tanstack/react-router' {
   }
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60 * 2,
-      gcTime: 1000 * 60 * 10,
-      retry: 2,
-      refetchOnWindowFocus: true,
-      refetchOnReconnect: true,
-    },
-  },
-})
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
+    <PersistQueryClientProvider
+      client={queryClient}
+      persistOptions={{ persister, maxAge: MAX_AGE }}
+    >
       <AuthProvider>
         <RouterProvider router={router} />
       </AuthProvider>
-    </QueryClientProvider>
+    </PersistQueryClientProvider>
   </StrictMode>
 )
