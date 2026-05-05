@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useCallback 
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import { queryClient } from '../lib/queryClient'
+import { persister } from '../lib/persister'
 
 interface AuthContextType {
   isAuthenticated: boolean
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         case 'tokenRefresh_failure':
           setIsAuthenticated(false)
           queryClient.clear()
+          persister.removeClient()
           break
       }
     })
