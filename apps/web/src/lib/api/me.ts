@@ -1,6 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
 export interface MeData {
   id: string
   username: string
@@ -29,9 +36,12 @@ export function useMe() {
       const res = await fetch(`${import.meta.env.VITE_API_URL}/v1/me`, {
         headers: { Authorization: `Bearer ${token}` },
       })
-      if (!res.ok) throw new Error('Failed to load profile')
+      if (!res.ok) throw new ApiError(res.status, 'Failed to load profile')
       const { data } = await res.json()
       return data as MeData
     },
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 }
