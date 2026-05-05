@@ -26,7 +26,7 @@ function AuthenticatedLayout() {
     }
   }, [me.data, navigate])
 
-  if (isAuthInitializing || !isAuthenticated || me.isPending || !me.data?.onboardingCompleted) {
+  if (me.isPending || !me.data?.onboardingCompleted) {
     return <PageLoading />
   }
 
