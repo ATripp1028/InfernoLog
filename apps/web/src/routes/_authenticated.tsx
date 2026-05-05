@@ -21,12 +21,6 @@ function AuthenticatedLayout() {
   }, [isAuthInitializing, isAuthenticated, navigate])
 
   useEffect(() => {
-    if (!isAuthInitializing && isAuthenticated && me.isError) {
-      navigate({ to: '/login', replace: true })
-    }
-  }, [isAuthInitializing, isAuthenticated, me.isError, navigate])
-
-  useEffect(() => {
     if (
       !isAuthInitializing &&
       isAuthenticated &&
@@ -45,7 +39,15 @@ function AuthenticatedLayout() {
     return <PageLoading />
   }
 
-  if (me.isError || !me.data?.onboardingCompleted) {
+  if (me.error) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p className="text-sm text-red-500">Something went wrong. Please refresh the page.</p>
+      </div>
+    )
+  }
+
+  if (!me.data?.onboardingCompleted) {
     return <PageLoading />
   }
 
