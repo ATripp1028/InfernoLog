@@ -22,6 +22,10 @@ export default $config({
     const SENTRY_DSN = new sst.Secret("SENTRY_DSN");
     const GOOGLE_CLIENT_ID = new sst.Secret("GOOGLE_CLIENT_ID");
     const GOOGLE_CLIENT_SECRET = new sst.Secret("GOOGLE_CLIENT_SECRET");
+    const DISCORD_CLIENT_ID = new sst.Secret("DISCORD_CLIENT_ID");
+    const DISCORD_CLIENT_SECRET = new sst.Secret("DISCORD_CLIENT_SECRET");
+    const DISCORD_JWT_SECRET = new sst.Secret("DISCORD_JWT_SECRET");
+
 
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
@@ -134,6 +138,7 @@ export default $config({
       COGNITO_USER_POOL_ID: userPool.id,
       COGNITO_CLIENT_ID: userPoolClient.id,
       SENTRY_DSN: SENTRY_DSN.value,
+      DISCORD_JWT_SECRET: DISCORD_JWT_SECRET.value,
       NODE_OPTIONS: "--import @sentry/aws-serverless/awslambda-auto"
     };
 
@@ -142,6 +147,7 @@ export default $config({
       DATABASE_URL,
       DATABASE_URL_DIRECT,
       SENTRY_DSN,
+      DISCORD_JWT_SECRET,
       userPool,
       userPoolClient,
     ];
@@ -171,6 +177,30 @@ export default $config({
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
+      ...sharedNodeOptions,
+    })
+
+    const discordEnvironment = {
+      ...sharedEnvironment,
+      DISCORD_CLIENT_ID: DISCORD_CLIENT_ID.value,
+      DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value,
+      DISCORD_REDIRECT_URI: $app.stage === "production"
+        ? "https://api.infernolog.com/auth/discord/callback"
+        : "https://6jeoegiga7.execute-api.us-east-1.amazonaws.com/auth/discord/callback",
+      FRONTEND_URL: $app.stage === "production" ? "https://infernolog.com" : "http://localhost:5173",
+    };
+
+    api.route("GET /auth/discord", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: discordEnvironment,
+      ...sharedNodeOptions,
+    })
+
+    api.route("GET /auth/discord/callback", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: discordEnvironment,
       ...sharedNodeOptions,
     })
 

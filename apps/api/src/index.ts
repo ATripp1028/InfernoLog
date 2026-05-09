@@ -4,6 +4,7 @@ import { handle } from 'hono/aws-lambda'
 import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
 import meRoutes from './routes/me'
+import authRoutes from './routes/auth'
 import type { HonoVariables } from './types/hono'
 import prisma from './utils/prisma'
 
@@ -17,6 +18,7 @@ app.use('*', async (c, next) => {
 
 // Public routes
 app.get('/health', (c) => c.json({ status: 'ok', app: 'InfernoLog' }))
+app.route('/auth', authRoutes)
 
 // Public user routes
 app.get('/v1/users/check-username', async (c) => {
