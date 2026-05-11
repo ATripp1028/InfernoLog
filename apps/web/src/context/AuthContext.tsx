@@ -8,6 +8,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   isAuthInitializing: boolean
   signIn: () => void
+  signInWithDiscord: () => Promise<void>
   signOut: () => void
   getIdToken: () => Promise<string>
 }
@@ -58,11 +59,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignIn = () => signInWithRedirect({ provider: 'Google' })
   const handleSignOut = () => signOut()
 
+  const handleSignInWithDiscord = async () => {
+    const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/discord`, {
+      credentials: 'include',
+    })
+    if (!res.ok) throw new Error('Failed to start Discord sign-in')
+    const { url } = (await res.json()) as { url: string }
+    window.location.href = url
+  }
+
   return (
     <AuthContext.Provider value={{
       isAuthenticated,
       isAuthInitializing,
       signIn: handleSignIn,
+      signInWithDiscord: handleSignInWithDiscord,
       signOut: handleSignOut,
       getIdToken,
     }}>

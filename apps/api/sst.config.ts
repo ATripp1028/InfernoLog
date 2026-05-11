@@ -24,7 +24,7 @@ export default $config({
     const GOOGLE_CLIENT_SECRET = new sst.Secret("GOOGLE_CLIENT_SECRET");
     const DISCORD_CLIENT_ID = new sst.Secret("DISCORD_CLIENT_ID");
     const DISCORD_CLIENT_SECRET = new sst.Secret("DISCORD_CLIENT_SECRET");
-    const DISCORD_JWT_SECRET = new sst.Secret("DISCORD_JWT_SECRET");
+    const COGNITO_CUSTOM_AUTH_SECRET = new sst.Secret("COGNITO_CUSTOM_AUTH_SECRET");
 
 
     // Shared options for all Lambda functions
@@ -55,6 +55,19 @@ export default $config({
             SENTRY_DSN: SENTRY_DSN.value,
           },
           ...sharedNodeOptions,
+        },
+        defineAuthChallenge: {
+          handler: "src/triggers/defineAuthChallenge.handler",
+        },
+        createAuthChallenge: {
+          handler: "src/triggers/createAuthChallenge.handler",
+        },
+        verifyAuthChallengeResponse: {
+          handler: "src/triggers/verifyAuthChallenge.handler",
+          link: [COGNITO_CUSTOM_AUTH_SECRET],
+          environment: {
+            COGNITO_CUSTOM_AUTH_SECRET: COGNITO_CUSTOM_AUTH_SECRET.value,
+          },
         },
       },
     });
@@ -105,7 +118,7 @@ export default $config({
         ],
         defaultRedirectUri: "http://localhost:5173/auth/callback",
         supportedIdentityProviders: ["Google", "COGNITO"],
-        explicitAuthFlows: ["ALLOW_REFRESH_TOKEN_AUTH"],
+        explicitAuthFlows: ["ALLOW_REFRESH_TOKEN_AUTH", "ALLOW_CUSTOM_AUTH"],
       },
       { dependsOn: [googleProvider] }
     );
@@ -118,9 +131,10 @@ export default $config({
         allowOrigins:
           $app.stage === "production"
             ? ["https://infernolog.com"]
-            : ["http://localhost:5173", "*"],
+            : ["http://localhost:5173"],
         allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowHeaders: ["Content-Type", "Authorization"],
+        allowCredentials: true,
       },
       domain:
         $app.stage === "production"
@@ -131,6 +145,21 @@ export default $config({
           : undefined,
     });
 
+    // ─────────────────────────────────────────────
+    // API Gateway JWT authorizer — validates Cognito-issued tokens
+    // before invoking the Lambda. Routes that opt in via `auth: { jwt: ... }`
+    // get verified claims at event.requestContext.authorizer.jwt.claims.
+    // ─────────────────────────────────────────────
+    const jwtAuthorizer = api.addAuthorizer({
+      name: "CognitoJwt",
+      jwt: {
+        issuer: $interpolate`https://cognito-idp.us-east-1.amazonaws.com/${userPool.id}`,
+        audiences: [userPoolClient.id],
+      },
+    });
+
+    const jwtAuth = { jwt: { authorizer: jwtAuthorizer.id } };
+
     // Shared environment for all API Lambda functions
     const sharedEnvironment = {
       DATABASE_URL: DATABASE_URL.value,
@@ -138,7 +167,6 @@ export default $config({
       COGNITO_USER_POOL_ID: userPool.id,
       COGNITO_CLIENT_ID: userPoolClient.id,
       SENTRY_DSN: SENTRY_DSN.value,
-      DISCORD_JWT_SECRET: DISCORD_JWT_SECRET.value,
       NODE_OPTIONS: "--import @sentry/aws-serverless/awslambda-auto"
     };
 
@@ -147,7 +175,6 @@ export default $config({
       DATABASE_URL,
       DATABASE_URL_DIRECT,
       SENTRY_DSN,
-      DISCORD_JWT_SECRET,
       userPool,
       userPoolClient,
     ];
@@ -164,14 +191,21 @@ export default $config({
       link: sharedLinks,
       environment: sharedEnvironment,
       ...sharedNodeOptions,
-    })
+    }, { auth: jwtAuth })
 
     api.route("POST /v1/me/onboarding", {
       handler: "src/index.handler",
       link: sharedLinks,
       environment: sharedEnvironment,
       ...sharedNodeOptions
-    })
+    }, { auth: jwtAuth })
+
+    api.route("POST /v1/me/link-discord", {
+      handler: "src/index.handler",
+      link: sharedLinks,
+      environment: { ...sharedEnvironment, DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value },
+      ...sharedNodeOptions,
+    }, { auth: jwtAuth })
 
     api.route("GET /v1/users/check-username", {
       handler: "src/index.handler",
@@ -184,23 +218,42 @@ export default $config({
       ...sharedEnvironment,
       DISCORD_CLIENT_ID: DISCORD_CLIENT_ID.value,
       DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value,
+      COGNITO_CUSTOM_AUTH_SECRET: COGNITO_CUSTOM_AUTH_SECRET.value,
       DISCORD_REDIRECT_URI: $app.stage === "production"
         ? "https://api.infernolog.com/auth/discord/callback"
         : "https://6jeoegiga7.execute-api.us-east-1.amazonaws.com/auth/discord/callback",
       FRONTEND_URL: $app.stage === "production" ? "https://infernolog.com" : "http://localhost:5173",
     };
 
+    const discordLinks = [...sharedLinks, COGNITO_CUSTOM_AUTH_SECRET];
+
+    // Discord callback needs admin Cognito access to create/look-up users
+    // and run the custom auth flow.
+    const cognitoAdminPermissions = [
+      {
+        actions: [
+          "cognito-idp:AdminGetUser",
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminSetUserPassword",
+          "cognito-idp:AdminInitiateAuth",
+          "cognito-idp:AdminRespondToAuthChallenge",
+        ],
+        resources: [userPool.arn],
+      },
+    ];
+
     api.route("GET /auth/discord", {
       handler: "src/index.handler",
-      link: sharedLinks,
+      link: discordLinks,
       environment: discordEnvironment,
       ...sharedNodeOptions,
     })
 
     api.route("GET /auth/discord/callback", {
       handler: "src/index.handler",
-      link: sharedLinks,
+      link: discordLinks,
       environment: discordEnvironment,
+      permissions: cognitoAdminPermissions,
       ...sharedNodeOptions,
     })
 

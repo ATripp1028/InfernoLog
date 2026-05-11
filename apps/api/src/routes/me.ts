@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
 import { logger } from '../utils/logger'
+import { verifyDiscordLinkToken } from './auth'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -111,6 +112,64 @@ app.post('/me/onboarding', async (c) => {
     return c.json({ data: updated })
   } catch (error) {
     console.error('POST /me/onboarding error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/link-discord
+// Called by the frontend after a user signs in with Google in response to
+// a Discord email-collision redirect. Confirms ownership of BOTH accounts
+// before writing the link.
+app.post('/me/link-discord', async (c) => {
+  const userId = c.get('userId') as string
+  const userEmail = c.get('userEmail') as string
+
+  try {
+    const body = await c.req.json().catch(() => null) as { token?: unknown } | null
+    if (!body || typeof body.token !== 'string') {
+      return c.json({ error: 'Missing token' }, 400)
+    }
+
+    const payload = verifyDiscordLinkToken(body.token)
+    if (!payload) return c.json({ error: 'Invalid or expired link token' }, 400)
+
+    // Token email must match the email of the user who is currently signed
+    // in. This is what makes the linking safe: the link token proves Discord
+    // ownership, the Cognito JWT proves Google ownership, and the email match
+    // ensures both halves describe the same identity.
+    if (payload.email.toLowerCase() !== userEmail.toLowerCase()) {
+      logger.warn({ userId, tokenEmail: payload.email }, 'Link token email mismatch')
+      return c.json({ error: 'Email does not match the signed-in account' }, 403)
+    }
+
+    // Refuse to overwrite an existing different linkage.
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { discordId: true },
+    })
+    if (existing?.discordId && existing.discordId !== payload.discordId) {
+      return c.json({ error: 'Account already has a different Discord linked' }, 409)
+    }
+
+    // Also refuse if the Discord ID is already attached to a different user.
+    const owner = await prisma.user.findUnique({
+      where: { discordId: payload.discordId },
+      select: { id: true },
+    })
+    if (owner && owner.id !== userId) {
+      return c.json({ error: 'This Discord account is linked to a different user' }, 409)
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { discordId: payload.discordId },
+    })
+
+    logger.info({ userId, discordId: payload.discordId }, 'Linked Discord to account')
+    return c.json({ data: { linked: true } })
+  } catch (error) {
+    console.error('POST /me/link-discord error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

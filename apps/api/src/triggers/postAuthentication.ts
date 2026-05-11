@@ -7,34 +7,21 @@ import prisma from '../utils/prisma'
 import * as Sentry from '@sentry/node'
 
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
-  console.log('postAuthentication event:', JSON.stringify(event, null, 2))
-  console.log('userAttributes:', JSON.stringify(event.request.userAttributes, null, 2))
+  const { email, sub } = event.request.userAttributes
+  const discordId = event.request.clientMetadata?.discordId
 
-  console.log('Environment variables:', {
-    DATABASE_URL: process.env.DATABASE_URL ? 'SET' : 'NOT SET',
-    DATABASE_URL_DIRECT: process.env.DATABASE_URL_DIRECT ? 'SET' : 'NOT SET',
-    NODE_ENV: process.env.NODE_ENV,
-    PWD: process.env.PWD,
-  })
-
-  const { email, name, sub } = event.request.userAttributes
-
-  console.log('Extracted values:', { email, name, sub })
+  if (!email || !sub) return event
 
   try {
-    const existing = await prisma.user.findUnique({
-      where: { email: email! },
-    })
-
-    console.log('Existing user:', existing)
+    const existing = await prisma.user.findUnique({ where: { email } })
 
     if (!existing) {
-      console.log('Creating new user...')
-      const created = await prisma.user.create({
+      await prisma.user.create({
         data: {
-          email: email!,
-          username: email!.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
-          googleId: sub!,
+          email,
+          username: email.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
+          cognitoSub: sub,
+          discordId: discordId ?? null,
           ratingCategories: {
             create: [
               { name: 'Gameplay', weight: 0.6, sortOrder: 0 },
@@ -51,14 +38,19 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
           },
         },
       })
-      console.log('User created:', JSON.stringify(created, null, 2))
     } else {
-      console.log('User already exists, skipping creation')
+      // Backfill cognitoSub for existing users (e.g. migrating from older schema)
+      // and link discordId if Cognito knows it but our row doesn't.
+      const updates: { cognitoSub?: string; discordId?: string } = {}
+      if (!existing.cognitoSub) updates.cognitoSub = sub
+      if (discordId && !existing.discordId) updates.discordId = discordId
+      if (Object.keys(updates).length > 0) {
+        await prisma.user.update({ where: { id: existing.id }, data: updates })
+      }
     }
   } catch (error) {
     Sentry.captureException(error)
-    console.error('Database error:', error)
-    console.error('Error details:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2))
+    console.error('postAuthentication error:', error)
   }
 
   return event

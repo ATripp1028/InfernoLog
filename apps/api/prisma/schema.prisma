@@ -114,7 +114,7 @@ model User {
   previousUsername      String?
   email                 String               @unique
   discordId             String?              @unique
-  googleId              String?              @unique
+  cognitoSub            String?              @unique
   onboardingCompleted   Boolean              @default(false)
 
   // Privacy
