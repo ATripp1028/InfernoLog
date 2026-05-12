@@ -76,7 +76,9 @@ export function useDisconnectDiscord() {
       if (!res.ok) throw new ApiError(res.status, 'Failed to disconnect Discord')
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: meQueryKey })
+      queryClient.setQueryData<MeData>(meQueryKey, (old) =>
+        old ? { ...old, discordId: null } : old
+      )
     },
   })
 }

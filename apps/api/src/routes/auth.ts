@@ -103,7 +103,9 @@ app.get('/discord/callback', async (c) => {
     }
 
     logger.info({ userId: payload.userId }, 'Discord connected')
-    return c.redirect(`${frontendUrl}/settings?discord=connected`)
+    return c.redirect(
+      `${frontendUrl}/settings?discord=connected&discordId=${encodeURIComponent(discordUser.id)}`
+    )
   } catch (err) {
     logger.error({ err }, 'Discord callback error')
     Sentry.captureException(err)

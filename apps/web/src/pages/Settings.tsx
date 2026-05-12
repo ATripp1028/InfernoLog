@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { meQueryKey, useConnectDiscord, useDisconnectDiscord, useMe } from '@/lib/api/me'
+import { meQueryKey, useConnectDiscord, useDisconnectDiscord, useMe, type MeData } from '@/lib/api/me'
 
 const DISCORD_BANNER_TIMEOUT_MS = 5000
 
@@ -11,6 +11,7 @@ export function Settings() {
   const disconnect = useDisconnectDiscord()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
+    discordId?: string
     reason?: string
   }
   const navigate = useNavigate()
@@ -21,15 +22,20 @@ export function Settings() {
     if (!search.discord) return
     if (search.discord === 'connected') {
       setBanner({ kind: 'success', message: 'Discord account connected.' })
-      // The me query is cached from before the round-trip and won't see the
-      // new discordId until invalidated.
-      void queryClient.invalidateQueries({ queryKey: meQueryKey })
+      // Patch the me cache directly with the new discordId — no need to
+      // refetch the whole user object for a single-field change.
+      if (search.discordId) {
+        const newDiscordId = search.discordId
+        queryClient.setQueryData<MeData>(meQueryKey, (old) =>
+          old ? { ...old, discordId: newDiscordId } : old
+        )
+      }
     } else if (search.discord === 'error') {
       setBanner({ kind: 'error', message: discordErrorMessage(search.reason) })
     }
     // Strip the params from the URL so the banner doesn't reappear on refresh.
     void navigate({ to: '/settings', replace: true, search: {} })
-  }, [search.discord, search.reason, navigate, queryClient])
+  }, [search.discord, search.discordId, search.reason, navigate, queryClient])
 
   useEffect(() => {
     if (!banner) return
