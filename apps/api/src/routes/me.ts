@@ -1,9 +1,10 @@
 import { Hono } from 'hono'
+import { randomBytes } from 'crypto'
 import prisma from '../utils/prisma'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
 import { logger } from '../utils/logger'
-import { verifyDiscordLinkToken } from './auth'
+import { mintConnectDiscordState } from './auth'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -41,6 +42,7 @@ app.get('/me', async (c) => {
         id: true,
         username: true,
         email: true,
+        discordId: true,
         profilePublic: true,
         discordPublic: true,
         ratingMode: true,
@@ -117,59 +119,45 @@ app.post('/me/onboarding', async (c) => {
   }
 })
 
-// POST /v1/me/link-discord
-// Called by the frontend after a user signs in with Google in response to
-// a Discord email-collision redirect. Confirms ownership of BOTH accounts
-// before writing the link.
-app.post('/me/link-discord', async (c) => {
+// POST /v1/me/connect-discord
+// Returns a Discord OAuth URL with a signed state encoding the signed-in
+// user's id. The browser navigates to that URL; Discord redirects back to the
+// public callback in auth.ts, which validates the state and writes discordId.
+app.post('/me/connect-discord', async (c) => {
   const userId = c.get('userId') as string
-  const userEmail = c.get('userEmail') as string
 
   try {
-    const body = await c.req.json().catch(() => null) as { token?: unknown } | null
-    if (!body || typeof body.token !== 'string') {
-      return c.json({ error: 'Missing token' }, 400)
-    }
+    const nonce = randomBytes(16).toString('hex')
+    const state = mintConnectDiscordState(userId, nonce)
 
-    const payload = verifyDiscordLinkToken(body.token)
-    if (!payload) return c.json({ error: 'Invalid or expired link token' }, 400)
+    const authUrl = new URL('https://discord.com/api/oauth2/authorize')
+    authUrl.searchParams.set('client_id', process.env.DISCORD_CLIENT_ID!)
+    authUrl.searchParams.set('redirect_uri', process.env.DISCORD_REDIRECT_URI!)
+    authUrl.searchParams.set('response_type', 'code')
+    authUrl.searchParams.set('scope', 'identify email')
+    authUrl.searchParams.set('state', state)
 
-    // Token email must match the email of the user who is currently signed
-    // in. This is what makes the linking safe: the link token proves Discord
-    // ownership, the Cognito JWT proves Google ownership, and the email match
-    // ensures both halves describe the same identity.
-    if (payload.email.toLowerCase() !== userEmail.toLowerCase()) {
-      logger.warn({ userId, tokenEmail: payload.email }, 'Link token email mismatch')
-      return c.json({ error: 'Email does not match the signed-in account' }, 403)
-    }
+    return c.json({ data: { url: authUrl.toString() } })
+  } catch (error) {
+    console.error('POST /me/connect-discord error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
 
-    // Refuse to overwrite an existing different linkage.
-    const existing = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { discordId: true },
-    })
-    if (existing?.discordId && existing.discordId !== payload.discordId) {
-      return c.json({ error: 'Account already has a different Discord linked' }, 409)
-    }
+// DELETE /v1/me/connect-discord
+app.delete('/me/connect-discord', async (c) => {
+  const userId = c.get('userId') as string
 
-    // Also refuse if the Discord ID is already attached to a different user.
-    const owner = await prisma.user.findUnique({
-      where: { discordId: payload.discordId },
-      select: { id: true },
-    })
-    if (owner && owner.id !== userId) {
-      return c.json({ error: 'This Discord account is linked to a different user' }, 409)
-    }
-
+  try {
     await prisma.user.update({
       where: { id: userId },
-      data: { discordId: payload.discordId },
+      data: { discordId: null },
     })
-
-    logger.info({ userId, discordId: payload.discordId }, 'Linked Discord to account')
-    return c.json({ data: { linked: true } })
+    logger.info({ userId }, 'Disconnected Discord from account')
+    return c.json({ data: { disconnected: true } })
   } catch (error) {
-    console.error('POST /me/link-discord error:', error)
+    console.error('DELETE /me/connect-discord error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

@@ -8,7 +8,6 @@ import * as Sentry from '@sentry/node'
 
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
   const { email, sub } = event.request.userAttributes
-  const discordId = event.request.clientMetadata?.discordId
 
   if (!email || !sub) return event
 
@@ -21,7 +20,6 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
           email,
           username: email.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
           cognitoSub: sub,
-          discordId: discordId ?? null,
           ratingCategories: {
             create: [
               { name: 'Gameplay', weight: 0.6, sortOrder: 0 },
@@ -38,15 +36,9 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
           },
         },
       })
-    } else {
-      // Backfill cognitoSub for existing users (e.g. migrating from older schema)
-      // and link discordId if Cognito knows it but our row doesn't.
-      const updates: { cognitoSub?: string; discordId?: string } = {}
-      if (!existing.cognitoSub) updates.cognitoSub = sub
-      if (discordId && !existing.discordId) updates.discordId = discordId
-      if (Object.keys(updates).length > 0) {
-        await prisma.user.update({ where: { id: existing.id }, data: updates })
-      }
+    } else if (!existing.cognitoSub) {
+      // Backfill cognitoSub for users from the pre-rename schema.
+      await prisma.user.update({ where: { id: existing.id }, data: { cognitoSub: sub } })
     }
   } catch (error) {
     Sentry.captureException(error)

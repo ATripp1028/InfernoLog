@@ -9,7 +9,8 @@
     "remove:staging": "sst remove --stage staging",
     "build": "prisma generate && tsc --noEmit",
     "lint": "eslint src",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "export-sst-env": "bash export-sst-env.sh"
   },
   "type": "module",
   "dependencies": {
