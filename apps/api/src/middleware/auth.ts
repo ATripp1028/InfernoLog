@@ -12,7 +12,11 @@ type JwtClaims = {
 
 export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
   async (c, next) => {
-    const requestContext = (c.env as { requestContext?: { authorizer?: { jwt?: { claims?: JwtClaims } } } } | undefined)?.requestContext
+    const requestContext = (
+      c.env as
+        | { requestContext?: { authorizer?: { jwt?: { claims?: JwtClaims } } } }
+        | undefined
+    )?.requestContext
     const claims = requestContext?.authorizer?.jwt?.claims
 
     if (!claims?.sub) {

@@ -13,7 +13,8 @@ export const Route = createFileRoute('/_authenticated/settings')({
       search.discord === 'connected' || search.discord === 'error'
         ? search.discord
         : undefined,
-    discordId: typeof search.discordId === 'string' ? search.discordId : undefined,
+    discordId:
+      typeof search.discordId === 'string' ? search.discordId : undefined,
     reason: typeof search.reason === 'string' ? search.reason : undefined,
   }),
   component: Settings,

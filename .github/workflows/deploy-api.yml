@@ -45,7 +45,7 @@ jobs:
       - name: Generate Prisma Client
         working-directory: apps/api
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
         run: npx prisma generate
 
       - name: Apply Prisma migrations

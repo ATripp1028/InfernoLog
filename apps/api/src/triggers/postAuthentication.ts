@@ -18,7 +18,8 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
       await prisma.user.create({
         data: {
           email,
-          username: email.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
+          username:
+            email.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
           cognitoSub: sub,
           ratingCategories: {
             create: [
@@ -38,7 +39,10 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
       })
     } else if (!existing.cognitoSub) {
       // Backfill cognitoSub for users from the pre-rename schema.
-      await prisma.user.update({ where: { id: existing.id }, data: { cognitoSub: sub } })
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: { cognitoSub: sub },
+      })
     }
   } catch (error) {
     Sentry.captureException(error)

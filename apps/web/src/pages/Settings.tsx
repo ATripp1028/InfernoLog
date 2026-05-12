@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useSearch, useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { meQueryKey, useConnectDiscord, useDisconnectDiscord, useMe, type MeData } from '@/lib/api/me'
+import {
+  meQueryKey,
+  useConnectDiscord,
+  useDisconnectDiscord,
+  useMe,
+  type MeData,
+} from '@/lib/api/me'
 
 const DISCORD_BANNER_TIMEOUT_MS = 5000
 
@@ -16,7 +22,10 @@ export function Settings() {
   }
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [banner, setBanner] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
+  const [banner, setBanner] = useState<{
+    kind: 'success' | 'error'
+    message: string
+  } | null>(null)
 
   useEffect(() => {
     if (!search.discord) return
@@ -50,7 +59,10 @@ export function Settings() {
     } catch (err) {
       setBanner({
         kind: 'error',
-        message: err instanceof Error ? err.message : 'Failed to start Discord connection',
+        message:
+          err instanceof Error
+            ? err.message
+            : 'Failed to start Discord connection',
       })
     }
   }
@@ -62,7 +74,8 @@ export function Settings() {
     } catch (err) {
       setBanner({
         kind: 'error',
-        message: err instanceof Error ? err.message : 'Failed to disconnect Discord',
+        message:
+          err instanceof Error ? err.message : 'Failed to disconnect Discord',
       })
     }
   }
@@ -91,12 +104,24 @@ export function Settings() {
 
       <section className="mt-8">
         <h2 className="text-lg font-semibold">Connected accounts</h2>
-        <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            marginTop: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
           <span style={{ minWidth: 100 }}>Discord</span>
           {discordId ? (
             <>
-              <span className="text-text-secondary">Connected ({discordId})</span>
-              <button onClick={handleDisconnect} disabled={disconnect.isPending}>
+              <span className="text-text-secondary">
+                Connected ({discordId})
+              </span>
+              <button
+                onClick={handleDisconnect}
+                disabled={disconnect.isPending}
+              >
                 {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
               </button>
             </>

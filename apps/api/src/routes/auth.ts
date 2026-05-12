@@ -28,7 +28,9 @@ export function mintConnectDiscordState(userId: string, nonce: string): string {
   return `${body}.${sig}`
 }
 
-export function verifyConnectDiscordState(state: string): ConnectStatePayload | null {
+export function verifyConnectDiscordState(
+  state: string
+): ConnectStatePayload | null {
   const parts = state.split('.')
   if (parts.length !== 4) return null
   const [nonce, userId, expStr, sig] = parts as [string, string, string, string]
@@ -71,7 +73,10 @@ app.get('/discord/callback', async (c) => {
     })
     if (!tokenRes.ok) {
       const body = await tokenRes.text()
-      logger.error({ status: tokenRes.status, body }, 'Discord token exchange failed')
+      logger.error(
+        { status: tokenRes.status, body },
+        'Discord token exchange failed'
+      )
       return fail('token_exchange_failed')
     }
     const { access_token } = (await tokenRes.json()) as { access_token: string }
@@ -92,7 +97,10 @@ app.get('/discord/callback', async (c) => {
       })
     } catch (err) {
       // P2002: the discordId is already attached to a different user.
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
         logger.warn(
           { userId: payload.userId, discordId: discordUser.id },
           'Discord account already linked to another user'
