@@ -2,7 +2,7 @@
 
 ## Auth Provider
 
-**AWS Cognito** handles all authentication. Google and Discord are configured as federated identity providers. Users can link both to a single InfernoLog account after initial registration.
+**AWS Cognito** handles all authentication. Google is configured as afederated identity provider.
 
 All auth flows go through Cognito. The backend validates Cognito-issued JWTs on every request. The frontend never handles passwords or OAuth tokens directly.
 
@@ -10,7 +10,7 @@ All auth flows go through Cognito. The backend validates Cognito-issued JWTs on 
 
 ## Registration & Linking
 
-1. User signs in with Google or Discord via Cognito hosted UI
+1. User signs in with Google
 2. On first sign-in, a User record is created in the InfernoLog database
 3. After account creation, users can link the other provider (Google or Discord) from their settings page under a "Connected Accounts" panel
 4. Discord visibility is independently togglable (public by default)

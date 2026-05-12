@@ -1,47 +1,40 @@
 import { createMiddleware } from 'hono/factory'
-import { CognitoJwtVerifier } from 'aws-jwt-verify'
 import * as Sentry from '@sentry/node'
 import prisma from '../utils/prisma'
 import type { HonoVariables } from '../types/hono'
 
-const verifier = CognitoJwtVerifier.create({
-  userPoolId: process.env.COGNITO_USER_POOL_ID!,
-  tokenUse: 'id',
-  clientId: process.env.COGNITO_CLIENT_ID!,
-})
+// API Gateway V2 JWT-authorizer-shape claims. Hono types this as `unknown`
+// because it only models the IAM authorizer in its built-in type.
+type JwtClaims = {
+  sub: string
+  email?: string
+}
 
 export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
   async (c, next) => {
-    const authorization = c.req.header('Authorization')
+    const requestContext = (
+      c.env as
+        | { requestContext?: { authorizer?: { jwt?: { claims?: JwtClaims } } } }
+        | undefined
+    )?.requestContext
+    const claims = requestContext?.authorizer?.jwt?.claims
 
-    if (!authorization?.startsWith('Bearer ')) {
+    if (!claims?.sub) {
+      // The JWT authorizer should have rejected this before we ran. If we
+      // got here without claims, something is misconfigured.
+      Sentry.captureMessage('authMiddleware ran without verified JWT claims')
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const token = authorization.slice(7)
+    const user = await prisma.user.findUnique({
+      where: { cognitoSub: claims.sub },
+      select: { id: true, email: true },
+    })
+    if (!user) return c.json({ error: 'User not found' }, 404)
 
-    try {
-      const payload = await verifier.verify(token)
-      const cognitoSub = payload.sub
-      const userEmail = payload.email as string
+    c.set('userId', user.id)
+    c.set('userEmail', claims.email ?? user.email)
 
-      const user = await prisma.user.findFirst({
-        where: { googleId: cognitoSub },
-        select: { id: true },
-      })
-
-      if (!user) {
-        return c.json({ error: 'User not found' }, 404)
-      }
-
-      // Set internal UUID as userId — all routes use this
-      c.set('userId', user.id)
-      c.set('userEmail', userEmail)
-
-      await next()
-    } catch (err) {
-      Sentry.captureException(err)
-      return c.json({ error: 'Authentication failed' }, 401)
-    }
+    await next()
   }
 )

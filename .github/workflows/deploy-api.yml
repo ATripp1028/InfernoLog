@@ -14,6 +14,10 @@ on:
         required: true
       AWS_SECRET_ACCESS_KEY:
         required: true
+      DATABASE_URL:
+        required: true
+      DATABASE_URL_DIRECT:
+        required: true
 
 permissions:
   contents: read
@@ -41,8 +45,15 @@ jobs:
       - name: Generate Prisma Client
         working-directory: apps/api
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
         run: npx prisma generate
+
+      - name: Apply Prisma migrations
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DATABASE_URL_DIRECT: ${{ secrets.DATABASE_URL_DIRECT }}
+        run: npx prisma migrate deploy
 
       - name: Deploy API
         working-directory: apps/api

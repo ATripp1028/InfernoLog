@@ -3,25 +3,27 @@
 export default $config({
   app(input) {
     return {
-      name: "infernolog",
-      removal: input?.stage === "production" ? "retain" : "remove",
-      home: "aws",
+      name: 'infernolog',
+      removal: input?.stage === 'production' ? 'retain' : 'remove',
+      home: 'aws',
       providers: {
         aws: {
-          region: "us-east-1",
+          region: 'us-east-1',
         },
       },
-    };
+    }
   },
   async run() {
     // ─────────────────────────────────────────────
     // SECRETS
     // ─────────────────────────────────────────────
-    const DATABASE_URL = new sst.Secret("DATABASE_URL");
-    const DATABASE_URL_DIRECT = new sst.Secret("DATABASE_URL_DIRECT");
-    const SENTRY_DSN = new sst.Secret("SENTRY_DSN");
-    const GOOGLE_CLIENT_ID = new sst.Secret("GOOGLE_CLIENT_ID");
-    const GOOGLE_CLIENT_SECRET = new sst.Secret("GOOGLE_CLIENT_SECRET");
+    const DATABASE_URL = new sst.Secret('DATABASE_URL')
+    const DATABASE_URL_DIRECT = new sst.Secret('DATABASE_URL_DIRECT')
+    const SENTRY_DSN = new sst.Secret('SENTRY_DSN')
+    const GOOGLE_CLIENT_ID = new sst.Secret('GOOGLE_CLIENT_ID')
+    const GOOGLE_CLIENT_SECRET = new sst.Secret('GOOGLE_CLIENT_SECRET')
+    const DISCORD_CLIENT_ID = new sst.Secret('DISCORD_CLIENT_ID')
+    const DISCORD_CLIENT_SECRET = new sst.Secret('DISCORD_CLIENT_SECRET')
 
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
@@ -30,20 +32,20 @@ export default $config({
       },
       copyFiles: [
         {
-          from: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
-          to: "node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node",
+          from: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
+          to: 'node_modules/.prisma/client/libquery_engine-rhel-openssl-3.0.x.so.node',
         },
       ],
-    };
+    }
 
     // ─────────────────────────────────────────────
     // AUTH — Cognito User Pool
     // ─────────────────────────────────────────────
-    const userPool = new sst.aws.CognitoUserPool("InfernoLogUserPool", {
-      usernames: ["email"],
+    const userPool = new sst.aws.CognitoUserPool('InfernoLogUserPool', {
+      usernames: ['email'],
       triggers: {
         postAuthentication: {
-          handler: "src/triggers/postAuthentication.handler",
+          handler: 'src/triggers/postAuthentication.handler',
           link: [DATABASE_URL, DATABASE_URL_DIRECT, SENTRY_DSN],
           environment: {
             DATABASE_URL: DATABASE_URL.value,
@@ -53,79 +55,96 @@ export default $config({
           ...sharedNodeOptions,
         },
       },
-    });
+    })
 
-    new aws.cognito.UserPoolDomain("InfernoLogDomain", {
-      domain: $app.stage === "production" ? "infernolog" : `infernolog-${$app.stage}`,
+    new aws.cognito.UserPoolDomain('InfernoLogDomain', {
+      domain:
+        $app.stage === 'production' ? 'infernolog' : `infernolog-${$app.stage}`,
       userPoolId: userPool.id,
-    });
+    })
 
-    const googleProvider = new aws.cognito.IdentityProvider("GoogleProvider", {
+    const googleProvider = new aws.cognito.IdentityProvider('GoogleProvider', {
       userPoolId: userPool.id,
-      providerName: "Google",
-      providerType: "Google",
+      providerName: 'Google',
+      providerType: 'Google',
       providerDetails: {
         client_id: GOOGLE_CLIENT_ID.value,
         client_secret: GOOGLE_CLIENT_SECRET.value,
-        authorize_scopes: "email openid profile",
+        authorize_scopes: 'email openid profile',
       },
       attributeMapping: {
-        email: "email",
-        name: "name",
-        username: "sub",
+        email: 'email',
+        name: 'name',
+        username: 'sub',
       },
-    });
+    })
 
     const userPoolClient = new aws.cognito.UserPoolClient(
-      "InfernoLogWebClient",
+      'InfernoLogWebClient',
       {
-        name: "InfernoLogWebClient",
+        name: 'InfernoLogWebClient',
         userPoolId: userPool.id,
         generateSecret: false,
-        allowedOauthFlows: ["code"],
+        allowedOauthFlows: ['code'],
         allowedOauthFlowsUserPoolClient: true,
-        allowedOauthScopes: ["email", "openid", "profile"],
+        allowedOauthScopes: ['email', 'openid', 'profile'],
         callbackUrls: [
-          "http://localhost:5173/auth/callback",
-          "https://infernolog.com/auth/callback",
-          ...$app.stage !== "production" && $app.stage !== "alextripp"
+          'http://localhost:5173/auth/callback',
+          'https://infernolog.com/auth/callback',
+          ...($app.stage !== 'production' && $app.stage !== 'alextripp'
             ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
-            : [],
+            : []),
         ],
         logoutUrls: [
-          "http://localhost:5173",
-          "https://infernolog.com",
-          ...$app.stage !== "production" && $app.stage !== "alextripp"
+          'http://localhost:5173',
+          'https://infernolog.com',
+          ...($app.stage !== 'production' && $app.stage !== 'alextripp'
             ? [`https://d1r4gy6uhfg2w9.cloudfront.net`]
-            : [],
+            : []),
         ],
-        defaultRedirectUri: "http://localhost:5173/auth/callback",
-        supportedIdentityProviders: ["Google", "COGNITO"],
-        explicitAuthFlows: ["ALLOW_REFRESH_TOKEN_AUTH"],
+        defaultRedirectUri: 'http://localhost:5173/auth/callback',
+        supportedIdentityProviders: ['Google', 'COGNITO'],
+        explicitAuthFlows: ['ALLOW_REFRESH_TOKEN_AUTH'],
       },
       { dependsOn: [googleProvider] }
-    );
+    )
 
     // ─────────────────────────────────────────────
     // API — API Gateway + Lambda
     // ─────────────────────────────────────────────
-    const api = new sst.aws.ApiGatewayV2("InfernoLogApi", {
+    const api = new sst.aws.ApiGatewayV2('InfernoLogApi', {
       cors: {
         allowOrigins:
-          $app.stage === "production"
-            ? ["https://infernolog.com"]
-            : ["http://localhost:5173", "*"],
-        allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-        allowHeaders: ["Content-Type", "Authorization"],
+          $app.stage === 'production'
+            ? ['https://infernolog.com']
+            : ['http://localhost:5173'],
+        allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowHeaders: ['Content-Type', 'Authorization'],
+        allowCredentials: true,
       },
       domain:
-        $app.stage === "production"
+        $app.stage === 'production'
           ? {
-              name: "api.infernolog.com",
+              name: 'api.infernolog.com',
               dns: sst.aws.dns(),
             }
           : undefined,
-    });
+    })
+
+    // ─────────────────────────────────────────────
+    // API Gateway JWT authorizer — validates Cognito-issued tokens
+    // before invoking the Lambda. Routes that opt in via `auth: { jwt: ... }`
+    // get verified claims at event.requestContext.authorizer.jwt.claims.
+    // ─────────────────────────────────────────────
+    const jwtAuthorizer = api.addAuthorizer({
+      name: 'CognitoJwt',
+      jwt: {
+        issuer: $interpolate`https://cognito-idp.us-east-1.amazonaws.com/${userPool.id}`,
+        audiences: [userPoolClient.id],
+      },
+    })
+
+    const jwtAuth = { jwt: { authorizer: jwtAuthorizer.id } }
 
     // Shared environment for all API Lambda functions
     const sharedEnvironment = {
@@ -134,8 +153,8 @@ export default $config({
       COGNITO_USER_POOL_ID: userPool.id,
       COGNITO_CLIENT_ID: userPoolClient.id,
       SENTRY_DSN: SENTRY_DSN.value,
-      NODE_OPTIONS: "--import @sentry/aws-serverless/awslambda-auto"
-    };
+      NODE_OPTIONS: '--import @sentry/aws-serverless/awslambda-auto',
+    }
 
     // Shared links for all API Lambda functions
     const sharedLinks = [
@@ -144,63 +163,119 @@ export default $config({
       SENTRY_DSN,
       userPool,
       userPoolClient,
-    ];
+    ]
 
-    api.route("GET /health", {
-      handler: "src/index.handler",
+    api.route('GET /health', {
+      handler: 'src/index.handler',
       link: sharedLinks,
       environment: sharedEnvironment,
       ...sharedNodeOptions,
     })
 
-    api.route("GET /v1/me", {
-      handler: "src/index.handler",
+    api.route(
+      'GET /v1/me',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    api.route(
+      'POST /v1/me/onboarding',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    api.route('GET /v1/users/check-username', {
+      handler: 'src/index.handler',
       link: sharedLinks,
       environment: sharedEnvironment,
       ...sharedNodeOptions,
     })
 
-    api.route("POST /v1/me/onboarding", {
-      handler: "src/index.handler",
-      link: sharedLinks,
-      environment: sharedEnvironment,
-      ...sharedNodeOptions
-    })
+    // Env vars used by the connect-Discord initiator + public callback.
+    // The signed `state` parameter ties the two together — no Cognito JWT
+    // is needed on the public callback because the userId is encoded in
+    // (and verified from) the state.
+    const discordEnvironment = {
+      ...sharedEnvironment,
+      DISCORD_CLIENT_ID: DISCORD_CLIENT_ID.value,
+      DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value,
+      DISCORD_REDIRECT_URI:
+        $app.stage === 'production'
+          ? 'https://api.infernolog.com/auth/discord/callback'
+          : 'https://6jeoegiga7.execute-api.us-east-1.amazonaws.com/auth/discord/callback',
+      FRONTEND_URL:
+        $app.stage === 'production'
+          ? 'https://infernolog.com'
+          : 'http://localhost:5173',
+    }
 
-    api.route("GET /v1/users/check-username", {
-      handler: "src/index.handler",
+    api.route(
+      'POST /v1/me/connect-discord',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: discordEnvironment,
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    api.route(
+      'DELETE /v1/me/connect-discord',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    api.route('GET /auth/discord/callback', {
+      handler: 'src/index.handler',
       link: sharedLinks,
-      environment: sharedEnvironment,
+      environment: discordEnvironment,
       ...sharedNodeOptions,
     })
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────
-    new aws.ssm.Parameter("SsmApiUrl", {
+    new aws.ssm.Parameter('SsmApiUrl', {
       name: `/infernolog/${$app.stage}/api-url`,
-      type: "String",
+      type: 'String',
       value: api.url,
     })
 
-    new aws.ssm.Parameter("SsmUserPoolId", {
+    new aws.ssm.Parameter('SsmUserPoolId', {
       name: `/infernolog/${$app.stage}/user-pool-id`,
-      type: "String",
+      type: 'String',
       value: userPool.id,
     })
 
-    new aws.ssm.Parameter("SsmUserPoolClientId", {
+    new aws.ssm.Parameter('SsmUserPoolClientId', {
       name: `/infernolog/${$app.stage}/user-pool-client-id`,
-      type: "String",
+      type: 'String',
       value: userPoolClient.id,
     })
 
-    new aws.ssm.Parameter("SsmCognitoDomain", {
+    new aws.ssm.Parameter('SsmCognitoDomain', {
       name: `/infernolog/${$app.stage}/cognito-domain`,
-      type: "String",
-      value: $app.stage === "production"
-        ? "infernolog.auth.us-east-1.amazoncognito.com"
-        : `infernolog-${$app.stage}.auth.us-east-1.amazoncognito.com`,
+      type: 'String',
+      value:
+        $app.stage === 'production'
+          ? 'infernolog.auth.us-east-1.amazoncognito.com'
+          : `infernolog-${$app.stage}.auth.us-east-1.amazoncognito.com`,
     })
 
     // ─────────────────────────────────────────────
@@ -210,6 +285,6 @@ export default $config({
       api: api.url,
       userPoolId: userPool.id,
       userPoolClientId: userPoolClient.id,
-    };
+    }
   },
-});
+})

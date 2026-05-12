@@ -55,7 +55,7 @@ Change in packages/core/ → rebuild both, deploy both
 - **SST (Serverless Stack)** — Lambda/API Gateway orchestration with TypeScript
 - **PostgreSQL (Neon)** — serverless Postgres database
 - **Prisma** — ORM with TypeScript-native schema
-- **AWS Cognito** — authentication (Google + Discord OAuth)
+- **AWS Cognito** — authentication (Google OAuth)
 - **AWS EventBridge Scheduler** — monthly level data sync job
 - **AWS CloudWatch** — logging and observability
 - **Sentry** — error tracking

@@ -56,7 +56,7 @@ Attempts represent cumulative attempts across all uploads and copies of the leve
 - Toggle to hide unrated from ranking view
 
 ### Auth & Accounts
-- Google OAuth + Discord OAuth via AWS Cognito
+- Google OAuth via AWS Cognito
 - Account linking (connect both to one account)
 - Username with 30-day cooldown, old username held
 - Public/private profile toggle
