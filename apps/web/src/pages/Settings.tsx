@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useSearch, useNavigate } from '@tanstack/react-router'
-import { useConnectDiscord, useDisconnectDiscord, useMe } from '@/lib/api/me'
+import { useQueryClient } from '@tanstack/react-query'
+import { meQueryKey, useConnectDiscord, useDisconnectDiscord, useMe } from '@/lib/api/me'
 
 const DISCORD_BANNER_TIMEOUT_MS = 5000
 
@@ -13,18 +14,22 @@ export function Settings() {
     reason?: string
   }
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [banner, setBanner] = useState<{ kind: 'success' | 'error'; message: string } | null>(null)
 
   useEffect(() => {
     if (!search.discord) return
     if (search.discord === 'connected') {
       setBanner({ kind: 'success', message: 'Discord account connected.' })
+      // The me query is cached from before the round-trip and won't see the
+      // new discordId until invalidated.
+      void queryClient.invalidateQueries({ queryKey: meQueryKey })
     } else if (search.discord === 'error') {
       setBanner({ kind: 'error', message: discordErrorMessage(search.reason) })
     }
     // Strip the params from the URL so the banner doesn't reappear on refresh.
     void navigate({ to: '/settings', replace: true, search: {} })
-  }, [search.discord, search.reason, navigate])
+  }, [search.discord, search.reason, navigate, queryClient])
 
   useEffect(() => {
     if (!banner) return
