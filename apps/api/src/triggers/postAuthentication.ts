@@ -1,4 +1,5 @@
 import * as dotenv from 'dotenv'
+import crypto from 'crypto'
 
 dotenv.config()
 
@@ -19,7 +20,7 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
         data: {
           email,
           username:
-            email.split('@')[0] + '_' + Math.random().toString(36).slice(2, 6),
+            email.split('@')[0] + '_' + crypto.randomBytes(4).toString('hex'),
           cognitoSub: sub,
           ratingCategories: {
             create: [
