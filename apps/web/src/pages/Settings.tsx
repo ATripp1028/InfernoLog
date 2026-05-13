@@ -49,7 +49,7 @@ export function Settings() {
       <header className="mb-8">
         <h1 className="text-3xl font-semibold text-foreground">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Manage your account, preferences, and ranking behaviour.
+          Manage your account, preferences, and ranking behavior.
         </p>
       </header>
 

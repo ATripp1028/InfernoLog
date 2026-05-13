@@ -101,10 +101,44 @@ export interface UpdateMeInput {
   enjoymentWeight?: number
 }
 
+// Rapid-fire mutations (toggles, selects, drag reorders) need three things to
+// avoid UI flicker AND server-side races when the user clicks quickly:
+//
+//   1. `scope: { id }` — TanStack Query serializes mutations sharing a scope,
+//      so PATCH requests fire one at a time. Without this, two PATCH bodies
+//      arrive at the API concurrently and can interleave at the DB; the row
+//      can end up in the older click's state regardless of network ordering.
+//
+//   2. No cache writes in `onSuccess`. The optimistic update applied in
+//      `onMutate` already reflects the user's latest intent. Writing the
+//      response body back here is incorrect when responses land out of order
+//      — an older response would overwrite a newer click's optimistic state.
+//
+//   3. `onSettled` invalidates `meQueryKey` only when the last queued mutation
+//      with the same key has settled. This refetches authoritative server
+//      state — important for fields the server derives (e.g. ratingCategories
+//      seeded on first WEIGHTED switch) — without thrashing during the queue.
+const UPDATE_ME_KEY = ['updateMe'] as const
+const UPDATE_LIST_PRIORITY_KEY = ['updateListPriority'] as const
+const UPDATE_CATEGORY_KEY = ['updateRatingCategory'] as const
+
+function isLastPending(
+  queryClient: ReturnType<typeof useQueryClient>,
+  mutationKey: readonly unknown[]
+): boolean {
+  // The current mutation is still counted while its callbacks run, so 1 means
+  // there's nothing queued behind us.
+  return (
+    queryClient.isMutating({ mutationKey: mutationKey as unknown[] }) === 1
+  )
+}
+
 export function useUpdateMe() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: UPDATE_ME_KEY,
+    scope: { id: 'updateMe' },
     mutationFn: async (input: UpdateMeInput): Promise<MeData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: MeData }>('/v1/me', {
@@ -115,9 +149,8 @@ export function useUpdateMe() {
       return data
     },
     onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: meQueryKey })
       const previous = queryClient.getQueryData<MeData>(meQueryKey)
-      // Optimistically apply scalar fields. Don't touch ratingCategories —
-      // those come back from the server (the seed step may have populated them).
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
         old ? { ...old, ...input } : old
       )
@@ -126,8 +159,12 @@ export function useUpdateMe() {
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(meQueryKey, data)
+    onSettled: () => {
+      // Refetch authoritative state only once the queue has drained.
+      if (isLastPending(queryClient, UPDATE_ME_KEY)) {
+        return queryClient.invalidateQueries({ queryKey: meQueryKey })
+      }
+      return undefined
     },
   })
 }
@@ -160,6 +197,8 @@ export function useUpdateListPriority() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: UPDATE_LIST_PRIORITY_KEY,
+    scope: { id: 'updateListPriority' },
     mutationFn: async (order: ListSource[]): Promise<MeData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: MeData }>(
@@ -169,6 +208,7 @@ export function useUpdateListPriority() {
       return data
     },
     onMutate: async (order) => {
+      await queryClient.cancelQueries({ queryKey: meQueryKey })
       const previous = queryClient.getQueryData<MeData>(meQueryKey)
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
         old ? { ...old, listPriorityOrder: order } : old
@@ -178,8 +218,11 @@ export function useUpdateListPriority() {
     onError: (_err, _order, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
-    onSuccess: (data) => {
-      queryClient.setQueryData(meQueryKey, data)
+    onSettled: () => {
+      if (isLastPending(queryClient, UPDATE_LIST_PRIORITY_KEY)) {
+        return queryClient.invalidateQueries({ queryKey: meQueryKey })
+      }
+      return undefined
     },
   })
 }
@@ -222,6 +265,8 @@ export function useUpdateRatingCategory() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: UPDATE_CATEGORY_KEY,
+    scope: { id: 'updateRatingCategory' },
     mutationFn: async (input: {
       id: string
       name?: string
@@ -236,6 +281,7 @@ export function useUpdateRatingCategory() {
       return data
     },
     onMutate: async (input) => {
+      await queryClient.cancelQueries({ queryKey: meQueryKey })
       const previous = queryClient.getQueryData<MeData>(meQueryKey)
       patchCategories(queryClient, (cats) =>
         cats.map((c) =>
@@ -255,10 +301,11 @@ export function useUpdateRatingCategory() {
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
-    onSuccess: (cat) => {
-      patchCategories(queryClient, (cats) =>
-        cats.map((c) => (c.id === cat.id ? cat : c))
-      )
+    onSettled: () => {
+      if (isLastPending(queryClient, UPDATE_CATEGORY_KEY)) {
+        return queryClient.invalidateQueries({ queryKey: meQueryKey })
+      }
+      return undefined
     },
   })
 }
