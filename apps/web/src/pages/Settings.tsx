@@ -1,20 +1,18 @@
-import { useEffect, useState } from 'react'
-import { useSearch, useNavigate } from '@tanstack/react-router'
+import { useEffect } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import {
-  meQueryKey,
-  useConnectDiscord,
-  useDisconnectDiscord,
-  useMe,
-  type MeData,
-} from '@/lib/api/me'
-
-const DISCORD_BANNER_TIMEOUT_MS = 5000
+import { toast } from '@/components/ui/sonner'
+import { PageLoading } from '@/components/PageLoading'
+import { meQueryKey, useMe, type MeData } from '@/lib/api/me'
+import { AccountSection } from '@/features/settings/sections/AccountSection'
+import { PrivacySection } from '@/features/settings/sections/PrivacySection'
+import { LoggingSection } from '@/features/settings/sections/LoggingSection'
+import { RatingSection } from '@/features/settings/sections/RatingSection'
+import { RankingSection } from '@/features/settings/sections/RankingSection'
+import { DesignSection } from '@/features/settings/sections/DesignSection'
 
 export function Settings() {
   const me = useMe()
-  const connect = useConnectDiscord()
-  const disconnect = useDisconnectDiscord()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
     discordId?: string
@@ -22,17 +20,14 @@ export function Settings() {
   }
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const [banner, setBanner] = useState<{
-    kind: 'success' | 'error'
-    message: string
-  } | null>(null)
 
+  // Handle the Discord OAuth callback redirect: surface the result as a toast
+  // and patch the cache with the new discordId. The URL params are then
+  // stripped so a refresh doesn't re-fire the toast.
   useEffect(() => {
     if (!search.discord) return
     if (search.discord === 'connected') {
-      setBanner({ kind: 'success', message: 'Discord account connected.' })
-      // Patch the me cache directly with the new discordId — no need to
-      // refetch the whole user object for a single-field change.
+      toast.success('Discord account connected')
       if (search.discordId) {
         const newDiscordId = search.discordId
         queryClient.setQueryData<MeData>(meQueryKey, (old) =>
@@ -40,98 +35,30 @@ export function Settings() {
         )
       }
     } else if (search.discord === 'error') {
-      setBanner({ kind: 'error', message: discordErrorMessage(search.reason) })
+      toast.error(discordErrorMessage(search.reason))
     }
-    // Strip the params from the URL so the banner doesn't reappear on refresh.
     void navigate({ to: '/settings', replace: true, search: {} })
   }, [search.discord, search.discordId, search.reason, navigate, queryClient])
 
-  useEffect(() => {
-    if (!banner) return
-    const t = setTimeout(() => setBanner(null), DISCORD_BANNER_TIMEOUT_MS)
-    return () => clearTimeout(t)
-  }, [banner])
-
-  const handleConnect = async () => {
-    try {
-      const { url } = await connect.mutateAsync()
-      window.location.href = url
-    } catch (err) {
-      setBanner({
-        kind: 'error',
-        message:
-          err instanceof Error
-            ? err.message
-            : 'Failed to start Discord connection',
-      })
-    }
+  if (!me.data) {
+    return <PageLoading />
   }
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect.mutateAsync()
-      setBanner({ kind: 'success', message: 'Discord account disconnected.' })
-    } catch (err) {
-      setBanner({
-        kind: 'error',
-        message:
-          err instanceof Error ? err.message : 'Failed to disconnect Discord',
-      })
-    }
-  }
-
-  const discordId = me.data?.discordId ?? null
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-semibold">Settings</h1>
-      <p className="mt-2 text-text-secondary">Manage your settings</p>
+    <div className="mx-auto max-w-3xl px-6 py-8">
+      <header className="mb-8">
+        <h1 className="text-3xl font-semibold text-foreground">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage your account, preferences, and ranking behaviour.
+        </p>
+      </header>
 
-      {banner && (
-        <div
-          role="status"
-          style={{
-            marginTop: 16,
-            padding: '8px 12px',
-            borderRadius: 6,
-            background: banner.kind === 'success' ? '#d1fae5' : '#fee2e2',
-            color: banner.kind === 'success' ? '#065f46' : '#991b1b',
-          }}
-        >
-          {banner.message}
-        </div>
-      )}
-
-      <section className="mt-8">
-        <h2 className="text-lg font-semibold">Connected accounts</h2>
-        <div
-          style={{
-            marginTop: 12,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-          }}
-        >
-          <span style={{ minWidth: 100 }}>Discord</span>
-          {discordId ? (
-            <>
-              <span className="text-text-secondary">
-                Connected ({discordId})
-              </span>
-              <button
-                onClick={handleDisconnect}
-                disabled={disconnect.isPending}
-              >
-                {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
-              </button>
-            </>
-          ) : (
-            <button onClick={handleConnect} disabled={connect.isPending}>
-              {connect.isPending ? 'Opening Discord…' : 'Connect Discord'}
-            </button>
-          )}
-        </div>
-      </section>
+      <AccountSection me={me.data} />
+      <PrivacySection me={me.data} />
+      <LoggingSection me={me.data} />
+      <RatingSection me={me.data} />
+      <RankingSection me={me.data} />
+      <DesignSection />
     </div>
   )
 }

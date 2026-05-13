@@ -1,2 +1,49 @@
 @import "tailwindcss";
 @import "./styles/tokens.css";
+
+/* shadcn-style semantic variables — referenced by components/ui/*.
+   Mapped onto the InfernoLog token palette (dark mode only). */
+:root {
+  --background: var(--color-bg-base);
+  --foreground: var(--color-text-primary);
+  --card: var(--color-bg-surface);
+  --card-foreground: var(--color-text-primary);
+  --popover: var(--color-bg-elevated);
+  --popover-foreground: var(--color-text-primary);
+  --primary-foreground: #ffffff;
+  --secondary: var(--color-bg-subtle);
+  --secondary-foreground: var(--color-text-primary);
+  --muted: var(--color-bg-subtle);
+  --muted-foreground: var(--color-text-secondary);
+  --accent: var(--color-bg-elevated);
+  --accent-foreground: var(--color-text-primary);
+  --destructive: var(--color-danger);
+  --destructive-foreground: #ffffff;
+  --input: var(--color-border);
+  --ring: var(--color-primary);
+  --radius: 8px;
+}
+
+/* Expose the shadcn semantic vars as Tailwind v4 utilities (bg-card,
+   text-muted-foreground, border-input, etc.). `--color-primary`,
+   `--color-danger`, etc. are already exposed by tokens.css, so we only add
+   the names shadcn needs that aren't already there. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+}
