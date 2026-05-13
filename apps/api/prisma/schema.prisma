@@ -392,6 +392,11 @@ model RatingCategory {
   // Soft delete: scores preserved if category deleted, restored if recreated
   ratingScores      RatingScore[]
 
+  // Each user's category names must be unique. Also makes the default-seed
+  // path safe under concurrent transitions to WEIGHTED — duplicate inserts
+  // fail with P2002, which `createMany({ skipDuplicates: true })` silently
+  // drops instead of producing 6 categories.
+  @@unique([userId, name])
   @@map("rating_categories")
 }
 

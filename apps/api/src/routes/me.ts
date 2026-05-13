@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { randomBytes } from 'crypto'
 import prisma from '../utils/prisma'
+import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
 import { logger } from '../utils/logger'
@@ -151,12 +152,16 @@ app.patch('/me', async (c) => {
     if (parsed.data.ratingMode === 'WEIGHTED') {
       const count = await prisma.ratingCategory.count({ where: { userId } })
       if (count === 0) {
+        // skipDuplicates relies on the @@unique([userId, name]) constraint:
+        // if two requests race past the count check, the second insert is a
+        // silent no-op instead of producing duplicate seed categories.
         await prisma.ratingCategory.createMany({
           data: [
             { userId, name: 'Gameplay', weight: 1, sortOrder: 0 },
             { userId, name: 'Decoration', weight: 1, sortOrder: 1 },
             { userId, name: 'Song', weight: 1, sortOrder: 2 },
           ],
+          skipDuplicates: true,
         })
         logger.info({ userId }, 'Seeded default rating categories')
       }
@@ -259,6 +264,16 @@ app.patch('/me/username', async (c) => {
     logger.info({ userId, previousUsername, username }, 'Username updated')
     return c.json({ data: serializeMe(updated as RawUser) })
   } catch (error) {
+    // The pre-check above is TOCTOU; the unique constraint on User.username
+    // is the real guarantee. If a concurrent request claimed the name in
+    // the window between findFirst and update, Prisma throws P2002 — surface
+    // that as the same 409 the pre-check returns rather than a generic 500.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return c.json({ error: 'Username is already taken' }, 409)
+    }
     console.error('PATCH /me/username error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
@@ -343,12 +358,16 @@ app.post('/me/onboarding', async (c) => {
     if (ratingMode === 'WEIGHTED') {
       const count = await prisma.ratingCategory.count({ where: { userId } })
       if (count === 0) {
+        // skipDuplicates relies on the @@unique([userId, name]) constraint:
+        // if two requests race past the count check, the second insert is a
+        // silent no-op instead of producing duplicate seed categories.
         await prisma.ratingCategory.createMany({
           data: [
             { userId, name: 'Gameplay', weight: 1, sortOrder: 0 },
             { userId, name: 'Decoration', weight: 1, sortOrder: 1 },
             { userId, name: 'Song', weight: 1, sortOrder: 2 },
           ],
+          skipDuplicates: true,
         })
       }
     }
