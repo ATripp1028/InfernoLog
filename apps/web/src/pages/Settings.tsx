@@ -34,6 +34,12 @@ export function Settings() {
           old ? { ...old, discordId: newDiscordId } : old
         )
       }
+      // The setQueryData patch covers the warm-cache case, but on a full
+      // page load from the Discord redirect the persister may rehydrate
+      // *after* the effect runs — in which case `old` was undefined and
+      // the patch was a no-op. Forcing a refetch guarantees the UI shows
+      // the connection without waiting for the next opportunistic /me call.
+      void queryClient.refetchQueries({ queryKey: meQueryKey })
     } else if (search.discord === 'error') {
       toast.error(discordErrorMessage(search.reason))
     }

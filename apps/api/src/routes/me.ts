@@ -15,9 +15,9 @@ import {
   UpdateMeSchema,
   UpdateUsernameSchema,
   ListPriorityOrderSchema,
-  RatingCategoryInputSchema,
-  RatingCategoryPatchSchema,
-  RatingCategoryOrderSchema,
+  RatingConfigSchema,
+  RATING_WEIGHT_SUM_TARGET,
+  RATING_WEIGHT_SUM_TOLERANCE,
 } from '@infernolog/core'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -155,11 +155,13 @@ app.patch('/me', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
+        // Weights are normalized so the three sum to exactly 1.0000 — the
+        // last gets the rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
           data: [
-            { userId, name: 'Gameplay', weight: 1, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 1, sortOrder: 1 },
-            { userId, name: 'Song', weight: 1, sortOrder: 2 },
+            { userId, name: 'Gameplay', weight: 0.3333, sortOrder: 0 },
+            { userId, name: 'Decoration', weight: 0.3333, sortOrder: 1 },
+            { userId, name: 'Song', weight: 0.3334, sortOrder: 2 },
           ],
           skipDuplicates: true,
         })
@@ -361,11 +363,13 @@ app.post('/me/onboarding', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
+        // Weights are normalized so the three sum to exactly 1.0000 — the
+        // last gets the rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
           data: [
-            { userId, name: 'Gameplay', weight: 1, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 1, sortOrder: 1 },
-            { userId, name: 'Song', weight: 1, sortOrder: 2 },
+            { userId, name: 'Gameplay', weight: 0.3333, sortOrder: 0 },
+            { userId, name: 'Decoration', weight: 0.3333, sortOrder: 1 },
+            { userId, name: 'Song', weight: 0.3334, sortOrder: 2 },
           ],
           skipDuplicates: true,
         })
@@ -487,146 +491,151 @@ app.get('/me/rating-categories', async (c) => {
   }
 })
 
-// POST /v1/me/rating-categories
-app.post('/me/rating-categories', async (c) => {
+// PUT /v1/me/rating-config
+// Atomically replaces a user's weighted-rating configuration in a single
+// transaction. Granular per-category endpoints were removed because the
+// sum-must-equal-1.0 invariant makes single-row mutations impossible to
+// validate in isolation — you can't change one weight without changing
+// another. The editor submits the full config; the server diffs it against
+// existing rows and applies create/update/delete in one transaction.
+app.put('/me/rating-config', async (c) => {
   const userId = c.get('userId') as string
 
   try {
     const body = await c.req.json()
-    const parsed = RatingCategoryInputSchema.safeParse(body)
+    const parsed = RatingConfigSchema.safeParse(body)
     if (!parsed.success) {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const max = await prisma.ratingCategory.aggregate({
-      where: { userId },
-      _max: { sortOrder: true },
-    })
-    const nextSortOrder = (max._max.sortOrder ?? -1) + 1
+    const { categories, includeEnjoyment, enjoymentWeight } = parsed.data
 
-    const created = await prisma.ratingCategory.create({
-      data: {
-        userId,
-        name: parsed.data.name,
-        weight: parsed.data.weight,
-        sortOrder: nextSortOrder,
-      },
-      select: { id: true, name: true, weight: true, sortOrder: true },
-    })
-
-    return c.json({ data: serializeCategory(created) })
-  } catch (error) {
-    console.error('POST /me/rating-categories error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// PATCH /v1/me/rating-categories/:id
-app.patch('/me/rating-categories/:id', async (c) => {
-  const userId = c.get('userId') as string
-  const id = c.req.param('id')
-
-  try {
-    const body = await c.req.json()
-    const parsed = RatingCategoryPatchSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
+    // Defensive: RatingConfigSchema already validates the sum, but we
+    // recheck server-side in case the schema is ever loosened. Floating-
+    // point tolerance must match the schema's so a valid body never trips
+    // this guard.
+    const sum =
+      categories.reduce((acc, cat) => acc + cat.weight, 0) +
+      (includeEnjoyment ? enjoymentWeight : 0)
+    if (
+      Math.abs(sum - RATING_WEIGHT_SUM_TARGET) > RATING_WEIGHT_SUM_TOLERANCE
+    ) {
+      return c.json(
+        {
+          error: `Active weights must sum to ${RATING_WEIGHT_SUM_TARGET.toFixed(4)} (got ${sum.toFixed(4)})`,
+        },
+        400
+      )
     }
 
-    // Verify ownership before update.
-    const existing = await prisma.ratingCategory.findUnique({
-      where: { id },
-      select: { userId: true },
-    })
-    if (!existing || existing.userId !== userId) {
-      return c.json({ error: 'Not found' }, 404)
-    }
-
-    const updated = await prisma.ratingCategory.update({
-      where: { id },
-      data: stripUndefined(parsed.data),
-      select: { id: true, name: true, weight: true, sortOrder: true },
-    })
-    return c.json({ data: serializeCategory(updated) })
-  } catch (error) {
-    console.error('PATCH /me/rating-categories/:id error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// DELETE /v1/me/rating-categories/:id
-app.delete('/me/rating-categories/:id', async (c) => {
-  const userId = c.get('userId') as string
-  const id = c.req.param('id')
-
-  try {
-    const existing = await prisma.ratingCategory.findUnique({
-      where: { id },
-      select: { userId: true },
-    })
-    if (!existing || existing.userId !== userId) {
-      return c.json({ error: 'Not found' }, 404)
-    }
-
-    await prisma.ratingCategory.delete({ where: { id } })
-    return c.json({ data: { deleted: true } })
-  } catch (error) {
-    console.error('DELETE /me/rating-categories/:id error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// PUT /v1/me/rating-categories/order — rewrite sortOrder in array order.
-app.put('/me/rating-categories/order', async (c) => {
-  const userId = c.get('userId') as string
-
-  try {
-    const body = await c.req.json()
-    const parsed = RatingCategoryOrderSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const owned = await prisma.ratingCategory.findMany({
+    const existing = await prisma.ratingCategory.findMany({
       where: { userId },
       select: { id: true },
     })
-    const ownedIds = new Set(owned.map((r) => r.id))
-    for (const id of parsed.data.ids) {
-      if (!ownedIds.has(id)) {
+    const existingIds = new Set(existing.map((r) => r.id))
+    const bodyIds = new Set(
+      categories.filter((c) => c.id).map((c) => c.id as string)
+    )
+
+    // Validate that every id in the body belongs to this user. Reject the
+    // whole request rather than silently dropping unknown ids.
+    for (const id of bodyIds) {
+      if (!existingIds.has(id)) {
         return c.json({ error: `Category ${id} not found` }, 404)
       }
     }
 
-    // Two-phase reorder: first push everything to negative indices to avoid
-    // any uniqueness collisions if a constraint is added later, then rewrite
-    // to the final positions.
+    const toDelete = [...existingIds].filter((id) => !bodyIds.has(id))
+
+    // Two-phase sortOrder write — first park existing rows at negative
+    // indices, then rewrite to final positions. Keeps the door open for a
+    // future @@unique([userId, sortOrder]) constraint without churn here.
+    // sortOrder is the row's position in the body array regardless of
+    // whether it's a create or an update.
+    const updates: Array<{
+      id: string
+      name: string
+      weight: number
+      sortOrder: number
+    }> = []
+    const creates: Array<{ name: string; weight: number; sortOrder: number }> =
+      []
+    categories.forEach((c, idx) => {
+      if (c.id) {
+        updates.push({
+          id: c.id,
+          name: c.name,
+          weight: c.weight,
+          sortOrder: idx,
+        })
+      } else {
+        creates.push({ name: c.name, weight: c.weight, sortOrder: idx })
+      }
+    })
+
     await prisma.$transaction([
-      ...parsed.data.ids.map((id, idx) =>
+      ...(toDelete.length > 0
+        ? [
+            prisma.ratingCategory.deleteMany({
+              where: { userId, id: { in: toDelete } },
+            }),
+          ]
+        : []),
+      // Phase 1: park existing rows at negative sortOrder so phase 2 can
+      // freely write the final indices without collisions.
+      ...updates.map((u, idx) =>
         prisma.ratingCategory.update({
-          where: { id },
+          where: { id: u.id },
           data: { sortOrder: -(idx + 1) },
         })
       ),
-      ...parsed.data.ids.map((id, idx) =>
+      // Phase 2: write final state for updates.
+      ...updates.map((u) =>
         prisma.ratingCategory.update({
-          where: { id },
-          data: { sortOrder: idx },
+          where: { id: u.id },
+          data: { name: u.name, weight: u.weight, sortOrder: u.sortOrder },
         })
       ),
+      // Creates.
+      ...creates.map((c) =>
+        prisma.ratingCategory.create({
+          data: {
+            userId,
+            name: c.name,
+            weight: c.weight,
+            sortOrder: c.sortOrder,
+          },
+        })
+      ),
+      prisma.user.update({
+        where: { id: userId },
+        data: { includeEnjoyment, enjoymentWeight },
+      }),
     ])
 
-    const cats = await prisma.ratingCategory.findMany({
-      where: { userId },
-      orderBy: { sortOrder: 'asc' },
-      select: { id: true, name: true, weight: true, sortOrder: true },
+    const me = await prisma.user.findFirst({
+      where: { id: userId },
+      select: {
+        ...meSelect,
+        ratingCategories: {
+          select: { id: true, name: true, weight: true, sortOrder: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
     })
-    return c.json({ data: cats.map(serializeCategory) })
+
+    logger.info({ userId }, 'Updated rating config')
+    return c.json({ data: serializeMe(me as RawUser) })
   } catch (error) {
-    console.error('PUT /me/rating-categories/order error:', error)
+    // The @@unique([userId, name]) constraint catches duplicate names that
+    // slipped past the zod check (e.g. via direct API hit). Surface as 409.
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
+      return c.json({ error: 'Category names must be unique' }, 409)
+    }
+    console.error('PUT /me/rating-config error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

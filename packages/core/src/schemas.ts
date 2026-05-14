@@ -102,21 +102,60 @@ export const UpdateMeSchema = z
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
 
-export const RatingCategoryInputSchema = z.object({
+// Sum of category weights plus enjoymentWeight (when includeEnjoyment is true)
+// must equal 1.0 within this tolerance. Tolerance covers floating-point
+// representation error from clients submitting decimals like 0.1 + 0.2.
+export const RATING_WEIGHT_SUM_TOLERANCE = 0.0005
+export const RATING_WEIGHT_SUM_TARGET = 1
+
+export const RatingConfigCategorySchema = z.object({
+  // id is present for existing categories; omitted for new rows added in the
+  // form-style editor. Server creates a new row when id is missing.
+  id: z.string().uuid().optional(),
   name: z.string().min(1).max(40),
-  weight: z.number().min(0).max(100),
+  weight: z.number().min(0).max(1),
 })
 
-export const RatingCategoryPatchSchema = z
+export const RatingConfigSchema = z
   .object({
-    name: z.string().min(1).max(40).optional(),
-    weight: z.number().min(0).max(100).optional(),
+    categories: z.array(RatingConfigCategorySchema).max(20),
+    includeEnjoyment: z.boolean(),
+    enjoymentWeight: z.number().min(0).max(1),
   })
-  .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
+  .superRefine((cfg, ctx) => {
+    // Names unique per user — matches the DB @@unique([userId, name]).
+    const seen = new Set<string>()
+    for (const c of cfg.categories) {
+      const key = c.name.trim().toLowerCase()
+      if (!key) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: 'Category name is required',
+          path: ['categories'],
+        })
+        return
+      }
+      if (seen.has(key)) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate category name: ${c.name}`,
+          path: ['categories'],
+        })
+        return
+      }
+      seen.add(key)
+    }
 
-export const RatingCategoryOrderSchema = z.object({
-  ids: z.array(z.string().uuid()).min(1),
-})
+    const enj = cfg.includeEnjoyment ? cfg.enjoymentWeight : 0
+    const sum = cfg.categories.reduce((acc, c) => acc + c.weight, 0) + enj
+    if (Math.abs(sum - RATING_WEIGHT_SUM_TARGET) > RATING_WEIGHT_SUM_TOLERANCE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: `Active weights must sum to ${RATING_WEIGHT_SUM_TARGET.toFixed(4)} (got ${sum.toFixed(4)})`,
+        path: ['categories'],
+      })
+    }
+  })
 
 // Permutation of every ListSource value — order represents priority.
 export const ListPriorityOrderSchema = z.object({

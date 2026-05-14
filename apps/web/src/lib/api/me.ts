@@ -120,7 +120,6 @@ export interface UpdateMeInput {
 //      seeded on first WEIGHTED switch) — without thrashing during the queue.
 const UPDATE_ME_KEY = ['updateMe'] as const
 const UPDATE_LIST_PRIORITY_KEY = ['updateListPriority'] as const
-const UPDATE_CATEGORY_KEY = ['updateRatingCategory'] as const
 
 function isLastPending(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -228,135 +227,42 @@ export function useUpdateListPriority() {
 }
 
 // ─────────────────────────────────────────────
-// Rating category mutations
+// Rating config — bulk update (categories + enjoyment together)
 // ─────────────────────────────────────────────
 
-function patchCategories(
-  queryClient: ReturnType<typeof useQueryClient>,
-  updater: (cats: RatingCategory[]) => RatingCategory[]
-) {
-  queryClient.setQueryData<MeData>(meQueryKey, (old) =>
-    old ? { ...old, ratingCategories: updater(old.ratingCategories) } : old
-  )
+// Active weights (categories plus enjoymentWeight when enabled) must sum to
+// this value within `RATING_WEIGHT_SUM_TOLERANCE`. Keep these in sync with
+// @infernolog/core's RatingConfigSchema.
+export const RATING_WEIGHT_SUM_TARGET = 1
+export const RATING_WEIGHT_SUM_TOLERANCE = 0.0005
+
+export interface RatingConfigInput {
+  categories: Array<{
+    id?: string
+    name: string
+    weight: number
+  }>
+  includeEnjoyment: boolean
+  enjoymentWeight: number
 }
 
-export function useCreateRatingCategory() {
+export function useUpdateRatingConfig() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: {
-      name: string
-      weight: number
-    }): Promise<RatingCategory> => {
+    mutationFn: async (input: RatingConfigInput): Promise<MeData> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: RatingCategory }>(
-        '/v1/me/rating-categories',
-        { token, method: 'POST', body: input }
+      const { data } = await apiFetch<{ data: MeData }>(
+        '/v1/me/rating-config',
+        { token, method: 'PUT', body: input }
       )
       return data
     },
-    onSuccess: (cat) => {
-      patchCategories(queryClient, (cats) => [...cats, cat])
-    },
-  })
-}
-
-export function useUpdateRatingCategory() {
-  const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationKey: UPDATE_CATEGORY_KEY,
-    scope: { id: 'updateRatingCategory' },
-    mutationFn: async (input: {
-      id: string
-      name?: string
-      weight?: number
-    }): Promise<RatingCategory> => {
-      const token = await getIdToken()
-      const { id, ...patch } = input
-      const { data } = await apiFetch<{ data: RatingCategory }>(
-        `/v1/me/rating-categories/${id}`,
-        { token, method: 'PATCH', body: patch }
-      )
-      return data
-    },
-    onMutate: async (input) => {
-      await queryClient.cancelQueries({ queryKey: meQueryKey })
-      const previous = queryClient.getQueryData<MeData>(meQueryKey)
-      patchCategories(queryClient, (cats) =>
-        cats.map((c) =>
-          c.id === input.id
-            ? {
-                ...c,
-                ...(input.name !== undefined ? { name: input.name } : {}),
-                ...(input.weight !== undefined
-                  ? { weight: input.weight }
-                  : {}),
-              }
-            : c
-        )
-      )
-      return { previous }
-    },
-    onError: (_err, _input, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
-    },
-    onSettled: () => {
-      if (isLastPending(queryClient, UPDATE_CATEGORY_KEY)) {
-        return queryClient.invalidateQueries({ queryKey: meQueryKey })
-      }
-      return undefined
-    },
-  })
-}
-
-export function useDeleteRatingCategory() {
-  const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (id: string): Promise<void> => {
-      const token = await getIdToken()
-      await apiFetch(`/v1/me/rating-categories/${id}`, {
-        token,
-        method: 'DELETE',
-      })
-    },
-    onSuccess: (_data, id) => {
-      patchCategories(queryClient, (cats) => cats.filter((c) => c.id !== id))
-    },
-  })
-}
-
-export function useReorderRatingCategories() {
-  const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: async (ids: string[]): Promise<RatingCategory[]> => {
-      const token = await getIdToken()
-      const { data } = await apiFetch<{ data: RatingCategory[] }>(
-        '/v1/me/rating-categories/order',
-        { token, method: 'PUT', body: { ids } }
-      )
-      return data
-    },
-    onMutate: async (ids) => {
-      const previous = queryClient.getQueryData<MeData>(meQueryKey)
-      patchCategories(queryClient, (cats) => {
-        const byId = new Map(cats.map((c) => [c.id, c]))
-        return ids
-          .map((id, idx) => {
-            const c = byId.get(id)
-            return c ? { ...c, sortOrder: idx } : null
-          })
-          .filter((c): c is RatingCategory => c !== null)
-      })
-      return { previous }
-    },
-    onError: (_err, _ids, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
-    },
-    onSuccess: (cats) => {
-      patchCategories(queryClient, () => cats)
+    onSuccess: (data) => {
+      // The endpoint returns the full updated user; the editor is form-style
+      // (single save click, no rapid-fire races) so we can safely write the
+      // response straight to the cache without the scope/isLastPending dance.
+      queryClient.setQueryData(meQueryKey, data)
     },
   })
 }

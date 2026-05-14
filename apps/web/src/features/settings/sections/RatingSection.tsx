@@ -1,14 +1,14 @@
-import {
-  SettingRow,
-  SettingStack,
-  SettingsSection,
-} from '../components/SettingsSection'
-import { RatingCategoriesList } from '../components/RatingCategoriesList'
+import { SettingStack, SettingsSection } from '../components/SettingsSection'
+import { RatingConfigEditor } from '../components/RatingConfigEditor'
 import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
-import { RatingMode, useUpdateMe, type MeData } from '@/lib/api/me'
+import {
+  RatingDisplayScale,
+  RatingMode,
+  useUpdateMe,
+  type MeData,
+} from '@/lib/api/me'
 
 interface RatingSectionProps {
   me: MeData
@@ -27,9 +27,10 @@ export function RatingSection({ me }: RatingSectionProps) {
     }
   }
 
-  const handleEnjoymentToggle = async (next: boolean) => {
+  const handleScaleChange = async (scale: RatingDisplayScale) => {
+    if (scale === me.ratingDisplayScale) return
     try {
-      await update.mutateAsync({ includeEnjoyment: next })
+      await update.mutateAsync({ ratingDisplayScale: scale })
       toast.success('Saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
@@ -38,71 +39,78 @@ export function RatingSection({ me }: RatingSectionProps) {
 
   const modeDescription =
     me.ratingMode === 'SIMPLE'
-      ? 'A single 0–10 score per completion.'
+      ? 'A single score per completion.'
       : 'Per-category scores combined into a weighted average.'
+
+  const scaleDescription =
+    me.ratingDisplayScale === 'ZERO_TO_TEN'
+      ? 'Ratings are displayed and entered as 0–10 (e.g. 4.7). Stored internally as 0–100.'
+      : 'Ratings are displayed and entered as 0–100 (e.g. 47).'
 
   return (
     <SettingsSection title="Rating">
       <SettingStack label="Rating mode" description={modeDescription}>
-        <div className="inline-flex rounded-md border border-[var(--color-border)] bg-card p-1">
-          <ModeButton
-            active={me.ratingMode === 'SIMPLE'}
-            onClick={() => void handleModeChange('SIMPLE')}
-          >
-            Simple
-          </ModeButton>
-          <ModeButton
-            active={me.ratingMode === 'WEIGHTED'}
-            onClick={() => void handleModeChange('WEIGHTED')}
-          >
-            Weighted
-          </ModeButton>
-        </div>
+        <Segmented
+          options={[
+            { value: 'SIMPLE', label: 'Simple' },
+            { value: 'WEIGHTED', label: 'Weighted' },
+          ]}
+          value={me.ratingMode}
+          onChange={(v) => void handleModeChange(v as RatingMode)}
+        />
+      </SettingStack>
+
+      <SettingStack label="Display scale" description={scaleDescription}>
+        <Segmented
+          options={[
+            { value: 'ZERO_TO_TEN', label: '0–10' },
+            { value: 'ZERO_TO_HUNDRED', label: '0–100' },
+          ]}
+          value={me.ratingDisplayScale}
+          onChange={(v) => void handleScaleChange(v as RatingDisplayScale)}
+        />
       </SettingStack>
 
       {me.ratingMode === 'WEIGHTED' && (
-        <>
-          <SettingStack
-            label="Categories"
-            description="Each category contributes to the weighted average proportional to its weight."
-          >
-            <RatingCategoriesList categories={me.ratingCategories} />
-          </SettingStack>
-
-          <SettingRow
-            label="Include enjoyment in weighted average"
-            description="When enabled, your enjoyment score is treated as one of the categories."
-            control={
-              <Switch
-                checked={me.includeEnjoyment}
-                onCheckedChange={(v) => void handleEnjoymentToggle(v)}
-              />
-            }
-          />
-        </>
+        <SettingStack
+          label="Categories"
+          description="Each category contributes to the weighted average proportional to its weight. Active weights must sum to exactly 1.0."
+        >
+          <RatingConfigEditor me={me} />
+        </SettingStack>
       )}
     </SettingsSection>
   )
 }
 
-interface ModeButtonProps {
-  active: boolean
-  onClick: () => void
-  children: React.ReactNode
+interface SegmentedProps<T extends string> {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (next: T) => void
 }
 
-function ModeButton({ active, onClick, children }: ModeButtonProps) {
+function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: SegmentedProps<T>) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={onClick}
-      className={cn(
-        'rounded-sm px-4',
-        active && 'bg-primary text-primary-foreground hover:bg-[var(--color-primary-hover)] hover:text-primary-foreground'
-      )}
-    >
-      {children}
-    </Button>
+    <div className="inline-flex rounded-md border border-[var(--color-border)] bg-card p-1">
+      {options.map((o) => (
+        <Button
+          key={o.value}
+          variant="ghost"
+          size="sm"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            'rounded-sm px-4',
+            o.value === value &&
+              'bg-primary text-primary-foreground hover:bg-[var(--color-primary-hover)] hover:text-primary-foreground'
+          )}
+        >
+          {o.label}
+        </Button>
+      ))}
+    </div>
   )
 }

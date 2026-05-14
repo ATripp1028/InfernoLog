@@ -266,11 +266,7 @@ export default $config({
     authedRoute('PATCH /v1/me')
     authedRoute('PATCH /v1/me/username')
     authedRoute('PATCH /v1/me/list-priority')
-    authedRoute('GET /v1/me/rating-categories')
-    authedRoute('POST /v1/me/rating-categories')
-    authedRoute('PUT /v1/me/rating-categories/order')
-    authedRoute('PATCH /v1/me/rating-categories/{id}')
-    authedRoute('DELETE /v1/me/rating-categories/{id}')
+    authedRoute('PUT /v1/me/rating-config')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
