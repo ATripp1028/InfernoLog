@@ -63,7 +63,6 @@ export function ListPriorityList({ me }: ListPriorityListProps) {
     const fullOrder: ListSource[] = [...reordered, 'OTHER']
     try {
       await update.mutateAsync(fullOrder)
-      toast.success('Order updated')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update order')
     }

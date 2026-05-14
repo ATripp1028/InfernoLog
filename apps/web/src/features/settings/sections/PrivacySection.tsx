@@ -16,7 +16,6 @@ export function PrivacySection({ me }: PrivacySectionProps) {
   ) => {
     try {
       await update.mutateAsync({ [field]: next })
-      toast.success('Saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }

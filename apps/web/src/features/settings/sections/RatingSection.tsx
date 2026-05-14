@@ -21,7 +21,6 @@ export function RatingSection({ me }: RatingSectionProps) {
     if (mode === me.ratingMode) return
     try {
       await update.mutateAsync({ ratingMode: mode })
-      toast.success('Saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }
@@ -31,7 +30,6 @@ export function RatingSection({ me }: RatingSectionProps) {
     if (scale === me.ratingDisplayScale) return
     try {
       await update.mutateAsync({ ratingDisplayScale: scale })
-      toast.success('Saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }

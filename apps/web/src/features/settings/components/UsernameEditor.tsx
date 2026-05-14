@@ -63,7 +63,6 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
 
     try {
       await update.mutateAsync(value)
-      toast.success('Username updated')
       setEditing(false)
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {

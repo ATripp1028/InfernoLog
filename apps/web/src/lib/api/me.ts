@@ -121,6 +121,18 @@ export interface UpdateMeInput {
 //      seeded on first WEIGHTED switch) — without thrashing during the queue.
 const UPDATE_ME_KEY = ['updateMe'] as const
 const UPDATE_LIST_PRIORITY_KEY = ['updateListPriority'] as const
+const UPDATE_USERNAME_KEY = ['updateUsername'] as const
+const UPDATE_RATING_CONFIG_KEY = ['updateRatingConfig'] as const
+
+// Every settings-page save mutation shares one of these keys; the
+// `useSettingsSaveNotifier` hook (apps/web/src/features/settings/hooks)
+// listens for them as a group so one "Saved" toast fires per burst.
+export const SETTINGS_SAVE_MUTATION_KEYS: ReadonlyArray<readonly string[]> = [
+  UPDATE_ME_KEY,
+  UPDATE_LIST_PRIORITY_KEY,
+  UPDATE_USERNAME_KEY,
+  UPDATE_RATING_CONFIG_KEY,
+]
 
 function isLastPending(
   queryClient: ReturnType<typeof useQueryClient>,
@@ -176,6 +188,7 @@ export function useUpdateUsername() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: UPDATE_USERNAME_KEY,
     mutationFn: async (username: string): Promise<MeData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: MeData }>('/v1/me/username', {
@@ -249,6 +262,7 @@ export function useUpdateRatingConfig() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: UPDATE_RATING_CONFIG_KEY,
     mutationFn: async (input: RatingConfigInput): Promise<MeData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: MeData }>(

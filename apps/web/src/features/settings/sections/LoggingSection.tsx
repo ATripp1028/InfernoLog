@@ -28,7 +28,6 @@ export function LoggingSection({ me }: LoggingSectionProps) {
       await update.mutateAsync({
         dateFormatPreference: value as DateFormatPreference,
       })
-      toast.success('Saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }

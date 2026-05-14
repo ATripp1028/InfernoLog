@@ -128,7 +128,6 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         // of list when the row isn't currently present.
         enjoymentSortOrder: enjoymentIdx >= 0 ? enjoymentIdx : items.length,
       })
-      toast.success('Rating config saved')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }

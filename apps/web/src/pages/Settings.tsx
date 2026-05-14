@@ -10,8 +10,12 @@ import { LoggingSection } from '@/features/settings/sections/LoggingSection'
 import { RatingSection } from '@/features/settings/sections/RatingSection'
 import { RankingSection } from '@/features/settings/sections/RankingSection'
 import { DesignSection } from '@/features/settings/sections/DesignSection'
+import { useSettingsSaveNotifier } from '@/features/settings/hooks/useSettingsSaveNotifier'
 
 export function Settings() {
+  // One "Saved" toast per burst of mutations — see the hook for details.
+  useSettingsSaveNotifier()
+
   const me = useMe()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
@@ -21,9 +25,6 @@ export function Settings() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
-  // Handle the Discord OAuth callback redirect: surface the result as a toast
-  // and patch the cache with the new discordId. The URL params are then
-  // stripped so a refresh doesn't re-fire the toast.
   useEffect(() => {
     if (!search.discord) return
     if (search.discord === 'connected') {
@@ -34,11 +35,6 @@ export function Settings() {
           old ? { ...old, discordId: newDiscordId } : old
         )
       }
-      // The setQueryData patch covers the warm-cache case, but on a full
-      // page load from the Discord redirect the persister may rehydrate
-      // *after* the effect runs — in which case `old` was undefined and
-      // the patch was a no-op. Forcing a refetch guarantees the UI shows
-      // the connection without waiting for the next opportunistic /me call.
       void queryClient.refetchQueries({ queryKey: meQueryKey })
     } else if (search.discord === 'error') {
       toast.error(discordErrorMessage(search.reason))
