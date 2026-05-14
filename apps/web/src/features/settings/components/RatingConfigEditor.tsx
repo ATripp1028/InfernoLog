@@ -19,10 +19,10 @@ import { CSS } from '@dnd-kit/utilities'
 import { ArrowDownWideNarrow, Plus, Trash2 } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { StepperInput } from '@/components/ui/stepper-input'
-import { cn } from '@/lib/utils'
 import {
   RATING_WEIGHT_SUM_TARGET_CENTS,
   useUpdateRatingConfig,
@@ -333,7 +333,7 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         </Button>
       </div>
 
-      <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--color-border-subtle)] bg-card px-4 py-3">
+      <Card className="flex items-center justify-between gap-4 px-4 py-3">
         <div className="flex-1 space-y-1">
           <div className="text-sm font-medium text-foreground">
             Include enjoyment in weighted average
@@ -347,15 +347,11 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
           checked={includeEnjoyment}
           onCheckedChange={handleEnjoymentToggle}
         />
-      </div>
+      </Card>
 
-      <div
-        className={cn(
-          'flex items-center justify-between gap-4 rounded-md border px-4 py-3',
-          sumValid
-            ? 'border-[var(--color-success)]/40 bg-[var(--color-success-dim)]'
-            : 'border-[var(--color-danger)]/40 bg-[var(--color-danger-dim)]'
-        )}
+      <Card
+        variant={sumValid ? 'success' : 'danger'}
+        className="flex items-center justify-between gap-4 px-4 py-3"
       >
         <div className="text-sm text-foreground">
           Active weights total:{' '}
@@ -367,7 +363,7 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
             Must equal exactly 1.00 to save.
           </div>
         )}
-      </div>
+      </Card>
 
       {(hasEmptyName || hasDuplicateName) && (
         <p className="text-xs text-[var(--color-danger)]">
@@ -419,10 +415,10 @@ function CategoryRow({
   }
 
   return (
-    <div
+    <Card
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 rounded-md border border-[var(--color-border-subtle)] bg-card px-2 py-2"
+      className="flex items-center gap-2 px-2 py-2"
     >
       <DragHandle listeners={listeners} attributes={attributes} />
       <Input
@@ -446,7 +442,7 @@ function CategoryRow({
       >
         <Trash2 className="h-4 w-4 text-muted-foreground" />
       </Button>
-    </div>
+    </Card>
   )
 }
 
@@ -466,10 +462,11 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
   }
 
   return (
-    <div
+    <Card
       ref={setNodeRef}
+      variant="accent"
       style={style}
-      className="flex items-center gap-2 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-accent-dim)] px-2 py-2"
+      className="flex items-center gap-2 px-2 py-2"
     >
       <DragHandle listeners={listeners} attributes={attributes} />
       <div className="flex flex-1 items-center gap-2">
@@ -488,7 +485,7 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
         aria-label="Weight for enjoyment"
       />
       {/* No delete button — toggling Include enjoyment off removes the row. */}
-    </div>
+    </Card>
   )
 }
 

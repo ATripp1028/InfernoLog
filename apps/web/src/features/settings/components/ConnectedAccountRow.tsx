@@ -1,4 +1,5 @@
 import { ReactNode } from 'react'
+import { Card } from '@/components/ui/card'
 
 interface ConnectedAccountRowProps {
   icon: ReactNode
@@ -16,7 +17,7 @@ export function ConnectedAccountRow({
   action,
 }: ConnectedAccountRowProps) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--color-border-subtle)] bg-card px-4 py-3">
+    <Card className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[var(--color-bg-elevated)] text-foreground">
           {icon}
@@ -34,6 +35,6 @@ export function ConnectedAccountRow({
         {status}
         {action}
       </div>
-    </div>
+    </Card>
   )
 }

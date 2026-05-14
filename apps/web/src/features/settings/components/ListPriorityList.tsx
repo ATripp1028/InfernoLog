@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { toast } from '@/components/ui/sonner'
+import { Card } from '@/components/ui/card'
 import {
   ListSource,
   useUpdateListPriority,
@@ -108,16 +109,16 @@ function SourceRow({ source, position }: SourceRowProps) {
   }
 
   return (
-    <div
+    <Card
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-3 rounded-md border border-[var(--color-border-subtle)] bg-card px-2 py-2"
+      className="flex items-center gap-3 px-2 py-2"
     >
       <DragHandle listeners={listeners} attributes={attributes} />
       <div className="w-6 text-xs text-muted-foreground">{position}.</div>
       <div className="text-sm font-medium text-foreground">
         {SOURCE_LABEL[source]}
       </div>
-    </div>
+    </Card>
   )
 }
