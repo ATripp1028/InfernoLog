@@ -16,29 +16,39 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Trash2 } from 'lucide-react'
+import { ArrowDownWideNarrow, Plus, Trash2 } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { StepperInput } from '@/components/ui/stepper-input'
 import { cn } from '@/lib/utils'
 import {
-  RATING_WEIGHT_SUM_TARGET,
-  RATING_WEIGHT_SUM_TOLERANCE,
+  RATING_WEIGHT_SUM_TARGET_CENTS,
   useUpdateRatingConfig,
   type MeData,
 } from '@/lib/api/me'
 import { DragHandle } from './DragHandle'
 
-// One editable row in the form. `id` is the server id when this row exists
-// remotely; absent for rows the user just added. `localKey` is a stable
-// React key + dnd-kit id so reorder/delete don't lose their visual identity.
-interface EditableCategory {
-  localKey: string
-  id?: string
-  name: string
-  weight: number
-}
+// The editor renders a single unified list where categories and (optionally)
+// "Enjoyment" share the same priority order. The first item in the list is
+// the highest priority — it receives the rounding remainder when
+// distributing weights equally and is what the user can drag to reorder.
+type EditableItem =
+  | {
+      kind: 'category'
+      localKey: string
+      id?: string
+      name: string
+      weight: number
+    }
+  | {
+      kind: 'enjoyment'
+      localKey: 'ENJOYMENT'
+      weight: number
+    }
+
+const ENJOYMENT_KEY = 'ENJOYMENT' as const
 
 interface RatingConfigEditorProps {
   me: MeData
@@ -47,28 +57,16 @@ interface RatingConfigEditorProps {
 export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
   const update = useUpdateRatingConfig()
 
-  const initial = useMemo(
-    () => ({
-      categories: me.ratingCategories.map((c) => ({
-        localKey: c.id,
-        id: c.id,
-        name: c.name,
-        weight: c.weight,
-      })),
-      includeEnjoyment: me.includeEnjoyment,
-      enjoymentWeight: me.enjoymentWeight,
-    }),
-    [me.ratingCategories, me.includeEnjoyment, me.enjoymentWeight]
-  )
+  // The initial snapshot drives both the "what to render on first mount" and
+  // the "dirty" comparison. enjoyment's persisted position interleaves with
+  // category sortOrders — we use enjoymentSortOrder as a comparable index
+  // (ties resolved by putting enjoyment first when it lands on the same
+  // index as a category, matching the natural reading order top→bottom).
+  const initial = useMemo(() => buildInitial(me), [me])
 
-  const [categories, setCategories] = useState<EditableCategory[]>(
-    initial.categories
-  )
+  const [items, setItems] = useState<EditableItem[]>(initial.items)
   const [includeEnjoyment, setIncludeEnjoyment] = useState(
     initial.includeEnjoyment
-  )
-  const [enjoymentWeight, setEnjoymentWeight] = useState(
-    initial.enjoymentWeight
   )
 
   const sensors = useSensors(
@@ -76,16 +74,25 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
-  const sum =
-    categories.reduce((acc, c) => acc + (Number.isFinite(c.weight) ? c.weight : 0), 0) +
-    (includeEnjoyment ? (Number.isFinite(enjoymentWeight) ? enjoymentWeight : 0) : 0)
-  const sumValid =
-    Math.abs(sum - RATING_WEIGHT_SUM_TARGET) <= RATING_WEIGHT_SUM_TOLERANCE
+  const visibleItems = useMemo(
+    () => items.filter((i) => i.kind !== 'enjoyment' || includeEnjoyment),
+    [items, includeEnjoyment]
+  )
 
-  const hasEmptyName = categories.some((c) => !c.name.trim())
+  const cents = visibleItems.reduce(
+    (acc, i) => acc + Math.round(i.weight * 100),
+    0
+  )
+  const sumValid = cents === RATING_WEIGHT_SUM_TARGET_CENTS
+
+  const categoryItems = items.filter(
+    (i): i is Extract<EditableItem, { kind: 'category' }> =>
+      i.kind === 'category'
+  )
+  const hasEmptyName = categoryItems.some((c) => !c.name.trim())
   const hasDuplicateName = (() => {
     const seen = new Set<string>()
-    for (const c of categories) {
+    for (const c of categoryItems) {
       const key = c.name.trim().toLowerCase()
       if (!key) continue
       if (seen.has(key)) return true
@@ -95,26 +102,32 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
   })()
 
   const dirty =
-    !equalCategories(categories, initial.categories) ||
-    includeEnjoyment !== initial.includeEnjoyment ||
-    enjoymentWeight !== initial.enjoymentWeight
+    !equalItems(items, initial.items) ||
+    includeEnjoyment !== initial.includeEnjoyment
 
   const canSave = dirty && sumValid && !hasEmptyName && !hasDuplicateName
 
   const handleSave = async () => {
+    const enjoymentIdx = items.findIndex((i) => i.kind === 'enjoyment')
+    const enjoymentItem = items.find((i) => i.kind === 'enjoyment')
     try {
-      // Round-trip through 4-decimal fixed values to match the Decimal(5,4)
-      // DB column. Stops the form from sending more precision than we store
-      // and prevents the round-tripped response from looking "dirty" because
-      // the user typed 0.33333 but we store 0.3333.
       await update.mutateAsync({
-        categories: categories.map((c) => ({
-          ...(c.id ? { id: c.id } : {}),
-          name: c.name.trim(),
-          weight: roundWeight(c.weight),
-        })),
+        categories: items
+          .filter(
+            (i): i is Extract<EditableItem, { kind: 'category' }> =>
+              i.kind === 'category'
+          )
+          .map((c) => ({
+            ...(c.id ? { id: c.id } : {}),
+            name: c.name.trim(),
+            weight: roundCents(c.weight),
+          })),
         includeEnjoyment,
-        enjoymentWeight: roundWeight(enjoymentWeight),
+        enjoymentWeight: roundCents(enjoymentItem?.weight ?? 0),
+        // Persist enjoyment's place in the unified list. Default to end
+        // of list when the row isn't currently present.
+        enjoymentSortOrder:
+          enjoymentIdx >= 0 ? enjoymentIdx : items.length,
       })
       toast.success('Rating config saved')
     } catch (err) {
@@ -123,26 +136,26 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
   }
 
   const handleReset = () => {
-    setCategories(initial.categories)
+    setItems(initial.items)
     setIncludeEnjoyment(initial.includeEnjoyment)
-    setEnjoymentWeight(initial.enjoymentWeight)
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    setCategories((prev) => {
-      const oldIndex = prev.findIndex((c) => c.localKey === active.id)
-      const newIndex = prev.findIndex((c) => c.localKey === over.id)
+    setItems((prev) => {
+      const oldIndex = prev.findIndex((i) => i.localKey === active.id)
+      const newIndex = prev.findIndex((i) => i.localKey === over.id)
       if (oldIndex < 0 || newIndex < 0) return prev
       return arrayMove(prev, oldIndex, newIndex)
     })
   }
 
   const handleAdd = () => {
-    setCategories((prev) => [
+    setItems((prev) => [
       ...prev,
       {
+        kind: 'category',
         localKey: `new-${crypto.randomUUID()}`,
         name: '',
         weight: 0,
@@ -150,26 +163,86 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     ])
   }
 
+  const handleEnjoymentToggle = (next: boolean) => {
+    setIncludeEnjoyment(next)
+    setItems((prev) => {
+      const existing = prev.find((i) => i.kind === 'enjoyment')
+      if (next) {
+        // Toggling on. Default-on rule: jump to 0.5 if the current value is
+        // 0 or 1 (the unused-default values). Otherwise keep whatever the
+        // user previously set so toggling-off-and-on doesn't destroy work.
+        const seedWeight =
+          existing && existing.weight !== 0 && existing.weight !== 1
+            ? existing.weight
+            : 0.5
+        if (existing) {
+          return prev.map((i) =>
+            i.kind === 'enjoyment' ? { ...i, weight: seedWeight } : i
+          )
+        }
+        // Insert at the persisted (or end-of-list) position.
+        const insertAt = Math.min(me.enjoymentSortOrder, prev.length)
+        const next: EditableItem = {
+          kind: 'enjoyment',
+          localKey: ENJOYMENT_KEY,
+          weight: seedWeight,
+        }
+        return [...prev.slice(0, insertAt), next, ...prev.slice(insertAt)]
+      }
+      // Toggling off — keep the row in `items` so its position survives,
+      // but `visibleItems` (and `sumValid`) will exclude it.
+      return prev
+    })
+  }
+
   const handleDistributeEqually = () => {
-    const activeCount = categories.length + (includeEnjoyment ? 1 : 0)
-    if (activeCount === 0) return
-    // Distribute as evenly as 4-decimal precision allows; give the last
-    // entry the rounding remainder so the sum hits exactly 1.0000.
-    const base = Math.floor((1 / activeCount) * 10000) / 10000
-    const used = base * (activeCount - 1)
-    const remainder = roundWeight(1 - used)
-    if (includeEnjoyment && categories.length === 0) {
-      setEnjoymentWeight(remainder)
-      return
-    }
-    const newCategories = categories.map((c) => ({ ...c, weight: base }))
-    if (includeEnjoyment) {
-      setEnjoymentWeight(remainder)
-    } else if (newCategories.length > 0) {
-      const last = newCategories[newCategories.length - 1]!
-      newCategories[newCategories.length - 1] = { ...last, weight: remainder }
-    }
-    setCategories(newCategories)
+    const targets = visibleItems
+    const n = targets.length
+    if (n === 0) return
+    const baseCents = Math.floor(100 / n)
+    const remainderCents = 100 - baseCents * (n - 1)
+    // First visible item (highest priority) gets the remainder. Map back
+    // to the original `items` array by localKey so off-list (toggled-off
+    // enjoyment) entries don't get touched.
+    const firstKey = targets[0]!.localKey
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.kind === 'enjoyment' && !includeEnjoyment) return i
+        const weight =
+          i.localKey === firstKey ? remainderCents / 100 : baseCents / 100
+        return { ...i, weight }
+      })
+    )
+  }
+
+  const handleSortByWeight = () => {
+    setItems((prev) => {
+      const visibleKeys = new Set(visibleItems.map((i) => i.localKey))
+      // Stable descending sort over visible items, then merge back in the
+      // positions previously held by off-list rows (hidden enjoyment) so
+      // their relative spots aren't lost.
+      const visibleSorted = prev
+        .map((item, idx) => ({ item, idx }))
+        .filter((x) => visibleKeys.has(x.item.localKey))
+        .sort(
+          (a, b) =>
+            b.item.weight - a.item.weight ||
+            // Stable tiebreak: keep current relative order on ties.
+            a.idx - b.idx
+        )
+        .map((x) => x.item)
+
+      const result: EditableItem[] = []
+      let visibleCursor = 0
+      for (const i of prev) {
+        if (visibleKeys.has(i.localKey)) {
+          result.push(visibleSorted[visibleCursor++]!)
+        } else {
+          result.push(i)
+        }
+      }
+      return result
+    })
   }
 
   return (
@@ -180,80 +253,100 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         onDragEnd={handleDragEnd}
       >
         <SortableContext
-          items={categories.map((c) => c.localKey)}
+          items={visibleItems.map((i) => i.localKey)}
           strategy={verticalListSortingStrategy}
         >
           <div className="space-y-2">
-            {categories.map((cat) => (
-              <CategoryRow
-                key={cat.localKey}
-                category={cat}
-                onChangeName={(name) =>
-                  setCategories((prev) =>
-                    prev.map((c) =>
-                      c.localKey === cat.localKey ? { ...c, name } : c
+            {visibleItems.map((item) =>
+              item.kind === 'category' ? (
+                <CategoryRow
+                  key={item.localKey}
+                  item={item}
+                  onChangeName={(name) =>
+                    setItems((prev) =>
+                      prev.map((i) =>
+                        i.localKey === item.localKey && i.kind === 'category'
+                          ? { ...i, name }
+                          : i
+                      )
                     )
-                  )
-                }
-                onChangeWeight={(weight) =>
-                  setCategories((prev) =>
-                    prev.map((c) =>
-                      c.localKey === cat.localKey ? { ...c, weight } : c
+                  }
+                  onChangeWeight={(weight) =>
+                    setItems((prev) =>
+                      prev.map((i) =>
+                        i.localKey === item.localKey ? { ...i, weight } : i
+                      )
                     )
-                  )
-                }
-                onDelete={() =>
-                  setCategories((prev) =>
-                    prev.filter((c) => c.localKey !== cat.localKey)
-                  )
-                }
-              />
-            ))}
+                  }
+                  onDelete={() =>
+                    setItems((prev) =>
+                      prev.filter((i) => i.localKey !== item.localKey)
+                    )
+                  }
+                />
+              ) : (
+                <EnjoymentRow
+                  key={item.localKey}
+                  item={item}
+                  onChangeWeight={(weight) =>
+                    setItems((prev) =>
+                      prev.map((i) =>
+                        i.localKey === ENJOYMENT_KEY ? { ...i, weight } : i
+                      )
+                    )
+                  }
+                />
+              )
+            )}
           </div>
         </SortableContext>
       </DndContext>
 
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        onClick={handleAdd}
-        className="gap-2"
-      >
-        <Plus className="h-4 w-4" />
-        Add category
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleAdd}
+          className="gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          Add category
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleSortByWeight}
+          className="gap-2"
+        >
+          <ArrowDownWideNarrow className="h-4 w-4" />
+          Sort by weight
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={handleDistributeEqually}
+        >
+          Distribute equally
+        </Button>
+      </div>
 
-      <div className="space-y-3 rounded-md border border-[var(--color-border-subtle)] bg-card px-4 py-3">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-1">
-            <div className="text-sm font-medium text-foreground">
-              Include enjoyment in weighted average
-            </div>
-            <p className="text-xs text-muted-foreground">
-              When enabled, your enjoyment score becomes one of the active
-              weights and must be set just like a category.
-            </p>
+      <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--color-border-subtle)] bg-card px-4 py-3">
+        <div className="flex-1 space-y-1">
+          <div className="text-sm font-medium text-foreground">
+            Include enjoyment in weighted average
           </div>
-          <Switch
-            checked={includeEnjoyment}
-            onCheckedChange={setIncludeEnjoyment}
-          />
+          <p className="text-xs text-muted-foreground">
+            When enabled, your enjoyment score participates in the priority
+            list above and counts toward the weight total.
+          </p>
         </div>
-        {includeEnjoyment && (
-          <div className="flex items-center gap-2 pl-1">
-            <span className="text-sm text-muted-foreground">Weight</span>
-            <Input
-              type="number"
-              min={0}
-              max={1}
-              step={0.0001}
-              value={formatWeight(enjoymentWeight)}
-              onChange={(e) => setEnjoymentWeight(parseWeight(e.target.value))}
-              className="w-28"
-            />
-          </div>
-        )}
+        <Switch
+          checked={includeEnjoyment}
+          onCheckedChange={handleEnjoymentToggle}
+        />
       </div>
 
       <div
@@ -266,12 +359,12 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
       >
         <div className="text-sm text-foreground">
           Active weights total:{' '}
-          <span className="font-mono">{formatWeight(sum)}</span> /{' '}
-          <span className="font-mono">1.0000</span>
+          <span className="font-mono">{(cents / 100).toFixed(2)}</span> /{' '}
+          <span className="font-mono">1.00</span>
         </div>
         {!sumValid && (
           <div className="text-xs text-[var(--color-danger)]">
-            Must equal exactly 1.0000 to save.
+            Must equal exactly 1.00 to save.
           </div>
         )}
       </div>
@@ -298,35 +391,26 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         >
           Reset
         </Button>
-        <div className="flex-1" />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleDistributeEqually}
-        >
-          Distribute equally
-        </Button>
       </div>
     </div>
   )
 }
 
 interface CategoryRowProps {
-  category: EditableCategory
+  item: Extract<EditableItem, { kind: 'category' }>
   onChangeName: (name: string) => void
   onChangeWeight: (weight: number) => void
   onDelete: () => void
 }
 
 function CategoryRow({
-  category,
+  item,
   onChangeName,
   onChangeWeight,
   onDelete,
 }: CategoryRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: category.localKey })
+    useSortable({ id: item.localKey })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -342,20 +426,17 @@ function CategoryRow({
     >
       <DragHandle listeners={listeners} attributes={attributes} />
       <Input
-        value={category.name}
+        value={item.name}
         onChange={(e) => onChangeName(e.target.value)}
         className="flex-1"
         placeholder="Category name"
       />
-      <Input
-        type="number"
+      <StepperInput
+        value={item.weight}
+        onChange={onChangeWeight}
         min={0}
         max={1}
-        step={0.0001}
-        value={formatWeight(category.weight)}
-        onChange={(e) => onChangeWeight(parseWeight(e.target.value))}
-        className="w-28"
-        placeholder="Weight"
+        aria-label={`Weight for ${item.name || 'category'}`}
       />
       <Button
         variant="ghost"
@@ -369,33 +450,98 @@ function CategoryRow({
   )
 }
 
-// 4-decimal precision matches the Decimal(5,4) DB column. Anything beyond
-// that is silently truncated to keep client and server in sync.
-function roundWeight(n: number): number {
+interface EnjoymentRowProps {
+  item: Extract<EditableItem, { kind: 'enjoyment' }>
+  onChangeWeight: (weight: number) => void
+}
+
+function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({ id: item.localKey })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-2 rounded-md border border-[var(--color-accent)]/40 bg-[var(--color-accent-dim)] px-2 py-2"
+    >
+      <DragHandle listeners={listeners} attributes={attributes} />
+      <div className="flex flex-1 items-center gap-2">
+        <span className="rounded bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-[var(--color-accent)]">
+          Enjoyment
+        </span>
+        <span className="text-xs text-muted-foreground">
+          Your enjoyment score is treated like a category.
+        </span>
+      </div>
+      <StepperInput
+        value={item.weight}
+        onChange={onChangeWeight}
+        min={0}
+        max={1}
+        aria-label="Weight for enjoyment"
+      />
+      {/* No delete button — toggling Include enjoyment off removes the row. */}
+    </div>
+  )
+}
+
+function buildInitial(me: MeData): {
+  items: EditableItem[]
+  includeEnjoyment: boolean
+} {
+  const cats: EditableItem[] = me.ratingCategories
+    .slice()
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((c) => ({
+      kind: 'category' as const,
+      localKey: c.id,
+      id: c.id,
+      name: c.name,
+      weight: c.weight,
+    }))
+
+  // Insert enjoyment into the list at its persisted index. We splice it in
+  // at the closest valid position so a stale enjoymentSortOrder (e.g. 99
+  // when there are only 3 categories) lands at the end.
+  if (me.includeEnjoyment) {
+    const insertAt = Math.min(me.enjoymentSortOrder, cats.length)
+    cats.splice(insertAt, 0, {
+      kind: 'enjoyment',
+      localKey: ENJOYMENT_KEY,
+      weight: me.enjoymentWeight,
+    })
+  }
+
+  return { items: cats, includeEnjoyment: me.includeEnjoyment }
+}
+
+// 2-decimal rounding — matches the Decimal(5,2) DB column and the
+// integer-cents sum check. Anything finer is silently truncated so the
+// server never sees more precision than it stores.
+function roundCents(n: number): number {
   if (!Number.isFinite(n)) return 0
-  return Math.round(n * 10000) / 10000
+  return Math.round(n * 100) / 100
 }
 
-function formatWeight(n: number): string {
-  if (!Number.isFinite(n)) return '0.0000'
-  return n.toFixed(4)
-}
-
-function parseWeight(raw: string): number {
-  if (raw.trim() === '') return 0
-  const n = Number(raw)
-  if (!Number.isFinite(n)) return 0
-  return n
-}
-
-function equalCategories(a: EditableCategory[], b: EditableCategory[]): boolean {
+function equalItems(a: EditableItem[], b: EditableItem[]): boolean {
   if (a.length !== b.length) return false
   for (let i = 0; i < a.length; i++) {
     const ai = a[i]!
     const bi = b[i]!
-    if (ai.id !== bi.id) return false
-    if (ai.name !== bi.name) return false
-    if (roundWeight(ai.weight) !== roundWeight(bi.weight)) return false
+    if (ai.kind !== bi.kind) return false
+    if (ai.localKey !== bi.localKey) return false
+    if (roundCents(ai.weight) !== roundCents(bi.weight)) return false
+    if (ai.kind === 'category' && bi.kind === 'category') {
+      if (ai.id !== bi.id) return false
+      if (ai.name !== bi.name) return false
+    }
   }
   return true
 }

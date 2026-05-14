@@ -16,8 +16,7 @@ import {
   UpdateUsernameSchema,
   ListPriorityOrderSchema,
   RatingConfigSchema,
-  RATING_WEIGHT_SUM_TARGET,
-  RATING_WEIGHT_SUM_TOLERANCE,
+  RATING_WEIGHT_SUM_TARGET_CENTS,
 } from '@infernolog/core'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -72,6 +71,7 @@ const meSelect = {
   dateFormatPreference: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
+  enjoymentSortOrder: true,
   listPriorityOrder: true,
   onboardingCompleted: true,
   isVerified: true,
@@ -155,13 +155,13 @@ app.patch('/me', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
-        // Weights are normalized so the three sum to exactly 1.0000 — the
-        // last gets the rounding remainder so users start in a valid state.
+        // Weights sum to exactly 1.00 — the top (highest priority) gets the
+        // rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
           data: [
-            { userId, name: 'Gameplay', weight: 0.3333, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.3333, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.3334, sortOrder: 2 },
+            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
+            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
+            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
           ],
           skipDuplicates: true,
         })
@@ -363,13 +363,13 @@ app.post('/me/onboarding', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
-        // Weights are normalized so the three sum to exactly 1.0000 — the
-        // last gets the rounding remainder so users start in a valid state.
+        // Weights sum to exactly 1.00 — the top (highest priority) gets the
+        // rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
           data: [
-            { userId, name: 'Gameplay', weight: 0.3333, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.3333, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.3334, sortOrder: 2 },
+            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
+            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
+            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
           ],
           skipDuplicates: true,
         })
@@ -508,21 +508,19 @@ app.put('/me/rating-config', async (c) => {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const { categories, includeEnjoyment, enjoymentWeight } = parsed.data
+    const { categories, includeEnjoyment, enjoymentWeight, enjoymentSortOrder } =
+      parsed.data
 
-    // Defensive: RatingConfigSchema already validates the sum, but we
-    // recheck server-side in case the schema is ever loosened. Floating-
-    // point tolerance must match the schema's so a valid body never trips
-    // this guard.
-    const sum =
-      categories.reduce((acc, cat) => acc + cat.weight, 0) +
-      (includeEnjoyment ? enjoymentWeight : 0)
-    if (
-      Math.abs(sum - RATING_WEIGHT_SUM_TARGET) > RATING_WEIGHT_SUM_TOLERANCE
-    ) {
+    // Defensive — RatingConfigSchema already validates this with the same
+    // integer-cents math, but we recheck here in case the schema is ever
+    // loosened. Integer math avoids floating-point tolerance entirely.
+    const cents =
+      categories.reduce((acc, cat) => acc + Math.round(cat.weight * 100), 0) +
+      (includeEnjoyment ? Math.round(enjoymentWeight * 100) : 0)
+    if (cents !== RATING_WEIGHT_SUM_TARGET_CENTS) {
       return c.json(
         {
-          error: `Active weights must sum to ${RATING_WEIGHT_SUM_TARGET.toFixed(4)} (got ${sum.toFixed(4)})`,
+          error: `Active weights must sum to 1.00 (got ${(cents / 100).toFixed(2)})`,
         },
         400
       )
@@ -609,7 +607,7 @@ app.put('/me/rating-config', async (c) => {
       ),
       prisma.user.update({
         where: { id: userId },
-        data: { includeEnjoyment, enjoymentWeight },
+        data: { includeEnjoyment, enjoymentWeight, enjoymentSortOrder },
       }),
     ])
 

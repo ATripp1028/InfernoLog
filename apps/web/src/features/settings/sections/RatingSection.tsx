@@ -74,7 +74,7 @@ export function RatingSection({ me }: RatingSectionProps) {
       {me.ratingMode === 'WEIGHTED' && (
         <SettingStack
           label="Categories"
-          description="Each category contributes to the weighted average proportional to its weight. Active weights must sum to exactly 1.0."
+          description="Each category contributes to the weighted average proportional to its weight. Active weights must sum to exactly 1.00. Drag to reorder — the item at the top is treated as highest-priority and receives any rounding remainder when you distribute weights equally."
         >
           <RatingConfigEditor me={me} />
         </SettingStack>

@@ -143,10 +143,14 @@ model User {
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
   includeEnjoyment      Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
-  // enjoymentWeight (when includeEnjoyment is true) must equal 1.0.
-  // (5,4) precision lets three equal categories sum to exactly 1.0000
-  // — Decimal(5,2) rounds 1/3 to 0.33 which falls short.
-  enjoymentWeight       Decimal              @default(0) @db.Decimal(5, 4)
+  // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in
+  // integer cents). Two decimal places — UI distributes any 1/N remainder
+  // to the top item in the priority order rather than chasing precision.
+  enjoymentWeight       Decimal              @default(0) @db.Decimal(5, 2)
+  // Position of the "enjoyment" virtual row in the unified priority list.
+  // 99 puts it after any reasonable number of categories the first time
+  // a user enables enjoyment; explicit drags overwrite.
+  enjoymentSortOrder    Int                  @default(99)
 
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
@@ -385,9 +389,10 @@ model RatingCategory {
   userId            String
 
   name              String
-  // Normalized weight in [0, 1]; sum of active weights for a user (plus
-  // enjoyment when enabled) must equal 1.0. See User.enjoymentWeight.
-  weight            Decimal         @db.Decimal(5, 4)
+  // Normalized weight in [0, 1] to two decimal places; sum of active
+  // weights for a user (plus enjoyment when enabled) must equal 1.00.
+  // See User.enjoymentWeight.
+  weight            Decimal         @db.Decimal(5, 2)
   sortOrder         Int
 
   createdAt         DateTime        @default(now())

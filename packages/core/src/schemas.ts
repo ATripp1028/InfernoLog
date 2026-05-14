@@ -2,13 +2,10 @@ import { z } from 'zod'
 import {
   LevelType,
   ListSource,
-  LevelProgressStatus,
   RatingMode,
-  AccountStatus,
   Role,
   RatingDisplayScale,
-  DateFormatPreference,
-  EntryVisibility
+  DateFormatPreference
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -102,25 +99,42 @@ export const UpdateMeSchema = z
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
 
-// Sum of category weights plus enjoymentWeight (when includeEnjoyment is true)
-// must equal 1.0 within this tolerance. Tolerance covers floating-point
-// representation error from clients submitting decimals like 0.1 + 0.2.
-export const RATING_WEIGHT_SUM_TOLERANCE = 0.0005
-export const RATING_WEIGHT_SUM_TARGET = 1
+// Weights are stored as Decimal(5,2): two decimal places, max 1.00. Active
+// weights (categories plus enjoymentWeight when included) must sum to
+// exactly 1.00. We validate using integer cents so 0.1 + 0.2 doesn't trip
+// floating-point comparisons.
+export const RATING_WEIGHT_SUM_TARGET_CENTS = 100
+
+// Two-decimal precision check using a small float epsilon (rounding error
+// from JSON.parse on values like "0.30" can leave 0.30000000000000004).
+const isTwoDecimalWeight = (w: number): boolean =>
+  Number.isFinite(w) && Math.abs(w * 100 - Math.round(w * 100)) < 1e-6
 
 export const RatingConfigCategorySchema = z.object({
   // id is present for existing categories; omitted for new rows added in the
   // form-style editor. Server creates a new row when id is missing.
   id: z.string().uuid().optional(),
   name: z.string().min(1).max(40),
-  weight: z.number().min(0).max(1),
+  weight: z
+    .number()
+    .min(0)
+    .max(1)
+    .refine(isTwoDecimalWeight, 'Weights are limited to 2 decimal places'),
 })
 
 export const RatingConfigSchema = z
   .object({
     categories: z.array(RatingConfigCategorySchema).max(20),
     includeEnjoyment: z.boolean(),
-    enjoymentWeight: z.number().min(0).max(1),
+    enjoymentWeight: z
+      .number()
+      .min(0)
+      .max(1)
+      .refine(isTwoDecimalWeight, 'Weights are limited to 2 decimal places'),
+    // Position of the enjoyment row in the unified priority list. Bounded
+    // generously — the UI never produces large values but we don't need
+    // to be strict beyond a sanity ceiling.
+    enjoymentSortOrder: z.number().int().min(0).max(999),
   })
   .superRefine((cfg, ctx) => {
     // Names unique per user — matches the DB @@unique([userId, name]).
@@ -146,12 +160,15 @@ export const RatingConfigSchema = z
       seen.add(key)
     }
 
-    const enj = cfg.includeEnjoyment ? cfg.enjoymentWeight : 0
-    const sum = cfg.categories.reduce((acc, c) => acc + c.weight, 0) + enj
-    if (Math.abs(sum - RATING_WEIGHT_SUM_TARGET) > RATING_WEIGHT_SUM_TOLERANCE) {
+    const cents =
+      cfg.categories.reduce(
+        (acc, c) => acc + Math.round(c.weight * 100),
+        0
+      ) + (cfg.includeEnjoyment ? Math.round(cfg.enjoymentWeight * 100) : 0)
+    if (cents !== RATING_WEIGHT_SUM_TARGET_CENTS) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: `Active weights must sum to ${RATING_WEIGHT_SUM_TARGET.toFixed(4)} (got ${sum.toFixed(4)})`,
+        message: `Active weights must sum to 1.00 (got ${(cents / 100).toFixed(2)})`,
         path: ['categories'],
       })
     }

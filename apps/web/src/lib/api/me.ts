@@ -29,6 +29,7 @@ export interface MeData {
   dateFormatPreference: DateFormatPreference
   includeEnjoyment: boolean
   enjoymentWeight: number
+  enjoymentSortOrder: number
   listPriorityOrder: ListSource[]
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
@@ -231,10 +232,9 @@ export function useUpdateListPriority() {
 // ─────────────────────────────────────────────
 
 // Active weights (categories plus enjoymentWeight when enabled) must sum to
-// this value within `RATING_WEIGHT_SUM_TOLERANCE`. Keep these in sync with
-// @infernolog/core's RatingConfigSchema.
-export const RATING_WEIGHT_SUM_TARGET = 1
-export const RATING_WEIGHT_SUM_TOLERANCE = 0.0005
+// exactly 1.00, validated with integer-cents math (no float tolerance).
+// Keep in sync with @infernolog/core's RatingConfigSchema.
+export const RATING_WEIGHT_SUM_TARGET_CENTS = 100
 
 export interface RatingConfigInput {
   categories: Array<{
@@ -244,6 +244,7 @@ export interface RatingConfigInput {
   }>
   includeEnjoyment: boolean
   enjoymentWeight: number
+  enjoymentSortOrder: number
 }
 
 export function useUpdateRatingConfig() {
