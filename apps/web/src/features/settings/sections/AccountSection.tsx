@@ -23,7 +23,9 @@ export function AccountSection({ me }: AccountSectionProps) {
       window.location.href = url
     } catch (err) {
       toast.error(
-        err instanceof Error ? err.message : 'Failed to start Discord connection'
+        err instanceof Error
+          ? err.message
+          : 'Failed to start Discord connection'
       )
     }
   }
@@ -64,9 +66,7 @@ export function AccountSection({ me }: AccountSectionProps) {
           <ConnectedAccountRow
             icon={<DiscordIcon />}
             providerName="Discord"
-            identifier={
-              me.discordId ? `Discord ID ${me.discordId}` : null
-            }
+            identifier={me.discordId ? `Discord ID ${me.discordId}` : null}
             action={
               me.discordId ? (
                 <Button

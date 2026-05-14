@@ -11,8 +11,7 @@ const cardVariants = cva('rounded-md border', {
     variant: {
       default: 'border-[var(--color-border-subtle)] bg-card',
       accent: 'border-[var(--color-accent)]/40 bg-[var(--color-accent-dim)]',
-      success:
-        'border-[var(--color-success)]/40 bg-[var(--color-success-dim)]',
+      success: 'border-[var(--color-success)]/40 bg-[var(--color-success-dim)]',
       danger: 'border-[var(--color-danger)]/40 bg-[var(--color-danger-dim)]',
     },
   },
@@ -20,7 +19,8 @@ const cardVariants = cva('rounded-md border', {
 })
 
 export interface CardProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends
+    React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof cardVariants> {}
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(

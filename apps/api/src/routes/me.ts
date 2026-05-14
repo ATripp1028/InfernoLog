@@ -508,8 +508,12 @@ app.put('/me/rating-config', async (c) => {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const { categories, includeEnjoyment, enjoymentWeight, enjoymentSortOrder } =
-      parsed.data
+    const {
+      categories,
+      includeEnjoyment,
+      enjoymentWeight,
+      enjoymentSortOrder,
+    } = parsed.data
 
     // Defensive — RatingConfigSchema already validates this with the same
     // integer-cents math, but we recheck here in case the schema is ever

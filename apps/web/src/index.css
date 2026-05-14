@@ -1,5 +1,5 @@
-@import "tailwindcss";
-@import "./styles/tokens.css";
+@import 'tailwindcss';
+@import './styles/tokens.css';
 
 /* shadcn-style semantic variables — referenced by components/ui/*.
    Mapped onto the InfernoLog token palette (dark mode only). */

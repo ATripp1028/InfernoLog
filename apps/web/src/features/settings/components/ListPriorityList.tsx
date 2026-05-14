@@ -17,11 +17,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { toast } from '@/components/ui/sonner'
 import { Card } from '@/components/ui/card'
-import {
-  ListSource,
-  useUpdateListPriority,
-  type MeData,
-} from '@/lib/api/me'
+import { ListSource, useUpdateListPriority, type MeData } from '@/lib/api/me'
 import { DragHandle } from './DragHandle'
 
 // OTHER is always last in priority — it's the catch-all when no list reference
@@ -99,8 +95,14 @@ interface SourceRowProps {
 }
 
 function SourceRow({ source, position }: SourceRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: source })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: source })
 
   const style = {
     transform: CSS.Transform.toString(transform),

@@ -5,7 +5,7 @@ import {
   RatingMode,
   Role,
   RatingDisplayScale,
-  DateFormatPreference
+  DateFormatPreference,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -79,7 +79,8 @@ export const UsernameSchema = z
     'Username can only contain letters, numbers, underscores, and hyphens'
   )
   .refine(
-    (val) => !(USERNAME_RESERVED as readonly string[]).includes(val.toLowerCase()),
+    (val) =>
+      !(USERNAME_RESERVED as readonly string[]).includes(val.toLowerCase()),
     'This username is reserved'
   )
 
@@ -161,10 +162,8 @@ export const RatingConfigSchema = z
     }
 
     const cents =
-      cfg.categories.reduce(
-        (acc, c) => acc + Math.round(c.weight * 100),
-        0
-      ) + (cfg.includeEnjoyment ? Math.round(cfg.enjoymentWeight * 100) : 0)
+      cfg.categories.reduce((acc, c) => acc + Math.round(c.weight * 100), 0) +
+      (cfg.includeEnjoyment ? Math.round(cfg.enjoymentWeight * 100) : 0)
     if (cents !== RATING_WEIGHT_SUM_TARGET_CENTS) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -188,7 +187,10 @@ export const ListPriorityOrderSchema = z.object({
     const seen = new Set<string>()
     for (const v of arr) {
       if (seen.has(v)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Duplicate: ${v}` })
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Duplicate: ${v}`,
+        })
         return
       }
       seen.add(v)

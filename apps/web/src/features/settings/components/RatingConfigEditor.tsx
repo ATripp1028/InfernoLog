@@ -126,8 +126,7 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         enjoymentWeight: roundCents(enjoymentItem?.weight ?? 0),
         // Persist enjoyment's place in the unified list. Default to end
         // of list when the row isn't currently present.
-        enjoymentSortOrder:
-          enjoymentIdx >= 0 ? enjoymentIdx : items.length,
+        enjoymentSortOrder: enjoymentIdx >= 0 ? enjoymentIdx : items.length,
       })
       toast.success('Rating config saved')
     } catch (err) {
@@ -339,8 +338,8 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
             Include enjoyment in weighted average
           </div>
           <p className="text-xs text-muted-foreground">
-            When enabled, your enjoyment score participates in the priority
-            list above and counts toward the weight total.
+            When enabled, your enjoyment score participates in the priority list
+            above and counts toward the weight total.
           </p>
         </div>
         <Switch
@@ -405,8 +404,14 @@ function CategoryRow({
   onChangeWeight,
   onDelete,
 }: CategoryRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.localKey })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.localKey })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -452,8 +457,14 @@ interface EnjoymentRowProps {
 }
 
 function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: item.localKey })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.localKey })
 
   const style = {
     transform: CSS.Transform.toString(transform),

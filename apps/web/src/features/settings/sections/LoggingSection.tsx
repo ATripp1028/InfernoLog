@@ -7,11 +7,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from '@/components/ui/sonner'
-import {
-  DateFormatPreference,
-  useUpdateMe,
-  type MeData,
-} from '@/lib/api/me'
+import { DateFormatPreference, useUpdateMe, type MeData } from '@/lib/api/me'
 
 interface LoggingSectionProps {
   me: MeData

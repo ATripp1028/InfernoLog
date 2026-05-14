@@ -128,9 +128,7 @@ function isLastPending(
 ): boolean {
   // The current mutation is still counted while its callbacks run, so 1 means
   // there's nothing queued behind us.
-  return (
-    queryClient.isMutating({ mutationKey: mutationKey as unknown[] }) === 1
-  )
+  return queryClient.isMutating({ mutationKey: mutationKey as unknown[] }) === 1
 }
 
 export function useUpdateMe() {
