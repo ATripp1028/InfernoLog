@@ -249,6 +249,27 @@ export default $config({
     })
 
     // ─────────────────────────────────────────────
+    // SETTINGS routes (PATCH preferences + rating categories CRUD)
+    // ─────────────────────────────────────────────
+    const authedRoute = (route: string) =>
+      api.route(
+        route,
+        {
+          handler: 'src/index.handler',
+          link: sharedLinks,
+          environment: sharedEnvironment,
+          ...sharedNodeOptions,
+        },
+        { auth: jwtAuth }
+      )
+
+    authedRoute('PATCH /v1/me')
+    authedRoute('PATCH /v1/me/username')
+    authedRoute('PATCH /v1/me/list-priority')
+    authedRoute('PUT /v1/me/rating-config')
+    authedRoute('GET /v1/me/rating-categories')
+
+    // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────
     new aws.ssm.Parameter('SsmApiUrl', {

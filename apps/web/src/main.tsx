@@ -6,6 +6,7 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { queryClient } from './lib/queryClient'
 import { persister, MAX_AGE } from './lib/persister'
 import { AuthProvider } from './context/AuthContext'
+import { Toaster } from './components/ui/sonner'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 
@@ -25,6 +26,7 @@ createRoot(document.getElementById('root')!).render(
     >
       <AuthProvider>
         <RouterProvider router={router} />
+        <Toaster />
       </AuthProvider>
     </PersistQueryClientProvider>
   </StrictMode>
