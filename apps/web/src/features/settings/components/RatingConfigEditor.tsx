@@ -1,17 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import {
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import {
   SortableContext,
   arrayMove,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
@@ -29,6 +20,7 @@ import {
   type MeData,
 } from '@/lib/api/me'
 import { DragHandle } from './DragHandle'
+import { useSortableSensors } from '../hooks/useSortableSensors'
 
 // The editor renders a single unified list where categories and (optionally)
 // "Enjoyment" share the same priority order. The first item in the list is
@@ -74,10 +66,7 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     setIncludeEnjoyment(initial.includeEnjoyment)
   }, [initial])
   
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  const sensors = useSortableSensors()
 
   const visibleItems = useMemo(
     () => items.filter((i) => i.kind !== 'enjoyment' || includeEnjoyment),
@@ -423,34 +412,42 @@ function CategoryRow({
     opacity: isDragging ? 0.5 : undefined,
   }
 
+  // On narrow screens the row stacks: top line is handle + name + delete,
+  // bottom line is the stepper aligned to the right. `sm:contents` flattens
+  // the mobile wrapper so on >=640px every child becomes a direct flex
+  // child of the Card again (single-line layout).
   return (
     <Card
       ref={setNodeRef}
       style={style}
-      className="flex items-center gap-2 px-2 py-2"
+      className="flex flex-col gap-2 px-2 py-2 sm:flex-row sm:items-center"
     >
-      <DragHandle listeners={listeners} attributes={attributes} />
-      <Input
-        value={item.name}
-        onChange={(e) => onChangeName(e.target.value)}
-        className="flex-1"
-        placeholder="Category name"
-      />
+      <div className="flex items-center gap-2 sm:contents">
+        <DragHandle listeners={listeners} attributes={attributes} />
+        <Input
+          value={item.name}
+          onChange={(e) => onChangeName(e.target.value)}
+          className="flex-1"
+          placeholder="Category name"
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onDelete}
+          aria-label="Delete category"
+          className="sm:order-last"
+        >
+          <Trash2 className="h-4 w-4 text-muted-foreground" />
+        </Button>
+      </div>
       <StepperInput
         value={item.weight}
         onChange={onChangeWeight}
         min={0}
         max={1}
         aria-label={`Weight for ${item.name || 'category'}`}
+        className="self-end sm:self-auto"
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={onDelete}
-        aria-label="Delete category"
-      >
-        <Trash2 className="h-4 w-4 text-muted-foreground" />
-      </Button>
     </Card>
   )
 }
@@ -476,21 +473,25 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
     opacity: isDragging ? 0.5 : undefined,
   }
 
+  // Same stacked-on-mobile layout as CategoryRow, minus the delete button
+  // (toggling Include enjoyment off is what removes the row).
   return (
     <Card
       ref={setNodeRef}
       variant="accent"
       style={style}
-      className="flex items-center gap-2 px-2 py-2"
+      className="flex flex-col gap-2 px-2 py-2 sm:flex-row sm:items-center"
     >
-      <DragHandle listeners={listeners} attributes={attributes} />
-      <div className="flex flex-1 items-center gap-2">
-        <span className="rounded bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-[var(--color-accent)]">
-          Enjoyment
-        </span>
-        <span className="text-xs text-muted-foreground">
-          Your enjoyment score is treated like a category.
-        </span>
+      <div className="flex items-center gap-2 sm:contents">
+        <DragHandle listeners={listeners} attributes={attributes} />
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          <span className="rounded bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs font-medium tracking-wide text-[var(--color-main)]">
+            Enjoyment
+          </span>
+          <span className="text-xs text-muted-foreground">
+            Your enjoyment score is treated like a category.
+          </span>
+        </div>
       </div>
       <StepperInput
         value={item.weight}
@@ -498,8 +499,8 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
         min={0}
         max={1}
         aria-label="Weight for enjoyment"
+        className="self-end sm:self-auto"
       />
-      {/* No delete button — toggling Include enjoyment off removes the row. */}
     </Card>
   )
 }

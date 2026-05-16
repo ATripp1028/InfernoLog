@@ -1,16 +1,7 @@
-import {
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core'
+import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import {
   SortableContext,
   arrayMove,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
@@ -19,6 +10,7 @@ import { toast } from '@/components/ui/sonner'
 import { Card } from '@/components/ui/card'
 import { ListSource, useUpdateListPriority, type MeData } from '@/lib/api/me'
 import { DragHandle } from './DragHandle'
+import { useSortableSensors } from '../hooks/useSortableSensors'
 
 // OTHER is always last in priority — it's the catch-all when no list reference
 // is available, so it doesn't make sense to surface it as a draggable option.
@@ -38,10 +30,7 @@ interface ListPriorityListProps {
 
 export function ListPriorityList({ me }: ListPriorityListProps) {
   const update = useUpdateListPriority()
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
+  const sensors = useSortableSensors()
 
   // Render only the visible sources in the user's order; preserve any OTHER
   // (or unknown future) entries by re-appending them on save.

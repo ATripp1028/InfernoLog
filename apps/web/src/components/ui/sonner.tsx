@@ -7,10 +7,14 @@ export function Toaster(props: ToasterProps) {
     <Sonner
       theme="dark"
       position="bottom-right"
+      offset={16}
+      mobileOffset={{
+        bottom: 'calc(72px + env(safe-area-inset-bottom) + 16px)',
+      }}
       toastOptions={{
         classNames: {
           toast:
-            'group toast group-[.toaster]:bg-[var(--color-bg-elevated)] group-[.toaster]:text-foreground group-[.toaster]:border-[var(--color-border)] group-[.toaster]:shadow-lg',
+            'group toast cursor-pointer group-[.toaster]:bg-[var(--color-bg-elevated)] group-[.toaster]:text-foreground group-[.toaster]:border-[var(--color-border)] group-[.toaster]:shadow-lg',
           description: 'group-[.toast]:text-muted-foreground',
           actionButton:
             'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',

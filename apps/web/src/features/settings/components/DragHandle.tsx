@@ -18,7 +18,7 @@ export function DragHandle({
     <button
       type="button"
       className={cn(
-        'flex h-8 w-8 cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-[var(--color-bg-elevated)] hover:text-foreground active:cursor-grabbing',
+        'flex h-8 w-8 touch-none cursor-grab items-center justify-center rounded text-muted-foreground hover:bg-[var(--color-bg-elevated)] hover:text-foreground active:cursor-grabbing',
         className
       )}
       aria-label="Drag to reorder"
