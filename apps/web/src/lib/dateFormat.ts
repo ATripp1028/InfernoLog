@@ -17,5 +17,7 @@ export function formatDate(
       return `${yyyy}-${mm}-${dd}`
     case 'YMD':
       return `${yyyy}/${mm}/${dd}`
+    default:
+      return `${mm}/${dd}/${yyyy}`
   }
 }

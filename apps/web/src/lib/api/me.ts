@@ -282,10 +282,12 @@ export function useUpdateRatingConfig() {
 
 // Username availability check (debounced calls in the editor)
 export async function checkUsernameAvailable(
-  username: string
+  username: string,
+  signal: AbortSignal
 ): Promise<{ available: boolean; error?: string }> {
   const res = await fetch(
-    `${import.meta.env.VITE_API_URL}/v1/users/check-username?username=${encodeURIComponent(username)}`
+    `${import.meta.env.VITE_API_URL}/v1/users/check-username?username=${encodeURIComponent(username)}`,
+    { signal }
   )
   if (!res.ok) return { available: false, error: 'Could not check username' }
   return (await res.json()) as { available: boolean; error?: string }

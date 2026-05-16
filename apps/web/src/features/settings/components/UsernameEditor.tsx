@@ -35,21 +35,31 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
   }, [me.username])
 
   useEffect(() => {
+    const controller = new AbortController()
+    const signal = controller.signal
+
     if (!editing || value === me.username) {
       setAvailabilityError(null)
       return
     }
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(async () => {
-      const res = await checkUsernameAvailable(value)
+    try {
+      const res = await checkUsernameAvailable(value, signal)
       if (!res.available) {
         setAvailabilityError(res.error ?? 'Username is already taken')
       } else {
         setAvailabilityError(null)
       }
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : 'Failed to check username'
+      setAvailabilityError(msg)
+    }
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
+      controller.abort()
     }
   }, [value, editing, me.username])
 

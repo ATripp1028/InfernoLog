@@ -96,7 +96,10 @@ export const UpdateMeSchema = z
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
     includeEnjoyment: z.boolean().optional(),
-    enjoymentWeight: z.number().min(0).max(100).optional(),
+    enjoymentWeight: z.string().regex(/^(0|[1-9]\d*)\.\d{2}$/, { message: 'Must be a number with exactly 2 decimal places' }).refine((val) => {
+      const num = parseFloat(val)
+      return num >= 0 && num <= 1
+    }, { message: 'Must be a number between 0 and 1' }).optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
 

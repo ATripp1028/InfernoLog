@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -69,6 +69,11 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     initial.includeEnjoyment
   )
 
+  useEffect(() => {
+    setItems(initial.items)
+    setIncludeEnjoyment(initial.includeEnjoyment)
+  }, [initial])
+  
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
