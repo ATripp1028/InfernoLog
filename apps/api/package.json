@@ -10,7 +10,10 @@
     "build": "prisma generate && tsc --noEmit",
     "lint": "eslint src",
     "postinstall": "prisma generate",
-    "export-sst-env": "bash export-sst-env.sh"
+    "export-sst-env": "bash export-sst-env.sh",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch"
   },
   "type": "module",
   "dependencies": {
@@ -41,6 +44,7 @@
     "prisma": "5.22.0",
     "sst": "4.7.9",
     "typescript": "^5.7.3",
+    "vitest": "^4.1.7",
     "wrangler": "^4.83.0"
   },
   "packageManager": "pnpm@8.15.5"
