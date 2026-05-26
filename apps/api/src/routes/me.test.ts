@@ -1,8 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
 import { Hono } from 'hono'
 import type { PrismaClient } from '@prisma/client'
 import type { HonoVariables } from '../types/hono'
+import { mintConnectDiscordState } from './auth'
 
 // Mocks must be declared before the route module is imported so the route
 // picks up the mocked modules. vi.mock is hoisted, but the factory cannot
@@ -216,6 +217,69 @@ describe('PATCH /me/username', () => {
   })
 })
 
-describe('GET /me/discord', () => {
-  
+describe('POST /me/connect-discord', () => {
+  beforeEach(() => {
+    vi.stubEnv('DISCORD_CLIENT_ID', 'test-client-id')
+    vi.stubEnv('DISCORD_REDIRECT_URI', 'https://test.example.com/callback')
+  })
+  afterEach(() => vi.unstubAllEnvs())
+    
+  it('returns 200 with the state to sign', async () => {
+    const res = await buildApp().request('/me/connect-discord', {
+      method: 'POST',
+    })
+    const body = (await res.json()) as { data: { url: string } }
+
+    expect(res.status).toBe(200)
+    expect(body.data.url).toBe('https://discord.com/api/oauth2/authorize?client_id=test-client-id&redirect_uri=https%3A%2F%2Ftest.example.com%2Fcallback&response_type=code&scope=identify+email&state=signed-state')
+  })
+
+  it('returns 500 if the state signing fails', async () => {
+    (mintConnectDiscordState as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+      throw new Error('Signing error')
+    })
+
+    const res = await buildApp().request('/me/connect-discord', {
+      method: 'POST',
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('Internal server error')
+  })
+})
+
+describe('DELETE /me/connect-discord', () => {
+  it('disconnects the user from Discord', async () => {
+    prisma.user.update.mockResolvedValue({
+      id: USER_ID,
+      username: 'alex',
+      enjoymentWeight: 0.5,
+      ratingCategories: [],
+    } as never)
+
+    const res = await buildApp().request('/me/connect-discord', {
+      method: 'DELETE',
+    })
+
+    expect(res.status).toBe(200)
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: USER_ID },
+        data: { discordId: null },
+      })
+    )
+  })
+
+  it('returns 500 on database errors', async () => {
+    prisma.user.update.mockRejectedValue(new Error('DB error'))
+
+    const res = await buildApp().request('/me/connect-discord', {
+      method: 'DELETE',
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('Internal server error')
+  })
 })
