@@ -26,7 +26,7 @@
     "@sentry/aws-serverless": "^10.49.0",
     "@sentry/node": "^10.49.0",
     "dotenv": "^17.4.2",
-    "hono": "^4.12.18",
+    "hono": "^4.12.21",
     "pino": "^10.3.1",
     "sentry": "^0.28.1",
     "vitest-mock-extended": "^4.0.0",
