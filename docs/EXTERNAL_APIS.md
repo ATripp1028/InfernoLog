@@ -21,6 +21,12 @@ Response is cached in InfernoLog's `levels` table. Subsequent users logging the 
 
 If GDBrowser is unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by GDBrowser being down.
 
+**Auto-fallback to manual entry.** When GDBrowser fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields GDBrowser would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"). Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later GDBrowser sync can backfill and verify/override them. See `LOGGING_FLOW.md` and `DATA_MODEL.md`.
+
+### Cache-Backed Name Search
+
+The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's / GDBrowser's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level becomes name-searchable only after its first log by any user; entering a raw ID routes through GDBrowser autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
+
 ---
 
 ## GDDL API
@@ -123,18 +129,12 @@ EventBridge Scheduler is serverless and costs essentially nothing at InfernoLog'
 
 ---
 
-## Pointercrate API
-
-**Purpose:** Rank autofill for Pointercrate Demonlist  
-**Auth:** Public read endpoints require no auth  
-**Status:** Integration feasibility confirmed for autofill; record submission to be investigated
-
----
-
 ## AREDL API
 
 **Purpose:** Rank autofill for All Rated Extreme Demons List  
 **Status:** Public API available, integration details to be confirmed
+
+AREDL rank is surfaced **only for extreme demons** (AREDL lists extreme demons only). Pointercrate was evaluated and **cut from v1** — its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
 
 ---
 

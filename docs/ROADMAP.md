@@ -28,16 +28,15 @@ Attempts represent cumulative attempts across all uploads and copies of the leve
 
 ### Ranking
 - Personal classic difficulty ranking (fractional indexing)
-- Auto-placement (bottom of difficulty band, same-source list levels)
-- Placement modal during logging (drag-and-drop ghost card, autoscroll)
-- Unconfirmed placement indicator
+- Manual placement only — no auto-placement (every completion starts unplaced)
+- Post-submit "Place in ranking now?" prompt (drag-and-drop ghost card, list reference sets starting scroll position)
+- Unplaced side panel for completions the user chose to place later
 - Ranking page with unrated toggle
 - Top 5 tracking snapshot
 
 ### List Integrations (v1)
 - GDDL (autofill + optional record submission)
-- Pointercrate (autofill)
-- AREDL (autofill if API confirmed)
+- AREDL (autofill if API confirmed; extreme demons only)
 - NLW (manual entry only)
 - Multi-list references per progress update
 - GDDL record acceptance indicator (manual, v1 only)
@@ -112,11 +111,9 @@ Goal: Deepen the core logging experience. No new platform features.
 - Schema accommodated from v1 via `level_type` enum
 
 ### Expanded List Integrations
-- Pointercrate record submission
 - AREDL API integration (if feasible)
 - NLW read-only scrape (if feasible)
-- Record acceptance tracking for Pointercrate, AREDL (not just GDDL)
-- Cross-list conversion table for auto-placement across list scales
+- Record acceptance tracking for AREDL (not just GDDL)
 - GDDL favorites sync (push InfernoLog favorites to GDDL)
 
 ### Additional Logging Fields

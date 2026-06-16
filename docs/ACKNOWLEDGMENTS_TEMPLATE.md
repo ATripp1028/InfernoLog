@@ -44,11 +44,6 @@ None of them owe anyone their time or infrastructure — I'm grateful they exist
 **Credit:** [Song File Hub team]
 **Link:** songfilehub.com
 
-### Pointercrate
-**What it does for InfernoLog:** Rank data for the Pointercrate Demonlist.
-**Credit:** [Pointercrate author handle]
-**Link:** pointercrate.com
-
 ### AREDL
 **What it does for InfernoLog:** Rank data for the All Rated Extreme Demons List.
 **Credit:** [AREDL maintainers]
@@ -137,7 +132,7 @@ enormous amounts of work by their contributors.*
 
 InfernoLog is open source. The full source code is available at [GitHub repo link]. Contributions, bug reports, and feature suggestions are welcome.
 
-InfernoLog is free to use and will remain free. It is not affiliated with RobTop Games, the GDDL, Pointercrate, or any other community project listed here.
+InfernoLog is free to use and will remain free. It is not affiliated with RobTop Games, the GDDL, or any other community project listed here.
 
 ---
 

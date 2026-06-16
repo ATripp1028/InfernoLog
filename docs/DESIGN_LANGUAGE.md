@@ -195,7 +195,7 @@ Standard UI actions use Lucide without customization:
 | Needs placement | `AlertCircle` |
 | On stream | `Radio` |
 | GDDL | `Link` |
-| Pointercrate | `Trophy` |
+| AREDL | `Trophy` |
 
 ---
 
@@ -230,9 +230,9 @@ Tiers 31+:    Red/Purple    (#dc2626 → #9333ea)
 
 This is approximate — the community does not have a strict canonical color per GDDL tier the way NLW does, so a gradient is more maintainable.
 
-### Pointercrate / AREDL
+### AREDL
 
-No established community color convention. Use the primary/accent palette for these badges with the list source name as the primary identifier.
+No established community color convention. Use the primary/accent palette for the badge with the list source name as the primary identifier. (Pointercrate is cut from v1 — see `LIST_INTEGRATIONS.md`.)
 
 ---
 
@@ -246,7 +246,7 @@ The level entry card is the most frequently rendered component in the app — it
 ┌─────────────────────────────────────────────────────┐
 │ ████  Level Name                    ⭐ 8.5  😊 9   │
 │ thumbnail  Creator · Song                           │
-│       [GDDL 28] [PC #47]  ✓ Record  📹 🎬          │
+│       [GDDL 28] [AREDL #47]  ✓ Record  📹 🎬       │
 │       Apr 15 2024 · 4,429 attempts · 94% worst fail │
 └─────────────────────────────────────────────────────┘
 ```
@@ -260,6 +260,17 @@ Key decisions:
 - Metadata (date, attempts, worst fail) de-emphasized at the bottom
 - Demon face difficulty indicator subtle — not the dominant element
 
+### Full-Modal Thumbnail Background (Logging Modal)
+
+Once a level is resolved in the logging flow, the level's **thumbnail fills the entire modal background**, behind a flat `#0d0d0d` scrim at **~88% opacity**. This extends the level-row `ThumbnailBleed` treatment to the full modal surface.
+
+- Form chrome (header, body, footer) is **transparent** so the backdrop reads through; input boxes use a **frosted translucent fill** (white ~8%, border white ~18%) for legibility.
+- The scrim is **fixed, not luminance-adaptive.** Thumbnails load via a constructed-URL `<img>` tag (the levelthumbs hotlinking decision in `EXTERNAL_APIS.md`), so measuring brightness would require canvas pixel access + permissive CORS — which conflicts with hotlinking. A fixed heavy scrim flattens the brightest and darkest thumbnails to roughly the same readable tint.
+- 88% was validated readable across dark→very-bright thumbnails (Bloodbath, Clubstep, Boobawamba, Audio Extraction). It is the one knob to revisit if real thumbnails read too heavy or too light.
+- Because the modal background now carries the thumbnail, the small thumbnail placeholder in the level identity strip is removed; the strip is identity + difficulty face + Change link only.
+
+See `LOGGING_FLOW.md` for the full modal spec.
+
 ### Status Badges
 
 ```
@@ -272,15 +283,18 @@ Key decisions:
 
 ### The FAB
 
-Large, circular, fixed position. Bottom-right on desktop, bottom-center on mobile (above the bottom nav bar). Primary color (`--color-primary`). Contains a `Plus` icon. On click, opens a bottom sheet or modal with options:
+Large, circular, fixed position. Bottom-right on desktop, bottom-center on mobile (above the bottom nav bar). Primary color (`--color-primary`). Contains a `Plus` icon. On click, opens a menu where the **logging path is chosen before the modal opens** (so each path is a purpose-built form — see `LOGGING_FLOW.md`). Five items: three logging actions above a divider from two list actions:
 
 ```
-[ Log progress on a level ]   ← primary
-[ Add to Want to Beat      ]
-[ Add to a list            ]
+[ ✓  Log a completion ]   ← primary
+[ ⚑  Log progress      ]
+[ ✕  Drop a level      ]
+───────────────────────
+[ ☆  Add to Want to Beat ]
+[ ≣  Add to a list        ]
 ```
 
-The first option is the overwhelmingly most common action and should be visually dominant.
+"Log a completion" is the overwhelmingly most common action and should be visually dominant.
 
 ---
 

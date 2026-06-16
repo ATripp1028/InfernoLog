@@ -80,8 +80,7 @@ Change in packages/core/ → rebuild both, deploy both
 | GDBrowser (`gdbrowser.com/api`) | Primary level metadata autofill (rated + unrated) | Lambda |
 | GDDL API | Tier suggestion + optional record submission | Lambda |
 | `levelthumbs.prevter.me/thumbnail/{levelId}` | Level thumbnails (Apache 2.0) | Frontend (img src) |
-| Pointercrate API | Rank autofill (v2+) | Lambda |
-| AREDL API | Rank autofill (v2+) | Lambda |
+| AREDL API | Rank autofill, extreme demons only | Lambda |
 | Song File Hub | NONG song metadata (v2, manual entry fallback) | Lambda |
 
 ---
@@ -109,8 +108,9 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `DATA_MODEL.md` | Full schema, entity relationships, fractional indexing |
 | `AUTH.md` | Cognito, OAuth, API keys, username rules |
 | `PRIVACY.md` | Per-entry privacy, profile visibility, API behavior |
-| `RANKING_SYSTEM.md` | Personal ranking, auto-placement, placement modal |
-| `LIST_INTEGRATIONS.md` | GDDL, Pointercrate, AREDL, NLW, priority chain |
+| `RANKING_SYSTEM.md` | Personal ranking, manual placement |
+| `LIST_INTEGRATIONS.md` | GDDL, AREDL, NLW list references |
+| `LOGGING_FLOW.md` | FAB-triggered logging modal: completion / progress / drop paths |
 | `LEVEL_LOGGING.md` | Progress entry model, completion flow, drop flow |
 | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |
 | `TIME_MACHINE.md` | Historical ranking visualization, retroactive placement |

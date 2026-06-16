@@ -121,16 +121,16 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 | `date_uncertain` | No | TRUE/FALSE |
 | `attempts` | No | Integer |
 | `percentage` | No | Worst fail / last logged percentage |
-| `run_from` | No | Integer 1-100 |
-| `run_to` | No | Integer 1-100 |
+| `run_from` | No | Integer 0-100 (progress entries only) |
+| `run_to` | No | Integer 0-100 (progress entries only) |
 | `on_stream` | No | TRUE/FALSE |
 | `fps` | No | Integer |
 | `enjoyment` | No | 0-10 |
 | `simple_rating` | No | 0-10 |
-| `in_game_difficulty` | No | Text snapshot |
+| `difficulty_opinion` | No | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
+| `in_game_difficulty` | No | Text snapshot of the level's cached rating |
 | `gddl_tier` | No | Numeric tier |
-| `pointercrate_rank` | No | Numeric rank |
-| `aredl_rank` | No | Numeric rank |
+| `aredl_rank` | No | Numeric rank (extreme demons only) |
 | `nlw_tier` | No | Tier name |
 | `notes` | No | Text |
 | `video_url` | No | URL |

@@ -94,9 +94,9 @@
 | `is_verified` | BOOLEAN | Default false |
 | `gddl_api_key_encrypted` | VARCHAR | Encrypted at rest, never exposed to frontend |
 | `rating_mode` | ENUM | `simple`, `weighted`. Default `simple` |
-| `list_priority_order` | VARCHAR[] | User-configured list priority chain |
 | `time_machine_top_n` | INTEGER | How many levels to track in Time Machine. Default 10 |
 | `date_format_preference` | ENUM | `mdy`, `dmy`, `ymd`. Used for display and import |
+| `default_fps` | INTEGER | Nullable. Pre-fills the FPS field in the logging flow's Session Details |
 | `created_at` | TIMESTAMP | |
 
 ### `levels`
@@ -108,6 +108,7 @@
 | `is_rated` | BOOLEAN | |
 | `name` | VARCHAR | |
 | `creator` | VARCHAR | |
+| `in_game_difficulty` | VARCHAR | The level's actual rated difficulty (e.g. "Insane Demon"), cached from GDBrowser. **Read-only in the UI** — the per-user difficulty *opinion* lives on `progress_updates`. See item below |
 | `song_name` | VARCHAR | Newgrounds song name |
 | `song_author` | VARCHAR | |
 | `is_nong` | BOOLEAN | Default false. User-set flag (v2) |
@@ -115,7 +116,8 @@
 | `nong_artist` | VARCHAR | Nullable. Intended artist (v2) |
 | `nong_source_url` | VARCHAR | Nullable. Link to SFH or source (v2) |
 | `peak_music_bpm` | INTEGER | Nullable. Music BPM metadata (v2) |
-| `data_source` | ENUM | `gdbrowser_autofill`, `manual` |
+| `data_source` | ENUM | `gdbrowser_autofill`, `manual`. Provenance of the cached metadata |
+| `verified` | BOOLEAN | Default false for `manual` rows. A later GDBrowser sync can backfill and verify/override manually-entered metadata (including `in_game_difficulty`) |
 | `last_checked_at` | TIMESTAMP | For monthly sync job |
 | `has_pending_update` | BOOLEAN | Set true by sync job |
 | `pending_name` | VARCHAR | Nullable |
@@ -136,6 +138,7 @@ One row per user per level. Created when the user logs their first progress upda
 | `status` | ENUM | `in_progress`, `dropped`, `completed` |
 | `dropped_reason` | TEXT | Nullable. Why dropped |
 | `dropped_at` | DATE | Nullable |
+| `attempts_at_drop` | INTEGER | Nullable. Optional attempt count captured on the drop screen. Puts the eventual completion's attempt count in perspective if the level is later beaten. (Aligned with the Dropped tab's `attempts_at_drop` in `IMPORT_EXPORT.md`) |
 | `visibility` | ENUM | `public`, `private`. Per-entry privacy |
 | `created_at` | TIMESTAMP | |
 
@@ -148,9 +151,9 @@ Every logged data point for a level. All fields optional except `level_progress_
 | `id` | UUID | |
 | `level_progress_id` | UUID | FK → level_progress |
 | `is_completion` | BOOLEAN | Default false. User explicitly marks this as their completion |
-| `percentage` | DECIMAL | Nullable. Classic levels only (0-100) |
-| `run_from` | INTEGER | Nullable. Start of best run (1-100) |
-| `run_to` | INTEGER | Nullable. End of best run (1-100) |
+| `percentage` | DECIMAL | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied) |
+| `run_from` | INTEGER | Nullable. Start of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions |
+| `run_to` | INTEGER | Nullable. End of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions |
 | `completion_time` | INTERVAL | Nullable. Platformer levels only (v2) |
 | `attempts` | INTEGER | Nullable. Cumulative at time of update |
 | `date` | DATE | Nullable |
@@ -160,7 +163,8 @@ Every logged data point for a level. All fields optional except `level_progress_
 | `peak_heart_rate_bpm` | INTEGER | Nullable (v2) |
 | `enjoyment` | DECIMAL | Nullable. 0-10 |
 | `simple_rating` | DECIMAL | Nullable. 0-10. Used when user is in simple rating mode |
-| `in_game_difficulty` | VARCHAR | Nullable. Snapshot e.g. "Insane Demon" |
+| `difficulty_opinion` | ENUM | Nullable. The user's subjective read: `not_demon_worthy`, `easy`, `medium`, `hard`, `insane`, `extreme`. The only difficulty field the user edits |
+| `in_game_difficulty_snapshot` | VARCHAR | Nullable. Optional historical snapshot of the level's cached `in_game_difficulty` at time of beat. Populated **automatically from the `levels` cache** — never user-edited |
 | `notes` | TEXT | Nullable |
 | `video_url` | VARCHAR | Nullable. Completion video |
 | `highlight_url` | VARCHAR | Nullable. Highlight reel, independent of on_stream |
@@ -172,6 +176,7 @@ Every logged data point for a level. All fields optional except `level_progress_
 - `completion_time` only applies to platformer levels (v2)
 - Non-completion entries are hidden throughout the UI unless the "show non-completions" toggle is active
 - Rebeat handling (multiple completions per level) is a v3 feature
+- **Two difficulty concepts, never conflated.** The level's *actual rating* (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A `not_demon_worthy` opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when GDBrowser reports the level isn't a demon at all
 
 ### `list_references`
 
@@ -181,7 +186,7 @@ Attached to a `progress_update`. Typically attached to the completion update but
 |---|---|---|
 | `id` | UUID | |
 | `progress_update_id` | UUID | FK → progress_updates |
-| `list_source` | ENUM | `gddl`, `pointercrate`, `aredl`, `nlw`, `other` |
+| `list_source` | ENUM | `gddl`, `aredl`, `nlw`, `other`. (Pointercrate cut from v1 — see `LIST_INTEGRATIONS.md`.) `aredl` rendered only for extreme demons |
 | `tier_or_rank` | VARCHAR | Raw value |
 | `at_time_of_logging` | BOOLEAN | Whether this was the value when logged |
 | `added_at` | TIMESTAMP | |
@@ -194,7 +199,7 @@ Tracks whether a completion has an accepted record on each applicable ranking au
 |---|---|---|
 | `id` | UUID | |
 | `progress_update_id` | UUID | FK → progress_updates where is_completion = true |
-| `list_source` | ENUM | `gddl`, `pointercrate`, `aredl`, etc. |
+| `list_source` | ENUM | `gddl`, `aredl`, `nlw`, etc. (Pointercrate cut from v1) |
 | `is_accepted` | BOOLEAN | Manually set by user |
 | `accepted_at` | TIMESTAMP | Nullable |
 
@@ -230,6 +235,8 @@ GDDL acceptance is v1. Other list authorities follow their respective integratio
 | `ranking_index` | DECIMAL | Fractional index |
 
 Only entries where the associated `level_progress` has a completion update appear here. Must have at least one list reference assigned to appear in the Time Machine.
+
+Placement is fully manual — nothing auto-places a completion or assumes a default position (fractional `ranking_index` is set when the user places the level). A completion with **no `classic_ranking` row is simply "unplaced"** (the user chose "Place later"); no schema change is needed to represent this.
 
 ### `user_lists`
 

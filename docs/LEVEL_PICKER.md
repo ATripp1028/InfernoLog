@@ -25,7 +25,7 @@ The Level Picker is an Akinator-style guided decision tool that helps players ch
 
 **Personal Mode (v2):** Immediately useful from day one. Works from the user's own want-to-beat list. Useful for players who have a curated backlog and want help deciding what to tackle next.
 
-**Discovery Mode (v4):** Queries the broader cached level database. Useful for players who want to find something new rather than choose from a personal list. Held until after v4's initial release to ensure meaningful database population.
+**Discovery Mode (v4):** Queries the broader cached level database. Useful for players who want to find something new rather than choose from a personal list. Held until after v4's initial release to ensure meaningful database population. This is the same **InfernoLog `levels` cache** that backs the logging flow's name search (a level is searchable only after its first log by any user — see `LOGGING_FLOW.md` and `EXTERNAL_APIS.md`), so Discovery Mode's pool grows with adoption.
 
 ---
 

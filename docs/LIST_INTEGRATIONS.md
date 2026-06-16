@@ -13,10 +13,11 @@ List tier/rank values are always **snapshots at time of logging**, reflecting hi
 | List | Abbreviation | Type | API Available | Primary Use Case |
 |---|---|---|---|---|
 | GD Demon Ladder | GDDL | Tiered (numeric) | Yes | Most comprehensive — every demon in the game |
-| Pointercrate Demonlist | Pointercrate | Ranked (numeric position) | Yes | Most reputable for extreme demons |
-| All Rated Extreme Demons List | AREDL | Ranked (numeric position) | Investigate | Extreme demons |
-| Non-Listworthy Spreadsheet | NLW | Tiered (named tiers) | Likely manual only | Demons below Pointercrate threshold |
+| All Rated Extreme Demons List | AREDL | Ranked (numeric position) | Investigate | Extreme demons (AREDL rank shown for extreme demons only) |
+| Non-Listworthy Spreadsheet | NLW | Tiered (named tiers) | Likely manual only | Extreme Demons (only shown for extreme demons) |
 | Pemonlist | Pemonlist | Ranked | Investigate | Platformer demons (v2) |
+
+Pointercrate was evaluated and **cut from v1**: it adds significant development burden for coverage largely mirrored by the top ~150 of AREDL.
 
 Additional lists may be added in future versions. The architecture uses a `ListProvider` interface so new sources are additive.
 
@@ -34,20 +35,9 @@ Key behaviors:
 
 ---
 
-## Priority Chain (Auto-Placement)
+## List References and Ranking Placement
 
-When determining where a new completion falls in a user's personal ranking, list references are evaluated in this priority order:
-
-1. GDDL tier
-2. AREDL rank
-3. Pointercrate rank
-4. NLW tier
-5. Other assigned references
-6. No reference → unranked, placed at bottom
-
-Users can reorder this priority chain in their settings. The default reflects GDDL's comprehensiveness.
-
-**Cross-list conflict handling (v1):** When the new level's primary list source differs from surrounding levels' primary sources, auto-placement is limited to same-source levels and cross-list comparisons are flagged for manual resolution. A community conversion table between list scales is a v2 feature.
+List references do **not** auto-place a completion. There is no priority chain and no cross-list conflict handling — every completion is placed manually by the user (see `RANKING_SYSTEM.md`). A list reference is genuine data the user may want on record, which *additionally* serves as a convenience: it sets the starting scroll position in the placement view. Difficulty consistency across list sources is the user's responsibility.
 
 ---
 
@@ -84,17 +74,11 @@ GDDL records cannot be deleted via the API. If a user deletes a completion from 
 
 ---
 
-## Pointercrate Integration
-
-**API:** Public API available. Autofill of current rank is feasible. Record submission requires investigation.
-
-Pointercrate is the most reputable list for extreme demons and is commonly used alongside GDDL for top-tier completions.
-
----
-
 ## AREDL Integration
 
 **API:** Public API available. Integration feasibility to be confirmed.
+
+The AREDL rank reference appears **only for extreme demons** (AREDL = All Rated Extreme Demons List — it lists extreme demons only). This is a conditional-render rule in the list-references step, keyed off the level's cached in-game difficulty. AREDL's top ~150 covers the extreme-demon ground Pointercrate would have, which is why Pointercrate was cut from v1.
 
 ---
 
@@ -102,7 +86,7 @@ Pointercrate is the most reputable list for extreme demons and is commonly used 
 
 **API:** Likely spreadsheet-based with no public API. Manual entry only for v1. A read-only scrape approach may be investigated for v2.
 
-NLW covers demons below the Pointercrate threshold, making it relevant for players who complete demons that don't appear on more prestigious lists.
+NLW covers extreme demons in a bracket-based system, which many extreme demon grinders prefer to the rigid number ranks of the AREDL.
 
 ---
 
