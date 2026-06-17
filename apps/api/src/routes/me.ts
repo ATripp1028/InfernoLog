@@ -14,7 +14,6 @@ import type { HonoVariables } from '../types/hono'
 import {
   UpdateMeSchema,
   UpdateUsernameSchema,
-  ListPriorityOrderSchema,
   RatingConfigSchema,
   RATING_WEIGHT_SUM_TARGET_CENTS,
 } from '@infernolog/core'
@@ -68,11 +67,11 @@ const meSelect = {
   discordPublic: true,
   ratingMode: true,
   ratingDisplayScale: true,
+  defaultFps: true,
   dateFormatPreference: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
   enjoymentSortOrder: true,
-  listPriorityOrder: true,
   onboardingCompleted: true,
   isVerified: true,
   createdAt: true,
@@ -277,38 +276,6 @@ app.patch('/me/username', async (c) => {
       return c.json({ error: 'Username is already taken' }, 409)
     }
     console.error('PATCH /me/username error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// PATCH /v1/me/list-priority — reorder the list source priority array
-app.patch('/me/list-priority', async (c) => {
-  const userId = c.get('userId') as string
-
-  try {
-    const body = await c.req.json()
-    const parsed = ListPriorityOrderSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: { listPriorityOrder: parsed.data.order },
-      select: {
-        ...meSelect,
-        ratingCategories: {
-          select: { id: true, name: true, weight: true, sortOrder: true },
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    })
-
-    logger.info({ userId }, 'Updated list priority order')
-    return c.json({ data: serializeMe(updated as RawUser) })
-  } catch (error) {
-    console.error('PATCH /me/list-priority error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

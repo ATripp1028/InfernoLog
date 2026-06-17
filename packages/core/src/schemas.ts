@@ -88,10 +88,15 @@ export const UpdateUsernameSchema = z.object({
   username: UsernameSchema,
 })
 
+// Minimum FPS InfernoLog accepts. 60 is the Geometry Dash floor; anything
+// lower isn't a real refresh rate users log against.
+export const MIN_FPS = 60
+
 export const UpdateMeSchema = z
   .object({
     profilePublic: z.boolean().optional(),
     discordPublic: z.boolean().optional(),
+    defaultFps: z.number().int().min(MIN_FPS).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
@@ -175,34 +180,3 @@ export const RatingConfigSchema = z
       })
     }
   })
-
-// Permutation of every ListSource value — order represents priority.
-export const ListPriorityOrderSchema = z.object({
-  order: z.array(z.nativeEnum(ListSource)).superRefine((arr, ctx) => {
-    const expected = Object.values(ListSource) as string[]
-    if (arr.length !== expected.length) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: `Expected ${expected.length} sources, got ${arr.length}`,
-      })
-      return
-    }
-    const seen = new Set<string>()
-    for (const v of arr) {
-      if (seen.has(v)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: `Duplicate: ${v}`,
-        })
-        return
-      }
-      seen.add(v)
-    }
-    for (const v of expected) {
-      if (!seen.has(v)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: `Missing: ${v}` })
-        return
-      }
-    }
-  }),
-})

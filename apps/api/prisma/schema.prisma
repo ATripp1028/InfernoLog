@@ -68,7 +68,6 @@ enum ListType {
 
 enum ListSource {
   GDDL
-  POINTERCRATE
   AREDL
   NLW
   OTHER
@@ -135,9 +134,9 @@ model User {
 
   // Preferences
   ratingMode            RatingMode           @default(SIMPLE)
-  // Stored as ordered array of ListSource enum values
-  // e.g. ["GDDL", "AREDL", "POINTERCRATE", "NLW", "OTHER"]
-  listPriorityOrder     ListSource[]         @default([GDDL, AREDL, POINTERCRATE, NLW, OTHER])
+  // Default FPS pre-filled into the Log Level form. Always >= 60 (the GD
+  // floor); enforced at the application layer.
+  defaultFps            Int                  @default(60)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
@@ -340,7 +339,7 @@ model ListReference {
 
   listSource          ListSource
   // Raw value — varies by list (numeric tier, numeric rank, named tier)
-  // e.g. "28" for GDDL, "47" for Pointercrate, "Hard" for NLW
+  // e.g. "28" for GDDL, "Extreme" for AREDL, "Hard" for NLW
   tierOrRank          String
   // Whether this was the value at time of logging (true)
   // or added retroactively (false)

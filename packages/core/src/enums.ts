@@ -52,7 +52,6 @@ export enum ListType {
 
 export enum ListSource {
   GDDL = 'GDDL',
-  POINTERCRATE = 'POINTERCRATE',
   AREDL = 'AREDL',
   NLW = 'NLW',
   OTHER = 'OTHER'

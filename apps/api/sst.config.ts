@@ -265,7 +265,6 @@ export default $config({
 
     authedRoute('PATCH /v1/me')
     authedRoute('PATCH /v1/me/username')
-    authedRoute('PATCH /v1/me/list-priority')
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
 
