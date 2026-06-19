@@ -31,6 +31,12 @@ export interface MeData {
   includeEnjoyment: boolean
   enjoymentWeight: number
   enjoymentSortOrder: number
+  // True when a GDDL API key is stored. The key itself is never sent to the
+  // client — it lives encrypted (KMS) server-side.
+  hasGddlApiKey: boolean
+  // Public GDDL account name confirmed at connection time; null when not
+  // connected.
+  gddlUsername: string | null
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
   isVerified: boolean
@@ -84,6 +90,59 @@ export function useDisconnectDiscord() {
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
         old ? { ...old, discordId: null } : old
       )
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// GDDL API key — set/remove. The key is write-only from the client's
+// perspective: we send it up to be encrypted server-side and only ever read
+// back the `hasGddlApiKey` flag.
+// ─────────────────────────────────────────────
+
+export interface SetGddlApiKeyResult {
+  me: MeData
+  // GDDL account name confirmed during verification — shown in the success
+  // message, not persisted.
+  gddlName: string
+}
+
+export function useSetGddlApiKey() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (apiKey: string): Promise<SetGddlApiKeyResult> => {
+      const token = await getIdToken()
+      const { data, gddlName } = await apiFetch<{
+        data: MeData
+        gddlName: string
+      }>('/v1/me/gddl-key', {
+        token,
+        method: 'PUT',
+        body: { apiKey },
+      })
+      return { me: data, gddlName }
+    },
+    onSuccess: ({ me }) => {
+      queryClient.setQueryData(meQueryKey, me)
+    },
+  })
+}
+
+export function useRemoveGddlApiKey() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (): Promise<MeData> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: MeData }>('/v1/me/gddl-key', {
+        token,
+        method: 'DELETE',
+      })
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(meQueryKey, data)
     },
   })
 }

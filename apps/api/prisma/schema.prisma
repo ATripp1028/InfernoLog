@@ -129,8 +129,11 @@ model User {
   isVerified            Boolean              @default(false)
   verifiedAt            DateTime?
 
-  // GDDL integration — key stored encrypted, never exposed to frontend
+  // GDDL integration — key stored encrypted, never exposed to frontend.
+  // gddlUsername is the GDDL account name confirmed when the key is verified;
+  // it is public and shown in the connected-accounts UI.
   gddlApiKeyEncrypted   String?
+  gddlUsername          String?
 
   // Preferences
   ratingMode            RatingMode           @default(SIMPLE)

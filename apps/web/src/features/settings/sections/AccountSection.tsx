@@ -1,6 +1,7 @@
 import { SettingsSection } from '../components/SettingsSection'
 import { UsernameEditor } from '../components/UsernameEditor'
 import { ConnectedAccountRow } from '../components/ConnectedAccountRow'
+import { GddlApiKeyEditor } from '../components/GddlApiKeyEditor'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
 import {
@@ -88,6 +89,7 @@ export function AccountSection({ me }: AccountSectionProps) {
               )
             }
           />
+          <GddlApiKeyEditor me={me} />
         </div>
       </div>
     </SettingsSection>

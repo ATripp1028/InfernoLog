@@ -88,6 +88,17 @@ export const UpdateUsernameSchema = z.object({
   username: UsernameSchema,
 })
 
+// GDDL API key — stored encrypted (AWS KMS) and never returned to clients.
+// We only validate that it's a non-empty, sanely-bounded string; GDDL does not
+// publish a fixed key format.
+export const SetGddlApiKeySchema = z.object({
+  apiKey: z
+    .string()
+    .trim()
+    .min(1, 'API key is required')
+    .max(512, 'API key is too long'),
+})
+
 // Minimum FPS InfernoLog accepts. 60 is the Geometry Dash floor; anything
 // lower isn't a real refresh rate users log against.
 export const MIN_FPS = 60
