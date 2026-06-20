@@ -6,6 +6,8 @@ import {
   Role,
   RatingDisplayScale,
   DateFormatPreference,
+  DifficultyOpinion,
+  EntryVisibility,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -14,6 +16,8 @@ export const LevelSchema = z.object({
   isRated: z.boolean(),
   name: z.string().nullable(),
   creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  length: z.string().nullable(),
   songName: z.string().nullable(),
   songAuthor: z.string().nullable(),
   isNong: z.boolean(),
@@ -22,6 +26,7 @@ export const LevelSchema = z.object({
   nongSourceUrl: z.string().url().nullable(),
   peakMusicBpm: z.number().int().nullable(),
   dataSource: z.string(),
+  verified: z.boolean(),
 })
 
 export const ProgressUpdateInputSchema = z.object({
@@ -191,3 +196,166 @@ export const RatingConfigSchema = z
       })
     }
   })
+
+// ─────────────────────────────────────────────
+// LOGGING FLOW — entry-creation request bodies
+// The three FAB paths (completion / progress / drop) plus the level-entry
+// support endpoints. See LOGGING_FLOW.md and DATA_MODEL.md.
+//
+// Ratings/enjoyment are integers 0–100 internally regardless of the user's
+// display scale — the frontend converts at the display layer. The authenticated
+// user always comes from the JWT, never from these payloads.
+// ─────────────────────────────────────────────
+
+// GD level IDs are numeric strings (the in-game id, also the Level PK).
+export const LevelIdSchema = z.string().regex(/^\d+$/, 'Level ID must be numeric')
+
+// Fields shared by every logged entry's "session details" step.
+const sessionDetailFields = {
+  date: z.coerce.date().nullable().optional(),
+  dateUncertain: z.boolean().default(false),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  onStream: z.boolean().default(false),
+  highlightUrl: z.string().url().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  // Per-entry privacy, independent of global profile visibility.
+  visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
+}
+
+// A single weighted-mode category score (0–100 internally).
+export const RatingScoreInputSchema = z.object({
+  categoryId: z.string().uuid(),
+  score: z.number().int().min(0).max(100),
+})
+
+// A community-list tier/rank attached to a completion. Pointercrate is cut —
+// only GDDL / AREDL / NLW / OTHER are valid sources.
+export const CompletionListReferenceSchema = z.object({
+  listSource: z.nativeEnum(ListSource),
+  tierOrRank: z.string().min(1),
+  atTimeOfLogging: z.boolean().default(true),
+})
+
+// COMPLETION — 100% is implied, so no percentage/run-range. In-game difficulty
+// is read from the cached level, never accepted from the client.
+export const CompletionInputSchema = z.object({
+  levelId: LevelIdSchema,
+  ...sessionDetailFields,
+  videoUrl: z.string().url().nullable().optional(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+  // SIMPLE mode: a single rating. WEIGHTED mode: per-category scores. We store
+  // whichever the client sends and never pre-compute the weighted average.
+  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+  ratingScores: z.array(RatingScoreInputSchema).optional(),
+  listReferences: z.array(CompletionListReferenceSchema).optional(),
+  // Optional GDDL record submission side effect (non-blocking). Only honored
+  // when the user has a GDDL key configured.
+  submitToGddl: z.boolean().default(false),
+})
+
+// PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
+// The cross-field runTo >= runFrom check lives in superRefine because a
+// discriminated-union member must be a plain ZodObject (a per-member .refine
+// would wrap it in ZodEffects, which the union rejects).
+export const ProgressInputSchema = z
+  .discriminatedUnion('mode', [
+    z.object({
+      mode: z.literal('from_zero'),
+      levelId: LevelIdSchema,
+      // Best progress so far (single value). Floor 0.
+      percentage: z.number().min(0).max(100),
+      enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+      ...sessionDetailFields,
+    }),
+    z.object({
+      mode: z.literal('from_run'),
+      levelId: LevelIdSchema,
+      // Best run segment, e.g. 44 → 87. Both floored at 0.
+      runFrom: z.number().int().min(0).max(100),
+      runTo: z.number().int().min(0).max(100),
+      enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+      ...sessionDetailFields,
+    }),
+  ])
+  .superRefine((v, ctx) => {
+    if (v.mode === 'from_run' && v.runTo < v.runFrom) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'runTo must be greater than or equal to runFrom',
+        path: ['runTo'],
+      })
+    }
+  })
+
+// DROP — a status transition with optional metadata. Drop-from-scratch is
+// allowed (no prior progress required).
+export const DropInputSchema = z.object({
+  levelId: LevelIdSchema,
+  droppedAt: z.coerce.date().nullable().optional(),
+  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  droppedReason: z.string().max(2000).nullable().optional(),
+  visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
+})
+
+// MANUAL LEVEL METADATA — the GDBrowser-fallback form submit. The user-entered
+// difficulty BECOMES the level's in-game difficulty (the one sanctioned
+// exception to in-game-difficulty-is-read-only). Stored data_source=manual,
+// verified=false so a later sync can backfill/verify.
+export const ManualLevelInputSchema = z.object({
+  inGameId: LevelIdSchema,
+  name: z.string().min(1).max(200),
+  creator: z.string().min(1).max(200),
+  difficulty: z.string().min(1).max(100),
+  songName: z.string().max(200).nullable().optional(),
+  songAuthor: z.string().max(200).nullable().optional(),
+  length: z.string().max(100).nullable().optional(),
+})
+
+// ─────────────────────────────────────────────
+// LOGGING FLOW — response shapes (wire contracts)
+// ─────────────────────────────────────────────
+
+export const LevelSearchResultSchema = z.object({
+  inGameId: z.string(),
+  name: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+})
+
+// The existing-completion summary folded into the resolve response so the
+// client can pre-populate the edit form ("edit, not replace").
+export const ExistingCompletionSchema = z.object({
+  progressUpdateId: z.string().uuid(),
+  date: z.coerce.date().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
+  enjoyment: z.number().int().nullable(),
+  simpleRating: z.number().int().nullable(),
+  fps: z.number().int().nullable(),
+  onStream: z.boolean(),
+  videoUrl: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+  notes: z.string().nullable(),
+  visibility: z.nativeEnum(EntryVisibility),
+  ratingScores: z.array(
+    z.object({ categoryId: z.string().uuid(), score: z.number().int() })
+  ),
+  listReferences: z.array(
+    z.object({
+      listSource: z.nativeEnum(ListSource),
+      tierOrRank: z.string(),
+      atTimeOfLogging: z.boolean(),
+    })
+  ),
+})
+
+export const ResolveLevelResponseSchema = z.object({
+  level: LevelSchema.nullable(),
+  // True when GDBrowser was unavailable/empty and the client should fall back
+  // to the manual-entry form. Never accompanied by a 500.
+  fallbackToManual: z.boolean(),
+  existingCompletion: ExistingCompletionSchema.nullable(),
+})

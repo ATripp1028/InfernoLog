@@ -6,13 +6,16 @@ generator client {
   provider        = "prisma-client-js"
   output          = "../node_modules/.prisma/client"
   binaryTargets   = ["native", "rhel-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
-  previewFeatures = ["driverAdapters"]
+  previewFeatures = ["driverAdapters", "postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_DIRECT")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DATABASE_URL_DIRECT")
+  // pg_trgm powers the fuzzy/typo-tolerant level name search
+  // (Level.name GIN index below). See routes/levels.ts.
+  extensions = [pgTrgm(map: "pg_trgm")]
 }
 
 // ─────────────────────────────────────────────
@@ -100,6 +103,19 @@ enum RatingDisplayScale {
   // Stored internally as 0-100 integer regardless of display preference.
   // Conversion: ZERO_TO_TEN display = internal / 10
   //             ZERO_TO_HUNDRED display = internal (no conversion)
+}
+
+// The user's subjective difficulty read on a completion — the ONLY difficulty
+// field the user edits. Distinct from the level's cached in-game difficulty
+// (Level.inGameDifficulty). NOT_DEMON_WORTHY is a disagreement flag only; the
+// level stays a rated demon. See DATA_MODEL.md and LOGGING_FLOW.md.
+enum DifficultyOpinion {
+  NOT_DEMON_WORTHY
+  EASY
+  MEDIUM
+  HARD
+  INSANE
+  EXTREME
 }
 
 // ─────────────────────────────────────────────
@@ -190,6 +206,14 @@ model Level {
   // Core metadata — populated by GDBrowser autofill
   name                  String?
   creator               String?
+  // The level's actual rated difficulty (e.g. "Insane Demon"), cached from
+  // GDBrowser and read-only in the UI — EXCEPT on the manual-entry fallback,
+  // where the user-entered difficulty becomes this value (data_source=manual).
+  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion.
+  inGameDifficulty      String?
+  // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
+  // entered on the manual-entry fallback.
+  length                String?
   songName              String?              // Newgrounds song
   songAuthor            String?
 
@@ -204,6 +228,9 @@ model Level {
 
   // Data provenance
   dataSource            String               @default("manual") // "gdbrowser_autofill" | "manual"
+  // False for `manual` rows until a later GDBrowser sync backfills/verifies
+  // (and may override) the manually-entered metadata.
+  verified              Boolean              @default(false)
 
   // Monthly sync job fields
   // See EXTERNAL_APIS.md — EventBridge fires on the 1st of each month
@@ -222,6 +249,9 @@ model Level {
   levelListEntries      LevelListEntry[]
   levelUpdateNotifs     LevelUpdateNotification[]
 
+  // pg_trgm GIN index powering fuzzy/typo-tolerant name search
+  // (GET /v1/levels/search). Queried via the `%` operator / similarity().
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("levels")
 }
 
@@ -242,6 +272,10 @@ model LevelProgress {
   // Drop-specific fields
   droppedReason   String?
   droppedAt       DateTime?
+  // Optional attempt count captured on the drop screen. Aligns with the
+  // import format's `attempts_at_drop`. Puts the eventual completion's
+  // attempt count in perspective if the level is later beaten.
+  attemptsAtDrop  Int?
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
@@ -306,7 +340,10 @@ model ProgressUpdate {
   // Contextual metadata
   // Snapshot of in-game difficulty rating at time of logging
   // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
+  // Populated automatically from the Level cache — never user-edited.
   inGameDifficulty      String?
+  // The user's subjective difficulty opinion (the only difficulty they edit).
+  difficultyOpinion     DifficultyOpinion?
   notes                 String?
 
   // Media

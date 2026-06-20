@@ -38,6 +38,18 @@ export enum LevelProgressStatus {
   COMPLETED = 'COMPLETED'
 }
 
+// The user's subjective difficulty read on a completion. NOT_DEMON_WORTHY is a
+// disagreement flag only — the level stays a rated demon. Distinct from the
+// level's cached in-game difficulty. See DATA_MODEL.md / LOGGING_FLOW.md.
+export enum DifficultyOpinion {
+  NOT_DEMON_WORTHY = 'NOT_DEMON_WORTHY',
+  EASY = 'EASY',
+  MEDIUM = 'MEDIUM',
+  HARD = 'HARD',
+  INSANE = 'INSANE',
+  EXTREME = 'EXTREME'
+}
+
 export enum EntryVisibility {
   PUBLIC = 'PUBLIC',
   PRIVATE = 'PRIVATE'

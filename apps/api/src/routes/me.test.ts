@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
-import { Hono } from 'hono'
 import type { PrismaClient } from '@prisma/client'
-import type { HonoVariables } from '../types/hono'
+import { buildApp as buildAppWith, TEST_USER_ID } from '../test/utils'
 import { mintConnectDiscordState } from './auth'
 import { encryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
@@ -42,21 +41,11 @@ const { default: meApp } = await import('./me')
 
 const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 
-const USER_ID = 'user-123'
+const USER_ID = TEST_USER_ID
 
-// Wrap the route app with a middleware that injects userId, mimicking the
-// real auth middleware that runs in production. Route tests focus on
-// handler behavior, not auth — auth is tested separately.
-function buildApp() {
-  const app = new Hono<{ Variables: HonoVariables }>()
-  app.use('*', async (c, next) => {
-    c.set('userId', USER_ID)
-    c.set('userEmail', 'test@example.com')
-    await next()
-  })
-  app.route('/', meApp)
-  return app
-}
+// Wrap the me route app with the shared auth-injecting middleware (see
+// test/utils.ts). Route tests focus on handler behavior, not auth.
+const buildApp = () => buildAppWith(meApp)
 
 beforeEach(() => {
   // Clear call history (preserving the default mock implementations set in the

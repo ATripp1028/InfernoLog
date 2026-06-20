@@ -58,3 +58,44 @@ export async function verifyGddlApiKey(
 
   return { name: body.Name }
 }
+
+// How long to wait on a GDDL record submission before giving up. This call is
+// fire-and-forget from the completion flow; the timeout just bounds the work.
+const SUBMIT_TIMEOUT_MS = 8000
+
+// Submits a completion record to GDDL. Resolves with whether GDDL accepted the
+// record. Throws on network/timeout/non-2xx — callers MUST treat this as
+// non-blocking (the completion has already been written) and swallow failures.
+export async function submitGddlRecord(
+  apiKey: string,
+  record: { levelId: string; videoUrl: string | null }
+): Promise<{ accepted: boolean }> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/record`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        levelID: record.levelId,
+        videoLink: record.videoUrl,
+      }),
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeout)
+  }
+
+  if (!res.ok) {
+    throw new Error(`GDDL record submission failed with status ${res.status}`)
+  }
+
+  const body = (await res.json()) as { accepted?: unknown }
+  return { accepted: body.accepted === true }
+}

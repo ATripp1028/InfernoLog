@@ -110,17 +110,24 @@ A dropped level is a `level_progress` entry with `status = dropped`. It is not a
 
 ```
 level_progress.status transitions:
+  (none) → dropped          (drop-from-scratch — dropping a never-logged level)
   in_progress → dropped     (user marks as dropped)
-  dropped → in_progress     (user picks it back up)
+  dropped → in_progress     (automatic when the user logs new progress)
   in_progress → completed   (user logs completion)
   dropped → completed       (user beats it after dropping)
 ```
+
+A level can be dropped without ever having been logged ("drop-from-scratch"): the
+`level_progress` row is created directly at `status = dropped`, with no prior
+`in_progress` row. Conversely, logging a progress update on a dropped level
+**automatically** flips it back to `in_progress` — see `LOGGING_FLOW_RECONCILIATION.md`.
 
 When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing `level_progress` entry. The drop history remains intact as part of the progress timeline.
 
 Additional drop-specific fields on `level_progress`:
 - `dropped_reason` — freeform text
 - `dropped_at` — date
+- `attempts_at_drop` — optional attempt count captured on the drop screen
 
 ---
 

@@ -1,0 +1,25 @@
+# Local Postgres for integration tests (and for generating Prisma migrations
+# without touching a real Neon database).
+#
+#   docker compose -f apps/api/docker-compose.test.yml up -d
+#
+# Connection string (used as TEST_DATABASE_URL by the integration vitest project
+# and as DATABASE_URL when generating migrations):
+#   postgresql://postgres:postgres@localhost:5433/infernolog_test
+services:
+  postgres:
+    image: postgres:16
+    container_name: infernolog-test-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: infernolog_test
+    ports:
+      - '5433:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d infernolog_test']
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    tmpfs:
+      - /var/lib/postgresql/data

@@ -71,6 +71,13 @@
      └─────────────────┘
 ```
 
+**Entry points & transitions:**
+- A `level_progress` row is created on the user's **first action** for that level. That first action can be a progress log (→ `in_progress`), a completion (→ `completed`), or a **drop** (→ `dropped` directly — "drop-from-scratch"; the row need not pass through `in_progress` first).
+- `in_progress → dropped` when the user drops the level. `dropped → in_progress` happens **automatically** when the user logs new progress on a dropped level (logging progress implies active play).
+- `completed` is left untouched by further progress logs in v1 (rebeat is a future feature).
+
+See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-from-scratch decisions.
+
 ---
 
 ## Table Definitions
