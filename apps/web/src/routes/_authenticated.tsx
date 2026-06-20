@@ -4,6 +4,7 @@ import { Shell } from '@/components/Shell'
 import { PageLoading } from '@/components/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/lib/api/me'
+import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -52,8 +53,10 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <Shell>
-      <Outlet />
-    </Shell>
+    <LoggingFlowProvider>
+      <Shell>
+        <Outlet />
+      </Shell>
+    </LoggingFlowProvider>
   )
 }

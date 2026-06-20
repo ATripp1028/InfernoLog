@@ -1,0 +1,129 @@
+import type {
+  DifficultyOpinion,
+  EntryVisibility,
+  ExistingCompletion,
+  Level,
+} from '@/lib/api/logging'
+
+export type FlowPath = 'completion' | 'progress' | 'drop'
+
+export type FlowStep =
+  | 'find'
+  | 'manual'
+  | 'c_basics'
+  | 'c_rating'
+  | 'c_listrefs'
+  | 'c_session'
+  | 'c_review'
+  | 'c_success'
+  | 'p_core'
+  | 'p_session'
+  | 'd_main'
+
+export type RatingScoresDraft = Record<string, number>
+
+// One mutable draft shared across every step of the active path. Numeric inputs
+// are kept as strings (controlled text fields) and parsed at submit time;
+// slider-backed ratings are stored as 0–100 integers (the internal scale).
+export interface FlowDraft {
+  date: string | null
+  dateUncertain: boolean
+  attempts: string
+  difficultyOpinion: DifficultyOpinion | null
+  // Ratings — 0–100 internally regardless of display scale.
+  enjoyment: number | null
+  simpleRating: number | null
+  ratingScores: RatingScoresDraft
+  // List references
+  gddlTier: string
+  nlwTier: string
+  aredlTier: string
+  submitToGddl: boolean
+  gddlRecordAccepted: boolean
+  // Session
+  fps: string
+  onStream: boolean
+  visibility: EntryVisibility
+  videoUrl: string
+  highlightUrl: string
+  notes: string
+  // Progress
+  progressMode: 'from_zero' | 'from_run'
+  percentage: string
+  runFrom: string
+  runTo: string
+  // Drop
+  droppedReason: string
+}
+
+export function emptyDraft(): FlowDraft {
+  return {
+    date: null,
+    dateUncertain: false,
+    attempts: '',
+    difficultyOpinion: null,
+    enjoyment: null,
+    simpleRating: null,
+    ratingScores: {},
+    gddlTier: '',
+    nlwTier: '',
+    aredlTier: '',
+    submitToGddl: false,
+    gddlRecordAccepted: false,
+    fps: '',
+    onStream: false,
+    visibility: 'PUBLIC',
+    videoUrl: '',
+    highlightUrl: '',
+    notes: '',
+    progressMode: 'from_zero',
+    percentage: '',
+    runFrom: '',
+    runTo: '',
+    droppedReason: '',
+  }
+}
+
+// Serialized ISO date → the yyyy-MM-dd a native <input type="date"> expects.
+function isoToDateInput(iso: string | null): string | null {
+  if (!iso) return null
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  return d.toISOString().slice(0, 10)
+}
+
+// Pre-populate the completion draft from a prior completion so the wizard edits
+// in place ("edit, not replace") rather than starting blank.
+export function draftFromExistingCompletion(
+  existing: ExistingCompletion
+): FlowDraft {
+  const draft = emptyDraft()
+  draft.date = isoToDateInput(existing.date)
+  draft.dateUncertain = existing.dateUncertain
+  draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
+  draft.difficultyOpinion = existing.difficultyOpinion
+  draft.enjoyment = existing.enjoyment
+  draft.simpleRating = existing.simpleRating
+  draft.ratingScores = Object.fromEntries(
+    existing.ratingScores.map((s) => [s.categoryId, s.score])
+  )
+  draft.fps = existing.fps != null ? String(existing.fps) : ''
+  draft.onStream = existing.onStream
+  draft.visibility = existing.visibility
+  draft.videoUrl = existing.videoUrl ?? ''
+  draft.highlightUrl = existing.highlightUrl ?? ''
+  draft.notes = existing.notes ?? ''
+  draft.gddlRecordAccepted = existing.gddlRecordAccepted ?? false
+  for (const ref of existing.listReferences) {
+    if (ref.listSource === 'GDDL') draft.gddlTier = ref.tierOrRank
+    if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank
+    if (ref.listSource === 'AREDL') draft.aredlTier = ref.tierOrRank
+  }
+  return draft
+}
+
+export interface ResolvedLevel {
+  level: Level
+  existingCompletion: ExistingCompletion | null
+  suggestedGddlTier: number | null
+}
