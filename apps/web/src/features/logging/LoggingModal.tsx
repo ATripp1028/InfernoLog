@@ -133,7 +133,7 @@ export function LoggingModal() {
                 </>
               )}
 
-              <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+              <div className="relative z-10 flex min-h-0 flex-1 flex-col [&_input]:bg-[color-mix(in_oklab,var(--color-bg-surface)_70%,transparent)] [&_textarea]:bg-[color-mix(in_oklab,var(--color-bg-surface)_70%,transparent)]">
                 <div className="relative px-6 pb-0 pt-5">
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                     {header.eyebrow}
