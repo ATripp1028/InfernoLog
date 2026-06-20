@@ -90,18 +90,26 @@ async function loadExistingCompletion(userId: string, levelId: string) {
   }
 }
 
-// GET /v1/levels/search?q= — fuzzy/typo-tolerant name search via the pg_trgm
-// GIN index (the `%` operator uses the index; similarity() orders by relevance).
+// GET /v1/levels/search?q= — name search backed by the pg_trgm GIN index.
+// Two complementary matchers, both index-supported by gin_trgm_ops:
+//   • ILIKE '%q%'  — substring/prefix match, so short fragments like "Cat"
+//     surface "Cataclysm" (the `%` similarity operator alone needs ~4 chars of
+//     a long name to clear pg_trgm's 0.3 threshold).
+//   • name % q     — trigram similarity, for typo tolerance ("Cataclism").
+// Results are ordered by similarity so the closest name ranks first.
 app.get('/levels/search', async (c) => {
   const q = c.req.query('q')?.trim()
   if (!q) return c.json({ error: 'Query parameter "q" is required' }, 400)
+
+  // Escape ILIKE wildcards in user input so "100%" matches literally.
+  const likePattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
   try {
     const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
       SELECT "inGameId", "name", "creator", "inGameDifficulty"
       FROM "levels"
-      WHERE "name" % ${q}
-      ORDER BY similarity("name", ${q}) DESC
+      WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
+      ORDER BY similarity("name", ${q}) DESC, "name" ASC
       LIMIT 20
     `)
     return c.json({ data: results })

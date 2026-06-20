@@ -89,12 +89,20 @@ export function LoggingModal() {
   const isSuccess = step === 'c_success'
   const header = headerConfig(path, step)
 
+  // Once the user has committed to a level (anything past "find"), an accidental
+  // click outside shouldn't discard their in-progress entry. The X button and
+  // Escape remain deliberate exits. The post-save success card is dismissible.
+  const lockOutsideClose = step !== 'find' && step !== 'c_success'
+
   return (
     <Dialog.Root open={isOpen} onOpenChange={(o) => !o && close()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
         <Dialog.Content
           aria-describedby={undefined}
+          onInteractOutside={(e) => {
+            if (lockOutsideClose) e.preventDefault()
+          }}
           className={cn(
             'fixed left-1/2 top-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 focus:outline-none',
             isSuccess ? 'w-[420px]' : 'w-[760px]'
