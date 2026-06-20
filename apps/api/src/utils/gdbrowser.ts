@@ -29,14 +29,26 @@ type RawGdBrowserLevel = {
   author?: unknown
   difficulty?: unknown
   length?: unknown
-  song?: unknown
+  songName?: unknown
   songAuthor?: unknown
   stars?: unknown
-  demon?: unknown
+  // GDBrowser has no boolean `demon` field — demon-ness is encoded in the
+  // difficulty label ("Extreme Demon") and the machine-readable partialDiff
+  // ("demon-extreme"). Non-demons use values like "easy" / "hard" / "insane".
+  partialDiff?: unknown
 }
 
 const str = (v: unknown): string | null =>
   typeof v === 'string' && v.length > 0 ? v : null
+
+// True when the level is any demon tier. Prefer the machine-readable
+// partialDiff ("demon-*"); fall back to the human label ("… Demon").
+const isDemonLevel = (raw: RawGdBrowserLevel): boolean => {
+  const partial = str(raw.partialDiff)
+  if (partial) return partial.toLowerCase().startsWith('demon')
+  const difficulty = str(raw.difficulty)
+  return difficulty ? difficulty.toLowerCase().includes('demon') : false
+}
 
 // Fetches level metadata from GDBrowser. Resolves with the normalized level on
 // success, or `null` for any failure (down/timeout/not-found/malformed).
@@ -67,11 +79,10 @@ export async function fetchGdBrowserLevel(
       creator: str(raw.author),
       inGameDifficulty: str(raw.difficulty),
       length: str(raw.length),
-      songName: str(raw.song),
+      songName: str(raw.songName),
       songAuthor: str(raw.songAuthor),
       isRated: stars > 0,
-      // GDBrowser reports `demon` as a boolean.
-      isDemon: raw.demon === true,
+      isDemon: isDemonLevel(raw),
     }
   } catch {
     // Network error, timeout/abort, or JSON parse failure — fall back to manual.

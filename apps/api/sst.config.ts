@@ -290,9 +290,11 @@ export default $config({
     authedRoute('POST /v1/me/progress')
     authedRoute('POST /v1/me/drops')
     authedRoute('GET /v1/levels/search')
-    authedRoute('GET /v1/levels/:levelId/resolve')
+    // API Gateway HTTP API path params use {brace} syntax; Hono's own routes
+    // keep :levelId. The actual request path is forwarded to Hono unchanged.
+    authedRoute('GET /v1/levels/{levelId}/resolve')
     authedRoute('POST /v1/levels')
-    authedRoute('GET /v1/levels/:levelId')
+    authedRoute('GET /v1/levels/{levelId}')
 
     // GDDL API key routes — these Lambdas additionally get the KMS key id in
     // their environment and IAM permission to Encrypt/Decrypt with it. Scoped
