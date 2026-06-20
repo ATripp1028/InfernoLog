@@ -1,6 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
 import { FindLevelStep } from './steps/FindLevelStep'
@@ -84,7 +85,7 @@ function StepView({ step }: { step: FlowStep }) {
 }
 
 export function LoggingModal() {
-  const { isOpen, path, step, close } = useLoggingFlow()
+  const { isOpen, path, step, level, close } = useLoggingFlow()
 
   const isSuccess = step === 'c_success'
   const header = headerConfig(path, step)
@@ -114,28 +115,47 @@ export function LoggingModal() {
               <CompletionSuccessStep />
             </div>
           ) : (
-            <div className="flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
-              <div className="relative px-6 pb-0 pt-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  {header.eyebrow}
-                </p>
-                <Dialog.Title className="mt-1 text-2xl font-semibold text-text-primary">
-                  {header.title}
-                </Dialog.Title>
-                <Dialog.Close
-                  aria-label="Close"
-                  className="absolute right-5 top-5 flex size-8 items-center justify-center rounded-md bg-bg-elevated text-text-secondary transition-colors hover:text-text-primary"
-                >
-                  <X size={16} />
-                </Dialog.Close>
-                <div className="mt-4 h-0.5 w-full overflow-hidden rounded-full bg-bg-subtle">
-                  <div
-                    className="h-full bg-primary transition-[width] duration-300"
-                    style={{ width: `${Math.round(header.progress * 100)}%` }}
+            <div className="relative flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+              {/* Full-panel level thumbnail backdrop (mockup style). Shown once a
+                  level is resolved; a heavy scrim keeps the form readable. */}
+              {level && (
+                <>
+                  <img
+                    src={levelThumbnailUrl(level.inGameId)}
+                    alt=""
+                    aria-hidden
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none'
+                    }}
+                    className="pointer-events-none absolute inset-0 size-full object-cover"
                   />
+                  <div className="pointer-events-none absolute inset-0 bg-bg-base/85" />
+                </>
+              )}
+
+              <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+                <div className="relative px-6 pb-0 pt-5">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                    {header.eyebrow}
+                  </p>
+                  <Dialog.Title className="mt-1 text-2xl font-semibold text-text-primary">
+                    {header.title}
+                  </Dialog.Title>
+                  <Dialog.Close
+                    aria-label="Close"
+                    className="absolute right-5 top-5 flex size-8 items-center justify-center rounded-md bg-bg-elevated text-text-secondary transition-colors hover:text-text-primary"
+                  >
+                    <X size={16} />
+                  </Dialog.Close>
+                  <div className="mt-4 h-0.5 w-full overflow-hidden rounded-full bg-bg-subtle">
+                    <div
+                      className="h-full bg-primary transition-[width] duration-300"
+                      style={{ width: `${Math.round(header.progress * 100)}%` }}
+                    />
+                  </div>
                 </div>
+                <StepView step={step} />
               </div>
-              <StepView step={step} />
             </div>
           )}
         </Dialog.Content>

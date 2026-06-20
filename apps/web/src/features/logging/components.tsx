@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react'
 import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { difficultyFaceSrc, levelThumbnailUrl } from '@/lib/gdAssets'
+import { difficultyFaceSrc } from '@/lib/gdAssets'
 import type { Level } from '@/lib/api/logging'
 import { useLoggingFlow } from './LoggingFlowProvider'
 
@@ -67,30 +68,17 @@ export function SectionLabel({ children }: { children: ReactNode }) {
   )
 }
 
-// The "Bloodbath · by Riot · At the Speed of Light  [Change]" banner that sits
-// atop every post-resolve step: the level thumbnail as a backdrop, the
-// difficulty face, and a "Change" link back to the find step.
+// The "Bloodbath · by Riot · At the Speed of Light  [Change]" row that sits atop
+// every post-resolve step. No surrounding box — it reads against the modal's
+// level-thumbnail backdrop. "Change" returns to the find step.
 export function LevelHeader({ level }: { level: Level }) {
   const { setStep } = useLoggingFlow()
   const subtitle = [level.creator ? `by ${level.creator}` : null, level.songName]
     .filter(Boolean)
     .join(' · ')
   return (
-    <div className="relative flex items-center justify-between gap-4 overflow-hidden rounded-md border border-border-subtle bg-bg-surface px-4 py-3">
-      {/* Level thumbnail backdrop; hidden if it fails to load. */}
-      <img
-        src={levelThumbnailUrl(level.inGameId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="absolute inset-0 size-full object-cover"
-      />
-      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-
-      <div className="relative flex items-center gap-3">
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-3">
         <img
           src={difficultyFaceSrc(level.inGameDifficulty)}
           alt={level.inGameDifficulty ?? 'Difficulty'}
@@ -105,13 +93,15 @@ export function LevelHeader({ level }: { level: Level }) {
           )}
         </div>
       </div>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setStep('find')}
-        className="relative text-sm font-medium text-primary hover:underline"
+        className="text-primary hover:bg-[var(--color-primary-dim)] hover:text-primary"
       >
         Change
-      </button>
+      </Button>
     </div>
   )
 }
