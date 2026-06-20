@@ -36,6 +36,38 @@ export interface Level {
   nongArtist: string | null
   nongSourceUrl: string | null
   peakMusicBpm: number | null
+  // Extended GDBrowser metadata snapshot (all nullable; see schema.prisma).
+  description: string | null
+  creatorPlayerId: string | null
+  creatorAccountId: string | null
+  creatorPoints: number | null
+  stars: number | null
+  starsRequested: number | null
+  partialDiff: string | null
+  difficultyFace: string | null
+  downloads: number | null
+  likes: number | null
+  disliked: boolean | null
+  objectCount: number | null
+  largeLevel: boolean | null
+  coins: number | null
+  coinsVerified: boolean | null
+  orbs: number | null
+  diamonds: number | null
+  featured: boolean | null
+  featureScore: number | null
+  epicValue: number | null
+  twoPlayer: boolean | null
+  lowDetailMode: boolean | null
+  copiedFromId: string | null
+  levelVersion: number | null
+  gameVersion: string | null
+  editorSeconds: number | null
+  editorSecondsTotal: number | null
+  officialSongId: number | null
+  songId: string | null
+  songLink: string | null
+  songSize: string | null
   dataSource: string
   verified: boolean
 }

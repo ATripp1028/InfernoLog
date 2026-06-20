@@ -230,6 +230,53 @@ model Level {
   // Additional metadata (v2)
   peakMusicBpm          Int?                 // Music BPM, not heart rate
 
+  // ── Extended GDBrowser metadata ──────────────────────────────────────────
+  // A snapshot of everything RobTop's level object exposes (via GDBrowser), so
+  // we retain the data even if the level later changes or is deleted upstream,
+  // and can surface more of it in the UI later without a re-fetch. All optional:
+  // null on manual rows and on rows cached before this was added. See
+  // EXTERNAL_APIS.md and https://wyliemaster.github.io/gddocs (level object).
+  description           String?
+  // Creator identity beyond the display name.
+  creatorPlayerId       String?
+  creatorAccountId      String?
+  creatorPoints         Int?
+  // Rating / difficulty detail. stars is the awarded star/moon count (0 when
+  // unrated → isRated); partialDiff/difficultyFace are GDBrowser's
+  // machine-readable difficulty tokens ("demon-extreme", "demon-extreme-featured").
+  stars                 Int?
+  starsRequested        Int?
+  partialDiff           String?
+  difficultyFace        String?
+  // Engagement / stats.
+  downloads             Int?
+  likes                 Int?
+  disliked              Boolean?
+  objectCount           Int?
+  largeLevel            Boolean?
+  coins                 Int?
+  coinsVerified         Boolean?
+  orbs                  Int?
+  diamonds              Int?
+  // Showcase flags. epicValue: 0 none, 1 epic, 2 legendary, 3 mythic.
+  featured              Boolean?
+  featureScore          Int?
+  epicValue             Int?
+  // Build / publish detail.
+  twoPlayer             Boolean?
+  lowDetailMode         Boolean?
+  copiedFromId          String?
+  levelVersion          Int?
+  gameVersion           String?
+  editorSeconds         Int?
+  editorSecondsTotal    Int?
+  // Song detail beyond name/author. officialSongId is set when the level uses a
+  // built-in track; songId is the Newgrounds/custom song id otherwise.
+  officialSongId        Int?
+  songId                String?
+  songLink              String?
+  songSize              String?
+
   // Data provenance
   dataSource            String               @default("manual") // "gdbrowser_autofill" | "manual"
   // False for `manual` rows until a later GDBrowser sync backfills/verifies
