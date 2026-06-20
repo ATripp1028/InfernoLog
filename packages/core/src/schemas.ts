@@ -14,6 +14,7 @@ export const LevelSchema = z.object({
   inGameId: z.string(),
   levelType: z.nativeEnum(LevelType),
   isRated: z.boolean(),
+  isDemon: z.boolean(),
   name: z.string().nullable(),
   creator: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
@@ -253,6 +254,10 @@ export const CompletionInputSchema = z.object({
   // Optional GDDL record submission side effect (non-blocking). Only honored
   // when the user has a GDDL key configured.
   submitToGddl: z.boolean().default(false),
+  // Self-reported "mark record as accepted" toggle (GDDL). Independent of
+  // submitToGddl — the user flips it once GDDL accepts the record. When
+  // provided, upserts the GDDL RecordAcceptance; omit to leave it unchanged.
+  gddlRecordAccepted: z.boolean().optional(),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
@@ -308,6 +313,9 @@ export const ManualLevelInputSchema = z.object({
   name: z.string().min(1).max(200),
   creator: z.string().min(1).max(200),
   difficulty: z.string().min(1).max(100),
+  // Whether the user picked a demon tier vs "Not a demon" on the manual form.
+  // GDBrowser was unavailable, so the client tells us; defaults to false.
+  isDemon: z.boolean().optional(),
   songName: z.string().max(200).nullable().optional(),
   songAuthor: z.string().max(200).nullable().optional(),
   length: z.string().max(100).nullable().optional(),
@@ -340,6 +348,9 @@ export const ExistingCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
+  // Self-reported GDDL record-accepted state, to prefill the edit form's
+  // "mark record as accepted" toggle. Null when no GDDL acceptance row exists.
+  gddlRecordAccepted: z.boolean().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -357,5 +368,9 @@ export const ResolveLevelResponseSchema = z.object({
   // True when GDBrowser was unavailable/empty and the client should fall back
   // to the manual-entry form. Never accompanied by a 500.
   fallbackToManual: z.boolean(),
+  // GDDL's suggested tier for the level (autofills the GDDL tier field on the
+  // list-references step). Null when GDDL has no tier or is unavailable —
+  // fetching it never blocks or fails the resolve.
+  suggestedGddlTier: z.number().nullable(),
   existingCompletion: ExistingCompletionSchema.nullable(),
 })

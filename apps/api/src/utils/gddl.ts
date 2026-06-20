@@ -59,6 +59,35 @@ export async function verifyGddlApiKey(
   return { name: body.Name }
 }
 
+// How long to wait on the public GDDL tier lookup before giving up. Like
+// GDBrowser, this autofill must never block the logging flow.
+const TIER_TIMEOUT_MS = 5000
+
+// Fetches GDDL's suggested tier for a level (public list data — no key needed).
+// Resolves with the numeric tier, or `null` for any failure (down, timeout,
+// not-found, malformed). Never throws to its caller.
+export async function fetchGddlTier(levelId: string): Promise<number | null> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), TIER_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(
+      `${GDDL_API_BASE_URL}/level/${encodeURIComponent(levelId)}`,
+      { headers: { Accept: 'application/json' }, signal: controller.signal }
+    )
+    if (!res.ok) return null
+
+    const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
+    // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
+    const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
+    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 // How long to wait on a GDDL record submission before giving up. This call is
 // fire-and-forget from the completion flow; the timeout just bounds the work.
 const SUBMIT_TIMEOUT_MS = 8000

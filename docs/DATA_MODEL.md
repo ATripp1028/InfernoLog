@@ -113,6 +113,7 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `in_game_id` | VARCHAR | Primary key |
 | `level_type` | ENUM | `classic`, `platformer` |
 | `is_rated` | BOOLEAN | |
+| `is_demon` | BOOLEAN | Default false. Whether GD classifies the level as a demon, cached from GDBrowser's `demon` flag. Drives the non-demon soft gate (see `LOGGING_FLOW.md`) |
 | `name` | VARCHAR | |
 | `creator` | VARCHAR | |
 | `in_game_difficulty` | VARCHAR | The level's actual rated difficulty (e.g. "Insane Demon"), cached from GDBrowser. **Read-only in the UI** — the per-user difficulty *opinion* lives on `progress_updates`. See item below |

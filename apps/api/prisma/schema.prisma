@@ -202,6 +202,10 @@ model Level {
   inGameId              String               @id
   levelType             LevelType            @default(CLASSIC)
   isRated               Boolean              @default(false)
+  // Whether GD classifies this as a demon. Cached from GDBrowser's `demon`
+  // flag. Drives the non-demon soft gate in the logging flow (a non-demon can
+  // still be logged but is excluded from the difficulty ranking by default).
+  isDemon               Boolean              @default(false)
 
   // Core metadata — populated by GDBrowser autofill
   name                  String?

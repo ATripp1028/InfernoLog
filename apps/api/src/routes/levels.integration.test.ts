@@ -17,15 +17,20 @@ vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 vi.mock('../utils/gdbrowser', () => ({ fetchGdBrowserLevel: vi.fn() }))
+vi.mock('../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
 
 const { default: levelsApp } = await import('./levels')
 const { fetchGdBrowserLevel } = await import('../utils/gdbrowser')
+const { fetchGddlTier } = await import('../utils/gddl')
 
 const prisma = getTestPrisma()
 const gdbrowserMock = fetchGdBrowserLevel as unknown as ReturnType<typeof vi.fn>
+const gddlTierMock = fetchGddlTier as unknown as ReturnType<typeof vi.fn>
 
 beforeEach(async () => {
   vi.clearAllMocks()
+  // Default: GDDL has no suggested tier. Individual tests override.
+  gddlTierMock.mockResolvedValue(null)
   await truncateAll(prisma)
 })
 
@@ -55,7 +60,7 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(gdbrowserMock).not.toHaveBeenCalled()
   })
 
-  it('calls GDBrowser once on a cache miss and writes the result to cache', async () => {
+  it('calls GDBrowser once on a cache miss, caches it (incl. isDemon), and autofills the GDDL tier', async () => {
     const user = await seedUser(prisma)
     gdbrowserMock.mockResolvedValue({
       name: 'Fetched Level',
@@ -65,14 +70,22 @@ describe('GET /levels/:levelId/resolve', () => {
       songName: 'Song',
       songAuthor: 'Author',
       isRated: true,
+      isDemon: true,
     })
+    gddlTierMock.mockResolvedValue(35)
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
       '/levels/222/resolve'
     )
     const body = (await res.json()) as {
-      level: { inGameId: string; dataSource: string; verified: boolean } | null
+      level: {
+        inGameId: string
+        dataSource: string
+        verified: boolean
+        isDemon: boolean
+      } | null
       fallbackToManual: boolean
+      suggestedGddlTier: number | null
     }
 
     expect(res.status).toBe(200)
@@ -81,11 +94,31 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.fallbackToManual).toBe(false)
     expect(body.level?.dataSource).toBe('gdbrowser_autofill')
     expect(body.level?.verified).toBe(true)
+    expect(body.level?.isDemon).toBe(true)
+    // GDDL suggested tier is fetched for rated levels and folded into resolve.
+    expect(gddlTierMock).toHaveBeenCalledWith('222')
+    expect(body.suggestedGddlTier).toBe(35)
 
     // The level was persisted to the cache.
     const cached = await prisma.level.findUnique({ where: { inGameId: '222' } })
     expect(cached?.name).toBe('Fetched Level')
     expect(cached?.inGameDifficulty).toBe('Extreme Demon')
+    expect(cached?.isDemon).toBe(true)
+  })
+
+  it('skips the GDDL tier lookup for unrated levels', async () => {
+    const user = await seedUser(prisma)
+    // seedLevel defaults isRated=false.
+    await seedLevel(prisma, { inGameId: '556' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/556/resolve'
+    )
+    const body = (await res.json()) as { suggestedGddlTier: number | null }
+
+    expect(res.status).toBe(200)
+    expect(gddlTierMock).not.toHaveBeenCalled()
+    expect(body.suggestedGddlTier).toBeNull()
   })
 
   it('returns the manual-fallback signal (200, not 500) when GDBrowser is down', async () => {
@@ -150,6 +183,7 @@ describe('POST /levels (manual metadata write)', () => {
           name: 'Manual Level',
           creator: 'Some Creator',
           difficulty: 'Hard Demon',
+          isDemon: true,
           songName: 'Manual Song',
           songAuthor: 'Manual Author',
           length: 'XL',
@@ -164,6 +198,7 @@ describe('POST /levels (manual metadata write)', () => {
     // The sanctioned exception: user difficulty BECOMES the in-game difficulty.
     expect(created?.inGameDifficulty).toBe('Hard Demon')
     expect(created?.length).toBe('XL')
+    expect(created?.isDemon).toBe(true)
   })
 })
 

@@ -118,6 +118,29 @@ describe('POST /me/completions', () => {
     expect(completion.ratingScores[0]?.score).toBe(90)
   })
 
+  it('writes a self-reported GDDL record acceptance when gddlRecordAccepted is set', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '103' })
+
+    const res = await post(user.id, '/me/completions', {
+      levelId: '103',
+      attempts: 700,
+      gddlRecordAccepted: true,
+    })
+
+    expect(res.status).toBe(201)
+    const pu = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgress: { userId: user.id, levelId: '103' }, isCompletion: true },
+      include: { recordAcceptances: true },
+    })
+    expect(pu.recordAcceptances).toHaveLength(1)
+    const acceptance = pu.recordAcceptances[0]
+    if (!acceptance) throw new Error('expected a record acceptance')
+    expect(acceptance.listSource).toBe('GDDL')
+    expect(acceptance.isAccepted).toBe(true)
+    expect(acceptance.acceptedAt).not.toBeNull()
+  })
+
   it('succeeds even when a configured GDDL submission fails (non-blocking)', async () => {
     const user = await seedUser(prisma, { gddlApiKeyEncrypted: 'cipher-blob' })
     await seedLevel(prisma, { inGameId: '102' })

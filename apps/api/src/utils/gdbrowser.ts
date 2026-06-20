@@ -20,6 +20,7 @@ export interface GdBrowserLevel {
   songName: string | null
   songAuthor: string | null
   isRated: boolean
+  isDemon: boolean
 }
 
 // GDBrowser returns the string "-1" (or a non-object) when a level isn't found.
@@ -31,6 +32,7 @@ type RawGdBrowserLevel = {
   song?: unknown
   songAuthor?: unknown
   stars?: unknown
+  demon?: unknown
 }
 
 const str = (v: unknown): string | null =>
@@ -68,6 +70,8 @@ export async function fetchGdBrowserLevel(
       songName: str(raw.song),
       songAuthor: str(raw.songAuthor),
       isRated: stars > 0,
+      // GDBrowser reports `demon` as a boolean.
+      isDemon: raw.demon === true,
     }
   } catch {
     // Network error, timeout/abort, or JSON parse failure — fall back to manual.

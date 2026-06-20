@@ -16,6 +16,7 @@ import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../utils/prisma'
 import { logger } from '../utils/logger'
 import { fetchGdBrowserLevel } from '../utils/gdbrowser'
+import { fetchGddlTier } from '../utils/gddl'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -25,6 +26,7 @@ const levelSelect = {
   inGameId: true,
   levelType: true,
   isRated: true,
+  isDemon: true,
   name: true,
   creator: true,
   inGameDifficulty: true,
@@ -57,10 +59,16 @@ async function loadExistingCompletion(userId: string, levelId: string) {
       listReferences: {
         select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
       },
+      recordAcceptances: {
+        where: { listSource: 'GDDL' },
+        select: { isAccepted: true },
+      },
       levelProgress: { select: { visibility: true } },
     },
   })
   if (!completion) return null
+
+  const gddlAcceptance = completion.recordAcceptances[0]
 
   return {
     progressUpdateId: completion.id,
@@ -76,6 +84,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     highlightUrl: completion.highlightUrl,
     notes: completion.notes,
     visibility: completion.levelProgress.visibility,
+    gddlRecordAccepted: gddlAcceptance ? gddlAcceptance.isAccepted : null,
     ratingScores: completion.ratingScores,
     listReferences: completion.listReferences,
   }
@@ -128,6 +137,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
         return c.json({
           level: null,
           fallbackToManual: true,
+          suggestedGddlTier: null,
           existingCompletion: await loadExistingCompletion(userId, levelId),
         })
       }
@@ -141,6 +151,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
           songName: gd.songName,
           songAuthor: gd.songAuthor,
           isRated: gd.isRated,
+          isDemon: gd.isDemon,
           dataSource: 'gdbrowser_autofill',
           verified: true,
         },
@@ -148,10 +159,18 @@ app.get('/levels/:levelId/resolve', async (c) => {
       })
     }
 
+    // GDDL suggested tier autofill — only meaningful for rated levels, and must
+    // never block or fail the resolve (returns null on any failure).
+    const [suggestedGddlTier, existingCompletion] = await Promise.all([
+      level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
+      loadExistingCompletion(userId, levelId),
+    ])
+
     return c.json({
       level,
       fallbackToManual: false,
-      existingCompletion: await loadExistingCompletion(userId, levelId),
+      suggestedGddlTier,
+      existingCompletion,
     })
   } catch (error) {
     console.error('GET /levels/:levelId/resolve error:', error)
@@ -178,6 +197,7 @@ app.post('/levels', async (c) => {
         name: input.name,
         creator: input.creator,
         inGameDifficulty: input.difficulty,
+        isDemon: input.isDemon ?? false,
         length: input.length ?? null,
         songName: input.songName ?? null,
         songAuthor: input.songAuthor ?? null,
