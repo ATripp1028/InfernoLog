@@ -9,6 +9,7 @@ import {
   useResolveLevel,
   type LevelSearchResult,
 } from '@/lib/api/logging'
+import { difficultyFaceSrc, levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 
@@ -137,12 +138,29 @@ function ResultRow({
       type="button"
       disabled={disabled}
       onClick={onSelect}
-      className="flex w-full items-center justify-between gap-3 border-b border-border-subtle bg-bg-surface px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-bg-subtle disabled:opacity-60"
+      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
     >
-      <span className="flex items-center gap-3">
-        <span className="flex size-7 shrink-0 items-center justify-center rounded bg-[var(--color-primary-dim)] text-xs text-primary">
-          ☠
-        </span>
+      {/* Level thumbnail backdrop; hidden if it fails to load. */}
+      <img
+        src={levelThumbnailUrl(result.inGameId)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+        className="absolute inset-0 size-full object-cover"
+      />
+      {/* Scrim for legibility + a subtle hover lift. */}
+      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
+      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
+
+      <span className="relative flex items-center gap-3">
+        <img
+          src={difficultyFaceSrc(result.inGameDifficulty)}
+          alt={result.inGameDifficulty ?? 'Difficulty'}
+          className="size-8 shrink-0 drop-shadow"
+        />
         <span>
           <span className="block font-medium leading-tight text-text-primary">
             {result.name ?? `Level #${result.inGameId}`}
@@ -152,7 +170,7 @@ function ResultRow({
           )}
         </span>
       </span>
-      <span className="font-mono text-xs text-text-tertiary">
+      <span className="relative font-mono text-xs text-text-secondary">
         #{result.inGameId}
       </span>
     </button>
