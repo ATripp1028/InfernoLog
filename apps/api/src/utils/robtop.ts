@@ -68,9 +68,11 @@ export interface RobtopLevel {
 
 // getGJLevels21 only returns song metadata for custom (Newgrounds) songs. For
 // levels on a built-in track it returns just the official-song index (key 12),
-// so we resolve name/author from this static map of the main-level soundtrack
-// (indices 0–21). Newer official tracks not listed here resolve to null.
-const OFFICIAL_SONGS: Record<number, { name: string; author: string }> = {
+// so we resolve name/author from this static map. Keyed by the RAW key-12 value
+// (0-based): the main-level soundtrack is 0–20, then the Meltdown / World /
+// SubZero pack tracks. Source: GDBrowser's misc/music.json. Newer tracks (the
+// 2.2 "Dash" level, vault levels) aren't indexed here → resolve to null.
+export const OFFICIAL_SONGS: Record<number, { name: string; author: string }> = {
   0: { name: 'Stereo Madness', author: 'ForeverBound' },
   1: { name: 'Back On Track', author: 'DJVI' },
   2: { name: 'Polargeist', author: 'Step' },
@@ -92,7 +94,29 @@ const OFFICIAL_SONGS: Record<number, { name: string; author: string }> = {
   18: { name: 'Geometrical Dominator', author: 'Waterflame' },
   19: { name: 'Deadlocked', author: 'F-777' },
   20: { name: 'Fingerdash', author: 'MDK' },
-  21: { name: 'Dash', author: 'MDK' },
+  // Meltdown
+  21: { name: 'The Seven Seas', author: 'F-777' },
+  22: { name: 'Viking Arena', author: 'F-777' },
+  23: { name: 'Airborne Robots', author: 'F-777' },
+  // The Challenge (secret level)
+  24: { name: 'The Challenge', author: 'RobTop' },
+  // World
+  25: { name: 'Payload', author: 'Dex Arson' },
+  26: { name: 'Beast Mode', author: 'Dex Arson' },
+  27: { name: 'Machina', author: 'Dex Arson' },
+  28: { name: 'Years', author: 'Dex Arson' },
+  29: { name: 'Frontlines', author: 'Dex Arson' },
+  30: { name: 'Space Pirates', author: 'Waterflame' },
+  31: { name: 'Striker', author: 'Waterflame' },
+  32: { name: 'Embers', author: 'Dex Arson' },
+  33: { name: 'Round 1', author: 'Dex Arson' },
+  34: { name: 'Monster Dance Off', author: 'F-777' },
+  // SubZero
+  35: { name: 'Press Start', author: 'MDK' },
+  36: { name: 'Nock Em', author: 'Bossfight' },
+  37: { name: 'Power Trip', author: 'Boom Kitty' },
+  // Main levels (2.2+)
+  38: { name: 'Dash', author: 'MDK' },
 }
 
 // Length values 0–4 (key 15); 5 denotes a platformer level.

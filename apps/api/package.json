@@ -11,6 +11,7 @@
     "lint": "eslint src",
     "postinstall": "prisma generate",
     "export-sst-env": "bash export-sst-env.sh",
+    "db:seed:official": "tsx src/scripts/seedOfficialLevels.ts",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
@@ -51,6 +52,7 @@
     "pg": "^8.22.0",
     "prisma": "5.22.0",
     "sst": "4.7.9",
+    "tsx": "^4.22.4",
     "typescript": "^5.7.3",
     "vitest": "^4.1.7",
     "wrangler": "^4.83.0"
