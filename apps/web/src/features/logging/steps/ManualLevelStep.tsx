@@ -63,11 +63,11 @@ export function ManualLevelStep() {
           <AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" />
           <div>
             <p className="text-sm font-semibold text-text-primary">
-              Couldn&apos;t reach GDBrowser
+              Couldn&apos;t reach the Geometry Dash servers
             </p>
             <p className="text-sm text-text-secondary">
               Enter the level&apos;s details and we&apos;ll verify and fill in
-              anything missing automatically once GDBrowser is back.
+              anything missing automatically once they&apos;re back.
             </p>
           </div>
         </Card>
@@ -101,7 +101,7 @@ export function ManualLevelStep() {
         </div>
 
         <div>
-          <FieldLabel hint="Sets the in-game rating since GDBrowser couldn't provide it.">
+          <FieldLabel hint="Sets the in-game rating since we couldn't fetch it.">
             In-game difficulty
           </FieldLabel>
           <Segmented
@@ -110,8 +110,8 @@ export function ManualLevelStep() {
             onChange={setDifficulty}
           />
           <FieldHint>
-            Sets the in-game rating since GDBrowser couldn&apos;t provide it.
-            Stored as unverified until it syncs.
+            Sets the in-game rating since we couldn&apos;t fetch it. Stored as
+            unverified until it syncs.
           </FieldHint>
         </div>
 

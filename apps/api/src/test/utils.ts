@@ -120,7 +120,7 @@ export async function seedLevel(
       name: overrides.name ?? 'Test Level',
       creator: overrides.creator ?? 'Test Creator',
       inGameDifficulty: overrides.inGameDifficulty ?? 'Insane Demon',
-      dataSource: overrides.dataSource ?? 'gdbrowser_autofill',
+      dataSource: overrides.dataSource ?? 'robtop_autofill',
       verified: overrides.verified ?? true,
     },
   })

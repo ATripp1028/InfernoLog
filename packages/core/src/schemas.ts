@@ -26,7 +26,7 @@ export const LevelSchema = z.object({
   nongArtist: z.string().nullable(),
   nongSourceUrl: z.string().url().nullable(),
   peakMusicBpm: z.number().int().nullable(),
-  // Extended GDBrowser metadata — a snapshot of RobTop's level object. All
+  // Extended level metadata — a snapshot of RobTop's level object. All
   // nullable: absent on manual rows and on rows cached before capture existed.
   description: z.string().nullable(),
   creatorPlayerId: z.string().nullable(),
@@ -337,7 +337,7 @@ export const DropInputSchema = z.object({
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
-// MANUAL LEVEL METADATA — the GDBrowser-fallback form submit. The user-entered
+// MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
 // difficulty BECOMES the level's in-game difficulty (the one sanctioned
 // exception to in-game-difficulty-is-read-only). Stored data_source=manual,
 // verified=false so a later sync can backfill/verify.
@@ -347,7 +347,7 @@ export const ManualLevelInputSchema = z.object({
   creator: z.string().min(1).max(200),
   difficulty: z.string().min(1).max(100),
   // Whether the user picked a demon tier vs "Not a demon" on the manual form.
-  // GDBrowser was unavailable, so the client tells us; defaults to false.
+  // autofill was unavailable, so the client tells us; defaults to false.
   isDemon: z.boolean().optional(),
   songName: z.string().max(200).nullable().optional(),
   songAuthor: z.string().max(200).nullable().optional(),
@@ -401,7 +401,7 @@ export const ExistingCompletionSchema = z.object({
 
 export const ResolveLevelResponseSchema = z.object({
   level: LevelSchema.nullable(),
-  // True when GDBrowser was unavailable/empty and the client should fall back
+  // True when autofill was unavailable/empty and the client should fall back
   // to the manual-entry form. Never accompanied by a 500.
   fallbackToManual: z.boolean(),
   // GDDL's suggested tier for the level (autofills the GDDL tier field on the

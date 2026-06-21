@@ -1,9 +1,9 @@
 // Level-entry support endpoints backing the logging modal:
 //   GET  /v1/levels/search?q=     — fuzzy name search (pg_trgm)
-//   GET  /v1/levels/:levelId/resolve — autofill (cache-or-GDBrowser) + the
+//   GET  /v1/levels/:levelId/resolve — autofill (cache-or-RobTop) + the
 //                                      user's existing completion (edit form)
-//   POST /v1/levels                — manual metadata write (GDBrowser fallback)
-//   GET  /v1/levels/:levelId       — cached metadata only (no GDBrowser call)
+//   POST /v1/levels                — manual metadata write (RobTop fallback)
+//   GET  /v1/levels/:levelId       — cached metadata only (no RobTop call)
 //
 // Route order matters: /search and /:levelId/resolve are declared before the
 // bare /:levelId so Hono doesn't capture "search" as a level id.
@@ -15,7 +15,7 @@ import { ManualLevelInputSchema, LevelIdSchema } from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../utils/prisma'
 import { logger } from '../utils/logger'
-import { fetchGdBrowserLevel } from '../utils/gdbrowser'
+import { fetchRobtopLevel } from '../utils/robtop'
 import { fetchGddlTier } from '../utils/gddl'
 import type { HonoVariables } from '../types/hono'
 
@@ -39,7 +39,7 @@ const levelSelect = {
   nongArtist: true,
   nongSourceUrl: true,
   peakMusicBpm: true,
-  // Extended GDBrowser metadata.
+  // Extended RobTop metadata.
   description: true,
   creatorPlayerId: true,
   creatorAccountId: true,
@@ -154,7 +154,7 @@ app.get('/levels/search', async (c) => {
 })
 
 // GET /v1/levels/:levelId/resolve — cache hit returns cached; miss calls
-// GDBrowser once and caches; GDBrowser down/empty returns the manual-fallback
+// RobTop once and caches; RobTop down/empty returns the manual-fallback
 // signal (never a 500). Always includes the user's existing completion or null.
 app.get('/levels/:levelId/resolve', async (c) => {
   const userId = c.get('userId') as string
@@ -171,9 +171,9 @@ app.get('/levels/:levelId/resolve', async (c) => {
     })
 
     if (!level) {
-      // Cache miss — try GDBrowser exactly once. Unavailability is an expected
-      // branch, NOT an error: signal the client to fall back to manual entry.
-      const gd = await fetchGdBrowserLevel(levelId)
+      // Cache miss — try RobTop's servers exactly once. Unavailability is an
+      // expected branch, NOT an error: signal the client to fall back to manual.
+      const gd = await fetchRobtopLevel(levelId)
       if (!gd) {
         return c.json({
           level: null,
@@ -194,7 +194,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
           songAuthor: gd.songAuthor,
           isRated: gd.isRated,
           isDemon: gd.isDemon,
-          // Extended GDBrowser metadata snapshot.
+          // Extended RobTop metadata snapshot.
           description: gd.description,
           creatorPlayerId: gd.creatorPlayerId,
           creatorAccountId: gd.creatorAccountId,
@@ -226,7 +226,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
           songId: gd.songId,
           songLink: gd.songLink,
           songSize: gd.songSize,
-          dataSource: 'gdbrowser_autofill',
+          dataSource: 'robtop_autofill',
           verified: true,
         },
         select: levelSelect,
@@ -253,7 +253,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
   }
 })
 
-// POST /v1/levels — manual metadata write (the GDBrowser-fallback form submit).
+// POST /v1/levels — manual metadata write (the RobTop-fallback form submit).
 // The user-entered difficulty BECOMES the in-game difficulty (the one
 // sanctioned exception). Stored data_source=manual, verified=false.
 app.post('/levels', async (c) => {
@@ -296,7 +296,7 @@ app.post('/levels', async (c) => {
   }
 })
 
-// GET /v1/levels/:levelId — cached metadata only. Does NOT call GDBrowser.
+// GET /v1/levels/:levelId — cached metadata only. Does NOT call RobTop.
 app.get('/levels/:levelId', async (c) => {
   const levelId = c.req.param('levelId')
 

@@ -36,7 +36,7 @@ export interface Level {
   nongArtist: string | null
   nongSourceUrl: string | null
   peakMusicBpm: number | null
-  // Extended GDBrowser metadata snapshot (all nullable; see schema.prisma).
+  // Extended RobTop level metadata snapshot (all nullable; see schema.prisma).
   description: string | null
   creatorPlayerId: string | null
   creatorAccountId: string | null

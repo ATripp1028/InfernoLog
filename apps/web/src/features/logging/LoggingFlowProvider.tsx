@@ -25,7 +25,7 @@ interface FlowState {
   existingCompletion: ExistingCompletion | null
   suggestedGddlTier: number | null
   // The numeric level id typed by the user — carried into the manual-entry
-  // fallback when GDBrowser can't be reached.
+  // fallback when the Geometry Dash servers can't be reached.
   manualLevelId: string | null
   draft: FlowDraft
 }

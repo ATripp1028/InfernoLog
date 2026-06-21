@@ -7,7 +7,7 @@ import {
   seedLevel,
 } from '../test/utils'
 
-// Real DB; mock ONLY the external GDBrowser HTTP client.
+// Real DB; mock ONLY the external RobTop HTTP client.
 vi.mock('../utils/prisma', async () => {
   const { getTestPrisma } = await import('../test/utils')
   return { default: getTestPrisma() }
@@ -16,15 +16,15 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../utils/gdbrowser', () => ({ fetchGdBrowserLevel: vi.fn() }))
+vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
 vi.mock('../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
 
 const { default: levelsApp } = await import('./levels')
-const { fetchGdBrowserLevel } = await import('../utils/gdbrowser')
+const { fetchRobtopLevel } = await import('../utils/robtop')
 const { fetchGddlTier } = await import('../utils/gddl')
 
 const prisma = getTestPrisma()
-const gdbrowserMock = fetchGdBrowserLevel as unknown as ReturnType<typeof vi.fn>
+const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
 const gddlTierMock = fetchGddlTier as unknown as ReturnType<typeof vi.fn>
 
 beforeEach(async () => {
@@ -39,7 +39,7 @@ afterAll(async () => {
 })
 
 describe('GET /levels/:levelId/resolve', () => {
-  it('returns the cached level without calling GDBrowser on a cache hit', async () => {
+  it('returns the cached level without calling RobTop on a cache hit', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '111', name: 'Cached Level' })
 
@@ -57,12 +57,12 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.level?.inGameId).toBe('111')
     expect(body.level?.name).toBe('Cached Level')
     expect(body.existingCompletion).toBeNull()
-    expect(gdbrowserMock).not.toHaveBeenCalled()
+    expect(robtopMock).not.toHaveBeenCalled()
   })
 
-  it('calls GDBrowser once on a cache miss, caches it (incl. isDemon), and autofills the GDDL tier', async () => {
+  it('calls RobTop once on a cache miss, caches it (incl. isDemon), and autofills the GDDL tier', async () => {
     const user = await seedUser(prisma)
-    gdbrowserMock.mockResolvedValue({
+    robtopMock.mockResolvedValue({
       name: 'Fetched Level',
       creator: 'RobTop',
       inGameDifficulty: 'Extreme Demon',
@@ -89,10 +89,10 @@ describe('GET /levels/:levelId/resolve', () => {
     }
 
     expect(res.status).toBe(200)
-    expect(gdbrowserMock).toHaveBeenCalledTimes(1)
-    expect(gdbrowserMock).toHaveBeenCalledWith('222')
+    expect(robtopMock).toHaveBeenCalledTimes(1)
+    expect(robtopMock).toHaveBeenCalledWith('222')
     expect(body.fallbackToManual).toBe(false)
-    expect(body.level?.dataSource).toBe('gdbrowser_autofill')
+    expect(body.level?.dataSource).toBe('robtop_autofill')
     expect(body.level?.verified).toBe(true)
     expect(body.level?.isDemon).toBe(true)
     // GDDL suggested tier is fetched for rated levels and folded into resolve.
@@ -121,9 +121,9 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.suggestedGddlTier).toBeNull()
   })
 
-  it('returns the manual-fallback signal (200, not 500) when GDBrowser is down', async () => {
+  it('returns the manual-fallback signal (200, not 500) when RobTop is down', async () => {
     const user = await seedUser(prisma)
-    gdbrowserMock.mockResolvedValue(null)
+    robtopMock.mockResolvedValue(null)
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
       '/levels/333/resolve'

@@ -59,8 +59,8 @@ export async function verifyGddlApiKey(
   return { name: body.Name }
 }
 
-// How long to wait on the public GDDL tier lookup before giving up. Like
-// GDBrowser, this autofill must never block the logging flow.
+// How long to wait on the public GDDL tier lookup before giving up. Like the
+// level metadata autofill, this must never block the logging flow.
 const TIER_TIMEOUT_MS = 5000
 
 // Fetches GDDL's suggested tier for a level (public list data — no key needed).

@@ -1,31 +1,39 @@
 # InfernoLog — External APIs & Integrations
 
-## GDBrowser
+## Geometry Dash servers (RobTop / boomlings.com)
 
-**Base URL:** `gdbrowser.com/api`  
+**Base URL:** `http://www.boomlings.com/database` (override via `ROBTOP_API_BASE_URL`)  
 **Purpose:** Primary level metadata autofill for both rated and unrated levels  
-**Auth:** None required  
-**Called from:** Lambda (server-side only)
+**Auth:** None — a fixed public secret (`Wmfd2893gb7`) is sent as a request param  
+**Called from:** Lambda (server-side only). Client: `apps/api/src/utils/robtop.ts`
 
-GDBrowser queries the GD servers directly by level ID and returns name, creator, song, length, and description. It is the first call in the autofill pipeline for every level ID entry, regardless of whether the level is rated or unrated.
+We call RobTop's official servers directly (previously via the third-party GDBrowser proxy). The endpoint is `getGJLevels21.php` with `type=10` (fetch specific levels by id), so we query a single id and read the first (only) level. It returns name, creator, song, length, description, and the full stat/flag set, which we parse into the `levels` cache columns. See `https://wyliemaster.github.io/gddocs`.
 
 ### Usage Pattern
 
 ```
-GET gdbrowser.com/api/level/{levelId}
+POST http://www.boomlings.com/database/getGJLevels21.php
+Content-Type: application/x-www-form-urlencoded
+User-Agent:                      ← MUST be empty (Cloudflare returns HTTP 1020 otherwise)
+
+type=10&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
 ```
 
-Response is cached in InfernoLog's `levels` table. Subsequent users logging the same level ID do not trigger a new GDBrowser call — the cached data is returned directly.
+The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). Rate limits are ~2 req/s for data endpoints; our usage is per-user cache-miss only.
+
+`-1` (or empty/malformed) means not found → the client returns `null`. Custom (Newgrounds) songs come from the response; **official/built-in tracks** are resolved name/author from a static table in `robtop.ts` (the level object only carries the official-song index). A few fields GDBrowser used to compute (creator points, orbs, diamonds) are not in the level object and are stored `null`.
+
+Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofill`). Subsequent users logging the same level ID do not trigger a new request — the cached data is returned directly.
 
 ### Failure Handling
 
-If GDBrowser is unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by GDBrowser being down.
+If the servers are unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by the servers being down.
 
-**Auto-fallback to manual entry.** When GDBrowser fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields GDBrowser would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"). Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later GDBrowser sync can backfill and verify/override them. See `LOGGING_FLOW.md` and `DATA_MODEL.md`.
+**Auto-fallback to manual entry.** When the fetch fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields autofill would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"). Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later sync can backfill and verify/override them. See `LOGGING_FLOW.md` and `DATA_MODEL.md`.
 
 ### Cache-Backed Name Search
 
-The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's / GDBrowser's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level becomes name-searchable only after its first log by any user; entering a raw ID routes through GDBrowser autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
+The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level becomes name-searchable only after its first log by any user; entering a raw ID routes through autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
 
 ---
 
@@ -38,7 +46,7 @@ The logging flow's level-entry field accepts **either an ID or a name** (one fie
 
 ### Autofill
 
-Called after GDBrowser when a rated level is detected. Returns the current GDDL tier as a **suggested value** — the user confirms or overrides before saving. This value becomes a snapshot on the completion record.
+Called after the level-metadata fetch when a rated level is detected. Returns the current GDDL tier as a **suggested value** — the user confirms or overrides before saving. This value becomes a snapshot on the completion record.
 
 GDDL placements update extremely frequently. InfernoLog does **not** maintain live parity with GDDL tiers. The snapshot approach is intentional and respectful of GDDL's free infrastructure.
 
@@ -92,7 +100,7 @@ Respect rate limits. Do not prefetch thumbnails in bulk or load them outside of 
 
 ### What It Does
 
-For each level in the `levels` table with `is_rated = true`, the job calls GDBrowser and compares the returned values against stored values.
+For each level in the `levels` table with `is_rated = true`, the job re-fetches from RobTop's servers (`fetchRobtopLevel`) and compares the returned values against stored values.
 
 **Nudge-worthy changes (trigger notification):**
 - Level name
