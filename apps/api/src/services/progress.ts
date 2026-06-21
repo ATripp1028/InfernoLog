@@ -86,7 +86,10 @@ async function loadFullEntry(
   return {
     levelProgress,
     // percentage is the only Decimal on a progress update — convert to number.
-    progressUpdate: { ...progressUpdate, percentage: toNum(progressUpdate.percentage) },
+    progressUpdate: {
+      ...progressUpdate,
+      percentage: toNum(progressUpdate.percentage),
+    },
   }
 }
 

@@ -71,8 +71,8 @@ export function FindLevelStep() {
           </div>
           {!showResults && (
             <FieldHint>
-              Numbers only → looked up as an ID. Anything else → searched by name
-              across levels InfernoLog already knows.
+              Numbers only → looked up as an ID. Anything else → searched by
+              name across levels InfernoLog already knows.
             </FieldHint>
           )}
         </div>
@@ -83,8 +83,8 @@ export function FindLevelStep() {
               <p className="px-1 text-sm text-text-tertiary">Searching…</p>
             ) : results.length === 0 ? (
               <p className="px-1 text-sm text-text-tertiary">
-                No matches yet. Paste the level ID of the official version (not a
-                startpos copy) to add it.
+                No matches yet. Paste the level ID of the official version (not
+                a startpos copy) to add it.
               </p>
             ) : (
               <div className="overflow-hidden rounded-md border border-border">

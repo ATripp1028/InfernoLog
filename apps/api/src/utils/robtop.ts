@@ -72,52 +72,53 @@ export interface RobtopLevel {
 // (0-based): the main-level soundtrack is 0–20, then the Meltdown / World /
 // SubZero pack tracks. Source: GDBrowser's misc/music.json. Newer tracks (the
 // 2.2 "Dash" level, vault levels) aren't indexed here → resolve to null.
-export const OFFICIAL_SONGS: Record<number, { name: string; author: string }> = {
-  0: { name: 'Stereo Madness', author: 'ForeverBound' },
-  1: { name: 'Back On Track', author: 'DJVI' },
-  2: { name: 'Polargeist', author: 'Step' },
-  3: { name: 'Dry Out', author: 'DJVI' },
-  4: { name: 'Base After Base', author: 'DJVI' },
-  5: { name: "Can't Let Go", author: 'DJVI' },
-  6: { name: 'Jumper', author: 'Waterflame' },
-  7: { name: 'Time Machine', author: 'Waterflame' },
-  8: { name: 'Cycles', author: 'DJVI' },
-  9: { name: 'xStep', author: 'DJVI' },
-  10: { name: 'Clutterfunk', author: 'Waterflame' },
-  11: { name: 'Theory of Everything', author: 'DJ-Nate' },
-  12: { name: 'Electroman Adventures', author: 'Waterflame' },
-  13: { name: 'Clubstep', author: 'DJ-Nate' },
-  14: { name: 'Electrodynamix', author: 'DJ-Nate' },
-  15: { name: 'Hexagon Force', author: 'Waterflame' },
-  16: { name: 'Blast Processing', author: 'Waterflame' },
-  17: { name: 'Theory of Everything 2', author: 'DJ-Nate' },
-  18: { name: 'Geometrical Dominator', author: 'Waterflame' },
-  19: { name: 'Deadlocked', author: 'F-777' },
-  20: { name: 'Fingerdash', author: 'MDK' },
-  // Meltdown
-  21: { name: 'The Seven Seas', author: 'F-777' },
-  22: { name: 'Viking Arena', author: 'F-777' },
-  23: { name: 'Airborne Robots', author: 'F-777' },
-  // The Challenge (secret level)
-  24: { name: 'The Challenge', author: 'RobTop' },
-  // World
-  25: { name: 'Payload', author: 'Dex Arson' },
-  26: { name: 'Beast Mode', author: 'Dex Arson' },
-  27: { name: 'Machina', author: 'Dex Arson' },
-  28: { name: 'Years', author: 'Dex Arson' },
-  29: { name: 'Frontlines', author: 'Dex Arson' },
-  30: { name: 'Space Pirates', author: 'Waterflame' },
-  31: { name: 'Striker', author: 'Waterflame' },
-  32: { name: 'Embers', author: 'Dex Arson' },
-  33: { name: 'Round 1', author: 'Dex Arson' },
-  34: { name: 'Monster Dance Off', author: 'F-777' },
-  // SubZero
-  35: { name: 'Press Start', author: 'MDK' },
-  36: { name: 'Nock Em', author: 'Bossfight' },
-  37: { name: 'Power Trip', author: 'Boom Kitty' },
-  // Main levels (2.2+)
-  38: { name: 'Dash', author: 'MDK' },
-}
+export const OFFICIAL_SONGS: Record<number, { name: string; author: string }> =
+  {
+    0: { name: 'Stereo Madness', author: 'ForeverBound' },
+    1: { name: 'Back On Track', author: 'DJVI' },
+    2: { name: 'Polargeist', author: 'Step' },
+    3: { name: 'Dry Out', author: 'DJVI' },
+    4: { name: 'Base After Base', author: 'DJVI' },
+    5: { name: "Can't Let Go", author: 'DJVI' },
+    6: { name: 'Jumper', author: 'Waterflame' },
+    7: { name: 'Time Machine', author: 'Waterflame' },
+    8: { name: 'Cycles', author: 'DJVI' },
+    9: { name: 'xStep', author: 'DJVI' },
+    10: { name: 'Clutterfunk', author: 'Waterflame' },
+    11: { name: 'Theory of Everything', author: 'DJ-Nate' },
+    12: { name: 'Electroman Adventures', author: 'Waterflame' },
+    13: { name: 'Clubstep', author: 'DJ-Nate' },
+    14: { name: 'Electrodynamix', author: 'DJ-Nate' },
+    15: { name: 'Hexagon Force', author: 'Waterflame' },
+    16: { name: 'Blast Processing', author: 'Waterflame' },
+    17: { name: 'Theory of Everything 2', author: 'DJ-Nate' },
+    18: { name: 'Geometrical Dominator', author: 'Waterflame' },
+    19: { name: 'Deadlocked', author: 'F-777' },
+    20: { name: 'Fingerdash', author: 'MDK' },
+    // Meltdown
+    21: { name: 'The Seven Seas', author: 'F-777' },
+    22: { name: 'Viking Arena', author: 'F-777' },
+    23: { name: 'Airborne Robots', author: 'F-777' },
+    // The Challenge (secret level)
+    24: { name: 'The Challenge', author: 'RobTop' },
+    // World
+    25: { name: 'Payload', author: 'Dex Arson' },
+    26: { name: 'Beast Mode', author: 'Dex Arson' },
+    27: { name: 'Machina', author: 'Dex Arson' },
+    28: { name: 'Years', author: 'Dex Arson' },
+    29: { name: 'Frontlines', author: 'Dex Arson' },
+    30: { name: 'Space Pirates', author: 'Waterflame' },
+    31: { name: 'Striker', author: 'Waterflame' },
+    32: { name: 'Embers', author: 'Dex Arson' },
+    33: { name: 'Round 1', author: 'Dex Arson' },
+    34: { name: 'Monster Dance Off', author: 'F-777' },
+    // SubZero
+    35: { name: 'Press Start', author: 'MDK' },
+    36: { name: 'Nock Em', author: 'Bossfight' },
+    37: { name: 'Power Trip', author: 'Boom Kitty' },
+    // Main levels (2.2+)
+    38: { name: 'Dash', author: 'MDK' },
+  }
 
 // Length values 0–4 (key 15); 5 denotes a platformer level.
 const LENGTHS = ['Tiny', 'Short', 'Medium', 'Long', 'XL', 'Platformer'] as const
@@ -225,7 +226,10 @@ export function parseGetGJLevels21(body: string): RobtopLevel | null {
   if (!L['1']) return null // a valid level always has an id
 
   // Creators: "playerID:username:accountID" entries.
-  const creators: Record<string, { username: string | null; accountId: string | null }> = {}
+  const creators: Record<
+    string,
+    { username: string | null; accountId: string | null }
+  > = {}
   for (const entry of (sections[1] ?? '').split('|')) {
     const [playerId, username, accountId] = entry.split(':')
     if (playerId) {

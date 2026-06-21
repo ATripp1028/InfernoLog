@@ -17,12 +17,15 @@ All routes are prefixed with `/v1/`. Breaking changes will be introduced under `
 ## Authentication
 
 ### Public Routes (No Auth)
+
 Read endpoints for public user profiles require no authentication.
 
 ### User Auth (Cognito JWT)
+
 First-party frontend operations use Cognito JWTs passed as `Authorization: Bearer <token>`. These cover all write operations initiated by the user themselves.
 
 ### API Key Auth (Third-Party)
+
 Third-party tools pass their API key as `X-InfernoLog-Key: <key>`. The key is validated server-side, resolved to a user + scope set, and the request proceeds if the required scope is present.
 
 ---
@@ -82,6 +85,7 @@ POST /v1/levels
 ```
 GET  /v1/users/{usernameOrId}
 ```
+
 Returns public profile data. 403 if private. Accepts both username and UUID — username is resolved to UUID server-side.
 
 ---
@@ -147,7 +151,7 @@ Returns the user's personal difficulty ranking in order. Supports `?includeUnrat
 
 ---
 
-## API Key Management (Authenticated) *(v3)*
+## API Key Management (Authenticated) _(v3)_
 
 Not implemented in v1 or v2. Introduced in v3 alongside the Geode mod. These routes are first-party only (Cognito JWT). Not part of the public API surface for third-party tools.
 

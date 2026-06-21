@@ -34,8 +34,8 @@ export function CompletionSuccessStep() {
         </Button>
       </div>
       <p className="mt-3 text-xs text-text-tertiary">
-        &quot;Place later&quot; keeps it in your Unplaced panel until you&apos;re
-        ready.
+        &quot;Place later&quot; keeps it in your Unplaced panel until
+        you&apos;re ready.
       </p>
     </div>
   )

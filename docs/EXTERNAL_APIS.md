@@ -83,7 +83,9 @@ Covers rated levels and some significant unrated levels. Silently falls back to 
 ```jsx
 <img
   src={getThumbnailUrl(levelId)}
-  onError={(e) => { e.currentTarget.src = '/placeholder-level.png'; }}
+  onError={(e) => {
+    e.currentTarget.src = '/placeholder-level.png'
+  }}
   alt={levelName}
 />
 ```
@@ -103,12 +105,14 @@ Respect rate limits. Do not prefetch thumbnails in bulk or load them outside of 
 For each level in the `levels` table with `is_rated = true`, the job re-fetches from RobTop's servers (`fetchRobtopLevel`) and compares the returned values against stored values.
 
 **Nudge-worthy changes (trigger notification):**
+
 - Level name
 - Creator
 - Song name
 - Song author
 
 **Not nudge-worthy (ignored):**
+
 - Description
 - Any other metadata
 
@@ -122,6 +126,7 @@ For each level in the `levels` table with `is_rated = true`, the job re-fetches 
 ### User Experience
 
 Users with a pending update see:
+
 - A one-time notification in their notification feed
 - A visual indicator on the affected entry in their log and ranking views
 

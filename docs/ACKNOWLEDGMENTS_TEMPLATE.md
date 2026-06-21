@@ -20,41 +20,48 @@ sure that work is recognized. Thank you.
 
 ## Community Infrastructure
 
-*These projects provide the APIs, data, and assets that power InfernoLog.
-None of them owe anyone their time or infrastructure — I'm grateful they exist.*
+_These projects provide the APIs, data, and assets that power InfernoLog.
+None of them owe anyone their time or infrastructure — I'm grateful they exist._
 
 ### Geometry Dash (RobTop Games)
+
 **What it does for InfernoLog:** The official GD servers (`boomlings.com`) provide level metadata autofill — name, creator, song, difficulty, and more — for both rated and unrated levels.
 **Credit:** RobTop Games
 **Link:** robtopgames.com
 
 ### GDBrowser
+
 **What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`).
 **Credit:** [GDBrowser author handle / link to project]
 **Link:** gdbrowser.com
 
 ### GD Demon Ladder (GDDL)
+
 **What it does for InfernoLog:** Tier data autofill and optional record submission for rated demons.
 **Credit:** [GDDL team / maintainers]
 **Link:** [GDDL URL]
 
 ### levelthumbs
+
 **What it does for InfernoLog:** Level thumbnail hosting used throughout the app.
 **Credit:** Prevter
 **Link:** levelthumbs.prevter.me
 **License:** Apache 2.0
 
 ### Song File Hub
+
 **What it does for InfernoLog:** NONG song database. (v2)
 **Credit:** [Song File Hub team]
 **Link:** songfilehub.com
 
 ### AREDL
+
 **What it does for InfernoLog:** Rank data for the All Rated Extreme Demons List.
 **Credit:** [AREDL maintainers]
 **Link:** [AREDL URL]
 
 ### RobTop Games
+
 **What it does for InfernoLog:** Geometry Dash game assets used throughout the UI, including difficulty faces, portal sprites, and currency icons.
 **Credit:** Robert Topala (RobTop)
 **Note:** Game assets are the property of RobTop Games. InfernoLog is an unofficial fan tool and is not affiliated with or endorsed by RobTop Games.
@@ -63,9 +70,9 @@ None of them owe anyone their time or infrastructure — I'm grateful they exist
 
 ## Inspiration
 
-*These community spreadsheets directly informed InfernoLog's feature set.
+_These community spreadsheets directly informed InfernoLog's feature set.
 Seeing what the community was already tracking — and how much care went
-into those sheets — made it clear that a proper tool was worth building.*
+into those sheets — made it clear that a proper tool was worth building._
 
 - **Zeronium's Extreme Log** — [link if public]
 - **Technical's Extremes Log** — [link if public]
@@ -75,9 +82,9 @@ into those sheets — made it clear that a proper tool was worth building.*
 
 ## Beta Testers
 
-*These players tested InfernoLog before it was ready and helped make it
+_These players tested InfernoLog before it was ready and helped make it
 better. Their feedback shaped everything from the logging flow to the
-ranking system.*
+ranking system._
 
 - [PLACEHOLDER — beta tester handle] — [optional: brief note on their contribution]
 - [PLACEHOLDER — beta tester handle]
@@ -89,7 +96,7 @@ ranking system.*
 
 ## Community Artists
 
-*These people contributed visual assets to InfernoLog.*
+_These people contributed visual assets to InfernoLog._
 
 - [PLACEHOLDER — if any community artists contribute icons, assets, or other visual work, name them here with a description of their contribution]
 
@@ -99,10 +106,11 @@ If no community artists contributed, remove this section.
 
 ## Open Source Libraries
 
-*InfernoLog is built on these open source projects. Each of them represents
-enormous amounts of work by their contributors.*
+_InfernoLog is built on these open source projects. Each of them represents
+enormous amounts of work by their contributors._
 
 **Frontend**
+
 - React — [license]
 - Vite — [license]
 - TanStack Query — [license]
@@ -120,11 +128,13 @@ enormous amounts of work by their contributors.*
 - Lucide React — [license]
 
 **Backend**
+
 - SST (Serverless Stack) — [license]
 - Prisma — [license]
 - Node.js — [license]
 
 **Infrastructure**
+
 - AWS (Lambda, API Gateway, S3, CloudFront, Cognito, EventBridge, Route 53, ACM, CloudWatch)
 - Neon (PostgreSQL) — [license]
 - Turborepo — [license]

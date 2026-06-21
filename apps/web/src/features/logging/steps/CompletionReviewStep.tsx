@@ -31,7 +31,9 @@ export function CompletionReviewStep() {
   const attempts = draft.attempts.trim()
     ? `${formatNumber(Number(draft.attempts))} attempts`
     : null
-  const worstFail = draft.worstFail.trim() ? `best run ${draft.worstFail}%` : null
+  const worstFail = draft.worstFail.trim()
+    ? `best run ${draft.worstFail}%`
+    : null
 
   const weightedAvg = weighted
     ? avg(Object.values(draft.ratingScores))
@@ -58,7 +60,9 @@ export function CompletionReviewStep() {
   async function submit() {
     if (!level || !me.data) return
     try {
-      await logCompletion.mutateAsync(buildCompletionInput(level, draft, me.data))
+      await logCompletion.mutateAsync(
+        buildCompletionInput(level, draft, me.data)
+      )
       setStep('c_success')
     } catch (err) {
       toast.error(
@@ -98,9 +102,14 @@ export function CompletionReviewStep() {
             />
           )}
           {draft.enjoyment != null && (
-            <Row label="Enjoyment" value={`${formatRating(draft.enjoyment, scale)}`} />
+            <Row
+              label="Enjoyment"
+              value={`${formatRating(draft.enjoyment, scale)}`}
+            />
           )}
-          {gddlBits.length > 0 && <Row label="GDDL" value={gddlBits.join(' · ')} />}
+          {gddlBits.length > 0 && (
+            <Row label="GDDL" value={gddlBits.join(' · ')} />
+          )}
           {showExtremeLists && draft.nlwTier.trim() && (
             <Row label="NLW" value={`Tier ${draft.nlwTier.trim()}`} />
           )}

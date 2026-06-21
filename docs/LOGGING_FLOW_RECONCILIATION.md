@@ -16,6 +16,7 @@ so a "dropped" level doesn't keep accumulating progress updates while still
 displaying as dropped.
 
 **Scope of the flip:**
+
 - `dropped → in_progress` on any progress log. ✅
 - `completed` is left untouched — logging extra progress on a beaten level does
   not un-complete it.

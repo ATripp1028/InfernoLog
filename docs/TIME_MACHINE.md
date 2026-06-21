@@ -64,12 +64,12 @@ User sees their complete demon history on first login
 
 ## Configuration
 
-| Setting | Default | Notes |
-|---|---|---|
-| Top N | 10 | How many levels to track simultaneously. User-configurable |
-| Y axis source | User's primary list reference | Picked by the fixed reference ordering below when a completion has several |
-| Default time range | Current year | Adjustable via slider |
-| Range presets | Per year | Quick buttons: "2019", "2020", etc., plus "All time" |
+| Setting            | Default                       | Notes                                                                      |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------- |
+| Top N              | 10                            | How many levels to track simultaneously. User-configurable                 |
+| Y axis source      | User's primary list reference | Picked by the fixed reference ordering below when a completion has several |
+| Default time range | Current year                  | Adjustable via slider                                                      |
+| Range presets      | Per year                      | Quick buttons: "2019", "2020", etc., plus "All time"                       |
 
 ---
 

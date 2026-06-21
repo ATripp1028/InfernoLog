@@ -129,7 +129,11 @@ function ToggleRow({
         <p className="text-sm font-medium text-text-primary">{title}</p>
         <p className="text-xs text-text-tertiary">{subtitle}</p>
       </div>
-      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
+      <Switch
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={onChange}
+      />
     </div>
   )
 }

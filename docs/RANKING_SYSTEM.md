@@ -63,7 +63,7 @@ After a completion is submitted, a compact confirm modal asks **"Place in rankin
 ```
 
 - **Place now:** opens the ranking. With a list reference, the view is pre-scrolled to the matching tier spot (highest match, or just above the closest under). Without a reference, it opens at the top and the user scrolls to place.
-- **Place later:** the completion goes to the **Unplaced** side panel until the user places it. The Unplaced panel is only ever reached by the user *choosing* to skip — no completion is ever *forced* unplaced.
+- **Place later:** the completion goes to the **Unplaced** side panel until the user places it. The Unplaced panel is only ever reached by the user _choosing_ to skip — no completion is ever _forced_ unplaced.
 - Ghost card shows level name and assigned tier for visual comparison.
 
 ---
@@ -86,6 +86,7 @@ Route: `/[username]/ranking/classic`
 ```
 
 Features:
+
 - Drag-and-drop reordering directly on page (dnd-kit)
 - Toggle to show/hide unrated levels (ranking numbers update for that view)
 - Unplaced completions (user chose "Place later") live in a separate **Unplaced** panel until manually placed — they are not shown inline as auto-placed entries

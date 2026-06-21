@@ -39,19 +39,43 @@ function headerConfig(path: FlowPath | null, step: FlowStep): HeaderConfig {
     case 'manual':
       return { eyebrow: e(''), title: 'Enter level details', progress: 0.12 }
     case 'c_basics':
-      return { eyebrow: e(' · Step 1 of 4'), title: 'The basics', progress: 1 / 4 }
+      return {
+        eyebrow: e(' · Step 1 of 4'),
+        title: 'The basics',
+        progress: 1 / 4,
+      }
     case 'c_rating':
-      return { eyebrow: e(' · Step 2 of 4'), title: 'How was it?', progress: 2 / 4 }
+      return {
+        eyebrow: e(' · Step 2 of 4'),
+        title: 'How was it?',
+        progress: 2 / 4,
+      }
     case 'c_listrefs':
-      return { eyebrow: e(' · Step 3 of 4'), title: 'List references', progress: 3 / 4 }
+      return {
+        eyebrow: e(' · Step 3 of 4'),
+        title: 'List references',
+        progress: 3 / 4,
+      }
     case 'c_session':
-      return { eyebrow: e(' · Step 4 of 4'), title: 'Session details', progress: 1 }
+      return {
+        eyebrow: e(' · Step 4 of 4'),
+        title: 'Session details',
+        progress: 1,
+      }
     case 'c_review':
       return { eyebrow: e(' · Review'), title: 'Looks good?', progress: 1 }
     case 'p_core':
-      return { eyebrow: e(' · Step 1 of 2'), title: 'Where are you at?', progress: 1 / 2 }
+      return {
+        eyebrow: e(' · Step 1 of 2'),
+        title: 'Where are you at?',
+        progress: 1 / 2,
+      }
     case 'p_session':
-      return { eyebrow: e(' · Step 2 of 2'), title: 'Session details', progress: 1 }
+      return {
+        eyebrow: e(' · Step 2 of 2'),
+        title: 'Session details',
+        progress: 1,
+      }
     case 'd_main':
       return { eyebrow: e(''), title: 'Dropping this one', progress: 1 }
     default:

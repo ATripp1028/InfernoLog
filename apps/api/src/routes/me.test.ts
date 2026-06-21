@@ -122,7 +122,7 @@ describe('PATCH /me/username', () => {
     const thirtyOneDaysAgo = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000)
     prisma.user.findUnique.mockResolvedValue({
       username: 'old-name',
-      usernameChangedAt: thirtyOneDaysAgo
+      usernameChangedAt: thirtyOneDaysAgo,
     } as never)
     prisma.user.update.mockResolvedValue({
       id: USER_ID,
@@ -130,7 +130,6 @@ describe('PATCH /me/username', () => {
       enjoymentWeight: 0.5,
       ratingCategories: [],
     } as never)
-
 
     const res = await buildApp().request('/me/username', {
       method: 'PATCH',
@@ -172,8 +171,8 @@ describe('PATCH /me/username', () => {
     expect(body.error).toStrictEqual({
       fieldErrors: {
         username: [
-          "Username must be at least 2 characters",
-          "Username can only contain letters, numbers, underscores, and hyphens",
+          'Username must be at least 2 characters',
+          'Username can only contain letters, numbers, underscores, and hyphens',
         ],
       },
       formErrors: [],
@@ -229,7 +228,7 @@ describe('POST /me/connect-discord', () => {
     vi.stubEnv('DISCORD_REDIRECT_URI', 'https://test.example.com/callback')
   })
   afterEach(() => vi.unstubAllEnvs())
-    
+
   it('returns 200 with the state to sign', async () => {
     const res = await buildApp().request('/me/connect-discord', {
       method: 'POST',
@@ -237,11 +236,15 @@ describe('POST /me/connect-discord', () => {
     const body = (await res.json()) as { data: { url: string } }
 
     expect(res.status).toBe(200)
-    expect(body.data.url).toBe('https://discord.com/api/oauth2/authorize?client_id=test-client-id&redirect_uri=https%3A%2F%2Ftest.example.com%2Fcallback&response_type=code&scope=identify+email&state=signed-state')
+    expect(body.data.url).toBe(
+      'https://discord.com/api/oauth2/authorize?client_id=test-client-id&redirect_uri=https%3A%2F%2Ftest.example.com%2Fcallback&response_type=code&scope=identify+email&state=signed-state'
+    )
   })
 
   it('returns 500 if the state signing fails', async () => {
-    (mintConnectDiscordState as unknown as ReturnType<typeof vi.fn>).mockImplementationOnce(() => {
+    ;(
+      mintConnectDiscordState as unknown as ReturnType<typeof vi.fn>
+    ).mockImplementationOnce(() => {
       throw new Error('Signing error')
     })
 
@@ -282,7 +285,10 @@ describe('PUT /me/gddl-key', () => {
     expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { id: USER_ID },
-        data: { gddlApiKeyEncrypted: 'ciphertext-blob', gddlUsername: 'GDDLUser' },
+        data: {
+          gddlApiKeyEncrypted: 'ciphertext-blob',
+          gddlUsername: 'GDDLUser',
+        },
       })
     )
     // The verified GDDL name comes back for the success message.

@@ -50,16 +50,16 @@ After each answer, the pool is filtered and the algorithm recalculates which rem
 
 Each question maps to one or more filterable attributes on the level or user's data:
 
-| Question | Filters On |
-|---|---|
-| "Going for a new hardest?" | Levels ranked above user's current hardest by primary list source |
-| "Outside your skillset?" | Levels whose skill tags don't overlap heavily with user's completions (v3+) |
-| "Something short?" | Level length metadata from the GD servers |
-| "Okay with a NONG?" | `levels.is_nong` flag (v2) |
-| "Something with a good song rating?" | User's historical song rating scores |
-| "A level you've seen others play?" | Presence in InfernoLog database (discovery mode only) |
-| "A rated level?" | `levels.is_rated` |
-| "A specific difficulty range?" | List reference tier/rank range |
+| Question                             | Filters On                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| "Going for a new hardest?"           | Levels ranked above user's current hardest by primary list source           |
+| "Outside your skillset?"             | Levels whose skill tags don't overlap heavily with user's completions (v3+) |
+| "Something short?"                   | Level length metadata from the GD servers                                   |
+| "Okay with a NONG?"                  | `levels.is_nong` flag (v2)                                                  |
+| "Something with a good song rating?" | User's historical song rating scores                                        |
+| "A level you've seen others play?"   | Presence in InfernoLog database (discovery mode only)                       |
+| "A rated level?"                     | `levels.is_rated`                                                           |
+| "A specific difficulty range?"       | List reference tier/rank range                                              |
 
 Questions are only asked if they meaningfully split the current pool. A question with a 0/N split (all levels answer the same way) is skipped.
 

@@ -23,10 +23,22 @@ const DEMON_OPINIONS: ReadonlyArray<{
   face: string
 }> = [
   { value: 'EASY', label: 'Easy Demon', face: '/assets/gd/demon-easy.png' },
-  { value: 'MEDIUM', label: 'Medium Demon', face: '/assets/gd/demon-medium.png' },
+  {
+    value: 'MEDIUM',
+    label: 'Medium Demon',
+    face: '/assets/gd/demon-medium.png',
+  },
   { value: 'HARD', label: 'Hard Demon', face: '/assets/gd/demon-hard.png' },
-  { value: 'INSANE', label: 'Insane Demon', face: '/assets/gd/demon-insane.png' },
-  { value: 'EXTREME', label: 'Extreme Demon', face: '/assets/gd/demon-extreme.png' },
+  {
+    value: 'INSANE',
+    label: 'Insane Demon',
+    face: '/assets/gd/demon-insane.png',
+  },
+  {
+    value: 'EXTREME',
+    label: 'Extreme Demon',
+    face: '/assets/gd/demon-extreme.png',
+  },
 ]
 
 export function CompletionBasicsStep() {
@@ -46,8 +58,8 @@ export function CompletionBasicsStep() {
                 This isn&apos;t a demon
               </p>
               <p className="text-sm text-text-secondary">
-                InfernoLog is built for demon tracking. You can still log it — it
-                just won&apos;t appear in your difficulty ranking by default.
+                InfernoLog is built for demon tracking. You can still log it —
+                it just won&apos;t appear in your difficulty ranking by default.
               </p>
             </div>
           </Card>
@@ -77,19 +89,26 @@ export function CompletionBasicsStep() {
               id="c-attempts"
               inputMode="numeric"
               value={draft.attempts}
-              onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
+              onChange={(e) =>
+                patchDraft({ attempts: digitsOnly(e.target.value) })
+              }
             />
             <FieldHint>Cumulative across all copies and reuploads.</FieldHint>
           </div>
           <div>
-            <FieldLabel htmlFor="c-worstfail" hint="Your best run from 0% before beating it.">
+            <FieldLabel
+              htmlFor="c-worstfail"
+              hint="Your best run from 0% before beating it."
+            >
               Worst fail
             </FieldLabel>
             <Input
               id="c-worstfail"
               inputMode="numeric"
               value={draft.worstFail}
-              onChange={(e) => patchDraft({ worstFail: clampPercent(e.target.value) })}
+              onChange={(e) =>
+                patchDraft({ worstFail: clampPercent(e.target.value) })
+              }
             />
             <FieldHint>Best run from 0% before the win.</FieldHint>
           </div>

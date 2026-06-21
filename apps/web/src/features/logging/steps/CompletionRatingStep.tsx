@@ -16,7 +16,9 @@ export function CompletionRatingStep() {
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
 
-  const weightedAvg = weighted ? computeWeightedAvg(categories, draft.ratingScores) : null
+  const weightedAvg = weighted
+    ? computeWeightedAvg(categories, draft.ratingScores)
+    : null
 
   return (
     <>
@@ -35,9 +37,7 @@ export function CompletionRatingStep() {
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <SectionLabel>
-              Rating{weighted ? ' · weighted' : ''}
-            </SectionLabel>
+            <SectionLabel>Rating{weighted ? ' · weighted' : ''}</SectionLabel>
             {weightedAvg != null && (
               <span className="text-sm text-text-secondary">
                 weighted avg:{' '}

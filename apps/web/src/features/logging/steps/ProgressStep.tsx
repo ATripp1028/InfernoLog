@@ -114,8 +114,9 @@ export function ProgressStep() {
           </div>
         </div>
         <FieldHint>
-          Cumulative across all copies and reuploads. Pick &quot;From a run&quot;
-          to log a segment (e.g. 30% → 63%) instead of progress from the start.
+          Cumulative across all copies and reuploads. Pick &quot;From a
+          run&quot; to log a segment (e.g. 30% → 63%) instead of progress from
+          the start.
         </FieldHint>
       </StepBody>
 

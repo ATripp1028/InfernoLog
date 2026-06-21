@@ -137,7 +137,9 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.level).toBeNull()
     expect(body.fallbackToManual).toBe(true)
     // Nothing was written to the cache.
-    expect(await prisma.level.findUnique({ where: { inGameId: '333' } })).toBeNull()
+    expect(
+      await prisma.level.findUnique({ where: { inGameId: '333' } })
+    ).toBeNull()
   })
 
   it('includes the existing completion when the user already completed the level', async () => {
@@ -192,7 +194,9 @@ describe('POST /levels (manual metadata write)', () => {
     )
 
     expect(res.status).toBe(201)
-    const created = await prisma.level.findUnique({ where: { inGameId: '555' } })
+    const created = await prisma.level.findUnique({
+      where: { inGameId: '555' },
+    })
     expect(created?.dataSource).toBe('manual')
     expect(created?.verified).toBe(false)
     // The sanctioned exception: user difficulty BECOMES the in-game difficulty.

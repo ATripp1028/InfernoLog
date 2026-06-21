@@ -18,7 +18,9 @@ vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 vi.mock('../utils/gddl', () => ({ submitGddlRecord: vi.fn() }))
-vi.mock('../utils/kms', () => ({ decryptSecret: vi.fn(async () => 'plaintext-key') }))
+vi.mock('../utils/kms', () => ({
+  decryptSecret: vi.fn(async () => 'plaintext-key'),
+}))
 
 const { default: loggingApp } = await import('./logging')
 const { submitGddlRecord } = await import('../utils/gddl')
@@ -46,7 +48,10 @@ afterAll(async () => {
 describe('POST /me/completions', () => {
   it('creates level_progress (completed) + completion update + rating_scores + list_references', async () => {
     const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '100', inGameDifficulty: 'Insane Demon' })
+    await seedLevel(prisma, {
+      inGameId: '100',
+      inGameDifficulty: 'Insane Demon',
+    })
     const category = await seedRatingCategory(prisma, user.id)
 
     const res = await post(user.id, '/me/completions', {
@@ -66,7 +71,11 @@ describe('POST /me/completions', () => {
 
     const lp = await prisma.levelProgress.findUniqueOrThrow({
       where: { userId_levelId: { userId: user.id, levelId: '100' } },
-      include: { progressUpdates: { include: { ratingScores: true, listReferences: true } } },
+      include: {
+        progressUpdates: {
+          include: { ratingScores: true, listReferences: true },
+        },
+      },
     })
     expect(lp.status).toBe('COMPLETED')
     expect(lp.progressUpdates).toHaveLength(1)
@@ -130,7 +139,10 @@ describe('POST /me/completions', () => {
 
     expect(res.status).toBe(201)
     const pu = await prisma.progressUpdate.findFirstOrThrow({
-      where: { levelProgress: { userId: user.id, levelId: '103' }, isCompletion: true },
+      where: {
+        levelProgress: { userId: user.id, levelId: '103' },
+        isCompletion: true,
+      },
       include: { recordAcceptances: true },
     })
     expect(pu.recordAcceptances).toHaveLength(1)

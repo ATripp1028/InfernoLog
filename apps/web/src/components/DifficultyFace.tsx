@@ -36,7 +36,7 @@ export function DifficultyFace({
   // demon-extreme fills ~60% of the box when glowed (leaving room for the fire),
   // and most of it when not. Every other face scales from the same reference so
   // its ball matches. The face renders at its intrinsic size × this scale.
-  const faceScale = (size * (0.6)) / FACE_REFERENCE_WIDTH
+  const faceScale = (size * 0.6) / FACE_REFERENCE_WIDTH
   // The face seats a few pixels above the glow's center (the fire extends
   // further below than above). We nudge the GLOW down rather than the face up,
   // so the face stays at the box's vertical center and lines up with adjacent
@@ -58,7 +58,9 @@ export function DifficultyFace({
           alt=""
           aria-hidden
           className="pointer-events-none absolute inset-0 size-full object-contain"
-          style={{ transform: `translateY(${glowOffset}px) scale(${glowScale})` }}
+          style={{
+            transform: `translateY(${glowOffset}px) scale(${glowScale})`,
+          }}
         />
       )}
       <img

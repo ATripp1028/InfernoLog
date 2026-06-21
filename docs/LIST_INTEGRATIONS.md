@@ -10,12 +10,12 @@ List tier/rank values are always **snapshots at time of logging**, reflecting hi
 
 ## Supported Lists (v1)
 
-| List | Abbreviation | Type | API Available | Primary Use Case |
-|---|---|---|---|---|
-| GD Demon Ladder | GDDL | Tiered (numeric) | Yes | Most comprehensive — every demon in the game |
-| All Rated Extreme Demons List | AREDL | Ranked (numeric position) | Investigate | Extreme demons (AREDL rank shown for extreme demons only) |
-| Non-Listworthy Spreadsheet | NLW | Tiered (named tiers) | Likely manual only | Extreme Demons (only shown for extreme demons) |
-| Pemonlist | Pemonlist | Ranked | Investigate | Platformer demons (v2) |
+| List                          | Abbreviation | Type                      | API Available      | Primary Use Case                                          |
+| ----------------------------- | ------------ | ------------------------- | ------------------ | --------------------------------------------------------- |
+| GD Demon Ladder               | GDDL         | Tiered (numeric)          | Yes                | Most comprehensive — every demon in the game              |
+| All Rated Extreme Demons List | AREDL        | Ranked (numeric position) | Investigate        | Extreme demons (AREDL rank shown for extreme demons only) |
+| Non-Listworthy Spreadsheet    | NLW          | Tiered (named tiers)      | Likely manual only | Extreme Demons (only shown for extreme demons)            |
+| Pemonlist                     | Pemonlist    | Ranked                    | Investigate        | Platformer demons (v2)                                    |
 
 Pointercrate was evaluated and **cut from v1**: it adds significant development burden for coverage largely mirrored by the top ~150 of AREDL.
 
@@ -28,6 +28,7 @@ Additional lists may be added in future versions. The architecture uses a `ListP
 Each completion can have multiple list references. See `DATA_MODEL.md` — `list_references` table for schema details.
 
 Key behaviors:
+
 - A completion can have zero, one, or many list references
 - References can be added retroactively after a completion is logged
 - `at_time_of_completion` flag distinguishes snapshot values from retroactively added ones
@@ -37,7 +38,7 @@ Key behaviors:
 
 ## List References and Ranking Placement
 
-List references do **not** auto-place a completion. There is no priority chain and no cross-list conflict handling — every completion is placed manually by the user (see `RANKING_SYSTEM.md`). A list reference is genuine data the user may want on record, which *additionally* serves as a convenience: it sets the starting scroll position in the placement view. Difficulty consistency across list sources is the user's responsibility.
+List references do **not** auto-place a completion. There is no priority chain and no cross-list conflict handling — every completion is placed manually by the user (see `RANKING_SYSTEM.md`). A list reference is genuine data the user may want on record, which _additionally_ serves as a convenience: it sets the starting scroll position in the placement view. Difficulty consistency across list sources is the user's responsibility.
 
 ---
 
@@ -48,6 +49,7 @@ List references do **not** auto-place a completion. There is no priority chain a
 ### Autofill on Level ID Entry
 
 When a user enters a level ID during logging, InfernoLog calls the GD servers first for general metadata, then GDDL for tier-specific data. GDDL autofill populates:
+
 - Current GDDL tier (presented to user as a suggested snapshot value to confirm)
 - Record eligibility status
 
@@ -60,6 +62,7 @@ If the user has provided their GDDL API key, they can submit a completion record
 ### Tier as Manual Snapshot
 
 The GDDL tier is entered/confirmed manually by the user rather than fetched automatically at logging time. This is intentional:
+
 - GDDL placements update extremely frequently
 - The snapshot reflects what the tier was when the player beat it, which is more historically meaningful
 - Avoids excessive API load on GDDL's free platform
@@ -98,10 +101,13 @@ Minimum interface:
 
 ```typescript
 interface ListProvider {
-  id: ListSource;
-  displayName: string;
-  autofillByLevelId(levelId: string): Promise<ListAutofillResult | null>;
-  submitRecord?(levelId: string, userCredential: string): Promise<ListSubmitResult>;
+  id: ListSource
+  displayName: string
+  autofillByLevelId(levelId: string): Promise<ListAutofillResult | null>
+  submitRecord?(
+    levelId: string,
+    userCredential: string
+  ): Promise<ListSubmitResult>
 }
 ```
 
@@ -123,6 +129,7 @@ Version timeline:
 ### v3 Integration-Sourced Tags
 
 Tags are pulled from GDDL and AREDL during autofill and stored on the `levels` table. They are:
+
 - **Per-level (global)** — the same tags apply to a level for all users
 - **Read-only** in v3 — users cannot add or modify tags, only consume them
 - **Absent for unrated levels** — no tags until v4 voting covers them

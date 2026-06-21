@@ -63,9 +63,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
           />
         }
         providerName="GDDL"
-        identifier={
-          me.gddlUsername ? `GDDL user ${me.gddlUsername}` : null
-        }
+        identifier={me.gddlUsername ? `GDDL user ${me.gddlUsername}` : null}
         action={
           editing ? null : me.hasGddlApiKey ? (
             <Button
@@ -95,7 +93,11 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
               if (e.key === 'Enter') void save()
             }}
           />
-          <Button size="sm" onClick={() => void save()} disabled={setKey.isPending}>
+          <Button
+            size="sm"
+            onClick={() => void save()}
+            disabled={setKey.isPending}
+          >
             {setKey.isPending ? 'Connecting…' : 'Save'}
           </Button>
           <Button

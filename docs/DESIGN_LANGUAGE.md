@@ -125,26 +125,31 @@ InfernoLog uses official Geometry Dash in-game assets for GD-specific UI element
 ### GD Assets Used
 
 #### Difficulty Faces
+
 **Used for:** Difficulty indicators on list entries, ranking entries, level page headers
 **Asset:** Official GD difficulty face sprites — auto, easy, normal, hard, harder, insane, easy demon, medium demon, hard demon, insane demon, extreme demon
 **Notes:** Use the exact in-game sprites. Players recognize these instantly at any size. The extreme demon face (red, horned) is InfernoLog's primary demon indicator.
 
 #### Mirror Portal
+
 **Used for:** Time Machine navigation icon and page header
 **Asset:** Official GD mirror portal sprite
 **Notes:** The mirror portal is both the in-game asset for the "Time Machine" level (which introduces it) and a visual metaphor for looking back in time via reflection. At sidebar nav size (24px), use a simplified crop of the portal. At page header size (48px+), use the full sprite.
 
 #### Practice Mode Checkpoint Flag
+
 **Used for:** In Progress section nav icon and status badge
 **Asset:** Official GD practice mode flag sprite (yellow/gold flag)
 **Notes:** Immediately recognizable to any GD player as "mid-attempt." No community member will need this explained.
 
 #### Star / Diamond
+
 **Used for:** Enjoyment and rating display
 **Asset:** Official GD star sprite (classic) and/or diamond sprite (newer)
 **Notes:** Use in place of generic star ratings. The GD star has a distinctive styled appearance that reinforces the app's identity. Star for enjoyment (a personal feeling), diamond for rating (a more objective assessment) is a reasonable distinction.
 
 #### Orbs and Portals (Supporting)
+
 **Used for:** Decorative elements, section accents, empty states
 **Asset:** Various GD orb and portal sprites as appropriate
 **Notes:** Use sparingly as supporting decoration — not as primary UI elements. Empty states and section headers are appropriate locations.
@@ -154,8 +159,10 @@ InfernoLog uses official Geometry Dash in-game assets for GD-specific UI element
 These concepts have no direct in-game equivalent and require original design:
 
 #### Dropped Level Indicator
+
 **Used for:** Dropped section nav icon and status badge
 **Design notes:** "Dropping" a level is a community concept, not an in-game mechanic. Options:
+
 - A crossed-out practice flag (most legible — combines "in progress" + "stopped")
 - A cracked or broken orb (evokes failure without being too harsh)
 - A flag with an X overlay
@@ -163,6 +170,7 @@ These concepts have no direct in-game equivalent and require original design:
 The crossed-out flag approach is recommended since it visually connects to the In Progress icon (same flag, different state), telling a clear visual story.
 
 #### NONG Indicator (v2)
+
 **Used for:** Small badge on level entries that require a NONG
 **Design notes:** No in-game equivalent — NONG is a community workaround concept. A music note with a strikethrough or question mark overlay communicates "song not standard." Keep it small and subtle — this is secondary information.
 
@@ -170,32 +178,32 @@ The crossed-out flag approach is recommended since it visually connects to the I
 
 Standard UI actions use Lucide without customization:
 
-| Element | Lucide Icon |
-|---|---|
-| Settings | `Settings` |
-| Notifications | `Bell` |
-| Add / Log new | `Plus` (inside FAB) |
-| Search | `Search` |
-| Sort | `ArrowUpDown` |
-| Filter | `Filter` |
-| Export | `Download` |
-| Import | `Upload` |
-| Edit | `Pencil` |
-| Delete | `Trash2` |
-| Video link | `Play` |
-| Highlight link | `Film` |
-| External link | `ExternalLink` |
-| Copy | `Copy` |
-| Drag handle | `GripVertical` |
-| Collapse/expand | `ChevronDown` |
-| Close | `X` |
-| Confirmed/accepted | `CheckCircle2` |
-| Uncertain date | `HelpCircle` |
-| Private entry | `EyeOff` |
-| Needs placement | `AlertCircle` |
-| On stream | `Radio` |
-| GDDL | `Link` |
-| AREDL | `Trophy` |
+| Element            | Lucide Icon         |
+| ------------------ | ------------------- |
+| Settings           | `Settings`          |
+| Notifications      | `Bell`              |
+| Add / Log new      | `Plus` (inside FAB) |
+| Search             | `Search`            |
+| Sort               | `ArrowUpDown`       |
+| Filter             | `Filter`            |
+| Export             | `Download`          |
+| Import             | `Upload`            |
+| Edit               | `Pencil`            |
+| Delete             | `Trash2`            |
+| Video link         | `Play`              |
+| Highlight link     | `Film`              |
+| External link      | `ExternalLink`      |
+| Copy               | `Copy`              |
+| Drag handle        | `GripVertical`      |
+| Collapse/expand    | `ChevronDown`       |
+| Close              | `X`                 |
+| Confirmed/accepted | `CheckCircle2`      |
+| Uncertain date     | `HelpCircle`        |
+| Private entry      | `EyeOff`            |
+| Needs placement    | `AlertCircle`       |
+| On stream          | `Radio`             |
+| GDDL               | `Link`              |
+| AREDL              | `Trophy`            |
 
 ---
 
@@ -252,6 +260,7 @@ The level entry card is the most frequently rendered component in the app — it
 ```
 
 Key decisions:
+
 - Thumbnail on the left (levelthumbs, with placeholder fallback)
 - Level name prominent, creator and song secondary
 - List reference badges inline, color-coded by tier/rank range

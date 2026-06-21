@@ -21,7 +21,9 @@ async function main() {
 
   for (const level of OFFICIAL_LEVELS) {
     const song =
-      level.officialSongId != null ? OFFICIAL_SONGS[level.officialSongId] : undefined
+      level.officialSongId != null
+        ? OFFICIAL_SONGS[level.officialSongId]
+        : undefined
     const songName = level.songName ?? song?.name ?? null
     const songAuthor = level.songAuthor ?? song?.author ?? null
 

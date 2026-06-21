@@ -84,7 +84,10 @@ export function buildCompletionInput(
   }
 }
 
-export function buildProgressInput(level: Level, draft: FlowDraft): ProgressInput {
+export function buildProgressInput(
+  level: Level,
+  draft: FlowDraft
+): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
     date: draft.date,

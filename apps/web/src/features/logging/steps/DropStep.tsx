@@ -27,7 +27,9 @@ export function DropStep() {
       toast.success(`Dropped ${level.name ?? 'level'}`)
       close()
     } catch (err) {
-      toast.error(err instanceof ApiError ? err.message : 'Could not drop level')
+      toast.error(
+        err instanceof ApiError ? err.message : 'Could not drop level'
+      )
     }
   }
 
@@ -58,21 +60,28 @@ export function DropStep() {
               id="d-attempts"
               inputMode="numeric"
               value={draft.attempts}
-              onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
+              onChange={(e) =>
+                patchDraft({ attempts: digitsOnly(e.target.value) })
+              }
             />
             <FieldHint>
               Puts your eventual completion&apos;s attempt count in perspective.
             </FieldHint>
           </div>
           <div>
-            <FieldLabel htmlFor="d-worstfail" hint="Your best run from 0% before dropping.">
+            <FieldLabel
+              htmlFor="d-worstfail"
+              hint="Your best run from 0% before dropping."
+            >
               Worst fail %
             </FieldLabel>
             <Input
               id="d-worstfail"
               inputMode="numeric"
               value={draft.worstFail}
-              onChange={(e) => patchDraft({ worstFail: clampPercent(e.target.value) })}
+              onChange={(e) =>
+                patchDraft({ worstFail: clampPercent(e.target.value) })
+              }
             />
             <FieldHint>Best run from 0% before dropping.</FieldHint>
           </div>
@@ -113,7 +122,11 @@ export function DropStep() {
         <Button variant="outline" onClick={() => setStep('find')}>
           Back
         </Button>
-        <Button variant="destructive" onClick={submit} disabled={logDrop.isPending}>
+        <Button
+          variant="destructive"
+          onClick={submit}
+          disabled={logDrop.isPending}
+        >
           {logDrop.isPending ? 'Dropping…' : 'Drop level'}
         </Button>
       </StepFooter>

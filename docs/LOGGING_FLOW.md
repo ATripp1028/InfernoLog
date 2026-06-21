@@ -50,7 +50,7 @@ footer (Back / Continue).
 
 Modeled on Indeed's job-application progress bar: each step advances the bar on engagement,
 with **unequal step weighting** and **recalculation per path** (completion is the longest
-path, drop the shortest — Option A: the bar means "how far through *this* path"). The bar
+path, drop the shortest — Option A: the bar means "how far through _this_ path"). The bar
 advances when the user engages a section, not on individual keystrokes, and not on filling
 every optional field. Exact per-step weights are deferred until the flow is instrumented;
 they are a runtime-tuned value, not a design-time constant.
@@ -119,7 +119,7 @@ Name search queries **InfernoLog's `levels` cache**, not GD's live search.
 - **Implementation notes:** prefer a `pg_trgm` GIN index on `name` over plain `ILIKE` for
   fuzzy/typo tolerance (GD names are full of stylized spellings); Neon supports the extension.
   Always show creator + difficulty + ID in results to disambiguate same-name / reupload cases.
-  Cache the levels users *select*, not query responses.
+  Cache the levels users _select_, not query responses.
 
 ### Autofill
 
@@ -143,7 +143,7 @@ The difficulty picker here is the one exception to "in-game difficulty is always
 read-only": with no cached value to defer to, **the difficulty the user picks becomes the
 in-game difficulty**, stored as manual-sourced/unverified so a later sync can
 backfill/verify it. It uses the full objective-rating selector ("Not a demon" + Easy / Medium /
-Hard / Insane / Extreme) — the level's rating, distinct from the difficulty-*opinion* selector
+Hard / Insane / Extreme) — the level's rating, distinct from the difficulty-_opinion_ selector
 on the completion Core step.
 
 ---
@@ -171,7 +171,7 @@ edge cases, "why won't it let me log this?" support burden) over a soft treatmen
 
 Field steps are presented in order with a shared **"Session Details"** catch-all near the end,
 then a **Review** step. (Renamed from "miscellaneous": every field in that step describes the
-*session/run*, not the level, so "Session Details" is more accurate. Used on both completion
+_session/run_, not the level, so "Session Details" is more accurate. Used on both completion
 and progress paths.) Fields in Session Details are grouped by input type (stats / flags / media
 / notes). Fields where the implication isn't obvious carry a hover **info button** (date,
 attempts, run range, FPS) — not every field, to avoid noise.
@@ -185,7 +185,7 @@ attempts, run range, FPS) — not every field, to avoid noise.
   omitted entirely** (there is nothing to log — the range is always 0→100). The uncertain-date
   toggle sits directly under the date input and appears only when a date is present.
 - **Difficulty opinion** (see "Two Difficulty Concepts" below) is the user's own read of how hard
-  the level was, picked from a pill selector: **Not demon-worthy** (placed *first*, left of the
+  the level was, picked from a pill selector: **Not demon-worthy** (placed _first_, left of the
   demon tiers — that's where the eye goes when someone wants to dispute an overrated easy demon),
   then **Easy / Medium / Hard / Insane / Extreme**. "Demon" is implied on the five tiers. The
   cached in-game difficulty is shown read-only beside the selector for contrast.
@@ -193,7 +193,7 @@ attempts, run range, FPS) — not every field, to avoid noise.
   with a computed weighted average). Enjoyment is a standalone slider; it needs no "how much fun?"
   caption — users understand enjoyment.
 - **List references** are GDDL tier, AREDL rank, NLW tier. They are **genuine data the user may
-  want on record**, which *additionally* serve as a convenience for initial ranking placement —
+  want on record**, which _additionally_ serve as a convenience for initial ranking placement —
   not merely a placement convenience. Optional. **AREDL rank only appears for extreme demons**
   (AREDL = All Rated Extreme Demons List — it lists extreme demons only), keyed off the level's
   cached rated difficulty. GDDL record submission + accepted-flag toggles appear here only when a
@@ -218,13 +218,11 @@ These are **two separate fields**, never conflated:
   easy demon the user thinks shouldn't be rated a demon at all; it sits first (left of Easy)
   because that's where attention lands when someone wants to dispute an overrated easy demon.
 
-Showing the two side by side is the entire point: the user is stating where they *disagree* with
+Showing the two side by side is the entire point: the user is stating where they _disagree_ with
 the in-game rating. A "Not demon-worthy" opinion is a disagreement only — the level is still a
 rated demon and stays in the difficulty ranking unless the user removes it; this is distinct from
 the non-demon **soft gate** above (which fires when the GD servers report the level isn't a demon at
 all).
-
-
 
 `Level entry → Core (Where are you at?) → Session Details → Review`
 
@@ -262,8 +260,8 @@ After a completion is submitted, a compact confirm modal asks **"Place in rankin
   the top and the user scrolls to place. Either way, placement is manual; **no list reference is
   required to place.**
 - **Place later:** the completion goes to the **Unplaced** side panel until the user places it.
-  The Unplaced panel is only ever reached by the user *choosing* to skip — no completion is ever
-  *forced* unplaced.
+  The Unplaced panel is only ever reached by the user _choosing_ to skip — no completion is ever
+  _forced_ unplaced.
 - Because placement is fully manual and reference-only-for-convenience, **cross-list conflict
   handling is eliminated.** Difficulty consistency is left to the user, who rates their own
   completions.
@@ -274,7 +272,7 @@ After a completion is submitted, a compact confirm modal asks **"Place in rankin
 
 These are lightweight add-a-level actions — single-purpose modals, not multi-step forms. They
 share the same cache-backed ID/name search as the logging flow's entry step. They use a plain
-dark surface (no thumbnail background — at the point of *adding*, the user is still searching and
+dark surface (no thumbnail background — at the point of _adding_, the user is still searching and
 may not have a level selected yet).
 
 ### Add to Want to Beat
@@ -294,27 +292,27 @@ affordance. Favorites notes the optional GDDL sync. A level can land in several 
 
 ## Field Reference (by path)
 
-| Field | Completion | Progress | Drop |
-|---|---|---|---|
-| Level ID / name (entry) | ✓ required | ✓ required | ✓ required |
-| Percentage | — (100% implied) | — (use Best progress) | — |
-| Best progress | — | ✓ ("From 0%" mode) | — |
-| Run segment (from → to) | — (always 0→100) | ✓ ("From a run" mode) | — |
-| Date (+ uncertain toggle) | ✓ | ✓ | ✓ (date dropped) |
-| Attempts | ✓ | ✓ | ✓ (optional) |
-| In-game difficulty (cached, read-only) | ✓ shown | — | — |
-| Difficulty opinion (Not demon-worthy / Easy…Extreme) | ✓ | — | — |
-| Rating (simple/weighted) | ✓ | Session Details | — |
-| Enjoyment | ✓ | Session Details | — |
-| List references (GDDL, AREDL, NLW) | ✓ | — | — |
-| AREDL rank | ✓ (extreme demons only) | — | — |
-| GDDL record submit/accepted | ✓ (if key) | — | — |
-| FPS | Session Details | Session Details | — |
-| On stream | Session Details | Session Details | — |
-| Completion video URL | Session Details | — | — |
-| Highlight URL | Session Details | Session Details | — |
-| Notes | Session Details | Session Details | ✓ (reason) |
-| Per-entry privacy | Session Details | Session Details | ✓ |
+| Field                                                | Completion              | Progress              | Drop             |
+| ---------------------------------------------------- | ----------------------- | --------------------- | ---------------- |
+| Level ID / name (entry)                              | ✓ required              | ✓ required            | ✓ required       |
+| Percentage                                           | — (100% implied)        | — (use Best progress) | —                |
+| Best progress                                        | —                       | ✓ ("From 0%" mode)    | —                |
+| Run segment (from → to)                              | — (always 0→100)        | ✓ ("From a run" mode) | —                |
+| Date (+ uncertain toggle)                            | ✓                       | ✓                     | ✓ (date dropped) |
+| Attempts                                             | ✓                       | ✓                     | ✓ (optional)     |
+| In-game difficulty (cached, read-only)               | ✓ shown                 | —                     | —                |
+| Difficulty opinion (Not demon-worthy / Easy…Extreme) | ✓                       | —                     | —                |
+| Rating (simple/weighted)                             | ✓                       | Session Details       | —                |
+| Enjoyment                                            | ✓                       | Session Details       | —                |
+| List references (GDDL, AREDL, NLW)                   | ✓                       | —                     | —                |
+| AREDL rank                                           | ✓ (extreme demons only) | —                     | —                |
+| GDDL record submit/accepted                          | ✓ (if key)              | —                     | —                |
+| FPS                                                  | Session Details         | Session Details       | —                |
+| On stream                                            | Session Details         | Session Details       | —                |
+| Completion video URL                                 | Session Details         | —                     | —                |
+| Highlight URL                                        | Session Details         | Session Details       | —                |
+| Notes                                                | Session Details         | Session Details       | ✓ (reason)       |
+| Per-entry privacy                                    | Session Details         | Session Details       | ✓                |
 
 Attempt count remains cumulative-across-all-copies (honor system, tooltip). A user-level
 **default FPS** setting lives alongside the existing user preferences (date format, rating mode)

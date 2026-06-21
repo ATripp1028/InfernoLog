@@ -120,15 +120,15 @@ A notification informing the user that cached level metadata has changed (name, 
 
 ## Terms to Avoid
 
-| Avoid | Use Instead | Reason |
-|---|---|---|
-| "Completion log" or "demon log" | The List | Confuses List with Log |
-| "Activity log" | The Log | Too generic |
-| "My demons" | The List | Implies created levels |
-| "Demon list" | The List | Confuses with community lists |
-| "Entry" alone | "Progress entry" or "completion" | Too ambiguous |
-| "Rank" for GDDL | "Tier" | GDDL uses tiers, not ranks |
-| "Tier" for Pointercrate | "Rank" | Pointercrate uses ranks, not tiers |
-| "Log" for List | The List | These are distinct views |
-| "List" for Log | The Log | These are distinct views |
-| "Difficulty face" for the whole icon | "In-game face" | The difficulty face is only the face; the in-game face includes the glow |
+| Avoid                                | Use Instead                      | Reason                                                                   |
+| ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------ |
+| "Completion log" or "demon log"      | The List                         | Confuses List with Log                                                   |
+| "Activity log"                       | The Log                          | Too generic                                                              |
+| "My demons"                          | The List                         | Implies created levels                                                   |
+| "Demon list"                         | The List                         | Confuses with community lists                                            |
+| "Entry" alone                        | "Progress entry" or "completion" | Too ambiguous                                                            |
+| "Rank" for GDDL                      | "Tier"                           | GDDL uses tiers, not ranks                                               |
+| "Tier" for Pointercrate              | "Rank"                           | Pointercrate uses ranks, not tiers                                       |
+| "Log" for List                       | The List                         | These are distinct views                                                 |
+| "List" for Log                       | The Log                          | These are distinct views                                                 |
+| "Difficulty face" for the whole icon | "In-game face"                   | The difficulty face is only the face; the in-game face includes the glow |

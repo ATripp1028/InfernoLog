@@ -17,7 +17,9 @@ export function StepBody({
   className?: string
 }) {
   return (
-    <div className={cn('flex-1 space-y-5 overflow-y-auto px-6 py-5', className)}>
+    <div
+      className={cn('flex-1 space-y-5 overflow-y-auto px-6 py-5', className)}
+    >
       {children}
     </div>
   )
@@ -73,7 +75,10 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 // level-thumbnail backdrop. "Change" returns to the find step.
 export function LevelHeader({ level }: { level: Level }) {
   const { setStep } = useLoggingFlow()
-  const subtitle = [level.creator ? `by ${level.creator}` : null, level.songName]
+  const subtitle = [
+    level.creator ? `by ${level.creator}` : null,
+    level.songName,
+  ]
     .filter(Boolean)
     .join(' · ')
   return (

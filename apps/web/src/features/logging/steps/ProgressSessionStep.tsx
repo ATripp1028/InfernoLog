@@ -16,7 +16,13 @@ import {
   StepFooter,
 } from '../components'
 import { buildProgressInput } from '../payload'
-import { digitsOnly, displayMax, formatRating, toDisplay, toInternal } from '../format'
+import {
+  digitsOnly,
+  displayMax,
+  formatRating,
+  toDisplay,
+  toInternal,
+} from '../format'
 
 export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
@@ -57,7 +63,9 @@ export function ProgressSessionStep() {
               min={0}
               max={max}
               step={1}
-              value={[draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0]}
+              value={[
+                draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0,
+              ]}
               onValueChange={(vals) =>
                 patchDraft({ enjoyment: toInternal(vals[0] ?? 0, scale) })
               }
@@ -65,10 +73,14 @@ export function ProgressSessionStep() {
             <span
               className={
                 'w-8 text-right font-mono text-sm ' +
-                (draft.enjoyment != null ? 'text-text-primary' : 'text-text-tertiary')
+                (draft.enjoyment != null
+                  ? 'text-text-primary'
+                  : 'text-text-tertiary')
               }
             >
-              {draft.enjoyment != null ? formatRating(draft.enjoyment, scale) : '—'}
+              {draft.enjoyment != null
+                ? formatRating(draft.enjoyment, scale)
+                : '—'}
             </span>
           </div>
         </div>
@@ -100,7 +112,9 @@ export function ProgressSessionStep() {
           <ToggleRow
             title="Keep this private"
             checked={draft.visibility === 'PRIVATE'}
-            onChange={(v) => patchDraft({ visibility: v ? 'PRIVATE' : 'PUBLIC' })}
+            onChange={(v) =>
+              patchDraft({ visibility: v ? 'PRIVATE' : 'PUBLIC' })
+            }
           />
         </div>
 
