@@ -47,7 +47,7 @@ List references do **not** auto-place a completion. There is no priority chain a
 
 ### Autofill on Level ID Entry
 
-When a user enters a level ID during logging, InfernoLog calls GDBrowser first for general metadata, then GDDL for tier-specific data. GDDL autofill populates:
+When a user enters a level ID during logging, InfernoLog calls the GD servers first for general metadata, then GDDL for tier-specific data. GDDL autofill populates:
 - Current GDDL tier (presented to user as a suggested snapshot value to confirm)
 - Record eligibility status
 

@@ -77,7 +77,7 @@ Change in packages/core/ → rebuild both, deploy both
 
 | Service | Purpose | Called From |
 |---|---|---|
-| GDBrowser (`gdbrowser.com/api`) | Primary level metadata autofill (rated + unrated) | Lambda |
+| GD servers (RobTop / `boomlings.com`) | Primary level metadata autofill (rated + unrated) | Lambda |
 | GDDL API | Tier suggestion + optional record submission | Lambda |
 | `levelthumbs.prevter.me/thumbnail/{levelId}` | Level thumbnails (Apache 2.0) | Frontend (img src) |
 | AREDL API | Rank autofill, extreme demons only | Lambda |
@@ -117,7 +117,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `LEVEL_PICKER.md` | Akinator-style guided level selection |
 | `IMPORT_EXPORT.md` | Spreadsheet import template, export format, date handling |
 | `API_DESIGN.md` | Public API shape, versioning, scopes, pagination |
-| `EXTERNAL_APIS.md` | GDBrowser, GDDL, levelthumbs, EventBridge sync |
+| `EXTERNAL_APIS.md` | GD servers (RobTop), GDDL, levelthumbs, EventBridge sync |
 | `MODERATION.md` | Internal mod team policy, reports, appeals |
 | `COMMUNITY_POLICY.md` | Public-facing content rules |
 | `ROADMAP.md` | v1 / v2 / v3 / v4 feature breakdown |

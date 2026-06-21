@@ -108,10 +108,10 @@ The showcase "fire"/ring behind the Difficulty Face that denotes a level's ratin
 ## Infrastructure
 
 **Level Cache**
-The `levels` table in the database, which stores GDBrowser-autofilled level metadata shared across all users. Populated on first autofill of a given level ID and updated monthly by the sync job.
+The `levels` table in the database, which stores level metadata autofilled from the GD servers, shared across all users. Populated on first autofill of a given level ID and updated monthly by the sync job.
 
 **Sync Job**
-The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against GDBrowser for nudge-worthy changes (name, creator, song name, song author).
+The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against the GD servers for nudge-worthy changes (name, creator, song name, song author).
 
 **Nudge**
 A notification informing the user that cached level metadata has changed (name, creator, song name, song author). Delivered as a persistent notification and visual indicator on the affected entry. Sometimes called a **level update nudge** to distinguish it from other notification types.

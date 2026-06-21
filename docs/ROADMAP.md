@@ -21,7 +21,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 Attempts represent cumulative attempts across all uploads and copies of the level. Honor system. Documented in UI tooltip.
 
 ### Autofill
-- GDBrowser autofill on level ID entry (rated + unrated)
+- GD servers (RobTop) autofill on level ID entry (rated + unrated)
 - GDDL tier suggestion for rated levels
 - Manual entry fallback when any API unavailable
 - Level thumbnails via levelthumbs (best-effort, silent fallback)

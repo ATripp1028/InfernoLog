@@ -54,7 +54,7 @@ Each question maps to one or more filterable attributes on the level or user's d
 |---|---|
 | "Going for a new hardest?" | Levels ranked above user's current hardest by primary list source |
 | "Outside your skillset?" | Levels whose skill tags don't overlap heavily with user's completions (v3+) |
-| "Something short?" | Level length metadata from GDBrowser |
+| "Something short?" | Level length metadata from the GD servers |
 | "Okay with a NONG?" | `levels.is_nong` flag (v2) |
 | "Something with a good song rating?" | User's historical song rating scores |
 | "A level you've seen others play?" | Presence in InfernoLog database (discovery mode only) |

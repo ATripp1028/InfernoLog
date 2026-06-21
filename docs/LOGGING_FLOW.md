@@ -105,15 +105,15 @@ avoiding the in-game search's annoyance of trying to ID-match numeric names.
 
 ### Name Search Resolves Against InfernoLog's Own Cache
 
-Name search queries **InfernoLog's `levels` cache**, not GD's / GDBrowser's live search.
+Name search queries **InfernoLog's `levels` cache**, not GD's live search.
 
 - **Why:** controls the result set and its semantics (no thousands of "Bloodbath" startpos
-  copies), costs nothing externally (no rate limits, no dependency on GDBrowser uptime), is
+  copies), costs nothing externally (no rate limits, no dependency on the GD servers' uptime), is
   trivially fast (local Postgres query — can afford live-as-you-type), and compounds with
   adoption (every ID anyone logs enriches the shared cache for everyone).
 - **Cold-start cost (accepted):** a level is only name-searchable after its first log by any
   user. The graceful fallback: name search hits the cache, and if the level isn't found, the
-  field still accepts a raw ID → routes through GDBrowser autofill → **populates the cache**,
+  field still accepts a raw ID → routes through GD-servers autofill → **populates the cache**,
   making it name-findable next time. ID entry is the seeding mechanism for the search index,
   not a worse parallel path.
 - **Implementation notes:** prefer a `pg_trgm` GIN index on `name` over plain `ILIKE` for
@@ -123,25 +123,25 @@ Name search queries **InfernoLog's `levels` cache**, not GD's / GDBrowser's live
 
 ### Autofill
 
-On a resolved level ID: GDBrowser (name, creator, song, length) → if rated, GDDL (suggested
+On a resolved level ID: the GD servers (name, creator, song, length) → if rated, GDDL (suggested
 tier, confirmed/overridden by user) → levelthumbs thumbnail (best-effort, silent fallback).
-GDBrowser unavailability never blocks the flow; the user proceeds with manual entry.
+GD-server unavailability never blocks the flow; the user proceeds with manual entry.
 
 Progress does not begin until metadata is entered; data captured after that point can be
 back-filled against the resolved level.
 
-**Manual metadata entry (auto-fallback only).** When GDBrowser fails or returns nothing
+**Manual metadata entry (auto-fallback only).** When the GD-servers fetch fails or returns nothing
 (down/timed out, or an unrated/brand-new level), the flow falls back to a manual entry view.
 This is **auto-fallback only** — there is no "enter manually" escape hatch in the happy path,
 and the view never appears when autofill succeeds. It reuses the entry-step shell (no level
-strip yet, since the level isn't confirmed) with a non-blocking notice ("Couldn't reach
-GDBrowser — enter the details, we'll verify and backfill automatically later") above the fields
-GDBrowser would normally provide, now manual: level ID (read-only, carried from the user's
+strip yet, since the level isn't confirmed) with a non-blocking notice ("Couldn't reach the
+Geometry Dash servers — enter the details, we'll verify and backfill automatically later") above the fields
+the servers would normally provide, now manual: level ID (read-only, carried from the user's
 entry), level name, creator, in-game difficulty, song name, song author, length.
 
 The difficulty picker here is the one exception to "in-game difficulty is always cached and
 read-only": with no cached value to defer to, **the difficulty the user picks becomes the
-in-game difficulty**, stored as manual-sourced/unverified so a later GDBrowser sync can
+in-game difficulty**, stored as manual-sourced/unverified so a later sync can
 backfill/verify it. It uses the full objective-rating selector ("Not a demon" + Easy / Medium /
 Hard / Insane / Extreme) — the level's rating, distinct from the difficulty-*opinion* selector
 on the completion Core step.
@@ -154,7 +154,7 @@ InfernoLog is built for demon completions and remains so. But logging a non-demo
 hard-blocked** — a hard validation wall buys little (reliable demon detection, reupload/rating
 edge cases, "why won't it let me log this?" support burden) over a soft treatment.
 
-- On autofill, a non-demon level (GDBrowser returns difficulty) surfaces a **soft-gate notice**:
+- On autofill, a non-demon level (the GD servers return difficulty) surfaces a **soft-gate notice**:
   an inline warning banner ("This isn't a demon — InfernoLog is built for demon tracking, but
   you can still log it. It won't appear in your difficulty ranking by default."). It informs;
   it does not block.
@@ -208,7 +208,7 @@ attempts, run range, FPS) — not every field, to avoid noise.
 
 These are **two separate fields**, never conflated:
 
-- **In-game difficulty** is the level's actual rating, **cached from GDBrowser** (e.g. "Insane
+- **In-game difficulty** is the level's actual rating, **cached from the GD servers** (e.g. "Insane
   Demon"). It is objective and **read-only** — displayed, never picked. It appears as a small
   chip beside the difficulty-opinion selector and as an "In-game difficulty" row on the Review
   step.
@@ -221,7 +221,7 @@ These are **two separate fields**, never conflated:
 Showing the two side by side is the entire point: the user is stating where they *disagree* with
 the in-game rating. A "Not demon-worthy" opinion is a disagreement only — the level is still a
 rated demon and stays in the difficulty ranking unless the user removes it; this is distinct from
-the non-demon **soft gate** above (which fires when GDBrowser reports the level isn't a demon at
+the non-demon **soft gate** above (which fires when the GD servers report the level isn't a demon at
 all).
 
 

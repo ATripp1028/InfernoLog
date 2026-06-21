@@ -113,10 +113,10 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `in_game_id` | VARCHAR | Primary key |
 | `level_type` | ENUM | `classic`, `platformer` |
 | `is_rated` | BOOLEAN | |
-| `is_demon` | BOOLEAN | Default false. Whether GD classifies the level as a demon, cached from GDBrowser's `demon` flag. Drives the non-demon soft gate (see `LOGGING_FLOW.md`) |
+| `is_demon` | BOOLEAN | Default false. Whether GD classifies the level as a demon, cached from the GD servers' demon flag. Drives the non-demon soft gate (see `LOGGING_FLOW.md`) |
 | `name` | VARCHAR | |
 | `creator` | VARCHAR | |
-| `in_game_difficulty` | VARCHAR | The level's actual rated difficulty (e.g. "Insane Demon"), cached from GDBrowser. **Read-only in the UI** — the per-user difficulty *opinion* lives on `progress_updates`. See item below |
+| `in_game_difficulty` | VARCHAR | The level's actual rated difficulty (e.g. "Insane Demon"), cached from the GD servers. **Read-only in the UI** — the per-user difficulty *opinion* lives on `progress_updates`. See item below |
 | `song_name` | VARCHAR | Newgrounds song name |
 | `song_author` | VARCHAR | |
 | `is_nong` | BOOLEAN | Default false. User-set flag (v2) |
@@ -124,8 +124,8 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `nong_artist` | VARCHAR | Nullable. Intended artist (v2) |
 | `nong_source_url` | VARCHAR | Nullable. Link to SFH or source (v2) |
 | `peak_music_bpm` | INTEGER | Nullable. Music BPM metadata (v2) |
-| `data_source` | ENUM | `gdbrowser_autofill`, `manual`. Provenance of the cached metadata |
-| `verified` | BOOLEAN | Default false for `manual` rows. A later GDBrowser sync can backfill and verify/override manually-entered metadata (including `in_game_difficulty`) |
+| `data_source` | ENUM | `robtop_autofill`, `manual`. Provenance of the cached metadata (legacy rows may read `gdbrowser_autofill`) |
+| `verified` | BOOLEAN | Default false for `manual` rows. A later sync can backfill and verify/override manually-entered metadata (including `in_game_difficulty`) |
 | `last_checked_at` | TIMESTAMP | For monthly sync job |
 | `has_pending_update` | BOOLEAN | Set true by sync job |
 | `pending_name` | VARCHAR | Nullable |
@@ -184,7 +184,7 @@ Every logged data point for a level. All fields optional except `level_progress_
 - `completion_time` only applies to platformer levels (v2)
 - Non-completion entries are hidden throughout the UI unless the "show non-completions" toggle is active
 - Rebeat handling (multiple completions per level) is a v3 feature
-- **Two difficulty concepts, never conflated.** The level's *actual rating* (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A `not_demon_worthy` opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when GDBrowser reports the level isn't a demon at all
+- **Two difficulty concepts, never conflated.** The level's *actual rating* (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A `not_demon_worthy` opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when the GD servers report the level isn't a demon at all
 
 ### `list_references`
 

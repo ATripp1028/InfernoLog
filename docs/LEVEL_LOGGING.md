@@ -25,7 +25,7 @@ When a user enters a level ID, the following fires automatically:
 User enters Level ID
         │
         ▼
-  GDBrowser API ──────────────────► name, creator, song, length
+  GD servers API ─────────────────► name, creator, song, length
         │
         ▼
   Is level rated?
@@ -36,7 +36,7 @@ User enters Level ID
   levelthumbs.prevter.me ─────────► thumbnail (best-effort, silent fallback)
 ```
 
-**Fallback:** If GDBrowser is unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability.
+**Fallback:** If the GD servers are unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability.
 
 ---
 
@@ -57,7 +57,7 @@ All fields are optional except the level ID. The user logs whatever is relevant 
 | Peak heart rate | Integer | BPM from heart rate monitor (v2) |
 | Enjoyment | Decimal 0-10 | |
 | Rating | Simple 0-10 or per-category scores | Depends on user's rating mode |
-| In-game difficulty | Cached, read-only | The level's actual rating, cached on `levels` from GDBrowser (e.g. "Insane Demon"). Displayed, never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
+| In-game difficulty | Cached, read-only | The level's actual rating, cached on `levels` from the GD servers (e.g. "Insane Demon"). Displayed, never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
 | Difficulty opinion | Pill selector | Per-completion. The user's subjective read: Not demon-worthy / Easy / Medium / Hard / Insane / Extreme. The only difficulty field the user edits |
 | List references | Per-list tier/rank | GDDL tier, AREDL rank (extreme demons only), NLW tier |
 | GDDL record accepted | Boolean | Manual flag (v1). Other lists v2+ |

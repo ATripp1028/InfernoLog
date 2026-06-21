@@ -116,7 +116,7 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 | Column | Required | Notes |
 |---|---|---|
 | `level_id` | Yes | In-game level ID |
-| `level_name` | No | If blank, autofilled from GDBrowser |
+| `level_name` | No | If blank, autofilled from the GD servers |
 | `date` | No | In selected date format |
 | `date_uncertain` | No | TRUE/FALSE |
 | `attempts` | No | Integer |

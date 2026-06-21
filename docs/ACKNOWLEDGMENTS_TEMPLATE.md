@@ -23,8 +23,13 @@ sure that work is recognized. Thank you.
 *These projects provide the APIs, data, and assets that power InfernoLog.
 None of them owe anyone their time or infrastructure — I'm grateful they exist.*
 
+### Geometry Dash (RobTop Games)
+**What it does for InfernoLog:** The official GD servers (`boomlings.com`) provide level metadata autofill — name, creator, song, difficulty, and more — for both rated and unrated levels.
+**Credit:** RobTop Games
+**Link:** robtopgames.com
+
 ### GDBrowser
-**What it does for InfernoLog:** Level metadata autofill — name, creator, song, and more — for both rated and unrated levels.
+**What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`).
 **Credit:** [GDBrowser author handle / link to project]
 **Link:** gdbrowser.com
 
