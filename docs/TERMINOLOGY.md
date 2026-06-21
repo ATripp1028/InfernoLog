@@ -94,6 +94,15 @@ The drag-and-drop interface that appears during the logging flow when a user wan
 **Non-Completion Toggle**
 A UI toggle present on the List, Ranking, and Level Page that reveals progress entries where `is_completion = false`. Off by default.
 
+**In-Game Face**
+A level's difficulty icon as it appears in Geometry Dash: the combination of its **Difficulty Face** and its **Background Glow**. Rendered by the `DifficultyFace` React component (`apps/web/src/components/DifficultyFace.tsx`). Use "in-game face" when referring to the composite icon (face + glow together).
+
+**Difficulty Face**
+The face portion of the In-Game Face only — the difficulty icon itself (e.g. the Extreme Demon face), without any glow. Sourced from the `demon-*` / `difficulty-*` assets in `public/assets/gd`.
+
+**Background Glow**
+The showcase "fire"/ring behind the Difficulty Face that denotes a level's rating status: the feature circle (featured), or epic / legendary / mythic fire. Absent on rated-but-unfeatured and unrated levels. Sourced from the `bg-*` assets.
+
 ---
 
 ## Infrastructure
@@ -122,3 +131,4 @@ A notification informing the user that cached level metadata has changed (name, 
 | "Tier" for Pointercrate | "Rank" | Pointercrate uses ranks, not tiers |
 | "Log" for List | The List | These are distinct views |
 | "List" for Log | The Log | These are distinct views |
+| "Difficulty face" for the whole icon | "In-game face" | The difficulty face is only the face; the in-game face includes the glow |

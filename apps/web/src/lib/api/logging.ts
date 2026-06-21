@@ -77,6 +77,8 @@ export interface LevelSearchResult {
   name: string | null
   creator: string | null
   inGameDifficulty: string | null
+  featured: boolean | null
+  epicValue: number | null
 }
 
 export interface ExistingCompletion {

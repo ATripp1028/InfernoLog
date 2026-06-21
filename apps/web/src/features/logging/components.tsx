@@ -3,7 +3,7 @@ import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
-import { difficultyFaceSrc } from '@/lib/gdAssets'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import type { Level } from '@/lib/api/logging'
 import { useLoggingFlow } from './LoggingFlowProvider'
 
@@ -79,10 +79,12 @@ export function LevelHeader({ level }: { level: Level }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="flex items-center gap-3">
-        <img
-          src={difficultyFaceSrc(level.inGameDifficulty)}
-          alt={level.inGameDifficulty ?? 'Difficulty'}
-          className="size-9 shrink-0 drop-shadow"
+        <DifficultyFace
+          difficulty={level.inGameDifficulty}
+          featured={level.featured}
+          epicValue={level.epicValue}
+          size={100}
+          className="drop-shadow"
         />
         <div>
           <p className="font-semibold leading-tight text-text-primary">

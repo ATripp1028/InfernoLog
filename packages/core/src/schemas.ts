@@ -363,6 +363,9 @@ export const LevelSearchResultSchema = z.object({
   name: z.string().nullable(),
   creator: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
+  // Drives the difficulty-face showcase glow in result rows.
+  featured: z.boolean().nullable(),
+  epicValue: z.number().int().nullable(),
 })
 
 // The existing-completion summary folded into the resolve response so the

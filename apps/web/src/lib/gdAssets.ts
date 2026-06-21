@@ -28,6 +28,31 @@ function difficultyFaceName(inGameDifficulty: string | null): string {
   return 'difficulty-na' // unrated / unknown
 }
 
+// The "fire"/glow that sits behind a difficulty face, by showcase rating.
+// Mythic > legendary > epic outrank a plain feature; unrated/rated-only → none.
+export type LevelGlow = 'mythic' | 'legendary' | 'epic' | 'featured'
+
+export function levelGlow(
+  epicValue: number | null | undefined,
+  featured: boolean | null | undefined
+): LevelGlow | null {
+  if (epicValue === 3) return 'mythic'
+  if (epicValue === 2) return 'legendary'
+  if (epicValue === 1) return 'epic'
+  if (featured) return 'featured'
+  return null
+}
+
+export function levelGlowSrc(
+  epicValue: number | null | undefined,
+  featured: boolean | null | undefined
+): string | null {
+  const glow = levelGlow(epicValue, featured)
+  if (!glow) return null
+  // Asset is bg-feature.png (not "featured"); the rest match the glow name.
+  return `${GD_ASSET_BASE}/bg-${glow === 'featured' ? 'feature' : glow}.png`
+}
+
 // Community-hosted level thumbnail (Prevter's levelthumbs). May 404 for levels
 // without a generated thumbnail — callers should degrade gracefully.
 export function levelThumbnailUrl(levelId: string): string {

@@ -9,7 +9,8 @@ import {
   useResolveLevel,
   type LevelSearchResult,
 } from '@/lib/api/logging'
-import { difficultyFaceSrc, levelThumbnailUrl } from '@/lib/gdAssets'
+import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 
@@ -156,10 +157,12 @@ function ResultRow({
       <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
 
       <span className="relative flex items-center gap-3">
-        <img
-          src={difficultyFaceSrc(result.inGameDifficulty)}
-          alt={result.inGameDifficulty ?? 'Difficulty'}
-          className="size-8 shrink-0 drop-shadow"
+        <DifficultyFace
+          difficulty={result.inGameDifficulty}
+          featured={result.featured}
+          epicValue={result.epicValue}
+          size={70}
+          className="translate-y-[3px] drop-shadow"
         />
         <span>
           <span className="block font-medium leading-tight text-text-primary">
