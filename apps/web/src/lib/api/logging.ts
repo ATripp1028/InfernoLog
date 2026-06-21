@@ -76,6 +76,7 @@ export interface LevelSearchResult {
   inGameId: string
   name: string | null
   creator: string | null
+  songName: string | null
   inGameDifficulty: string | null
   featured: boolean | null
   epicValue: number | null

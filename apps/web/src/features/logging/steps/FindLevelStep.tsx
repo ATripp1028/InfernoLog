@@ -131,7 +131,7 @@ function ResultRow({
   onSelect: () => void
   disabled: boolean
 }) {
-  const meta = [result.creator ? `by ${result.creator}` : null, result.inGameDifficulty]
+  const meta = [result.creator ? `by ${result.creator}` : null, result.songName]
     .filter(Boolean)
     .join(' · ')
   return (
@@ -161,7 +161,7 @@ function ResultRow({
           difficulty={result.inGameDifficulty}
           featured={result.featured}
           epicValue={result.epicValue}
-          size={70}
+          size={100}
           className="translate-y-[3px] drop-shadow"
         />
         <span>

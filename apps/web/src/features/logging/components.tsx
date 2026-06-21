@@ -83,7 +83,7 @@ export function LevelHeader({ level }: { level: Level }) {
           difficulty={level.inGameDifficulty}
           featured={level.featured}
           epicValue={level.epicValue}
-          size={100}
+          size={120}
           className="drop-shadow"
         />
         <div>
