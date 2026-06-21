@@ -7,7 +7,7 @@ import { useMe } from '@/lib/api/me'
 import { formatDate } from '@/lib/dateFormat'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
-import { buildCompletionInput } from '../payload'
+import { buildCompletionInput, isExtremeContext } from '../payload'
 import { formatNumber, formatRating } from '../format'
 
 const OPINION_LABELS: Record<string, string> = {
@@ -31,6 +31,7 @@ export function CompletionReviewStep() {
   const attempts = draft.attempts.trim()
     ? `${formatNumber(Number(draft.attempts))} attempts`
     : null
+  const worstFail = draft.worstFail.trim() ? `best run ${draft.worstFail}%` : null
 
   const weightedAvg = weighted
     ? avg(Object.values(draft.ratingScores))
@@ -47,6 +48,12 @@ export function CompletionReviewStep() {
     draft.gddlTier.trim() ? `Tier ${draft.gddlTier.trim()}` : null,
     draft.submitToGddl ? 'submitting record' : null,
   ].filter(Boolean)
+
+  // NLW / AREDL only apply to extreme demons — mirror the list-references step.
+  const showExtremeLists = isExtremeContext(
+    level.inGameDifficulty,
+    draft.difficultyOpinion
+  )
 
   async function submit() {
     if (!level || !me.data) return
@@ -65,7 +72,10 @@ export function CompletionReviewStep() {
       <StepBody>
         <LevelHeader level={level} />
         <div className="overflow-hidden rounded-md border border-border-subtle">
-          <Row label="Completion" value={['100%', attempts].filter(Boolean).join(' · ')} />
+          <Row
+            label="Completion"
+            value={['100%', attempts, worstFail].filter(Boolean).join(' · ')}
+          />
           {draft.date && (
             <Row
               label="Date"
@@ -91,8 +101,12 @@ export function CompletionReviewStep() {
             <Row label="Enjoyment" value={`${formatRating(draft.enjoyment, scale)}`} />
           )}
           {gddlBits.length > 0 && <Row label="GDDL" value={gddlBits.join(' · ')} />}
-          {draft.nlwTier.trim() && <Row label="NLW" value={`Tier ${draft.nlwTier.trim()}`} />}
-          {draft.aredlTier.trim() && <Row label="AREDL" value={`#${draft.aredlTier.trim()}`} />}
+          {showExtremeLists && draft.nlwTier.trim() && (
+            <Row label="NLW" value={`Tier ${draft.nlwTier.trim()}`} />
+          )}
+          {showExtremeLists && draft.aredlTier.trim() && (
+            <Row label="AREDL" value={`#${draft.aredlTier.trim()}`} />
+          )}
           {sessionBits.length > 0 && (
             <Row label="Session" value={sessionBits.join(' · ')} />
           )}

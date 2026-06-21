@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
+import { StepperInput } from '@/components/ui/stepper-input'
 import { useMe, type RatingCategory } from '@/lib/api/me'
 import type { RatingDisplayScale } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -39,8 +40,8 @@ export function CompletionRatingStep() {
             </SectionLabel>
             {weightedAvg != null && (
               <span className="text-sm text-text-secondary">
-                weighted avg{' '}
-                <span className="font-semibold text-accent">
+                weighted avg:{' '}
+                <span className="font-semibold text-current">
                   {formatRating(weightedAvg, scale)}
                 </span>
               </span>
@@ -119,6 +120,7 @@ function RatingRow({
   scale: RatingDisplayScale
   onChange: (internal: number) => void
 }) {
+  const isTen = scale === 'ZERO_TO_TEN'
   const max = displayMax(scale)
   const display = value != null ? toDisplay(value, scale) : 0
   return (
@@ -127,6 +129,9 @@ function RatingRow({
         <p className="text-sm font-medium text-text-primary">{label}</p>
         {sublabel && <p className="text-xs text-text-tertiary">{sublabel}</p>}
       </div>
+      {/* Slider keeps its whole-unit breakpoints; the stepper allows finer
+          entry (0.1 on the 0–10 scale, 1 on 0–100). Both edit the same 0–100
+          internal value. */}
       <Slider
         className="flex-1"
         min={0}
@@ -135,14 +140,16 @@ function RatingRow({
         value={[display]}
         onValueChange={(vals) => onChange(toInternal(vals[0] ?? 0, scale))}
       />
-      <span
-        className={
-          'w-8 text-right font-mono text-sm ' +
-          (value != null ? 'text-text-primary' : 'text-text-tertiary')
-        }
-      >
-        {value != null ? formatRating(value, scale) : '—'}
-      </span>
+      <StepperInput
+        value={display}
+        onChange={(d) => onChange(toInternal(d, scale))}
+        min={0}
+        max={max}
+        precision={isTen ? 1 : 0}
+        deltas={isTen ? [0.1] : [1]}
+        aria-label={label}
+        inputClassName="w-12"
+      />
     </div>
   )
 }

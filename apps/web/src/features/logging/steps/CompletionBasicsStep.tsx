@@ -13,7 +13,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { digitsOnly } from '../format'
+import { clampPercent, digitsOnly } from '../format'
 
 // The five demon-tier opinions, each shown as a round face button. The sixth
 // opinion (NOT_DEMON_WORTHY) is kept as a labelled text button for clarity.
@@ -70,15 +70,29 @@ export function CompletionBasicsStep() {
           </label>
         </div>
 
-        <div>
-          <FieldLabel htmlFor="c-attempts">Attempts</FieldLabel>
-          <Input
-            id="c-attempts"
-            inputMode="numeric"
-            value={draft.attempts}
-            onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
-          />
-          <FieldHint>Cumulative across all copies and reuploads of the level.</FieldHint>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <FieldLabel htmlFor="c-attempts">Attempts</FieldLabel>
+            <Input
+              id="c-attempts"
+              inputMode="numeric"
+              value={draft.attempts}
+              onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
+            />
+            <FieldHint>Cumulative across all copies and reuploads.</FieldHint>
+          </div>
+          <div>
+            <FieldLabel htmlFor="c-worstfail" hint="Your best run from 0% before beating it.">
+              Worst fail
+            </FieldLabel>
+            <Input
+              id="c-worstfail"
+              inputMode="numeric"
+              value={draft.worstFail}
+              onChange={(e) => patchDraft({ worstFail: clampPercent(e.target.value) })}
+            />
+            <FieldHint>Best run from 0% before the win.</FieldHint>
+          </div>
         </div>
 
         <div>

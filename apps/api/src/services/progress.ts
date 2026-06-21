@@ -201,7 +201,11 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     // Mark the level_progress completed and apply the per-entry privacy.
     await tx.levelProgress.update({
       where: { id: lp.id },
-      data: { status: 'COMPLETED', visibility: input.visibility },
+      data: {
+        status: 'COMPLETED',
+        visibility: input.visibility,
+        worstFail: input.worstFail ?? null,
+      },
     })
 
     return loadFullEntry(tx, lp.id, progressUpdateId)
@@ -279,6 +283,7 @@ export async function applyDrop(userId: string, input: DropInput) {
         droppedAt: input.droppedAt ?? null,
         droppedReason: input.droppedReason ?? null,
         attemptsAtDrop: input.attemptsAtDrop ?? null,
+        worstFail: input.worstFail ?? null,
         visibility: input.visibility,
       },
     })

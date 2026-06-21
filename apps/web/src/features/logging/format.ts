@@ -5,6 +5,13 @@ export function digitsOnly(value: string): string {
   return value.replace(/\D/g, '')
 }
 
+// Digits clamped to a 0–100 percentage (empty stays empty).
+export function clampPercent(value: string): string {
+  const digits = digitsOnly(value)
+  if (digits === '') return ''
+  return String(Math.min(100, Number(digits)))
+}
+
 export function formatNumber(n: number): string {
   return n.toLocaleString('en-US')
 }

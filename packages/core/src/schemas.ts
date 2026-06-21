@@ -276,6 +276,8 @@ export const CompletionListReferenceSchema = z.object({
 export const CompletionInputSchema = z.object({
   levelId: LevelIdSchema,
   ...sessionDetailFields,
+  // Best run from 0% reached before beating the level (the user's "worst fail").
+  worstFail: z.number().int().min(0).max(100).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
@@ -333,6 +335,8 @@ export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
   droppedAt: z.coerce.date().nullable().optional(),
   attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  // Best run from 0% reached before dropping (the user's "worst fail").
+  worstFail: z.number().int().min(0).max(100).nullable().optional(),
   droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
@@ -375,6 +379,7 @@ export const ExistingCompletionSchema = z.object({
   date: z.coerce.date().nullable(),
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
+  worstFail: z.number().int().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   enjoyment: z.number().int().nullable(),
   simpleRating: z.number().int().nullable(),

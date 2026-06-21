@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
@@ -86,23 +88,39 @@ function StepView({ step }: { step: FlowStep }) {
 
 export function LoggingModal() {
   const { isOpen, path, step, level, close } = useLoggingFlow()
+  const [confirmingClose, setConfirmingClose] = useState(false)
 
   const isSuccess = step === 'c_success'
   const header = headerConfig(path, step)
 
-  // Once the user has committed to a level (anything past "find"), an accidental
-  // click outside shouldn't discard their in-progress entry. The X button and
-  // Escape remain deliberate exits. The post-save success card is dismissible.
-  const lockOutsideClose = step !== 'find' && step !== 'c_success'
+  // Once the user has committed to logging (anything past "find" and before the
+  // post-save success card), an accidental click outside shouldn't discard the
+  // in-progress entry, and an explicit close (X / Escape) asks for confirmation.
+  const guardClose = step !== 'find' && step !== 'c_success'
+
+  // Reset the confirmation prompt whenever the modal fully closes/reopens.
+  useEffect(() => {
+    if (!isOpen) setConfirmingClose(false)
+  }, [isOpen])
+
+  function requestClose() {
+    if (guardClose) setConfirmingClose(true)
+    else close()
+  }
 
   return (
-    <Dialog.Root open={isOpen} onOpenChange={(o) => !o && close()}>
+    <Dialog.Root open={isOpen} onOpenChange={(o) => !o && requestClose()}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
         <Dialog.Content
           aria-describedby={undefined}
           onInteractOutside={(e) => {
-            if (lockOutsideClose) e.preventDefault()
+            if (guardClose) e.preventDefault()
+          }}
+          onEscapeKeyDown={(e) => {
+            // Route Escape through the confirmation prompt instead of closing.
+            if (guardClose) e.preventDefault()
+            requestClose()
           }}
           className={cn(
             'fixed left-1/2 top-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 focus:outline-none',
@@ -115,7 +133,7 @@ export function LoggingModal() {
               <CompletionSuccessStep />
             </div>
           ) : (
-            <div className="relative flex max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+            <div className="relative flex h-[640px] max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
               {/* Full-panel level thumbnail backdrop (mockup style). Shown once a
                   level is resolved; a heavy scrim keeps the form readable. */}
               {level && (
@@ -156,6 +174,36 @@ export function LoggingModal() {
                 </div>
                 <StepView step={step} />
               </div>
+
+              {confirmingClose && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-bg-base/70 p-6 backdrop-blur-sm">
+                  <div className="w-full max-w-sm rounded-card border border-border bg-bg-elevated p-5 shadow-[0_16px_48px_rgba(0,0,0,0.6)]">
+                    <p className="text-base font-semibold text-text-primary">
+                      Discard this log?
+                    </p>
+                    <p className="mt-1 text-sm text-text-secondary">
+                      Your progress won&apos;t be saved.
+                    </p>
+                    <div className="mt-5 flex justify-end gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={() => setConfirmingClose(false)}
+                      >
+                        Keep editing
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          setConfirmingClose(false)
+                          close()
+                        }}
+                      >
+                        Discard
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </Dialog.Content>

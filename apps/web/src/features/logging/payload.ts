@@ -1,12 +1,26 @@
 import type {
   CompletionInput,
   CompletionListReference,
+  DifficultyOpinion,
   DropInput,
   Level,
   ProgressInput,
 } from '@/lib/api/logging'
 import type { MeData } from '@/lib/api/me'
 import type { FlowDraft } from './types'
+
+// NLW and AREDL are extreme-demon lists (AREDL = All Rated Extreme Demons
+// List), so their fields only apply when the level IS an extreme demon or the
+// user's difficulty opinion is Extreme. GDDL applies to every rated level.
+export function isExtremeContext(
+  inGameDifficulty: string | null,
+  difficultyOpinion: DifficultyOpinion | null
+): boolean {
+  return (
+    (inGameDifficulty?.toLowerCase().includes('extreme') ?? false) ||
+    difficultyOpinion === 'EXTREME'
+  )
+}
 
 function intOrNull(value: string): number | null {
   const t = value.trim()
@@ -15,13 +29,16 @@ function intOrNull(value: string): number | null {
   return Number.isNaN(n) ? null : n
 }
 
-function listReferences(draft: FlowDraft): CompletionListReference[] {
+function listReferences(
+  draft: FlowDraft,
+  allowExtremeLists: boolean
+): CompletionListReference[] {
   const refs: CompletionListReference[] = []
   if (draft.gddlTier.trim())
     refs.push({ listSource: 'GDDL', tierOrRank: draft.gddlTier.trim() })
-  if (draft.nlwTier.trim())
+  if (allowExtremeLists && draft.nlwTier.trim())
     refs.push({ listSource: 'NLW', tierOrRank: draft.nlwTier.trim() })
-  if (draft.aredlTier.trim())
+  if (allowExtremeLists && draft.aredlTier.trim())
     refs.push({ listSource: 'AREDL', tierOrRank: draft.aredlTier.trim() })
   return refs
 }
@@ -31,7 +48,10 @@ export function buildCompletionInput(
   draft: FlowDraft,
   me: MeData
 ): CompletionInput {
-  const refs = listReferences(draft)
+  const refs = listReferences(
+    draft,
+    isExtremeContext(level.inGameDifficulty, draft.difficultyOpinion)
+  )
   const ratingScores =
     me.ratingMode === 'WEIGHTED'
       ? Object.entries(draft.ratingScores).map(([categoryId, score]) => ({
@@ -45,6 +65,7 @@ export function buildCompletionInput(
     date: draft.date,
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
+    worstFail: intOrNull(draft.worstFail),
     fps: intOrNull(draft.fps),
     onStream: draft.onStream,
     highlightUrl: draft.highlightUrl.trim() || null,
@@ -96,6 +117,7 @@ export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
     levelId: level.inGameId,
     droppedAt: draft.date,
     attemptsAtDrop: intOrNull(draft.attempts),
+    worstFail: intOrNull(draft.worstFail),
     droppedReason: draft.droppedReason.trim() || null,
     visibility: draft.visibility,
   }

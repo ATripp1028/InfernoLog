@@ -328,6 +328,11 @@ model LevelProgress {
   // attempt count in perspective if the level is later beaten.
   attemptsAtDrop  Int?
 
+  // Best run from 0% (percentage) reached before beating or dropping the level
+  // — the user's "worst fail". Captured on the completion and drop screens.
+  // Level-scoped (one value per user/level), updated on each such log.
+  worstFail       Int?
+
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
   visibility      EntryVisibility      @default(PUBLIC)

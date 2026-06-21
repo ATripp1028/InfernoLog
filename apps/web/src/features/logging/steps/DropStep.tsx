@@ -13,7 +13,7 @@ import {
   StepFooter,
 } from '../components'
 import { buildDropInput } from '../payload'
-import { digitsOnly } from '../format'
+import { clampPercent, digitsOnly } from '../format'
 
 export function DropStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
@@ -49,20 +49,33 @@ export function DropStep() {
           />
         </div>
 
-        <div>
-          <FieldLabel htmlFor="d-attempts" hint="Worth logging.">
-            Attempts (optional)
-          </FieldLabel>
-          <Input
-            id="d-attempts"
-            inputMode="numeric"
-            value={draft.attempts}
-            onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
-          />
-          <FieldHint>
-            Worth logging — it puts your eventual completion&apos;s attempt count
-            in perspective.
-          </FieldHint>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <FieldLabel htmlFor="d-attempts" hint="Worth logging.">
+              Attempts (optional)
+            </FieldLabel>
+            <Input
+              id="d-attempts"
+              inputMode="numeric"
+              value={draft.attempts}
+              onChange={(e) => patchDraft({ attempts: digitsOnly(e.target.value) })}
+            />
+            <FieldHint>
+              Puts your eventual completion&apos;s attempt count in perspective.
+            </FieldHint>
+          </div>
+          <div>
+            <FieldLabel htmlFor="d-worstfail" hint="Your best run from 0% before dropping.">
+              Worst fail %
+            </FieldLabel>
+            <Input
+              id="d-worstfail"
+              inputMode="numeric"
+              value={draft.worstFail}
+              onChange={(e) => patchDraft({ worstFail: clampPercent(e.target.value) })}
+            />
+            <FieldHint>Best run from 0% before dropping.</FieldHint>
+          </div>
         </div>
 
         <div>

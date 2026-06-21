@@ -29,6 +29,7 @@ export interface FlowDraft {
   date: string | null
   dateUncertain: boolean
   attempts: string
+  worstFail: string
   difficultyOpinion: DifficultyOpinion | null
   // Ratings — 0–100 internally regardless of display scale.
   enjoyment: number | null
@@ -61,6 +62,7 @@ export function emptyDraft(): FlowDraft {
     date: null,
     dateUncertain: false,
     attempts: '',
+    worstFail: '',
     difficultyOpinion: null,
     enjoyment: null,
     simpleRating: null,
@@ -101,6 +103,7 @@ export function draftFromExistingCompletion(
   draft.date = isoToDateInput(existing.date)
   draft.dateUncertain = existing.dateUncertain
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
+  draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.enjoyment = existing.enjoyment
   draft.simpleRating = existing.simpleRating

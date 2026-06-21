@@ -11,6 +11,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
+import { isExtremeContext } from '../payload'
 
 export function CompletionListRefsStep() {
   const { level, draft, suggestedGddlTier, patchDraft, setStep } =
@@ -19,6 +20,12 @@ export function CompletionListRefsStep() {
   if (!level) return null
 
   const hasGddlKey = me.data?.hasGddlApiKey ?? false
+  // NLW and AREDL only apply to extreme demons (or a level the user reads as an
+  // extreme demon). GDDL applies to every rated level.
+  const showExtremeLists = isExtremeContext(
+    level.inGameDifficulty,
+    draft.difficultyOpinion
+  )
 
   return (
     <>
@@ -42,27 +49,31 @@ export function CompletionListRefsStep() {
               <FieldHint>Suggested: {suggestedGddlTier}</FieldHint>
             )}
           </div>
-          <div>
-            <FieldLabel htmlFor="nlw-tier">NLW tier</FieldLabel>
-            <Input
-              id="nlw-tier"
-              value={draft.nlwTier}
-              onChange={(e) => patchDraft({ nlwTier: e.target.value })}
-            />
-          </div>
+          {showExtremeLists && (
+            <div>
+              <FieldLabel htmlFor="nlw-tier">NLW tier</FieldLabel>
+              <Input
+                id="nlw-tier"
+                value={draft.nlwTier}
+                onChange={(e) => patchDraft({ nlwTier: e.target.value })}
+              />
+            </div>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <FieldLabel htmlFor="aredl-tier">AREDL placement</FieldLabel>
-            <Input
-              id="aredl-tier"
-              value={draft.aredlTier}
-              onChange={(e) => patchDraft({ aredlTier: e.target.value })}
-              placeholder="#"
-            />
+        {showExtremeLists && (
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <FieldLabel htmlFor="aredl-tier">AREDL placement</FieldLabel>
+              <Input
+                id="aredl-tier"
+                value={draft.aredlTier}
+                onChange={(e) => patchDraft({ aredlTier: e.target.value })}
+                placeholder="#"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         <div className="space-y-3 border-t border-border-subtle pt-4">
           <SectionLabel>GDDL record</SectionLabel>

@@ -96,7 +96,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
         where: { listSource: 'GDDL' },
         select: { isAccepted: true },
       },
-      levelProgress: { select: { visibility: true } },
+      levelProgress: { select: { visibility: true, worstFail: true } },
     },
   })
   if (!completion) return null
@@ -108,6 +108,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     date: completion.date,
     dateUncertain: completion.dateUncertain,
     attempts: completion.attempts,
+    worstFail: completion.levelProgress.worstFail,
     difficultyOpinion: completion.difficultyOpinion,
     enjoyment: completion.enjoyment,
     simpleRating: completion.simpleRating,
