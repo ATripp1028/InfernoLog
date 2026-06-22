@@ -278,8 +278,8 @@ model Level {
   songSize              String?
 
   // Data provenance
-  dataSource            String               @default("manual") // "gdbrowser_autofill" | "manual"
-  // False for `manual` rows until a later GDBrowser sync backfills/verifies
+  dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
+  // False for `manual` rows until a later RobTop sync backfills/verifies
   // (and may override) the manually-entered metadata.
   verified              Boolean              @default(false)
 
