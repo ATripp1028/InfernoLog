@@ -40,7 +40,7 @@ export function ProgressStep() {
         </div>
 
         {fromRun ? (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="p-from">Run from %</FieldLabel>
               <Input
@@ -65,7 +65,7 @@ export function ProgressStep() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="p-best">Best progress %</FieldLabel>
               <Input
@@ -89,7 +89,7 @@ export function ProgressStep() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {fromRun && (
             <div>
               <FieldLabel htmlFor="p-date2">Date</FieldLabel>

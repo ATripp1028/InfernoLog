@@ -83,7 +83,7 @@ export function CompletionBasicsStep() {
           </label>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <FieldLabel htmlFor="c-attempts">Attempts</FieldLabel>
             <Input
@@ -165,20 +165,8 @@ function DifficultyOpinionSelect({
   const notWorthy = value === 'NOT_DEMON_WORTHY'
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          aria-pressed={notWorthy}
-          onClick={() => onChange('NOT_DEMON_WORTHY')}
-          className={cn(
-            'h-10 rounded-md border px-4 text-sm font-medium transition-colors',
-            notWorthy
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
-          )}
-        >
-          Not demon-worthy
-        </button>
+      {/* Demon difficulty faces — one row, evenly spaced across the width. */}
+      <div className="grid grid-cols-5 justify-items-center gap-2">
         {DEMON_OPINIONS.map((opt) => {
           const active = value === opt.value
           return (
@@ -202,6 +190,21 @@ function DifficultyOpinionSelect({
         })}
       </div>
 
+      {/* "Not demon-worthy" on its own row so it never wraps the face row. */}
+      <button
+        type="button"
+        aria-pressed={notWorthy}
+        onClick={() => onChange('NOT_DEMON_WORTHY')}
+        className={cn(
+          'h-10 w-full rounded-md border px-4 text-sm font-medium transition-colors',
+          notWorthy
+            ? 'border-primary bg-primary text-primary-foreground'
+            : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+        )}
+      >
+        Not demon-worthy
+      </button>
+
       {/* Non-demon difficulty, by star count, shown when it's not demon-worthy.
           Most non-demons logged here are still demons to someone, so this is
           kept secondary. */}
@@ -210,7 +213,7 @@ function DifficultyOpinionSelect({
           <p className="mb-1.5 text-xs text-text-tertiary">
             What difficulty would you give it?
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="grid grid-cols-5 justify-items-center gap-2 sm:grid-cols-9">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
               const active = stars === n
               const difficulty = starCountToDifficulty(n)

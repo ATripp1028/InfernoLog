@@ -124,32 +124,41 @@ function RatingRow({
   const max = displayMax(scale)
   const display = value != null ? toDisplay(value, scale) : 0
   return (
-    <div className="flex items-center gap-4 py-2">
-      <div className="w-28 shrink-0">
+    // Mobile: label sits above a full-width slider+stepper row, so the slider
+    // isn't squeezed. Desktop (sm+): label | slider | stepper on one line — the
+    // `sm:contents` wrapper dissolves so the slider/stepper rejoin the flex row.
+    <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex items-baseline justify-between gap-2 sm:block sm:w-28 sm:shrink-0">
         <p className="text-sm font-medium text-text-primary">{label}</p>
         {sublabel && <p className="text-xs text-text-tertiary">{sublabel}</p>}
       </div>
-      {/* Slider keeps its whole-unit breakpoints; the stepper allows finer
-          entry (0.1 on the 0–10 scale, 1 on 0–100). Both edit the same 0–100
-          internal value. */}
-      <Slider
-        className="flex-1"
-        min={0}
-        max={max}
-        step={1}
-        value={[display]}
-        onValueChange={(vals) => onChange(toInternal(vals[0] ?? 0, scale))}
-      />
-      <StepperInput
-        value={display}
-        onChange={(d) => onChange(toInternal(d, scale))}
-        min={0}
-        max={max}
-        precision={isTen ? 1 : 0}
-        deltas={isTen ? [0.1] : [1]}
-        aria-label={label}
-        inputClassName="w-12"
-      />
+      {/* Mobile: slider on top, stepper full-width beneath it. Desktop (sm+):
+          `sm:contents` dissolves this wrapper so slider + stepper rejoin the
+          label on one line. The slider sets whole-unit breakpoints; the stepper
+          buttons jump by larger amounts (0.5/1 on the 0–10 scale, 5/10 on
+          0–100) while the text field still accepts any value. Both edit the
+          same 0–100 internal value. */}
+      <div className="flex flex-col gap-2 sm:contents">
+        <Slider
+          className="w-full sm:flex-1"
+          min={0}
+          max={max}
+          step={1}
+          value={[display]}
+          onValueChange={(vals) => onChange(toInternal(vals[0] ?? 0, scale))}
+        />
+        <StepperInput
+          value={display}
+          onChange={(d) => onChange(toInternal(d, scale))}
+          min={0}
+          max={max}
+          precision={isTen ? 1 : 0}
+          deltas={isTen ? [0.5, 1] : [5, 10]}
+          aria-label={label}
+          className="w-full sm:w-auto"
+          inputClassName="min-w-0 flex-1 sm:w-12 sm:flex-none"
+        />
+      </div>
     </div>
   )
 }

@@ -142,7 +142,7 @@ function StepButton({ label, onClick, disabled }: StepButtonProps) {
       onClick={onClick}
       disabled={disabled}
       tabIndex={-1}
-      className="flex w-10 items-center justify-center bg-[var(--color-bg-elevated)] text-xs font-medium text-muted-foreground transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex w-10 shrink-0 items-center justify-center bg-[var(--color-bg-elevated)] text-xs font-medium text-muted-foreground transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       {label}
     </button>

@@ -94,7 +94,7 @@ export function ManualLevelStep() {
           <Input value={manualLevelId ?? ''} disabled className="font-mono" />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <FieldLabel htmlFor="m-name">Level name</FieldLabel>
             <Input
@@ -165,7 +165,7 @@ export function ManualLevelStep() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <FieldLabel htmlFor="m-song">Song name</FieldLabel>
             <Input
@@ -184,7 +184,7 @@ export function ManualLevelStep() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <FieldLabel htmlFor="m-length">Length</FieldLabel>
             <Input

@@ -37,7 +37,7 @@ export function CompletionListRefsStep() {
           their own right.
         </p>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <FieldLabel htmlFor="gddl-tier">GDDL tier</FieldLabel>
             <Input
@@ -62,7 +62,7 @@ export function CompletionListRefsStep() {
         </div>
 
         {showExtremeLists && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <FieldLabel htmlFor="aredl-tier">AREDL placement</FieldLabel>
               <Input
