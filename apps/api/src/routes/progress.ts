@@ -43,6 +43,9 @@ const listEntryInclude = {
   listReferences: {
     select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
   },
+  recordAcceptances: {
+    select: { listSource: true, isAccepted: true, acceptedAt: true },
+  },
 } satisfies Prisma.ProgressUpdateInclude
 
 const levelProgressListSelect = {
@@ -98,6 +101,7 @@ function serializeEntry(
     notes: update.notes,
     loggedAt: update.loggedAt,
     listReferences: update.listReferences,
+    recordAcceptances: update.recordAcceptances,
   }
 }
 
@@ -155,6 +159,29 @@ app.get('/me/progress', async (c) => {
     }
 
     return c.json({ data: rows.map((row) => serializeRow(row, ratingConfig)) })
+  } catch (error) {
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// DELETE /v1/me/progress/:levelId — remove the user's entire entry for a level.
+// Deleting the LevelProgress cascades to its ProgressUpdates (and their rating
+// scores / list references / record acceptances) and its ClassicRanking, per
+// the schema's onDelete: Cascade relations.
+app.delete('/me/progress/:levelId', async (c) => {
+  const userId = c.get('userId') as string
+  const levelId = c.req.param('levelId')
+
+  try {
+    const existing = await prisma.levelProgress.findUnique({
+      where: { userId_levelId: { userId, levelId } },
+      select: { id: true },
+    })
+    if (!existing) return c.json({ error: 'Entry not found' }, 404)
+
+    await prisma.levelProgress.delete({ where: { id: existing.id } })
+    return c.body(null, 204)
   } catch (error) {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)

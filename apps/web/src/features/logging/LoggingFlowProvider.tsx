@@ -27,11 +27,15 @@ interface FlowState {
   // The numeric level id typed by the user — carried into the manual-entry
   // fallback when the Geometry Dash servers can't be reached.
   manualLevelId: string | null
+  // Set by openForEdit: the level the `resolving` step should auto-resolve.
+  pendingEditLevelId: string | null
   draft: FlowDraft
 }
 
 interface FlowContextValue extends FlowState {
   open: (path: FlowPath) => void
+  // Open the flow pre-targeted to an existing level (edit), skipping `find`.
+  openForEdit: (levelId: string, path: FlowPath) => void
   close: () => void
   setStep: (step: FlowStep) => void
   patchDraft: (patch: Partial<FlowDraft>) => void
@@ -56,6 +60,7 @@ const CLOSED: FlowState = {
   existingCompletion: null,
   suggestedGddlTier: null,
   manualLevelId: null,
+  pendingEditLevelId: null,
   draft: emptyDraft(),
 }
 
@@ -64,6 +69,17 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
 
   const open = useCallback((path: FlowPath) => {
     setState({ ...CLOSED, draft: emptyDraft(), isOpen: true, path })
+  }, [])
+
+  const openForEdit = useCallback((levelId: string, path: FlowPath) => {
+    setState({
+      ...CLOSED,
+      draft: emptyDraft(),
+      isOpen: true,
+      path,
+      step: 'resolving',
+      pendingEditLevelId: levelId,
+    })
   }, [])
 
   const close = useCallback(() => {
@@ -89,6 +105,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
         level: resolved.level,
         existingCompletion: resolved.existingCompletion,
         suggestedGddlTier: resolved.suggestedGddlTier,
+        pendingEditLevelId: null,
         draft,
         step: s.path ? firstStepFor[s.path] : s.step,
       }
@@ -101,6 +118,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
         ...s,
         manualLevelId: levelId,
         existingCompletion: existing,
+        pendingEditLevelId: null,
         step: 'manual',
       }))
     },
@@ -126,6 +144,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       open,
+      openForEdit,
       close,
       setStep,
       patchDraft,
@@ -136,6 +155,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     [
       state,
       open,
+      openForEdit,
       close,
       setStep,
       patchDraft,

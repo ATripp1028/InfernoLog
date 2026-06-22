@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMe } from '../lib/api/me'
-import { useMyProgress } from '../lib/api/list'
+import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
 import {
@@ -8,8 +8,13 @@ import {
   SheetContent,
   SheetTitle,
 } from '../components/ui/sheet'
+import { AlertDialog } from '../components/ui/alert-dialog'
+import { toast } from '../components/ui/sonner'
+import { useLoggingFlow } from '../features/logging/LoggingFlowProvider'
+import type { FlowPath } from '../features/logging/types'
 import { Toolbar } from '../features/list/Toolbar'
 import { ListTable } from '../features/list/ListTable'
+import { MobilePager } from '../features/list/MobilePager'
 import { FilterPanel } from '../features/list/FilterPanel'
 import { ControlsSheet } from '../features/list/ControlsSheet'
 import {
@@ -25,16 +30,27 @@ import { defaultDir } from '../features/list/sortMeta'
 import {
   defaultFilterState,
   type FilterState,
+  type ListItem,
   type SortKey,
   type SortSpec,
 } from '../features/list/types'
+
+// A row's logging path for editing: completion / progress / drop, by status.
+const PATH_FOR_STATUS: Record<ListItem['status'], FlowPath> = {
+  COMPLETED: 'completion',
+  IN_PROGRESS: 'progress',
+  DROPPED: 'drop',
+}
 
 const DEFAULT_SORTS: SortSpec[] = [{ key: 'date', dir: 'desc' }]
 
 export function List() {
   const me = useMe()
   const progress = useMyProgress()
+  const { openForEdit } = useLoggingFlow()
+  const deleteProgress = useDeleteProgress()
 
+  const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<FilterState>(defaultFilterState)
   const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS)
@@ -76,6 +92,19 @@ export function List() {
     setFilters(defaultFilterState())
   }
 
+  function handleEdit(item: ListItem) {
+    openForEdit(item.level.inGameId, PATH_FOR_STATUS[item.status])
+  }
+
+  function confirmDelete() {
+    if (!pendingDelete) return
+    const name = pendingDelete.level.name ?? 'Level'
+    deleteProgress.mutate(pendingDelete.level.inGameId, {
+      onSuccess: () => toast.success(`Deleted ${name}`),
+      onError: () => toast.error(`Couldn't delete ${name}`),
+    })
+  }
+
   const canReset = search.trim() !== '' || activeFilterCount > 0
 
   return (
@@ -102,14 +131,25 @@ export function List() {
         ) : visible.length === 0 ? (
           <NoMatches />
         ) : (
-          <ListTable
-            items={visible}
-            columns={columns}
-            sorts={sorts}
-            onToggleSort={toggleSort}
-            scale={ratingDisplayScale}
-            datePref={dateFormatPreference}
-          />
+          <>
+            <ListTable
+              items={visible}
+              columns={columns}
+              sorts={sorts}
+              onToggleSort={toggleSort}
+              scale={ratingDisplayScale}
+              datePref={dateFormatPreference}
+              onEditItem={handleEdit}
+              onDeleteItem={setPendingDelete}
+            />
+            <MobilePager
+              items={visible}
+              scale={ratingDisplayScale}
+              datePref={dateFormatPreference}
+              onEditItem={handleEdit}
+              onDeleteItem={setPendingDelete}
+            />
+          </>
         )}
       </div>
 
@@ -140,6 +180,18 @@ export function List() {
           />
         </SheetContent>
       </Sheet>
+
+      <AlertDialog
+        open={pendingDelete != null}
+        onOpenChange={(o) => !o && setPendingDelete(null)}
+        title="Delete entry?"
+        description={`This removes "${
+          pendingDelete?.level.name ?? 'this level'
+        }" and all its logged progress. This can't be undone.`}
+        confirmLabel="Delete"
+        destructive
+        onConfirm={confirmDelete}
+      />
     </TooltipProvider>
   )
 }

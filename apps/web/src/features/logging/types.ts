@@ -9,6 +9,8 @@ export type FlowPath = 'completion' | 'progress' | 'drop'
 
 export type FlowStep =
   | 'find'
+  // Resolving a pre-targeted level for editing (skips `find`). Auto-advances.
+  | 'resolving'
   | 'manual'
   | 'c_basics'
   | 'c_rating'

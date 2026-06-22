@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { COLUMNS, type ColumnVisibility } from './columns'
 import { ListRow } from './ListRow'
-import { ListCard } from './ListCard'
+import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
 
 interface ListTableProps {
@@ -13,6 +13,8 @@ interface ListTableProps {
   onToggleSort: (key: SortKey) => void
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  onEditItem: (item: ListItem) => void
+  onDeleteItem: (item: ListItem) => void
 }
 
 function SortIndicator({
@@ -76,33 +78,35 @@ export function ListTable({
   onToggleSort,
   scale,
   datePref,
+  onEditItem,
+  onDeleteItem,
 }: ListTableProps) {
+  // Desktop / tablet only — mobile uses MobilePager. Each row gets a right-click
+  // context menu plus a hover kebab, both running the same actions.
   return (
-    <div className="flex flex-col gap-2">
+    <div className="hidden flex-col gap-2 md:flex">
       <ColumnHeaders columns={columns} sorts={sorts} onToggleSort={onToggleSort} />
-      {/* Columnar rows (tablet/desktop) */}
-      <div className="hidden flex-col gap-2 md:flex">
-        {items.map((item) => (
-          <ListRow
-            key={item.levelProgressId}
-            item={item}
-            columns={columns}
-            scale={scale}
-            datePref={datePref}
-          />
-        ))}
-      </div>
-      {/* Cards (mobile) */}
-      <div className="flex flex-col gap-2 md:hidden">
-        {items.map((item) => (
-          <ListCard
-            key={item.levelProgressId}
-            item={item}
-            scale={scale}
-            datePref={datePref}
-          />
-        ))}
-      </div>
+      {items.map((item) => {
+        const handlers = {
+          onEdit: () => onEditItem(item),
+          onDelete: () => onDeleteItem(item),
+        }
+        return (
+          <RowContextMenu key={item.levelProgressId} handlers={handlers}>
+            <div className="group relative">
+              <ListRow
+                item={item}
+                columns={columns}
+                scale={scale}
+                datePref={datePref}
+              />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <RowActionsKebab handlers={handlers} />
+              </div>
+            </div>
+          </RowContextMenu>
+        )
+      })}
     </div>
   )
 }

@@ -33,6 +33,12 @@ async function getList(userId: string): Promise<ListItem[]> {
   return body.data
 }
 
+function del(userId: string, levelId: string) {
+  return buildApp(progressApp, { userId }).request(`/me/progress/${levelId}`, {
+    method: 'DELETE',
+  })
+}
+
 // Helper: create a level_progress row with progress updates inline.
 async function seedProgress(
   db: PrismaClient,
@@ -235,5 +241,96 @@ describe('GET /me/progress', () => {
     const list = await getList(user.id)
     expect(list).toHaveLength(1)
     expect(list[0]?.level.inGameId).toBe('600')
+  })
+
+  it('includes record acceptances on the entry', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '800' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '800',
+      status: 'COMPLETED',
+      updates: [{ isCompletion: true, simpleRating: 60 }],
+    })
+    const pu = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+    await prisma.recordAcceptance.create({
+      data: {
+        progressUpdateId: pu.id,
+        listSource: 'GDDL',
+        isAccepted: true,
+        acceptedAt: new Date('2026-05-01'),
+      },
+    })
+
+    const list = await getList(user.id)
+    expect(list[0]?.entry?.recordAcceptances).toHaveLength(1)
+    expect(list[0]?.entry?.recordAcceptances[0]?.listSource).toBe('GDDL')
+    expect(list[0]?.entry?.recordAcceptances[0]?.isAccepted).toBe(true)
+  })
+})
+
+describe('DELETE /me/progress/:levelId', () => {
+  it('deletes the entry and cascades to updates + children', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '900' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '900',
+      status: 'COMPLETED',
+      updates: [
+        {
+          isCompletion: true,
+          simpleRating: 70,
+          listReferences: [{ listSource: 'GDDL', tierOrRank: '20' }],
+        },
+      ],
+    })
+    const pu = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+    await prisma.recordAcceptance.create({
+      data: { progressUpdateId: pu.id, listSource: 'GDDL', isAccepted: true },
+    })
+
+    const res = await del(user.id, '900')
+    expect(res.status).toBe(204)
+
+    expect(
+      await prisma.levelProgress.findUnique({ where: { id: lp.id } })
+    ).toBeNull()
+    expect(
+      await prisma.progressUpdate.count({ where: { levelProgressId: lp.id } })
+    ).toBe(0)
+    expect(
+      await prisma.listReference.count({ where: { progressUpdateId: pu.id } })
+    ).toBe(0)
+    expect(
+      await prisma.recordAcceptance.count({
+        where: { progressUpdateId: pu.id },
+      })
+    ).toBe(0)
+  })
+
+  it('404s for a level the user has no entry for', async () => {
+    const user = await seedUser(prisma)
+    const other = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '901' })
+    await seedProgress(prisma, {
+      userId: other.id,
+      levelId: '901',
+      status: 'IN_PROGRESS',
+      updates: [{ percentage: 10 }],
+    })
+
+    const res = await del(user.id, '901')
+    expect(res.status).toBe(404)
+    // The other user's row is untouched.
+    expect(
+      await prisma.levelProgress.findUnique({
+        where: { userId_levelId: { userId: other.id, levelId: '901' } },
+      })
+    ).not.toBeNull()
   })
 })

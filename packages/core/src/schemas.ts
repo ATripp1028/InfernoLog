@@ -494,6 +494,15 @@ export const LevelProgressListEntrySchema = z.object({
       atTimeOfLogging: z.boolean(),
     })
   ),
+  // Self-reported record-acceptance status per ranking authority. Surfaced on
+  // the mobile detail pane.
+  recordAcceptances: z.array(
+    z.object({
+      listSource: z.nativeEnum(ListSource),
+      isAccepted: z.boolean(),
+      acceptedAt: z.coerce.date().nullable(),
+    })
+  ),
 })
 
 export const LevelProgressListItemSchema = z.object({

@@ -7,6 +7,7 @@ import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
 import { FindLevelStep } from './steps/FindLevelStep'
+import { ResolvingStep } from './steps/ResolvingStep'
 import { ManualLevelStep } from './steps/ManualLevelStep'
 import { CompletionBasicsStep } from './steps/CompletionBasicsStep'
 import { CompletionRatingStep } from './steps/CompletionRatingStep'
@@ -36,6 +37,8 @@ function headerConfig(path: FlowPath | null, step: FlowStep): HeaderConfig {
   switch (step) {
     case 'find':
       return { eyebrow: e(''), title: 'Find the level', progress: 0.12 }
+    case 'resolving':
+      return { eyebrow: e(''), title: 'Loading entry…', progress: 0.12 }
     case 'manual':
       return { eyebrow: e(''), title: 'Enter level details', progress: 0.12 }
     case 'c_basics':
@@ -87,6 +90,8 @@ function StepView({ step }: { step: FlowStep }) {
   switch (step) {
     case 'find':
       return <FindLevelStep />
+    case 'resolving':
+      return <ResolvingStep />
     case 'manual':
       return <ManualLevelStep />
     case 'c_basics':
@@ -120,7 +125,8 @@ export function LoggingModal() {
   // Once the user has committed to logging (anything past "find" and before the
   // post-save success card), an accidental click outside shouldn't discard the
   // in-progress entry, and an explicit close (X / Escape) asks for confirmation.
-  const guardClose = step !== 'find' && step !== 'c_success'
+  const guardClose =
+    step !== 'find' && step !== 'resolving' && step !== 'c_success'
 
   // Reset the confirmation prompt whenever the modal fully closes/reopens.
   useEffect(() => {
