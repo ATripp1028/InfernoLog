@@ -31,6 +31,9 @@ export interface FlowDraft {
   attempts: string
   worstFail: string
   difficultyOpinion: DifficultyOpinion | null
+  // Non-demon difficulty opinion as a star count (1–9), only when the opinion
+  // is NOT_DEMON_WORTHY.
+  difficultyOpinionStars: number | null
   // Ratings — 0–100 internally regardless of display scale.
   enjoyment: number | null
   simpleRating: number | null
@@ -64,6 +67,7 @@ export function emptyDraft(): FlowDraft {
     attempts: '',
     worstFail: '',
     difficultyOpinion: null,
+    difficultyOpinionStars: null,
     enjoyment: null,
     simpleRating: null,
     ratingScores: {},
@@ -105,6 +109,7 @@ export function draftFromExistingCompletion(
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
   draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
   draft.difficultyOpinion = existing.difficultyOpinion
+  draft.difficultyOpinionStars = existing.difficultyOpinionStars
   draft.enjoyment = existing.enjoyment
   draft.simpleRating = existing.simpleRating
   draft.ratingScores = Object.fromEntries(

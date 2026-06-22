@@ -80,6 +80,7 @@ export interface LevelSearchResult {
   inGameDifficulty: string | null
   featured: boolean | null
   epicValue: number | null
+  isRated: boolean
 }
 
 export interface ExistingCompletion {
@@ -88,6 +89,7 @@ export interface ExistingCompletion {
   dateUncertain: boolean
   attempts: number | null
   difficultyOpinion: DifficultyOpinion | null
+  difficultyOpinionStars: number | null
   enjoyment: number | null
   simpleRating: number | null
   worstFail: number | null
@@ -119,6 +121,7 @@ export interface ManualLevelInput {
   creator: string
   difficulty: string
   isDemon?: boolean
+  isRated?: boolean
   songName?: string | null
   songAuthor?: string | null
   length?: string | null
@@ -143,6 +146,7 @@ export interface CompletionInput {
   visibility?: EntryVisibility
   videoUrl?: string | null
   difficultyOpinion?: DifficultyOpinion | null
+  difficultyOpinionStars?: number | null
   enjoyment?: number | null
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>

@@ -110,6 +110,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     attempts: completion.attempts,
     worstFail: completion.levelProgress.worstFail,
     difficultyOpinion: completion.difficultyOpinion,
+    difficultyOpinionStars: completion.difficultyOpinionStars,
     enjoyment: completion.enjoyment,
     simpleRating: completion.simpleRating,
     fps: completion.fps,
@@ -140,7 +141,7 @@ app.get('/levels/search', async (c) => {
 
   try {
     const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
-      SELECT "inGameId", "name", "creator", "inGameDifficulty", "featured", "epicValue", "songName"
+      SELECT "inGameId", "name", "creator", "inGameDifficulty", "featured", "epicValue", "songName", "isRated"
       FROM "levels"
       WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
       ORDER BY similarity("name", ${q}) DESC, "name" ASC
@@ -273,6 +274,7 @@ app.post('/levels', async (c) => {
         creator: input.creator,
         inGameDifficulty: input.difficulty,
         isDemon: input.isDemon ?? false,
+        isRated: input.isRated ?? false,
         length: input.length ?? null,
         songName: input.songName ?? null,
         songAuthor: input.songAuthor ?? null,

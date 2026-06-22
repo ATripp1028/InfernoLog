@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import type { DifficultyOpinion } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -120,12 +121,22 @@ export function CompletionBasicsStep() {
           </FieldLabel>
           <DifficultyOpinionSelect
             value={draft.difficultyOpinion}
-            onChange={(v) => patchDraft({ difficultyOpinion: v })}
+            onChange={(v) =>
+              patchDraft({
+                difficultyOpinion: v,
+                // Clear the star sub-choice when leaving "Not demon-worthy".
+                ...(v === 'NOT_DEMON_WORTHY'
+                  ? {}
+                  : { difficultyOpinionStars: null }),
+              })
+            }
+            stars={draft.difficultyOpinionStars}
+            onStarsChange={(s) => patchDraft({ difficultyOpinionStars: s })}
           />
           <FieldHint>
             What you think it deserves — separate from the in-game rating shown
             above. Pick &quot;Not demon-worthy&quot; if you don&apos;t think it
-            earns a demon face.
+            earns a demon face, then say what difficulty you&apos;d give it.
           </FieldHint>
         </div>
       </StepBody>
@@ -143,47 +154,95 @@ export function CompletionBasicsStep() {
 function DifficultyOpinionSelect({
   value,
   onChange,
+  stars,
+  onStarsChange,
 }: {
   value: DifficultyOpinion | null
   onChange: (value: DifficultyOpinion) => void
+  stars: number | null
+  onStarsChange: (stars: number) => void
 }) {
   const notWorthy = value === 'NOT_DEMON_WORTHY'
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <button
-        type="button"
-        aria-pressed={notWorthy}
-        onClick={() => onChange('NOT_DEMON_WORTHY')}
-        className={cn(
-          'h-10 rounded-md border px-4 text-sm font-medium transition-colors',
-          notWorthy
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
-        )}
-      >
-        Not demon-worthy
-      </button>
-      {DEMON_OPINIONS.map((opt) => {
-        const active = value === opt.value
-        return (
-          <button
-            key={opt.value}
-            type="button"
-            title={opt.label}
-            aria-label={opt.label}
-            aria-pressed={active}
-            onClick={() => onChange(opt.value)}
-            className={cn(
-              'flex size-12 items-center justify-center rounded-full border transition-all',
-              active
-                ? 'border-primary bg-primary/20 ring-2 ring-primary'
-                : 'border-border bg-bg-elevated/50 hover:bg-bg-elevated/80'
-            )}
-          >
-            <img src={opt.face} alt="" className="size-8" />
-          </button>
-        )
-      })}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          aria-pressed={notWorthy}
+          onClick={() => onChange('NOT_DEMON_WORTHY')}
+          className={cn(
+            'h-10 rounded-md border px-4 text-sm font-medium transition-colors',
+            notWorthy
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          )}
+        >
+          Not demon-worthy
+        </button>
+        {DEMON_OPINIONS.map((opt) => {
+          const active = value === opt.value
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              title={opt.label}
+              aria-label={opt.label}
+              aria-pressed={active}
+              onClick={() => onChange(opt.value)}
+              className={cn(
+                'flex size-12 items-center justify-center rounded-full border transition-all',
+                active
+                  ? 'border-primary bg-primary/20 ring-2 ring-primary'
+                  : 'border-border bg-bg-elevated/50 hover:bg-bg-elevated/80'
+              )}
+            >
+              <img src={opt.face} alt="" className="size-8" />
+            </button>
+          )
+        })}
+      </div>
+
+      {/* Non-demon difficulty, by star count, shown when it's not demon-worthy.
+          Most non-demons logged here are still demons to someone, so this is
+          kept secondary. */}
+      {notWorthy && (
+        <div>
+          <p className="mb-1.5 text-xs text-text-tertiary">
+            What difficulty would you give it?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
+              const active = stars === n
+              const difficulty = starCountToDifficulty(n)
+              return (
+                <button
+                  key={n}
+                  type="button"
+                  title={`${n}★ · ${difficulty}`}
+                  aria-label={`${n} star ${difficulty}`}
+                  aria-pressed={active}
+                  onClick={() => onStarsChange(n)}
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-md border px-2 py-1 transition-all',
+                    active
+                      ? 'border-primary bg-primary/15 ring-1 ring-primary'
+                      : 'border-border bg-bg-surface/60 hover:bg-bg-elevated/60'
+                  )}
+                >
+                  <img
+                    src={difficultyFaceSrc(difficulty)}
+                    alt=""
+                    className="size-6"
+                  />
+                  <span className="text-[10px] font-medium text-text-secondary">
+                    {n}★
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

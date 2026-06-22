@@ -1,5 +1,11 @@
 import { cn } from '@/lib/utils'
-import { difficultyFaceSrc, levelGlow, levelGlowSrc } from '@/lib/gdAssets'
+import {
+  difficultyFaceSrc,
+  levelGlow,
+  levelGlowSrc,
+  ratedStarSrc,
+  showsRatedStar,
+} from '@/lib/gdAssets'
 
 interface DifficultyFaceProps {
   /** In-game difficulty label, e.g. "Extreme Demon" / "Insane" / "Auto". */
@@ -8,6 +14,12 @@ interface DifficultyFaceProps {
   featured?: boolean | null
   /** Epic rating: 0 none, 1 epic, 2 legendary, 3 mythic — outranks featured. */
   epicValue?: number | null
+  /**
+   * Whether the level is rated (has stars). Adds the corner star on standard
+   * Easy…Insane faces so a rated level reads differently from an unrated one
+   * with the same face. No effect on demons/autos/NA.
+   */
+  rated?: boolean | null
   /** Box size in px (the glow fills it; the face is inset). Default 36. */
   size?: number
   className?: string
@@ -29,10 +41,12 @@ export function DifficultyFace({
   difficulty,
   featured,
   epicValue,
+  rated,
   size = 70,
   className,
 }: DifficultyFaceProps) {
   const glow = levelGlowSrc(epicValue, featured)
+  const showStar = showsRatedStar(difficulty, rated)
   // demon-extreme fills ~60% of the box when glowed (leaving room for the fire),
   // and most of it when not. Every other face scales from the same reference so
   // its ball matches. The face renders at its intrinsic size × this scale.
@@ -72,6 +86,18 @@ export function DifficultyFace({
         className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
         style={{ transform: `translate(-50%, -50%) scale(${faceScale})` }}
       />
+      {showStar && (
+        <img
+          src={ratedStarSrc}
+          alt="Rated"
+          className="pointer-events-none absolute drop-shadow"
+          style={{
+            width: Math.round(size * 0.2),
+            bottom: Math.round(size * 0.25),
+            right: Math.round(size * 0.25),
+          }}
+        />
+      )}
     </span>
   )
 }

@@ -213,17 +213,24 @@ function parsePairs(str: string, sep: string): Record<string, string> {
   return out
 }
 
-// Pure parser for a getGJLevels21 response. Returns the FIRST level (we query a
-// single id), joined with its creator and song, or null for "-1"/empty/garbage.
-export function parseGetGJLevels21(body: string): RobtopLevel | null {
+// Pure parser for a getGJLevels21 response. Returns the level matching `wantId`
+// (or the first level when omitted), joined with its creator and song, or null
+// for "-1"/empty/garbage. We query by id via type=0 search, which can return
+// more than one name-matched level, so selecting the exact id matters.
+export function parseGetGJLevels21(
+  body: string,
+  wantId?: string
+): RobtopLevel | null {
   const trimmed = body.trim()
   if (!trimmed || trimmed.startsWith('-1')) return null
 
   const sections = trimmed.split('#')
-  const firstLevel = (sections[0] ?? '').split('|')[0]
-  if (!firstLevel) return null
-  const L = parsePairs(firstLevel, ':')
-  if (!L['1']) return null // a valid level always has an id
+  const levelEntries = (sections[0] ?? '').split('|').filter(Boolean)
+  const parsedLevels = levelEntries.map((e) => parsePairs(e, ':'))
+  const L =
+    (wantId && parsedLevels.find((p) => p['1'] === wantId)) ??
+    parsedLevels[0]
+  if (!L || !L['1']) return null // a valid level always has an id
 
   // Creators: "playerID:username:accountID" entries.
   const creators: Record<
@@ -319,10 +326,12 @@ export function parseGetGJLevels21(body: string): RobtopLevel | null {
   }
 }
 
-// Fetches a single level by id from RobTop's getGJLevels21 (type=10). Resolves
-// with the normalized level, or null for any failure (down/timeout/not-found/
-// malformed). An EMPTY User-Agent is required — Cloudflare returns HTTP 1020
-// otherwise.
+// Fetches a single level by id from RobTop's getGJLevels21. We use type=0
+// (search) rather than type=10 (specific levels) because type=10 only returns
+// RATED levels — type=0 returns the exact level for rated AND unrated ids alike
+// (including community-voted difficulty for unrated levels). Resolves with the
+// normalized level, or null for any failure (down/timeout/not-found/malformed).
+// An EMPTY User-Agent is required — Cloudflare returns HTTP 1020 otherwise.
 export async function fetchRobtopLevel(
   levelId: string
 ): Promise<RobtopLevel | null> {
@@ -331,7 +340,7 @@ export async function fetchRobtopLevel(
 
   try {
     const body = new URLSearchParams({
-      type: '10',
+      type: '0',
       str: levelId,
       secret: GETLEVELS_SECRET,
       gameVersion: '22',
@@ -350,7 +359,8 @@ export async function fetchRobtopLevel(
     })
     if (!res.ok) return null
 
-    return parseGetGJLevels21(await res.text())
+    // Select the exact id — a numeric search can return name-matched levels too.
+    return parseGetGJLevels21(await res.text(), levelId)
   } catch {
     // Network error, timeout/abort, or parse failure — fall back to manual.
     return null

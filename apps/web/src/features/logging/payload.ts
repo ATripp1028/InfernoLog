@@ -73,6 +73,10 @@ export function buildCompletionInput(
     visibility: draft.visibility,
     videoUrl: draft.videoUrl.trim() || null,
     difficultyOpinion: draft.difficultyOpinion,
+    difficultyOpinionStars:
+      draft.difficultyOpinion === 'NOT_DEMON_WORTHY'
+        ? draft.difficultyOpinionStars
+        : null,
     enjoyment: draft.enjoyment,
     simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
     submitToGddl: me.hasGddlApiKey ? draft.submitToGddl : false,

@@ -291,6 +291,9 @@ export const CompletionInputSchema = z.object({
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  // Non-demon difficulty opinion as a star count (1–9), only meaningful when
+  // difficultyOpinion is NOT_DEMON_WORTHY.
+  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
   // SIMPLE mode: a single rating. WEIGHTED mode: per-category scores. We store
   // whichever the client sends and never pre-compute the weighted average.
@@ -364,6 +367,9 @@ export const ManualLevelInputSchema = z.object({
   // Whether the user picked a demon tier vs "Not a demon" on the manual form.
   // autofill was unavailable, so the client tells us; defaults to false.
   isDemon: z.boolean().optional(),
+  // Whether the level is rated (has stars). Drives the rated-star badge.
+  // Defaults to false; demons/autos are always rated, set by the client.
+  isRated: z.boolean().optional(),
   songName: z.string().max(200).nullable().optional(),
   songAuthor: z.string().max(200).nullable().optional(),
   length: z.string().max(100).nullable().optional(),
@@ -377,10 +383,13 @@ export const LevelSearchResultSchema = z.object({
   inGameId: z.string(),
   name: z.string().nullable(),
   creator: z.string().nullable(),
+  songName: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
   // Drives the difficulty-face showcase glow in result rows.
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),
+  // Drives the rated-star badge on standard-difficulty faces.
+  isRated: z.boolean(),
 })
 
 // The existing-completion summary folded into the resolve response so the
@@ -392,6 +401,7 @@ export const ExistingCompletionSchema = z.object({
   attempts: z.number().int().nullable(),
   worstFail: z.number().int().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
+  difficultyOpinionStars: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(),
   simpleRating: z.number().int().nullable(),
   fps: z.number().int().nullable(),

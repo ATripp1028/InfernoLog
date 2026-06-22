@@ -7,6 +7,7 @@ import { useMe } from '@/lib/api/me'
 import { formatDate } from '@/lib/dateFormat'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
+import { starCountToDifficulty } from '@/lib/gdAssets'
 import { buildCompletionInput, isExtremeContext } from '../payload'
 import { formatNumber, formatRating } from '../format'
 
@@ -17,6 +18,14 @@ const OPINION_LABELS: Record<string, string> = {
   HARD: 'Hard',
   INSANE: 'Insane',
   EXTREME: 'Extreme',
+}
+
+function opinionLabel(opinion: string, stars: number | null): string {
+  const base = OPINION_LABELS[opinion] ?? opinion
+  if (opinion === 'NOT_DEMON_WORTHY' && stars != null) {
+    return `${base} · ${stars}★ ${starCountToDifficulty(stars)}`
+  }
+  return base
 }
 
 export function CompletionReviewStep() {
@@ -92,7 +101,10 @@ export function CompletionReviewStep() {
           {draft.difficultyOpinion && (
             <Row
               label="Your difficulty rating"
-              value={OPINION_LABELS[draft.difficultyOpinion]}
+              value={opinionLabel(
+                draft.difficultyOpinion,
+                draft.difficultyOpinionStars
+              )}
             />
           )}
           {weightedAvg != null && (

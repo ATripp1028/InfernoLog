@@ -8,6 +8,7 @@
 
 import prisma from '../utils/prisma'
 import type { Prisma } from '@prisma/client'
+import { DifficultyOpinion } from '@infernolog/core'
 import type {
   CompletionInput,
   ProgressInput,
@@ -127,6 +128,11 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       enjoyment: input.enjoyment ?? null,
       simpleRating: input.simpleRating ?? null,
       difficultyOpinion: input.difficultyOpinion ?? null,
+      // Only retained for the NOT_DEMON_WORTHY opinion; cleared otherwise.
+      difficultyOpinionStars:
+        input.difficultyOpinion === DifficultyOpinion.NOT_DEMON_WORTHY
+          ? (input.difficultyOpinionStars ?? null)
+          : null,
       inGameDifficulty: level?.inGameDifficulty ?? null,
     }
 

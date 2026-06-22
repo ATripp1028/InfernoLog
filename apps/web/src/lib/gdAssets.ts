@@ -28,6 +28,38 @@ function difficultyFaceName(inGameDifficulty: string | null): string {
   return 'difficulty-na' // unrated / unknown
 }
 
+// The "rated star" badge distinguishes a RATED standard-difficulty level from an
+// unrated one with the same face (they're visually identical otherwise). Only
+// the non-demon, non-auto, non-NA faces (Easy…Insane) need it — demons and autos
+// are always rated, and NA only ever applies to unrated levels.
+const STARABLE_FACES = new Set([
+  'difficulty-easy',
+  'difficulty-normal',
+  'difficulty-hard',
+  'difficulty-harder',
+  'difficulty-insane',
+])
+
+export function showsRatedStar(
+  inGameDifficulty: string | null,
+  rated: boolean | null | undefined
+): boolean {
+  return !!rated && STARABLE_FACES.has(difficultyFaceName(inGameDifficulty))
+}
+
+export const ratedStarSrc = `${GD_ASSET_BASE}/star.png`
+
+// Standard GD non-demon difficulty by star count (1–9). Used by the non-demon
+// difficulty-opinion picker, where each button is a star count.
+export function starCountToDifficulty(stars: number): string {
+  if (stars <= 1) return 'Auto'
+  if (stars === 2) return 'Easy'
+  if (stars === 3) return 'Normal'
+  if (stars <= 5) return 'Hard'
+  if (stars <= 7) return 'Harder'
+  return 'Insane'
+}
+
 // The "fire"/glow that sits behind a difficulty face, by showcase rating.
 // Mythic > legendary > epic outrank a plain feature; unrated/rated-only → none.
 export type LevelGlow = 'mythic' | 'legendary' | 'epic' | 'featured'

@@ -400,6 +400,10 @@ model ProgressUpdate {
   inGameDifficulty      String?
   // The user's subjective difficulty opinion (the only difficulty they edit).
   difficultyOpinion     DifficultyOpinion?
+  // When the opinion is NOT_DEMON_WORTHY, the non-demon difficulty the user
+  // thinks it deserves, expressed as a star count 1–9 (1=Auto … 8–9=Insane).
+  // Null for demon-tier opinions. See LOGGING_FLOW.md.
+  difficultyOpinionStars Int?
   notes                 String?
 
   // Media

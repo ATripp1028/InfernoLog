@@ -161,6 +161,7 @@ function ResultRow({
           difficulty={result.inGameDifficulty}
           featured={result.featured}
           epicValue={result.epicValue}
+          rated={result.isRated}
           size={100}
           className="translate-y-[3px] drop-shadow"
         />

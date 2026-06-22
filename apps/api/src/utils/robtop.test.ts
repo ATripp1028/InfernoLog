@@ -88,4 +88,34 @@ describe('parseGetGJLevels21', () => {
     expect(level.epicValue).toBe(1)
     expect(level.creator).toBe('Tester')
   })
+
+  it('parses an unrated, community-voted level (denom 10 / num 50, no stars)', () => {
+    // Sakupen Circles shape: rated difficulty face (Insane) from community votes
+    // but stars=0 → unrated. Not a demon (demon flag absent).
+    const response =
+      '1:10887708:2:Sakupen circles:5:1:6:12345:8:10:9:50:13:21:18:0:15:3:35:0:12:0#12345:Cyclic:999#1~|~~|~2~|~#1:0:10#hash'
+    const level = parseGetGJLevels21(response, '10887708')
+    expect(level).not.toBeNull()
+    if (!level) return
+
+    expect(level.inGameDifficulty).toBe('Insane')
+    expect(level.partialDiff).toBe('insane')
+    expect(level.isRated).toBe(false)
+    expect(level.isDemon).toBe(false)
+    expect(level.stars).toBe(0)
+    expect(level.creator).toBe('Cyclic')
+  })
+
+  it('selects the exact id from a multi-result search (not just the first)', () => {
+    // type=0 search can return name-matched levels; the wanted id must win.
+    const response =
+      '1:111:2:Other:6:1:8:0:9:0:18:0:15:1|1:222:2:Wanted:6:2:8:10:9:30:18:5:15:2#1:A:10|2:B:20#1~|~~|~2~|~#2:0:10#hash'
+    const wanted = parseGetGJLevels21(response, '222')
+    expect(wanted?.name).toBe('Wanted')
+    expect(wanted?.inGameDifficulty).toBe('Hard')
+    expect(wanted?.isRated).toBe(true)
+
+    // Without a wantId, the first level is returned.
+    expect(parseGetGJLevels21(response)?.name).toBe('Other')
+  })
 })
