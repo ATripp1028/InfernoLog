@@ -18,9 +18,14 @@ on:
         required: true
         default: 'develop'
 
+# Serialize all staging deploys into one group: every PR deploys to the same
+# shared `staging` stage, so a per-PR group would let two PRs run `sst deploy`
+# against the same SST app concurrently and collide on the state lock.
+# cancel-in-progress must stay false so an in-flight deploy is never killed
+# mid-update, which would leave an orphaned SST lock.
 concurrency:
-  group: deploy-staging-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  group: deploy-staging
+  cancel-in-progress: false
 
 permissions:
   contents: read

@@ -4,6 +4,7 @@ import { Shell } from '@/components/Shell'
 import { PageLoading } from '@/components/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/lib/api/me'
+import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -42,7 +43,9 @@ function AuthenticatedLayout() {
   if (me.error) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-sm text-red-500">Something went wrong. Please refresh the page.</p>
+        <p className="text-sm text-red-500">
+          Something went wrong. Please refresh the page.
+        </p>
       </div>
     )
   }
@@ -52,8 +55,10 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <Shell>
-      <Outlet />
-    </Shell>
+    <LoggingFlowProvider>
+      <Shell>
+        <Outlet />
+      </Shell>
+    </LoggingFlowProvider>
   )
 }

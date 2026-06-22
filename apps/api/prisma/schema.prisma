@@ -6,13 +6,16 @@ generator client {
   provider        = "prisma-client-js"
   output          = "../node_modules/.prisma/client"
   binaryTargets   = ["native", "rhel-openssl-3.0.x", "linux-arm64-openssl-3.0.x"]
-  previewFeatures = ["driverAdapters"]
+  previewFeatures = ["driverAdapters", "postgresqlExtensions"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_DIRECT")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DATABASE_URL_DIRECT")
+  // pg_trgm powers the fuzzy/typo-tolerant level name search
+  // (Level.name GIN index below). See routes/levels.ts.
+  extensions = [pgTrgm(map: "pg_trgm")]
 }
 
 // ─────────────────────────────────────────────
@@ -68,7 +71,6 @@ enum ListType {
 
 enum ListSource {
   GDDL
-  POINTERCRATE
   AREDL
   NLW
   OTHER
@@ -103,6 +105,19 @@ enum RatingDisplayScale {
   //             ZERO_TO_HUNDRED display = internal (no conversion)
 }
 
+// The user's subjective difficulty read on a completion — the ONLY difficulty
+// field the user edits. Distinct from the level's cached in-game difficulty
+// (Level.inGameDifficulty). NOT_DEMON_WORTHY is a disagreement flag only; the
+// level stays a rated demon. See DATA_MODEL.md and LOGGING_FLOW.md.
+enum DifficultyOpinion {
+  NOT_DEMON_WORTHY
+  EASY
+  MEDIUM
+  HARD
+  INSANE
+  EXTREME
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -130,14 +145,17 @@ model User {
   isVerified            Boolean              @default(false)
   verifiedAt            DateTime?
 
-  // GDDL integration — key stored encrypted, never exposed to frontend
+  // GDDL integration — key stored encrypted, never exposed to frontend.
+  // gddlUsername is the GDDL account name confirmed when the key is verified;
+  // it is public and shown in the connected-accounts UI.
   gddlApiKeyEncrypted   String?
+  gddlUsername          String?
 
   // Preferences
   ratingMode            RatingMode           @default(SIMPLE)
-  // Stored as ordered array of ListSource enum values
-  // e.g. ["GDDL", "AREDL", "POINTERCRATE", "NLW", "OTHER"]
-  listPriorityOrder     ListSource[]         @default([GDDL, AREDL, POINTERCRATE, NLW, OTHER])
+  // Default FPS pre-filled into the Log Level form. Always >= 60 (the GD
+  // floor); enforced at the application layer.
+  defaultFps            Int                  @default(60)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
@@ -184,10 +202,22 @@ model Level {
   inGameId              String               @id
   levelType             LevelType            @default(CLASSIC)
   isRated               Boolean              @default(false)
+  // Whether GD classifies this as a demon. Cached from GDBrowser's `demon`
+  // flag. Drives the non-demon soft gate in the logging flow (a non-demon can
+  // still be logged but is excluded from the difficulty ranking by default).
+  isDemon               Boolean              @default(false)
 
   // Core metadata — populated by GDBrowser autofill
   name                  String?
   creator               String?
+  // The level's actual rated difficulty (e.g. "Insane Demon"), cached from
+  // GDBrowser and read-only in the UI — EXCEPT on the manual-entry fallback,
+  // where the user-entered difficulty becomes this value (data_source=manual).
+  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion.
+  inGameDifficulty      String?
+  // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
+  // entered on the manual-entry fallback.
+  length                String?
   songName              String?              // Newgrounds song
   songAuthor            String?
 
@@ -200,8 +230,58 @@ model Level {
   // Additional metadata (v2)
   peakMusicBpm          Int?                 // Music BPM, not heart rate
 
+  // ── Extended GDBrowser metadata ──────────────────────────────────────────
+  // A snapshot of everything RobTop's level object exposes (via GDBrowser), so
+  // we retain the data even if the level later changes or is deleted upstream,
+  // and can surface more of it in the UI later without a re-fetch. All optional:
+  // null on manual rows and on rows cached before this was added. See
+  // EXTERNAL_APIS.md and https://wyliemaster.github.io/gddocs (level object).
+  description           String?
+  // Creator identity beyond the display name.
+  creatorPlayerId       String?
+  creatorAccountId      String?
+  creatorPoints         Int?
+  // Rating / difficulty detail. stars is the awarded star/moon count (0 when
+  // unrated → isRated); partialDiff/difficultyFace are GDBrowser's
+  // machine-readable difficulty tokens ("demon-extreme", "demon-extreme-featured").
+  stars                 Int?
+  starsRequested        Int?
+  partialDiff           String?
+  difficultyFace        String?
+  // Engagement / stats.
+  downloads             Int?
+  likes                 Int?
+  disliked              Boolean?
+  objectCount           Int?
+  largeLevel            Boolean?
+  coins                 Int?
+  coinsVerified         Boolean?
+  orbs                  Int?
+  diamonds              Int?
+  // Showcase flags. epicValue: 0 none, 1 epic, 2 legendary, 3 mythic.
+  featured              Boolean?
+  featureScore          Int?
+  epicValue             Int?
+  // Build / publish detail.
+  twoPlayer             Boolean?
+  lowDetailMode         Boolean?
+  copiedFromId          String?
+  levelVersion          Int?
+  gameVersion           String?
+  editorSeconds         Int?
+  editorSecondsTotal    Int?
+  // Song detail beyond name/author. officialSongId is set when the level uses a
+  // built-in track; songId is the Newgrounds/custom song id otherwise.
+  officialSongId        Int?
+  songId                String?
+  songLink              String?
+  songSize              String?
+
   // Data provenance
-  dataSource            String               @default("manual") // "gdbrowser_autofill" | "manual"
+  dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
+  // False for `manual` rows until a later RobTop sync backfills/verifies
+  // (and may override) the manually-entered metadata.
+  verified              Boolean              @default(false)
 
   // Monthly sync job fields
   // See EXTERNAL_APIS.md — EventBridge fires on the 1st of each month
@@ -220,6 +300,9 @@ model Level {
   levelListEntries      LevelListEntry[]
   levelUpdateNotifs     LevelUpdateNotification[]
 
+  // pg_trgm GIN index powering fuzzy/typo-tolerant name search
+  // (GET /v1/levels/search). Queried via the `%` operator / similarity().
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
   @@map("levels")
 }
 
@@ -240,6 +323,15 @@ model LevelProgress {
   // Drop-specific fields
   droppedReason   String?
   droppedAt       DateTime?
+  // Optional attempt count captured on the drop screen. Aligns with the
+  // import format's `attempts_at_drop`. Puts the eventual completion's
+  // attempt count in perspective if the level is later beaten.
+  attemptsAtDrop  Int?
+
+  // Best run from 0% (percentage) reached before beating or dropping the level
+  // — the user's "worst fail". Captured on the completion and drop screens.
+  // Level-scoped (one value per user/level), updated on each such log.
+  worstFail       Int?
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
@@ -304,7 +396,14 @@ model ProgressUpdate {
   // Contextual metadata
   // Snapshot of in-game difficulty rating at time of logging
   // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
+  // Populated automatically from the Level cache — never user-edited.
   inGameDifficulty      String?
+  // The user's subjective difficulty opinion (the only difficulty they edit).
+  difficultyOpinion     DifficultyOpinion?
+  // When the opinion is NOT_DEMON_WORTHY, the non-demon difficulty the user
+  // thinks it deserves, expressed as a star count 1–9 (1=Auto … 8–9=Insane).
+  // Null for demon-tier opinions. See LOGGING_FLOW.md.
+  difficultyOpinionStars Int?
   notes                 String?
 
   // Media
@@ -340,7 +439,7 @@ model ListReference {
 
   listSource          ListSource
   // Raw value — varies by list (numeric tier, numeric rank, named tier)
-  // e.g. "28" for GDDL, "47" for Pointercrate, "Hard" for NLW
+  // e.g. "28" for GDDL, "Extreme" for AREDL, "Hard" for NLW
   tierOrRank          String
   // Whether this was the value at time of logging (true)
   // or added retroactively (false)

@@ -8,7 +8,6 @@ import { AccountSection } from '@/features/settings/sections/AccountSection'
 import { PrivacySection } from '@/features/settings/sections/PrivacySection'
 import { LoggingSection } from '@/features/settings/sections/LoggingSection'
 import { RatingSection } from '@/features/settings/sections/RatingSection'
-import { RankingSection } from '@/features/settings/sections/RankingSection'
 import { DesignSection } from '@/features/settings/sections/DesignSection'
 import { useSettingsSaveNotifier } from '@/features/settings/hooks/useSettingsSaveNotifier'
 
@@ -59,7 +58,6 @@ export function Settings() {
       <PrivacySection me={me.data} />
       <LoggingSection me={me.data} />
       <RatingSection me={me.data} />
-      <RankingSection me={me.data} />
       <DesignSection />
     </div>
   )

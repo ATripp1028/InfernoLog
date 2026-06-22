@@ -4,7 +4,7 @@ import { ApiError, apiFetch } from './client'
 
 export { ApiError }
 
-export type ListSource = 'GDDL' | 'POINTERCRATE' | 'AREDL' | 'NLW' | 'OTHER'
+export type ListSource = 'GDDL' | 'AREDL' | 'NLW' | 'OTHER'
 export type RatingMode = 'SIMPLE' | 'WEIGHTED'
 export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
@@ -26,11 +26,17 @@ export interface MeData {
   discordPublic: boolean
   ratingMode: RatingMode
   ratingDisplayScale: RatingDisplayScale
+  defaultFps: number
   dateFormatPreference: DateFormatPreference
   includeEnjoyment: boolean
   enjoymentWeight: number
   enjoymentSortOrder: number
-  listPriorityOrder: ListSource[]
+  // True when a GDDL API key is stored. The key itself is never sent to the
+  // client — it lives encrypted (KMS) server-side.
+  hasGddlApiKey: boolean
+  // Public GDDL account name confirmed at connection time; null when not
+  // connected.
+  gddlUsername: string | null
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
   isVerified: boolean
@@ -89,12 +95,66 @@ export function useDisconnectDiscord() {
 }
 
 // ─────────────────────────────────────────────
+// GDDL API key — set/remove. The key is write-only from the client's
+// perspective: we send it up to be encrypted server-side and only ever read
+// back the `hasGddlApiKey` flag.
+// ─────────────────────────────────────────────
+
+export interface SetGddlApiKeyResult {
+  me: MeData
+  // GDDL account name confirmed during verification — shown in the success
+  // message, not persisted.
+  gddlName: string
+}
+
+export function useSetGddlApiKey() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (apiKey: string): Promise<SetGddlApiKeyResult> => {
+      const token = await getIdToken()
+      const { data, gddlName } = await apiFetch<{
+        data: MeData
+        gddlName: string
+      }>('/v1/me/gddl-key', {
+        token,
+        method: 'PUT',
+        body: { apiKey },
+      })
+      return { me: data, gddlName }
+    },
+    onSuccess: ({ me }) => {
+      queryClient.setQueryData(meQueryKey, me)
+    },
+  })
+}
+
+export function useRemoveGddlApiKey() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (): Promise<MeData> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: MeData }>('/v1/me/gddl-key', {
+        token,
+        method: 'DELETE',
+      })
+      return data
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(meQueryKey, data)
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
 // Settings mutations
 // ─────────────────────────────────────────────
 
 export interface UpdateMeInput {
   profilePublic?: boolean
   discordPublic?: boolean
+  defaultFps?: number
   dateFormatPreference?: DateFormatPreference
   ratingMode?: RatingMode
   ratingDisplayScale?: RatingDisplayScale
@@ -120,7 +180,6 @@ export interface UpdateMeInput {
 //      state — important for fields the server derives (e.g. ratingCategories
 //      seeded on first WEIGHTED switch) — without thrashing during the queue.
 const UPDATE_ME_KEY = ['updateMe'] as const
-const UPDATE_LIST_PRIORITY_KEY = ['updateListPriority'] as const
 const UPDATE_USERNAME_KEY = ['updateUsername'] as const
 const UPDATE_RATING_CONFIG_KEY = ['updateRatingConfig'] as const
 
@@ -129,7 +188,6 @@ const UPDATE_RATING_CONFIG_KEY = ['updateRatingConfig'] as const
 // listens for them as a group so one "Saved" toast fires per burst.
 export const SETTINGS_SAVE_MUTATION_KEYS: ReadonlyArray<readonly string[]> = [
   UPDATE_ME_KEY,
-  UPDATE_LIST_PRIORITY_KEY,
   UPDATE_USERNAME_KEY,
   UPDATE_RATING_CONFIG_KEY,
 ]
@@ -200,40 +258,6 @@ export function useUpdateUsername() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(meQueryKey, data)
-    },
-  })
-}
-
-export function useUpdateListPriority() {
-  const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationKey: UPDATE_LIST_PRIORITY_KEY,
-    scope: { id: 'updateListPriority' },
-    mutationFn: async (order: ListSource[]): Promise<MeData> => {
-      const token = await getIdToken()
-      const { data } = await apiFetch<{ data: MeData }>(
-        '/v1/me/list-priority',
-        { token, method: 'PATCH', body: { order } }
-      )
-      return data
-    },
-    onMutate: async (order) => {
-      await queryClient.cancelQueries({ queryKey: meQueryKey })
-      const previous = queryClient.getQueryData<MeData>(meQueryKey)
-      queryClient.setQueryData<MeData>(meQueryKey, (old) =>
-        old ? { ...old, listPriorityOrder: order } : old
-      )
-      return { previous }
-    },
-    onError: (_err, _order, ctx) => {
-      if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
-    },
-    onSettled: () => {
-      if (isLastPending(queryClient, UPDATE_LIST_PRIORITY_KEY)) {
-        return queryClient.invalidateQueries({ queryKey: meQueryKey })
-      }
-      return undefined
     },
   })
 }

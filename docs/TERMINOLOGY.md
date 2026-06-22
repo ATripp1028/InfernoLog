@@ -94,15 +94,24 @@ The drag-and-drop interface that appears during the logging flow when a user wan
 **Non-Completion Toggle**
 A UI toggle present on the List, Ranking, and Level Page that reveals progress entries where `is_completion = false`. Off by default.
 
+**In-Game Face**
+A level's difficulty icon as it appears in Geometry Dash: the combination of its **Difficulty Face** and its **Background Glow**. Rendered by the `DifficultyFace` React component (`apps/web/src/components/DifficultyFace.tsx`). Use "in-game face" when referring to the composite icon (face + glow together).
+
+**Difficulty Face**
+The face portion of the In-Game Face only — the difficulty icon itself (e.g. the Extreme Demon face), without any glow. Sourced from the `demon-*` / `difficulty-*` assets in `public/assets/gd`.
+
+**Background Glow**
+The showcase "fire"/ring behind the Difficulty Face that denotes a level's rating status: the feature circle (featured), or epic / legendary / mythic fire. Absent on rated-but-unfeatured and unrated levels. Sourced from the `bg-*` assets.
+
 ---
 
 ## Infrastructure
 
 **Level Cache**
-The `levels` table in the database, which stores GDBrowser-autofilled level metadata shared across all users. Populated on first autofill of a given level ID and updated monthly by the sync job.
+The `levels` table in the database, which stores level metadata autofilled from the GD servers, shared across all users. Populated on first autofill of a given level ID and updated monthly by the sync job.
 
 **Sync Job**
-The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against GDBrowser for nudge-worthy changes (name, creator, song name, song author).
+The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against the GD servers for nudge-worthy changes (name, creator, song name, song author).
 
 **Nudge**
 A notification informing the user that cached level metadata has changed (name, creator, song name, song author). Delivered as a persistent notification and visual indicator on the affected entry. Sometimes called a **level update nudge** to distinguish it from other notification types.
@@ -111,14 +120,15 @@ A notification informing the user that cached level metadata has changed (name, 
 
 ## Terms to Avoid
 
-| Avoid | Use Instead | Reason |
-|---|---|---|
-| "Completion log" or "demon log" | The List | Confuses List with Log |
-| "Activity log" | The Log | Too generic |
-| "My demons" | The List | Implies created levels |
-| "Demon list" | The List | Confuses with community lists |
-| "Entry" alone | "Progress entry" or "completion" | Too ambiguous |
-| "Rank" for GDDL | "Tier" | GDDL uses tiers, not ranks |
-| "Tier" for Pointercrate | "Rank" | Pointercrate uses ranks, not tiers |
-| "Log" for List | The List | These are distinct views |
-| "List" for Log | The Log | These are distinct views |
+| Avoid                                | Use Instead                      | Reason                                                                   |
+| ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------ |
+| "Completion log" or "demon log"      | The List                         | Confuses List with Log                                                   |
+| "Activity log"                       | The Log                          | Too generic                                                              |
+| "My demons"                          | The List                         | Implies created levels                                                   |
+| "Demon list"                         | The List                         | Confuses with community lists                                            |
+| "Entry" alone                        | "Progress entry" or "completion" | Too ambiguous                                                            |
+| "Rank" for GDDL                      | "Tier"                           | GDDL uses tiers, not ranks                                               |
+| "Tier" for Pointercrate              | "Rank"                           | Pointercrate uses ranks, not tiers                                       |
+| "Log" for List                       | The List                         | These are distinct views                                                 |
+| "List" for Log                       | The Log                          | These are distinct views                                                 |
+| "Difficulty face" for the whole icon | "In-game face"                   | The difficulty face is only the face; the in-game face includes the glow |

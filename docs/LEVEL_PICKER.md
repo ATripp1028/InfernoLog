@@ -25,7 +25,7 @@ The Level Picker is an Akinator-style guided decision tool that helps players ch
 
 **Personal Mode (v2):** Immediately useful from day one. Works from the user's own want-to-beat list. Useful for players who have a curated backlog and want help deciding what to tackle next.
 
-**Discovery Mode (v4):** Queries the broader cached level database. Useful for players who want to find something new rather than choose from a personal list. Held until after v4's initial release to ensure meaningful database population.
+**Discovery Mode (v4):** Queries the broader cached level database. Useful for players who want to find something new rather than choose from a personal list. Held until after v4's initial release to ensure meaningful database population. This is the same **InfernoLog `levels` cache** that backs the logging flow's name search (a level is searchable only after its first log by any user — see `LOGGING_FLOW.md` and `EXTERNAL_APIS.md`), so Discovery Mode's pool grows with adoption.
 
 ---
 
@@ -50,16 +50,16 @@ After each answer, the pool is filtered and the algorithm recalculates which rem
 
 Each question maps to one or more filterable attributes on the level or user's data:
 
-| Question | Filters On |
-|---|---|
-| "Going for a new hardest?" | Levels ranked above user's current hardest by primary list source |
-| "Outside your skillset?" | Levels whose skill tags don't overlap heavily with user's completions (v3+) |
-| "Something short?" | Level length metadata from GDBrowser |
-| "Okay with a NONG?" | `levels.is_nong` flag (v2) |
-| "Something with a good song rating?" | User's historical song rating scores |
-| "A level you've seen others play?" | Presence in InfernoLog database (discovery mode only) |
-| "A rated level?" | `levels.is_rated` |
-| "A specific difficulty range?" | List reference tier/rank range |
+| Question                             | Filters On                                                                  |
+| ------------------------------------ | --------------------------------------------------------------------------- |
+| "Going for a new hardest?"           | Levels ranked above user's current hardest by primary list source           |
+| "Outside your skillset?"             | Levels whose skill tags don't overlap heavily with user's completions (v3+) |
+| "Something short?"                   | Level length metadata from the GD servers                                   |
+| "Okay with a NONG?"                  | `levels.is_nong` flag (v2)                                                  |
+| "Something with a good song rating?" | User's historical song rating scores                                        |
+| "A level you've seen others play?"   | Presence in InfernoLog database (discovery mode only)                       |
+| "A rated level?"                     | `levels.is_rated`                                                           |
+| "A specific difficulty range?"       | List reference tier/rank range                                              |
 
 Questions are only asked if they meaningfully split the current pool. A question with a 0/N split (all levels answer the same way) is skipped.
 

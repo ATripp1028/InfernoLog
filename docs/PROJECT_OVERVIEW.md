@@ -38,6 +38,7 @@ Change in packages/core/ → rebuild both, deploy both
 ## Tech Stack
 
 ### Frontend (apps/web)
+
 - **React + TypeScript + Vite** — component framework
 - **TanStack Query** — data fetching and caching
 - **TanStack Table** — sortable, filterable demon lists
@@ -51,6 +52,7 @@ Change in packages/core/ → rebuild both, deploy both
 - **SheetJS (xlsx)** — client-side spreadsheet export and import parsing
 
 ### Backend (apps/api)
+
 - **AWS Lambda + API Gateway** — serverless compute
 - **SST (Serverless Stack)** — Lambda/API Gateway orchestration with TypeScript
 - **PostgreSQL (Neon)** — serverless Postgres database
@@ -61,11 +63,13 @@ Change in packages/core/ → rebuild both, deploy both
 - **Sentry** — error tracking
 
 ### Shared (packages/core)
+
 - **Zod schemas** — runtime validation, source of truth for all types
 - **TypeScript types** — derived from Zod schemas, shared across apps
 - **OpenAPI spec** — generated from Zod schemas, published for community developers
 
 ### Hosting
+
 - **Frontend** — AWS S3 + CloudFront
 - **DNS** — AWS Route 53 (infernolog.gg or similar)
 - **SSL** — AWS Certificate Manager (free)
@@ -75,14 +79,13 @@ Change in packages/core/ → rebuild both, deploy both
 
 ## External APIs
 
-| Service | Purpose | Called From |
-|---|---|---|
-| GDBrowser (`gdbrowser.com/api`) | Primary level metadata autofill (rated + unrated) | Lambda |
-| GDDL API | Tier suggestion + optional record submission | Lambda |
-| `levelthumbs.prevter.me/thumbnail/{levelId}` | Level thumbnails (Apache 2.0) | Frontend (img src) |
-| Pointercrate API | Rank autofill (v2+) | Lambda |
-| AREDL API | Rank autofill (v2+) | Lambda |
-| Song File Hub | NONG song metadata (v2, manual entry fallback) | Lambda |
+| Service                                      | Purpose                                           | Called From        |
+| -------------------------------------------- | ------------------------------------------------- | ------------------ |
+| GD servers (RobTop / `boomlings.com`)        | Primary level metadata autofill (rated + unrated) | Lambda             |
+| GDDL API                                     | Tier suggestion + optional record submission      | Lambda             |
+| `levelthumbs.prevter.me/thumbnail/{levelId}` | Level thumbnails (Apache 2.0)                     | Frontend (img src) |
+| AREDL API                                    | Rank autofill, extreme demons only                | Lambda             |
+| Song File Hub                                | NONG song metadata (v2, manual entry fallback)    | Lambda             |
 
 ---
 
@@ -104,20 +107,21 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 
 ## Document Map
 
-| Document | Contents |
-|---|---|
-| `DATA_MODEL.md` | Full schema, entity relationships, fractional indexing |
-| `AUTH.md` | Cognito, OAuth, API keys, username rules |
-| `PRIVACY.md` | Per-entry privacy, profile visibility, API behavior |
-| `RANKING_SYSTEM.md` | Personal ranking, auto-placement, placement modal |
-| `LIST_INTEGRATIONS.md` | GDDL, Pointercrate, AREDL, NLW, priority chain |
-| `LEVEL_LOGGING.md` | Progress entry model, completion flow, drop flow |
-| `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |
-| `TIME_MACHINE.md` | Historical ranking visualization, retroactive placement |
-| `LEVEL_PICKER.md` | Akinator-style guided level selection |
-| `IMPORT_EXPORT.md` | Spreadsheet import template, export format, date handling |
-| `API_DESIGN.md` | Public API shape, versioning, scopes, pagination |
-| `EXTERNAL_APIS.md` | GDBrowser, GDDL, levelthumbs, EventBridge sync |
-| `MODERATION.md` | Internal mod team policy, reports, appeals |
-| `COMMUNITY_POLICY.md` | Public-facing content rules |
-| `ROADMAP.md` | v1 / v2 / v3 / v4 feature breakdown |
+| Document               | Contents                                                        |
+| ---------------------- | --------------------------------------------------------------- |
+| `DATA_MODEL.md`        | Full schema, entity relationships, fractional indexing          |
+| `AUTH.md`              | Cognito, OAuth, API keys, username rules                        |
+| `PRIVACY.md`           | Per-entry privacy, profile visibility, API behavior             |
+| `RANKING_SYSTEM.md`    | Personal ranking, manual placement                              |
+| `LIST_INTEGRATIONS.md` | GDDL, AREDL, NLW list references                                |
+| `LOGGING_FLOW.md`      | FAB-triggered logging modal: completion / progress / drop paths |
+| `LEVEL_LOGGING.md`     | Progress entry model, completion flow, drop flow                |
+| `RATING_SYSTEM.md`     | Simple vs weighted rating, configurable criteria                |
+| `TIME_MACHINE.md`      | Historical ranking visualization, retroactive placement         |
+| `LEVEL_PICKER.md`      | Akinator-style guided level selection                           |
+| `IMPORT_EXPORT.md`     | Spreadsheet import template, export format, date handling       |
+| `API_DESIGN.md`        | Public API shape, versioning, scopes, pagination                |
+| `EXTERNAL_APIS.md`     | GD servers (RobTop), GDDL, levelthumbs, EventBridge sync        |
+| `MODERATION.md`        | Internal mod team policy, reports, appeals                      |
+| `COMMUNITY_POLICY.md`  | Public-facing content rules                                     |
+| `ROADMAP.md`           | v1 / v2 / v3 / v4 feature breakdown                             |

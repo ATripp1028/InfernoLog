@@ -4,6 +4,8 @@ import { handle } from 'hono/aws-lambda'
 import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
 import meRoutes from './routes/me'
+import loggingRoutes from './routes/logging'
+import levelsRoutes from './routes/levels'
 import authRoutes from './routes/auth'
 import type { HonoVariables } from './types/hono'
 import prisma from './utils/prisma'
@@ -33,6 +35,8 @@ app.get('/v1/users/check-username', async (c) => {
 // Authenticated routes
 app.use('/v1/*', authMiddleware)
 app.route('/v1', meRoutes)
+app.route('/v1', loggingRoutes)
+app.route('/v1', levelsRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {

@@ -10,13 +10,14 @@ List tier/rank values are always **snapshots at time of logging**, reflecting hi
 
 ## Supported Lists (v1)
 
-| List | Abbreviation | Type | API Available | Primary Use Case |
-|---|---|---|---|---|
-| GD Demon Ladder | GDDL | Tiered (numeric) | Yes | Most comprehensive — every demon in the game |
-| Pointercrate Demonlist | Pointercrate | Ranked (numeric position) | Yes | Most reputable for extreme demons |
-| All Rated Extreme Demons List | AREDL | Ranked (numeric position) | Investigate | Extreme demons |
-| Non-Listworthy Spreadsheet | NLW | Tiered (named tiers) | Likely manual only | Demons below Pointercrate threshold |
-| Pemonlist | Pemonlist | Ranked | Investigate | Platformer demons (v2) |
+| List                          | Abbreviation | Type                      | API Available      | Primary Use Case                                          |
+| ----------------------------- | ------------ | ------------------------- | ------------------ | --------------------------------------------------------- |
+| GD Demon Ladder               | GDDL         | Tiered (numeric)          | Yes                | Most comprehensive — every demon in the game              |
+| All Rated Extreme Demons List | AREDL        | Ranked (numeric position) | Investigate        | Extreme demons (AREDL rank shown for extreme demons only) |
+| Non-Listworthy Spreadsheet    | NLW          | Tiered (named tiers)      | Likely manual only | Extreme Demons (only shown for extreme demons)            |
+| Pemonlist                     | Pemonlist    | Ranked                    | Investigate        | Platformer demons (v2)                                    |
+
+Pointercrate was evaluated and **cut from v1**: it adds significant development burden for coverage largely mirrored by the top ~150 of AREDL.
 
 Additional lists may be added in future versions. The architecture uses a `ListProvider` interface so new sources are additive.
 
@@ -27,6 +28,7 @@ Additional lists may be added in future versions. The architecture uses a `ListP
 Each completion can have multiple list references. See `DATA_MODEL.md` — `list_references` table for schema details.
 
 Key behaviors:
+
 - A completion can have zero, one, or many list references
 - References can be added retroactively after a completion is logged
 - `at_time_of_completion` flag distinguishes snapshot values from retroactively added ones
@@ -34,20 +36,9 @@ Key behaviors:
 
 ---
 
-## Priority Chain (Auto-Placement)
+## List References and Ranking Placement
 
-When determining where a new completion falls in a user's personal ranking, list references are evaluated in this priority order:
-
-1. GDDL tier
-2. AREDL rank
-3. Pointercrate rank
-4. NLW tier
-5. Other assigned references
-6. No reference → unranked, placed at bottom
-
-Users can reorder this priority chain in their settings. The default reflects GDDL's comprehensiveness.
-
-**Cross-list conflict handling (v1):** When the new level's primary list source differs from surrounding levels' primary sources, auto-placement is limited to same-source levels and cross-list comparisons are flagged for manual resolution. A community conversion table between list scales is a v2 feature.
+List references do **not** auto-place a completion. There is no priority chain and no cross-list conflict handling — every completion is placed manually by the user (see `RANKING_SYSTEM.md`). A list reference is genuine data the user may want on record, which _additionally_ serves as a convenience: it sets the starting scroll position in the placement view. Difficulty consistency across list sources is the user's responsibility.
 
 ---
 
@@ -57,7 +48,8 @@ Users can reorder this priority chain in their settings. The default reflects GD
 
 ### Autofill on Level ID Entry
 
-When a user enters a level ID during logging, InfernoLog calls GDBrowser first for general metadata, then GDDL for tier-specific data. GDDL autofill populates:
+When a user enters a level ID during logging, InfernoLog calls the GD servers first for general metadata, then GDDL for tier-specific data. GDDL autofill populates:
+
 - Current GDDL tier (presented to user as a suggested snapshot value to confirm)
 - Record eligibility status
 
@@ -70,6 +62,7 @@ If the user has provided their GDDL API key, they can submit a completion record
 ### Tier as Manual Snapshot
 
 The GDDL tier is entered/confirmed manually by the user rather than fetched automatically at logging time. This is intentional:
+
 - GDDL placements update extremely frequently
 - The snapshot reflects what the tier was when the player beat it, which is more historically meaningful
 - Avoids excessive API load on GDDL's free platform
@@ -84,17 +77,11 @@ GDDL records cannot be deleted via the API. If a user deletes a completion from 
 
 ---
 
-## Pointercrate Integration
-
-**API:** Public API available. Autofill of current rank is feasible. Record submission requires investigation.
-
-Pointercrate is the most reputable list for extreme demons and is commonly used alongside GDDL for top-tier completions.
-
----
-
 ## AREDL Integration
 
 **API:** Public API available. Integration feasibility to be confirmed.
+
+The AREDL rank reference appears **only for extreme demons** (AREDL = All Rated Extreme Demons List — it lists extreme demons only). This is a conditional-render rule in the list-references step, keyed off the level's cached in-game difficulty. AREDL's top ~150 covers the extreme-demon ground Pointercrate would have, which is why Pointercrate was cut from v1.
 
 ---
 
@@ -102,7 +89,7 @@ Pointercrate is the most reputable list for extreme demons and is commonly used 
 
 **API:** Likely spreadsheet-based with no public API. Manual entry only for v1. A read-only scrape approach may be investigated for v2.
 
-NLW covers demons below the Pointercrate threshold, making it relevant for players who complete demons that don't appear on more prestigious lists.
+NLW covers extreme demons in a bracket-based system, which many extreme demon grinders prefer to the rigid number ranks of the AREDL.
 
 ---
 
@@ -114,10 +101,13 @@ Minimum interface:
 
 ```typescript
 interface ListProvider {
-  id: ListSource;
-  displayName: string;
-  autofillByLevelId(levelId: string): Promise<ListAutofillResult | null>;
-  submitRecord?(levelId: string, userCredential: string): Promise<ListSubmitResult>;
+  id: ListSource
+  displayName: string
+  autofillByLevelId(levelId: string): Promise<ListAutofillResult | null>
+  submitRecord?(
+    levelId: string,
+    userCredential: string
+  ): Promise<ListSubmitResult>
 }
 ```
 
@@ -139,6 +129,7 @@ Version timeline:
 ### v3 Integration-Sourced Tags
 
 Tags are pulled from GDDL and AREDL during autofill and stored on the `levels` table. They are:
+
 - **Per-level (global)** — the same tags apply to a level for all users
 - **Read-only** in v3 — users cannot add or modify tags, only consume them
 - **Absent for unrated levels** — no tags until v4 voting covers them

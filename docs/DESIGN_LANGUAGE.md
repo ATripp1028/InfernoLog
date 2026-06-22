@@ -125,26 +125,31 @@ InfernoLog uses official Geometry Dash in-game assets for GD-specific UI element
 ### GD Assets Used
 
 #### Difficulty Faces
+
 **Used for:** Difficulty indicators on list entries, ranking entries, level page headers
 **Asset:** Official GD difficulty face sprites — auto, easy, normal, hard, harder, insane, easy demon, medium demon, hard demon, insane demon, extreme demon
 **Notes:** Use the exact in-game sprites. Players recognize these instantly at any size. The extreme demon face (red, horned) is InfernoLog's primary demon indicator.
 
 #### Mirror Portal
+
 **Used for:** Time Machine navigation icon and page header
 **Asset:** Official GD mirror portal sprite
 **Notes:** The mirror portal is both the in-game asset for the "Time Machine" level (which introduces it) and a visual metaphor for looking back in time via reflection. At sidebar nav size (24px), use a simplified crop of the portal. At page header size (48px+), use the full sprite.
 
 #### Practice Mode Checkpoint Flag
+
 **Used for:** In Progress section nav icon and status badge
 **Asset:** Official GD practice mode flag sprite (yellow/gold flag)
 **Notes:** Immediately recognizable to any GD player as "mid-attempt." No community member will need this explained.
 
 #### Star / Diamond
+
 **Used for:** Enjoyment and rating display
 **Asset:** Official GD star sprite (classic) and/or diamond sprite (newer)
 **Notes:** Use in place of generic star ratings. The GD star has a distinctive styled appearance that reinforces the app's identity. Star for enjoyment (a personal feeling), diamond for rating (a more objective assessment) is a reasonable distinction.
 
 #### Orbs and Portals (Supporting)
+
 **Used for:** Decorative elements, section accents, empty states
 **Asset:** Various GD orb and portal sprites as appropriate
 **Notes:** Use sparingly as supporting decoration — not as primary UI elements. Empty states and section headers are appropriate locations.
@@ -154,8 +159,10 @@ InfernoLog uses official Geometry Dash in-game assets for GD-specific UI element
 These concepts have no direct in-game equivalent and require original design:
 
 #### Dropped Level Indicator
+
 **Used for:** Dropped section nav icon and status badge
 **Design notes:** "Dropping" a level is a community concept, not an in-game mechanic. Options:
+
 - A crossed-out practice flag (most legible — combines "in progress" + "stopped")
 - A cracked or broken orb (evokes failure without being too harsh)
 - A flag with an X overlay
@@ -163,6 +170,7 @@ These concepts have no direct in-game equivalent and require original design:
 The crossed-out flag approach is recommended since it visually connects to the In Progress icon (same flag, different state), telling a clear visual story.
 
 #### NONG Indicator (v2)
+
 **Used for:** Small badge on level entries that require a NONG
 **Design notes:** No in-game equivalent — NONG is a community workaround concept. A music note with a strikethrough or question mark overlay communicates "song not standard." Keep it small and subtle — this is secondary information.
 
@@ -170,32 +178,32 @@ The crossed-out flag approach is recommended since it visually connects to the I
 
 Standard UI actions use Lucide without customization:
 
-| Element | Lucide Icon |
-|---|---|
-| Settings | `Settings` |
-| Notifications | `Bell` |
-| Add / Log new | `Plus` (inside FAB) |
-| Search | `Search` |
-| Sort | `ArrowUpDown` |
-| Filter | `Filter` |
-| Export | `Download` |
-| Import | `Upload` |
-| Edit | `Pencil` |
-| Delete | `Trash2` |
-| Video link | `Play` |
-| Highlight link | `Film` |
-| External link | `ExternalLink` |
-| Copy | `Copy` |
-| Drag handle | `GripVertical` |
-| Collapse/expand | `ChevronDown` |
-| Close | `X` |
-| Confirmed/accepted | `CheckCircle2` |
-| Uncertain date | `HelpCircle` |
-| Private entry | `EyeOff` |
-| Needs placement | `AlertCircle` |
-| On stream | `Radio` |
-| GDDL | `Link` |
-| Pointercrate | `Trophy` |
+| Element            | Lucide Icon         |
+| ------------------ | ------------------- |
+| Settings           | `Settings`          |
+| Notifications      | `Bell`              |
+| Add / Log new      | `Plus` (inside FAB) |
+| Search             | `Search`            |
+| Sort               | `ArrowUpDown`       |
+| Filter             | `Filter`            |
+| Export             | `Download`          |
+| Import             | `Upload`            |
+| Edit               | `Pencil`            |
+| Delete             | `Trash2`            |
+| Video link         | `Play`              |
+| Highlight link     | `Film`              |
+| External link      | `ExternalLink`      |
+| Copy               | `Copy`              |
+| Drag handle        | `GripVertical`      |
+| Collapse/expand    | `ChevronDown`       |
+| Close              | `X`                 |
+| Confirmed/accepted | `CheckCircle2`      |
+| Uncertain date     | `HelpCircle`        |
+| Private entry      | `EyeOff`            |
+| Needs placement    | `AlertCircle`       |
+| On stream          | `Radio`             |
+| GDDL               | `Link`              |
+| AREDL              | `Trophy`            |
 
 ---
 
@@ -230,9 +238,9 @@ Tiers 31+:    Red/Purple    (#dc2626 → #9333ea)
 
 This is approximate — the community does not have a strict canonical color per GDDL tier the way NLW does, so a gradient is more maintainable.
 
-### Pointercrate / AREDL
+### AREDL
 
-No established community color convention. Use the primary/accent palette for these badges with the list source name as the primary identifier.
+No established community color convention. Use the primary/accent palette for the badge with the list source name as the primary identifier. (Pointercrate is cut from v1 — see `LIST_INTEGRATIONS.md`.)
 
 ---
 
@@ -246,12 +254,13 @@ The level entry card is the most frequently rendered component in the app — it
 ┌─────────────────────────────────────────────────────┐
 │ ████  Level Name                    ⭐ 8.5  😊 9   │
 │ thumbnail  Creator · Song                           │
-│       [GDDL 28] [PC #47]  ✓ Record  📹 🎬          │
+│       [GDDL 28] [AREDL #47]  ✓ Record  📹 🎬       │
 │       Apr 15 2024 · 4,429 attempts · 94% worst fail │
 └─────────────────────────────────────────────────────┘
 ```
 
 Key decisions:
+
 - Thumbnail on the left (levelthumbs, with placeholder fallback)
 - Level name prominent, creator and song secondary
 - List reference badges inline, color-coded by tier/rank range
@@ -259,6 +268,17 @@ Key decisions:
 - Media links (video, highlight) as small icon buttons
 - Metadata (date, attempts, worst fail) de-emphasized at the bottom
 - Demon face difficulty indicator subtle — not the dominant element
+
+### Full-Modal Thumbnail Background (Logging Modal)
+
+Once a level is resolved in the logging flow, the level's **thumbnail fills the entire modal background**, behind a flat `#0d0d0d` scrim at **~88% opacity**. This extends the level-row `ThumbnailBleed` treatment to the full modal surface.
+
+- Form chrome (header, body, footer) is **transparent** so the backdrop reads through; input boxes use a **frosted translucent fill** (white ~8%, border white ~18%) for legibility.
+- The scrim is **fixed, not luminance-adaptive.** Thumbnails load via a constructed-URL `<img>` tag (the levelthumbs hotlinking decision in `EXTERNAL_APIS.md`), so measuring brightness would require canvas pixel access + permissive CORS — which conflicts with hotlinking. A fixed heavy scrim flattens the brightest and darkest thumbnails to roughly the same readable tint.
+- 88% was validated readable across dark→very-bright thumbnails (Bloodbath, Clubstep, Boobawamba, Audio Extraction). It is the one knob to revisit if real thumbnails read too heavy or too light.
+- Because the modal background now carries the thumbnail, the small thumbnail placeholder in the level identity strip is removed; the strip is identity + difficulty face + Change link only.
+
+See `LOGGING_FLOW.md` for the full modal spec.
 
 ### Status Badges
 
@@ -272,15 +292,18 @@ Key decisions:
 
 ### The FAB
 
-Large, circular, fixed position. Bottom-right on desktop, bottom-center on mobile (above the bottom nav bar). Primary color (`--color-primary`). Contains a `Plus` icon. On click, opens a bottom sheet or modal with options:
+Large, circular, fixed position. Bottom-right on desktop, bottom-center on mobile (above the bottom nav bar). Primary color (`--color-primary`). Contains a `Plus` icon. On click, opens a menu where the **logging path is chosen before the modal opens** (so each path is a purpose-built form — see `LOGGING_FLOW.md`). Five items: three logging actions above a divider from two list actions:
 
 ```
-[ Log progress on a level ]   ← primary
-[ Add to Want to Beat      ]
-[ Add to a list            ]
+[ ✓  Log a completion ]   ← primary
+[ ⚑  Log progress      ]
+[ ✕  Drop a level      ]
+───────────────────────
+[ ☆  Add to Want to Beat ]
+[ ≣  Add to a list        ]
 ```
 
-The first option is the overwhelmingly most common action and should be visually dominant.
+"Log a completion" is the overwhelmingly most common action and should be visually dominant.
 
 ---
 

@@ -44,7 +44,7 @@ Difficulty
 
 ### Minimum Requirements Per Level
 
-A completion must have **at least one community-recognized list reference** (GDDL tier, Pointercrate rank, AREDL rank, etc.) to appear in the Time Machine. Completions without any list reference are excluded and a prompt nudges the user to assign one.
+A completion must have **at least one community-recognized list reference** (GDDL tier, AREDL rank, NLW tier, etc.) to appear in the Time Machine. Completions without any list reference are excluded and a prompt nudges the user to assign one.
 
 ### Retroactive History
 
@@ -64,12 +64,12 @@ User sees their complete demon history on first login
 
 ## Configuration
 
-| Setting | Default | Notes |
-|---|---|---|
-| Top N | 10 | How many levels to track simultaneously. User-configurable |
-| Y axis source | User's primary list reference | Follows the list priority chain from settings |
-| Default time range | Current year | Adjustable via slider |
-| Range presets | Per year | Quick buttons: "2019", "2020", etc., plus "All time" |
+| Setting            | Default                       | Notes                                                                      |
+| ------------------ | ----------------------------- | -------------------------------------------------------------------------- |
+| Top N              | 10                            | How many levels to track simultaneously. User-configurable                 |
+| Y axis source      | User's primary list reference | Picked by the fixed reference ordering below when a completion has several |
+| Default time range | Current year                  | Adjustable via slider                                                      |
+| Range presets      | Per year                      | Quick buttons: "2019", "2020", etc., plus "All time"                       |
 
 ---
 
@@ -84,14 +84,13 @@ User sees their complete demon history on first login
 
 ## Y Axis: List Reference Priority
 
-The Y axis position of each completion is determined by its list references, using the same priority chain as auto-placement:
+The Y axis position of each completion is determined by its list references. When a completion has more than one, a **fixed reference ordering** picks which to plot (there is no user-configurable priority chain — that was tied to the removed auto-placement; see `RANKING_SYSTEM.md`):
 
 ```
 GDDL tier (if assigned)
   → AREDL rank
-    → Pointercrate rank
-      → NLW tier
-        → Other
+    → NLW tier
+      → Other
 ```
 
 If a completion's primary list reference changes (user updates it), the Time Machine recalculates that data point's Y position accordingly.

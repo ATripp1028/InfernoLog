@@ -1,73 +1,84 @@
 export enum Role {
   USER = 'USER',
   MODERATOR = 'MODERATOR',
-  ADMIN = 'ADMIN'
+  ADMIN = 'ADMIN',
 }
 
 export enum AccountStatus {
   ACTIVE = 'ACTIVE',
   SUSPENDED = 'SUSPENDED',
-  BANNED = 'BANNED'
+  BANNED = 'BANNED',
 }
 
 export enum RatingMode {
   SIMPLE = 'SIMPLE',
-  WEIGHTED = 'WEIGHTED'
+  WEIGHTED = 'WEIGHTED',
 }
 
 export enum RatingDisplayScale {
   ZERO_TO_TEN = 'ZERO_TO_TEN',
-  ZERO_TO_HUNDRED = 'ZERO_TO_HUNDRED'
+  ZERO_TO_HUNDRED = 'ZERO_TO_HUNDRED',
 }
 
 export enum DateFormatPreference {
   MDY = 'MDY',
   DMY = 'DMY',
   YMD = 'YMD',
-  ISO = 'ISO'
+  ISO = 'ISO',
 }
 
 export enum LevelType {
   CLASSIC = 'CLASSIC',
-  PLATFORMER = 'PLATFORMER'
+  PLATFORMER = 'PLATFORMER',
 }
 
 export enum LevelProgressStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   DROPPED = 'DROPPED',
-  COMPLETED = 'COMPLETED'
+  COMPLETED = 'COMPLETED',
+}
+
+// The user's subjective difficulty read on a completion. NOT_DEMON_WORTHY is a
+// disagreement flag only — the level stays a rated demon. Distinct from the
+// level's cached in-game difficulty. See DATA_MODEL.md / LOGGING_FLOW.md.
+export enum DifficultyOpinion {
+  NOT_DEMON_WORTHY = 'NOT_DEMON_WORTHY',
+  EASY = 'EASY',
+  MEDIUM = 'MEDIUM',
+  HARD = 'HARD',
+  INSANE = 'INSANE',
+  EXTREME = 'EXTREME',
 }
 
 export enum EntryVisibility {
   PUBLIC = 'PUBLIC',
-  PRIVATE = 'PRIVATE'
+  PRIVATE = 'PRIVATE',
 }
 
 export enum ListType {
   WANT_TO_BEAT = 'WANT_TO_BEAT',
   FAVORITES = 'FAVORITES',
   LEAST_FAVORITES = 'LEAST_FAVORITES',
-  CUSTOM = 'CUSTOM'
+  CUSTOM = 'CUSTOM',
 }
 
 export enum ListSource {
   GDDL = 'GDDL',
-  POINTERCRATE = 'POINTERCRATE',
   AREDL = 'AREDL',
   NLW = 'NLW',
-  OTHER = 'OTHER'
+  OTHER = 'OTHER',
 }
 
 export enum ReportStatus {
   PENDING = 'PENDING',
   DISMISSED = 'DISMISSED',
-  ACTIONED = 'ACTIONED'
+  ACTIONED = 'ACTIONED',
 }
 
 export enum AppealStatus {
   PENDING = 'PENDING',
   APPROVED = 'APPROVED',
-  DENIED = 'DENIED'
+  DENIED = 'DENIED',
 }
 
 export enum ModerationActionType {
@@ -76,5 +87,5 @@ export enum ModerationActionType {
   BAN = 'BAN',
   UNBAN = 'UNBAN',
   VERIFY = 'VERIFY',
-  UNVERIFY = 'UNVERIFY'
+  UNVERIFY = 'UNVERIFY',
 }

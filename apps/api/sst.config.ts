@@ -25,6 +25,21 @@ export default $config({
     const DISCORD_CLIENT_ID = new sst.Secret('DISCORD_CLIENT_ID')
     const DISCORD_CLIENT_SECRET = new sst.Secret('DISCORD_CLIENT_SECRET')
 
+    // ─────────────────────────────────────────────
+    // KMS — encrypts user GDDL API keys at rest. Only the gddl-key routes are
+    // granted Encrypt/Decrypt on this key (see below); no other Lambda can
+    // read a stored key.
+    // ─────────────────────────────────────────────
+    const gddlKmsKey = new aws.kms.Key('GddlApiKeyKey', {
+      description: `InfernoLog ${$app.stage} — encrypts user GDDL API keys`,
+      enableKeyRotation: true,
+    })
+
+    new aws.kms.Alias('GddlApiKeyKeyAlias', {
+      name: `alias/infernolog-${$app.stage}-gddl-api-key`,
+      targetKeyId: gddlKmsKey.keyId,
+    })
+
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
       nodejs: {
@@ -265,9 +280,54 @@ export default $config({
 
     authedRoute('PATCH /v1/me')
     authedRoute('PATCH /v1/me/username')
-    authedRoute('PATCH /v1/me/list-priority')
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
+
+    // ─────────────────────────────────────────────
+    // LOGGING — entry-creation writes + level-entry support
+    // ─────────────────────────────────────────────
+    // Progress and drop writes, plus the level-support endpoints.
+    authedRoute('POST /v1/me/progress')
+    authedRoute('POST /v1/me/drops')
+    authedRoute('GET /v1/levels/search')
+    // API Gateway HTTP API path params use {brace} syntax; Hono's own routes
+    // keep :levelId. The actual request path is forwarded to Hono unchanged.
+    authedRoute('GET /v1/levels/{levelId}/resolve')
+    authedRoute('POST /v1/levels')
+    authedRoute('GET /v1/levels/{levelId}')
+
+    // GDDL API key routes — these Lambdas additionally get the KMS key id in
+    // their environment and IAM permission to Encrypt/Decrypt with it. Scoped
+    // here (not in sharedEnvironment) so no other route can touch the key.
+    const gddlKeyEnvironment = {
+      ...sharedEnvironment,
+      GDDL_KMS_KEY_ID: gddlKmsKey.arn,
+    }
+    const gddlKeyPermissions = [
+      {
+        actions: ['kms:Encrypt', 'kms:Decrypt'],
+        resources: [gddlKmsKey.arn],
+      },
+    ]
+    const gddlKeyRoute = (route: string) =>
+      api.route(
+        route,
+        {
+          handler: 'src/index.handler',
+          link: sharedLinks,
+          environment: gddlKeyEnvironment,
+          permissions: gddlKeyPermissions,
+          ...sharedNodeOptions,
+        },
+        { auth: jwtAuth }
+      )
+
+    gddlKeyRoute('PUT /v1/me/gddl-key')
+    gddlKeyRoute('DELETE /v1/me/gddl-key')
+
+    // Completion writes get KMS access too: a completion may optionally submit
+    // a GDDL record, which requires decrypting the user's stored GDDL key.
+    gddlKeyRoute('POST /v1/me/completions')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

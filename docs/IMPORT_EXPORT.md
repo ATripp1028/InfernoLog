@@ -12,13 +12,13 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 
 **SheetJS (xlsx)** is used for both import and export. The file contains multiple tabs:
 
-| Tab | Contents |
-|---|---|
-| `Completions` | All completion progress updates (is_completion = true) |
-| `Progress` | All non-completion progress updates (optional, included on export if user chooses) |
-| `Dropped` | All dropped level entries |
-| `WantToBeat` | Want-to-beat list |
-| `Lists` | Custom lists and favorites |
+| Tab           | Contents                                                                           |
+| ------------- | ---------------------------------------------------------------------------------- |
+| `Completions` | All completion progress updates (is_completion = true)                             |
+| `Progress`    | All non-completion progress updates (optional, included on export if user chooses) |
+| `Dropped`     | All dropped level entries                                                          |
+| `WantToBeat`  | Want-to-beat list                                                                  |
+| `Lists`       | Custom lists and favorites                                                         |
 
 Import processes `Completions` and `Dropped` tabs. Other tabs are supported in later versions.
 
@@ -48,6 +48,7 @@ This selection pre-populates from the user's `date_format_preference` account se
 ### Silent Handling
 
 These are resolved automatically without flagging:
+
 - Missing leading zeros (`1/4/2019` → `2019-04-01`)
 - Two-digit years (`19` → `2019`, valid since GD released in 2013)
 - Dashes vs. slashes as separators
@@ -55,6 +56,7 @@ These are resolved automatically without flagging:
 ### Flagged for Manual Resolution
 
 These are included in the validation report:
+
 - Dates unparseable in the selected format
 - Ambiguous dates (e.g. `04/05/2019` when the format could be either MDY or DMY and the values are ≤ 12)
 - Dates written as phrases (`"April 5th 2019"`, `"early 2019"`)
@@ -113,28 +115,28 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 
 ## Completions Tab Format
 
-| Column | Required | Notes |
-|---|---|---|
-| `level_id` | Yes | In-game level ID |
-| `level_name` | No | If blank, autofilled from GDBrowser |
-| `date` | No | In selected date format |
-| `date_uncertain` | No | TRUE/FALSE |
-| `attempts` | No | Integer |
-| `percentage` | No | Worst fail / last logged percentage |
-| `run_from` | No | Integer 1-100 |
-| `run_to` | No | Integer 1-100 |
-| `on_stream` | No | TRUE/FALSE |
-| `fps` | No | Integer |
-| `enjoyment` | No | 0-10 |
-| `simple_rating` | No | 0-10 |
-| `in_game_difficulty` | No | Text snapshot |
-| `gddl_tier` | No | Numeric tier |
-| `pointercrate_rank` | No | Numeric rank |
-| `aredl_rank` | No | Numeric rank |
-| `nlw_tier` | No | Tier name |
-| `notes` | No | Text |
-| `video_url` | No | URL |
-| `highlight_url` | No | URL |
+| Column               | Required | Notes                                                         |
+| -------------------- | -------- | ------------------------------------------------------------- |
+| `level_id`           | Yes      | In-game level ID                                              |
+| `level_name`         | No       | If blank, autofilled from the GD servers                      |
+| `date`               | No       | In selected date format                                       |
+| `date_uncertain`     | No       | TRUE/FALSE                                                    |
+| `attempts`           | No       | Integer                                                       |
+| `percentage`         | No       | Worst fail / last logged percentage                           |
+| `run_from`           | No       | Integer 0-100 (progress entries only)                         |
+| `run_to`             | No       | Integer 0-100 (progress entries only)                         |
+| `on_stream`          | No       | TRUE/FALSE                                                    |
+| `fps`                | No       | Integer                                                       |
+| `enjoyment`          | No       | 0-10                                                          |
+| `simple_rating`      | No       | 0-10                                                          |
+| `difficulty_opinion` | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
+| `in_game_difficulty` | No       | Text snapshot of the level's cached rating                    |
+| `gddl_tier`          | No       | Numeric tier                                                  |
+| `aredl_rank`         | No       | Numeric rank (extreme demons only)                            |
+| `nlw_tier`           | No       | Tier name                                                     |
+| `notes`              | No       | Text                                                          |
+| `video_url`          | No       | URL                                                           |
+| `highlight_url`      | No       | URL                                                           |
 
 ### Column Tolerance
 
@@ -146,17 +148,17 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 
 ## Dropped Tab Format
 
-| Column | Required | Notes |
-|---|---|---|
-| `level_id` | Yes | |
-| `level_name` | No | |
-| `best_progress` | No | Percentage |
-| `run_from` | No | |
-| `run_to` | No | |
-| `attempts_at_drop` | No | |
-| `dropped_at` | No | Date |
-| `reason` | No | Text |
-| `gddl_tier_at_drop` | No | Snapshot |
+| Column              | Required | Notes      |
+| ------------------- | -------- | ---------- |
+| `level_id`          | Yes      |            |
+| `level_name`        | No       |            |
+| `best_progress`     | No       | Percentage |
+| `run_from`          | No       |            |
+| `run_to`            | No       |            |
+| `attempts_at_drop`  | No       |            |
+| `dropped_at`        | No       | Date       |
+| `reason`            | No       | Text       |
+| `gddl_tier_at_drop` | No       | Snapshot   |
 
 ---
 
@@ -188,6 +190,7 @@ When exporting, the user chooses:
 ## Template Download
 
 A blank template file is always available for download from the import screen. It contains:
+
 - All column headers with correct names
 - One example row (clearly marked as example, to be deleted)
 - A second tab with field descriptions and valid value ranges

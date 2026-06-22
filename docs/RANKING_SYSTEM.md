@@ -21,80 +21,50 @@ Gap < 0.0001:     rebalancing job renormalizes all to integers
 
 ---
 
-## Auto-Placement on New Completion
+## Manual Placement (No Auto-Placement)
 
-When a completion is logged, it is automatically placed in the ranking before the user manually fine-tunes it.
+**There is no auto-placement.** Every completion starts **unplaced**; the user places **all** of them manually. The placement prompt is offered **post-submit**, not as a mid-form checkbox — see `LOGGING_FLOW.md` → "Ranking Placement".
 
-### Priority Chain
+A list reference (GDDL tier, AREDL rank, NLW tier) is purely a **convenience** that sets the **starting scroll position** in the placement view. It does not place the level, and **no reference is required to place** — without one, the view simply opens at the top and the user scrolls.
 
-List references are evaluated in this order to determine a difficulty band:
-
-```
-1. GDDL tier
-2. AREDL rank
-3. Pointercrate rank
-4. NLW tier
-5. Other list references
-6. No reference → bottom of ranking, flagged for manual sorting
-```
-
-User can reorder this priority chain in settings.
-
-### Within-Band Placement
-
-New completions are placed at the **bottom of their difficulty band** by default. This is intentional — a new hardest demon is a significant accomplishment and should not automatically displace existing completions without deliberate user action.
-
-### Cross-List Conflicts (v1)
-
-When a new completion's primary list source differs from surrounding levels, auto-placement is limited to same-source levels. Cross-list comparisons are flagged for manual resolution.
-
-```
-v1: Same-source placement only, cross-list flagged
-v2: Community conversion table normalizes across list scales
-```
+Because placement is fully manual and a reference is only a scroll hint, there is **no priority chain, no within-band default, and no cross-list conflict handling** — difficulty consistency across list sources is the user's responsibility, since they rate their own completions.
 
 ---
 
-## Placement Modal
+## Placement View
 
-Users can set their ranking position during the logging flow.
+After a completion is submitted, a compact confirm modal asks **"Place in ranking now?"**
 
 ```
-Logging form
-     │
-     │ User assigns list tier/rank
-     │
-     ▼
-┌─────────────────────────────────┐
-│  [ ] Place in ranking now       │
-└─────────────────────────────────┘
-     │ checked
-     ▼
-┌─────────────────────────────────────────────┐
-│              Placement Modal                │
-│                                             │
-│  ┌─────────────────────────────────────┐   │
-│  │  ... [Level A] Tier 28              │   │
-│  │  ... [Level B] Tier 27              │   │
-│  │  ┄┄┄┄[NEW LEVEL]┄Tier 26┄┄┄┄ 👻    │◄──┼── ghost card, draggable
-│  │  ... [Level C] Tier 26              │   │
-│  │  ... [Level D] Tier 25              │   │
-│  └─────────────────────────────────────┘   │
-│  ↑ autoscrolled to user's tier band        │
-│                                             │
-│  [ Confirm placement ]  [ Skip ]            │
-└─────────────────────────────────────────────┘
+            Completion submitted
+                    │
+                    ▼
+       ┌─────────────────────────────┐
+       │  Place in ranking now?      │
+       │  [ Place now ]  [ Later ]   │
+       └─────────────────────────────┘
+         │                    │
+   Place now             Place later
+         │                    │
+         ▼                    ▼
+┌─────────────────────────┐  ┌───────────────────────┐
+│      Placement View     │  │  Unplaced side panel   │
+│                         │  │  (until user places)   │
+│  ... [Level A] Tier 28  │  └───────────────────────┘
+│  ... [Level B] Tier 27  │
+│  ┄┄┄[NEW LEVEL]┄┄┄ 👻   │◄── ghost card, draggable
+│  ... [Level C] Tier 26  │
+│  ... [Level D] Tier 25  │
+│                         │
+│  ↑ pre-scrolled to the  │
+│    list-reference spot  │
+│    (top if no reference)│
+└─────────────────────────┘
 ```
 
-- Ghost card shows level name and assigned tier for visual comparison
-- Autoscrolls to the difficulty band on open
-- If no levels exist at a similar tier, autoscrolls to nearest tier boundary
-- Logging form state fully preserved if modal is opened and closed
-- Skipping uses auto-placement
-
-### Unconfirmed Placement Indicator
-
-Auto-placed completions display a subtle indicator (small icon or faint highlight) in the ranking view nudging the user to manually confirm or adjust. Dismissible.
+- **Place now:** opens the ranking. With a list reference, the view is pre-scrolled to the matching tier spot (highest match, or just above the closest under). Without a reference, it opens at the top and the user scrolls to place.
+- **Place later:** the completion goes to the **Unplaced** side panel until the user places it. The Unplaced panel is only ever reached by the user _choosing_ to skip — no completion is ever _forced_ unplaced.
+- Ghost card shows level name and assigned tier for visual comparison.
 
 ---
 
@@ -109,16 +79,17 @@ Route: `/[username]/ranking/classic`
 │                                                 │
 │  #1  ████ Tartarus          GDDL 35  ⚡         │
 │  #2  ████ Slaughterhouse    GDDL 33             │
-│  #3  ████ Avernus           GDDL 31  ⚠ needs placement
+│  #3  ████ Avernus           GDDL 31             │
 │  #4  ████ Bloodbath         GDDL 27             │
 │  ...                                            │
 └─────────────────────────────────────────────────┘
 ```
 
 Features:
+
 - Drag-and-drop reordering directly on page (dnd-kit)
 - Toggle to show/hide unrated levels (ranking numbers update for that view)
-- "Needs placement" indicator on auto-placed entries
+- Unplaced completions (user chose "Place later") live in a separate **Unplaced** panel until manually placed — they are not shown inline as auto-placed entries
 - Visual indicator on entries with pending level data updates
 - Sortable by any logged metric independent of ranking order
 

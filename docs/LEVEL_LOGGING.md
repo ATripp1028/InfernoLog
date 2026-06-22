@@ -25,7 +25,7 @@ When a user enters a level ID, the following fires automatically:
 User enters Level ID
         │
         ▼
-  GDBrowser API ──────────────────► name, creator, song, length
+  GD servers API ─────────────────► name, creator, song, length
         │
         ▼
   Is level rated?
@@ -36,7 +36,7 @@ User enters Level ID
   levelthumbs.prevter.me ─────────► thumbnail (best-effort, silent fallback)
 ```
 
-**Fallback:** If GDBrowser is unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability.
+**Fallback:** If the GD servers are unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability.
 
 ---
 
@@ -44,26 +44,27 @@ User enters Level ID
 
 All fields are optional except the level ID. The user logs whatever is relevant to them at that moment.
 
-| Field | Type | Notes |
-|---|---|---|
-| Level ID | Required | Triggers autofill on entry |
-| Percentage | Decimal 0-100 | Classic only. Omitted for platformer |
-| Run range | e.g. 44-87 | Start and end of best run (1-100 each) |
-| Completion time | Duration | Platformer only (v2) |
-| Date | Date | Checkbox to flag as uncertain |
-| Attempts | Integer | Cumulative. See convention below |
-| On stream | Boolean | Was this session streamed live |
-| FPS | Integer | e.g. 60, 120, 240 |
-| Peak heart rate | Integer | BPM from heart rate monitor (v2) |
-| Enjoyment | Decimal 0-10 | |
-| Rating | Simple 0-10 or per-category scores | Depends on user's rating mode |
-| In-game difficulty | Text | Snapshot e.g. "Insane Demon at time of beat" |
-| List references | Per-list tier/rank | GDDL tier, Pointercrate rank, etc. |
-| GDDL record accepted | Boolean | Manual flag (v1). Other lists v2+ |
-| Notes | Text | Freeform. Venting encouraged, see Community Policy |
-| Completion video URL | URL | |
-| Highlight video URL | URL | Independent of On Stream |
-| Is completion | Boolean | User explicitly marks this as their beat |
+| Field                | Type                               | Notes                                                                                                                                                                    |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Level ID             | Required                           | Triggers autofill on entry                                                                                                                                               |
+| Percentage           | Decimal 0-100                      | Progress path only (Best progress). Classic only. **Omitted on completions** (100% implied)                                                                              |
+| Run range            | e.g. 30-63                         | Progress path only, "From a run" mode. Start and end of best run (0-100 each). **Not used on completions** (always 0→100)                                                |
+| Completion time      | Duration                           | Platformer only (v2)                                                                                                                                                     |
+| Date                 | Date                               | Checkbox to flag as uncertain                                                                                                                                            |
+| Attempts             | Integer                            | Cumulative. See convention below                                                                                                                                         |
+| On stream            | Boolean                            | Was this session streamed live                                                                                                                                           |
+| FPS                  | Integer                            | e.g. 60, 120, 240. Pre-filled from the user's default FPS preference                                                                                                     |
+| Peak heart rate      | Integer                            | BPM from heart rate monitor (v2)                                                                                                                                         |
+| Enjoyment            | Decimal 0-10                       |                                                                                                                                                                          |
+| Rating               | Simple 0-10 or per-category scores | Depends on user's rating mode                                                                                                                                            |
+| In-game difficulty   | Cached, read-only                  | The level's actual rating, cached on `levels` from the GD servers (e.g. "Insane Demon"). Displayed, never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
+| Difficulty opinion   | Pill selector                      | Per-completion. The user's subjective read: Not demon-worthy / Easy / Medium / Hard / Insane / Extreme. The only difficulty field the user edits                         |
+| List references      | Per-list tier/rank                 | GDDL tier, AREDL rank (extreme demons only), NLW tier                                                                                                                    |
+| GDDL record accepted | Boolean                            | Manual flag (v1). Other lists v2+                                                                                                                                        |
+| Notes                | Text                               | Freeform. Venting encouraged, see Community Policy                                                                                                                       |
+| Completion video URL | URL                                |                                                                                                                                                                          |
+| Highlight video URL  | URL                                | Independent of On Stream                                                                                                                                                 |
+| Is completion        | Boolean                            | User explicitly marks this as their beat                                                                                                                                 |
 
 ### Attempt Count Convention
 
@@ -75,28 +76,17 @@ In InfernoLog, percentage is used for both progress logging and worst fail track
 
 ### Run Range Format
 
-Run range represents the start and end percentage of the player's best run, e.g. `44-87` meaning they started at 44% and reached 87%. Both values are integers between 1 and 100.
+Run range represents the start and end percentage of the player's best run, e.g. `30-63` meaning they started at 30% and reached 63%. Both values are integers between **0 and 100** (a run from the start of the level is **0%**, not 1%).
+
+Run range applies **only to the progress path**, and only in "From a run" mode. A completion is by definition a 0→100 run, so it has **no run-range fields** — there is nothing to log. See `LOGGING_FLOW.md` for the progress path's "From 0%" / "From a run" segmented control.
 
 ---
 
 ## Logging Flow
 
-```
-┌─────────────────────────────────────────────┐
-│           Log Progress Update               │
-│                                             │
-│  1. Enter level ID → autofill fires         │
-│  2. Fill in any desired fields              │
-│  3. Is this your completion?                │
-│     ├── Yes → mark is_completion = true     │
-│     │         unlock ranking placement      │
-│     └── No  → proceed to submit            │
-│  4. [If completion] Place in ranking?       │
-│     ├── Yes → open placement modal          │
-│     └── No  → auto-placement used          │
-│  5. Submit                                  │
-└─────────────────────────────────────────────┘
-```
+The logging flow is a FAB-triggered, multi-step modal. **The path — log a completion, log progress, or drop a level — is chosen at the FAB before the modal opens**, so each path is a purpose-built form rather than one generic form with a mid-flow completion toggle. There is **no mid-form "Is this your completion?" decision** and **no auto-placement**: every completion starts unplaced and is placed manually, prompted _after_ submit.
+
+See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, the three paths, field reference, and post-submit ranking placement). It supersedes this section.
 
 ---
 
@@ -105,12 +95,12 @@ Run range represents the start and end percentage of the player's best run, e.g.
 When `is_completion = true`:
 
 - The `level_progress.status` is updated to `completed`
-- The entry becomes eligible for the personal difficulty ranking
+- The entry becomes eligible for the personal difficulty ranking (placed manually — see `RANKING_SYSTEM.md`)
 - Top 5 tracking snapshot is evaluated
 - The GDDL record submission option appears (if API key configured)
-- The ranking placement modal becomes available
+- The post-submit "Place in ranking now?" prompt is offered
 
-**One completion per level per user in v1.** Rebeat handling is a v3 feature. If a user attempts to mark a second update as `is_completion` for the same level, they are warned and asked to confirm, which will replace the existing completion designation.
+**One completion per level per user in v1, and it is edit-not-replace.** Rebeat handling is a v3 feature. Choosing "Log a completion" for a level that already has a completion **routes the user to edit the existing completion** rather than creating or overwriting a second one. There is no replace path in v1.
 
 ---
 
@@ -120,17 +110,25 @@ A dropped level is a `level_progress` entry with `status = dropped`. It is not a
 
 ```
 level_progress.status transitions:
+  (none) → dropped          (drop-from-scratch — dropping a never-logged level)
   in_progress → dropped     (user marks as dropped)
-  dropped → in_progress     (user picks it back up)
+  dropped → in_progress     (automatic when the user logs new progress)
   in_progress → completed   (user logs completion)
   dropped → completed       (user beats it after dropping)
 ```
 
+A level can be dropped without ever having been logged ("drop-from-scratch"): the
+`level_progress` row is created directly at `status = dropped`, with no prior
+`in_progress` row. Conversely, logging a progress update on a dropped level
+**automatically** flips it back to `in_progress` — see `LOGGING_FLOW_RECONCILIATION.md`.
+
 When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing `level_progress` entry. The drop history remains intact as part of the progress timeline.
 
 Additional drop-specific fields on `level_progress`:
+
 - `dropped_reason` — freeform text
 - `dropped_at` — date
+- `attempts_at_drop` — optional attempt count captured on the drop screen
 
 ---
 
