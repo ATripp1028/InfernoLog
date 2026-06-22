@@ -13,6 +13,10 @@ import {
   LevelSearchResultSchema,
   ResolveLevelResponseSchema,
   ExistingCompletionSchema,
+  LevelListSummarySchema,
+  LevelProgressListEntrySchema,
+  LevelProgressListItemSchema,
+  LevelProgressListResponseSchema,
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -31,3 +35,13 @@ export type CompletionListReferenceInput = z.infer<
 export type LevelSearchResult = z.infer<typeof LevelSearchResultSchema>
 export type ResolveLevelResponse = z.infer<typeof ResolveLevelResponseSchema>
 export type ExistingCompletion = z.infer<typeof ExistingCompletionSchema>
+
+export type LevelListSummary = z.infer<typeof LevelListSummarySchema>
+export type LevelProgressListEntry = z.infer<
+  typeof LevelProgressListEntrySchema
+>
+export type LevelProgressListItem = z.infer<typeof LevelProgressListItemSchema>
+export type LevelProgressListResponse = z.infer<
+  typeof LevelProgressListResponseSchema
+>
+

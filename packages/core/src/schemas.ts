@@ -8,6 +8,7 @@ import {
   DateFormatPreference,
   DifficultyOpinion,
   EntryVisibility,
+  LevelProgressStatus,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -435,4 +436,84 @@ export const ResolveLevelResponseSchema = z.object({
   // fetching it never blocks or fails the resolve.
   suggestedGddlTier: z.number().nullable(),
   existingCompletion: ExistingCompletionSchema.nullable(),
+})
+
+// ─────────────────────────────────────────────
+// THE LIST — the "My Demons" page wire contract.
+//
+// GET /v1/me/progress returns the authed user's full level-progress list in one
+// payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
+// and column selection happen client-side, so each row carries the raw fields
+// every filter/column needs rather than pre-filtered results. See
+// docs/API_DESIGN.md and the list page design.
+// ─────────────────────────────────────────────
+
+// Trimmed level metadata for a list row — the difficulty face, name/creator,
+// type, rated-status badges, and tier-badge context. A subset of LevelSchema.
+export const LevelListSummarySchema = z.object({
+  inGameId: z.string(),
+  name: z.string().nullable(),
+  creator: z.string().nullable(),
+  levelType: z.nativeEnum(LevelType),
+  inGameDifficulty: z.string().nullable(),
+  isDemon: z.boolean(),
+  isRated: z.boolean(),
+  difficultyFace: z.string().nullable(),
+  featured: z.boolean().nullable(),
+  epicValue: z.number().int().nullable(),
+  length: z.string().nullable(),
+})
+
+// The representative progress update folded into a list row: the completion
+// update when the level is COMPLETED, otherwise the most recent update. Drives
+// the Date / Attempts / Rating / Enjoyment / Status columns and most filters.
+export const LevelProgressListEntrySchema = z.object({
+  progressUpdateId: z.string().uuid(),
+  isCompletion: z.boolean(),
+  date: z.coerce.date().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  percentage: z.number().nullable(),
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  enjoyment: z.number().int().nullable(), // 0–100 internal scale
+  // Computed at query time (never stored): simpleRating in SIMPLE mode, the
+  // weighted average of ratingScores in WEIGHTED mode. 0–100 internal scale.
+  overallRating: z.number().nullable(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
+  onStream: z.boolean(),
+  fps: z.number().int().nullable(),
+  videoUrl: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+  notes: z.string().nullable(),
+  loggedAt: z.coerce.date(),
+  listReferences: z.array(
+    z.object({
+      listSource: z.nativeEnum(ListSource),
+      tierOrRank: z.string(),
+      atTimeOfLogging: z.boolean(),
+    })
+  ),
+})
+
+export const LevelProgressListItemSchema = z.object({
+  levelProgressId: z.string().uuid(),
+  status: z.nativeEnum(LevelProgressStatus),
+  visibility: z.nativeEnum(EntryVisibility),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  // Drop-specific, level-scoped fields.
+  worstFail: z.number().int().nullable(),
+  attemptsAtDrop: z.number().int().nullable(),
+  droppedAt: z.coerce.date().nullable(),
+  droppedReason: z.string().nullable(),
+  // Derived: a completed CLASSIC level with no ClassicRanking row yet.
+  needsPlacement: z.boolean(),
+  level: LevelListSummarySchema,
+  // Null only for the rare status row with zero progress updates.
+  entry: LevelProgressListEntrySchema.nullable(),
+})
+
+export const LevelProgressListResponseSchema = z.object({
+  data: z.array(LevelProgressListItemSchema),
 })

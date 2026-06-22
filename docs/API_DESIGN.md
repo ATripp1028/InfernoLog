@@ -95,11 +95,13 @@ Returns public profile data. 403 if private. Accepts both username and UUID — 
 **Reads** (list + per-level detail):
 
 ```
-GET    /v1/users/{usernameOrId}/progress
+GET    /v1/me/progress                              (implemented — the List page)
+GET    /v1/users/{usernameOrId}/progress            (future — cross-user viewing)
 GET    /v1/users/{usernameOrId}/progress/{levelId}
 ```
 
-- `GET` (list): Paginated. Sortable by any logged metric via `?sort=` and `?order=` params. Filterable by list source, tier range, date range.
+- `GET /v1/me/progress` (implemented) — Backs the "My Demons" List page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata, the **representative** progress update (the completion update when `status = completed`, otherwise the most recent update), its `listReferences`, a query-time-computed `overallRating` (simpleRating in SIMPLE mode; weighted average of `ratingScores` in WEIGHTED mode — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicRanking` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side. This intentionally deviates from the paginated/server-filtered design below — the dataset is a single user's demons (hundreds, maybe low thousands of rows) and the List page UI (live range sliders + a real-time match counter) wants the full set in hand.
+- `GET /v1/users/{usernameOrId}/progress` (future): Cross-user viewing. Paginated, respects per-entry visibility (hides `PRIVATE` entries and honors `profile_public`). Sortable by any logged metric via `?sort=` and `?order=` params. Filterable by list source, tier range, date range.
 
 **Writes** — per-action, me-scoped (the authenticated user always comes from the
 Cognito JWT, never from the path or payload):

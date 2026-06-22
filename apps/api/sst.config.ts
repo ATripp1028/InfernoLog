@@ -283,6 +283,9 @@ export default $config({
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
 
+    // The "My Demons" list page — the user's full level-progress list.
+    authedRoute('GET /v1/me/progress')
+
     // ─────────────────────────────────────────────
     // LOGGING — entry-creation writes + level-entry support
     // ─────────────────────────────────────────────
