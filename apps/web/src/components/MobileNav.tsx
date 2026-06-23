@@ -1,9 +1,16 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, Plus } from 'lucide-react'
-import { NAV_ITEMS, MOBILE_OVERFLOW_KEYS, type NavItem } from '../utils/navConfig'
+import {
+  NAV_ITEMS,
+  MOBILE_OVERFLOW_KEYS,
+  type NavItem,
+} from '../utils/navConfig'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
-import { LOGGING_ACTIONS, type LoggingAction } from '@/features/logging/loggingActions'
+import {
+  LOGGING_ACTIONS,
+  type LoggingAction,
+} from '@/features/logging/loggingActions'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
@@ -12,7 +19,7 @@ export function MobileNav() {
   const { open } = useLoggingFlow()
 
   const byKey = (key: string): NavItem => {
-    const item = NAV_ITEMS.find(n => n.key === key)
+    const item = NAV_ITEMS.find((n) => n.key === key)
     if (!item) throw new Error(`Unknown nav key: ${key}`)
     return item
   }
@@ -36,7 +43,7 @@ export function MobileNav() {
               <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
             </div>
             <ul className="flex flex-col gap-1 px-2 py-2">
-              {overflow.map(item => (
+              {overflow.map((item) => (
                 <li key={item.key}>
                   <SheetItem item={item} />
                 </li>
@@ -59,7 +66,7 @@ export function MobileNav() {
               <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
             </div>
             <ul className="flex flex-col gap-1 px-2 py-2">
-              {LOGGING_ACTIONS.map(action => (
+              {LOGGING_ACTIONS.map((action) => (
                 <li key={action.key}>
                   <FabSheetItem
                     action={action}
@@ -86,7 +93,7 @@ export function MobileNav() {
           active={fabMenuOpen}
           onClick={() => {
             setOverflowOpen(false)
-            setFabMenuOpen(v => !v)
+            setFabMenuOpen((v) => !v)
           }}
         />
         <BarTab item={log} active={location.pathname === log.to} />
@@ -94,7 +101,7 @@ export function MobileNav() {
           active={overflowOpen}
           onClick={() => {
             setFabMenuOpen(false)
-            setOverflowOpen(v => !v)
+            setOverflowOpen((v) => !v)
           }}
         />
       </nav>
@@ -121,20 +128,35 @@ function BarTab({ item, active = false }: { item: NavItem; active?: boolean }) {
     )
   }
   if (item.status === 'enabled' && item.to) {
-    return <Link to={item.to} className={className}>{content}</Link>
+    return (
+      <Link to={item.to} className={className}>
+        {content}
+      </Link>
+    )
   }
-  return <div className={className} aria-disabled>{content}</div>
+  return (
+    <div className={className} aria-disabled>
+      {content}
+    </div>
+  )
 }
 
-function MoreTab({ active, onClick }: { active: boolean; onClick: () => void }) {
+function MoreTab({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={active}
       aria-label="More"
-      className={`flex w-16 flex-col items-center justify-center gap-1 ${active ? 'text-primary' : 'text-text-secondary'
-        }`}
+      className={`flex w-16 flex-col items-center justify-center gap-1 ${
+        active ? 'text-primary' : 'text-text-secondary'
+      }`}
     >
       <Menu size={22} />
       <span className="text-[11px] font-medium">More</span>
@@ -142,7 +164,13 @@ function MoreTab({ active, onClick }: { active: boolean; onClick: () => void }) 
   )
 }
 
-function FabSlot({ active, onClick }: { active: boolean; onClick: () => void }) {
+function FabSlot({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
@@ -180,10 +208,11 @@ function FabSheetItem({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors ${action.highlight
-        ? 'bg-primary text-primary-foreground'
-        : 'text-text-primary hover:bg-bg-subtle'
-        }`}
+      className={`flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors ${
+        action.highlight
+          ? 'bg-primary text-primary-foreground'
+          : 'text-text-primary hover:bg-bg-subtle'
+      }`}
     >
       <Icon size={20} />
       <span>{action.label}</span>

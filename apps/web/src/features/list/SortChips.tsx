@@ -31,8 +31,14 @@ function Chip({
   onToggleDir: () => void
   onRemove: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: spec.key })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: spec.key })
   return (
     <div
       ref={setNodeRef}

@@ -44,4 +44,3 @@ export type LevelProgressListItem = z.infer<typeof LevelProgressListItemSchema>
 export type LevelProgressListResponse = z.infer<
   typeof LevelProgressListResponseSchema
 >
-

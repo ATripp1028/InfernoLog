@@ -1,5 +1,9 @@
 import { ChevronDown } from 'lucide-react'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Switch } from '@/components/ui/switch'
 import { COLUMNS, type ColumnVisibility, type ColumnId } from './columns'
 

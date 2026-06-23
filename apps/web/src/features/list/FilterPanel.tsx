@@ -2,7 +2,11 @@ import { X } from 'lucide-react'
 import type { RatingDisplayScale } from '@/lib/api/me'
 import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
-import { displayMax, formatRating, formatNumber } from '@/features/logging/format'
+import {
+  displayMax,
+  formatRating,
+  formatNumber,
+} from '@/features/logging/format'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from './tierColor'
 import {
@@ -128,7 +132,8 @@ export function FilterPanel({
   availableDifficulties,
   onClose,
 }: FilterPanelProps) {
-  const set = (patch: Partial<FilterState>) => onChange({ ...filters, ...patch })
+  const set = (patch: Partial<FilterState>) =>
+    onChange({ ...filters, ...patch })
   const max = displayMax(scale)
   // dateDomain() reads "now"; routed through the helper so the render stays
   // free of a direct (impure) Date.now() call.
@@ -168,7 +173,9 @@ export function FilterPanel({
               <Chip
                 key={p.value}
                 selected={filters.statuses.includes(p.value)}
-                onClick={() => set({ statuses: toggle(filters.statuses, p.value) })}
+                onClick={() =>
+                  set({ statuses: toggle(filters.statuses, p.value) })
+                }
               >
                 {p.label}
               </Chip>
@@ -206,7 +213,9 @@ export function FilterPanel({
               <Chip
                 key={s}
                 selected={filters.listSources.includes(s)}
-                onClick={() => set({ listSources: toggle(filters.listSources, s) })}
+                onClick={() =>
+                  set({ listSources: toggle(filters.listSources, s) })
+                }
               >
                 {s}
               </Chip>
@@ -225,7 +234,10 @@ export function FilterPanel({
             format={(v) => (v >= TIER_DOMAIN[1] ? '35+' : String(v))}
             trackClassName="bg-transparent"
             trackStyle={{
-              backgroundImage: gddlTrackGradient(TIER_DOMAIN[0], TIER_DOMAIN[1]),
+              backgroundImage: gddlTrackGradient(
+                TIER_DOMAIN[0],
+                TIER_DOMAIN[1]
+              ),
             }}
           />
         </FilterSection>
@@ -239,7 +251,9 @@ export function FilterPanel({
             value={filters.dateBeaten}
             onChange={(dateBeaten) => set({ dateBeaten })}
             format={(v, end) =>
-              end === 'max' && today - v < 2 * 86_400_000 ? 'Today' : monthYear(v)
+              end === 'max' && today - v < 2 * 86_400_000
+                ? 'Today'
+                : monthYear(v)
             }
           />
         </FilterSection>

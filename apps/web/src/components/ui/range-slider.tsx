@@ -8,8 +8,9 @@ import { cn } from '@/lib/utils'
 //
 // Pass an optional `trackClassName` to override the active-range fill (e.g. the
 // GDDL tier slider uses a difficulty gradient instead of the solid primary).
-interface RangeSliderProps
-  extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
+interface RangeSliderProps extends React.ComponentPropsWithoutRef<
+  typeof SliderPrimitive.Root
+> {
   trackClassName?: string | undefined
   // Optional background for the full track (e.g. the GDDL tier gradient).
   trackStyle?: React.CSSProperties | undefined
@@ -35,7 +36,10 @@ export const RangeSlider = forwardRef<
         style={trackStyle}
       >
         <SliderPrimitive.Range
-          className={cn('absolute h-full bg-[var(--color-primary)]', trackClassName)}
+          className={cn(
+            'absolute h-full bg-[var(--color-primary)]',
+            trackClassName
+          )}
         />
       </SliderPrimitive.Track>
       {Array.from({ length: count }).map((_, i) => (

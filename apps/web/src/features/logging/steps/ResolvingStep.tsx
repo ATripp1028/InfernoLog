@@ -10,7 +10,8 @@ import { StepBody } from '../components'
 // to applyResolved/goManual — the same transition FindLevelStep performs after
 // the user picks a level. Renders only a brief loading state.
 export function ResolvingStep() {
-  const { pendingEditLevelId, applyResolved, goManual, close } = useLoggingFlow()
+  const { pendingEditLevelId, applyResolved, goManual, close } =
+    useLoggingFlow()
   const resolveLevel = useResolveLevel()
   // Resolve exactly once per mount, even under StrictMode double-invocation.
   const startedRef = useRef(false)

@@ -23,8 +23,7 @@ const { default: progressApp } = await import('./progress')
 
 const prisma = getTestPrisma()
 
-type ListItem =
-  import('@infernolog/core').LevelProgressListItem
+type ListItem = import('@infernolog/core').LevelProgressListItem
 
 async function getList(userId: string): Promise<ListItem[]> {
   const res = await buildApp(progressApp, { userId }).request('/me/progress')
@@ -71,9 +70,7 @@ async function seedProgress(
           enjoyment: u.enjoyment ?? null,
           percentage: u.percentage ?? null,
           attempts: u.attempts ?? null,
-          ratingScores: u.ratingScores
-            ? { create: u.ratingScores }
-            : undefined,
+          ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
           listReferences: u.listReferences
             ? {
                 create: u.listReferences.map((r) => ({

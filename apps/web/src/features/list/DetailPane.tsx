@@ -99,7 +99,9 @@ export function DetailPane({
           <Stat
             label="Enjoyment"
             value={
-              entry?.enjoyment != null ? formatRating(entry.enjoyment, scale) : '—'
+              entry?.enjoyment != null
+                ? formatRating(entry.enjoyment, scale)
+                : '—'
             }
           />
           {item.worstFail != null && (

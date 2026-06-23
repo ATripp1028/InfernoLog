@@ -3,11 +3,7 @@ import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-} from '../components/ui/sheet'
+import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
@@ -160,7 +156,9 @@ export function List() {
     <TooltipProvider delayDuration={300}>
       <div className="flex">
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 md:p-6">
-          <h1 className="text-2xl font-semibold text-text-primary">My Demons</h1>
+          <h1 className="text-2xl font-semibold text-text-primary">
+            My Demons
+          </h1>
 
           <Toolbar
             search={search}

@@ -64,7 +64,13 @@ function CoinsCell({ item }: { item: ListItem }) {
   )
 }
 
-export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) {
+export function ListRow({
+  item,
+  columns,
+  scale,
+  datePref,
+  minWidth,
+}: RowProps) {
   const { entry, level } = item
   const dash = <span className="text-text-tertiary">—</span>
 
@@ -74,7 +80,10 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
       style={{ minWidth }}
     >
       <RowWash item={item} />
-      <div className="relative flex min-w-0 flex-1" style={{ minWidth: LEVEL_MIN_WIDTH }}>
+      <div
+        className="relative flex min-w-0 flex-1"
+        style={{ minWidth: LEVEL_MIN_WIDTH }}
+      >
         <LevelCell item={item} />
       </div>
       {COLUMNS.map((col) => {
@@ -96,9 +105,16 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
             )
           case 'date':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="date">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="date"
+              >
                 {entry?.date ? (
-                  <span className={entry.dateUncertain ? 'text-warning' : undefined}>
+                  <span
+                    className={entry.dateUncertain ? 'text-warning' : undefined}
+                  >
                     {formatDate(entry.date, datePref)}
                     {entry.dateUncertain && (
                       <span title="Uncertain date" className="text-warning">
@@ -114,13 +130,23 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
             )
           case 'attempts':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="attempts">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="attempts"
+              >
                 {entry?.attempts != null ? formatNumber(entry.attempts) : dash}
               </Cell>
             )
           case 'rating':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="rating">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="rating"
+              >
                 {entry?.overallRating != null
                   ? formatRating(entry.overallRating, scale)
                   : dash}
@@ -128,7 +154,12 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
             )
           case 'enjoy':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="enjoy">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="enjoy"
+              >
                 {entry?.enjoyment != null
                   ? formatRating(entry.enjoyment, scale)
                   : dash}
@@ -136,31 +167,56 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
             )
           case 'id':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="id">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="id"
+              >
                 <CopyableId id={level.inGameId} className="text-xs" />
               </Cell>
             )
           case 'creator':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="creator">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="creator"
+              >
                 {level.creator ?? dash}
               </Cell>
             )
           case 'length':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="length">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="length"
+              >
                 {level.length ?? dash}
               </Cell>
             )
           case 'songName':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="song">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="song"
+              >
                 {level.songName ?? dash}
               </Cell>
             )
           case 'songArtist':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="artist">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="artist"
+              >
                 {level.songAuthor ?? dash}
               </Cell>
             )
@@ -180,7 +236,12 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
             )
           case 'version':
             return (
-              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="version">
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="version"
+              >
                 {level.gameVersion ?? dash}
               </Cell>
             )

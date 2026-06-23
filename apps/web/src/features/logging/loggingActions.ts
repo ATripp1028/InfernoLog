@@ -15,9 +15,20 @@ export interface LoggingAction {
 }
 
 export const LOGGING_ACTIONS: LoggingAction[] = [
-  { key: 'completion', label: 'Log a completion', icon: Check, path: 'completion', highlight: true },
+  {
+    key: 'completion',
+    label: 'Log a completion',
+    icon: Check,
+    path: 'completion',
+    highlight: true,
+  },
   { key: 'progress', label: 'Log progress', icon: Flag, path: 'progress' },
   { key: 'drop', label: 'Drop a level', icon: X, path: 'drop' },
-  { key: 'want-to-beat', label: 'Add to Want to Beat', icon: Star, disabled: true },
+  {
+    key: 'want-to-beat',
+    label: 'Add to Want to Beat',
+    icon: Star,
+    disabled: true,
+  },
   { key: 'add-to-list', label: 'Add to a list', icon: List, disabled: true },
 ]

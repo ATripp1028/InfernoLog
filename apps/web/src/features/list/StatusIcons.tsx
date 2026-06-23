@@ -1,5 +1,9 @@
 import { AlertTriangle, Play, Tv, type LucideIcon } from 'lucide-react'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import type { ListItem } from './types'
 
 // Row status icons: has video (links to the video), on stream, needs placement.

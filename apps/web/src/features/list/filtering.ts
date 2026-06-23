@@ -42,7 +42,10 @@ function dateMs(item: ListItem): number | null {
   return Number.isFinite(ms) ? ms : null
 }
 
-function matchesRatedStatus(item: ListItem, status: RatedStatusFilter): boolean {
+function matchesRatedStatus(
+  item: ListItem,
+  status: RatedStatusFilter
+): boolean {
   const { isRated, featured, epicValue } = item.level
   switch (status) {
     case 'ALL':

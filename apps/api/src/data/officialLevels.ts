@@ -426,11 +426,13 @@ function coinCount(id: number): number {
   return 3
 }
 
-export const OFFICIAL_LEVELS: OfficialLevel[] = RAW_OFFICIAL_LEVELS.map((l) => ({
-  ...l,
-  gameVersion: releaseVersion(Number(l.inGameId)),
-  coins: coinCount(Number(l.inGameId)),
-}))
+export const OFFICIAL_LEVELS: OfficialLevel[] = RAW_OFFICIAL_LEVELS.map(
+  (l) => ({
+    ...l,
+    gameVersion: releaseVersion(Number(l.inGameId)),
+    coins: coinCount(Number(l.inGameId)),
+  })
+)
 
 // Lookup for serialization-time overrides (the list endpoint fills in the
 // version/coins official levels don't get from RobTop).
