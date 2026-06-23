@@ -1,14 +1,25 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, Plus } from 'lucide-react'
-import { NAV_ITEMS, MOBILE_OVERFLOW_KEYS, type NavItem } from '../utils/navConfig'
+import {
+  NAV_ITEMS,
+  MOBILE_OVERFLOW_KEYS,
+  type NavItem,
+} from '../utils/navConfig'
+import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
+import {
+  LOGGING_ACTIONS,
+  type LoggingAction,
+} from '@/features/logging/loggingActions'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
+  const [fabMenuOpen, setFabMenuOpen] = useState(false)
   const location = useLocation()
+  const { open } = useLoggingFlow()
 
   const byKey = (key: string): NavItem => {
-    const item = NAV_ITEMS.find(n => n.key === key)
+    const item = NAV_ITEMS.find((n) => n.key === key)
     if (!item) throw new Error(`Unknown nav key: ${key}`)
     return item
   }
@@ -32,9 +43,39 @@ export function MobileNav() {
               <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
             </div>
             <ul className="flex flex-col gap-1 px-2 py-2">
-              {overflow.map(item => (
+              {overflow.map((item) => (
                 <li key={item.key}>
                   <SheetItem item={item} />
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+
+      {fabMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setFabMenuOpen(false)}
+            className="fixed inset-0 z-30 bg-black/40"
+          />
+          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+            <div className="flex justify-center pt-2 pb-1">
+              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+            </div>
+            <ul className="flex flex-col gap-1 px-2 py-2">
+              {LOGGING_ACTIONS.map((action) => (
+                <li key={action.key}>
+                  <FabSheetItem
+                    action={action}
+                    onSelect={() => {
+                      if (!action.path) return
+                      setFabMenuOpen(false)
+                      open(action.path)
+                    }}
+                  />
                 </li>
               ))}
             </ul>
@@ -48,11 +89,20 @@ export function MobileNav() {
       >
         <BarTab item={list} active={location.pathname === list.to} />
         <BarTab item={ranking} active={location.pathname === ranking.to} />
-        <FabSlot />
+        <FabSlot
+          active={fabMenuOpen}
+          onClick={() => {
+            setOverflowOpen(false)
+            setFabMenuOpen((v) => !v)
+          }}
+        />
         <BarTab item={log} active={location.pathname === log.to} />
         <MoreTab
           active={overflowOpen}
-          onClick={() => setOverflowOpen(v => !v)}
+          onClick={() => {
+            setFabMenuOpen(false)
+            setOverflowOpen((v) => !v)
+          }}
         />
       </nav>
     </div>
@@ -78,20 +128,35 @@ function BarTab({ item, active = false }: { item: NavItem; active?: boolean }) {
     )
   }
   if (item.status === 'enabled' && item.to) {
-    return <Link to={item.to} className={className}>{content}</Link>
+    return (
+      <Link to={item.to} className={className}>
+        {content}
+      </Link>
+    )
   }
-  return <div className={className} aria-disabled>{content}</div>
+  return (
+    <div className={className} aria-disabled>
+      {content}
+    </div>
+  )
 }
 
-function MoreTab({ active, onClick }: { active: boolean; onClick: () => void }) {
+function MoreTab({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-expanded={active}
       aria-label="More"
-      className={`flex w-16 flex-col items-center justify-center gap-1 ${active ? 'text-primary' : 'text-text-secondary'
-        }`}
+      className={`flex w-16 flex-col items-center justify-center gap-1 ${
+        active ? 'text-primary' : 'text-text-secondary'
+      }`}
     >
       <Menu size={22} />
       <span className="text-[11px] font-medium">More</span>
@@ -99,14 +164,58 @@ function MoreTab({ active, onClick }: { active: boolean; onClick: () => void }) 
   )
 }
 
-function FabSlot() {
+function FabSlot({
+  active,
+  onClick,
+}: {
+  active: boolean
+  onClick: () => void
+}) {
   return (
     <button
       type="button"
-      aria-label="Add level"
+      aria-label="Log a level"
+      aria-haspopup="menu"
+      aria-expanded={active}
+      onClick={onClick}
       className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
     >
       <Plus size={24} strokeWidth={2.5} />
+    </button>
+  )
+}
+
+function FabSheetItem({
+  action,
+  onSelect,
+}: {
+  action: LoggingAction
+  onSelect: () => void
+}) {
+  const Icon = action.icon
+  if (action.disabled) {
+    return (
+      <div
+        className="flex h-12 w-full items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70"
+        aria-disabled
+      >
+        <Icon size={20} />
+        <span className="text-sm font-medium">{action.label}</span>
+      </div>
+    )
+  }
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors ${
+        action.highlight
+          ? 'bg-primary text-primary-foreground'
+          : 'text-text-primary hover:bg-bg-subtle'
+      }`}
+    >
+      <Icon size={20} />
+      <span>{action.label}</span>
     </button>
   )
 }

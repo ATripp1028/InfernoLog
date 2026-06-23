@@ -7,6 +7,7 @@ import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
 import { FindLevelStep } from './steps/FindLevelStep'
+import { ResolvingStep } from './steps/ResolvingStep'
 import { ManualLevelStep } from './steps/ManualLevelStep'
 import { CompletionBasicsStep } from './steps/CompletionBasicsStep'
 import { CompletionRatingStep } from './steps/CompletionRatingStep'
@@ -36,6 +37,8 @@ function headerConfig(path: FlowPath | null, step: FlowStep): HeaderConfig {
   switch (step) {
     case 'find':
       return { eyebrow: e(''), title: 'Find the level', progress: 0.12 }
+    case 'resolving':
+      return { eyebrow: e(''), title: 'Loading entry…', progress: 0.12 }
     case 'manual':
       return { eyebrow: e(''), title: 'Enter level details', progress: 0.12 }
     case 'c_basics':
@@ -87,6 +90,8 @@ function StepView({ step }: { step: FlowStep }) {
   switch (step) {
     case 'find':
       return <FindLevelStep />
+    case 'resolving':
+      return <ResolvingStep />
     case 'manual':
       return <ManualLevelStep />
     case 'c_basics':
@@ -120,7 +125,8 @@ export function LoggingModal() {
   // Once the user has committed to logging (anything past "find" and before the
   // post-save success card), an accidental click outside shouldn't discard the
   // in-progress entry, and an explicit close (X / Escape) asks for confirmation.
-  const guardClose = step !== 'find' && step !== 'c_success'
+  const guardClose =
+    step !== 'find' && step !== 'resolving' && step !== 'c_success'
 
   // Reset the confirmation prompt whenever the modal fully closes/reopens.
   useEffect(() => {
@@ -147,17 +153,30 @@ export function LoggingModal() {
             requestClose()
           }}
           className={cn(
-            'fixed left-1/2 top-1/2 z-50 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 focus:outline-none',
-            isSuccess ? 'w-[420px]' : 'w-[760px]'
+            'fixed z-50 focus:outline-none',
+            // Desktop: centered panel. The inset resets here are longhand on
+            // purpose — mixing the `inset`/`inset-x` shorthand with `left`/`top`
+            // at the same breakpoint clobbers positioning (Tailwind's utility
+            // sort order lets `inset-auto` win), which stranded the modal in the
+            // top-left corner on desktop and after a viewport resize.
+            'md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:max-w-[calc(100vw-2rem)] md:-translate-x-1/2 md:-translate-y-1/2',
+            isSuccess
+              ? // Mobile: bottom sheet. Desktop: 420px centered card.
+                'inset-x-0 bottom-0 w-full md:w-[420px]'
+              : // Mobile: full-screen. Desktop: 760px centered panel.
+                'inset-0 md:w-[760px]'
           )}
         >
           {isSuccess ? (
-            <div className="rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+            <div className="rounded-t-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:rounded-card">
+              <div className="flex justify-center pt-2 pb-1 md:hidden">
+                <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+              </div>
               <Dialog.Title className="sr-only">Completion logged</Dialog.Title>
               <CompletionSuccessStep />
             </div>
           ) : (
-            <div className="relative flex h-[640px] max-h-[calc(100vh-4rem)] flex-col overflow-hidden rounded-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+            <div className="relative flex h-full flex-col overflow-hidden border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:h-[640px] md:max-h-[calc(100vh-4rem)] md:rounded-card md:border">
               {/* Full-panel level thumbnail backdrop (mockup style). Shown once a
                   level is resolved; a heavy scrim keeps the form readable. */}
               {level && (

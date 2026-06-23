@@ -36,6 +36,8 @@ async function main() {
       isRated: level.stars > 0,
       stars: level.stars,
       length: level.length,
+      gameVersion: level.gameVersion,
+      coins: level.coins,
       songName,
       songAuthor,
       officialSongId: level.officialSongId,

@@ -26,9 +26,15 @@ export interface OfficialLevel {
   // Song override when not derivable from officialSongId.
   songName?: string
   songAuthor?: string
+  // The game version the level released on (e.g. "1.5", "2.2"). RobTop's API
+  // never reports this for official levels, so we record it here. Derived below
+  // from RELEASE_VERSIONS; Meltdown/World → 2.0, SubZero → 2.2.
+  gameVersion: string
+  // Secret-coin count. Main levels + Meltdown + SubZero have 3; World has none.
+  coins: number
 }
 
-export const OFFICIAL_LEVELS: OfficialLevel[] = [
+const RAW_OFFICIAL_LEVELS: Omit<OfficialLevel, 'gameVersion' | 'coins'>[] = [
   // ── Main levels (1–22) ────────────────────────────────────────────────────
   {
     inGameId: '1',
@@ -379,3 +385,57 @@ export const OFFICIAL_LEVELS: OfficialLevel[] = [
     officialSongId: 37,
   },
 ]
+
+// Release version per main level (ids 1–22). ⚠️ Best-effort — verify against the
+// changelog if precision matters. Spin-offs are handled by range below.
+const MAIN_RELEASE_VERSIONS: Record<string, string> = {
+  '1': '1.0', // Stereo Madness
+  '2': '1.0', // Back On Track
+  '3': '1.0', // Polargeist
+  '4': '1.0', // Dry Out
+  '5': '1.0', // Base After Base
+  '6': '1.0', // Can't Let Go
+  '7': '1.0', // Jumper
+  '8': '1.1', // Time Machine
+  '9': '1.2', // Cycles
+  '10': '1.3', // xStep
+  '11': '1.4', // Clutterfunk
+  '12': '1.5', // Theory of Everything
+  '13': '1.6', // Electroman Adventures
+  '14': '1.6', // Clubstep
+  '15': '1.7', // Electrodynamix
+  '16': '1.8', // Hexagon Force
+  '17': '1.9', // Blast Processing
+  '18': '1.9', // Theory of Everything 2
+  '19': '2.0', // Geometrical Dominator
+  '20': '2.0', // Deadlocked
+  '21': '2.1', // Fingerdash
+  '22': '2.2', // Dash
+}
+
+// id ranges: Meltdown 23–25, World 26–35, SubZero 36–38.
+function releaseVersion(id: number): string {
+  if (id <= 22) return MAIN_RELEASE_VERSIONS[String(id)] ?? '2.2'
+  if (id <= 35) return '2.0' // Meltdown + World
+  return '2.2' // SubZero
+}
+
+// Main levels + Meltdown + SubZero ship 3 secret coins; World levels have none.
+function coinCount(id: number): number {
+  if (id >= 26 && id <= 35) return 0 // World
+  return 3
+}
+
+export const OFFICIAL_LEVELS: OfficialLevel[] = RAW_OFFICIAL_LEVELS.map(
+  (l) => ({
+    ...l,
+    gameVersion: releaseVersion(Number(l.inGameId)),
+    coins: coinCount(Number(l.inGameId)),
+  })
+)
+
+// Lookup for serialization-time overrides (the list endpoint fills in the
+// version/coins official levels don't get from RobTop).
+export const OFFICIAL_LEVELS_BY_ID = new Map(
+  OFFICIAL_LEVELS.map((l) => [l.inGameId, l])
+)
