@@ -2,7 +2,7 @@ import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { COLUMNS, type ColumnVisibility } from './columns'
-import { ListRow } from './ListRow'
+import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
 
@@ -15,6 +15,17 @@ interface ListTableProps {
   datePref: DateFormatPreference
   onEditItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
+}
+
+// px-3 (12px) on each side of every row.
+const ROW_PADDING = 24
+
+function rowMinWidth(columns: ColumnVisibility): number {
+  const cols = COLUMNS.filter((c) => columns[c.id]).reduce(
+    (sum, c) => sum + c.width,
+    0
+  )
+  return LEVEL_MIN_WIDTH + cols + ROW_PADDING
 }
 
 function SortIndicator({
@@ -37,10 +48,19 @@ function ColumnHeaders({
   columns,
   sorts,
   onToggleSort,
-}: Pick<ListTableProps, 'columns' | 'sorts' | 'onToggleSort'>) {
+  minWidth,
+}: Pick<ListTableProps, 'columns' | 'sorts' | 'onToggleSort'> & {
+  minWidth: number
+}) {
   return (
-    <div className="hidden h-8 items-center gap-1 border-b border-[var(--color-border-subtle)] px-3 md:flex">
-      <div className="min-w-0 flex-1 text-[11px] font-medium text-text-secondary">
+    <div
+      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3"
+      style={{ minWidth }}
+    >
+      <div
+        className="text-[11px] font-medium text-text-secondary"
+        style={{ minWidth: LEVEL_MIN_WIDTH, flex: '1 1 0%' }}
+      >
         Level
       </div>
       {COLUMNS.map((col) => {
@@ -81,11 +101,19 @@ export function ListTable({
   onEditItem,
   onDeleteItem,
 }: ListTableProps) {
-  // Desktop / tablet only — mobile uses MobilePager. Each row gets a right-click
-  // context menu plus a hover kebab, both running the same actions.
+  // Desktop / tablet only — mobile uses MobilePager. One connected box: a single
+  // bordered container, rows flush with dividers, horizontal scroll when the
+  // chosen columns exceed the width.
+  const minWidth = rowMinWidth(columns)
+
   return (
-    <div className="hidden flex-col gap-2 md:flex">
-      <ColumnHeaders columns={columns} sorts={sorts} onToggleSort={onToggleSort} />
+    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border-subtle)] md:block">
+      <ColumnHeaders
+        columns={columns}
+        sorts={sorts}
+        onToggleSort={onToggleSort}
+        minWidth={minWidth}
+      />
       {items.map((item) => {
         const handlers = {
           onEdit: () => onEditItem(item),
@@ -93,14 +121,15 @@ export function ListTable({
         }
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
-            <div className="group relative">
+            <div className="group relative border-b border-[var(--color-border-subtle)] last:border-b-0">
               <ListRow
                 item={item}
                 columns={columns}
                 scale={scale}
                 datePref={datePref}
+                minWidth={minWidth}
               />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
                 <RowActionsKebab handlers={handlers} />
               </div>
             </div>

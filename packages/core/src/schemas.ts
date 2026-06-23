@@ -462,6 +462,13 @@ export const LevelListSummarySchema = z.object({
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),
   length: z.string().nullable(),
+  // Extra optional columns the user can surface on the list.
+  songName: z.string().nullable(),
+  songAuthor: z.string().nullable(),
+  coins: z.number().int().nullable(),
+  coinsVerified: z.boolean().nullable(),
+  twoPlayer: z.boolean().nullable(),
+  gameVersion: z.string().nullable(),
 })
 
 // The representative progress update folded into a list row: the completion

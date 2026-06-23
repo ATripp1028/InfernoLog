@@ -72,7 +72,23 @@ function flagValue(item: ListItem, flag: StatusFlag): boolean {
       return Boolean(item.entry?.dateUncertain)
     case 'needsPlacement':
       return item.needsPlacement
+    case 'twoPlayer':
+      return Boolean(item.level.twoPlayer)
+    case 'hasCoins':
+      return (item.level.coins ?? 0) > 0
+    case 'verifiedCoins':
+      return Boolean(item.level.coinsVerified)
   }
+}
+
+// Order for sorting GD level lengths (unknown values sort last).
+const LENGTH_ORDER: Record<string, number> = {
+  Tiny: 0,
+  Short: 1,
+  Medium: 2,
+  Long: 3,
+  XL: 4,
+  Platformer: 5,
 }
 
 // ── Range helpers ────────────────────────────────────────────────────────────
@@ -104,12 +120,36 @@ export function applyFilters(
 
   return items.filter((item) => {
     if (q) {
-      const name = item.level.name?.toLowerCase() ?? ''
-      const creator = item.level.creator?.toLowerCase() ?? ''
-      if (!name.includes(q) && !creator.includes(q)) return false
+      // Search matches name, creator, level id, and song name/artist.
+      const haystack = [
+        item.level.name,
+        item.level.creator,
+        item.level.inGameId,
+        item.level.songName,
+        item.level.songAuthor,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+      if (!haystack.includes(q)) return false
     }
 
     if (filters.statuses.length && !filters.statuses.includes(item.status))
+      return false
+
+    if (
+      filters.lengths.length &&
+      !(item.level.length && filters.lengths.includes(item.level.length))
+    )
+      return false
+
+    if (
+      filters.gameVersions.length &&
+      !(
+        item.level.gameVersion &&
+        filters.gameVersions.includes(item.level.gameVersion)
+      )
+    )
       return false
 
     if (
@@ -170,6 +210,8 @@ export function countActiveFilters(filters: FilterState): number {
   if (filters.levelTypes.length) n++
   if (filters.ratedStatus !== 'ALL') n++
   if (filters.flags.length) n++
+  if (filters.lengths.length) n++
+  if (filters.gameVersions.length) n++
   if (isRangeActive(filters.rating, RATING_DOMAIN)) n++
   if (isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)) n++
   if (isRangeActive(filters.tier, TIER_DOMAIN)) n++
@@ -202,6 +244,26 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
       return gddlTier(item)
     case 'status':
       return STATUS_ORDER[item.status]
+    case 'id':
+      return Number.parseInt(item.level.inGameId, 10)
+    case 'length':
+      return item.level.length != null
+        ? (LENGTH_ORDER[item.level.length] ?? null)
+        : null
+    case 'songName':
+      return item.level.songName?.toLowerCase() ?? null
+    case 'songArtist':
+      return item.level.songAuthor?.toLowerCase() ?? null
+    case 'coins':
+      return item.level.coins ?? null
+    case 'gameVersion': {
+      const v = item.level.gameVersion
+      if (!v) return null
+      const n = Number.parseFloat(v)
+      return Number.isFinite(n) ? n : v.toLowerCase()
+    }
+    case 'twoPlayer':
+      return item.level.twoPlayer ? 1 : 0
   }
 }
 

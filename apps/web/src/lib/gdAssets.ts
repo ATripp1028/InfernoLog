@@ -90,3 +90,9 @@ export function levelGlowSrc(
 export function levelThumbnailUrl(levelId: string): string {
   return `https://levelthumbs.prevter.me/thumbnail/${levelId}`
 }
+
+// User-coin icon: silver (verified) vs uncollected (unverified) so the list can
+// show whether a level's coins are silver-rated.
+export function userCoinSrc(verified: boolean | null | undefined): string {
+  return `${GD_ASSET_BASE}/${verified ? 'coin-user' : 'coin-uncollected'}.png`
+}

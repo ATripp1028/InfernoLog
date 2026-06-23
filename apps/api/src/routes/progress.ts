@@ -36,6 +36,12 @@ const levelListSelect = {
   featured: true,
   epicValue: true,
   length: true,
+  songName: true,
+  songAuthor: true,
+  coins: true,
+  coinsVerified: true,
+  twoPlayer: true,
+  gameVersion: true,
 } satisfies Prisma.LevelSelect
 
 const listEntryInclude = {

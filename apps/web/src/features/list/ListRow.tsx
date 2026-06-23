@@ -2,6 +2,7 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
+import { userCoinSrc } from '@/lib/gdAssets'
 import { COLUMNS, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { LevelCell } from './LevelCell'
@@ -10,11 +11,16 @@ import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
 import type { ListItem } from './types'
 
+// Minimum width reserved for the Level (face + name) cell before the table
+// scrolls horizontally — keeps long names readable rather than squeezing them.
+export const LEVEL_MIN_WIDTH = 280
+
 interface RowProps {
   item: ListItem
   columns: ColumnVisibility
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  minWidth: number
 }
 
 // One value-over-label cell for the columnar layout.
@@ -32,90 +38,159 @@ function Cell({
   return (
     <div
       className={cn(
-        'shrink-0 flex-col items-center justify-center gap-1',
+        'relative shrink-0 flex-col items-center justify-center gap-1',
         responsiveClass
       )}
       style={{ width }}
     >
-      <div className="text-sm font-semibold text-text-primary">{children}</div>
+      <div className="truncate text-sm font-semibold text-text-primary">
+        {children}
+      </div>
       <div className="text-[10px] text-text-tertiary">{label}</div>
     </div>
   )
 }
 
-export function ListRow({ item, columns, scale, datePref }: RowProps) {
-  const { entry } = item
+function CoinsCell({ item }: { item: ListItem }) {
+  const count = item.level.coins ?? 0
+  if (count <= 0) return <span className="text-text-tertiary">—</span>
+  return (
+    <div className="flex items-center justify-center gap-0.5">
+      {Array.from({ length: count }).map((_, i) => (
+        <img
+          key={i}
+          src={userCoinSrc(item.level.coinsVerified)}
+          alt=""
+          className="size-4"
+        />
+      ))}
+    </div>
+  )
+}
+
+export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) {
+  const { entry, level } = item
   const dash = <span className="text-text-tertiary">—</span>
 
   return (
-    <div className="relative h-[76px] overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
+    <div
+      className="relative flex h-[88px] items-center overflow-hidden px-3"
+      style={{ minWidth }}
+    >
       <RowWash item={item} />
-      <div className="absolute inset-0 flex items-center gap-1 px-3">
+      <div className="relative flex min-w-0 flex-1" style={{ minWidth: LEVEL_MIN_WIDTH }}>
         <LevelCell item={item} />
-        {COLUMNS.map((col) => {
-          if (!columns[col.id]) return null
-          switch (col.id) {
-            case 'tier':
-              return (
-                <div
-                  key={col.id}
-                  className={cn(
-                    'shrink-0 flex-col items-center justify-center gap-1',
-                    col.responsiveClass
-                  )}
-                  style={{ width: col.width }}
-                >
-                  <TierBadge tier={gddlTier(item)} />
-                  <div className="text-[10px] text-text-tertiary">GDDL</div>
-                </div>
-              )
-            case 'date':
-              return (
-                <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="date">
-                  {entry?.date ? (
-                    <span className={entry.dateUncertain ? 'text-warning' : undefined}>
-                      {formatDate(entry.date, datePref)}
-                    </span>
-                  ) : (
-                    dash
-                  )}
-                </Cell>
-              )
-            case 'attempts':
-              return (
-                <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="attempts">
-                  {entry?.attempts != null ? formatNumber(entry.attempts) : dash}
-                </Cell>
-              )
-            case 'rating':
-              return (
-                <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="rating">
-                  {entry?.overallRating != null
-                    ? formatRating(entry.overallRating, scale)
-                    : dash}
-                </Cell>
-              )
-            case 'enjoy':
-              return (
-                <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="enjoy">
-                  {entry?.enjoyment != null
-                    ? formatRating(entry.enjoyment, scale)
-                    : dash}
-                </Cell>
-              )
-            case 'status':
-              return (
-                <div
-                  key={col.id}
-                  className={cn('shrink-0 items-center justify-center', col.responsiveClass)}
-                  style={{ width: col.width }}
-                >
-                  <StatusIcons item={item} />
-                </div>
-              )
-          }
-        })}
       </div>
+      {COLUMNS.map((col) => {
+        if (!columns[col.id]) return null
+        switch (col.id) {
+          case 'tier':
+            return (
+              <div
+                key={col.id}
+                className={cn(
+                  'relative shrink-0 flex-col items-center justify-center gap-1',
+                  col.responsiveClass
+                )}
+                style={{ width: col.width }}
+              >
+                <TierBadge tier={gddlTier(item)} />
+                <div className="text-[10px] text-text-tertiary">GDDL</div>
+              </div>
+            )
+          case 'date':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="date">
+                {entry?.date ? (
+                  <span className={entry.dateUncertain ? 'text-warning' : undefined}>
+                    {formatDate(entry.date, datePref)}
+                  </span>
+                ) : (
+                  dash
+                )}
+              </Cell>
+            )
+          case 'attempts':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="attempts">
+                {entry?.attempts != null ? formatNumber(entry.attempts) : dash}
+              </Cell>
+            )
+          case 'rating':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="rating">
+                {entry?.overallRating != null
+                  ? formatRating(entry.overallRating, scale)
+                  : dash}
+              </Cell>
+            )
+          case 'enjoy':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="enjoy">
+                {entry?.enjoyment != null
+                  ? formatRating(entry.enjoyment, scale)
+                  : dash}
+              </Cell>
+            )
+          case 'id':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="id">
+                <span className="font-mono text-xs">{level.inGameId}</span>
+              </Cell>
+            )
+          case 'length':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="length">
+                {level.length ?? dash}
+              </Cell>
+            )
+          case 'songName':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="song">
+                {level.songName ?? dash}
+              </Cell>
+            )
+          case 'songArtist':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="artist">
+                {level.songAuthor ?? dash}
+              </Cell>
+            )
+          case 'coins':
+            return (
+              <div
+                key={col.id}
+                className={cn(
+                  'relative shrink-0 flex-col items-center justify-center gap-1',
+                  col.responsiveClass
+                )}
+                style={{ width: col.width }}
+              >
+                <CoinsCell item={item} />
+                <div className="text-[10px] text-text-tertiary">coins</div>
+              </div>
+            )
+          case 'version':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="version">
+                {level.gameVersion ?? dash}
+              </Cell>
+            )
+          case 'status':
+            return (
+              <div
+                key={col.id}
+                className={cn(
+                  'relative shrink-0 items-center justify-center',
+                  col.responsiveClass
+                )}
+                style={{ width: col.width }}
+              >
+                <StatusIcons item={item} />
+              </div>
+            )
+        }
+      })}
     </div>
   )
 }

@@ -2,7 +2,19 @@ import type { SortKey } from './types'
 
 // The optional, toggleable columns of the columnar (desktop/tablet) layout.
 // The Level column is always present and not part of this registry.
-export type ColumnId = 'tier' | 'date' | 'attempts' | 'rating' | 'enjoy' | 'status'
+export type ColumnId =
+  | 'tier'
+  | 'date'
+  | 'attempts'
+  | 'rating'
+  | 'enjoy'
+  | 'status'
+  | 'id'
+  | 'length'
+  | 'songName'
+  | 'songArtist'
+  | 'coins'
+  | 'version'
 
 export interface ColumnDef {
   id: ColumnId
@@ -12,38 +24,30 @@ export interface ColumnDef {
   // Extra Tailwind visibility class. Attempts/Enjoy are desktop-only (xl);
   // the rest show wherever the columnar table renders (md+).
   responsiveClass: string
+  // Shown by default. Extra metadata columns are opt-in.
+  defaultVisible: boolean
 }
 
 export const COLUMNS: ColumnDef[] = [
-  { id: 'tier', label: 'Tier', width: 60, sortKey: 'tier', responsiveClass: 'flex' },
-  { id: 'date', label: 'Date', width: 90, sortKey: 'date', responsiveClass: 'flex' },
-  {
-    id: 'attempts',
-    label: 'Attempts',
-    width: 80,
-    sortKey: 'attempts',
-    responsiveClass: 'hidden xl:flex',
-  },
-  { id: 'rating', label: 'Rating', width: 70, sortKey: 'rating', responsiveClass: 'flex' },
-  {
-    id: 'enjoy',
-    label: 'Enjoy',
-    width: 60,
-    sortKey: 'enjoyment',
-    responsiveClass: 'hidden xl:flex',
-  },
-  { id: 'status', label: 'Status', width: 90, responsiveClass: 'flex' },
+  { id: 'tier', label: 'Tier', width: 60, sortKey: 'tier', responsiveClass: 'flex', defaultVisible: true },
+  { id: 'date', label: 'Date', width: 90, sortKey: 'date', responsiveClass: 'flex', defaultVisible: true },
+  { id: 'attempts', label: 'Attempts', width: 80, sortKey: 'attempts', responsiveClass: 'hidden xl:flex', defaultVisible: true },
+  { id: 'rating', label: 'Rating', width: 70, sortKey: 'rating', responsiveClass: 'flex', defaultVisible: true },
+  { id: 'enjoy', label: 'Enjoy', width: 60, sortKey: 'enjoyment', responsiveClass: 'hidden xl:flex', defaultVisible: true },
+  { id: 'status', label: 'Status', width: 90, responsiveClass: 'flex', defaultVisible: true },
+  // Opt-in metadata columns.
+  { id: 'id', label: 'ID', width: 80, sortKey: 'id', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'length', label: 'Length', width: 80, sortKey: 'length', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'songName', label: 'Song', width: 150, sortKey: 'songName', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'songArtist', label: 'Artist', width: 130, sortKey: 'songArtist', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'coins', label: 'Coins', width: 76, sortKey: 'coins', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'version', label: 'Version', width: 76, sortKey: 'gameVersion', responsiveClass: 'flex', defaultVisible: false },
 ]
 
 export type ColumnVisibility = Record<ColumnId, boolean>
 
 export function defaultColumnVisibility(): ColumnVisibility {
-  return {
-    tier: true,
-    date: true,
-    attempts: true,
-    rating: true,
-    enjoy: true,
-    status: true,
-  }
+  return Object.fromEntries(
+    COLUMNS.map((c) => [c.id, c.defaultVisible])
+  ) as ColumnVisibility
 }

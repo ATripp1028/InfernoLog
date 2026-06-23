@@ -11,12 +11,14 @@ import { cn } from '@/lib/utils'
 interface RangeSliderProps
   extends React.ComponentPropsWithoutRef<typeof SliderPrimitive.Root> {
   trackClassName?: string | undefined
+  // Optional background for the full track (e.g. the GDDL tier gradient).
+  trackStyle?: React.CSSProperties | undefined
 }
 
 export const RangeSlider = forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   RangeSliderProps
->(({ className, trackClassName, ...props }, ref) => {
+>(({ className, trackClassName, trackStyle, ...props }, ref) => {
   // Number of thumbs to render — one per value entry (default to 2).
   const count = (props.value ?? props.defaultValue)?.length ?? 2
   return (
@@ -28,7 +30,10 @@ export const RangeSlider = forwardRef<
       )}
       {...props}
     >
-      <SliderPrimitive.Track className="relative h-1 w-full grow overflow-hidden rounded-full bg-[var(--color-bg-subtle)]">
+      <SliderPrimitive.Track
+        className="relative h-1 w-full grow overflow-hidden rounded-full bg-[var(--color-bg-subtle)]"
+        style={trackStyle}
+      >
         <SliderPrimitive.Range
           className={cn('absolute h-full bg-[var(--color-primary)]', trackClassName)}
         />

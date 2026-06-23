@@ -1,8 +1,8 @@
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
 import { gddlTier } from './filtering'
+import { LevelCell } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
@@ -19,7 +19,7 @@ export function ListCard({
   scale: RatingDisplayScale
   datePref: DateFormatPreference
 }) {
-  const { entry, level } = item
+  const { entry } = item
   const stats: string[] = []
   if (entry?.date) stats.push(formatDate(entry.date, datePref))
   if (entry?.attempts != null) stats.push(`${formatNumber(entry.attempts)} att`)
@@ -33,20 +33,11 @@ export function ListCard({
       <RowWash item={item} />
       <div className="relative flex flex-col gap-1.5">
         <div className="flex items-center gap-2">
-          <DifficultyFace
-            difficulty={level.inGameDifficulty}
-            featured={level.featured}
-            epicValue={level.epicValue}
-            rated={level.isRated}
-            size={28}
-          />
-          <p className="min-w-0 flex-1 truncate text-sm font-bold text-text-primary">
-            {level.name ?? 'Unknown level'}
-          </p>
+          <LevelCell item={item} faceSize={52} />
           <TierBadge tier={gddlTier(item)} />
           <StatusIcons item={item} />
         </div>
-        <p className="pl-9 text-xs text-text-secondary">
+        <p className="pl-[64px] text-xs text-text-secondary">
           {stats.length ? stats.join('  ·  ') : 'No progress logged'}
         </p>
       </div>

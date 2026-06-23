@@ -67,6 +67,20 @@ export function List() {
     [items, filters, search, sorts]
   )
 
+  // Distinct length / game-version values present, for the filter chips.
+  const availableLengths = useMemo(() => {
+    const order = ['Tiny', 'Short', 'Medium', 'Long', 'XL', 'Platformer']
+    const set = new Set<string>()
+    for (const i of items) if (i.level.length) set.add(i.level.length)
+    return [...set].sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  }, [items])
+
+  const availableGameVersions = useMemo(() => {
+    const set = new Set<string>()
+    for (const i of items) if (i.level.gameVersion) set.add(i.level.gameVersion)
+    return [...set].sort((a, b) => parseFloat(a) - parseFloat(b))
+  }, [items])
+
   const activeFilterCount = countActiveFilters(filters)
 
   if (me.isPending || !me.data || progress.isPending) {
@@ -163,6 +177,8 @@ export function List() {
             matchCount={visible.length}
             totalCount={items.length}
             scale={ratingDisplayScale}
+            availableLengths={availableLengths}
+            availableGameVersions={availableGameVersions}
             onClose={() => setFilterOpen(false)}
           />
         </SheetContent>

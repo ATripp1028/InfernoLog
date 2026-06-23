@@ -4,6 +4,7 @@ import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
 import { displayMax, formatRating, formatNumber } from '@/features/logging/format'
 import { FilterSection } from './FilterSection'
+import { gddlTrackGradient } from './tierColor'
 import {
   ATTEMPTS_DOMAIN,
   DATE_MIN_MS,
@@ -26,6 +27,9 @@ interface FilterPanelProps {
   matchCount: number
   totalCount: number
   scale: RatingDisplayScale
+  // Distinct values present in the data, for the Length / Game Version chips.
+  availableLengths: string[]
+  availableGameVersions: string[]
   onClose?: () => void
 }
 
@@ -58,6 +62,11 @@ const FLAGS: { value: StatusFlag; label: string }[] = [
   { value: 'uncertainDate', label: 'Uncertain date' },
   { value: 'needsPlacement', label: 'Needs placement' },
 ]
+const LEVEL_FLAGS: { value: StatusFlag; label: string }[] = [
+  { value: 'twoPlayer', label: 'Two player' },
+  { value: 'hasCoins', label: 'Has coins' },
+  { value: 'verifiedCoins', label: 'Verified coins' },
+]
 
 function RangeRow({
   label,
@@ -68,6 +77,7 @@ function RangeRow({
   onChange,
   format,
   trackClassName,
+  trackStyle,
 }: {
   label: string
   min: number
@@ -77,6 +87,7 @@ function RangeRow({
   onChange: (v: Range) => void
   format: (v: number, end: 'min' | 'max') => string
   trackClassName?: string | undefined
+  trackStyle?: React.CSSProperties | undefined
 }) {
   return (
     <div className="flex flex-col gap-2 px-4 py-1.5">
@@ -88,6 +99,7 @@ function RangeRow({
         value={value}
         onValueChange={(v) => onChange([v[0]!, v[1]!])}
         trackClassName={trackClassName}
+        trackStyle={trackStyle}
       />
       <div className="flex justify-between text-[11px] text-text-tertiary">
         <span>{format(value[0], 'min')}</span>
@@ -110,6 +122,8 @@ export function FilterPanel({
   matchCount,
   totalCount,
   scale,
+  availableLengths,
+  availableGameVersions,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) => onChange({ ...filters, ...patch })
@@ -207,7 +221,10 @@ export function FilterPanel({
             value={filters.tier}
             onChange={(tier) => set({ tier })}
             format={(v) => (v >= TIER_DOMAIN[1] ? '35+' : String(v))}
-            trackClassName="bg-transparent bg-gradient-to-r from-[#3b82f6] via-[#22c55e] to-[#932be0]"
+            trackClassName="bg-transparent"
+            trackStyle={{
+              backgroundImage: gddlTrackGradient(TIER_DOMAIN[0], TIER_DOMAIN[1]),
+            }}
           />
         </FilterSection>
 
@@ -272,6 +289,54 @@ export function FilterPanel({
         <FilterSection title="Status Flags">
           <div className="flex flex-wrap gap-1.5 px-4">
             {FLAGS.map((f) => (
+              <Chip
+                key={f.value}
+                selected={filters.flags.includes(f.value)}
+                onClick={() => set({ flags: toggle(filters.flags, f.value) })}
+              >
+                {f.label}
+              </Chip>
+            ))}
+          </div>
+        </FilterSection>
+
+        {availableLengths.length > 0 && (
+          <FilterSection title="Length">
+            <div className="flex flex-wrap gap-1.5 px-4">
+              {availableLengths.map((len) => (
+                <Chip
+                  key={len}
+                  selected={filters.lengths.includes(len)}
+                  onClick={() => set({ lengths: toggle(filters.lengths, len) })}
+                >
+                  {len}
+                </Chip>
+              ))}
+            </div>
+          </FilterSection>
+        )}
+
+        {availableGameVersions.length > 0 && (
+          <FilterSection title="Game Version">
+            <div className="flex flex-wrap gap-1.5 px-4">
+              {availableGameVersions.map((v) => (
+                <Chip
+                  key={v}
+                  selected={filters.gameVersions.includes(v)}
+                  onClick={() =>
+                    set({ gameVersions: toggle(filters.gameVersions, v) })
+                  }
+                >
+                  {v}
+                </Chip>
+              ))}
+            </div>
+          </FilterSection>
+        )}
+
+        <FilterSection title="Level">
+          <div className="flex flex-wrap gap-1.5 px-4">
+            {LEVEL_FLAGS.map((f) => (
               <Chip
                 key={f.value}
                 selected={filters.flags.includes(f.value)}

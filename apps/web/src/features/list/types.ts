@@ -16,6 +16,9 @@ export type StatusFlag =
   | 'onStream'
   | 'uncertainDate'
   | 'needsPlacement'
+  | 'twoPlayer'
+  | 'hasCoins'
+  | 'verifiedCoins'
 
 // A [min, max] inclusive range. Equal to its domain means "no constraint".
 export type Range = [number, number]
@@ -26,6 +29,8 @@ export interface FilterState {
   levelTypes: LevelTypeFilter[] // empty = all
   ratedStatus: RatedStatusFilter // 'ALL' = no constraint
   flags: StatusFlag[] // all selected must be true (AND)
+  lengths: string[] // empty = all (level.length values)
+  gameVersions: string[] // empty = all (level.gameVersion values)
   rating: Range // internal 0–100
   enjoyment: Range // internal 0–100
   tier: Range // 1–35 (35 = 35+)
@@ -41,6 +46,13 @@ export type SortKey =
   | 'enjoyment'
   | 'tier'
   | 'status'
+  | 'id'
+  | 'length'
+  | 'songName'
+  | 'songArtist'
+  | 'coins'
+  | 'gameVersion'
+  | 'twoPlayer'
 
 export interface SortSpec {
   key: SortKey
@@ -67,6 +79,8 @@ export function defaultFilterState(): FilterState {
     levelTypes: [],
     ratedStatus: 'ALL',
     flags: [],
+    lengths: [],
+    gameVersions: [],
     rating: [...RATING_DOMAIN] as Range,
     enjoyment: [...ENJOYMENT_DOMAIN] as Range,
     tier: [...TIER_DOMAIN] as Range,
