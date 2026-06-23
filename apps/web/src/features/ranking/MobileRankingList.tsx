@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Chip } from '@/components/ui/chip'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/sonner'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { usePlaceRanking, useReorderRanking } from '@/lib/api/ranking'
 import { neighboursAround } from './neighbours'
 import { filterPlaced, filterUnplaced, reorderDisabled } from './filtering'
@@ -186,43 +186,36 @@ export function MobileRankingList({
                   key={entry.levelProgressId}
                   type="button"
                   onClick={() => placeFromUnplaced(entry.levelProgressId)}
-                  className="flex w-full items-center gap-3 rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] p-2 text-left"
+                  className="relative w-full overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] text-left"
                 >
-                  <Thumb levelId={entry.level.inGameId} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-text-primary">
-                      {entry.level.name ?? `Level #${entry.level.inGameId}`}
+                  <ThumbnailWash levelId={entry.level.inGameId} variant="card" />
+                  <div className="relative z-10 flex items-center gap-3 p-2">
+                    <DifficultyFace
+                      difficulty={entry.level.inGameDifficulty}
+                      featured={entry.level.featured}
+                      epicValue={entry.level.epicValue}
+                      rated={entry.level.isRated}
+                      size={32}
+                      className="shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium text-text-primary">
+                        {entry.level.name ?? `Level #${entry.level.inGameId}`}
+                      </div>
+                      <div className="truncate text-xs text-text-secondary">
+                        {entry.level.creator
+                          ? `By ${entry.level.creator}`
+                          : 'Unknown creator'}
+                      </div>
                     </div>
-                    <div className="truncate text-xs text-text-tertiary">
-                      {entry.level.creator
-                        ? `By ${entry.level.creator}`
-                        : 'Unknown creator'}
-                    </div>
+                    {entry.badge && <RankingBadge badge={entry.badge} />}
                   </div>
-                  {entry.badge && <RankingBadge badge={entry.badge} />}
                 </button>
               ))
             )}
           </div>
         </SheetContent>
       </Sheet>
-    </div>
-  )
-}
-
-function Thumb({ levelId }: { levelId: string }) {
-  return (
-    <div className="relative h-10 w-16 shrink-0 overflow-hidden rounded bg-[var(--color-bg-subtle)]">
-      <img
-        src={levelThumbnailUrl(levelId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="size-full object-cover"
-      />
     </div>
   )
 }
@@ -265,6 +258,14 @@ function MobileRow({
     >
       <ThumbnailWash levelId={item.level.inGameId} />
       <div className="relative z-10 flex items-center gap-3 p-2">
+        <DifficultyFace
+          difficulty={item.level.inGameDifficulty}
+          featured={item.level.featured}
+          epicValue={item.level.epicValue}
+          rated={item.level.isRated}
+          size={36}
+          className="shrink-0"
+        />
         <div className="min-w-0 flex-1">
         <div className="truncate text-sm font-semibold text-text-primary">
           #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}

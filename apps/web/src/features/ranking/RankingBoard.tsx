@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  pointerWithin,
+  rectIntersection,
   useDroppable,
+  type CollisionDetection,
   type DragEndEvent,
   type DragOverEvent,
   type DragStartEvent,
@@ -39,6 +41,15 @@ interface RankingBoardProps {
 
 const sameOrder = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x, i) => x === b[i])
+
+// Cursor-based collision: a drop registers the moment the pointer is over a row
+// or container, instead of waiting for the dragged card's centre to reach a row
+// centre (closestCenter). Falls back to rect-intersection for keyboard drags,
+// where there's no pointer.
+const collisionDetection: CollisionDetection = (args) => {
+  const byPointer = pointerWithin(args)
+  return byPointer.length > 0 ? byPointer : rectIntersection(args)
+}
 
 export function RankingBoard({
   data,
@@ -263,7 +274,7 @@ export function RankingBoard({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

@@ -1,9 +1,10 @@
 import { forwardRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { DragHandle } from '@/features/settings/components/DragHandle'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { RankingBadge } from './RankingBadge'
+import { ThumbnailWash } from './ThumbnailWash'
 import type { RankingItem } from './types'
 
 interface UnplacedCardProps {
@@ -30,7 +31,7 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
         style={style}
         onClick={onClick}
         className={[
-          'flex items-center gap-2 rounded-card border bg-[var(--color-bg-elevated)] p-2',
+          'relative overflow-hidden rounded-card border bg-[var(--color-bg-elevated)]',
           highlight
             ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
             : 'border-[var(--color-border-subtle)]',
@@ -38,34 +39,33 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
           onClick ? 'cursor-pointer' : '',
         ].join(' ')}
       >
-        {handle}
-        <div className="relative h-8 w-12 shrink-0 overflow-hidden rounded bg-[var(--color-bg-subtle)]">
-          <img
-            src={levelThumbnailUrl(level.inGameId)}
-            alt=""
-            aria-hidden
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none'
-            }}
-            className="size-full object-cover"
+        <ThumbnailWash levelId={level.inGameId} variant="card" />
+        <div className="relative z-10 flex items-center p-2">
+          {handle}
+          <DifficultyFace
+            difficulty={level.inGameDifficulty}
+            featured={level.featured}
+            epicValue={level.epicValue}
+            rated={level.isRated}
+            size={90}
+            className="shrink-0"
           />
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-medium text-text-primary">
-            {level.name ?? `Level #${level.inGameId}`}
-          </div>
-          <div className="truncate text-xs text-text-tertiary">
-            {level.creator ? `By ${level.creator}` : 'Unknown creator'}
-          </div>
-          <div className="mt-1">
-            {badge ? (
-              <RankingBadge badge={badge} />
-            ) : (
-              <span className="text-[11px] text-text-tertiary">
-                No list reference
-              </span>
-            )}
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-medium text-text-primary">
+              {level.name ?? `Level #${level.inGameId}`}
+            </div>
+            <div className="truncate text-xs text-text-secondary">
+              {level.creator ? `By ${level.creator}` : 'Unknown creator'}
+            </div>
+            <div className="mt-1">
+              {badge ? (
+                <RankingBadge badge={badge} />
+              ) : (
+                <span className="text-[11px] text-text-secondary">
+                  No list reference
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

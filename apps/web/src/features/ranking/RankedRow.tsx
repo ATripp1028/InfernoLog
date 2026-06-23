@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
 import type { RankingItem } from './types'
@@ -39,6 +40,14 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
         <ThumbnailWash levelId={level.inGameId} />
         <div className="relative z-10 flex h-full items-center gap-3 px-2">
           {handle}
+          <DifficultyFace
+            difficulty={level.inGameDifficulty}
+            featured={level.featured}
+            epicValue={level.epicValue}
+            rated={level.isRated}
+            size={80}
+            className="shrink-0"
+          />
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-text-primary">
               #{rank} — {level.name ?? `Level #${level.inGameId}`}
