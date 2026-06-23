@@ -1,39 +1,62 @@
-import { AlertTriangle, Play, Tv } from 'lucide-react'
+import { AlertTriangle, Play, Tv, type LucideIcon } from 'lucide-react'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import type { ListItem } from './types'
 
 // Row status icons: has video (links to the video), on stream, needs placement.
 // Uncertain date is shown next to the date instead.
-export function StatusIcons({ item }: { item: ListItem }) {
+//
+// `interactive` (default) renders the video as a focusable link with tooltips —
+// used in the desktop row. The mobile card sets it false: the whole card is a
+// button, so it must not contain nested links/focusable controls. There it
+// renders plain titled icons and the video link lives in the detail pane.
+export function StatusIcons({
+  item,
+  interactive = true,
+}: {
+  item: ListItem
+  interactive?: boolean
+}) {
   const icons: React.ReactNode[] = []
+  const video = item.entry?.videoUrl
 
-  if (item.entry?.videoUrl)
+  if (video)
     icons.push(
-      <Tooltip key="video">
-        <TooltipTrigger asChild>
-          <a
-            href={item.entry.videoUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(e) => e.stopPropagation()}
-            className="text-text-secondary hover:text-primary"
-          >
-            <Play size={14} aria-label="Watch completion video" />
-          </a>
-        </TooltipTrigger>
-        <TooltipContent>Watch video</TooltipContent>
-      </Tooltip>
+      interactive ? (
+        <Tooltip key="video">
+          <TooltipTrigger asChild>
+            <a
+              href={video}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-text-secondary hover:text-primary"
+            >
+              <Play size={14} aria-label="Watch completion video" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>Watch video</TooltipContent>
+        </Tooltip>
+      ) : (
+        <PlainIcon key="video" icon={Play} label="Has video" />
+      )
     )
   if (item.entry?.onStream)
     icons.push(
-      <Icon key="stream" label="On stream" icon={Tv} className="text-primary" />
+      <StatusIcon
+        key="stream"
+        interactive={interactive}
+        icon={Tv}
+        label="On stream"
+        className="text-primary"
+      />
     )
   if (item.needsPlacement)
     icons.push(
-      <Icon
+      <StatusIcon
         key="placement"
-        label="Needs placement"
+        interactive={interactive}
         icon={AlertTriangle}
+        label="Needs placement"
         className="text-warning"
       />
     )
@@ -41,23 +64,43 @@ export function StatusIcons({ item }: { item: ListItem }) {
   return <div className="flex items-center justify-center gap-1.5">{icons}</div>
 }
 
-function Icon({
-  icon: IconComp,
+function StatusIcon({
+  icon: Icon,
   label,
   className,
+  interactive,
 }: {
-  icon: typeof Play
+  icon: LucideIcon
   label: string
   className?: string
+  interactive: boolean
 }) {
+  if (!interactive)
+    return <PlainIcon icon={Icon} label={label} className={className} />
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <span className={className ?? 'text-text-secondary'}>
-          <IconComp size={14} aria-label={label} />
+          <Icon size={14} aria-label={label} />
         </span>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>
     </Tooltip>
+  )
+}
+
+function PlainIcon({
+  icon: Icon,
+  label,
+  className,
+}: {
+  icon: LucideIcon
+  label: string
+  className?: string | undefined
+}) {
+  return (
+    <span title={label} className={className ?? 'text-text-secondary'}>
+      <Icon size={14} aria-label={label} />
+    </span>
   )
 }

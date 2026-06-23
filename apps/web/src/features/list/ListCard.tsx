@@ -95,7 +95,7 @@ export function ListCard({
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1.5">
           {columns.tier && <TierBadge tier={gddlTier(item)} />}
-          {columns.status && <StatusIcons item={item} />}
+          {columns.status && <StatusIcons item={item} interactive={false} />}
         </div>
       </div>
     </div>

@@ -58,7 +58,8 @@ export function MobilePager({
                   key={item.levelProgressId}
                   type="button"
                   onClick={() => setSelectedId(item.level.inGameId)}
-                  className="block w-full text-left"
+                  aria-label={`Open ${item.level.name ?? 'level'} details`}
+                  className="block w-full rounded-card text-left"
                 >
                   <ListCard
                     item={item}
