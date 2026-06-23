@@ -96,3 +96,6 @@ export function levelThumbnailUrl(levelId: string): string {
 export function userCoinSrc(verified: boolean | null | undefined): string {
   return `${GD_ASSET_BASE}/${verified ? 'coin-user' : 'coin-uncollected'}.png`
 }
+
+// The gold "secret coin" sprite used by the official main levels.
+export const officialCoinSrc = `${GD_ASSET_BASE}/coin-official.png`

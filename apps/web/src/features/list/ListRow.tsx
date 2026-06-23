@@ -2,9 +2,10 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
-import { userCoinSrc } from '@/lib/gdAssets'
 import { COLUMNS, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
+import { coinDisplay } from './coins'
+import { CopyableId } from './CopyableId'
 import { LevelCell } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
@@ -52,17 +53,12 @@ function Cell({
 }
 
 function CoinsCell({ item }: { item: ListItem }) {
-  const count = item.level.coins ?? 0
-  if (count <= 0) return <span className="text-text-tertiary">—</span>
+  const coins = coinDisplay(item.level)
+  if (!coins) return <span className="text-text-tertiary">—</span>
   return (
     <div className="flex items-center justify-center gap-0.5">
-      {Array.from({ length: count }).map((_, i) => (
-        <img
-          key={i}
-          src={userCoinSrc(item.level.coinsVerified)}
-          alt=""
-          className="size-4"
-        />
+      {Array.from({ length: coins.count }).map((_, i) => (
+        <img key={i} src={coins.src} alt="" className="size-4" />
       ))}
     </div>
   )
@@ -135,7 +131,13 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
           case 'id':
             return (
               <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="id">
-                <span className="font-mono text-xs">{level.inGameId}</span>
+                <CopyableId id={level.inGameId} className="text-xs" />
+              </Cell>
+            )
+          case 'creator':
+            return (
+              <Cell key={col.id} width={col.width} responsiveClass={col.responsiveClass} label="creator">
+                {level.creator ?? dash}
               </Cell>
             )
           case 'length':

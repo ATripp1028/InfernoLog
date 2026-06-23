@@ -4,8 +4,10 @@ import type { ListItem } from './types'
 
 // Name color encodes progress status: gold = completed, white = in progress,
 // red = dropped.
+// `text-accent` is remapped to a dark gray by the shadcn token layer
+// (index.css), so completions use the brand amber/gold directly.
 const NAME_COLOR: Record<ListItem['status'], string> = {
-  COMPLETED: 'text-accent',
+  COMPLETED: 'text-[#ff9f1c]',
   IN_PROGRESS: 'text-text-primary',
   DROPPED: 'text-danger',
 }
@@ -14,7 +16,7 @@ const NAME_COLOR: Record<ListItem['status'], string> = {
 // Shared by the columnar row and the mobile card.
 export function LevelCell({
   item,
-  faceSize = 72,
+  faceSize = 110,
 }: {
   item: ListItem
   faceSize?: number

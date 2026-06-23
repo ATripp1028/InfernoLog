@@ -58,7 +58,7 @@ function Chip({
       >
         {SORT_LABEL[spec.key]}
         {spec.dir === 'asc' ? (
-          <ArrowUp size={12} className="text-primary" />
+          <ArrowUp size={12} className="text-success" />
         ) : (
           <ArrowDown size={12} className="text-primary" />
         )}

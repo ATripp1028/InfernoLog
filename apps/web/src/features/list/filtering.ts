@@ -91,6 +91,27 @@ const LENGTH_ORDER: Record<string, number> = {
   Platformer: 5,
 }
 
+// In-game difficulty ordering (easy → hard), used for sorting and for ordering
+// the difficulty filter chips. Unknown/unrated values sort last.
+const DIFFICULTY_ORDER: Record<string, number> = {
+  Auto: 0,
+  Easy: 1,
+  Normal: 2,
+  Hard: 3,
+  Harder: 4,
+  Insane: 5,
+  'Easy Demon': 6,
+  'Medium Demon': 7,
+  'Hard Demon': 8,
+  'Insane Demon': 9,
+  'Extreme Demon': 10,
+}
+
+export function difficultyRank(difficulty: string | null): number | null {
+  if (!difficulty) return null
+  return DIFFICULTY_ORDER[difficulty] ?? null
+}
+
 // ── Range helpers ────────────────────────────────────────────────────────────
 
 export function isRangeActive(range: Range, domain: Range): boolean {
@@ -148,6 +169,15 @@ export function applyFilters(
       !(
         item.level.gameVersion &&
         filters.gameVersions.includes(item.level.gameVersion)
+      )
+    )
+      return false
+
+    if (
+      filters.difficulties.length &&
+      !(
+        item.level.inGameDifficulty &&
+        filters.difficulties.includes(item.level.inGameDifficulty)
       )
     )
       return false
@@ -212,6 +242,7 @@ export function countActiveFilters(filters: FilterState): number {
   if (filters.flags.length) n++
   if (filters.lengths.length) n++
   if (filters.gameVersions.length) n++
+  if (filters.difficulties.length) n++
   if (isRangeActive(filters.rating, RATING_DOMAIN)) n++
   if (isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)) n++
   if (isRangeActive(filters.tier, TIER_DOMAIN)) n++
@@ -264,6 +295,10 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
     }
     case 'twoPlayer':
       return item.level.twoPlayer ? 1 : 0
+    case 'creator':
+      return item.level.creator?.toLowerCase() ?? null
+    case 'difficulty':
+      return difficultyRank(item.level.inGameDifficulty)
   }
 }
 

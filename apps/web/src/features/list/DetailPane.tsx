@@ -5,6 +5,7 @@ import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
 import { gddlTier } from './filtering'
+import { CopyableId } from './CopyableId'
 import { TierBadge } from './TierBadge'
 import type { ListItem } from './types'
 
@@ -64,7 +65,8 @@ export function DetailPane({
               {level.name ?? 'Unknown level'}
             </p>
             <p className="truncate text-sm text-text-secondary">
-              by {level.creator ?? 'Unknown'} · #{level.inGameId}
+              by {level.creator ?? 'Unknown'} ·{' '}
+              <CopyableId id={level.inGameId} />
             </p>
             <span className="mt-1 inline-block rounded-full bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs text-text-secondary">
               {STATUS_LABEL[item.status]}

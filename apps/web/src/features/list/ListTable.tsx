@@ -36,9 +36,11 @@ function SortIndicator({
   index: number
 }) {
   if (!sort) return null
+  // Up = ascending (green), down = descending (red).
+  const isAsc = sort.dir === 'asc'
   return (
-    <span className="flex items-center text-primary">
-      {sort.dir === 'asc' ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
+    <span className={cn('flex items-center', isAsc ? 'text-success' : 'text-primary')}>
+      {isAsc ? <ArrowUp size={11} /> : <ArrowDown size={11} />}
       <span className="text-[9px] font-bold">{index + 1}</span>
     </span>
   )

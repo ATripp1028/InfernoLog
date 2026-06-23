@@ -7,11 +7,13 @@ export const SORT_OPTIONS: { key: SortKey; label: string }[] = [
   { key: 'attempts', label: 'Attempts' },
   { key: 'tier', label: 'Tier' },
   { key: 'name', label: 'Name' },
+  { key: 'creator', label: 'Creator' },
+  { key: 'difficulty', label: 'Difficulty' },
   { key: 'status', label: 'Status' },
   { key: 'id', label: 'ID' },
   { key: 'length', label: 'Length' },
   { key: 'songName', label: 'Song' },
-  { key: 'songArtist', label: 'Artist' },
+  { key: 'songArtist', label: 'Song Artist' },
   { key: 'coins', label: 'Coins' },
   { key: 'gameVersion', label: 'Version' },
   { key: 'twoPlayer', label: 'Two player' },
@@ -26,6 +28,7 @@ export const SORT_LABEL: Record<SortKey, string> = Object.fromEntries(
 export function defaultDir(key: SortKey): SortSpec['dir'] {
   const ascFirst: SortKey[] = [
     'name',
+    'creator',
     'status',
     'length',
     'songName',

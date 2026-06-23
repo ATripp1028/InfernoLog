@@ -27,9 +27,10 @@ interface FilterPanelProps {
   matchCount: number
   totalCount: number
   scale: RatingDisplayScale
-  // Distinct values present in the data, for the Length / Game Version chips.
+  // Distinct values present in the data, for the chip filters.
   availableLengths: string[]
   availableGameVersions: string[]
+  availableDifficulties: string[]
   onClose?: () => void
 }
 
@@ -124,6 +125,7 @@ export function FilterPanel({
   scale,
   availableLengths,
   availableGameVersions,
+  availableDifficulties,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) => onChange({ ...filters, ...patch })
@@ -271,6 +273,24 @@ export function FilterPanel({
             ))}
           </div>
         </FilterSection>
+
+        {availableDifficulties.length > 0 && (
+          <FilterSection title="Difficulty">
+            <div className="flex flex-wrap gap-1.5 px-4">
+              {availableDifficulties.map((d) => (
+                <Chip
+                  key={d}
+                  selected={filters.difficulties.includes(d)}
+                  onClick={() =>
+                    set({ difficulties: toggle(filters.difficulties, d) })
+                  }
+                >
+                  {d}
+                </Chip>
+              ))}
+            </div>
+          </FilterSection>
+        )}
 
         <FilterSection title="Rating Status">
           <div className="flex flex-wrap gap-1.5 px-4">

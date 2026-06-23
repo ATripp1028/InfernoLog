@@ -15,6 +15,7 @@ export type ColumnId =
   | 'songArtist'
   | 'coins'
   | 'version'
+  | 'creator'
 
 export interface ColumnDef {
   id: ColumnId
@@ -38,8 +39,9 @@ export const COLUMNS: ColumnDef[] = [
   // Opt-in metadata columns.
   { id: 'id', label: 'ID', width: 80, sortKey: 'id', responsiveClass: 'flex', defaultVisible: false },
   { id: 'length', label: 'Length', width: 80, sortKey: 'length', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'creator', label: 'Creator', width: 130, sortKey: 'creator', responsiveClass: 'flex', defaultVisible: false },
   { id: 'songName', label: 'Song', width: 150, sortKey: 'songName', responsiveClass: 'flex', defaultVisible: false },
-  { id: 'songArtist', label: 'Artist', width: 130, sortKey: 'songArtist', responsiveClass: 'flex', defaultVisible: false },
+  { id: 'songArtist', label: 'Song Artist', width: 130, sortKey: 'songArtist', responsiveClass: 'flex', defaultVisible: false },
   { id: 'coins', label: 'Coins', width: 76, sortKey: 'coins', responsiveClass: 'flex', defaultVisible: false },
   { id: 'version', label: 'Version', width: 76, sortKey: 'gameVersion', responsiveClass: 'flex', defaultVisible: false },
 ]

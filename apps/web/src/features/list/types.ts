@@ -31,6 +31,7 @@ export interface FilterState {
   flags: StatusFlag[] // all selected must be true (AND)
   lengths: string[] // empty = all (level.length values)
   gameVersions: string[] // empty = all (level.gameVersion values)
+  difficulties: string[] // empty = all (level.inGameDifficulty values)
   rating: Range // internal 0–100
   enjoyment: Range // internal 0–100
   tier: Range // 1–35 (35 = 35+)
@@ -53,6 +54,8 @@ export type SortKey =
   | 'coins'
   | 'gameVersion'
   | 'twoPlayer'
+  | 'creator'
+  | 'difficulty'
 
 export interface SortSpec {
   key: SortKey
@@ -81,6 +84,7 @@ export function defaultFilterState(): FilterState {
     flags: [],
     lengths: [],
     gameVersions: [],
+    difficulties: [],
     rating: [...RATING_DOMAIN] as Range,
     enjoyment: [...ENJOYMENT_DOMAIN] as Range,
     tier: [...TIER_DOMAIN] as Range,

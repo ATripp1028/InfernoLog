@@ -10,6 +10,7 @@ import {
 } from '../components/ui/sheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
+import { useMediaQuery } from '../lib/useMediaQuery'
 import { useLoggingFlow } from '../features/logging/LoggingFlowProvider'
 import type { FlowPath } from '../features/logging/types'
 import { Toolbar } from '../features/list/Toolbar'
@@ -20,6 +21,7 @@ import { ControlsSheet } from '../features/list/ControlsSheet'
 import {
   applyFilters,
   countActiveFilters,
+  difficultyRank,
   sortItems,
 } from '../features/list/filtering'
 import {
@@ -59,6 +61,8 @@ export function List() {
   )
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
+  // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
+  const isWide = useMediaQuery('(min-width: 768px)')
 
   const items = useMemo(() => progress.data ?? [], [progress.data])
 
@@ -79,6 +83,15 @@ export function List() {
     const set = new Set<string>()
     for (const i of items) if (i.level.gameVersion) set.add(i.level.gameVersion)
     return [...set].sort((a, b) => parseFloat(a) - parseFloat(b))
+  }, [items])
+
+  const availableDifficulties = useMemo(() => {
+    const set = new Set<string>()
+    for (const i of items)
+      if (i.level.inGameDifficulty) set.add(i.level.inGameDifficulty)
+    return [...set].sort(
+      (a, b) => (difficultyRank(a) ?? 99) - (difficultyRank(b) ?? 99)
+    )
   }, [items])
 
   const activeFilterCount = countActiveFilters(filters)
@@ -121,68 +134,86 @@ export function List() {
 
   const canReset = search.trim() !== '' || activeFilterCount > 0
 
+  const filterPanel = (
+    <FilterPanel
+      filters={filters}
+      onChange={setFilters}
+      matchCount={visible.length}
+      totalCount={items.length}
+      scale={ratingDisplayScale}
+      availableLengths={availableLengths}
+      availableGameVersions={availableGameVersions}
+      availableDifficulties={availableDifficulties}
+      onClose={() => setFilterOpen(false)}
+    />
+  )
+
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col gap-3 p-4 md:p-6">
-        <h1 className="text-2xl font-semibold text-text-primary">My Demons</h1>
+      <div className="flex">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 md:p-6">
+          <h1 className="text-2xl font-semibold text-text-primary">My Demons</h1>
 
-        <Toolbar
-          search={search}
-          onSearch={setSearch}
-          sorts={sorts}
-          onSorts={setSorts}
-          columns={columns}
-          onColumns={setColumns}
-          activeFilterCount={activeFilterCount}
-          onOpenFilters={() => setFilterOpen(true)}
-          onOpenControls={() => setControlsOpen(true)}
-          onReset={resetAll}
-          canReset={canReset}
-        />
+          <Toolbar
+            search={search}
+            onSearch={setSearch}
+            sorts={sorts}
+            onSorts={setSorts}
+            columns={columns}
+            onColumns={setColumns}
+            activeFilterCount={activeFilterCount}
+            onOpenFilters={() => setFilterOpen((o) => !o)}
+            onOpenControls={() => setControlsOpen(true)}
+            onReset={resetAll}
+            canReset={canReset}
+          />
 
-        {items.length === 0 ? (
-          <EmptyState />
-        ) : visible.length === 0 ? (
-          <NoMatches />
-        ) : (
-          <>
-            <ListTable
-              items={visible}
-              columns={columns}
-              sorts={sorts}
-              onToggleSort={toggleSort}
-              scale={ratingDisplayScale}
-              datePref={dateFormatPreference}
-              onEditItem={handleEdit}
-              onDeleteItem={setPendingDelete}
-            />
-            <MobilePager
-              items={visible}
-              scale={ratingDisplayScale}
-              datePref={dateFormatPreference}
-              onEditItem={handleEdit}
-              onDeleteItem={setPendingDelete}
-            />
-          </>
+          {items.length === 0 ? (
+            <EmptyState />
+          ) : visible.length === 0 ? (
+            <NoMatches />
+          ) : (
+            <>
+              <ListTable
+                items={visible}
+                columns={columns}
+                sorts={sorts}
+                onToggleSort={toggleSort}
+                scale={ratingDisplayScale}
+                datePref={dateFormatPreference}
+                onEditItem={handleEdit}
+                onDeleteItem={setPendingDelete}
+              />
+              <MobilePager
+                items={visible}
+                scale={ratingDisplayScale}
+                datePref={dateFormatPreference}
+                onEditItem={handleEdit}
+                onDeleteItem={setPendingDelete}
+              />
+            </>
+          )}
+        </div>
+
+        {/* Docked filter panel (md+) — table updates live as filters change. */}
+        {isWide && filterOpen && (
+          <aside className="w-[320px] shrink-0 border-l border-[var(--color-border-subtle)]">
+            <div className="sticky top-0 h-[calc(100dvh-64px)] overflow-hidden">
+              {filterPanel}
+            </div>
+          </aside>
         )}
       </div>
 
-      {/* Filter panel — slides in from the right on every breakpoint. */}
-      <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
-        <SheetContent side="right" className="p-0">
-          <SheetTitle className="sr-only">Filters</SheetTitle>
-          <FilterPanel
-            filters={filters}
-            onChange={setFilters}
-            matchCount={visible.length}
-            totalCount={items.length}
-            scale={ratingDisplayScale}
-            availableLengths={availableLengths}
-            availableGameVersions={availableGameVersions}
-            onClose={() => setFilterOpen(false)}
-          />
-        </SheetContent>
-      </Sheet>
+      {/* Mobile: filter panel as an overlay sheet. */}
+      {!isWide && (
+        <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
+          <SheetContent side="right" className="p-0">
+            <SheetTitle className="sr-only">Filters</SheetTitle>
+            {filterPanel}
+          </SheetContent>
+        </Sheet>
+      )}
 
       {/* Mobile controls — sort + columns. */}
       <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
