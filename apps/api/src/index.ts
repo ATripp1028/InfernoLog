@@ -7,6 +7,7 @@ import meRoutes from './routes/me'
 import loggingRoutes from './routes/logging'
 import levelsRoutes from './routes/levels'
 import progressRoutes from './routes/progress'
+import rankingRoutes from './routes/ranking'
 import authRoutes from './routes/auth'
 import type { HonoVariables } from './types/hono'
 import prisma from './utils/prisma'
@@ -39,6 +40,7 @@ app.route('/v1', meRoutes)
 app.route('/v1', loggingRoutes)
 app.route('/v1', levelsRoutes)
 app.route('/v1', progressRoutes)
+app.route('/v1', rankingRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {

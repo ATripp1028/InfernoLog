@@ -289,6 +289,15 @@ export default $config({
     authedRoute('DELETE /v1/me/progress/{levelId}')
 
     // ─────────────────────────────────────────────
+    // CLASSIC RANKING — the personal difficulty-ordering page.
+    // ─────────────────────────────────────────────
+    // Placed + unplaced columns in one payload; place / reorder / unplace.
+    authedRoute('GET /v1/me/ranking/classic')
+    authedRoute('POST /v1/me/ranking/classic')
+    authedRoute('PATCH /v1/me/ranking/classic/{levelProgressId}')
+    authedRoute('DELETE /v1/me/ranking/classic/{levelProgressId}')
+
+    // ─────────────────────────────────────────────
     // LOGGING — entry-creation writes + level-entry support
     // ─────────────────────────────────────────────
     // Progress and drop writes, plus the level-support endpoints.

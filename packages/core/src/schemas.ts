@@ -533,3 +533,67 @@ export const LevelProgressListItemSchema = z.object({
 export const LevelProgressListResponseSchema = z.object({
   data: z.array(LevelProgressListItemSchema),
 })
+
+// ─────────────────────────────────────────────
+// CLASSIC RANKING — the personal difficulty-ordering page.
+// ─────────────────────────────────────────────
+
+// The single list-reference badge shown on a ranking row / unplaced card.
+// Display priority is GDDL → AREDL; NLW and OTHER are still captured as data on
+// the completion but never surface as the badge (AREDL's exact rank beats NLW's
+// named tier, and GDDL tracks every demon). Null when the completion carries
+// neither a GDDL nor an AREDL reference. See RANKING_SYSTEM.md.
+export const RankingBadgeSchema = z
+  .object({
+    listSource: z.nativeEnum(ListSource),
+    tierOrRank: z.string(),
+  })
+  .nullable()
+
+export const ClassicRankingEntrySchema = z.object({
+  // 1-based position in the placed list (ordered by rankingIndex DESC, so
+  // #1 = hardest). The client recomputes these numbers for the "Show unrated"
+  // filtered view; the server number reflects the full placed set.
+  rank: z.number().int(),
+  levelProgressId: z.string().uuid(),
+  // The fractional index itself — exposed for debugging/inspection. Placement
+  // and reorder only ever send neighbour IDs, never a raw index.
+  rankingIndex: z.number(),
+  level: LevelListSummarySchema,
+  // Level.hasPendingUpdate — drives the pending-data dot on the row.
+  hasPendingUpdate: z.boolean(),
+  badge: RankingBadgeSchema,
+})
+
+export const UnplacedRankingEntrySchema = z.object({
+  levelProgressId: z.string().uuid(),
+  level: LevelListSummarySchema,
+  hasPendingUpdate: z.boolean(),
+  badge: RankingBadgeSchema,
+})
+
+// Both columns in one round trip — the page always renders them together.
+export const ClassicRankingResponseSchema = z.object({
+  placed: z.array(ClassicRankingEntrySchema),
+  unplaced: z.array(UnplacedRankingEntrySchema),
+})
+
+// Drop-position neighbours, shared by place and reorder. The client identifies
+// where an entry lands by its two visible neighbours:
+//   aboveId — the entry shown directly ABOVE (harder → higher index)
+//   belowId — the entry shown directly BELOW (easier → lower index)
+// Omit aboveId to drop at the very top (hardest), belowId for the very bottom
+// (easiest), or both for the first entry in an empty ranking. The server
+// computes the fractional index between the neighbours and renormalises the
+// whole list to integers when the gap closes past the rebalance threshold.
+const rankingNeighbours = {
+  aboveId: z.string().uuid().optional(),
+  belowId: z.string().uuid().optional(),
+}
+
+export const PlaceRankingInputSchema = z.object({
+  levelProgressId: z.string().uuid(),
+  ...rankingNeighbours,
+})
+
+export const ReorderRankingInputSchema = z.object(rankingNeighbours)
