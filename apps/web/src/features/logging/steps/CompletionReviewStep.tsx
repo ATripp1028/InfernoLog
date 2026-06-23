@@ -29,7 +29,7 @@ function opinionLabel(opinion: string, stars: number | null): string {
 }
 
 export function CompletionReviewStep() {
-  const { level, draft, setStep } = useLoggingFlow()
+  const { level, draft, setStep, setLastCompletion } = useLoggingFlow()
   const me = useMe()
   const logCompletion = useLogCompletion()
   if (!level || !me.data) return null
@@ -69,9 +69,10 @@ export function CompletionReviewStep() {
   async function submit() {
     if (!level || !me.data) return
     try {
-      await logCompletion.mutateAsync(
+      const result = await logCompletion.mutateAsync(
         buildCompletionInput(level, draft, me.data)
       )
+      setLastCompletion(result.levelProgress.id)
       setStep('c_success')
     } catch (err) {
       toast.error(

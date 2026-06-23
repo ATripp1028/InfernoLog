@@ -3,10 +3,11 @@ import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 
-// Screen 09. Ranking placement isn't built yet, so "Place now" routes to the
-// (placeholder) ranking page; real fractional-index placement is a later task.
+// Screen 09. "Place now" routes to the ranking page, passing the new
+// completion's level_progress id so the page highlights it in Unplaced and
+// pre-scrolls the ranked list to its GDDL-reference tier.
 export function CompletionSuccessStep() {
-  const { level, close } = useLoggingFlow()
+  const { level, close, lastCompletionLevelProgressId } = useLoggingFlow()
   const navigate = useNavigate()
   const name = level?.name ?? 'Level'
 
@@ -27,7 +28,12 @@ export function CompletionSuccessStep() {
         <Button
           onClick={() => {
             close()
-            void navigate({ to: '/ranking' })
+            void navigate({
+              to: '/ranking',
+              search: lastCompletionLevelProgressId
+                ? { place: lastCompletionLevelProgressId }
+                : {},
+            })
           }}
         >
           Place now

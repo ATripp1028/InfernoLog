@@ -154,14 +154,19 @@ type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
   select: (typeof completionRefsSelect)['select']
 }>[]
 
-// Single badge per row: GDDL first, else AREDL. NLW / OTHER are kept as data on
-// the completion but never surface here. See RANKING_SYSTEM.md / schemas.ts.
-function deriveBadge(updates: CompletionRefs) {
+// Single badge per row. AREDL gives an exact rank, so it leads for extreme
+// demons (the levels AREDL actually ranks); GDDL leads otherwise since it
+// covers every demon. NLW / OTHER are kept as data on the completion but never
+// surface here. See RANKING_SYSTEM.md / schemas.ts.
+function deriveBadge(updates: CompletionRefs, inGameDifficulty: string | null) {
   const refs = updates[0]?.listReferences ?? []
   const gddl = refs.find((r) => r.listSource === 'GDDL')
-  if (gddl) return { listSource: gddl.listSource, tierOrRank: gddl.tierOrRank }
   const aredl = refs.find((r) => r.listSource === 'AREDL')
-  if (aredl) return { listSource: aredl.listSource, tierOrRank: aredl.tierOrRank }
+  const isExtreme = (inGameDifficulty ?? '').toLowerCase().includes('extreme')
+  const order = isExtreme ? [aredl, gddl] : [gddl, aredl]
+  for (const ref of order) {
+    if (ref) return { listSource: ref.listSource, tierOrRank: ref.tierOrRank }
+  }
   return null
 }
 
@@ -214,7 +219,10 @@ export async function getClassicRanking(userId: string) {
       rankingIndex: row.rankingIndex.toNumber(),
       level: mapLevel(level),
       hasPendingUpdate,
-      badge: deriveBadge(row.levelProgress.progressUpdates),
+      badge: deriveBadge(
+        row.levelProgress.progressUpdates,
+        level.inGameDifficulty
+      ),
     }
   })
 
@@ -224,7 +232,7 @@ export async function getClassicRanking(userId: string) {
       levelProgressId: row.id,
       level: mapLevel(level),
       hasPendingUpdate,
-      badge: deriveBadge(row.progressUpdates),
+      badge: deriveBadge(row.progressUpdates, level.inGameDifficulty),
     }
   })
 

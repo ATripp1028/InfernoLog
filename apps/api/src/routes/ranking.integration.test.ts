@@ -213,6 +213,33 @@ describe('GET /me/ranking/classic', () => {
     expect(data.placed[2]?.badge).toBeNull()
   })
 
+  it('prefers AREDL over GDDL for extreme demons', async () => {
+    const user = await seedUser(prisma)
+    await seedPlaced(user.id, 2, {
+      levelOverrides: { inGameDifficulty: 'Extreme Demon' },
+      listRefs: [
+        { listSource: 'GDDL', tierOrRank: '35' },
+        { listSource: 'AREDL', tierOrRank: '7' },
+      ],
+    })
+    // A non-extreme demon with the same refs still leads with GDDL.
+    await seedPlaced(user.id, 1, {
+      levelOverrides: { inGameDifficulty: 'Insane Demon' },
+      listRefs: [
+        { listSource: 'GDDL', tierOrRank: '30' },
+        { listSource: 'AREDL', tierOrRank: '99' },
+      ],
+    })
+
+    const { data } = await getRanking(user.id)
+
+    expect(data.placed[0]?.badge).toEqual({ listSource: 'AREDL', tierOrRank: '7' })
+    expect(data.placed[1]?.badge).toEqual({
+      listSource: 'GDDL',
+      tierOrRank: '30',
+    })
+  })
+
   it('surfaces hasPendingUpdate and isRated on entries', async () => {
     const user = await seedUser(prisma)
     await seedPlaced(user.id, 1, {
