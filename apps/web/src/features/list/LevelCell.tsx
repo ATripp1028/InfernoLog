@@ -6,7 +6,7 @@ import type { ListItem } from './types'
 // red = dropped.
 // `text-accent` is remapped to a dark gray by the shadcn token layer
 // (index.css), so completions use the brand amber/gold directly.
-const NAME_COLOR: Record<ListItem['status'], string> = {
+export const NAME_COLOR: Record<ListItem['status'], string> = {
   COMPLETED: 'text-[#ff9f1c]',
   IN_PROGRESS: 'text-text-primary',
   DROPPED: 'text-danger',

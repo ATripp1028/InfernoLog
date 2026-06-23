@@ -100,6 +100,12 @@ export function ListRow({ item, columns, scale, datePref, minWidth }: RowProps) 
                 {entry?.date ? (
                   <span className={entry.dateUncertain ? 'text-warning' : undefined}>
                     {formatDate(entry.date, datePref)}
+                    {entry.dateUncertain && (
+                      <span title="Uncertain date" className="text-warning">
+                        {' '}
+                        ?
+                      </span>
+                    )}
                   </span>
                 ) : (
                   dash

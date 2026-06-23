@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import { PageLoading } from '../components/PageLoading'
@@ -63,6 +63,14 @@ export function List() {
   const [controlsOpen, setControlsOpen] = useState(false)
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
+
+  // Push the global FAB left of the docked filter panel while it's open.
+  const dockedOpen = isWide && filterOpen
+  useEffect(() => {
+    const root = document.documentElement
+    root.style.setProperty('--fab-shift', dockedOpen ? '320px' : '0px')
+    return () => root.style.setProperty('--fab-shift', '0px')
+  }, [dockedOpen])
 
   const items = useMemo(() => progress.data ?? [], [progress.data])
 
@@ -186,6 +194,7 @@ export function List() {
               />
               <MobilePager
                 items={visible}
+                columns={columns}
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
                 onEditItem={handleEdit}

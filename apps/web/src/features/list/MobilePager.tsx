@@ -4,10 +4,12 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { ListCard } from './ListCard'
 import { DetailPane } from './DetailPane'
+import type { ColumnVisibility } from './columns'
 import type { ListItem } from './types'
 
 interface MobilePagerProps {
   items: ListItem[]
+  columns: ColumnVisibility
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   onEditItem: (item: ListItem) => void
@@ -19,6 +21,7 @@ interface MobilePagerProps {
 // indicator shows the active pane. Mobile-only (the page hides this at md+).
 export function MobilePager({
   items,
+  columns,
   scale,
   datePref,
   onEditItem,
@@ -57,7 +60,12 @@ export function MobilePager({
                   onClick={() => setSelectedId(item.level.inGameId)}
                   className="block w-full text-left"
                 >
-                  <ListCard item={item} scale={scale} datePref={datePref} />
+                  <ListCard
+                    item={item}
+                    columns={columns}
+                    scale={scale}
+                    datePref={datePref}
+                  />
                 </button>
               ))}
             </div>

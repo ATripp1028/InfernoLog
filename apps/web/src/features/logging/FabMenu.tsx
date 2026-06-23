@@ -36,7 +36,10 @@ export function FabMenu() {
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-6 right-6 z-20 hidden md:block"
+      className="fixed bottom-6 z-20 hidden transition-[right] duration-200 md:block"
+      // Shifts left of the List page's docked filter panel when open (the page
+      // sets --fab-shift; it defaults to 0 everywhere else).
+      style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
     >
       {menuOpen && (
         <div

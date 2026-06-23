@@ -40,7 +40,7 @@ export function Toolbar({
 }: ToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="relative w-full sm:w-[260px]">
+      <div className="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
         <Search
           size={15}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"

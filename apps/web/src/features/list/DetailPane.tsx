@@ -76,7 +76,14 @@ export function DetailPane({
 
         {/* Logged stats */}
         <dl className="mt-5 grid grid-cols-2 gap-3">
-          <Stat label="Date" value={entry?.date ? formatDate(entry.date, datePref) : '—'} />
+          <Stat
+            label="Date"
+            value={
+              entry?.date
+                ? `${formatDate(entry.date, datePref)}${entry.dateUncertain ? ' ?' : ''}`
+                : '—'
+            }
+          />
           <Stat
             label="Attempts"
             value={entry?.attempts != null ? formatNumber(entry.attempts) : '—'}

@@ -1,45 +1,102 @@
+import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
 import { gddlTier } from './filtering'
-import { LevelCell } from './LevelCell'
+import { coinDisplay } from './coins'
+import { NAME_COLOR } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
+import type { ColumnVisibility } from './columns'
 import type { ListItem } from './types'
 
-// Mobile two-line card. Line 1: face + name + tier + status icons. Line 2:
-// date · attempts · rating · enjoyment.
+// Mobile card. Face, tier badge, and status icons are vertically centered in a
+// single row; the stats line reflects the enabled column toggles.
 export function ListCard({
   item,
+  columns,
   scale,
   datePref,
 }: {
   item: ListItem
+  columns: ColumnVisibility
   scale: RatingDisplayScale
   datePref: DateFormatPreference
 }) {
-  const { entry } = item
+  const { entry, level } = item
+
+  // Text stats follow the column toggles (so toggling columns is meaningful on
+  // mobile, where there's no table).
   const stats: string[] = []
-  if (entry?.date) stats.push(formatDate(entry.date, datePref))
-  if (entry?.attempts != null) stats.push(`${formatNumber(entry.attempts)} att`)
-  if (entry?.overallRating != null)
+  if (columns.date && entry?.date)
+    stats.push(
+      `${formatDate(entry.date, datePref)}${entry.dateUncertain ? ' ?' : ''}`
+    )
+  if (columns.attempts && entry?.attempts != null)
+    stats.push(`${formatNumber(entry.attempts)} att`)
+  if (columns.rating && entry?.overallRating != null)
     stats.push(formatRating(entry.overallRating, scale))
-  if (entry?.enjoyment != null)
+  if (columns.enjoy && entry?.enjoyment != null)
     stats.push(`★ ${formatRating(entry.enjoyment, scale)}`)
+  if (columns.length && level.length) stats.push(level.length)
+  if (columns.version && level.gameVersion) stats.push(level.gameVersion)
+  if (columns.songName && level.songName) stats.push(level.songName)
+  if (columns.songArtist && level.songAuthor) stats.push(level.songAuthor)
+  if (columns.id) stats.push(`#${level.inGameId}`)
+
+  const coins = columns.coins ? coinDisplay(level) : null
 
   return (
-    <div className="relative overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-3 py-2.5">
+    <div className="relative overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-3 py-3">
       <RowWash item={item} />
-      <div className="relative flex flex-col gap-1.5">
-        <div className="flex items-center gap-2">
-          <LevelCell item={item} faceSize={52} />
-          <TierBadge tier={gddlTier(item)} />
-          <StatusIcons item={item} />
+      <div className="relative flex items-center gap-3">
+        <DifficultyFace
+          difficulty={level.inGameDifficulty}
+          featured={level.featured}
+          epicValue={level.epicValue}
+          rated={level.isRated}
+          size={104}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p
+              className={cn(
+                'truncate text-[15px] font-bold leading-tight',
+                NAME_COLOR[item.status]
+              )}
+            >
+              {level.name ?? 'Unknown level'}
+            </p>
+            {level.twoPlayer && (
+              <span className="shrink-0 rounded bg-[var(--color-bg-elevated)] px-1 text-[9px] font-bold text-text-secondary">
+                2P
+              </span>
+            )}
+          </div>
+          <p className="truncate text-xs text-text-secondary">
+            by {level.creator ?? 'Unknown'}
+          </p>
+          {(stats.length > 0 || coins) && (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-secondary">
+              {stats.map((s, i) => (
+                <span key={i}>{s}</span>
+              ))}
+              {coins && (
+                <span className="flex items-center gap-0.5">
+                  {Array.from({ length: coins.count }).map((_, i) => (
+                    <img key={i} src={coins.src} alt="" className="size-3.5" />
+                  ))}
+                </span>
+              )}
+            </div>
+          )}
         </div>
-        <p className="pl-[64px] text-xs text-text-secondary">
-          {stats.length ? stats.join('  ·  ') : 'No progress logged'}
-        </p>
+        <div className="flex shrink-0 flex-col items-center gap-1.5">
+          {columns.tier && <TierBadge tier={gddlTier(item)} />}
+          {columns.status && <StatusIcons item={item} />}
+        </div>
       </div>
     </div>
   )

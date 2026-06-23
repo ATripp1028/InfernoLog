@@ -14,6 +14,7 @@ import * as Sentry from '@sentry/node'
 import prisma from '../utils/prisma'
 import { computeOverallRating } from '../utils/rating'
 import type { OverallRatingConfig } from '../utils/rating'
+import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -113,6 +114,12 @@ function serializeEntry(
 
 function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
   const update = row.progressUpdates[0] ?? null
+  // Official levels (ids 1–38) aren't served by RobTop, so their release
+  // version and secret-coin count come from our data file, not the cache.
+  const official = OFFICIAL_LEVELS_BY_ID.get(row.level.inGameId)
+  const level = official
+    ? { ...row.level, gameVersion: official.gameVersion, coins: official.coins }
+    : row.level
   return {
     levelProgressId: row.id,
     status: row.status,
@@ -125,9 +132,9 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
     droppedReason: row.droppedReason,
     needsPlacement:
       row.status === 'COMPLETED' &&
-      row.level.levelType === 'CLASSIC' &&
+      level.levelType === 'CLASSIC' &&
       row.classicRanking === null,
-    level: row.level,
+    level,
     entry: update ? serializeEntry(update, ratingConfig) : null,
   }
 }
