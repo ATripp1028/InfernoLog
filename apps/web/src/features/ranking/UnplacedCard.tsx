@@ -3,6 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/DifficultyFace'
+import { formatNumber } from '@/features/logging/format'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
 import type { RankingItem } from './types'
@@ -23,7 +24,7 @@ interface UnplacedCardProps {
 // the list-reference tag (or "No list reference").
 export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
   ({ item, handle, highlight, isDragging, style, onClick, domId }, ref) => {
-    const { level, badge } = item
+    const { level, badge, attempts } = item
     return (
       <div
         ref={ref}
@@ -57,7 +58,15 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
             <div className="truncate text-xs text-text-secondary">
               {level.creator ? `By ${level.creator}` : 'Unknown creator'}
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex items-center gap-2">
+              {attempts != null && (
+                <span
+                  title="Attempts"
+                  className="text-[11px] tabular-nums text-text-secondary"
+                >
+                  {formatNumber(attempts)} att
+                </span>
+              )}
               {badge ? (
                 <RankingBadge badge={badge} />
               ) : (

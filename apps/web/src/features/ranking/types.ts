@@ -4,7 +4,7 @@ import type { ClassicRankingEntry } from '@infernolog/core'
 // either form, so an item can move between the two containers mid-drag.
 export type RankingItem = Pick<
   ClassicRankingEntry,
-  'levelProgressId' | 'level' | 'badge' | 'hasPendingUpdate'
+  'levelProgressId' | 'level' | 'badge' | 'hasPendingUpdate' | 'attempts'
 >
 
 export type ContainerId = 'placed' | 'unplaced'

@@ -3,8 +3,10 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/DifficultyFace'
+import { formatNumber } from '@/features/logging/format'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
+import { medalColor } from './medals'
 import type { RankingItem } from './types'
 
 interface RankedRowProps {
@@ -23,7 +25,7 @@ interface RankedRowProps {
 // Presentational ranked row. The sortable wrapper below feeds it a ref + style.
 export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
   ({ rank, item, handle, highlight, isDragging, style, domId }, ref) => {
-    const { level, badge, hasPendingUpdate } = item
+    const { level, badge, hasPendingUpdate, attempts } = item
     return (
       <div
         ref={ref}
@@ -49,7 +51,10 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
             className="shrink-0"
           />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-text-primary">
+            <div
+              className="truncate text-sm font-semibold text-text-primary"
+              style={{ color: medalColor(rank) }}
+            >
               #{rank} — {level.name ?? `Level #${level.inGameId}`}
             </div>
             <div className="truncate text-xs text-text-secondary">
@@ -64,6 +69,14 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
               title="Level data update pending"
               className="size-2 shrink-0 rounded-full bg-[var(--color-accent)]"
             />
+          )}
+          {attempts != null && (
+            <span
+              title="Attempts"
+              className="shrink-0 text-xs tabular-nums text-text-secondary"
+            >
+              {formatNumber(attempts)} att
+            </span>
           )}
           <RankingBadge badge={badge} />
         </div>

@@ -140,18 +140,20 @@ const levelSelect = {
   hasPendingUpdate: true,
 } satisfies Prisma.LevelSelect
 
-// The completion's list references, trimmed to what the badge needs.
-const completionRefsSelect = {
+// The completion update's fields the ranking row needs: attempts (shown next to
+// the badge) and the list references (for the badge).
+const completionSelect = {
   where: { isCompletion: true },
   take: 1,
   select: {
+    attempts: true,
     listReferences: { select: { listSource: true, tierOrRank: true } },
   },
 } satisfies Prisma.LevelProgress$progressUpdatesArgs
 
 type LevelRow = Prisma.LevelGetPayload<{ select: typeof levelSelect }>
 type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
-  select: (typeof completionRefsSelect)['select']
+  select: (typeof completionSelect)['select']
 }>[]
 
 // Single badge per row. AREDL gives an exact rank, so it leads for extreme
@@ -168,6 +170,11 @@ function deriveBadge(updates: CompletionRefs, inGameDifficulty: string | null) {
     if (ref) return { listSource: ref.listSource, tierOrRank: ref.tierOrRank }
   }
   return null
+}
+
+// Attempts from the completion update (null when not logged).
+function completionAttempts(updates: CompletionRefs): number | null {
+  return updates[0]?.attempts ?? null
 }
 
 // Official levels (ids 1–38) aren't served by RobTop; their version + coin
@@ -190,7 +197,7 @@ export async function getClassicRanking(userId: string) {
           select: {
             id: true,
             level: { select: levelSelect },
-            progressUpdates: completionRefsSelect,
+            progressUpdates: completionSelect,
           },
         },
       },
@@ -206,7 +213,7 @@ export async function getClassicRanking(userId: string) {
       select: {
         id: true,
         level: { select: levelSelect },
-        progressUpdates: completionRefsSelect,
+        progressUpdates: completionSelect,
       },
     }),
   ])
@@ -219,6 +226,7 @@ export async function getClassicRanking(userId: string) {
       rankingIndex: row.rankingIndex.toNumber(),
       level: mapLevel(level),
       hasPendingUpdate,
+      attempts: completionAttempts(row.levelProgress.progressUpdates),
       badge: deriveBadge(
         row.levelProgress.progressUpdates,
         level.inGameDifficulty
@@ -232,6 +240,7 @@ export async function getClassicRanking(userId: string) {
       levelProgressId: row.id,
       level: mapLevel(level),
       hasPendingUpdate,
+      attempts: completionAttempts(row.progressUpdates),
       badge: deriveBadge(row.progressUpdates, level.inGameDifficulty),
     }
   })

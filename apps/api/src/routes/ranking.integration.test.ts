@@ -55,12 +55,14 @@ type RankingBody = {
       levelProgressId: string
       rankingIndex: number
       hasPendingUpdate: boolean
+      attempts: number | null
       level: { inGameId: string; isRated: boolean }
       badge: { listSource: string; tierOrRank: string } | null
     }>
     unplaced: Array<{
       levelProgressId: string
       hasPendingUpdate: boolean
+      attempts: number | null
       badge: { listSource: string; tierOrRank: string } | null
     }>
   }
@@ -78,6 +80,7 @@ async function seedCompletion(
   opts: {
     listRefs?: Array<{ listSource: string; tierOrRank: string }>
     levelOverrides?: Parameters<typeof seedLevel>[1]
+    attempts?: number
   } = {}
 ) {
   const inGameId = String(levelSeq++)
@@ -89,6 +92,7 @@ async function seedCompletion(
     data: {
       levelProgressId: lp.id,
       isCompletion: true,
+      ...(opts.attempts != null ? { attempts: opts.attempts } : {}),
       ...(opts.listRefs
         ? {
             listReferences: {
@@ -240,16 +244,18 @@ describe('GET /me/ranking/classic', () => {
     })
   })
 
-  it('surfaces hasPendingUpdate and isRated on entries', async () => {
+  it('surfaces hasPendingUpdate, isRated, and attempts on entries', async () => {
     const user = await seedUser(prisma)
     await seedPlaced(user.id, 1, {
       levelOverrides: { isDemon: true, isRated: false, hasPendingUpdate: true },
+      attempts: 14231,
     })
 
     const { data } = await getRanking(user.id)
 
     expect(data.placed[0]?.hasPendingUpdate).toBe(true)
     expect(data.placed[0]?.level.isRated).toBe(false)
+    expect(data.placed[0]?.attempts).toBe(14231)
   })
 
   it('scopes the ranking to the authed user', async () => {

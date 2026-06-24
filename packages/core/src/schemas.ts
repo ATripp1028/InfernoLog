@@ -562,6 +562,8 @@ export const ClassicRankingEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Level.hasPendingUpdate — drives the pending-data dot on the row.
   hasPendingUpdate: z.boolean(),
+  // Attempts on the completion update (null when not logged).
+  attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
 })
 
@@ -569,6 +571,7 @@ export const UnplacedRankingEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
   hasPendingUpdate: z.boolean(),
+  attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
 })
 

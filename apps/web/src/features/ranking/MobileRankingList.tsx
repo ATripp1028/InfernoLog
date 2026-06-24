@@ -8,11 +8,13 @@ import { Chip } from '@/components/ui/chip'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/sonner'
 import { DifficultyFace } from '@/components/DifficultyFace'
+import { formatNumber } from '@/features/logging/format'
 import { usePlaceRanking, useReorderRanking } from '@/lib/api/ranking'
 import { neighboursAround } from './neighbours'
 import { filterPlaced, filterUnplaced, reorderDisabled } from './filtering'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
+import { medalColor } from './medals'
 import type { RankingItem } from './types'
 
 interface MobileRankingListProps {
@@ -208,7 +210,19 @@ export function MobileRankingList({
                           : 'Unknown creator'}
                       </div>
                     </div>
-                    {entry.badge && <RankingBadge badge={entry.badge} />}
+                    {(entry.attempts != null || entry.badge) && (
+                      <div className="flex shrink-0 items-center gap-2">
+                        {entry.attempts != null && (
+                          <span
+                            title="Attempts"
+                            className="text-[11px] tabular-nums text-text-secondary"
+                          >
+                            {formatNumber(entry.attempts)} att
+                          </span>
+                        )}
+                        {entry.badge && <RankingBadge badge={entry.badge} />}
+                      </div>
+                    )}
                   </div>
                 </button>
               ))
@@ -267,20 +281,31 @@ function MobileRow({
           className="shrink-0"
         />
         <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-semibold text-text-primary">
-          #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
-        </div>
-        <div className="truncate text-xs text-text-secondary">
-          {item.level.creator
-            ? `Published by ${item.level.creator}`
-            : 'Unknown creator'}
-        </div>
-        {item.badge && (
-          <div className="mt-1">
-            <RankingBadge badge={item.badge} />
+          <div
+            className="truncate text-sm font-semibold text-text-primary"
+            style={{ color: medalColor(rank) }}
+          >
+            #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
           </div>
-        )}
-      </div>
+          <div className="truncate text-xs text-text-secondary">
+            {item.level.creator
+              ? `Published by ${item.level.creator}`
+              : 'Unknown creator'}
+          </div>
+          {(item.attempts != null || item.badge) && (
+            <div className="mt-1 flex items-center gap-2">
+              {item.attempts != null && (
+                <span
+                  title="Attempts"
+                  className="text-[11px] tabular-nums text-text-secondary"
+                >
+                  {formatNumber(item.attempts)} att
+                </span>
+              )}
+              {item.badge && <RankingBadge badge={item.badge} />}
+            </div>
+          )}
+        </div>
 
       {canEdit &&
         (jumping ? (
