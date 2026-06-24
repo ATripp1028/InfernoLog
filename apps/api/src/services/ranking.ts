@@ -255,7 +255,10 @@ export async function getClassicRanking(userId: string) {
 
 // PLACE — an unplaced completion enters the ranking. Validates the entry is the
 // caller's COMPLETED classic demon and not already placed.
-export async function placeCompletion(userId: string, input: PlaceRankingInput) {
+export async function placeCompletion(
+  userId: string,
+  input: PlaceRankingInput
+) {
   await prisma.$transaction(async (tx) => {
     const lp = await tx.levelProgress.findFirst({
       where: { id: input.levelProgressId, userId },
@@ -271,7 +274,9 @@ export async function placeCompletion(userId: string, input: PlaceRankingInput) 
     if (lp.status !== 'COMPLETED')
       throw new RankingError('Only completions can be placed in the ranking')
     if (lp.level.levelType !== 'CLASSIC')
-      throw new RankingError('Only classic levels appear in the classic ranking')
+      throw new RankingError(
+        'Only classic levels appear in the classic ranking'
+      )
     if (!lp.level.isDemon)
       throw new RankingError(
         'Non-demon levels are excluded from the difficulty ranking'
@@ -296,10 +301,7 @@ export async function reorderEntry(
   levelProgressId: string,
   input: ReorderRankingInput
 ) {
-  if (
-    input.aboveId === levelProgressId ||
-    input.belowId === levelProgressId
-  ) {
+  if (input.aboveId === levelProgressId || input.belowId === levelProgressId) {
     throw new RankingError('An entry cannot be its own neighbour')
   }
   await prisma.$transaction(async (tx) => {

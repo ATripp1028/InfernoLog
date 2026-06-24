@@ -26,7 +26,9 @@ export const UnplacedPanel = forwardRef<HTMLDivElement, UnplacedPanelProps>(
     >
       <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] px-3 py-3">
         <PanelRight className="size-4 text-text-secondary" />
-        <span className="text-sm font-semibold text-text-primary">Unplaced</span>
+        <span className="text-sm font-semibold text-text-primary">
+          Unplaced
+        </span>
         <span className="ml-1 text-sm text-text-tertiary">{count}</span>
       </div>
       <div className="p-3 pb-2">

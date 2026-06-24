@@ -103,7 +103,10 @@ export function MobileRankingList({
       </div>
 
       <div className="flex items-center gap-2">
-        <Chip selected={showUnrated} onClick={() => onShowUnrated(!showUnrated)}>
+        <Chip
+          selected={showUnrated}
+          onClick={() => onShowUnrated(!showUnrated)}
+        >
           Show unrated
         </Chip>
         <Chip
@@ -172,7 +175,10 @@ export function MobileRankingList({
       </button>
 
       <Sheet open={unplacedOpen} onOpenChange={setUnplacedOpen}>
-        <SheetContent side="bottom" className="max-h-[80dvh] overflow-y-auto p-4">
+        <SheetContent
+          side="bottom"
+          className="max-h-[80dvh] overflow-y-auto p-4"
+        >
           <SheetTitle>Unplaced levels</SheetTitle>
           <p className="mb-3 mt-1 text-xs text-text-tertiary">
             Tap a level to place it, then fine-tune its spot.
@@ -190,7 +196,10 @@ export function MobileRankingList({
                   onClick={() => placeFromUnplaced(entry.levelProgressId)}
                   className="relative w-full overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] text-left"
                 >
-                  <ThumbnailWash levelId={entry.level.inGameId} variant="card" />
+                  <ThumbnailWash
+                    levelId={entry.level.inGameId}
+                    variant="card"
+                  />
                   <div className="relative z-10 flex items-center gap-3 p-2">
                     <DifficultyFace
                       difficulty={entry.level.inGameDifficulty}
@@ -307,33 +316,33 @@ function MobileRow({
           )}
         </div>
 
-      {canEdit &&
-        (jumping ? (
-          <Input
-            autoFocus
-            value={jumpValue}
-            inputMode="numeric"
-            onChange={(e) => onJumpValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') onSubmitJump()
-            }}
-            onBlur={onSubmitJump}
-            className="h-8 w-14 text-center"
-            aria-label="Jump to position"
-          />
-        ) : (
-          <div className="flex shrink-0 items-center gap-1 text-text-secondary">
-            <IconBtn label="Move up" onClick={onUp}>
-              <ChevronUp className="size-4" />
-            </IconBtn>
-            <IconBtn label="Move down" onClick={onDown}>
-              <ChevronDown className="size-4" />
-            </IconBtn>
-            <IconBtn label="Jump to position" onClick={onStartJump}>
-              <Hash className="size-4" />
-            </IconBtn>
-          </div>
-        ))}
+        {canEdit &&
+          (jumping ? (
+            <Input
+              autoFocus
+              value={jumpValue}
+              inputMode="numeric"
+              onChange={(e) => onJumpValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSubmitJump()
+              }}
+              onBlur={onSubmitJump}
+              className="h-8 w-14 text-center"
+              aria-label="Jump to position"
+            />
+          ) : (
+            <div className="flex shrink-0 items-center gap-1 text-text-secondary">
+              <IconBtn label="Move up" onClick={onUp}>
+                <ChevronUp className="size-4" />
+              </IconBtn>
+              <IconBtn label="Move down" onClick={onDown}>
+                <ChevronDown className="size-4" />
+              </IconBtn>
+              <IconBtn label="Jump to position" onClick={onStartJump}>
+                <Hash className="size-4" />
+              </IconBtn>
+            </div>
+          ))}
       </div>
     </div>
   )

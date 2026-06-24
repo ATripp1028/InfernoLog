@@ -207,7 +207,9 @@ export function RankingBoard({
   )
 
   const unplacedView = filtering
-    ? filterUnplaced(data.unplaced, unplacedSearch).map((e) => e.levelProgressId)
+    ? filterUnplaced(data.unplaced, unplacedSearch).map(
+        (e) => e.levelProgressId
+      )
     : containers.unplaced.filter((id) => {
         const item = itemsById.get(id)
         if (!item) return false

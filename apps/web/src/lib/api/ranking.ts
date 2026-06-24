@@ -73,7 +73,10 @@ function toUnplaced(entry: ClassicRankingEntry): UnplacedRankingEntry {
   }
 }
 
-function toPlaced(card: UnplacedRankingEntry, rank: number): ClassicRankingEntry {
+function toPlaced(
+  card: UnplacedRankingEntry,
+  rank: number
+): ClassicRankingEntry {
   return {
     rank,
     levelProgressId: card.levelProgressId,
@@ -106,8 +109,7 @@ export function usePlaceRanking() {
     },
     onMutate: async (input): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: rankingQueryKey })
-      const previous =
-        qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
+      const previous = qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
       const card = previous?.unplaced.find(
         (u) => u.levelProgressId === input.levelProgressId
       )
@@ -151,8 +153,7 @@ export function useReorderRanking() {
     },
     onMutate: async (vars): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: rankingQueryKey })
-      const previous =
-        qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
+      const previous = qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
       if (previous) {
         const placed = previous.placed.slice()
         const from = placed.findIndex(
@@ -194,17 +195,14 @@ export function useUnplaceRanking() {
     },
     onMutate: async (levelProgressId): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: rankingQueryKey })
-      const previous =
-        qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
+      const previous = qc.getQueryData<ClassicRankingResponse>(rankingQueryKey)
       const entry = previous?.placed.find(
         (e) => e.levelProgressId === levelProgressId
       )
       if (previous && entry) {
         qc.setQueryData<ClassicRankingResponse>(rankingQueryKey, {
           placed: renumber(
-            previous.placed.filter(
-              (e) => e.levelProgressId !== levelProgressId
-            )
+            previous.placed.filter((e) => e.levelProgressId !== levelProgressId)
           ),
           unplaced: [toUnplaced(entry), ...previous.unplaced],
         })

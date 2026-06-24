@@ -116,7 +116,11 @@ async function seedPlaced(
 ) {
   const lp = await seedCompletion(userId, opts)
   await prisma.classicRanking.create({
-    data: { userId, levelProgressId: lp.id, rankingIndex: String(rankingIndex) },
+    data: {
+      userId,
+      levelProgressId: lp.id,
+      rankingIndex: String(rankingIndex),
+    },
   })
   return lp
 }
@@ -209,7 +213,10 @@ describe('GET /me/ranking/classic', () => {
 
     const { data } = await getRanking(user.id)
 
-    expect(data.placed[0]?.badge).toEqual({ listSource: 'GDDL', tierOrRank: '28' })
+    expect(data.placed[0]?.badge).toEqual({
+      listSource: 'GDDL',
+      tierOrRank: '28',
+    })
     expect(data.placed[1]?.badge).toEqual({
       listSource: 'AREDL',
       tierOrRank: '40',
@@ -237,7 +244,10 @@ describe('GET /me/ranking/classic', () => {
 
     const { data } = await getRanking(user.id)
 
-    expect(data.placed[0]?.badge).toEqual({ listSource: 'AREDL', tierOrRank: '7' })
+    expect(data.placed[0]?.badge).toEqual({
+      listSource: 'AREDL',
+      tierOrRank: '7',
+    })
     expect(data.placed[1]?.badge).toEqual({
       listSource: 'GDDL',
       tierOrRank: '30',
@@ -432,16 +442,18 @@ describe('PATCH /me/ranking/classic/:levelProgressId', () => {
     const c = await seedPlaced(user.id, 2) // easiest
 
     // Move c up between a and b.
-    const res = await send(
-      user.id,
-      'PATCH',
-      `/me/ranking/classic/${c.id}`,
-      { aboveId: a.id, belowId: b.id }
-    )
+    const res = await send(user.id, 'PATCH', `/me/ranking/classic/${c.id}`, {
+      aboveId: a.id,
+      belowId: b.id,
+    })
 
     expect(res.status).toBe(200)
     const { data } = (await res.json()) as RankingBody
-    expect(data.placed.map((e) => e.levelProgressId)).toEqual([a.id, c.id, b.id])
+    expect(data.placed.map((e) => e.levelProgressId)).toEqual([
+      a.id,
+      c.id,
+      b.id,
+    ])
     expect(await indexOf(c.id)).toBe(5) // midpoint of 6 and 4
   })
 
@@ -449,12 +461,9 @@ describe('PATCH /me/ranking/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedPlaced(user.id, 1)
 
-    const res = await send(
-      user.id,
-      'PATCH',
-      `/me/ranking/classic/${lp.id}`,
-      { aboveId: lp.id }
-    )
+    const res = await send(user.id, 'PATCH', `/me/ranking/classic/${lp.id}`, {
+      aboveId: lp.id,
+    })
     expect(res.status).toBe(400)
   })
 
@@ -462,12 +471,7 @@ describe('PATCH /me/ranking/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedCompletion(user.id) // unplaced
 
-    const res = await send(
-      user.id,
-      'PATCH',
-      `/me/ranking/classic/${lp.id}`,
-      {}
-    )
+    const res = await send(user.id, 'PATCH', `/me/ranking/classic/${lp.id}`, {})
     expect(res.status).toBe(404)
   })
 })
@@ -481,11 +485,7 @@ describe('DELETE /me/ranking/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedPlaced(user.id, 1)
 
-    const res = await send(
-      user.id,
-      'DELETE',
-      `/me/ranking/classic/${lp.id}`
-    )
+    const res = await send(user.id, 'DELETE', `/me/ranking/classic/${lp.id}`)
 
     expect(res.status).toBe(200)
     const { data } = (await res.json()) as RankingBody
@@ -504,11 +504,7 @@ describe('DELETE /me/ranking/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedCompletion(user.id)
 
-    const res = await send(
-      user.id,
-      'DELETE',
-      `/me/ranking/classic/${lp.id}`
-    )
+    const res = await send(user.id, 'DELETE', `/me/ranking/classic/${lp.id}`)
     expect(res.status).toBe(404)
   })
 
@@ -517,11 +513,7 @@ describe('DELETE /me/ranking/classic/:levelProgressId', () => {
     const other = await seedUser(prisma)
     const lp = await seedPlaced(other.id, 1)
 
-    const res = await send(
-      user.id,
-      'DELETE',
-      `/me/ranking/classic/${lp.id}`
-    )
+    const res = await send(user.id, 'DELETE', `/me/ranking/classic/${lp.id}`)
     expect(res.status).toBe(404)
     expect(await prisma.classicRanking.count()).toBe(1)
   })
