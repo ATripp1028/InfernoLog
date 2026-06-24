@@ -17,6 +17,12 @@ import {
   LevelProgressListEntrySchema,
   LevelProgressListItemSchema,
   LevelProgressListResponseSchema,
+  RankingBadgeSchema,
+  ClassicRankingEntrySchema,
+  UnplacedRankingEntrySchema,
+  ClassicRankingResponseSchema,
+  PlaceRankingInputSchema,
+  ReorderRankingInputSchema,
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -44,3 +50,12 @@ export type LevelProgressListItem = z.infer<typeof LevelProgressListItemSchema>
 export type LevelProgressListResponse = z.infer<
   typeof LevelProgressListResponseSchema
 >
+
+export type RankingBadge = z.infer<typeof RankingBadgeSchema>
+export type ClassicRankingEntry = z.infer<typeof ClassicRankingEntrySchema>
+export type UnplacedRankingEntry = z.infer<typeof UnplacedRankingEntrySchema>
+export type ClassicRankingResponse = z.infer<
+  typeof ClassicRankingResponseSchema
+>
+export type PlaceRankingInput = z.infer<typeof PlaceRankingInputSchema>
+export type ReorderRankingInput = z.infer<typeof ReorderRankingInputSchema>

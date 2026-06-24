@@ -29,6 +29,9 @@ interface FlowState {
   manualLevelId: string | null
   // Set by openForEdit: the level the `resolving` step should auto-resolve.
   pendingEditLevelId: string | null
+  // The level_progress id of the just-submitted completion — handed to the
+  // ranking page's "Place now" navigation so it can highlight/scroll to it.
+  lastCompletionLevelProgressId: string | null
   draft: FlowDraft
 }
 
@@ -38,6 +41,7 @@ interface FlowContextValue extends FlowState {
   openForEdit: (levelId: string, path: FlowPath) => void
   close: () => void
   setStep: (step: FlowStep) => void
+  setLastCompletion: (levelProgressId: string) => void
   patchDraft: (patch: Partial<FlowDraft>) => void
   applyResolved: (resolved: ResolvedLevel) => void
   goManual: (levelId: string, existing: ExistingCompletion | null) => void
@@ -61,6 +65,7 @@ const CLOSED: FlowState = {
   suggestedGddlTier: null,
   manualLevelId: null,
   pendingEditLevelId: null,
+  lastCompletionLevelProgressId: null,
   draft: emptyDraft(),
 }
 
@@ -88,6 +93,10 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
 
   const setStep = useCallback((step: FlowStep) => {
     setState((s) => ({ ...s, step }))
+  }, [])
+
+  const setLastCompletion = useCallback((levelProgressId: string) => {
+    setState((s) => ({ ...s, lastCompletionLevelProgressId: levelProgressId }))
   }, [])
 
   const patchDraft = useCallback((patch: Partial<FlowDraft>) => {
@@ -147,6 +156,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
       openForEdit,
       close,
       setStep,
+      setLastCompletion,
       patchDraft,
       applyResolved,
       goManual,
@@ -158,6 +168,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
       openForEdit,
       close,
       setStep,
+      setLastCompletion,
       patchDraft,
       applyResolved,
       goManual,
