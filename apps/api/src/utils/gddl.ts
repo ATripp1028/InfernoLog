@@ -123,7 +123,8 @@ export async function fetchGddlUserInfo(
 
   if (!res.ok) {
     // 4xx = key explicitly rejected; 5xx = GDDL server error (not the key's fault).
-    if (res.status >= 500) throw new GddlUnavailableError(`GDDL returned ${res.status}`)
+    if (res.status >= 500)
+      throw new GddlUnavailableError(`GDDL returned ${res.status}`)
     throw new GddlInvalidKeyError()
   }
 
@@ -200,13 +201,17 @@ export async function fetchAllGddlSubmissions(
     }
 
     if (!res.ok) {
-      throw new GddlUnavailableError(`GDDL returned ${res.status} on submissions page ${page}`)
+      throw new GddlUnavailableError(
+        `GDDL returned ${res.status} on submissions page ${page}`
+      )
     }
 
     const body = (await res.json()) as GddlSyncResponse
     const submissions = body.submissions as GddlSubmission[] | undefined
     if (!Array.isArray(submissions)) {
-      throw new GddlUnavailableError(`GDDL returned unexpected shape on submissions page ${page}`)
+      throw new GddlUnavailableError(
+        `GDDL returned unexpected shape on submissions page ${page}`
+      )
     }
 
     all.push(...submissions)

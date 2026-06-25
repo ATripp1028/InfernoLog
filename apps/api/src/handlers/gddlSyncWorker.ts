@@ -32,7 +32,11 @@ export const handler = async (event: WorkerEvent): Promise<void> => {
     if (!user.gddlApiKeyEncrypted) {
       await prisma.gddlSyncJob.update({
         where: { id: jobId },
-        data: { status: 'failed', error: 'No GDDL API key configured.', finishedAt: new Date() },
+        data: {
+          status: 'failed',
+          error: 'No GDDL API key configured.',
+          finishedAt: new Date(),
+        },
       })
       return
     }
@@ -42,7 +46,11 @@ export const handler = async (event: WorkerEvent): Promise<void> => {
 
     await prisma.gddlSyncJob.update({
       where: { id: jobId },
-      data: { status: 'completed', result: result as object, finishedAt: new Date() },
+      data: {
+        status: 'completed',
+        result: result as object,
+        finishedAt: new Date(),
+      },
     })
 
     logger.info({ jobId, userId, ...result }, 'gddlSyncWorker: completed')
@@ -59,10 +67,17 @@ export const handler = async (event: WorkerEvent): Promise<void> => {
     try {
       await prisma.gddlSyncJob.update({
         where: { id: jobId },
-        data: { status: 'failed', error: userMessage(err), finishedAt: new Date() },
+        data: {
+          status: 'failed',
+          error: userMessage(err),
+          finishedAt: new Date(),
+        },
       })
     } catch (updateErr) {
-      logger.error({ jobId, updateErr }, 'gddlSyncWorker: failed to update job status')
+      logger.error(
+        { jobId, updateErr },
+        'gddlSyncWorker: failed to update job status'
+      )
       Sentry.captureException(updateErr)
     }
   }

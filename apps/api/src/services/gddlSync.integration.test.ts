@@ -39,9 +39,13 @@ const { fetchAllGddlSubmissions } = await import('../utils/gddl')
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const prisma = getTestPrisma()
-const mockFetchAll = fetchAllGddlSubmissions as unknown as ReturnType<typeof vi.fn>
+const mockFetchAll = fetchAllGddlSubmissions as unknown as ReturnType<
+  typeof vi.fn
+>
 
-function makeSubmission(overrides: Partial<GddlSubmission> = {}): GddlSubmission {
+function makeSubmission(
+  overrides: Partial<GddlSubmission> = {}
+): GddlSubmission {
   return {
     ID: 1,
     Rating: 8,
@@ -80,7 +84,10 @@ afterAll(async () => {
 describe('syncGddlSubmissions', () => {
   it('creates a completion for a level already in the DB', async () => {
     const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '12345', inGameDifficulty: 'Extreme Demon' })
+    await seedLevel(prisma, {
+      inGameId: '12345',
+      inGameDifficulty: 'Extreme Demon',
+    })
     mockFetchAll.mockResolvedValueOnce([makeSubmission()])
 
     const result = await syncGddlSubmissions(user.id, 'api-key')
@@ -111,7 +118,9 @@ describe('syncGddlSubmissions', () => {
     expect(result.created).toBe(1)
     expect(result.errors).toHaveLength(0)
 
-    const level = await prisma.level.findUnique({ where: { inGameId: '12345' } })
+    const level = await prisma.level.findUnique({
+      where: { inGameId: '12345' },
+    })
     expect(level?.name).toBe('DeathMoon')
     expect(level?.dataSource).toBe('manual')
     expect(level?.verified).toBe(false)
@@ -120,8 +129,14 @@ describe('syncGddlSubmissions', () => {
   it('maps GDDL official level IDs to GD in-game IDs', async () => {
     const user = await seedUser(prisma)
     // GDDL stores Clubstep as ID 1, but GD's real in-game ID is 14.
-    await seedLevel(prisma, { inGameId: '14', name: 'Clubstep', inGameDifficulty: 'Hard Demon' })
-    mockFetchAll.mockResolvedValueOnce([makeSubmission({ Level: { ID: 1 } as GddlSubmission['Level'] })])
+    await seedLevel(prisma, {
+      inGameId: '14',
+      name: 'Clubstep',
+      inGameDifficulty: 'Hard Demon',
+    })
+    mockFetchAll.mockResolvedValueOnce([
+      makeSubmission({ Level: { ID: 1 } as GddlSubmission['Level'] }),
+    ])
 
     const result = await syncGddlSubmissions(user.id, 'api-key')
 
@@ -143,7 +158,12 @@ describe('syncGddlSubmissions', () => {
 
     // Pre-existing completion with no date, enjoyment, or video.
     const lp = await prisma.levelProgress.create({
-      data: { userId: user.id, levelId: '12345', status: 'COMPLETED', visibility: 'PUBLIC' },
+      data: {
+        userId: user.id,
+        levelId: '12345',
+        status: 'COMPLETED',
+        visibility: 'PUBLIC',
+      },
       select: { id: true },
     })
     const pu = await prisma.progressUpdate.create({
@@ -176,14 +196,19 @@ describe('syncGddlSubmissions', () => {
     await seedLevel(prisma, { inGameId: '12345' })
 
     const lp = await prisma.levelProgress.create({
-      data: { userId: user.id, levelId: '12345', status: 'COMPLETED', visibility: 'PUBLIC' },
+      data: {
+        userId: user.id,
+        levelId: '12345',
+        status: 'COMPLETED',
+        visibility: 'PUBLIC',
+      },
       select: { id: true },
     })
     const pu = await prisma.progressUpdate.create({
       data: {
         levelProgressId: lp.id,
         isCompletion: true,
-        date: new Date('2023-01-01'),  // already set — must not be overwritten
+        date: new Date('2023-01-01'), // already set — must not be overwritten
         enjoyment: 50,
         simpleRating: 60,
         videoUrl: 'https://original.video',
@@ -192,7 +217,12 @@ describe('syncGddlSubmissions', () => {
     })
     // Existing GDDL list reference → nothing to add.
     await prisma.listReference.create({
-      data: { progressUpdateId: pu.id, listSource: 'GDDL', tierOrRank: '7', atTimeOfLogging: false },
+      data: {
+        progressUpdateId: pu.id,
+        listSource: 'GDDL',
+        tierOrRank: '7',
+        atTimeOfLogging: false,
+      },
     })
 
     mockFetchAll.mockResolvedValueOnce([makeSubmission()])
@@ -200,7 +230,9 @@ describe('syncGddlSubmissions', () => {
 
     expect(result).toEqual({ created: 0, enriched: 0, skipped: 1, errors: [] })
 
-    const unchanged = await prisma.progressUpdate.findUniqueOrThrow({ where: { id: pu.id } })
+    const unchanged = await prisma.progressUpdate.findUniqueOrThrow({
+      where: { id: pu.id },
+    })
     expect(unchanged.enjoyment).toBe(50) // unchanged
     expect(unchanged.simpleRating).toBe(60)
     expect(unchanged.videoUrl).toBe('https://original.video')
@@ -215,7 +247,15 @@ describe('syncGddlSubmissions', () => {
         ID: 0, // 0 → level ID '0'; RobTop returns null; GDDL Meta.Name is empty → throws
         Rating: 5,
         Enjoyment: 5,
-        Meta: { Name: '', Difficulty: 'Hard Demon', Length: 3, Rarity: 1, IsTwoPlayer: false, Song: { Name: '' }, Publisher: null },
+        Meta: {
+          Name: '',
+          Difficulty: 'Hard Demon',
+          Length: 3,
+          Rarity: 1,
+          IsTwoPlayer: false,
+          Song: { Name: '' },
+          Publisher: null,
+        },
       },
     })
     const good = makeSubmission() // levelId '12345' exists in DB
@@ -230,11 +270,14 @@ describe('syncGddlSubmissions', () => {
 
   it('propagates GddlUnavailableError when the submissions fetch fails', async () => {
     const user = await seedUser(prisma)
-    const { GddlUnavailableError } = await import('../utils/gddl') as typeof import('../utils/gddl')
-    mockFetchAll.mockRejectedValueOnce(new GddlUnavailableError('GDDL returned 503'))
-
-    await expect(syncGddlSubmissions(user.id, 'api-key')).rejects.toBeInstanceOf(
-      GddlUnavailableError
+    const { GddlUnavailableError } =
+      (await import('../utils/gddl')) as typeof import('../utils/gddl')
+    mockFetchAll.mockRejectedValueOnce(
+      new GddlUnavailableError('GDDL returned 503')
     )
+
+    await expect(
+      syncGddlSubmissions(user.id, 'api-key')
+    ).rejects.toBeInstanceOf(GddlUnavailableError)
   })
 })

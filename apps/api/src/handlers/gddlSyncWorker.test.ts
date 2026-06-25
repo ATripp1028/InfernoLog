@@ -27,7 +27,8 @@ vi.mock('../services/gddlSync', () => ({
 
 // Do NOT mock ../utils/gddl — we need the real error classes so that the
 // worker's `instanceof GddlError` check works correctly.
-const { GddlInvalidKeyError, GddlUnavailableError } = await import('../utils/gddl')
+const { GddlInvalidKeyError, GddlUnavailableError } =
+  await import('../utils/gddl')
 const { handler } = await import('./gddlSyncWorker')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -39,7 +40,12 @@ const syncJobMock = (prisma as any).gddlSyncJob
 
 const JOB_ID = 'job-abc'
 const USER_ID = 'user-123'
-const SYNC_RESULT: GddlSyncResult = { created: 5, enriched: 2, skipped: 10, errors: [] }
+const SYNC_RESULT: GddlSyncResult = {
+  created: 5,
+  enriched: 2,
+  skipped: 10,
+  errors: [],
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -156,7 +162,9 @@ describe('gddlSyncWorker', () => {
       syncJobMock.update.mockRejectedValueOnce(new Error('update failed'))
 
       // Should not throw — the worker swallows the double-failure.
-      await expect(handler({ jobId: JOB_ID, userId: USER_ID })).resolves.toBeUndefined()
+      await expect(
+        handler({ jobId: JOB_ID, userId: USER_ID })
+      ).resolves.toBeUndefined()
 
       // Sentry was called twice: once for the outer error, once for the update failure.
       expect(Sentry.captureException).toHaveBeenCalledTimes(2)

@@ -455,7 +455,9 @@ describe('POST /me/gddl-sync', () => {
     expect(res.status).toBe(202)
     expect(body.data.jobId).toBe('job-123')
     expect(syncJobMock.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ status: 'pending' }) })
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'pending' }),
+      })
     )
     expect(mockLambdaSend).toHaveBeenCalledTimes(1)
   })
@@ -486,10 +488,16 @@ describe('POST /me/gddl-sync', () => {
 
 describe('GET /me/gddl-sync/:jobId', () => {
   it('returns job status when the job belongs to the user', async () => {
-    const jobData = { status: 'completed', result: { created: 3, enriched: 0, skipped: 1, errors: [] }, error: null }
+    const jobData = {
+      status: 'completed',
+      result: { created: 3, enriched: 0, skipped: 1, errors: [] },
+      error: null,
+    }
     syncJobMock.findFirst.mockResolvedValueOnce(jobData)
 
-    const res = await buildApp().request('/me/gddl-sync/job-123', { method: 'GET' })
+    const res = await buildApp().request('/me/gddl-sync/job-123', {
+      method: 'GET',
+    })
     const body = (await res.json()) as { data: typeof jobData }
 
     expect(res.status).toBe(200)
@@ -500,7 +508,9 @@ describe('GET /me/gddl-sync/:jobId', () => {
   it('returns 404 when the job does not exist or belongs to another user', async () => {
     syncJobMock.findFirst.mockResolvedValueOnce(null)
 
-    const res = await buildApp().request('/me/gddl-sync/unknown-job', { method: 'GET' })
+    const res = await buildApp().request('/me/gddl-sync/unknown-job', {
+      method: 'GET',
+    })
 
     expect(res.status).toBe(404)
   })

@@ -19,7 +19,8 @@ interface AccountSectionProps {
 export function AccountSection({ me }: AccountSectionProps) {
   const connect = useConnectDiscord()
   const disconnect = useDisconnectDiscord()
-  const [confirmDiscordDisconnect, setConfirmDiscordDisconnect] = useState(false)
+  const [confirmDiscordDisconnect, setConfirmDiscordDisconnect] =
+    useState(false)
 
   const handleConnect = async () => {
     try {

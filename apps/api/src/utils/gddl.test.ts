@@ -26,42 +26,59 @@ beforeEach(() => mockFetch.mockReset())
 describe('fetchGddlUserInfo', () => {
   it('returns id and name on 200', async () => {
     mockFetch.mockResolvedValueOnce(resp(200, { ID: 42, Name: 'Riot' }))
-    await expect(fetchGddlUserInfo('key')).resolves.toEqual({ id: 42, name: 'Riot' })
+    await expect(fetchGddlUserInfo('key')).resolves.toEqual({
+      id: 42,
+      name: 'Riot',
+    })
   })
 
   it('throws GddlInvalidKeyError on 401', async () => {
     mockFetch.mockResolvedValueOnce(resp(401, {}))
-    await expect(fetchGddlUserInfo('bad-key')).rejects.toBeInstanceOf(GddlInvalidKeyError)
+    await expect(fetchGddlUserInfo('bad-key')).rejects.toBeInstanceOf(
+      GddlInvalidKeyError
+    )
   })
 
   it('throws GddlInvalidKeyError on 403', async () => {
     mockFetch.mockResolvedValueOnce(resp(403, {}))
-    await expect(fetchGddlUserInfo('bad-key')).rejects.toBeInstanceOf(GddlInvalidKeyError)
+    await expect(fetchGddlUserInfo('bad-key')).rejects.toBeInstanceOf(
+      GddlInvalidKeyError
+    )
   })
 
   it('throws GddlUnavailableError on 500', async () => {
     mockFetch.mockResolvedValueOnce(resp(500, {}))
-    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlUnavailableError on 503', async () => {
     mockFetch.mockResolvedValueOnce(resp(503, {}))
-    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlUnavailableError on network failure', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
-    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlUnavailableError on abort (timeout)', async () => {
     mockFetch.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
-    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlInvalidKeyError when response is missing ID or Name', async () => {
     mockFetch.mockResolvedValueOnce(resp(200, { ID: 42 })) // missing Name
-    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(GddlInvalidKeyError)
+    await expect(fetchGddlUserInfo('key')).rejects.toBeInstanceOf(
+      GddlInvalidKeyError
+    )
   })
 })
 
@@ -100,11 +117,18 @@ describe('fetchAllGddlSubmissions', () => {
   })
 
   it('paginates until a page shorter than the limit', async () => {
-    const page0 = Array.from({ length: 25 }, (_, i) => ({ ...SUBMISSION, ID: i }))
+    const page0 = Array.from({ length: 25 }, (_, i) => ({
+      ...SUBMISSION,
+      ID: i,
+    }))
     const page1 = [{ ...SUBMISSION, ID: 25 }]
     mockFetch
-      .mockResolvedValueOnce(resp(200, { total: 26, limit: 25, page: 0, submissions: page0 }))
-      .mockResolvedValueOnce(resp(200, { total: 26, limit: 25, page: 1, submissions: page1 }))
+      .mockResolvedValueOnce(
+        resp(200, { total: 26, limit: 25, page: 0, submissions: page0 })
+      )
+      .mockResolvedValueOnce(
+        resp(200, { total: 26, limit: 25, page: 1, submissions: page1 })
+      )
     const result = await fetchAllGddlSubmissions('key', 17251)
     expect(result).toHaveLength(26)
     expect(mockFetch).toHaveBeenCalledTimes(2)
@@ -112,10 +136,17 @@ describe('fetchAllGddlSubmissions', () => {
 
   it('stops after a full page that happens to equal the limit exactly', async () => {
     // An exactly-full last page still triggers a second request; the empty page after stops it.
-    const page0 = Array.from({ length: 25 }, (_, i) => ({ ...SUBMISSION, ID: i }))
+    const page0 = Array.from({ length: 25 }, (_, i) => ({
+      ...SUBMISSION,
+      ID: i,
+    }))
     mockFetch
-      .mockResolvedValueOnce(resp(200, { total: 25, limit: 25, page: 0, submissions: page0 }))
-      .mockResolvedValueOnce(resp(200, { total: 25, limit: 25, page: 1, submissions: [] }))
+      .mockResolvedValueOnce(
+        resp(200, { total: 25, limit: 25, page: 0, submissions: page0 })
+      )
+      .mockResolvedValueOnce(
+        resp(200, { total: 25, limit: 25, page: 1, submissions: [] })
+      )
     const result = await fetchAllGddlSubmissions('key', 17251)
     expect(result).toHaveLength(25)
     expect(mockFetch).toHaveBeenCalledTimes(2)
@@ -123,16 +154,22 @@ describe('fetchAllGddlSubmissions', () => {
 
   it('throws GddlUnavailableError on non-2xx', async () => {
     mockFetch.mockResolvedValueOnce(resp(503, {}))
-    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlUnavailableError on network failure', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
-    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 
   it('throws GddlUnavailableError when response shape is unexpected', async () => {
     mockFetch.mockResolvedValueOnce(resp(200, { not: 'expected' }))
-    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(GddlUnavailableError)
+    await expect(fetchAllGddlSubmissions('key', 17251)).rejects.toBeInstanceOf(
+      GddlUnavailableError
+    )
   })
 })

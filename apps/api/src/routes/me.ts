@@ -395,7 +395,12 @@ app.post('/me/gddl-sync', async (c) => {
     })
 
     if (!user.gddlApiKeyEncrypted) {
-      return c.json({ error: 'No GDDL API key configured. Connect your GDDL account first.' }, 400)
+      return c.json(
+        {
+          error: 'No GDDL API key configured. Connect your GDDL account first.',
+        },
+        400
+      )
     }
 
     const job = await prisma.gddlSyncJob.create({

@@ -22,7 +22,10 @@ interface GddlApiKeyEditorProps {
 
 function buildSyncToast(result: GddlSyncResult): string {
   const parts: string[] = []
-  if (result.created > 0) parts.push(`${result.created} completion${result.created === 1 ? '' : 's'} added`)
+  if (result.created > 0)
+    parts.push(
+      `${result.created} completion${result.created === 1 ? '' : 's'} added`
+    )
   if (result.enriched > 0) parts.push(`${result.enriched} enriched`)
   const summary = parts.length > 0 ? parts.join(', ') : 'Nothing new to import'
   if (result.errors.length > 0) {

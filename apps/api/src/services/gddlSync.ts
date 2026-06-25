@@ -271,7 +271,11 @@ export async function syncGddlSubmissions(
           : null
 
         if (existingCompletion) {
-          const enriched = await enrichCompletion(tx, existingCompletion.id, sub)
+          const enriched = await enrichCompletion(
+            tx,
+            existingCompletion.id,
+            sub
+          )
           if (enriched) {
             result.enriched++
           } else {
