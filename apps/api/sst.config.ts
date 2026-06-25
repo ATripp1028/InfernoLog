@@ -343,6 +343,23 @@ export default $config({
     // a GDDL record, which requires decrypting the user's stored GDDL key.
     gddlKeyRoute('POST /v1/me/completions')
 
+    // Sync requires decrypting the stored GDDL key to call the GDDL API.
+    // Registered separately from gddlKeyRoute so it can carry a longer timeout
+    // — syncing all pages of GDDL submissions + per-level RobTop lookups can
+    // take well over 20 s (the Lambda default).
+    api.route(
+      'POST /v1/me/gddl-sync',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: gddlKeyEnvironment,
+        permissions: gddlKeyPermissions,
+        timeout: '5 minutes',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────

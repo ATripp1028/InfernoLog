@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError, apiFetch } from './client'
+import { listQueryKey } from './list'
+import { rankingQueryKey } from './ranking'
 
 export { ApiError }
 
@@ -143,6 +145,36 @@ export function useRemoveGddlApiKey() {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(meQueryKey, data)
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// GDDL sync
+// ─────────────────────────────────────────────
+
+export interface GddlSyncResult {
+  created: number
+  enriched: number
+  skipped: number
+  errors: { levelId: string; reason: string }[]
+}
+
+export function useGddlSync() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (): Promise<GddlSyncResult> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: GddlSyncResult }>(
+        '/v1/me/gddl-sync',
+        { token, method: 'POST' }
+      )
+      return data
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: listQueryKey })
+      void queryClient.invalidateQueries({ queryKey: rankingQueryKey })
     },
   })
 }

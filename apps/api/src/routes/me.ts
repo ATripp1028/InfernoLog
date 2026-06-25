@@ -18,8 +18,9 @@ import {
   SetGddlApiKeySchema,
   RATING_WEIGHT_SUM_TARGET_CENTS,
 } from '@infernolog/core'
-import { encryptSecret } from '../utils/kms'
+import { encryptSecret, decryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
+import { syncGddlSubmissions } from '../services/gddlSync'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -376,6 +377,36 @@ app.delete('/me/gddl-key', async (c) => {
   } catch (error) {
     console.error('DELETE /me/gddl-key error:', error)
     Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/gddl-sync — import the authenticated user's GDDL submission
+// history into InfernoLog. Additive-only: never overwrites existing data.
+app.post('/me/gddl-sync', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    logger.info({ userId }, 'gddl-sync: fetching user record')
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { gddlApiKeyEncrypted: true },
+    })
+
+    if (!user.gddlApiKeyEncrypted) {
+      return c.json({ error: 'No GDDL API key configured. Connect your GDDL account first.' }, 400)
+    }
+
+    logger.info({ userId }, 'gddl-sync: decrypting API key')
+    const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+
+    logger.info({ userId }, 'gddl-sync: starting sync')
+    const result = await syncGddlSubmissions(userId, apiKey)
+    logger.info({ userId, result }, 'gddl-sync: complete')
+    return c.json({ data: result })
+  } catch (err) {
+    logger.error({ userId, err }, 'gddl-sync: unhandled error')
+    Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
