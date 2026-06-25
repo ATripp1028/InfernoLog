@@ -1,8 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError, apiFetch } from './client'
-import { listQueryKey } from './list'
-import { rankingQueryKey } from './ranking'
 
 export { ApiError }
 
@@ -160,22 +158,47 @@ export interface GddlSyncResult {
   errors: { levelId: string; reason: string }[]
 }
 
+export interface GddlSyncJobStatus {
+  status: 'pending' | 'completed' | 'failed'
+  result: GddlSyncResult | null
+  error: string | null
+}
+
+// Starts an async sync job. Returns the jobId immediately (202); the caller
+// should poll useGddlSyncStatus until status is not "pending".
 export function useGddlSync() {
   const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (): Promise<GddlSyncResult> => {
+    mutationFn: async (): Promise<{ jobId: string }> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: GddlSyncResult }>(
+      const { data } = await apiFetch<{ data: { jobId: string } }>(
         '/v1/me/gddl-sync',
         { token, method: 'POST' }
       )
       return data
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: listQueryKey })
-      void queryClient.invalidateQueries({ queryKey: rankingQueryKey })
+  })
+}
+
+// Polls for the status of a sync job. Pass null to disable.
+// Stops refetching automatically once status is no longer "pending".
+export function useGddlSyncStatus(jobId: string | null) {
+  const { getIdToken } = useAuth()
+  return useQuery({
+    queryKey: ['gddl-sync', jobId],
+    enabled: jobId !== null,
+    queryFn: async (): Promise<GddlSyncJobStatus> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: GddlSyncJobStatus }>(
+        `/v1/me/gddl-sync/${jobId}`,
+        { token, method: 'GET' }
+      )
+      return data
     },
+    refetchInterval: (query) => {
+      return query.state.data?.status === 'pending' ? 2000 : false
+    },
+    retry: false,
   })
 }
 

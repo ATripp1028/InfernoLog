@@ -343,22 +343,52 @@ export default $config({
     // a GDDL record, which requires decrypting the user's stored GDDL key.
     gddlKeyRoute('POST /v1/me/completions')
 
-    // Sync requires decrypting the stored GDDL key to call the GDDL API.
-    // Registered separately from gddlKeyRoute so it can carry a longer timeout
-    // — syncing all pages of GDDL submissions + per-level RobTop lookups can
-    // take well over 20 s (the Lambda default).
+    // Worker Lambda — runs the full GDDL import in the background so that
+    // API Gateway's hard 29-second integration timeout never applies.
+    // The route Lambda invokes this asynchronously (InvocationType: Event)
+    // and returns 202 + jobId immediately.
+    const gddlSyncWorker = new sst.aws.Function('GddlSyncWorker', {
+      handler: 'src/handlers/gddlSyncWorker.handler',
+      link: sharedLinks,
+      environment: {
+        ...sharedEnvironment,
+        GDDL_KMS_KEY_ID: gddlKmsKey.arn,
+      },
+      permissions: [
+        {
+          actions: ['kms:Decrypt'],
+          resources: [gddlKmsKey.arn],
+        },
+      ],
+      timeout: '15 minutes',
+      ...sharedNodeOptions,
+    })
+
+    // POST /v1/me/gddl-sync — creates the job row, invokes the worker async,
+    // returns 202 + jobId. No KMS access needed here: the check is whether the
+    // encrypted key field is non-null; decryption is done by the worker.
     api.route(
       'POST /v1/me/gddl-sync',
       {
         handler: 'src/index.handler',
         link: sharedLinks,
-        environment: gddlKeyEnvironment,
-        permissions: gddlKeyPermissions,
-        timeout: '5 minutes',
+        environment: {
+          ...sharedEnvironment,
+          GDDL_SYNC_WORKER_ARN: gddlSyncWorker.arn,
+        },
+        permissions: [
+          {
+            actions: ['lambda:InvokeFunction'],
+            resources: [gddlSyncWorker.arn],
+          },
+        ],
         ...sharedNodeOptions,
       },
       { auth: jwtAuth }
     )
+
+    // GET /v1/me/gddl-sync/{jobId} — poll for sync job status (no KMS needed).
+    authedRoute('GET /v1/me/gddl-sync/{jobId}')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

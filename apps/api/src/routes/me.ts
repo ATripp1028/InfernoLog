@@ -18,9 +18,9 @@ import {
   SetGddlApiKeySchema,
   RATING_WEIGHT_SUM_TARGET_CENTS,
 } from '@infernolog/core'
-import { encryptSecret, decryptSecret } from '../utils/kms'
+import { encryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
-import { syncGddlSubmissions } from '../services/gddlSync'
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -381,13 +381,14 @@ app.delete('/me/gddl-key', async (c) => {
   }
 })
 
-// POST /v1/me/gddl-sync — import the authenticated user's GDDL submission
-// history into InfernoLog. Additive-only: never overwrites existing data.
+// POST /v1/me/gddl-sync — creates an async sync job and returns 202 + jobId
+// immediately. The actual import is handled by the GddlSyncWorker Lambda
+// (invoked asynchronously) so API Gateway's 29-second integration timeout
+// never applies regardless of how many GDDL pages / RobTop lookups are needed.
 app.post('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
   try {
-    logger.info({ userId }, 'gddl-sync: fetching user record')
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: { gddlApiKeyEncrypted: true },
@@ -397,18 +398,45 @@ app.post('/me/gddl-sync', async (c) => {
       return c.json({ error: 'No GDDL API key configured. Connect your GDDL account first.' }, 400)
     }
 
-    logger.info({ userId }, 'gddl-sync: decrypting API key')
-    const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+    const job = await prisma.gddlSyncJob.create({
+      data: { userId, status: 'pending' },
+      select: { id: true },
+    })
 
-    logger.info({ userId }, 'gddl-sync: starting sync')
-    const result = await syncGddlSubmissions(userId, apiKey)
-    logger.info({ userId, result }, 'gddl-sync: complete')
-    return c.json({ data: result })
+    const lambda = new LambdaClient({})
+    await lambda.send(
+      new InvokeCommand({
+        FunctionName: process.env.GDDL_SYNC_WORKER_ARN!, // always set by SST
+        InvocationType: 'Event', // async — do not wait for the worker to finish
+        Payload: JSON.stringify({ jobId: job.id, userId }),
+      })
+    )
+
+    logger.info({ userId, jobId: job.id }, 'gddl-sync: job created, worker invoked')
+    return c.json({ data: { jobId: job.id } }, 202)
   } catch (err) {
-    logger.error({ userId, err }, 'gddl-sync: unhandled error')
+    logger.error({ userId, err }, 'gddl-sync: failed to create job')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }
+})
+
+// GET /v1/me/gddl-sync/:jobId — poll for the status of an async sync job.
+// Returns { status, result?, error? }; poll until status is not "pending".
+app.get('/me/gddl-sync/:jobId', async (c) => {
+  const userId = c.get('userId') as string
+  const jobId = c.req.param('jobId')
+
+  const job = await prisma.gddlSyncJob.findFirst({
+    where: { id: jobId, userId },
+    select: { status: true, result: true, error: true },
+  })
+
+  if (!job) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+
+  return c.json({ data: job })
 })
 
 // POST /v1/me/onboarding

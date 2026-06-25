@@ -712,3 +712,18 @@ model ModerationAction {
 
   @@map("moderation_actions")
 }
+
+// Tracks an async GDDL submission-history import. The route Lambda creates a
+// pending row and returns the id immediately; the worker Lambda updates the row
+// to completed/failed when the sync finishes.
+model GddlSyncJob {
+  id         String    @id @default(uuid())
+  userId     String
+  status     String    // "pending" | "completed" | "failed"
+  result     Json?
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@map("gddl_sync_jobs")
+}

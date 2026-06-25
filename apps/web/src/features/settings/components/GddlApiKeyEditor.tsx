@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/sonner'
@@ -7,9 +8,12 @@ import {
   useRemoveGddlApiKey,
   useSetGddlApiKey,
   useGddlSync,
+  useGddlSyncStatus,
   type MeData,
   type GddlSyncResult,
 } from '@/lib/api/me'
+import { listQueryKey } from '@/lib/api/list'
+import { rankingQueryKey } from '@/lib/api/ranking'
 import { ConnectedAccountRow } from './ConnectedAccountRow'
 
 interface GddlApiKeyEditorProps {
@@ -34,10 +38,32 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
   const setKey = useSetGddlApiKey()
   const removeKey = useRemoveGddlApiKey()
   const sync = useGddlSync()
+  const queryClient = useQueryClient()
+
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [offerSync, setOfferSync] = useState(false)
+  const [syncJobId, setSyncJobId] = useState<string | null>(null)
+
+  const syncStatus = useGddlSyncStatus(syncJobId)
+
+  // Watch for the worker to finish and update the toast accordingly.
+  useEffect(() => {
+    if (!syncJobId || !syncStatus.data) return
+    const { status, result, error } = syncStatus.data
+    if (status === 'completed' && result) {
+      toast.success(buildSyncToast(result), { id: `gddl-sync-${syncJobId}` })
+      void queryClient.invalidateQueries({ queryKey: listQueryKey })
+      void queryClient.invalidateQueries({ queryKey: rankingQueryKey })
+      setSyncJobId(null)
+    } else if (status === 'failed') {
+      toast.error(error ?? 'Sync failed', { id: `gddl-sync-${syncJobId}` })
+      setSyncJobId(null)
+    }
+  }, [syncStatus.data?.status, syncJobId, queryClient])
+
+  const isSyncing = sync.isPending || syncJobId !== null
 
   const save = async () => {
     const trimmed = value.trim()
@@ -52,8 +78,6 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       toast.success(`Successfully connected to GDDL user ${gddlName}!`)
       setOfferSync(true)
     } catch (err) {
-      // The API rejects an invalid key with a 400 and a descriptive message,
-      // which surfaces here as err.message.
       toast.error(err instanceof Error ? err.message : 'Failed to save API key')
     }
   }
@@ -71,8 +95,9 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
 
   const runSync = async () => {
     try {
-      const result = await sync.mutateAsync()
-      toast.success(buildSyncToast(result))
+      const { jobId } = await sync.mutateAsync()
+      setSyncJobId(jobId)
+      toast.loading('Syncing with GDDL…', { id: `gddl-sync-${jobId}` })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sync failed')
     }
@@ -98,9 +123,9 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
                 size="sm"
                 className="border border-orange-500 bg-transparent text-orange-500 hover:bg-orange-500/10"
                 onClick={() => void runSync()}
-                disabled={sync.isPending}
+                disabled={isSyncing}
               >
-                {sync.isPending ? 'Syncing…' : 'Sync with GDDL'}
+                {isSyncing ? 'Syncing…' : 'Sync with GDDL'}
               </Button>
               <Button
                 variant="outline"
