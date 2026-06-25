@@ -8,7 +8,6 @@ import {
 import { fetchRobtopLevel } from '../utils/robtop'
 import { findOrCreateLevelProgress } from './progress'
 import { logger } from '../utils/logger'
-import * as Sentry from '@sentry/aws-serverless'
 import type { Prisma } from '@prisma/client'
 
 type Tx = Prisma.TransactionClient
@@ -249,20 +248,8 @@ export async function syncGddlSubmissions(
     errors: [],
   }
 
-  logger.info({ userId }, 'gddlSync: fetching GDDL user info')
   const userInfo = await fetchGddlUserInfo(gddlApiKey)
-  logger.info({ userId, gddlUserId: userInfo.id }, 'gddlSync: fetched user info, fetching submissions')
-
-  let submissions: GddlSubmission[]
-  try {
-    submissions = await fetchAllGddlSubmissions(gddlApiKey, userInfo.id)
-    logger.info({ userId, count: submissions.length }, 'gddlSync: fetched all submissions')
-  } catch (err) {
-    const reason = err instanceof Error ? err.message : 'Failed to fetch submissions'
-    logger.error({ userId, err }, 'gddlSync: failed to fetch submissions')
-    result.errors.push({ levelId: 'unknown', reason })
-    return result
-  }
+  const submissions = await fetchAllGddlSubmissions(gddlApiKey, userInfo.id)
 
   for (const sub of submissions) {
     const rawId = String(sub.Level.ID)
@@ -297,8 +284,7 @@ export async function syncGddlSubmissions(
       })
     } catch (err) {
       const reason = err instanceof Error ? err.message : 'Unknown error'
-      logger.error({ levelId, err }, 'GDDL sync: error processing submission')
-      Sentry.captureException(err)
+      logger.warn({ levelId }, `gddlSync: skipping submission — ${reason}`)
       result.errors.push({ levelId, reason })
     }
   }

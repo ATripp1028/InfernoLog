@@ -11,14 +11,23 @@ const GDDL_API_BASE_URL =
 // pinning the Lambda until its own timeout.
 const VERIFY_TIMEOUT_MS = 8000
 
-// Thrown when GDDL responds but rejects the key (or returns a shape that means
-// the key isn't a valid, named user). Distinct from network/timeout failures,
-// which propagate as ordinary errors and should surface as a 500 — we only
-// tell the user their key is invalid when GDDL actually said so.
-export class GddlInvalidKeyError extends Error {
+// Base class for all GDDL-side errors. The worker uses this to distinguish
+// "GDDL is misbehaving" (no Sentry, user-facing message) from "our bug" (Sentry).
+export class GddlError extends Error {}
+
+// GDDL responded and explicitly rejected the key.
+export class GddlInvalidKeyError extends GddlError {
   constructor(message = 'GDDL rejected the API key') {
     super(message)
     this.name = 'GddlInvalidKeyError'
+  }
+}
+
+// GDDL could not be reached, timed out, or returned a server error.
+export class GddlUnavailableError extends GddlError {
+  constructor(message = 'GDDL is unavailable') {
+    super(message)
+    this.name = 'GddlUnavailableError'
   }
 }
 
@@ -106,11 +115,15 @@ export async function fetchGddlUserInfo(
       },
       signal: controller.signal,
     })
-  } finally {
     clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
   }
 
   if (!res.ok) {
+    // 4xx = key explicitly rejected; 5xx = GDDL server error (not the key's fault).
+    if (res.status >= 500) throw new GddlUnavailableError(`GDDL returned ${res.status}`)
     throw new GddlInvalidKeyError()
   }
 
@@ -180,20 +193,20 @@ export async function fetchAllGddlSubmissions(
           signal: controller.signal,
         }
       )
-    } finally {
       clearTimeout(timeout)
+    } catch {
+      clearTimeout(timeout)
+      throw new GddlUnavailableError('Could not reach GDDL')
     }
 
     if (!res.ok) {
-      throw new Error(
-        `GDDL submissions page ${page} returned status ${res.status}`
-      )
+      throw new GddlUnavailableError(`GDDL returned ${res.status} on submissions page ${page}`)
     }
 
     const body = (await res.json()) as GddlSyncResponse
     const submissions = body.submissions as GddlSubmission[] | undefined
     if (!Array.isArray(submissions)) {
-      throw new Error(`GDDL submissions page ${page} returned unexpected shape`)
+      throw new GddlUnavailableError(`GDDL returned unexpected shape on submissions page ${page}`)
     }
 
     all.push(...submissions)

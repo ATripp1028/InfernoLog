@@ -2,6 +2,7 @@ import prisma from '../utils/prisma'
 import { decryptSecret } from '../utils/kms'
 import { syncGddlSubmissions } from '../services/gddlSync'
 import { logger } from '../utils/logger'
+import { GddlError, GddlInvalidKeyError } from '../utils/gddl'
 import * as Sentry from '@sentry/aws-serverless'
 
 interface WorkerEvent {
@@ -9,9 +10,18 @@ interface WorkerEvent {
   userId: string
 }
 
+function userMessage(err: unknown): string {
+  if (err instanceof GddlInvalidKeyError) {
+    return 'Your GDDL API key was rejected. Try reconnecting your GDDL account.'
+  }
+  if (err instanceof GddlError) {
+    return 'Could not reach GDDL. Please try again later.'
+  }
+  return 'Sync failed due to an internal error.'
+}
+
 export const handler = async (event: WorkerEvent): Promise<void> => {
   const { jobId, userId } = event
-  logger.info({ jobId, userId }, 'gddlSyncWorker: starting')
 
   try {
     const user = await prisma.user.findUniqueOrThrow({
@@ -22,7 +32,7 @@ export const handler = async (event: WorkerEvent): Promise<void> => {
     if (!user.gddlApiKeyEncrypted) {
       await prisma.gddlSyncJob.update({
         where: { id: jobId },
-        data: { status: 'failed', error: 'No GDDL API key configured', finishedAt: new Date() },
+        data: { status: 'failed', error: 'No GDDL API key configured.', finishedAt: new Date() },
       })
       return
     }
@@ -32,29 +42,28 @@ export const handler = async (event: WorkerEvent): Promise<void> => {
 
     await prisma.gddlSyncJob.update({
       where: { id: jobId },
-      data: {
-        status: 'completed',
-        result: result as object,
-        finishedAt: new Date(),
-      },
+      data: { status: 'completed', result: result as object, finishedAt: new Date() },
     })
 
-    logger.info({ jobId, userId, result }, 'gddlSyncWorker: completed')
+    logger.info({ jobId, userId, ...result }, 'gddlSyncWorker: completed')
   } catch (err) {
-    logger.error({ jobId, userId, err }, 'gddlSyncWorker: unhandled error')
-    Sentry.captureException(err)
+    const isGddlSideError = err instanceof GddlError
+
+    if (isGddlSideError) {
+      logger.warn({ jobId, userId }, `gddlSyncWorker: ${userMessage(err)}`)
+    } else {
+      logger.error({ jobId, userId, err }, 'gddlSyncWorker: unhandled error')
+      Sentry.captureException(err)
+    }
 
     try {
       await prisma.gddlSyncJob.update({
         where: { id: jobId },
-        data: {
-          status: 'failed',
-          error: err instanceof Error ? err.message : 'Unknown error',
-          finishedAt: new Date(),
-        },
+        data: { status: 'failed', error: userMessage(err), finishedAt: new Date() },
       })
     } catch (updateErr) {
       logger.error({ jobId, updateErr }, 'gddlSyncWorker: failed to update job status')
+      Sentry.captureException(updateErr)
     }
   }
 }

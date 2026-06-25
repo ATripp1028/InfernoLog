@@ -412,7 +412,6 @@ app.post('/me/gddl-sync', async (c) => {
       })
     )
 
-    logger.info({ userId, jobId: job.id }, 'gddl-sync: job created, worker invoked')
     return c.json({ data: { jobId: job.id } }, 202)
   } catch (err) {
     logger.error({ userId, err }, 'gddl-sync: failed to create job')
