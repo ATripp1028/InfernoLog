@@ -11,14 +11,23 @@ const GDDL_API_BASE_URL =
 // pinning the Lambda until its own timeout.
 const VERIFY_TIMEOUT_MS = 8000
 
-// Thrown when GDDL responds but rejects the key (or returns a shape that means
-// the key isn't a valid, named user). Distinct from network/timeout failures,
-// which propagate as ordinary errors and should surface as a 500 — we only
-// tell the user their key is invalid when GDDL actually said so.
-export class GddlInvalidKeyError extends Error {
+// Base class for all GDDL-side errors. The worker uses this to distinguish
+// "GDDL is misbehaving" (no Sentry, user-facing message) from "our bug" (Sentry).
+export class GddlError extends Error {}
+
+// GDDL responded and explicitly rejected the key.
+export class GddlInvalidKeyError extends GddlError {
   constructor(message = 'GDDL rejected the API key') {
     super(message)
     this.name = 'GddlInvalidKeyError'
+  }
+}
+
+// GDDL could not be reached, timed out, or returned a server error.
+export class GddlUnavailableError extends GddlError {
+  constructor(message = 'GDDL is unavailable') {
+    super(message)
+    this.name = 'GddlUnavailableError'
   }
 }
 
@@ -86,6 +95,131 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
   } finally {
     clearTimeout(timeout)
   }
+}
+
+// Fetches the authenticated user's GDDL account info (id + name).
+// Reuses the same /user/me endpoint as verifyGddlApiKey but also extracts the
+// numeric user ID needed for the submissions endpoint.
+export async function fetchGddlUserInfo(
+  apiKey: string
+): Promise<{ id: number; name: string }> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/user/me`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
+  }
+
+  if (!res.ok) {
+    // 4xx = key explicitly rejected; 5xx = GDDL server error (not the key's fault).
+    if (res.status >= 500)
+      throw new GddlUnavailableError(`GDDL returned ${res.status}`)
+    throw new GddlInvalidKeyError()
+  }
+
+  const body = (await res.json()) as { ID?: unknown; Name?: unknown }
+  if (typeof body.ID !== 'number' || typeof body.Name !== 'string') {
+    throw new GddlInvalidKeyError('GDDL response missing ID or Name')
+  }
+
+  return { id: body.ID, name: body.Name }
+}
+
+export interface GddlSubmissionLevel {
+  ID: number
+  Rating: number
+  Enjoyment: number
+  Meta: {
+    Name: string
+    Difficulty: string
+    Length: number
+    Rarity: number
+    IsTwoPlayer: boolean
+    Song: { Name: string }
+    Publisher: { name: string } | null
+  }
+}
+
+export interface GddlSubmission {
+  ID: number
+  Rating: number
+  Enjoyment: number
+  Proof: string | null
+  DateAdded: string
+  Level: GddlSubmissionLevel
+}
+
+export interface GddlSyncResponse {
+  total: number
+  limit: number
+  page: number
+  submissions: GddlSubmission[]
+}
+
+const SUBMISSIONS_PAGE_LIMIT = 25
+
+// Fetches all pages of the user's GDDL submission history. Throws on any
+// non-2xx page response so the caller can record partial progress.
+export async function fetchAllGddlSubmissions(
+  apiKey: string,
+  gddlUserId: number
+): Promise<GddlSubmission[]> {
+  const all: GddlSubmission[] = []
+  let page = 0
+
+  while (true) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
+
+    let res: Response
+    try {
+      res = await fetch(
+        `${GDDL_API_BASE_URL}/user/${gddlUserId}/submissions?page=${page}&limit=${SUBMISSIONS_PAGE_LIMIT}&sort=levelID&sortDirection=asc`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        }
+      )
+      clearTimeout(timeout)
+    } catch {
+      clearTimeout(timeout)
+      throw new GddlUnavailableError('Could not reach GDDL')
+    }
+
+    if (!res.ok) {
+      throw new GddlUnavailableError(
+        `GDDL returned ${res.status} on submissions page ${page}`
+      )
+    }
+
+    const body = (await res.json()) as GddlSyncResponse
+    const submissions = body.submissions as GddlSubmission[] | undefined
+    if (!Array.isArray(submissions)) {
+      throw new GddlUnavailableError(
+        `GDDL returned unexpected shape on submissions page ${page}`
+      )
+    }
+
+    all.push(...submissions)
+    if (submissions.length < SUBMISSIONS_PAGE_LIMIT) break
+    page++
+  }
+
+  return all
 }
 
 // How long to wait on a GDDL record submission before giving up. This call is

@@ -36,6 +36,22 @@ vi.mock('../utils/gddl', () => {
   }
 })
 
+const { mockLambdaSend } = vi.hoisted(() => ({
+  mockLambdaSend: vi.fn(async () => ({})),
+}))
+
+vi.mock('@aws-sdk/client-lambda', () => {
+  return {
+    LambdaClient: class {
+      send = mockLambdaSend
+    },
+    InvokeCommand: class {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      constructor(public input: any) {}
+    },
+  }
+})
+
 // Import after vi.mock so the route resolves the mocked modules.
 const { default: meApp } = await import('./me')
 
@@ -419,5 +435,83 @@ describe('DELETE /me/connect-discord', () => {
 
     expect(res.status).toBe(500)
     expect(body.error).toBe('Internal server error')
+  })
+})
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const syncJobMock = (prisma as any).gddlSyncJob
+
+describe('POST /me/gddl-sync', () => {
+  it('creates a job, fires the worker, and returns 202 + jobId', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    syncJobMock.create.mockResolvedValueOnce({ id: 'job-123' })
+    mockLambdaSend.mockResolvedValueOnce({})
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
+    const body = (await res.json()) as { data: { jobId: string } }
+
+    expect(res.status).toBe(202)
+    expect(body.data.jobId).toBe('job-123')
+    expect(syncJobMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'pending' }),
+      })
+    )
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns 400 when the user has no GDDL API key', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: null,
+    } as never)
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
+
+    expect(res.status).toBe(400)
+    expect(mockLambdaSend).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 when the DB create throws', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    syncJobMock.create.mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
+
+    expect(res.status).toBe(500)
+    expect(mockLambdaSend).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /me/gddl-sync/:jobId', () => {
+  it('returns job status when the job belongs to the user', async () => {
+    const jobData = {
+      status: 'completed',
+      result: { created: 3, enriched: 0, skipped: 1, errors: [] },
+      error: null,
+    }
+    syncJobMock.findFirst.mockResolvedValueOnce(jobData)
+
+    const res = await buildApp().request('/me/gddl-sync/job-123', {
+      method: 'GET',
+    })
+    const body = (await res.json()) as { data: typeof jobData }
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('completed')
+    expect(body.data.result).toEqual(jobData.result)
+  })
+
+  it('returns 404 when the job does not exist or belongs to another user', async () => {
+    syncJobMock.findFirst.mockResolvedValueOnce(null)
+
+    const res = await buildApp().request('/me/gddl-sync/unknown-job', {
+      method: 'GET',
+    })
+
+    expect(res.status).toBe(404)
   })
 })

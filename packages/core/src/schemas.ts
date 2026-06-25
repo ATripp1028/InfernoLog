@@ -600,3 +600,11 @@ export const PlaceRankingInputSchema = z.object({
 })
 
 export const ReorderRankingInputSchema = z.object(rankingNeighbours)
+
+export const GddlSyncResultSchema = z.object({
+  created: z.number().int(),
+  enriched: z.number().int(),
+  skipped: z.number().int(),
+  errors: z.array(z.object({ levelId: z.string(), reason: z.string() })),
+})
+export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
