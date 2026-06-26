@@ -177,6 +177,8 @@ export function StatGrid({
       <StatBox label="WORST FAIL" value={worstFailDisplay} />
       <StatBox label="YOUR OPINION" value={opinionDisplay} />
       <StatBox label="RANKED" value={rankedDisplay} />
+      <StatBox label="ENJOYMENT" value={enjoymentDisplay} />
+      <StatBox label="FPS" value={completion?.fps != null ? formatNumber(completion.fps) : '—'} />
       {gddlRef && <StatBox label="GDDL TIER" value={gddlRef.tierOrRank} />}
     </div>
   )

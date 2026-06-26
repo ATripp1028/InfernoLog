@@ -40,7 +40,6 @@ interface EditForm {
   notes: string
   levelNotes: string
   visibility: 'PUBLIC' | 'PRIVATE'
-  // keyed by categoryId, values in display units (null = not set)
   ratingScores: Record<string, number | null>
 }
 
