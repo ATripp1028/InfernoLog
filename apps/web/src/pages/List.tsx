@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
+import { useLevelPage } from '../lib/api/levelPage'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
 import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
-import { useLoggingFlow } from '../features/logging/LoggingFlowProvider'
-import type { FlowPath } from '../features/logging/types'
+import { EditProgressModal } from '../features/level-page/EditProgressModal'
 import { Toolbar } from '../features/list/Toolbar'
 import { ListTable } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
@@ -34,23 +34,16 @@ import {
   type SortSpec,
 } from '../features/list/types'
 
-// A row's logging path for editing: completion / progress / drop, by status.
-const PATH_FOR_STATUS: Record<ListItem['status'], FlowPath> = {
-  COMPLETED: 'completion',
-  IN_PROGRESS: 'progress',
-  DROPPED: 'drop',
-}
-
 const DEFAULT_SORTS: SortSpec[] = [{ key: 'date', dir: 'desc' }]
 
 export function List() {
   const me = useMe()
   const progress = useMyProgress()
-  const { openForEdit } = useLoggingFlow()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
+  const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<FilterState>(defaultFilterState)
   const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS)
@@ -61,6 +54,18 @@ export function List() {
   const [controlsOpen, setControlsOpen] = useState(false)
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
+
+  // Fetch full level-page data when the user triggers edit from the list.
+  // Query is disabled when editingLevelId is null (empty string fails the !!levelId guard).
+  const userId = me.data?.id ?? ''
+  const editLevelQuery = useLevelPage(userId, editingLevelId ?? '')
+
+    useEffect(() => {
+    if (editLevelQuery.isError) {
+      toast.error('Failed to load level data')
+      setEditingLevelId(null)
+    }
+  }, [editLevelQuery.isError])
 
   // Push the global FAB left of the docked filter panel while it's open.
   const dockedOpen = isWide && filterOpen
@@ -126,7 +131,7 @@ export function List() {
   }
 
   function handleEdit(item: ListItem) {
-    openForEdit(item.level.inGameId, PATH_FOR_STATUS[item.status])
+    setEditingLevelId(item.level.inGameId)
   }
 
   function handleNavigate(item: ListItem) {
@@ -254,6 +259,17 @@ export function List() {
         destructive
         onConfirm={confirmDelete}
       />
+
+      {editingLevelId && editLevelQuery.data && (
+        <EditProgressModal
+          open
+          onClose={() => setEditingLevelId(null)}
+          data={editLevelQuery.data}
+          userId={userId}
+          levelId={editingLevelId}
+          scale={ratingDisplayScale}
+        />
+      )}
     </TooltipProvider>
   )
 }
