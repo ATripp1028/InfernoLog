@@ -1,0 +1,197 @@
+import { useRef, useState, useEffect } from 'react'
+import { Plus, List, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+// Level-page-specific FAB for the COMPLETED case.
+// Desktop: anchored popover (small menu above the FAB).
+// Mobile: bottom sheet above the bottom nav.
+//
+// Both patterns overlay the global FabMenu at higher z-index.
+// "Add to a list" is shown disabled — the workflow isn't built yet.
+
+export interface LevelFabAction {
+  key: string
+  label: string
+  icon: React.ComponentType<{ size?: number }>
+  danger?: boolean
+  disabled?: boolean
+  onClick?: () => void
+}
+
+const COMPLETED_ACTIONS: Omit<LevelFabAction, 'onClick'>[] = [
+  { key: 'add-list', label: 'Add to a list', icon: List, disabled: true },
+  { key: 'delete', label: 'Delete this level', icon: Trash2, danger: true },
+]
+
+// ─── Desktop popover ───────────────────────────────────────────────
+function DesktopFab({
+  onDelete,
+}: {
+  onDelete: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handlePointerDown(e: MouseEvent) {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [open])
+
+  function handleAction(key: string) {
+    setOpen(false)
+    if (key === 'delete') onDelete()
+  }
+
+  return (
+    <div
+      ref={ref}
+      // z-30 sits above the global FabMenu (z-20)
+      className="fixed bottom-6 right-6 z-30 hidden md:block"
+    >
+      {open && (
+        <div
+          role="menu"
+          className="absolute bottom-16 right-0 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+        >
+          {COMPLETED_ACTIONS.map((action) => {
+            const Icon = action.icon
+            return (
+              <button
+                key={action.key}
+                type="button"
+                role="menuitem"
+                disabled={action.disabled}
+                onClick={() => !action.disabled && handleAction(action.key)}
+                className={cn(
+                  'flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm transition-colors',
+                  action.disabled && 'cursor-not-allowed text-text-tertiary',
+                  !action.disabled &&
+                    action.danger &&
+                    'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]',
+                  !action.disabled &&
+                    !action.danger &&
+                    'text-text-primary hover:bg-bg-subtle'
+                )}
+              >
+                <Icon size={16} />
+                <span>{action.label}</span>
+                {action.disabled && (
+                  <span className="ml-auto text-[10px] text-text-tertiary">
+                    soon
+                  </span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      <button
+        type="button"
+        aria-label="Level actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
+    </div>
+  )
+}
+
+// ─── Mobile bottom sheet ───────────────────────────────────────────
+function MobileFab({ onDelete }: { onDelete: () => void }) {
+  const [open, setOpen] = useState(false)
+
+  function handleAction(key: string) {
+    setOpen(false)
+    if (key === 'delete') onDelete()
+  }
+
+  return (
+    // z-50 sits above the mobile nav (z-40)
+    <div className="md:hidden">
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 bg-black/40"
+          />
+          <div className="fixed inset-x-0 bottom-[72px] z-50 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+            <div className="flex justify-center pb-1 pt-2">
+              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+            </div>
+            <ul className="flex flex-col gap-1 px-2 py-2">
+              {COMPLETED_ACTIONS.map((action) => {
+                const Icon = action.icon
+                if (action.disabled) {
+                  return (
+                    <li key={action.key}>
+                      <div className="flex h-12 items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70">
+                        <Icon size={20} />
+                        <span className="text-sm font-medium">{action.label}</span>
+                      </div>
+                    </li>
+                  )
+                }
+                return (
+                  <li key={action.key}>
+                    <button
+                      type="button"
+                      onClick={() => handleAction(action.key)}
+                      className={cn(
+                        'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
+                        action.danger
+                          ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
+                          : 'text-text-primary hover:bg-bg-subtle'
+                      )}
+                    >
+                      <Icon size={20} />
+                      <span>{action.label}</span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </>
+      )}
+
+      {/* The mobile FAB button sits at fixed bottom-center, above the nav bar, at z-50 */}
+      <button
+        type="button"
+        aria-label="Level actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="fixed bottom-[calc(72px+8px)] left-1/2 z-50 flex size-14 -translate-x-1/2 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
+    </div>
+  )
+}
+
+// ─── Public export ─────────────────────────────────────────────────
+export function LevelFab({ onDelete }: { onDelete: () => void }) {
+  return (
+    <>
+      <DesktopFab onDelete={onDelete} />
+      <MobileFab onDelete={onDelete} />
+    </>
+  )
+}

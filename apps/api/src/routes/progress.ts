@@ -297,8 +297,9 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
 
     // Build runsGraph. In v1 there is at most one drop event on level_progress;
     // computeRunsGraph accepts an array for forward-compatibility.
-    const hasDropInfo = lp.droppedAt !== null || lp.attemptsAtDrop !== null || lp.worstFail !== null
-    const drops = hasDropInfo
+    // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on
+    // completed levels too, so they alone must not trigger a drop bar.
+    const drops = lp.status === 'DROPPED'
       ? [{ droppedAt: lp.droppedAt, attemptsAtDrop: lp.attemptsAtDrop, worstFail: lp.worstFail }]
       : []
 

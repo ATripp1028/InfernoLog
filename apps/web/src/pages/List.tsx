@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import { PageLoading } from '../components/PageLoading'
@@ -47,6 +48,7 @@ export function List() {
   const progress = useMyProgress()
   const { openForEdit } = useLoggingFlow()
   const deleteProgress = useDeleteProgress()
+  const navigate = useNavigate()
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
@@ -127,6 +129,13 @@ export function List() {
     openForEdit(item.level.inGameId, PATH_FOR_STATUS[item.status])
   }
 
+  function handleNavigate(item: ListItem) {
+    void navigate({
+      to: '/list/$levelId',
+      params: { levelId: item.level.inGameId },
+    })
+  }
+
   function confirmDelete() {
     if (!pendingDelete) return
     const name = pendingDelete.level.name ?? 'Level'
@@ -189,14 +198,13 @@ export function List() {
                 datePref={dateFormatPreference}
                 onEditItem={handleEdit}
                 onDeleteItem={setPendingDelete}
+                onNavigate={handleNavigate}
               />
               <MobilePager
                 items={visible}
                 columns={columns}
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
-                onEditItem={handleEdit}
-                onDeleteItem={setPendingDelete}
               />
             </>
           )}

@@ -15,6 +15,7 @@ interface ListTableProps {
   datePref: DateFormatPreference
   onEditItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
+  onNavigate: (item: ListItem) => void
 }
 
 // px-3 (12px) on each side of every row.
@@ -107,6 +108,7 @@ export function ListTable({
   datePref,
   onEditItem,
   onDeleteItem,
+  onNavigate,
 }: ListTableProps) {
   // Desktop / tablet only — mobile uses MobilePager. One connected box: a single
   // bordered container, rows flush with dividers, horizontal scroll when the
@@ -128,7 +130,10 @@ export function ListTable({
         }
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
-            <div className="group relative border-b border-[var(--color-border-subtle)] last:border-b-0">
+            <div
+              className="group relative cursor-pointer border-b border-[var(--color-border-subtle)] last:border-b-0 hover:bg-white/[0.02]"
+              onClick={() => onNavigate(item)}
+            >
               <ListRow
                 item={item}
                 columns={columns}
