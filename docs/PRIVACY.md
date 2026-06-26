@@ -59,7 +59,7 @@ Within a public profile, one field has independent visibility control:
 
 ## Non-Completion Entry Visibility
 
-Non-completion progress updates (entries where `is_completion = false`) are hidden throughout the app by default, controlled by the "show non-completions" toggle. This toggle is separate from privacy — it controls what the viewing user sees, not whether entries are public.
+Non-completion progress updates (entries where `is_completion = false`) are hidden throughout the app by default, controlled by the "show non-completions" toggle. The only exception to this is the individual level page, which should not hide progress entries in the timeline. This toggle is separate from privacy — it controls what the viewing user sees, not whether entries are public.
 
 ```
 Per-entry privacy:  controls WHO can see the entry

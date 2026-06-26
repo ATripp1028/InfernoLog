@@ -13,7 +13,7 @@ LevelProgress (one per user per level)
       └── 100% is_completion = true ← appears in ranking + stats
 ```
 
-This mirrors how the GDDL handles progress — players can log ratings and progress on levels they haven't beaten. Non-completion entries are hidden throughout the UI by default, revealed only when the user enables the "show non-completions" toggle.
+This mirrors how the GDDL handles progress — players can log ratings and progress on levels they haven't beaten. Non-completion entries are hidden throughout the UI by default, revealed only when the user enables the "show non-completions" toggle (except for on the individual level page, where they are shown without the option to toggle them off).
 
 ---
 
