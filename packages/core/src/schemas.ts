@@ -352,6 +352,29 @@ export const DropInputSchema = z.object({
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
+// EDIT PROGRESS — partial update applied to the most recent ProgressUpdate
+// for a given level, plus LevelProgress-level metadata. All fields optional;
+// only present keys are written. Sent as PATCH /v1/me/progress/:levelId.
+export const EditProgressInputSchema = z.object({
+  // LevelProgress fields
+  levelNotes: z.string().max(5000).nullable().optional(),
+  worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  visibility: z.nativeEnum(EntryVisibility).optional(),
+  // Most recent ProgressUpdate fields
+  date: z.coerce.date().nullable().optional(),
+  dateUncertain: z.boolean().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  onStream: z.boolean().optional(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
+  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+})
+
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
 // difficulty BECOMES the level's in-game difficulty (the one sanctioned
 // exception to in-game-difficulty-is-read-only). Stored data_source=manual,

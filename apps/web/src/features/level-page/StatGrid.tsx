@@ -1,7 +1,7 @@
 import { HelpCircle } from 'lucide-react'
 import { formatDate } from '@/lib/dateFormat'
 import { formatRating, formatNumber } from '@/features/logging/format'
-import type { DateFormatPreference, RatingDisplayScale } from '@/lib/api/me'
+import type { DateFormatPreference, RatingDisplayScale, RatingCategory } from '@/lib/api/me'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 function capitalize(s: string): string {
@@ -20,6 +20,42 @@ function getDateDisplay(
     }
   }
   return { text: formatDate(fallbackIso, datePref), uncertain: false }
+}
+
+// Replicates apps/api/src/utils/rating.ts on the client side so the level
+// page can display the proper overall rating without an extra API call.
+function computeOverallRating(
+  ratingMode: 'SIMPLE' | 'WEIGHTED',
+  includeEnjoyment: boolean,
+  enjoymentWeight: number,
+  categoryWeights: Map<string, number>,
+  update: {
+    simpleRating: number | null
+    enjoyment: number | null
+    ratingScores: { categoryId: string; score: number }[]
+  }
+): number | null {
+  if (ratingMode === 'SIMPLE') {
+    return update.simpleRating
+  }
+
+  let weightedSum = 0
+  let weightTotal = 0
+
+  for (const { categoryId, score } of update.ratingScores) {
+    const weight = categoryWeights.get(categoryId)
+    if (weight === undefined) continue
+    weightedSum += score * weight
+    weightTotal += weight
+  }
+
+  if (includeEnjoyment && update.enjoyment !== null) {
+    weightedSum += update.enjoyment * enjoymentWeight
+    weightTotal += enjoymentWeight
+  }
+
+  if (weightTotal === 0) return null
+  return Math.round(weightedSum / weightTotal)
 }
 
 interface StatBoxProps {
@@ -44,14 +80,25 @@ interface StatGridProps {
   data: LevelPageData
   datePref: DateFormatPreference
   scale: RatingDisplayScale
+  ratingMode: 'SIMPLE' | 'WEIGHTED'
+  includeEnjoyment: boolean
+  enjoymentWeight: number
+  ratingCategories: RatingCategory[]
 }
 
-export function StatGrid({ data, datePref, scale }: StatGridProps) {
+export function StatGrid({
+  data,
+  datePref,
+  scale,
+  ratingMode,
+  includeEnjoyment,
+  enjoymentWeight,
+  ratingCategories,
+}: StatGridProps) {
   const { progressUpdates, rankPosition, worstFail, droppedAt, attemptsAtDrop } =
     data
 
   const completion = progressUpdates.find((u) => u.isCompletion)
-  // Most recent progress update (first in newest-first array)
   const latestUpdate = progressUpdates[0]
 
   // DATE: completion date → most recent update date → last-updated
@@ -64,23 +111,28 @@ export function StatGrid({ data, datePref, scale }: StatGridProps) {
   const attempts =
     completion?.attempts ?? attemptsAtDrop ?? latestUpdate?.attempts ?? null
 
-  // RATING (with enjoyment)
-  const rating =
-    completion?.simpleRating != null
-      ? formatRating(completion.simpleRating, scale)
-      : null
-  const enjoyment =
+  // RATING — computed overall rating (weighted avg or simple per user mode),
+  // shown separately from enjoyment. GDDL tier has its own stat box.
+  const categoryWeights = new Map(
+    ratingCategories.map((cat) => [cat.id, cat.weight])
+  )
+  const overallRating = completion
+    ? computeOverallRating(
+        ratingMode,
+        includeEnjoyment,
+        enjoymentWeight,
+        categoryWeights,
+        completion
+      )
+    : null
+  const ratingDisplay =
+    overallRating != null ? formatRating(overallRating, scale) : '—'
+
+  // ENJOYMENT — separate from the rating
+  const enjoymentDisplay =
     completion?.enjoyment != null
       ? formatRating(completion.enjoyment, scale)
-      : null
-  const ratingDisplay =
-    rating != null && enjoyment != null
-      ? `${rating} · enj ${enjoyment}`
-      : rating != null
-        ? rating
-        : enjoyment != null
-          ? `enj ${enjoyment}`
-          : '—'
+      : '—'
 
   // WORST FAIL
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'
@@ -94,6 +146,11 @@ export function StatGrid({ data, datePref, scale }: StatGridProps) {
   // RANKED
   const rankedDisplay =
     rankPosition != null ? `#${rankPosition} hardest` : 'Unplaced'
+
+  // GDDL TIER — from the completion's list references (if present)
+  const gddlRef = completion?.listReferences.find(
+    (r) => r.listSource === 'GDDL'
+  )
 
   return (
     <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-3 md:gap-2 md:px-0 md:py-0">
@@ -120,6 +177,7 @@ export function StatGrid({ data, datePref, scale }: StatGridProps) {
       <StatBox label="WORST FAIL" value={worstFailDisplay} />
       <StatBox label="YOUR OPINION" value={opinionDisplay} />
       <StatBox label="RANKED" value={rankedDisplay} />
+      {gddlRef && <StatBox label="GDDL TIER" value={gddlRef.tierOrRank} />}
     </div>
   )
 }

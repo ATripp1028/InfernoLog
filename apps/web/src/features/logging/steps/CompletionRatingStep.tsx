@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { StepperInput } from '@/components/ui/stepper-input'
-import { useMe, type RatingCategory } from '@/lib/api/me'
+import { useMe } from '@/lib/api/me'
 import type { RatingDisplayScale } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
 import { displayMax, formatRating, toDisplay, toInternal } from '../format'
+import { computeWeightedAvg } from '@/utils/weightHandling'
 
 export function CompletionRatingStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
@@ -89,22 +90,6 @@ export function CompletionRatingStep() {
       </StepFooter>
     </>
   )
-}
-
-function computeWeightedAvg(
-  categories: RatingCategory[],
-  scores: Record<string, number>
-): number | null {
-  let weightSum = 0
-  let weighted = 0
-  for (const cat of categories) {
-    const score = scores[cat.id]
-    if (score == null) continue
-    weightSum += cat.weight
-    weighted += score * cat.weight
-  }
-  if (weightSum === 0) return null
-  return weighted / weightSum
 }
 
 function RatingRow({

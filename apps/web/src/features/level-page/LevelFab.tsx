@@ -1,34 +1,37 @@
 import { useRef, useState, useEffect } from 'react'
-import { Plus, List, Trash2 } from 'lucide-react'
+import { Plus, List, Pencil, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// Level-page-specific FAB for the COMPLETED case.
+// Level-page-specific FAB for owned entries.
 // Desktop: anchored popover (small menu above the FAB).
 // Mobile: bottom sheet above the bottom nav.
 //
 // Both patterns overlay the global FabMenu at higher z-index.
 // "Add to a list" is shown disabled — the workflow isn't built yet.
 
-export interface LevelFabAction {
-  key: string
+interface FabProps {
+  onEdit: () => void
+  onDelete: () => void
+}
+
+type ActionKey = 'edit' | 'add-list' | 'delete'
+
+interface FabAction {
+  key: ActionKey
   label: string
   icon: React.ComponentType<{ size?: number }>
   danger?: boolean
   disabled?: boolean
-  onClick?: () => void
 }
 
-const COMPLETED_ACTIONS: Omit<LevelFabAction, 'onClick'>[] = [
+const FAB_ACTIONS: FabAction[] = [
+  { key: 'edit', label: 'Edit this entry', icon: Pencil },
   { key: 'add-list', label: 'Add to a list', icon: List, disabled: true },
   { key: 'delete', label: 'Delete this level', icon: Trash2, danger: true },
 ]
 
 // ─── Desktop popover ───────────────────────────────────────────────
-function DesktopFab({
-  onDelete,
-}: {
-  onDelete: () => void
-}) {
+function DesktopFab({ onEdit, onDelete }: FabProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -48,8 +51,9 @@ function DesktopFab({
     }
   }, [open])
 
-  function handleAction(key: string) {
+  function handleAction(key: ActionKey) {
     setOpen(false)
+    if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
   }
 
@@ -64,7 +68,7 @@ function DesktopFab({
           role="menu"
           className="absolute bottom-16 right-0 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
         >
-          {COMPLETED_ACTIONS.map((action) => {
+          {FAB_ACTIONS.map((action) => {
             const Icon = action.icon
             return (
               <button
@@ -81,7 +85,7 @@ function DesktopFab({
                     'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]',
                   !action.disabled &&
                     !action.danger &&
-                    'text-text-primary hover:bg-bg-subtle'
+                    'text-text-primary hover:bg-bg-subtle',
                 )}
               >
                 <Icon size={16} />
@@ -112,11 +116,12 @@ function DesktopFab({
 }
 
 // ─── Mobile bottom sheet ───────────────────────────────────────────
-function MobileFab({ onDelete }: { onDelete: () => void }) {
+function MobileFab({ onEdit, onDelete }: FabProps) {
   const [open, setOpen] = useState(false)
 
-  function handleAction(key: string) {
+  function handleAction(key: ActionKey) {
     setOpen(false)
+    if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
   }
 
@@ -136,7 +141,7 @@ function MobileFab({ onDelete }: { onDelete: () => void }) {
               <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
             </div>
             <ul className="flex flex-col gap-1 px-2 py-2">
-              {COMPLETED_ACTIONS.map((action) => {
+              {FAB_ACTIONS.map((action) => {
                 const Icon = action.icon
                 if (action.disabled) {
                   return (
@@ -157,7 +162,7 @@ function MobileFab({ onDelete }: { onDelete: () => void }) {
                         'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
                         action.danger
                           ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
-                          : 'text-text-primary hover:bg-bg-subtle'
+                          : 'text-text-primary hover:bg-bg-subtle',
                       )}
                     >
                       <Icon size={20} />
@@ -187,11 +192,11 @@ function MobileFab({ onDelete }: { onDelete: () => void }) {
 }
 
 // ─── Public export ─────────────────────────────────────────────────
-export function LevelFab({ onDelete }: { onDelete: () => void }) {
+export function LevelFab({ onEdit, onDelete }: FabProps) {
   return (
     <>
-      <DesktopFab onDelete={onDelete} />
-      <MobileFab onDelete={onDelete} />
+      <DesktopFab onEdit={onEdit} onDelete={onDelete} />
+      <MobileFab onEdit={onEdit} onDelete={onDelete} />
     </>
   )
 }

@@ -3,7 +3,6 @@ import { AlertCircle, ArrowLeft, Lock } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useLevelPage } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
 import { AlertDialog } from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/sonner'
@@ -14,15 +13,8 @@ import { LevelNotes } from '@/features/level-page/LevelNotes'
 import { Timeline } from '@/features/level-page/Timeline'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
 import { LevelFab } from '@/features/level-page/LevelFab'
+import { EditProgressModal } from '@/features/level-page/EditProgressModal'
 import { useState } from 'react'
-import type { FlowPath } from '@/features/logging/types'
-
-const PATH_FOR_STATUS: Record<'IN_PROGRESS' | 'DROPPED' | 'COMPLETED', FlowPath> =
-  {
-    COMPLETED: 'completion',
-    IN_PROGRESS: 'progress',
-    DROPPED: 'drop',
-  }
 
 // ─── Error states ──────────────────────────────────────────────────
 
@@ -126,10 +118,10 @@ export function LevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
   const navigate = useNavigate()
   const me = useMe()
-  const { openForEdit } = useLoggingFlow()
   const deleteProgress = useDeleteProgress()
 
   const [pendingDelete, setPendingDelete] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const userId = me.data?.id ?? ''
   const query = useLevelPage(userId, levelId)
@@ -152,20 +144,8 @@ export function LevelPage() {
     })
   }
 
-  function handleEditEntry(progressUpdateId: string) {
-    if (!query.data) return
-    // Find the update to determine its path
-    const update = query.data.progressUpdates.find(
-      (u) => u.progressUpdateId === progressUpdateId
-    )
-    if (!update) return
-    const path = update.isCompletion ? 'completion' : 'progress'
-    openForEdit(levelId, path)
-  }
-
   function handleEditLevel() {
-    if (!query.data) return
-    openForEdit(levelId, PATH_FOR_STATUS[query.data.status])
+    setEditOpen(true)
   }
 
   // ── Loading / error states ──
@@ -189,7 +169,14 @@ export function LevelPage() {
   if (!query.data || !me.data) return null
 
   const { data } = query
-  const { ratingDisplayScale, dateFormatPreference } = me.data
+  const {
+    ratingDisplayScale,
+    dateFormatPreference,
+    ratingMode,
+    includeEnjoyment,
+    enjoymentWeight,
+    ratingCategories,
+  } = me.data
   const isOwner = data.levelProgressId != null
   const levelName = data.level.name ?? `Level #${levelId}`
 
@@ -238,6 +225,10 @@ export function LevelPage() {
           data={data}
           datePref={dateFormatPreference}
           scale={ratingDisplayScale}
+          ratingMode={ratingMode}
+          includeEnjoyment={includeEnjoyment}
+          enjoymentWeight={enjoymentWeight}
+          ratingCategories={ratingCategories}
         />
 
         <div className="mt-4 border-t border-border-subtle px-4 py-4">
@@ -262,7 +253,7 @@ export function LevelPage() {
               data={data}
               datePref={dateFormatPreference}
               isOwner={isOwner}
-              onEdit={handleEditEntry}
+              onEdit={() => setEditOpen(true)}
             />
           </div>
         </div>
@@ -307,6 +298,10 @@ export function LevelPage() {
                     data={data}
                     datePref={dateFormatPreference}
                     scale={ratingDisplayScale}
+                    ratingMode={ratingMode}
+                    includeEnjoyment={includeEnjoyment}
+                    enjoymentWeight={enjoymentWeight}
+                    ratingCategories={ratingCategories}
                   />
                 </div>
               </div>
@@ -336,7 +331,7 @@ export function LevelPage() {
                     data={data}
                     datePref={dateFormatPreference}
                     isOwner={isOwner}
-                    onEdit={handleEditEntry}
+                    onEdit={() => setEditOpen(true)}
                   />
                 </div>
               </div>
@@ -362,9 +357,24 @@ export function LevelPage() {
         </div>
       </div>
 
-      {/* Context-aware FAB (completed case) */}
-      {data.status === 'COMPLETED' && isOwner && (
-        <LevelFab onDelete={() => setPendingDelete(true)} />
+      {/* FAB — shown for all owned entries */}
+      {isOwner && (
+        <LevelFab
+          onEdit={handleEditLevel}
+          onDelete={() => setPendingDelete(true)}
+        />
+      )}
+
+      {/* Edit modal */}
+      {isOwner && (
+        <EditProgressModal
+          open={editOpen}
+          onClose={() => setEditOpen(false)}
+          data={data}
+          userId={userId}
+          levelId={levelId}
+          scale={ratingDisplayScale}
+        />
       )}
 
       {/* Delete confirmation */}

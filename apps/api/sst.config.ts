@@ -285,6 +285,8 @@ export default $config({
 
     // The "My Demons" list page — the user's full level-progress list.
     authedRoute('GET /v1/me/progress')
+    // Edit the most recent progress update + level metadata for an entry.
+    authedRoute('PATCH /v1/me/progress/{levelId}')
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
     // Level Page — the per-user view of a single level's full history.
