@@ -240,32 +240,6 @@ describe('GET /me/progress', () => {
     expect(list[0]?.level.inGameId).toBe('600')
   })
 
-  it('includes record acceptances on the entry', async () => {
-    const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '800' })
-    const lp = await seedProgress(prisma, {
-      userId: user.id,
-      levelId: '800',
-      status: 'COMPLETED',
-      updates: [{ isCompletion: true, simpleRating: 60 }],
-    })
-    const pu = await prisma.progressUpdate.findFirstOrThrow({
-      where: { levelProgressId: lp.id },
-    })
-    await prisma.recordAcceptance.create({
-      data: {
-        progressUpdateId: pu.id,
-        listSource: 'GDDL',
-        isAccepted: true,
-        acceptedAt: new Date('2026-05-01'),
-      },
-    })
-
-    const list = await getList(user.id)
-    expect(list[0]?.entry?.recordAcceptances).toHaveLength(1)
-    expect(list[0]?.entry?.recordAcceptances[0]?.listSource).toBe('GDDL')
-    expect(list[0]?.entry?.recordAcceptances[0]?.isAccepted).toBe(true)
-  })
 })
 
 describe('DELETE /me/progress/:levelId', () => {
@@ -287,12 +261,12 @@ describe('DELETE /me/progress/:levelId', () => {
     const pu = await prisma.progressUpdate.findFirstOrThrow({
       where: { levelProgressId: lp.id },
     })
-    await prisma.recordAcceptance.create({
-      data: { progressUpdateId: pu.id, listSource: 'GDDL', isAccepted: true },
-    })
 
     const res = await del(user.id, '900')
-    expect(res.status).toBe(204)
+    // Returns 200 with GDDL caveat (not 204) so the client can surface the message.
+    expect(res.status).toBe(200)
+    const body = await res.json() as { gddlCaveat: string }
+    expect(body.gddlCaveat).toContain('GDDL')
 
     expect(
       await prisma.levelProgress.findUnique({ where: { id: lp.id } })
@@ -302,11 +276,6 @@ describe('DELETE /me/progress/:levelId', () => {
     ).toBe(0)
     expect(
       await prisma.listReference.count({ where: { progressUpdateId: pu.id } })
-    ).toBe(0)
-    expect(
-      await prisma.recordAcceptance.count({
-        where: { progressUpdateId: pu.id },
-      })
     ).toBe(0)
   })
 

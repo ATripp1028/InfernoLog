@@ -66,7 +66,6 @@ export function getTestPrisma(): PrismaClient {
 
 // Tables touched by the logging flow, ordered so CASCADE handles the rest.
 const TABLES = [
-  'record_acceptances',
   'list_references',
   'rating_scores',
   'classic_ranking',

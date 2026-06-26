@@ -60,7 +60,6 @@ All fields are optional except the level ID. The user logs whatever is relevant 
 | In-game difficulty   | Cached, read-only                  | The level's actual rating, cached on `levels` from the GD servers (e.g. "Insane Demon"). Displayed, never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
 | Difficulty opinion   | Pill selector                      | Per-completion. The user's subjective read: Not demon-worthy / Easy / Medium / Hard / Insane / Extreme. The only difficulty field the user edits                         |
 | List references      | Per-list tier/rank                 | GDDL tier, AREDL rank (extreme demons only), NLW tier                                                                                                                    |
-| GDDL record accepted | Boolean                            | Manual flag (v1). Other lists v2+                                                                                                                                        |
 | Notes                | Text                               | Freeform. Venting encouraged, see Community Policy                                                                                                                       |
 | Completion video URL | URL                                |                                                                                                                                                                          |
 | Highlight video URL  | URL                                | Independent of On Stream                                                                                                                                                 |
@@ -181,11 +180,16 @@ Completion entries only       All progress updates shown
                               distinguished (badge/tint)
 
 Applies to:
-  - Log view
-  - Ranking view
+  - The List (My Demons page)
+  - The Ranking view
   - Stats
   - Export (user chooses at export time)
-  - API responses
+  - API responses for list/ranking endpoints
+
+Does NOT apply to:
+  - The Level Page timeline — the Level Page always shows the
+    full history unconditionally. The per-entry privacy
+    (level_progress.visibility) is still enforced independently.
 ```
 
 Non-completion entries, even if they carry enjoyment scores or ratings, are never surfaced in community averages (v4) unless `is_completion = true`. This mirrors GDDL's approach.

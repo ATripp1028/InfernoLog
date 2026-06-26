@@ -30,21 +30,7 @@ export async function submitCompletionRecordToGddl(params: {
   if (!user?.gddlApiKeyEncrypted) return
 
   const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
-  const { accepted } = await submitGddlRecord(apiKey, { levelId, videoUrl })
+  await submitGddlRecord(apiKey, { levelId, videoUrl })
 
-  // Record the acceptance state on the completion (unique per source).
-  await prisma.recordAcceptance.upsert({
-    where: {
-      progressUpdateId_listSource: { progressUpdateId, listSource: 'GDDL' },
-    },
-    create: {
-      progressUpdateId,
-      listSource: 'GDDL',
-      isAccepted: accepted,
-      acceptedAt: accepted ? new Date() : null,
-    },
-    update: { isAccepted: accepted, acceptedAt: accepted ? new Date() : null },
-  })
-
-  logger.info({ userId, progressUpdateId, accepted }, 'GDDL record submitted')
+  logger.info({ userId, progressUpdateId }, 'GDDL record submitted')
 }

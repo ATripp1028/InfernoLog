@@ -72,12 +72,6 @@ Both must pass for a non-completion entry to be visible:
 
 ---
 
-## GDDL Record Acceptance Indicator
-
-The `record_acceptances` data is treated as profile content. It is hidden when the associated `level_progress` entry is private or when the profile is private.
-
----
-
 ## API Behavior Summary
 
 | Scenario | Response |

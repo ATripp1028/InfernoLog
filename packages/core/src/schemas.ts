@@ -304,10 +304,6 @@ export const CompletionInputSchema = z.object({
   // Optional GDDL record submission side effect (non-blocking). Only honored
   // when the user has a GDDL key configured.
   submitToGddl: z.boolean().default(false),
-  // Self-reported "mark record as accepted" toggle (GDDL). Independent of
-  // submitToGddl — the user flips it once GDDL accepts the record. When
-  // provided, upserts the GDDL RecordAcceptance; omit to leave it unchanged.
-  gddlRecordAccepted: z.boolean().optional(),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
@@ -411,9 +407,6 @@ export const ExistingCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
-  // Self-reported GDDL record-accepted state, to prefill the edit form's
-  // "mark record as accepted" toggle. Null when no GDDL acceptance row exists.
-  gddlRecordAccepted: z.boolean().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -499,15 +492,6 @@ export const LevelProgressListEntrySchema = z.object({
       listSource: z.nativeEnum(ListSource),
       tierOrRank: z.string(),
       atTimeOfLogging: z.boolean(),
-    })
-  ),
-  // Self-reported record-acceptance status per ranking authority. Surfaced on
-  // the mobile detail pane.
-  recordAcceptances: z.array(
-    z.object({
-      listSource: z.nativeEnum(ListSource),
-      isAccepted: z.boolean(),
-      acceptedAt: z.coerce.date().nullable(),
     })
   ),
 })

@@ -45,7 +45,6 @@ export interface FlowDraft {
   nlwTier: string
   aredlTier: string
   submitToGddl: boolean
-  gddlRecordAccepted: boolean
   // Session
   fps: string
   onStream: boolean
@@ -77,7 +76,6 @@ export function emptyDraft(): FlowDraft {
     nlwTier: '',
     aredlTier: '',
     submitToGddl: false,
-    gddlRecordAccepted: false,
     fps: '',
     onStream: false,
     visibility: 'PUBLIC',
@@ -123,7 +121,6 @@ export function draftFromExistingCompletion(
   draft.videoUrl = existing.videoUrl ?? ''
   draft.highlightUrl = existing.highlightUrl ?? ''
   draft.notes = existing.notes ?? ''
-  draft.gddlRecordAccepted = existing.gddlRecordAccepted ?? false
   for (const ref of existing.listReferences) {
     if (ref.listSource === 'GDDL') draft.gddlTier = ref.tierOrRank
     if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank

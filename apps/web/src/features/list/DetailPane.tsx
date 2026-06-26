@@ -158,31 +158,6 @@ export function DetailPane({
           </div>
         )}
 
-        {/* Record acceptances */}
-        {entry && entry.recordAcceptances.length > 0 && (
-          <div className="mt-5">
-            <p className="text-xs font-medium text-text-secondary">
-              Record acceptances
-            </p>
-            <div className="mt-2 flex flex-col gap-1">
-              {entry.recordAcceptances.map((acc) => (
-                <div
-                  key={acc.listSource}
-                  className="flex items-center justify-between text-sm"
-                >
-                  <span className="text-text-primary">{acc.listSource}</span>
-                  <span
-                    className={
-                      acc.isAccepted ? 'text-success' : 'text-text-tertiary'
-                    }
-                  >
-                    {acc.isAccepted ? 'Accepted' : 'Not accepted'}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Actions */}

@@ -31,12 +31,12 @@
 │updates      │  │ (shared cache)│
 └──────┬──────┘  └──────────────┘
        │
-       ├──────────────────┬──────────────────┐
-       │                  │                  │
-┌──────▼──────┐  ┌────────▼──────┐  ┌───────▼──────┐
-│list_        │  │rating_scores  │  │record_       │
-│references   │  └───────────────┘  │acceptances   │
-└─────────────┘                     └──────────────┘
+       ├──────────────────┐
+       │                  │
+┌──────▼──────┐  ┌────────▼──────┐
+│list_        │  │rating_scores  │
+│references   │  └───────────────┘
+└─────────────┘
 ```
 
 ---
@@ -149,6 +149,7 @@ One row per user per level. Created when the user logs their first progress upda
 | `dropped_at`       | DATE      | Nullable                                                                                                                                                                                                                          |
 | `attempts_at_drop` | INTEGER   | Nullable. Optional attempt count captured on the drop screen. Puts the eventual completion's attempt count in perspective if the level is later beaten. (Aligned with the Dropped tab's `attempts_at_drop` in `IMPORT_EXPORT.md`) |
 | `visibility`       | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                                                            |
+| `level_notes`      | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates                                             |
 | `created_at`       | TIMESTAMP |                                                                                                                                                                                                                                   |
 
 ### `progress_updates`
@@ -175,7 +176,7 @@ Every logged data point for a level. All fields optional except `level_progress_
 | `difficulty_opinion`          | ENUM      | Nullable. The user's subjective read: `not_demon_worthy`, `easy`, `medium`, `hard`, `insane`, `extreme`. The only difficulty field the user edits                          |
 | `in_game_difficulty_snapshot` | VARCHAR   | Nullable. Optional historical snapshot of the level's cached `in_game_difficulty` at time of beat. Populated **automatically from the `levels` cache** — never user-edited |
 | `notes`                       | TEXT      | Nullable                                                                                                                                                                   |
-| `video_url`                   | VARCHAR   | Nullable. Completion video                                                                                                                                                 |
+| `video_url`                   | VARCHAR   | Nullable. Completion video. The Level Page hero embeds this; unambiguous in v1 (one completion per level). In v3, rebeat introduces multiple completions each with their own video — "which video is the hero" is deferred to the rebeat design. |
 | `highlight_url`               | VARCHAR   | Nullable. Highlight reel, independent of on_stream                                                                                                                         |
 | `logged_at`                   | TIMESTAMP |                                                                                                                                                                            |
 
@@ -200,20 +201,6 @@ Attached to a `progress_update`. Typically attached to the completion update but
 | `tier_or_rank`       | VARCHAR   | Raw value                                                                                                                          |
 | `at_time_of_logging` | BOOLEAN   | Whether this was the value when logged                                                                                             |
 | `added_at`           | TIMESTAMP |                                                                                                                                    |
-
-### `record_acceptances`
-
-Tracks whether a completion has an accepted record on each applicable ranking authority.
-
-| Column               | Type      | Notes                                                   |
-| -------------------- | --------- | ------------------------------------------------------- |
-| `id`                 | UUID      |                                                         |
-| `progress_update_id` | UUID      | FK → progress_updates where is_completion = true        |
-| `list_source`        | ENUM      | `gddl`, `aredl`, `nlw`, etc. (Pointercrate cut from v1) |
-| `is_accepted`        | BOOLEAN   | Manually set by user                                    |
-| `accepted_at`        | TIMESTAMP | Nullable                                                |
-
-GDDL acceptance is v1. Other list authorities follow their respective integration phases.
 
 ### `rating_scores`
 
@@ -337,6 +324,31 @@ One appeal per ban enforced at application level.
 
 ---
 
+## Level Page — Runs Graph
+
+The Level Page (`/list/{levelId}`) shows a "Runs over time" chart: one horizontal bar per progress entry, ordered oldest→newest, each spanning `[from, to]` as a percentage of the level. This is computed server-side by `computeRunsGraph` in `apps/api/src/utils/runsGraph.ts`.
+
+### Bar kinds
+
+| Kind         | `from` | `to`        |
+| ------------ | ------ | ----------- |
+| `from_zero`  | `0`    | `percentage` |
+| `from_run`   | `runFrom` | `runTo`  |
+| `completion` | `0`    | `100`       |
+
+Ordering uses each entry's effective date: the explicitly logged `date`, falling back to `logged_at`.
+
+### Drop-merge rule
+
+A drop is a `level_progress` status transition, not a `progress_update` with a run range, so it has no bar of its own by default. To represent "the level was dropped after this run," the rule marks an existing bar or emits a synthetic one:
+
+- **If** the drop recorded `attempts_at_drop` AND a `worst_fail` percentage that **differs** from the most recent prior progress entry's `to` value: emit a **synthetic bar** at `[0, worstFail]` with `kind=from_zero` and `droppedAfter=true`. The `progressUpdateId` on the synthetic bar is `null`.
+- **Otherwise** (drop has no `worst_fail`, OR `worst_fail` equals the prior entry's `to`): set `droppedAfter=true` on that most recent prior progress entry. No synthetic bar is emitted. This is the common case.
+
+The frontend colors any bar with `droppedAfter=true` red. A level may have multiple drops across its history (drop → pick back up → drop again). The rule applies per drop event against the progress entries that preceded that specific drop chronologically; `computeRunsGraph` handles this generally.
+
+---
+
 ## Fractional Indexing
 
 Personal ranking positions use floating-point decimal values rather than integers, allowing insertion and reordering without updating every row.
@@ -372,7 +384,7 @@ A private profile forces all entries private regardless of per-entry setting. A 
 
 | Action                 | Effect                                                                                 |
 | ---------------------- | -------------------------------------------------------------------------------------- |
-| Delete progress update | Removes update and associated list_references, rating_scores, record_acceptances       |
+| Delete progress update | Removes update and associated list_references, rating_scores                           |
 | Delete level_progress  | Removes entry, all updates, and classic_ranking entry. Gap in ranking closes naturally |
 | Suspend account        | All content hidden for suspension duration                                             |
 | Ban account            | All content permanently deleted. Username held, cannot be claimed                      |

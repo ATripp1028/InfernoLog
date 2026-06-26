@@ -287,6 +287,8 @@ export default $config({
     authedRoute('GET /v1/me/progress')
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
+    // Level Page — the per-user view of a single level's full history.
+    authedRoute('GET /v1/users/{usernameOrId}/progress/{levelId}')
 
     // ─────────────────────────────────────────────
     // CLASSIC RANKING — the personal difficulty-ordering page.

@@ -186,27 +186,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       })
     }
 
-    // Self-reported GDDL record-accepted toggle. Independent of the async
-    // submitToGddl side effect — when the client sends it, upsert the GDDL
-    // RecordAcceptance synchronously. Omitted → leave any existing row alone.
-    if (input.gddlRecordAccepted !== undefined) {
-      await tx.recordAcceptance.upsert({
-        where: {
-          progressUpdateId_listSource: { progressUpdateId, listSource: 'GDDL' },
-        },
-        create: {
-          progressUpdateId,
-          listSource: 'GDDL',
-          isAccepted: input.gddlRecordAccepted,
-          acceptedAt: input.gddlRecordAccepted ? new Date() : null,
-        },
-        update: {
-          isAccepted: input.gddlRecordAccepted,
-          acceptedAt: input.gddlRecordAccepted ? new Date() : null,
-        },
-      })
-    }
-
     // Mark the level_progress completed and apply the per-entry privacy.
     await tx.levelProgress.update({
       where: { id: lp.id },
