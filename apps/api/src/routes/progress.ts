@@ -19,6 +19,7 @@ import type { OverallRatingConfig } from '../utils/rating'
 import { computeRunsGraph } from '../utils/runsGraph'
 import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 import type { HonoVariables } from '../types/hono'
+import { applyEdit } from '../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -443,56 +444,10 @@ app.patch('/me/progress/:levelId', async (c) => {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const lp = await prisma.levelProgress.findUnique({
-      where: { userId_levelId: { userId, levelId } },
-      select: {
-        id: true,
-        progressUpdates: {
-          orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }],
-          take: 1,
-          select: { id: true },
-        },
-      },
-    })
-    if (!lp) return c.json({ error: 'Entry not found' }, 404)
+    const result = await applyEdit(userId, levelId, parsed.data)
+    if (!result) return c.json({ error: 'Entry not found' }, 404)
 
-    const {
-      levelNotes, worstFail, visibility,
-      date, dateUncertain, attempts, fps, onStream,
-      difficultyOpinion, difficultyOpinionStars,
-      enjoyment, simpleRating, videoUrl, highlightUrl, notes,
-    } = parsed.data
-
-    const lpData: Prisma.LevelProgressUpdateInput = {}
-    if (levelNotes !== undefined) lpData.levelNotes = levelNotes
-    if (worstFail !== undefined) lpData.worstFail = worstFail
-    if (visibility !== undefined) lpData.visibility = visibility
-
-    const puData: Prisma.ProgressUpdateUpdateInput = {}
-    if (date !== undefined) puData.date = date
-    if (dateUncertain !== undefined) puData.dateUncertain = dateUncertain
-    if (attempts !== undefined) puData.attempts = attempts
-    if (fps !== undefined) puData.fps = fps
-    if (onStream !== undefined) puData.onStream = onStream
-    if (difficultyOpinion !== undefined) puData.difficultyOpinion = difficultyOpinion
-    if (difficultyOpinionStars !== undefined) puData.difficultyOpinionStars = difficultyOpinionStars
-    if (enjoyment !== undefined) puData.enjoyment = enjoyment
-    if (simpleRating !== undefined) puData.simpleRating = simpleRating
-    if (videoUrl !== undefined) puData.videoUrl = videoUrl
-    if (highlightUrl !== undefined) puData.highlightUrl = highlightUrl
-    if (notes !== undefined) puData.notes = notes
-
-    const latestUpdateId = lp.progressUpdates[0]?.id
-    const ops: Prisma.PrismaPromise<unknown>[] = []
-    if (Object.keys(lpData).length > 0) {
-      ops.push(prisma.levelProgress.update({ where: { id: lp.id }, data: lpData }))
-    }
-    if (Object.keys(puData).length > 0 && latestUpdateId) {
-      ops.push(prisma.progressUpdate.update({ where: { id: latestUpdateId }, data: puData }))
-    }
-    if (ops.length > 0) await prisma.$transaction(ops)
-
-    return c.json({ ok: true })
+    return c.json({ data: result })
   } catch (error) {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)

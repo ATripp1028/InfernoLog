@@ -373,6 +373,7 @@ export const EditProgressInputSchema = z.object({
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
+  ratingScores: z.array(RatingScoreInputSchema).optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
