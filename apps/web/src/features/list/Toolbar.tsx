@@ -28,10 +28,12 @@ interface ToolbarProps {
   presets: ListPreset[]
   selectedPresetId: string | null
   isPresetModified: boolean
+  deletingPresetId: string | null
   onSelectPreset: (id: string | null) => void
   onSaveNewPreset: () => void
   onOverwritePreset: (id: string) => void
   onDeletePreset: (id: string) => void
+  onEditPreset: (preset: ListPreset) => void
 }
 
 export function Toolbar({
@@ -49,10 +51,12 @@ export function Toolbar({
   presets,
   selectedPresetId,
   isPresetModified,
+  deletingPresetId,
   onSelectPreset,
   onSaveNewPreset,
   onOverwritePreset,
   onDeletePreset,
+  onEditPreset,
 }: ToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -74,10 +78,12 @@ export function Toolbar({
           presets={presets}
           selectedPresetId={selectedPresetId}
           isModified={isPresetModified}
+          deletingPresetId={deletingPresetId}
           onSelect={onSelectPreset}
           onSaveNew={onSaveNewPreset}
           onOverwrite={onOverwritePreset}
           onDelete={onDeletePreset}
+          onEdit={onEditPreset}
         />
       </div>
 

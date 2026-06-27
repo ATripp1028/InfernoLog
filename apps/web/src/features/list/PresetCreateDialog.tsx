@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
 
@@ -7,6 +7,12 @@ interface PresetCreateDialogProps {
   onClose: () => void
   onSave: (name: string, description: string, color: PresetColorId) => void
   isSaving: boolean
+  // When editing an existing preset, seed the form with its current values.
+  initialName?: string
+  initialDescription?: string
+  initialColor?: PresetColorId
+  title?: string
+  submitLabel?: string
 }
 
 export function PresetCreateDialog({
@@ -14,10 +20,25 @@ export function PresetCreateDialog({
   onClose,
   onSave,
   isSaving,
+  initialName,
+  initialDescription,
+  initialColor,
+  title = 'Save view as preset',
+  submitLabel = 'Save preset',
 }: PresetCreateDialogProps) {
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [color, setColor] = useState<PresetColorId>('blue')
+  const [name, setName] = useState(initialName ?? '')
+  const [description, setDescription] = useState(initialDescription ?? '')
+  const [color, setColor] = useState<PresetColorId>(initialColor ?? 'blue')
+
+  // Re-seed the form whenever the dialog opens (handles switching between
+  // create mode and edit mode without unmounting).
+  useEffect(() => {
+    if (open) {
+      setName(initialName ?? '')
+      setDescription(initialDescription ?? '')
+      setColor(initialColor ?? 'blue')
+    }
+  }, [open, initialName, initialDescription, initialColor])
 
   if (!open) return null
 
@@ -48,7 +69,7 @@ export function PresetCreateDialog({
         onKeyDown={handleKeyDown}
       >
         <h2 className="mb-4 text-base font-semibold text-text-primary">
-          Save view as preset
+          {title}
         </h2>
 
         <div className="flex flex-col gap-3">
@@ -72,7 +93,7 @@ export function PresetCreateDialog({
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-text-secondary">
               Description{' '}
-              <span className="text-text-tertiary font-normal">(optional)</span>
+              <span className="font-normal text-text-tertiary">(optional)</span>
             </label>
             <textarea
               value={description}
@@ -92,23 +113,23 @@ export function PresetCreateDialog({
             <div className="flex flex-wrap gap-2">
               {PRESET_COLORS.map((c) => {
                 const isSelected = c.id === color
-                const textColor = getContrastColor(c.hex)
                 return (
                   <button
                     key={c.id}
                     type="button"
                     title={c.label}
                     onClick={() => setColor(c.id)}
-                    style={{ background: c.hex, color: textColor }}
+                    style={{ background: c.hex }}
                     className={cn(
                       'h-7 w-7 rounded-full transition-transform hover:scale-110',
-                      isSelected && 'ring-2 ring-offset-2 ring-offset-[var(--color-bg-elevated)] ring-[var(--color-primary)]'
+                      isSelected &&
+                        'ring-2 ring-[var(--color-primary)] ring-offset-2 ring-offset-[var(--color-bg-elevated)]'
                     )}
                   />
                 )
               })}
             </div>
-            {/* Preview badge */}
+            {/* Live preview badge */}
             <span
               className="mt-0.5 inline-flex w-fit items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
               style={{
@@ -133,9 +154,9 @@ export function PresetCreateDialog({
             type="button"
             onClick={handleSave}
             disabled={!name.trim() || isSaving}
-            className="rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50 hover:opacity-90"
+            className="rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
-            {isSaving ? 'Saving…' : 'Save preset'}
+            {isSaving ? 'Saving…' : submitLabel}
           </button>
         </div>
       </div>

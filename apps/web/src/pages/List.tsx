@@ -7,6 +7,7 @@ import {
   useCreatePreset,
   useUpdatePreset,
   useDeletePreset,
+  type ListPreset,
 } from '../lib/api/presets'
 import { useLevelPage } from '../lib/api/levelPage'
 import { PageLoading } from '../components/PageLoading'
@@ -71,6 +72,7 @@ export function List() {
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editingPreset, setEditingPreset] = useState<ListPreset | null>(null)
 
   // Currently active preset: null = Default built-in view
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
@@ -226,6 +228,32 @@ export function List() {
     })
   }
 
+  function handleEditPreset(preset: ListPreset) {
+    setEditingPreset(preset)
+  }
+
+  function handleUpdatePresetMeta(
+    name: string,
+    description: string,
+    color: PresetColorId
+  ) {
+    if (!editingPreset) return
+    updatePreset.mutate(
+      { id: editingPreset.id, input: { name, description: description || null, color } },
+      {
+        onSuccess: () => {
+          setEditingPreset(null)
+          toast.success(`Preset "${name}" updated`)
+        },
+        onError: () => toast.error('Failed to update preset'),
+      }
+    )
+  }
+
+  const deletingPresetId = deletePreset.isPending
+    ? (deletePreset.variables ?? null)
+    : null
+
   function toggleSort(key: SortKey) {
     setSorts((prev) => {
       const existing = prev.find((s) => s.key === key)
@@ -306,6 +334,8 @@ export function List() {
             onSaveNewPreset={handleSaveNewPreset}
             onOverwritePreset={handleOverwritePreset}
             onDeletePreset={handleDeletePreset}
+            onEditPreset={handleEditPreset}
+            deletingPresetId={deletingPresetId}
           />
 
           {items.length === 0 ? (
@@ -398,6 +428,20 @@ export function List() {
         onClose={() => setCreateDialogOpen(false)}
         onSave={handleCreatePreset}
         isSaving={createPreset.isPending}
+      />
+
+      <PresetCreateDialog
+        open={editingPreset !== null}
+        onClose={() => setEditingPreset(null)}
+        onSave={handleUpdatePresetMeta}
+        isSaving={updatePreset.isPending}
+        title="Edit preset"
+        submitLabel="Save changes"
+        {...(editingPreset && {
+          initialName: editingPreset.name,
+          initialDescription: editingPreset.description ?? '',
+          initialColor: editingPreset.color,
+        })}
       />
     </TooltipProvider>
   )

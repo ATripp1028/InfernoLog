@@ -1,19 +1,21 @@
-import { useRef, useState } from 'react'
-import { Check, ChevronDown, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
+import {
+  Check,
+  ChevronDown,
+  Loader2,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Trash2,
+} from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import {
-  getContrastColor,
   getPresetColor,
   summarizeColumns,
   summarizeFilters,
@@ -21,14 +23,18 @@ import {
 } from './presets'
 import type { ListPreset } from '@/lib/api/presets'
 
-interface PresetSelectorProps {
-  presets: ListPreset[]
-  selectedPresetId: string | null
-  isModified: boolean
-  onSelect: (id: string | null) => void
-  onSaveNew: () => void
-  onOverwrite: (id: string) => void
-  onDelete: (id: string) => void
+// ─────────────────────────────────────────────
+// Hover card (portal-rendered, so it can overflow the Popover boundary)
+// ─────────────────────────────────────────────
+
+const CARD_WIDTH = 272
+
+function computeCardStyle(rect: DOMRect): React.CSSProperties {
+  const spaceRight = window.innerWidth - rect.right
+  const left =
+    spaceRight > CARD_WIDTH + 16 ? rect.right + 8 : rect.left - CARD_WIDTH - 8
+  const top = Math.min(rect.top, window.innerHeight - 240)
+  return { position: 'fixed', top, left, width: CARD_WIDTH, zIndex: 9999 }
 }
 
 function PresetHoverCard({ preset }: { preset: ListPreset }) {
@@ -38,7 +44,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
   const colSummary = summarizeColumns(preset.columns, preset.columnOrder)
 
   return (
-    <div className="w-64 space-y-2.5 p-3">
+    <div className="space-y-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">
       <div className="flex items-start gap-2">
         <span
           className="mt-0.5 h-3 w-3 shrink-0 rounded-full"
@@ -49,7 +55,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
             {preset.name}
           </p>
           {preset.description && (
-            <p className="mt-0.5 text-xs text-text-secondary line-clamp-2">
+            <p className="mt-0.5 line-clamp-2 text-xs text-text-secondary">
               {preset.description}
             </p>
           )}
@@ -57,13 +63,13 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
       </div>
 
       <div className="space-y-1.5 border-t border-[var(--color-border-subtle)] pt-2">
-        <Row label="Sort" value={sortSummary} />
-        <Row label="Cols" value={colSummary} />
+        <HoverRow label="Sort" value={sortSummary} />
+        <HoverRow label="Cols" value={colSummary} />
         {filterLines.length === 0 ? (
-          <Row label="Filters" value="None" />
+          <HoverRow label="Filters" value="None" />
         ) : (
           filterLines.map((line, i) => (
-            <Row key={i} label={i === 0 ? 'Filters' : ''} value={line} />
+            <HoverRow key={i} label={i === 0 ? 'Filters' : ''} value={line} />
           ))
         )}
       </div>
@@ -71,18 +77,9 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
   )
 }
 
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2 text-xs">
-      <span className="w-12 shrink-0 text-right text-text-tertiary">{label}</span>
-      <span className="min-w-0 truncate text-text-secondary">{value}</span>
-    </div>
-  )
-}
-
 function DefaultHoverCard() {
   return (
-    <div className="w-56 p-3">
+    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">
       <p className="text-sm font-semibold text-text-primary">Default</p>
       <p className="mt-1 text-xs text-text-secondary">
         The built-in view — sorted by date, all columns and filters at their
@@ -92,81 +89,97 @@ function DefaultHoverCard() {
   )
 }
 
-interface OptionRowProps {
-  label: string
-  colorHex?: string
-  isSelected: boolean
-  children?: React.ReactNode
-  onClick: () => void
-  hoverCard: React.ReactNode
+function HoverRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2 text-xs">
+      <span className="w-12 shrink-0 text-right text-text-tertiary">{label}</span>
+      <span className="min-w-0 truncate text-text-secondary">{value}</span>
+    </div>
+  )
 }
 
-function OptionRow({
-  label,
-  colorHex,
-  isSelected,
-  children,
-  onClick,
-  hoverCard,
-}: OptionRowProps) {
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          onClick={onClick}
-          className={cn(
-            'group flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-left',
-            'hover:bg-[var(--color-bg-subtle)]',
-            isSelected && 'font-medium'
-          )}
-        >
-          {colorHex ? (
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: colorHex }}
-            />
-          ) : (
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-border)]" />
-          )}
-          <span className="min-w-0 flex-1 truncate text-text-primary">
-            {label}
-          </span>
-          {isSelected && (
-            <Check size={12} className="shrink-0 text-[var(--color-primary)]" />
-          )}
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        sideOffset={12}
-        className="p-0 min-w-0 w-auto"
-      >
-        {hoverCard}
-      </TooltipContent>
-    </Tooltip>
-  )
+// ─────────────────────────────────────────────
+// Component
+// ─────────────────────────────────────────────
+
+interface PresetSelectorProps {
+  presets: ListPreset[]
+  selectedPresetId: string | null
+  isModified: boolean
+  deletingPresetId: string | null
+  onSelect: (id: string | null) => void
+  onSaveNew: () => void
+  onOverwrite: (id: string) => void
+  onDelete: (id: string) => void
+  onEdit: (preset: ListPreset) => void
 }
 
 export function PresetSelector({
   presets,
   selectedPresetId,
   isModified,
+  deletingPresetId,
   onSelect,
   onSaveNew,
   onOverwrite,
   onDelete,
+  onEdit,
 }: PresetSelectorProps) {
   const [open, setOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-  const deleteRef = useRef<HTMLDivElement>(null)
+
+  // Hover card state
+  const [hoveredId, setHoveredId] = useState<string | 'default' | null>(null)
+  const [hoverRect, setHoverRect] = useState<DOMRect | null>(null)
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  // Track when a deletion is in-flight so we can auto-close when it finishes.
+  const pendingDeleteRef = useRef<string | null>(null)
+
+  const scheduleHide = useCallback(() => {
+    hideTimeout.current = setTimeout(() => {
+      setHoveredId(null)
+      setHoverRect(null)
+    }, 120)
+  }, [])
+
+  const cancelHide = useCallback(() => {
+    if (hideTimeout.current) clearTimeout(hideTimeout.current)
+  }, [])
+
+  function handleOptionEnter(e: React.MouseEvent, id: string | 'default') {
+    cancelHide()
+    setHoveredId(id)
+    setHoverRect((e.currentTarget as HTMLElement).getBoundingClientRect())
+  }
+
+  function handleOptionLeave() {
+    scheduleHide()
+  }
+
+  // When deletingPresetId transitions from non-null → null, close the dropdown.
+  useEffect(() => {
+    if (!deletingPresetId && pendingDeleteRef.current) {
+      pendingDeleteRef.current = null
+      setPendingDeleteId(null)
+      setOpen(false)
+    }
+  }, [deletingPresetId])
+
+  // Clear hover on close.
+  function handleOpenChange(next: boolean) {
+    setOpen(next)
+    if (!next) {
+      cancelHide()
+      setHoveredId(null)
+      setHoverRect(null)
+      if (!deletingPresetId) setPendingDeleteId(null)
+    }
+  }
 
   const selectedPreset = presets.find((p) => p.id === selectedPresetId)
   const triggerLabel = selectedPreset?.name ?? 'Default'
-  const triggerColor = selectedPreset
-    ? getPresetColor(selectedPreset.color)
-    : null
+  const triggerColor = selectedPreset ? getPresetColor(selectedPreset.color) : null
 
   function handleSelect(id: string | null) {
     onSelect(id)
@@ -184,139 +197,195 @@ export function PresetSelector({
   function handleDeleteClick(id: string, e: React.MouseEvent) {
     e.stopPropagation()
     setPendingDeleteId(id)
+    setHoveredId(null)
+  }
+
+  function handleEditClick(preset: ListPreset, e: React.MouseEvent) {
+    e.stopPropagation()
+    setOpen(false)
+    onEdit(preset)
   }
 
   function handleConfirmDelete(id: string) {
+    pendingDeleteRef.current = id
     onDelete(id)
-    setPendingDeleteId(null)
-    setOpen(false)
+    // Dropdown stays open; useEffect closes it when deletion finishes.
   }
+
+  const hoveredPreset =
+    hoveredId && hoveredId !== 'default'
+      ? presets.find((p) => p.id === hoveredId)
+      : null
 
   return (
     <div className="flex items-center gap-1">
-      <TooltipProvider delayDuration={150} disableHoverableContent={false}>
-        <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger asChild>
-            <button
-              type="button"
-              className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-text-primary"
-            >
-              {triggerColor ? (
-                <span
-                  className="h-2 w-2 shrink-0 rounded-full"
-                  style={{ background: triggerColor.hex }}
-                />
-              ) : (
-                <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
-              )}
-              <span className="max-w-[120px] truncate">{triggerLabel}</span>
-              {isModified && (
-                <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
-              )}
-              <ChevronDown size={12} className="text-text-secondary" />
-            </button>
-          </PopoverTrigger>
+      <Popover open={open} onOpenChange={handleOpenChange}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-text-primary"
+          >
+            {triggerColor ? (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: triggerColor.hex }}
+              />
+            ) : (
+              <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
+            )}
+            <span className="max-w-[120px] truncate">{triggerLabel}</span>
+            {isModified && (
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
+            )}
+            <ChevronDown size={12} className="text-text-secondary" />
+          </button>
+        </PopoverTrigger>
 
-          <PopoverContent align="start" className="w-56 p-1">
-            {/* Default option */}
-            <OptionRow
-              label="Default"
-              isSelected={selectedPresetId === null}
-              onClick={() => handleSelect(null)}
-              hoverCard={<DefaultHoverCard />}
-            />
+        <PopoverContent align="start" className="w-56 p-1">
+          {/* Default option */}
+          <button
+            type="button"
+            onClick={() => handleSelect(null)}
+            onMouseEnter={(e) => handleOptionEnter(e, 'default')}
+            onMouseLeave={handleOptionLeave}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
+              'hover:bg-[var(--color-bg-subtle)]',
+              selectedPresetId === null && 'font-medium'
+            )}
+          >
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-border)]" />
+            <span className="min-w-0 flex-1 truncate text-text-primary">Default</span>
+            {selectedPresetId === null && (
+              <Check size={12} className="shrink-0 text-[var(--color-primary)]" />
+            )}
+          </button>
 
-            {/* User presets */}
-            {presets.length > 0 && (
-              <>
-                <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-                {presets.map((preset) => {
-                  const color = getPresetColor(preset.color)
-                  const isSelected = preset.id === selectedPresetId
-                  const isPendingDelete = pendingDeleteId === preset.id
+          {/* User presets */}
+          {presets.length > 0 && (
+            <>
+              <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+              {presets.map((preset) => {
+                const color = getPresetColor(preset.color)
+                const isSelected = preset.id === selectedPresetId
+                const isPendingDelete = pendingDeleteId === preset.id
+                const isDeleting = deletingPresetId === preset.id
 
-                  if (isPendingDelete) {
-                    return (
-                      <div
-                        key={preset.id}
-                        ref={deleteRef}
-                        className="flex items-center gap-1 rounded-sm px-2 py-1.5"
-                      >
-                        <span className="flex-1 truncate text-xs text-text-secondary">
-                          Delete "{preset.name}"?
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => setPendingDeleteId(null)}
-                          className="rounded px-1 py-0.5 text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleConfirmDelete(preset.id)}
-                          className="rounded px-1 py-0.5 text-xs font-medium text-red-500 hover:bg-red-500/10"
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    )
-                  }
-
+                if (isPendingDelete) {
                   return (
-                    <OptionRow
+                    <div
                       key={preset.id}
-                      label={preset.name}
-                      colorHex={color.hex}
-                      isSelected={isSelected}
-                      onClick={() => handleSelect(preset.id)}
-                      hoverCard={<PresetHoverCard preset={preset} />}
+                      className="flex items-center gap-1 rounded-sm px-2 py-1.5"
                     >
-                      <button
-                        type="button"
+                      <span className="flex-1 truncate text-xs text-text-secondary">
+                        Delete "{preset.name}"?
+                      </span>
+                      {isDeleting ? (
+                        <Loader2
+                          size={13}
+                          className="shrink-0 animate-spin text-text-tertiary"
+                        />
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setPendingDeleteId(null)}
+                            className="rounded px-1 py-0.5 text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmDelete(preset.id)}
+                            className="rounded px-1 py-0.5 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )
+                }
+
+                return (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelect(preset.id)}
+                    onMouseEnter={(e) => handleOptionEnter(e, preset.id)}
+                    onMouseLeave={handleOptionLeave}
+                    className={cn(
+                      'group flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
+                      'hover:bg-[var(--color-bg-subtle)]',
+                      isSelected && 'font-medium'
+                    )}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                      style={{ background: color.hex }}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-text-primary">
+                      {preset.name}
+                    </span>
+                    {isSelected && !isDeleting && (
+                      <Check size={12} className="shrink-0 text-[var(--color-primary)]" />
+                    )}
+                    {/* Edit + delete icons — revealed on row hover */}
+                    <span className="invisible flex shrink-0 items-center gap-0.5 group-hover:visible">
+                      <span
+                        role="button"
+                        onClick={(e) => handleEditClick(preset, e)}
+                        aria-label={`Edit ${preset.name}`}
+                        className="rounded p-0.5 text-text-tertiary hover:text-text-primary"
+                      >
+                        <Pencil size={11} />
+                      </span>
+                      <span
+                        role="button"
                         onClick={(e) => handleDeleteClick(preset.id, e)}
                         aria-label={`Delete ${preset.name}`}
-                        className="invisible shrink-0 rounded p-0.5 text-text-tertiary hover:text-red-500 group-hover:visible"
+                        className="rounded p-0.5 text-text-tertiary hover:text-red-500"
                       >
                         <Trash2 size={11} />
-                      </button>
-                    </OptionRow>
-                  )
-                })}
-              </>
-            )}
+                      </span>
+                    </span>
+                  </button>
+                )
+              })}
+            </>
+          )}
 
-            {/* Actions */}
-            <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+          {/* Actions */}
+          <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
 
-            {/* Save as new — only when modified */}
-            {isModified && (
-              <button
-                type="button"
-                onClick={() => { setOpen(false); onSaveNew() }}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
-              >
-                <Plus size={13} className="text-[var(--color-primary)]" />
-                Save as new preset
-              </button>
-            )}
+          {isModified && (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false)
+                onSaveNew()
+              }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+            >
+              <Plus size={13} className="text-[var(--color-primary)]" />
+              Save as new preset
+            </button>
+          )}
 
-            {/* Overwrite — only for a selected user preset when modified */}
-            {selectedPresetId !== null && isModified && (
-              <button
-                type="button"
-                onClick={handleOverwrite}
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
-              >
-                <RotateCcw size={12} />
-                Overwrite "{selectedPreset?.name}"
-              </button>
-            )}
-          </PopoverContent>
-        </Popover>
-      </TooltipProvider>
+          {selectedPresetId !== null && isModified && (
+            <button
+              type="button"
+              onClick={handleOverwrite}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+            >
+              <RotateCcw size={12} />
+              Overwrite "{selectedPreset?.name}"
+            </button>
+          )}
+        </PopoverContent>
+      </Popover>
 
-      {/* Inline save-as-new button that appears when the user has drifted */}
+      {/* Inline save button that appears when the view has drifted from the preset */}
       {isModified && (
         <button
           type="button"
@@ -328,6 +397,25 @@ export function PresetSelector({
           Save
         </button>
       )}
+
+      {/* Hover card rendered into a portal so it can overflow the Popover boundary */}
+      {open &&
+        hoveredId &&
+        hoverRect &&
+        createPortal(
+          <div
+            style={computeCardStyle(hoverRect)}
+            onMouseEnter={cancelHide}
+            onMouseLeave={scheduleHide}
+          >
+            {hoveredId === 'default' ? (
+              <DefaultHoverCard />
+            ) : hoveredPreset ? (
+              <PresetHoverCard preset={hoveredPreset} />
+            ) : null}
+          </div>,
+          document.body
+        )}
     </div>
   )
 }
