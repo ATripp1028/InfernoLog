@@ -109,7 +109,7 @@ export function Toolbar({
         <button
           type="button"
           onClick={onOpenFilters}
-          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-3 pr-2.5 text-[13px] font-medium text-text-primary"
+          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-3 pr-2.5 text-[13px] font-medium text-text-primary cursor-pointer"
         >
           <SlidersHorizontal size={13} className="text-text-secondary" />
           Filters

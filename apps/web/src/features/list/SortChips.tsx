@@ -138,7 +138,7 @@ export function SortChips({ sorts, onChange }: SortChipsProps) {
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary"
+              className="flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer"
             >
               <Plus size={12} /> Sort
             </button>
@@ -149,7 +149,7 @@ export function SortChips({ sorts, onChange }: SortChipsProps) {
                 key={o.key}
                 type="button"
                 onClick={() => add(o.key)}
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)] cursor-pointer"
               >
                 {o.label}
               </button>

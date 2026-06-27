@@ -223,7 +223,7 @@ export function PresetSelector({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-text-primary"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-text-primary cursor-pointer"
           >
             {triggerColor ? (
               <span
@@ -249,7 +249,7 @@ export function PresetSelector({
             onMouseEnter={(e) => handleOptionEnter(e, 'default')}
             onMouseLeave={handleOptionLeave}
             className={cn(
-              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
+              'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer',
               'hover:bg-[var(--color-bg-subtle)]',
               selectedPresetId === null && 'font-medium'
             )}
@@ -315,7 +315,7 @@ export function PresetSelector({
                     onMouseEnter={(e) => handleOptionEnter(e, preset.id)}
                     onMouseLeave={handleOptionLeave}
                     className={cn(
-                      'group flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm',
+                      'group flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer',
                       'hover:bg-[var(--color-bg-subtle)]',
                       isSelected && 'font-medium'
                     )}
