@@ -332,13 +332,13 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
     const runsGraph = computeRunsGraph(updatesForGraph, drops)
 
     // Derive rank position from rankingIndex: count how many of the user's
-    // placed completions have a lower (easier) rankingIndex. 1-based.
+    // placed completions have a higher (easier) rankingIndex. 1-based.
     let rankPosition: number | null = null
     if (lp.classicRanking) {
       const count = await prisma.classicRanking.count({
         where: {
           userId: targetUser.id,
-          rankingIndex: { lt: lp.classicRanking.rankingIndex },
+          rankingIndex: { gt: lp.classicRanking.rankingIndex },
         },
       })
       rankPosition = count + 1

@@ -395,6 +395,14 @@ export default $config({
     authedRoute('GET /v1/me/gddl-sync/{jobId}')
 
     // ─────────────────────────────────────────────
+    // LIST PRESETS — saved view configurations for the My Demons page.
+    // ─────────────────────────────────────────────
+    authedRoute('GET /v1/me/list-presets')
+    authedRoute('POST /v1/me/list-presets')
+    authedRoute('PATCH /v1/me/list-presets/{id}')
+    authedRoute('DELETE /v1/me/list-presets/{id}')
+
+    // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────
     new aws.ssm.Parameter('SsmApiUrl', {

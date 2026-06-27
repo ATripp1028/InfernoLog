@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
+import {
+  useListPresets,
+  useCreatePreset,
+  useUpdatePreset,
+  useDeletePreset,
+} from '../lib/api/presets'
 import { useLevelPage } from '../lib/api/levelPage'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
@@ -15,6 +21,7 @@ import { ListTable } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
 import { FilterPanel } from '../features/list/FilterPanel'
 import { ControlsSheet } from '../features/list/ControlsSheet'
+import { PresetCreateDialog } from '../features/list/PresetCreateDialog'
 import {
   applyFilters,
   countActiveFilters,
@@ -35,12 +42,20 @@ import {
   type SortKey,
   type SortSpec,
 } from '../features/list/types'
-
-const DEFAULT_SORTS: SortSpec[] = [{ key: 'date', dir: 'desc' }]
+import {
+  viewConfigsEqual,
+  defaultViewConfig,
+  DEFAULT_SORTS,
+} from '../features/list/presets'
+import type { PresetColorId } from '../features/list/presets'
 
 export function List() {
   const me = useMe()
   const progress = useMyProgress()
+  const presetsQuery = useListPresets()
+  const createPreset = useCreatePreset()
+  const updatePreset = useUpdatePreset()
+  const deletePreset = useDeletePreset()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
 
@@ -55,11 +70,15 @@ export function List() {
   const [columnOrder, setColumnOrder] = useState<ColumnId[]>(defaultColumnOrder)
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // Currently active preset: null = Default built-in view
+  const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
+
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
 
   // Fetch full level-page data when the user triggers edit from the list.
-  // Query is disabled when editingLevelId is null (empty string fails the !!levelId guard).
   const userId = me.data?.id ?? ''
   const editLevelQuery = useLevelPage(userId, editingLevelId ?? '')
 
@@ -79,13 +98,13 @@ export function List() {
   }, [dockedOpen])
 
   const items = useMemo(() => progress.data ?? [], [progress.data])
+  const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data])
 
   const visible = useMemo(
     () => sortItems(applyFilters(items, filters, search), sorts),
     [items, filters, search, sorts]
   )
 
-  // Distinct length / game-version values present, for the filter chips.
   const availableLengths = useMemo(() => {
     const order = ['Tiny', 'Short', 'Medium', 'Long', 'XL', 'Platformer']
     const set = new Set<string>()
@@ -110,11 +129,102 @@ export function List() {
 
   const activeFilterCount = countActiveFilters(filters)
 
+  // Compare the current view config against the selected preset (or the default).
+  const currentConfig = useMemo(
+    () => ({ sorts, filters, columns, columnOrder }),
+    [sorts, filters, columns, columnOrder]
+  )
+
+  const isPresetModified = useMemo(() => {
+    if (selectedPresetId === null) {
+      return !viewConfigsEqual(currentConfig, defaultViewConfig())
+    }
+    const preset = presets.find((p) => p.id === selectedPresetId)
+    if (!preset) return false
+    return !viewConfigsEqual(currentConfig, {
+      sorts: preset.sorts,
+      filters: preset.filters,
+      columns: preset.columns,
+      columnOrder: preset.columnOrder,
+    })
+  }, [selectedPresetId, currentConfig, presets])
+
   if (me.isPending || !me.data || progress.isPending) {
     return <PageLoading />
   }
 
   const { ratingDisplayScale, dateFormatPreference } = me.data
+
+  function applyPresetConfig(config: {
+    sorts: SortSpec[]
+    filters: FilterState
+    columns: ColumnVisibility
+    columnOrder: ColumnId[]
+  }) {
+    setSorts(config.sorts)
+    setFilters(config.filters)
+    setColumns(config.columns)
+    setColumnOrder(config.columnOrder)
+  }
+
+  function handleSelectPreset(id: string | null) {
+    setSelectedPresetId(id)
+    if (id === null) {
+      applyPresetConfig(defaultViewConfig())
+    } else {
+      const preset = presets.find((p) => p.id === id)
+      if (preset) applyPresetConfig(preset)
+    }
+  }
+
+  function handleSaveNewPreset() {
+    setCreateDialogOpen(true)
+  }
+
+  function handleCreatePreset(
+    name: string,
+    description: string,
+    color: PresetColorId
+  ) {
+    createPreset.mutate(
+      { name, description: description || null, color, ...currentConfig },
+      {
+        onSuccess: (preset) => {
+          setSelectedPresetId(preset.id)
+          setCreateDialogOpen(false)
+          toast.success(`Preset "${preset.name}" saved`)
+        },
+        onError: () => toast.error('Failed to save preset'),
+      }
+    )
+  }
+
+  function handleOverwritePreset(id: string) {
+    const preset = presets.find((p) => p.id === id)
+    if (!preset) return
+    updatePreset.mutate(
+      { id, input: currentConfig },
+      {
+        onSuccess: () => toast.success(`Preset "${preset.name}" updated`),
+        onError: () => toast.error('Failed to update preset'),
+      }
+    )
+  }
+
+  function handleDeletePreset(id: string) {
+    const preset = presets.find((p) => p.id === id)
+    if (!preset) return
+    deletePreset.mutate(id, {
+      onSuccess: () => {
+        if (selectedPresetId === id) {
+          setSelectedPresetId(null)
+          applyPresetConfig(defaultViewConfig())
+        }
+        toast.success(`Preset "${preset.name}" deleted`)
+      },
+      onError: () => toast.error('Failed to delete preset'),
+    })
+  }
 
   function toggleSort(key: SortKey) {
     setSorts((prev) => {
@@ -189,6 +299,13 @@ export function List() {
             onOpenControls={() => setControlsOpen(true)}
             onReset={resetAll}
             canReset={canReset}
+            presets={presets}
+            selectedPresetId={selectedPresetId}
+            isPresetModified={isPresetModified}
+            onSelectPreset={handleSelectPreset}
+            onSaveNewPreset={handleSaveNewPreset}
+            onOverwritePreset={handleOverwritePreset}
+            onDeletePreset={handleDeletePreset}
           />
 
           {items.length === 0 ? (
@@ -275,6 +392,13 @@ export function List() {
           scale={ratingDisplayScale}
         />
       )}
+
+      <PresetCreateDialog
+        open={createDialogOpen}
+        onClose={() => setCreateDialogOpen(false)}
+        onSave={handleCreatePreset}
+        isSaving={createPreset.isPending}
+      />
     </TooltipProvider>
   )
 }
