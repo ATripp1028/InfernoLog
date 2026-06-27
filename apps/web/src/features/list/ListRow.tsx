@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
-import { COLUMNS, type ColumnVisibility } from './columns'
+import { COLUMNS, type ColumnId, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
 import { CopyableId } from './CopyableId'
@@ -19,6 +19,7 @@ export const LEVEL_MIN_WIDTH = 280
 interface RowProps {
   item: ListItem
   columns: ColumnVisibility
+  columnOrder: ColumnId[]
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   minWidth: number
@@ -67,12 +68,17 @@ function CoinsCell({ item }: { item: ListItem }) {
 export function ListRow({
   item,
   columns,
+  columnOrder,
   scale,
   datePref,
   minWidth,
 }: RowProps) {
   const { entry, level } = item
   const dash = <span className="text-text-tertiary">—</span>
+
+  const orderedCols = columnOrder
+    .map((id) => COLUMNS.find((c) => c.id === id)!)
+    .filter((col) => columns[col.id])
 
   return (
     <div
@@ -86,8 +92,7 @@ export function ListRow({
       >
         <LevelCell item={item} />
       </div>
-      {COLUMNS.map((col) => {
-        if (!columns[col.id]) return null
+      {orderedCols.map((col) => {
         switch (col.id) {
           case 'tier':
             return (

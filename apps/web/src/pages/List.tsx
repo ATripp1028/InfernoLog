@@ -23,6 +23,8 @@ import {
 } from '../features/list/filtering'
 import {
   defaultColumnVisibility,
+  defaultColumnOrder,
+  type ColumnId,
   type ColumnVisibility,
 } from '../features/list/columns'
 import { defaultDir } from '../features/list/sortMeta'
@@ -50,6 +52,7 @@ export function List() {
   const [columns, setColumns] = useState<ColumnVisibility>(
     defaultColumnVisibility
   )
+  const [columnOrder, setColumnOrder] = useState<ColumnId[]>(defaultColumnOrder)
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
@@ -197,6 +200,8 @@ export function List() {
               <ListTable
                 items={visible}
                 columns={columns}
+                columnOrder={columnOrder}
+                onReorderColumns={setColumnOrder}
                 sorts={sorts}
                 onToggleSort={toggleSort}
                 scale={ratingDisplayScale}
