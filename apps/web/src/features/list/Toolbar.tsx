@@ -34,6 +34,7 @@ interface ToolbarProps {
   onOverwritePreset: (id: string) => void
   onDeletePreset: (id: string) => void
   onEditPreset: (preset: ListPreset) => void
+  onDiscardPreset: () => void
 }
 
 export function Toolbar({
@@ -57,6 +58,7 @@ export function Toolbar({
   onOverwritePreset,
   onDeletePreset,
   onEditPreset,
+  onDiscardPreset,
 }: ToolbarProps) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -84,6 +86,7 @@ export function Toolbar({
           onOverwrite={onOverwritePreset}
           onDelete={onDeletePreset}
           onEdit={onEditPreset}
+          onDiscard={onDiscardPreset}
         />
       </div>
 

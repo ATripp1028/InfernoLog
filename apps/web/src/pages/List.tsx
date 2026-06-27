@@ -228,6 +228,10 @@ export function List() {
     })
   }
 
+  function handleDiscardPresetChanges() {
+    handleSelectPreset(selectedPresetId)
+  }
+
   function handleEditPreset(preset: ListPreset) {
     setEditingPreset(preset)
   }
@@ -256,13 +260,14 @@ export function List() {
 
   function toggleSort(key: SortKey) {
     setSorts((prev) => {
-      const existing = prev.find((s) => s.key === key)
-      if (existing) {
-        return prev.map((s) =>
-          s.key === key ? { ...s, dir: s.dir === 'asc' ? 'desc' : 'asc' } : s
-        )
+      const primary = prev[0]
+      if (primary && primary.key === key) {
+        // Already the primary sort: toggle its direction.
+        return [{ key, dir: primary.dir === 'asc' ? 'desc' : 'asc' }, ...prev.slice(1)]
       }
-      return [...prev, { key, dir: defaultDir(key) }]
+      // Promote to primary; remove from any secondary position.
+      const withoutKey = prev.filter((s) => s.key !== key)
+      return [{ key, dir: defaultDir(key) }, ...withoutKey]
     })
   }
 
@@ -335,6 +340,7 @@ export function List() {
             onOverwritePreset={handleOverwritePreset}
             onDeletePreset={handleDeletePreset}
             onEditPreset={handleEditPreset}
+            onDiscardPreset={handleDiscardPresetChanges}
             deletingPresetId={deletingPresetId}
           />
 
@@ -428,6 +434,7 @@ export function List() {
         onClose={() => setCreateDialogOpen(false)}
         onSave={handleCreatePreset}
         isSaving={createPreset.isPending}
+        existingNames={presets.map((p) => p.name)}
       />
 
       <PresetCreateDialog
@@ -437,10 +444,12 @@ export function List() {
         isSaving={updatePreset.isPending}
         title="Edit preset"
         submitLabel="Save changes"
+        existingNames={presets.map((p) => p.name)}
         {...(editingPreset && {
           initialName: editingPreset.name,
           initialDescription: editingPreset.description ?? '',
           initialColor: editingPreset.color,
+          excludeName: editingPreset.name,
         })}
       />
     </TooltipProvider>

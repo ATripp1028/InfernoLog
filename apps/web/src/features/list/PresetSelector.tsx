@@ -8,6 +8,7 @@ import {
   Plus,
   RotateCcw,
   Trash2,
+  Undo2,
 } from 'lucide-react'
 import {
   Popover,
@@ -112,6 +113,7 @@ interface PresetSelectorProps {
   onOverwrite: (id: string) => void
   onDelete: (id: string) => void
   onEdit: (preset: ListPreset) => void
+  onDiscard: () => void
 }
 
 export function PresetSelector({
@@ -124,6 +126,7 @@ export function PresetSelector({
   onOverwrite,
   onDelete,
   onEdit,
+  onDiscard,
 }: PresetSelectorProps) {
   const [open, setOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
@@ -223,8 +226,10 @@ export function PresetSelector({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] font-medium text-text-primary cursor-pointer"
+            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] cursor-pointer"
           >
+            <span className="font-medium text-text-primary">Preset</span>
+            <span className="text-[11px] text-text-tertiary">·</span>
             {triggerColor ? (
               <span
                 className="h-2 w-2 shrink-0 rounded-full"
@@ -233,7 +238,7 @@ export function PresetSelector({
             ) : (
               <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
             )}
-            <span className="max-w-[120px] truncate">{triggerLabel}</span>
+            <span className="max-w-[90px] truncate text-[12px] text-text-secondary">{triggerLabel}</span>
             {isModified && (
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
             )}
@@ -290,14 +295,14 @@ export function PresetSelector({
                           <button
                             type="button"
                             onClick={() => setPendingDeleteId(null)}
-                            className="rounded px-1 py-0.5 text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+                            className="cursor-pointer rounded px-1 py-0.5 text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]"
                           >
                             Cancel
                           </button>
                           <button
                             type="button"
                             onClick={() => handleConfirmDelete(preset.id)}
-                            className="rounded px-1 py-0.5 text-xs font-medium text-red-500 hover:bg-red-500/10"
+                            className="cursor-pointer rounded px-1 py-0.5 text-xs font-medium text-red-500 hover:bg-red-500/10"
                           >
                             Delete
                           </button>
@@ -336,7 +341,7 @@ export function PresetSelector({
                         role="button"
                         onClick={(e) => handleEditClick(preset, e)}
                         aria-label={`Edit ${preset.name}`}
-                        className="rounded p-0.5 text-text-tertiary hover:text-text-primary"
+                        className="cursor-pointer rounded p-0.5 text-text-tertiary hover:text-text-primary"
                       >
                         <Pencil size={11} />
                       </span>
@@ -344,7 +349,7 @@ export function PresetSelector({
                         role="button"
                         onClick={(e) => handleDeleteClick(preset.id, e)}
                         aria-label={`Delete ${preset.name}`}
-                        className="rounded p-0.5 text-text-tertiary hover:text-red-500"
+                        className="cursor-pointer rounded p-0.5 text-text-tertiary hover:text-red-500"
                       >
                         <Trash2 size={11} />
                       </span>
@@ -365,7 +370,7 @@ export function PresetSelector({
                 setOpen(false)
                 onSaveNew()
               }}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
             >
               <Plus size={13} className="text-[var(--color-primary)]" />
               Save as new preset
@@ -376,10 +381,21 @@ export function PresetSelector({
             <button
               type="button"
               onClick={handleOverwrite}
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
             >
               <RotateCcw size={12} />
               Overwrite "{selectedPreset?.name}"
+            </button>
+          )}
+
+          {isModified && (
+            <button
+              type="button"
+              onClick={() => { setOpen(false); onDiscard() }}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+            >
+              <Undo2 size={12} />
+              {selectedPresetId ? `Discard changes` : 'Reset to default'}
             </button>
           )}
         </PopoverContent>
@@ -391,10 +407,23 @@ export function PresetSelector({
           type="button"
           onClick={onSaveNew}
           title="Save current view as a new preset"
-          className="flex h-8 items-center gap-1 rounded-md border border-dashed border-[var(--color-primary)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--color-primary)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
         >
           <Plus size={12} />
           Save
+        </button>
+      )}
+
+      {/* Inline discard button that appears when the view has drifted from the preset */}
+      {isModified && (
+        <button
+          type="button"
+          onClick={onDiscard}
+          title={selectedPresetId ? `Discard changes and return to "${selectedPreset?.name}"` : 'Discard changes and return to default'}
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+        >
+          <Undo2 size={12} />
+          Discard
         </button>
       )}
 

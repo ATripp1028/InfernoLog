@@ -13,6 +13,10 @@ interface PresetCreateDialogProps {
   initialColor?: PresetColorId
   title?: string
   submitLabel?: string
+  // Names already taken by other presets (for duplicate detection).
+  existingNames?: string[]
+  // The preset's own current name — excluded from the duplicate check so rename-to-same is allowed.
+  excludeName?: string
 }
 
 export function PresetCreateDialog({
@@ -25,10 +29,22 @@ export function PresetCreateDialog({
   initialColor,
   title = 'Save view as preset',
   submitLabel = 'Save preset',
+  existingNames,
+  excludeName,
 }: PresetCreateDialogProps) {
   const [name, setName] = useState(initialName ?? '')
   const [description, setDescription] = useState(initialDescription ?? '')
   const [color, setColor] = useState<PresetColorId>(initialColor ?? 'blue')
+
+  const trimmedName = name.trim()
+  const isDuplicate =
+    !!existingNames &&
+    trimmedName.length > 0 &&
+    existingNames.some(
+      (n) =>
+        n.toLowerCase() === trimmedName.toLowerCase() &&
+        n !== excludeName
+    )
 
   // Re-seed the form whenever the dialog opens (handles switching between
   // create mode and edit mode without unmounting).
@@ -43,8 +59,7 @@ export function PresetCreateDialog({
   if (!open) return null
 
   function handleSave() {
-    const trimmedName = name.trim()
-    if (!trimmedName) return
+    if (!trimmedName || isDuplicate) return
     onSave(trimmedName, description.trim(), color)
   }
 
@@ -85,8 +100,16 @@ export function PresetCreateDialog({
               onChange={(e) => setName(e.target.value)}
               maxLength={50}
               placeholder="My preset"
-              className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+              className={cn(
+                'h-9 rounded-md border bg-[var(--color-bg-surface)] px-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1',
+                isDuplicate
+                  ? 'border-red-500 focus:ring-red-500'
+                  : 'border-[var(--color-border)] focus:ring-[var(--color-primary)]'
+              )}
             />
+            {isDuplicate && (
+              <p className="text-xs text-red-500">A preset with this name already exists.</p>
+            )}
           </div>
 
           {/* Description */}
@@ -121,7 +144,7 @@ export function PresetCreateDialog({
                     onClick={() => setColor(c.id)}
                     style={{ background: c.hex }}
                     className={cn(
-                      'h-7 w-7 rounded-full transition-transform hover:scale-110',
+                      'h-7 w-7 cursor-pointer rounded-full transition-transform hover:scale-110',
                       isSelected &&
                         'ring-2 ring-[var(--color-primary)] ring-offset-2 ring-offset-[var(--color-bg-elevated)]'
                     )}
@@ -146,15 +169,15 @@ export function PresetCreateDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+            className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={handleSave}
-            disabled={!name.trim() || isSaving}
-            className="rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            disabled={!trimmedName || isDuplicate || isSaving}
+            className="cursor-pointer rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isSaving ? 'Saving…' : submitLabel}
           </button>
