@@ -82,9 +82,6 @@ export function buildCompletionInput(
     submitToGddl: me.hasGddlApiKey ? draft.submitToGddl : false,
     ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
     ...(refs.length ? { listReferences: refs } : {}),
-    ...(me.hasGddlApiKey
-      ? { gddlRecordAccepted: draft.gddlRecordAccepted }
-      : {}),
   }
 }
 

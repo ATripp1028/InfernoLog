@@ -67,10 +67,6 @@ The GDDL tier is entered/confirmed manually by the user rather than fetched auto
 - The snapshot reflects what the tier was when the player beat it, which is more historically meaningful
 - Avoids excessive API load on GDDL's free platform
 
-### GDDL Record Acceptance Indicator
-
-Users can manually mark a completion as having an accepted GDDL record (`gddl_record_accepted = true`). This is not automatically synced from GDDL — it is a self-reported flag. This indicator is hidden for private profiles.
-
 ### Known Limitation: Record Deletion
 
 GDDL records cannot be deleted via the API. If a user deletes a completion from InfernoLog, they are warned in the delete confirmation modal that the associated GDDL record must be managed directly on the GDDL platform.

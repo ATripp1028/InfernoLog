@@ -92,16 +92,10 @@ async function loadExistingCompletion(userId: string, levelId: string) {
       listReferences: {
         select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
       },
-      recordAcceptances: {
-        where: { listSource: 'GDDL' },
-        select: { isAccepted: true },
-      },
       levelProgress: { select: { visibility: true, worstFail: true } },
     },
   })
   if (!completion) return null
-
-  const gddlAcceptance = completion.recordAcceptances[0]
 
   return {
     progressUpdateId: completion.id,
@@ -119,7 +113,6 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     highlightUrl: completion.highlightUrl,
     notes: completion.notes,
     visibility: completion.levelProgress.visibility,
-    gddlRecordAccepted: gddlAcceptance ? gddlAcceptance.isAccepted : null,
     ratingScores: completion.ratingScores,
     listReferences: completion.listReferences,
   }

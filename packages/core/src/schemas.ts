@@ -304,10 +304,6 @@ export const CompletionInputSchema = z.object({
   // Optional GDDL record submission side effect (non-blocking). Only honored
   // when the user has a GDDL key configured.
   submitToGddl: z.boolean().default(false),
-  // Self-reported "mark record as accepted" toggle (GDDL). Independent of
-  // submitToGddl — the user flips it once GDDL accepts the record. When
-  // provided, upserts the GDDL RecordAcceptance; omit to leave it unchanged.
-  gddlRecordAccepted: z.boolean().optional(),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
@@ -354,6 +350,30 @@ export const DropInputSchema = z.object({
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
+})
+
+// EDIT PROGRESS — partial update applied to the most recent ProgressUpdate
+// for a given level, plus LevelProgress-level metadata. All fields optional;
+// only present keys are written. Sent as PATCH /v1/me/progress/:levelId.
+export const EditProgressInputSchema = z.object({
+  // LevelProgress fields
+  levelNotes: z.string().max(5000).nullable().optional(),
+  worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  visibility: z.nativeEnum(EntryVisibility).optional(),
+  // Most recent ProgressUpdate fields
+  date: z.coerce.date().nullable().optional(),
+  dateUncertain: z.boolean().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  onStream: z.boolean().optional(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
+  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  ratingScores: z.array(RatingScoreInputSchema).optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -411,9 +431,6 @@ export const ExistingCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
-  // Self-reported GDDL record-accepted state, to prefill the edit form's
-  // "mark record as accepted" toggle. Null when no GDDL acceptance row exists.
-  gddlRecordAccepted: z.boolean().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -499,15 +516,6 @@ export const LevelProgressListEntrySchema = z.object({
       listSource: z.nativeEnum(ListSource),
       tierOrRank: z.string(),
       atTimeOfLogging: z.boolean(),
-    })
-  ),
-  // Self-reported record-acceptance status per ranking authority. Surfaced on
-  // the mobile detail pane.
-  recordAcceptances: z.array(
-    z.object({
-      listSource: z.nativeEnum(ListSource),
-      isAccepted: z.boolean(),
-      acceptedAt: z.coerce.date().nullable(),
     })
   ),
 })

@@ -196,8 +196,8 @@ attempts, run range, FPS) — not every field, to avoid noise.
   want on record**, which _additionally_ serve as a convenience for initial ranking placement —
   not merely a placement convenience. Optional. **AREDL rank only appears for extreme demons**
   (AREDL = All Rated Extreme Demons List — it lists extreme demons only), keyed off the level's
-  cached rated difficulty. GDDL record submission + accepted-flag toggles appear here only when a
-  GDDL key is configured. (Pointercrate is cut from v1 — see `LOGGING_FLOW_RECONCILIATION.md`.)
+  cached rated difficulty. The GDDL record submission toggle appears here only when a GDDL key
+  is configured. (Pointercrate is cut from v1 — see `LOGGING_FLOW_RECONCILIATION.md`.)
 - **One completion per level per user in v1**, and it is **edit, not replace.** If a completion
   already exists for the level, "Log a completion" routes the user to **edit the existing
   completion** rather than create or overwrite a second one. (A small inline note — "You've already
@@ -306,7 +306,7 @@ affordance. Favorites notes the optional GDDL sync. A level can land in several 
 | Enjoyment                                            | ✓                       | Session Details       | —                |
 | List references (GDDL, AREDL, NLW)                   | ✓                       | —                     | —                |
 | AREDL rank                                           | ✓ (extreme demons only) | —                     | —                |
-| GDDL record submit/accepted                          | ✓ (if key)              | —                     | —                |
+| GDDL record submit                                   | ✓ (if key)              | —                     | —                |
 | FPS                                                  | Session Details         | Session Details       | —                |
 | On stream                                            | Session Details         | Session Details       | —                |
 | Completion video URL                                 | Session Details         | —                     | —                |

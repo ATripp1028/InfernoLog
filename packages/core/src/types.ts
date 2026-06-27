@@ -7,6 +7,7 @@ import {
   CompletionInputSchema,
   ProgressInputSchema,
   DropInputSchema,
+  EditProgressInputSchema,
   ManualLevelInputSchema,
   RatingScoreInputSchema,
   CompletionListReferenceSchema,
@@ -33,6 +34,7 @@ export type PublicUserProfile = z.infer<typeof PublicUserProfileSchema>
 export type CompletionInput = z.infer<typeof CompletionInputSchema>
 export type ProgressInput = z.infer<typeof ProgressInputSchema>
 export type DropInput = z.infer<typeof DropInputSchema>
+export type EditProgressInput = z.infer<typeof EditProgressInputSchema>
 export type ManualLevelInput = z.infer<typeof ManualLevelInputSchema>
 export type RatingScoreInput = z.infer<typeof RatingScoreInputSchema>
 export type CompletionListReferenceInput = z.infer<

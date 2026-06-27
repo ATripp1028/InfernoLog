@@ -123,7 +123,6 @@ function parseDateAdded(raw: string): Date | null {
 interface MappedFields {
   date?: Date
   enjoyment?: number
-  simpleRating?: number
   videoUrl?: string
 }
 
@@ -132,8 +131,7 @@ function mapGddlFields(sub: GddlSubmission): MappedFields {
   const date = parseDateAdded(sub.DateAdded)
   if (date) fields.date = date
   // GDDL uses 0-10; InfernoLog stores 0-100 internally.
-  if (sub.Enjoyment !== 0) fields.enjoyment = sub.Enjoyment * 10
-  if (sub.Rating !== 0) fields.simpleRating = sub.Rating * 10
+  if (sub.Enjoyment != null) fields.enjoyment = sub.Enjoyment * 10
   if (sub.Proof?.trim()) fields.videoUrl = sub.Proof.trim()
   return fields
 }
@@ -185,7 +183,6 @@ async function enrichCompletion(
     select: {
       date: true,
       enjoyment: true,
-      simpleRating: true,
       videoUrl: true,
     },
   })
@@ -193,17 +190,17 @@ async function enrichCompletion(
   const gddl = mapGddlFields(sub)
   const updateData: Record<string, unknown> = {}
 
-  if (existing.date === null && gddl.date !== undefined) {
+  if (!existing.date && gddl.date) {
     updateData.date = gddl.date
     updateData.dateUncertain = true
   }
-  if (existing.enjoyment === null && gddl.enjoyment !== undefined) {
+  if (existing.enjoyment == null && gddl.enjoyment != null) {
+    logger.info(
+      `enrichCompletion: adding enjoyment ${gddl.enjoyment} for progressUpdateId ${progressUpdateId}`
+    )
     updateData.enjoyment = gddl.enjoyment
   }
-  if (existing.simpleRating === null && gddl.simpleRating !== undefined) {
-    updateData.simpleRating = gddl.simpleRating
-  }
-  if (existing.videoUrl === null && gddl.videoUrl !== undefined) {
+  if (!existing.videoUrl && gddl.videoUrl) {
     updateData.videoUrl = gddl.videoUrl
   }
 
@@ -223,7 +220,12 @@ async function enrichCompletion(
     })
   }
 
-  if (existingRef === null) {
+  if (existingRef !== null) {
+    await tx.listReference.update({
+      where: { id: existingRef.id },
+      data: { tierOrRank: sub.Rating.toString() },
+    })
+  } else {
     await tx.listReference.create({
       data: {
         progressUpdateId,

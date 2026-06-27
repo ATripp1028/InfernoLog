@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { arrayMove } from '@dnd-kit/sortable'
 import { ChevronUp, ChevronDown, Hash, Pencil, Search } from 'lucide-react'
 import type { ClassicRankingResponse } from '@infernolog/core'
@@ -270,6 +271,45 @@ function MobileRow({
   onUp,
   onDown,
 }: MobileRowProps) {
+  const levelInfo = (
+    <>
+      <DifficultyFace
+        difficulty={item.level.inGameDifficulty}
+        featured={item.level.featured}
+        epicValue={item.level.epicValue}
+        rated={item.level.isRated}
+        size={36}
+        className="shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <div
+          className="truncate text-sm font-semibold text-text-primary"
+          style={{ color: medalColor(rank) }}
+        >
+          #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
+        </div>
+        <div className="truncate text-xs text-text-secondary">
+          {item.level.creator
+            ? `Published by ${item.level.creator}`
+            : 'Unknown creator'}
+        </div>
+        {(item.attempts != null || item.badge) && (
+          <div className="mt-1 flex items-center gap-2">
+            {item.attempts != null && (
+              <span
+                title="Attempts"
+                className="text-[11px] tabular-nums text-text-secondary"
+              >
+                {formatNumber(item.attempts)} att
+              </span>
+            )}
+            {item.badge && <RankingBadge badge={item.badge} />}
+          </div>
+        )}
+      </div>
+    </>
+  )
+
   return (
     <div
       className={[
@@ -281,40 +321,17 @@ function MobileRow({
     >
       <ThumbnailWash levelId={item.level.inGameId} />
       <div className="relative z-10 flex items-center gap-3 p-2">
-        <DifficultyFace
-          difficulty={item.level.inGameDifficulty}
-          featured={item.level.featured}
-          epicValue={item.level.epicValue}
-          rated={item.level.isRated}
-          size={36}
-          className="shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <div
-            className="truncate text-sm font-semibold text-text-primary"
-            style={{ color: medalColor(rank) }}
+        {canEdit ? (
+          <>{levelInfo}</>
+        ) : (
+          <Link
+            to="/list/$levelId"
+            params={{ levelId: item.level.inGameId }}
+            className="flex min-w-0 flex-1 items-center gap-3"
           >
-            #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
-          </div>
-          <div className="truncate text-xs text-text-secondary">
-            {item.level.creator
-              ? `Published by ${item.level.creator}`
-              : 'Unknown creator'}
-          </div>
-          {(item.attempts != null || item.badge) && (
-            <div className="mt-1 flex items-center gap-2">
-              {item.attempts != null && (
-                <span
-                  title="Attempts"
-                  className="text-[11px] tabular-nums text-text-secondary"
-                >
-                  {formatNumber(item.attempts)} att
-                </span>
-              )}
-              {item.badge && <RankingBadge badge={item.badge} />}
-            </div>
-          )}
-        </div>
+            {levelInfo}
+          </Link>
+        )}
 
         {canEdit &&
           (jumping ? (

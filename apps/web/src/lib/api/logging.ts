@@ -99,7 +99,6 @@ export interface ExistingCompletion {
   highlightUrl: string | null
   notes: string | null
   visibility: EntryVisibility
-  gddlRecordAccepted: boolean | null
   ratingScores: Array<{ categoryId: string; score: number }>
   listReferences: Array<{
     listSource: ListSource
@@ -152,7 +151,6 @@ export interface CompletionInput {
   ratingScores?: Array<{ categoryId: string; score: number }>
   listReferences?: CompletionListReference[]
   submitToGddl?: boolean
-  gddlRecordAccepted?: boolean
 }
 
 export type ProgressInput = { levelId: string } & (

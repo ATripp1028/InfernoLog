@@ -90,13 +90,6 @@ export function CompletionListRefsStep() {
             disabled={!hasGddlKey}
             onChange={(v) => patchDraft({ submitToGddl: v })}
           />
-          <ToggleRow
-            title="Mark record as accepted"
-            subtitle="Self-reported — flip once GDDL accepts it."
-            checked={draft.gddlRecordAccepted}
-            disabled={!hasGddlKey}
-            onChange={(v) => patchDraft({ gddlRecordAccepted: v })}
-          />
         </div>
       </StepBody>
 
