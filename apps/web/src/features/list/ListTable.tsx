@@ -132,6 +132,7 @@ export function ListTable({
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
             <div
               className="group relative cursor-pointer border-b border-[var(--color-border-subtle)] last:border-b-0 hover:bg-white/[0.02]"
+              style={{ minWidth }}
               onClick={() => onNavigate(item)}
             >
               <ListRow
@@ -140,6 +141,11 @@ export function ListTable({
                 scale={scale}
                 datePref={datePref}
                 minWidth={minWidth}
+              />
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-0 opacity-0 transition-opacity group-hover:opacity-100"
+                style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
               />
               <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
                 <RowActionsKebab handlers={handlers} />

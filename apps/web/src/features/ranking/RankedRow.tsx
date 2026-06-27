@@ -33,7 +33,7 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
         id={domId}
         style={style}
         className={[
-          'relative h-[72px] overflow-hidden rounded-card border bg-[var(--color-bg-surface)]',
+          'group relative h-[72px] overflow-hidden rounded-card border bg-[var(--color-bg-surface)]',
           highlight
             ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
             : 'border-[var(--color-border-subtle)]',
@@ -88,6 +88,11 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
             <RankingBadge badge={badge} />
           </Link>
         </div>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity group-hover:opacity-100"
+          style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
+        />
       </div>
     )
   }
