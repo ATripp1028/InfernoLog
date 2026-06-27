@@ -125,9 +125,8 @@ function CompletionEntry({
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(34,197,94,0.35)] bg-bg-surface">
-      <TimelineDot color="green" />
 
-      <div className="flex items-start justify-between px-3.5 pt-3">
+      <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-[22px] items-center rounded bg-[rgba(34,197,94,0.1)] px-2 text-[11px] font-medium text-[#5ddc8a]">
             🏆 Completion
@@ -231,7 +230,6 @@ function ProgressEntry({
 
   return (
     <div className="relative ml-8 flex h-[46px] items-center justify-between rounded-card border border-border-subtle bg-[#141414] px-3.5">
-      <TimelineDot color="grey" />
       <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
         <span className="shrink-0 text-[13px] font-medium text-text-primary">
           {label}
@@ -271,7 +269,6 @@ function DropEntry({
 
   return (
     <div className="relative ml-8 flex h-[46px] items-center rounded-card border border-[rgba(239,68,68,0.3)] bg-[#141414] px-3.5">
-      <TimelineDot color="red" />
       <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
         <span className="inline-flex h-[22px] items-center rounded bg-[rgba(239,68,68,0.1)] px-2 text-[11px] font-medium text-[#ff8a8a]">
           ⚑ Dropped
