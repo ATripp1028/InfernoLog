@@ -35,7 +35,9 @@ export function useEditProgress(userId: string, levelId: string) {
       })
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['level-page', userId, levelId] })
+      void queryClient.invalidateQueries({
+        queryKey: ['level-page', userId, levelId],
+      })
       void queryClient.invalidateQueries({ queryKey: ['list'] })
     },
   })

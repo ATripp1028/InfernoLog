@@ -138,9 +138,7 @@ async function seedProgress(
                 })),
               }
             : undefined,
-          ratingScores: u.ratingScores
-            ? { create: u.ratingScores }
-            : undefined,
+          ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
         })),
       },
     },
@@ -174,7 +172,11 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       status: 'COMPLETED',
       updates: [
         { percentage: 60, loggedAt: new Date('2025-01-01') },
-        { isCompletion: true, loggedAt: new Date('2025-06-01'), simpleRating: 80 },
+        {
+          isCompletion: true,
+          loggedAt: new Date('2025-06-01'),
+          simpleRating: 80,
+        },
       ],
     })
 
@@ -198,7 +200,11 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       inGameDifficulty: 'Extreme Demon',
       isDemon: true,
     })
-    await seedProgress(prisma, { userId: user.id, levelId: '1002', status: 'IN_PROGRESS' })
+    await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '1002',
+      status: 'IN_PROGRESS',
+    })
 
     const res = await getLevelPage(user.id, user.id, '1002')
     expect(res.status).toBe(200)
@@ -315,7 +321,11 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
   it('resolves by UUID as well as username', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '1008' })
-    await seedProgress(prisma, { userId: user.id, levelId: '1008', status: 'IN_PROGRESS' })
+    await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '1008',
+      status: 'IN_PROGRESS',
+    })
 
     const resByUsername = await getLevelPage(user.id, user.username, '1008')
     const resByUuid = await getLevelPage(user.id, user.id, '1008')
@@ -342,7 +352,9 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
     const res = await getLevelPage(user.id, user.username, '1009')
     const body = (await res.json()) as LevelPageBody
     expect(body.data.completionVideoUrl).toBe('https://youtube.com/watch?v=abc')
-    expect(body.data.completionHighlightUrl).toBe('https://youtube.com/shorts/xyz')
+    expect(body.data.completionHighlightUrl).toBe(
+      'https://youtube.com/shorts/xyz'
+    )
   })
 })
 

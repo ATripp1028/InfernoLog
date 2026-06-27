@@ -46,7 +46,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
               <span
                 key={tick}
                 className="text-[9px] text-text-tertiary"
-                style={{ width: 0, textAlign: 'left', }}
+                style={{ width: 0, textAlign: 'left' }}
               >
                 {tick === 100 ? '100' : tick === 0 ? '0' : tick}
               </span>
@@ -62,9 +62,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                 left: `calc(${tick}% * (100% - 28px) / 100 + 14px)`,
                 width: 1,
                 background:
-                  i === 0
-                    ? 'rgba(42,42,42,0.8)'
-                    : 'rgba(42,42,42,0.4)',
+                  i === 0 ? 'rgba(42,42,42,0.8)' : 'rgba(42,42,42,0.4)',
               }}
               aria-hidden
             />

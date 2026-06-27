@@ -60,7 +60,7 @@ export function List() {
   const userId = me.data?.id ?? ''
   const editLevelQuery = useLevelPage(userId, editingLevelId ?? '')
 
-    useEffect(() => {
+  useEffect(() => {
     if (editLevelQuery.isError) {
       toast.error('Failed to load level data')
       setEditingLevelId(null)

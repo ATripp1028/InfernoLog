@@ -58,7 +58,8 @@ export function HeroVideo({
 
   const source = detectSource(url)
   const youtubeId = source === 'youtube' ? extractYouTubeId(url) : null
-  const twitchSlug = source === 'twitch-clip' ? extractTwitchClipSlug(url) : null
+  const twitchSlug =
+    source === 'twitch-clip' ? extractTwitchClipSlug(url) : null
 
   const iframeSrc = youtubeId
     ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1`

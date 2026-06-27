@@ -195,7 +195,9 @@ async function enrichCompletion(
     updateData.dateUncertain = true
   }
   if (existing.enjoyment == null && gddl.enjoyment != null) {
-    logger.info(`enrichCompletion: adding enjoyment ${gddl.enjoyment} for progressUpdateId ${progressUpdateId}`)
+    logger.info(
+      `enrichCompletion: adding enjoyment ${gddl.enjoyment} for progressUpdateId ${progressUpdateId}`
+    )
     updateData.enjoyment = gddl.enjoyment
   }
   if (!existing.videoUrl && gddl.videoUrl) {

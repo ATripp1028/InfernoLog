@@ -256,7 +256,11 @@ export async function applyProgress(userId: string, input: ProgressInput) {
 // metadata. Only present keys are written. Returns null if no entry exists.
 // ─────────────────────────────────────────────
 
-export async function applyEdit(userId: string, levelId: string, input: EditProgressInput) {
+export async function applyEdit(
+  userId: string,
+  levelId: string,
+  input: EditProgressInput
+) {
   return prisma.$transaction(async (tx) => {
     const lp = await tx.levelProgress.findUnique({
       where: { userId_levelId: { userId, levelId } },
@@ -278,16 +282,21 @@ export async function applyEdit(userId: string, levelId: string, input: EditProg
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
-    if (input.dateUncertain !== undefined) puData.dateUncertain = input.dateUncertain
+    if (input.dateUncertain !== undefined)
+      puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
     if (input.fps !== undefined) puData.fps = input.fps
     if (input.onStream !== undefined) puData.onStream = input.onStream
-    if (input.difficultyOpinion !== undefined) puData.difficultyOpinion = input.difficultyOpinion
-    if (input.difficultyOpinionStars !== undefined) puData.difficultyOpinionStars = input.difficultyOpinionStars
+    if (input.difficultyOpinion !== undefined)
+      puData.difficultyOpinion = input.difficultyOpinion
+    if (input.difficultyOpinionStars !== undefined)
+      puData.difficultyOpinionStars = input.difficultyOpinionStars
     if (input.enjoyment !== undefined) puData.enjoyment = input.enjoyment
-    if (input.simpleRating !== undefined) puData.simpleRating = input.simpleRating
+    if (input.simpleRating !== undefined)
+      puData.simpleRating = input.simpleRating
     if (input.videoUrl !== undefined) puData.videoUrl = input.videoUrl
-    if (input.highlightUrl !== undefined) puData.highlightUrl = input.highlightUrl
+    if (input.highlightUrl !== undefined)
+      puData.highlightUrl = input.highlightUrl
     if (input.notes !== undefined) puData.notes = input.notes
 
     if (Object.keys(lpData).length > 0) {
@@ -297,10 +306,15 @@ export async function applyEdit(userId: string, levelId: string, input: EditProg
     const latestUpdateId = lp.progressUpdates[0]?.id
     if (latestUpdateId) {
       if (Object.keys(puData).length > 0) {
-        await tx.progressUpdate.update({ where: { id: latestUpdateId }, data: puData })
+        await tx.progressUpdate.update({
+          where: { id: latestUpdateId },
+          data: puData,
+        })
       }
       if (input.ratingScores !== undefined) {
-        await tx.ratingScore.deleteMany({ where: { progressUpdateId: latestUpdateId } })
+        await tx.ratingScore.deleteMany({
+          where: { progressUpdateId: latestUpdateId },
+        })
         if (input.ratingScores.length > 0) {
           await tx.ratingScore.createMany({
             data: input.ratingScores.map((r) => ({
@@ -315,7 +329,9 @@ export async function applyEdit(userId: string, levelId: string, input: EditProg
     }
 
     // Drop-only entry (no ProgressUpdate): return just the LevelProgress.
-    const updated = await tx.levelProgress.findUniqueOrThrow({ where: { id: lp.id } })
+    const updated = await tx.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+    })
     return { levelProgress: updated, progressUpdate: null }
   })
 }

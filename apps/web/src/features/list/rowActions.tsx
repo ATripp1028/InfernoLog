@@ -82,7 +82,10 @@ function MenuButton({
   return (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); onClick() }}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
       className={
         'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-[var(--color-bg-subtle)] ' +
         (destructive ? 'text-danger' : 'text-text-primary')

@@ -202,7 +202,8 @@ app.get('/me/progress', async (c) => {
 // non-completions" toggle — that toggle governs The List and The Ranking only.
 // ─────────────────────────────────────────────
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
   const viewerId = c.get('userId') as string
@@ -279,7 +280,11 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
             highlightUrl: true,
             loggedAt: true,
             listReferences: {
-              select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
+              select: {
+                listSource: true,
+                tierOrRank: true,
+                atTimeOfLogging: true,
+              },
             },
             ratingScores: {
               select: { categoryId: true, score: true },
@@ -301,9 +306,16 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
     // computeRunsGraph accepts an array for forward-compatibility.
     // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on
     // completed levels too, so they alone must not trigger a drop bar.
-    const drops = lp.status === 'DROPPED'
-      ? [{ droppedAt: lp.droppedAt, attemptsAtDrop: lp.attemptsAtDrop, worstFail: lp.worstFail }]
-      : []
+    const drops =
+      lp.status === 'DROPPED'
+        ? [
+            {
+              droppedAt: lp.droppedAt,
+              attemptsAtDrop: lp.attemptsAtDrop,
+              worstFail: lp.worstFail,
+            },
+          ]
+        : []
 
     // runsGraph expects oldest-first; progressUpdates above is newest-first.
     const updatesForGraph = [...lp.progressUpdates].reverse().map((u) => ({
@@ -333,7 +345,8 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
     }
 
     // Find the completion update (if any) for video/highlight URLs.
-    const completionUpdate = lp.progressUpdates.find((u) => u.isCompletion) ?? null
+    const completionUpdate =
+      lp.progressUpdates.find((u) => u.isCompletion) ?? null
 
     return c.json({
       data: {

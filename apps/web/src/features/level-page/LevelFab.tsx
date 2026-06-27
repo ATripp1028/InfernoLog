@@ -85,7 +85,7 @@ function DesktopFab({ onEdit, onDelete }: FabProps) {
                     'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]',
                   !action.disabled &&
                     !action.danger &&
-                    'text-text-primary hover:bg-bg-subtle',
+                    'text-text-primary hover:bg-bg-subtle'
                 )}
               >
                 <Icon size={16} />
@@ -148,7 +148,9 @@ function MobileFab({ onEdit, onDelete }: FabProps) {
                     <li key={action.key}>
                       <div className="flex h-12 items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70">
                         <Icon size={20} />
-                        <span className="text-sm font-medium">{action.label}</span>
+                        <span className="text-sm font-medium">
+                          {action.label}
+                        </span>
                       </div>
                     </li>
                   )
@@ -162,7 +164,7 @@ function MobileFab({ onEdit, onDelete }: FabProps) {
                         'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
                         action.danger
                           ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
-                          : 'text-text-primary hover:bg-bg-subtle',
+                          : 'text-text-primary hover:bg-bg-subtle'
                       )}
                     >
                       <Icon size={20} />

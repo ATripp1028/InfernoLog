@@ -157,7 +157,6 @@ export function DetailPane({
             </div>
           </div>
         )}
-
       </div>
 
       {/* Actions */}

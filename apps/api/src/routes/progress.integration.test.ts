@@ -239,7 +239,6 @@ describe('GET /me/progress', () => {
     expect(list).toHaveLength(1)
     expect(list[0]?.level.inGameId).toBe('600')
   })
-
 })
 
 describe('DELETE /me/progress/:levelId', () => {
@@ -265,7 +264,7 @@ describe('DELETE /me/progress/:levelId', () => {
     const res = await del(user.id, '900')
     // Returns 200 with GDDL caveat (not 204) so the client can surface the message.
     expect(res.status).toBe(200)
-    const body = await res.json() as { gddlCaveat: string }
+    const body = (await res.json()) as { gddlCaveat: string }
     expect(body.gddlCaveat).toContain('GDDL')
 
     expect(

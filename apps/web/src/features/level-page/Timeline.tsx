@@ -62,7 +62,8 @@ function formatEntryDate(
   uncertain: boolean,
   datePref: DateFormatPreference
 ): { text: string; uncertain: boolean } {
-  if (!dateStr) return { text: formatDate(loggedAt, datePref), uncertain: false }
+  if (!dateStr)
+    return { text: formatDate(loggedAt, datePref), uncertain: false }
   return { text: formatDate(dateStr, datePref), uncertain }
 }
 
@@ -125,13 +126,14 @@ function CompletionEntry({
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(34,197,94,0.35)] bg-bg-surface">
-
       <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-[22px] items-center rounded bg-[rgba(34,197,94,0.1)] px-2 text-[11px] font-medium text-[#5ddc8a]">
             🏆 Completion
           </span>
-          <span className="text-[13px] font-medium text-text-primary">100%</span>
+          <span className="text-[13px] font-medium text-text-primary">
+            100%
+          </span>
           <span className="text-xs text-text-secondary">
             {uncertain ? '~' : ''}
             {dateText}
@@ -331,13 +333,7 @@ export function Timeline({ data, datePref, isOwner, onEdit }: TimelineProps) {
             />
           )
         }
-        return (
-          <DropEntry
-            key={`drop-${i}`}
-            event={event}
-            datePref={datePref}
-          />
-        )
+        return <DropEntry key={`drop-${i}`} event={event} datePref={datePref} />
       })}
     </div>
   )

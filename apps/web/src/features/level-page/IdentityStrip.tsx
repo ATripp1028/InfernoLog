@@ -52,9 +52,7 @@ export function IdentityStrip({
       <div
         className="absolute inset-0"
         style={{
-          background: isMobile
-            ? 'rgba(13,13,13,0.78)'
-            : 'rgba(13,13,13,0.68)',
+          background: isMobile ? 'rgba(13,13,13,0.78)' : 'rgba(13,13,13,0.68)',
         }}
       />
 

@@ -127,10 +127,8 @@ export function LevelPage() {
   const query = useLevelPage(userId, levelId)
 
   // Resolve error types before rendering
-  const is403 =
-    query.error instanceof ApiError && query.error.status === 403
-  const is404 =
-    query.error instanceof ApiError && query.error.status === 404
+  const is403 = query.error instanceof ApiError && query.error.status === 403
+  const is404 = query.error instanceof ApiError && query.error.status === 404
 
   function handleDeleteConfirm() {
     deleteProgress.mutate(levelId, {

@@ -1,7 +1,11 @@
 import { HelpCircle } from 'lucide-react'
 import { formatDate } from '@/lib/dateFormat'
 import { formatRating, formatNumber } from '@/features/logging/format'
-import type { DateFormatPreference, RatingDisplayScale, RatingCategory } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+  RatingCategory,
+} from '@/lib/api/me'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 function capitalize(s: string): string {
@@ -95,8 +99,13 @@ export function StatGrid({
   enjoymentWeight,
   ratingCategories,
 }: StatGridProps) {
-  const { progressUpdates, rankPosition, worstFail, droppedAt, attemptsAtDrop } =
-    data
+  const {
+    progressUpdates,
+    rankPosition,
+    worstFail,
+    droppedAt,
+    attemptsAtDrop,
+  } = data
 
   const completion = progressUpdates.find((u) => u.isCompletion)
   const latestUpdate = progressUpdates[0]
@@ -138,10 +147,9 @@ export function StatGrid({
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'
 
   // YOUR OPINION
-  const opinionDisplay =
-    completion?.difficultyOpinion
-      ? capitalize(completion.difficultyOpinion)
-      : '—'
+  const opinionDisplay = completion?.difficultyOpinion
+    ? capitalize(completion.difficultyOpinion)
+    : '—'
 
   // RANKED
   const rankedDisplay =
@@ -178,7 +186,10 @@ export function StatGrid({
       <StatBox label="YOUR OPINION" value={opinionDisplay} />
       <StatBox label="RANKED" value={rankedDisplay} />
       <StatBox label="ENJOYMENT" value={enjoymentDisplay} />
-      <StatBox label="FPS" value={completion?.fps != null ? formatNumber(completion.fps) : '—'} />
+      <StatBox
+        label="FPS"
+        value={completion?.fps != null ? formatNumber(completion.fps) : '—'}
+      />
       {gddlRef && <StatBox label="GDDL TIER" value={gddlRef.tierOrRank} />}
     </div>
   )

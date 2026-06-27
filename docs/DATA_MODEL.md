@@ -149,36 +149,36 @@ One row per user per level. Created when the user logs their first progress upda
 | `dropped_at`       | DATE      | Nullable                                                                                                                                                                                                                          |
 | `attempts_at_drop` | INTEGER   | Nullable. Optional attempt count captured on the drop screen. Puts the eventual completion's attempt count in perspective if the level is later beaten. (Aligned with the Dropped tab's `attempts_at_drop` in `IMPORT_EXPORT.md`) |
 | `visibility`       | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                                                            |
-| `level_notes`      | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates                                             |
+| `level_notes`      | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates                                            |
 | `created_at`       | TIMESTAMP |                                                                                                                                                                                                                                   |
 
 ### `progress_updates`
 
 Every logged data point for a level. All fields optional except `level_progress_id` and `logged_at`. A completion is a progress update with `is_completion = true`.
 
-| Column                        | Type      | Notes                                                                                                                                                                      |
-| ----------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`                          | UUID      |                                                                                                                                                                            |
-| `level_progress_id`           | UUID      | FK → level_progress                                                                                                                                                        |
-| `is_completion`               | BOOLEAN   | Default false. User explicitly marks this as their completion                                                                                                              |
-| `percentage`                  | DECIMAL   | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied)                                                                          |
-| `run_from`                    | INTEGER   | Nullable. Start of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                        |
-| `run_to`                      | INTEGER   | Nullable. End of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                          |
-| `completion_time`             | INTERVAL  | Nullable. Platformer levels only (v2)                                                                                                                                      |
-| `attempts`                    | INTEGER   | Nullable. Cumulative at time of update                                                                                                                                     |
-| `date`                        | DATE      | Nullable                                                                                                                                                                   |
-| `date_uncertain`              | BOOLEAN   | Default false                                                                                                                                                              |
-| `on_stream`                   | BOOLEAN   | Default false                                                                                                                                                              |
-| `fps`                         | INTEGER   | Nullable                                                                                                                                                                   |
-| `peak_heart_rate_bpm`         | INTEGER   | Nullable (v2)                                                                                                                                                              |
-| `enjoyment`                   | DECIMAL   | Nullable. 0-10                                                                                                                                                             |
-| `simple_rating`               | DECIMAL   | Nullable. 0-10. Used when user is in simple rating mode                                                                                                                    |
-| `difficulty_opinion`          | ENUM      | Nullable. The user's subjective read: `not_demon_worthy`, `easy`, `medium`, `hard`, `insane`, `extreme`. The only difficulty field the user edits                          |
-| `in_game_difficulty_snapshot` | VARCHAR   | Nullable. Optional historical snapshot of the level's cached `in_game_difficulty` at time of beat. Populated **automatically from the `levels` cache** — never user-edited |
-| `notes`                       | TEXT      | Nullable                                                                                                                                                                   |
+| Column                        | Type      | Notes                                                                                                                                                                                                                                            |
+| ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `id`                          | UUID      |                                                                                                                                                                                                                                                  |
+| `level_progress_id`           | UUID      | FK → level_progress                                                                                                                                                                                                                              |
+| `is_completion`               | BOOLEAN   | Default false. User explicitly marks this as their completion                                                                                                                                                                                    |
+| `percentage`                  | DECIMAL   | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied)                                                                                                                                                |
+| `run_from`                    | INTEGER   | Nullable. Start of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                              |
+| `run_to`                      | INTEGER   | Nullable. End of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                                |
+| `completion_time`             | INTERVAL  | Nullable. Platformer levels only (v2)                                                                                                                                                                                                            |
+| `attempts`                    | INTEGER   | Nullable. Cumulative at time of update                                                                                                                                                                                                           |
+| `date`                        | DATE      | Nullable                                                                                                                                                                                                                                         |
+| `date_uncertain`              | BOOLEAN   | Default false                                                                                                                                                                                                                                    |
+| `on_stream`                   | BOOLEAN   | Default false                                                                                                                                                                                                                                    |
+| `fps`                         | INTEGER   | Nullable                                                                                                                                                                                                                                         |
+| `peak_heart_rate_bpm`         | INTEGER   | Nullable (v2)                                                                                                                                                                                                                                    |
+| `enjoyment`                   | DECIMAL   | Nullable. 0-10                                                                                                                                                                                                                                   |
+| `simple_rating`               | DECIMAL   | Nullable. 0-10. Used when user is in simple rating mode                                                                                                                                                                                          |
+| `difficulty_opinion`          | ENUM      | Nullable. The user's subjective read: `not_demon_worthy`, `easy`, `medium`, `hard`, `insane`, `extreme`. The only difficulty field the user edits                                                                                                |
+| `in_game_difficulty_snapshot` | VARCHAR   | Nullable. Optional historical snapshot of the level's cached `in_game_difficulty` at time of beat. Populated **automatically from the `levels` cache** — never user-edited                                                                       |
+| `notes`                       | TEXT      | Nullable                                                                                                                                                                                                                                         |
 | `video_url`                   | VARCHAR   | Nullable. Completion video. The Level Page hero embeds this; unambiguous in v1 (one completion per level). In v3, rebeat introduces multiple completions each with their own video — "which video is the hero" is deferred to the rebeat design. |
-| `highlight_url`               | VARCHAR   | Nullable. Highlight reel, independent of on_stream                                                                                                                         |
-| `logged_at`                   | TIMESTAMP |                                                                                                                                                                            |
+| `highlight_url`               | VARCHAR   | Nullable. Highlight reel, independent of on_stream                                                                                                                                                                                               |
+| `logged_at`                   | TIMESTAMP |                                                                                                                                                                                                                                                  |
 
 **Rules:**
 
@@ -330,11 +330,11 @@ The Level Page (`/list/{levelId}`) shows a "Runs over time" chart: one horizonta
 
 ### Bar kinds
 
-| Kind         | `from` | `to`        |
-| ------------ | ------ | ----------- |
-| `from_zero`  | `0`    | `percentage` |
-| `from_run`   | `runFrom` | `runTo`  |
-| `completion` | `0`    | `100`       |
+| Kind         | `from`    | `to`         |
+| ------------ | --------- | ------------ |
+| `from_zero`  | `0`       | `percentage` |
+| `from_run`   | `runFrom` | `runTo`      |
+| `completion` | `0`       | `100`        |
 
 Ordering uses each entry's effective date: the explicitly logged `date`, falling back to `logged_at`.
 

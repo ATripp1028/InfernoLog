@@ -12,7 +12,12 @@ interface MobilePagerProps {
 }
 
 // Mobile list — each card taps through to the level page. Mobile-only (md+ shows ListTable).
-export function MobilePager({ items, columns, scale, datePref }: MobilePagerProps) {
+export function MobilePager({
+  items,
+  columns,
+  scale,
+  datePref,
+}: MobilePagerProps) {
   const navigate = useNavigate()
 
   return (
@@ -30,7 +35,12 @@ export function MobilePager({ items, columns, scale, datePref }: MobilePagerProp
           aria-label={`Open ${item.level.name ?? 'level'} details`}
           className="block w-full rounded-card text-left"
         >
-          <ListCard item={item} columns={columns} scale={scale} datePref={datePref} />
+          <ListCard
+            item={item}
+            columns={columns}
+            scale={scale}
+            datePref={datePref}
+          />
         </button>
       ))}
     </div>

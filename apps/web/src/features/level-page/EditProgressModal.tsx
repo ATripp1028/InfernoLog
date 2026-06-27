@@ -11,7 +11,11 @@ import { StepperInput } from '@/components/ui/stepper-input'
 import { toast } from '@/components/ui/sonner'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import { displayMax, toDisplay, toInternal } from '@/features/logging/format'
-import { useMe, type RatingDisplayScale, type RatingCategory } from '@/lib/api/me'
+import {
+  useMe,
+  type RatingDisplayScale,
+  type RatingCategory,
+} from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 import type { LevelPageData } from './types'
@@ -46,7 +50,7 @@ interface EditForm {
 function initForm(
   data: LevelPageData,
   scale: RatingDisplayScale,
-  categories: RatingCategory[],
+  categories: RatingCategory[]
 ): EditForm {
   const latest = data.progressUpdates[0]
   return {
@@ -56,12 +60,15 @@ function initForm(
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
     fps: latest?.fps != null ? String(latest.fps) : '',
     onStream: latest?.onStream ?? false,
-    difficultyOpinion: (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
+    difficultyOpinion:
+      (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
     difficultyOpinionStars: latest?.difficultyOpinionStars ?? null,
     enjoyment:
       latest?.enjoyment != null ? toDisplay(latest.enjoyment, scale) : null,
     simpleRating:
-      latest?.simpleRating != null ? toDisplay(latest.simpleRating, scale) : null,
+      latest?.simpleRating != null
+        ? toDisplay(latest.simpleRating, scale)
+        : null,
     videoUrl: latest?.videoUrl ?? '',
     highlightUrl: latest?.highlightUrl ?? '',
     notes: latest?.notes ?? '',
@@ -98,7 +105,8 @@ export function EditProgressModal({
   const me = useMe()
 
   useEffect(() => {
-    if (open && me.data) setForm(initForm(data, scale, me.data.ratingCategories))
+    if (open && me.data)
+      setForm(initForm(data, scale, me.data.ratingCategories))
   }, [open, data, scale, me.data])
 
   if (!me.data) return null
@@ -113,7 +121,9 @@ export function EditProgressModal({
   const filteredScores = Object.fromEntries(
     Object.entries(form.ratingScores).filter(([, v]) => v != null)
   ) as Record<string, number>
-  const weightedAvg = weighted ? computeWeightedAvg(categories, filteredScores) : null
+  const weightedAvg = weighted
+    ? computeWeightedAvg(categories, filteredScores)
+    : null
 
   function patch(updates: Partial<EditForm>) {
     setForm((prev) => ({ ...prev, ...updates }))
@@ -146,7 +156,9 @@ export function EditProgressModal({
           }))
       } else {
         payload.simpleRating =
-          form.simpleRating != null ? toInternal(form.simpleRating, scale) : null
+          form.simpleRating != null
+            ? toInternal(form.simpleRating, scale)
+            : null
       }
       payload.videoUrl = form.videoUrl || null
       payload.highlightUrl = form.highlightUrl || null
@@ -174,7 +186,7 @@ export function EditProgressModal({
           className={cn(
             'fixed z-50 focus:outline-none',
             'md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2',
-            'inset-x-0 bottom-0 w-full md:w-[540px]',
+            'inset-x-0 bottom-0 w-full md:w-[540px]'
           )}
         >
           <div className="flex max-h-[92vh] flex-col rounded-t-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:max-h-[calc(100vh-4rem)] md:rounded-card">
@@ -189,7 +201,9 @@ export function EditProgressModal({
                 <Dialog.Title className="text-lg font-semibold text-text-primary">
                   Edit entry
                 </Dialog.Title>
-                <p className="mt-0.5 text-sm text-text-secondary">{levelName}</p>
+                <p className="mt-0.5 text-sm text-text-secondary">
+                  {levelName}
+                </p>
               </div>
               <Dialog.Close asChild>
                 <button
@@ -231,7 +245,9 @@ export function EditProgressModal({
                       inputMode="numeric"
                       placeholder="—"
                       value={form.attempts}
-                      onChange={(e) => patch({ attempts: digitsOnly(e.target.value) })}
+                      onChange={(e) =>
+                        patch({ attempts: digitsOnly(e.target.value) })
+                      }
                     />
                   </div>
                   <div>
@@ -256,7 +272,9 @@ export function EditProgressModal({
                       inputMode="numeric"
                       placeholder="—"
                       value={form.fps}
-                      onChange={(e) => patch({ fps: digitsOnly(e.target.value) })}
+                      onChange={(e) =>
+                        patch({ fps: digitsOnly(e.target.value) })
+                      }
                     />
                   </div>
                   <div className="flex items-end pb-2.5">
@@ -310,7 +328,10 @@ export function EditProgressModal({
                             scale={scale}
                             onChange={(v) =>
                               patch({
-                                ratingScores: { ...form.ratingScores, [cat.id]: v },
+                                ratingScores: {
+                                  ...form.ratingScores,
+                                  [cat.id]: v,
+                                },
                               })
                             }
                           />
@@ -358,7 +379,9 @@ export function EditProgressModal({
                     />
                   </div>
                   <div>
-                    <FieldLabel htmlFor="ep-highlight">Highlight URL</FieldLabel>
+                    <FieldLabel htmlFor="ep-highlight">
+                      Highlight URL
+                    </FieldLabel>
                     <Input
                       id="ep-highlight"
                       type="url"
@@ -371,29 +394,30 @@ export function EditProgressModal({
               )}
 
               {/* ── GDDL tier (read-only, managed by GDDL) ───── */}
-              {isCompletion && (() => {
-                const gddlRef = latestUpdate?.listReferences.find(
-                  (r) => r.listSource === 'GDDL'
-                )
-                if (!gddlRef) return null
-                return (
-                  <Section label="List references">
-                    <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
-                      <div>
-                        <p className="text-sm font-medium text-text-primary">
-                          GDDL tier
-                        </p>
-                        <p className="text-xs text-text-tertiary">
-                          Managed via the GDDL platform.
-                        </p>
+              {isCompletion &&
+                (() => {
+                  const gddlRef = latestUpdate?.listReferences.find(
+                    (r) => r.listSource === 'GDDL'
+                  )
+                  if (!gddlRef) return null
+                  return (
+                    <Section label="List references">
+                      <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-text-primary">
+                            GDDL tier
+                          </p>
+                          <p className="text-xs text-text-tertiary">
+                            Managed via the GDDL platform.
+                          </p>
+                        </div>
+                        <span className="text-sm font-semibold text-text-primary">
+                          {gddlRef.tierOrRank}
+                        </span>
                       </div>
-                      <span className="text-sm font-semibold text-text-primary">
-                        {gddlRef.tierOrRank}
-                      </span>
-                    </div>
-                  </Section>
-                )
-              })()}
+                    </Section>
+                  )
+                })()}
 
               {/* ── Notes ────────────────────────────────────── */}
               <Section label="Notes">
@@ -408,7 +432,9 @@ export function EditProgressModal({
                   />
                 </div>
                 <div>
-                  <FieldLabel htmlFor="ep-levelnotes">About this level</FieldLabel>
+                  <FieldLabel htmlFor="ep-levelnotes">
+                    About this level
+                  </FieldLabel>
                   <Textarea
                     id="ep-levelnotes"
                     placeholder="Your thoughts on this level overall…"
@@ -495,9 +521,7 @@ function FieldLabel({
   )
 }
 
-function Textarea(
-  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
-) {
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
@@ -521,11 +545,31 @@ function clampPercent(value: string): string {
 // ─── Difficulty opinion picker ─────────────────────────────────────
 
 const DEMON_OPINIONS = [
-  { value: 'EASY' as const, label: 'Easy Demon', face: '/assets/gd/demon-easy.png' },
-  { value: 'MEDIUM' as const, label: 'Medium Demon', face: '/assets/gd/demon-medium.png' },
-  { value: 'HARD' as const, label: 'Hard Demon', face: '/assets/gd/demon-hard.png' },
-  { value: 'INSANE' as const, label: 'Insane Demon', face: '/assets/gd/demon-insane.png' },
-  { value: 'EXTREME' as const, label: 'Extreme Demon', face: '/assets/gd/demon-extreme.png' },
+  {
+    value: 'EASY' as const,
+    label: 'Easy Demon',
+    face: '/assets/gd/demon-easy.png',
+  },
+  {
+    value: 'MEDIUM' as const,
+    label: 'Medium Demon',
+    face: '/assets/gd/demon-medium.png',
+  },
+  {
+    value: 'HARD' as const,
+    label: 'Hard Demon',
+    face: '/assets/gd/demon-hard.png',
+  },
+  {
+    value: 'INSANE' as const,
+    label: 'Insane Demon',
+    face: '/assets/gd/demon-insane.png',
+  },
+  {
+    value: 'EXTREME' as const,
+    label: 'Extreme Demon',
+    face: '/assets/gd/demon-extreme.png',
+  },
 ]
 
 function DifficultyOpinionSelect({
@@ -557,7 +601,7 @@ function DifficultyOpinionSelect({
                 'flex size-12 items-center justify-center rounded-full border transition-all',
                 active
                   ? 'border-primary bg-primary/20 ring-2 ring-primary'
-                  : 'border-border bg-bg-elevated/50 hover:bg-bg-elevated/80',
+                  : 'border-border bg-bg-elevated/50 hover:bg-bg-elevated/80'
               )}
             >
               <img src={opt.face} alt="" className="size-8" />
@@ -574,7 +618,7 @@ function DifficultyOpinionSelect({
           'h-10 w-full rounded-md border px-4 text-sm font-medium transition-colors',
           notWorthy
             ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary',
+            : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
         )}
       >
         Not demon-worthy
@@ -601,7 +645,7 @@ function DifficultyOpinionSelect({
                     'flex flex-col items-center gap-0.5 rounded-md border px-2 py-1 transition-all',
                     active
                       ? 'border-primary bg-primary/15 ring-1 ring-primary'
-                      : 'border-border bg-bg-surface/60 hover:bg-bg-elevated/60',
+                      : 'border-border bg-bg-surface/60 hover:bg-bg-elevated/60'
                   )}
                 >
                   <img
@@ -644,9 +688,7 @@ function RatingRow({
     <div className="flex flex-col gap-2 py-1 sm:flex-row sm:items-center sm:gap-4">
       <div className="sm:w-24 sm:shrink-0">
         <p className="text-sm font-medium text-text-primary">{label}</p>
-        {sublabel && (
-          <p className="text-xs text-text-tertiary">{sublabel}</p>
-        )}
+        {sublabel && <p className="text-xs text-text-tertiary">{sublabel}</p>}
       </div>
       <div className="flex flex-col gap-2 sm:contents">
         <Slider
