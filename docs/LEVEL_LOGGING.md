@@ -180,7 +180,7 @@ Completion entries only       All progress updates shown
                               distinguished (badge/tint)
 
 Applies to:
-  - The List (My Demons page)
+  - The List
   - The Ranking view
   - Stats
   - Export (user chooses at export time)

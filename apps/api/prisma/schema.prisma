@@ -711,7 +711,7 @@ model GddlSyncJob {
 
 // ─────────────────────────────────────────────
 // LIST PRESETS
-// Saved view configurations for the "My Demons" list page.
+// Saved view configurations for the List page.
 // Each preset stores column visibility, column order, sort specs,
 // and filter state so the user can switch between named views.
 // ─────────────────────────────────────────────

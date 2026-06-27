@@ -5,7 +5,7 @@ import { apiFetch } from './client'
 
 export type { LevelProgressListItem }
 
-// The "My Demons" list. Key matches the ['list'] entry in logging.ts's
+// The List. Key matches the ['list'] entry in logging.ts's
 // INVALIDATE_ON_WRITE so completion/progress/drop writes refetch this view.
 export const listQueryKey = ['list'] as const
 

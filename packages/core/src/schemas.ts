@@ -456,7 +456,7 @@ export const ResolveLevelResponseSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// THE LIST — the "My Demons" page wire contract.
+// THE LIST — the List page wire contract.
 //
 // GET /v1/me/progress returns the authed user's full level-progress list in one
 // payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
@@ -618,7 +618,7 @@ export const GddlSyncResultSchema = z.object({
 export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
 
 // ─────────────────────────────────────────────
-// LIST PRESETS — saved view configurations for the "My Demons" page.
+// LIST PRESETS — saved view configurations for the List page.
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are treated
 // as opaque JSON by the API — the frontend owns their schemas. The server stores
