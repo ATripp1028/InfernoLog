@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
@@ -49,6 +49,7 @@ import {
   DEFAULT_SORTS,
 } from '../features/list/presets'
 import type { PresetColorId } from '../features/list/presets'
+import { getPresetCookie, setPresetCookie } from '../lib/presetCookie'
 
 export function List() {
   const me = useMe()
@@ -76,6 +77,26 @@ export function List() {
 
   // Currently active preset: null = Default built-in view
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
+
+  // Restore the selected preset from cookie on first load.
+  const presetInitialized = useRef(false)
+  useEffect(() => {
+    if (presetInitialized.current) return
+    if (!me.data?.id || presetsQuery.data === undefined) return
+    presetInitialized.current = true
+
+    const saved = getPresetCookie(me.data.id)
+    if (!saved || saved === 'default') return
+
+    const preset = presetsQuery.data.find((p) => p.id === saved)
+    if (!preset) return // preset was deleted — stay on default
+
+    setSelectedPresetId(preset.id)
+    setSorts(preset.sorts)
+    setFilters(preset.filters)
+    setColumns(preset.columns)
+    setColumnOrder(preset.columnOrder)
+  }, [me.data?.id, presetsQuery.data])
 
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
@@ -171,6 +192,7 @@ export function List() {
 
   function handleSelectPreset(id: string | null) {
     setSelectedPresetId(id)
+    if (me.data?.id) setPresetCookie(me.data.id, id)
     if (id === null) {
       applyPresetConfig(defaultViewConfig())
     } else {
@@ -261,13 +283,10 @@ export function List() {
   function toggleSort(key: SortKey) {
     setSorts((prev) => {
       const primary = prev[0]
-      if (primary && primary.key === key) {
-        // Already the primary sort: toggle its direction.
-        return [{ key, dir: primary.dir === 'asc' ? 'desc' : 'asc' }, ...prev.slice(1)]
+      if (primary?.key === key) {
+        return [{ key, dir: primary.dir === 'asc' ? 'desc' : 'asc' }]
       }
-      // Promote to primary; remove from any secondary position.
-      const withoutKey = prev.filter((s) => s.key !== key)
-      return [{ key, dir: defaultDir(key) }, ...withoutKey]
+      return [{ key, dir: defaultDir(key) }]
     })
   }
 
