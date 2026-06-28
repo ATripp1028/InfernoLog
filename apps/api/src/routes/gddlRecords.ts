@@ -30,16 +30,39 @@ app.post('/me/gddl-records/:levelId', async (c) => {
         levelProgress: { userId, levelId },
         isCompletion: true,
       },
-      select: { id: true, videoUrl: true },
+      select: {
+        id: true,
+        videoUrl: true,
+        attempts: true,
+        fps: true,
+        enjoyment: true,
+        listReferences: {
+          where: { listSource: 'GDDL' },
+          select: { tierOrRank: true },
+          take: 1,
+        },
+      },
     })
     if (!completion) {
       return c.json({ error: 'No completion found for this level' }, 404)
     }
 
+    const gddlTierRaw = completion.listReferences[0]?.tierOrRank ?? null
+    const gddlTierParsed =
+      gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
+    const gddlTier =
+      gddlTierParsed != null && !Number.isNaN(gddlTierParsed)
+        ? gddlTierParsed
+        : null
+
     const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
     await submitGddlRecord(apiKey, {
       levelId,
       videoUrl: completion.videoUrl ?? null,
+      attempts: completion.attempts ?? null,
+      fps: completion.fps ?? null,
+      enjoyment: completion.enjoyment ?? null,
+      gddlTier,
     })
 
     logger.info({ userId, levelId }, 'GDDL record submitted manually')
