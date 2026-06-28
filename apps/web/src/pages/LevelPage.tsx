@@ -50,7 +50,7 @@ function NotFound({ levelId }: { levelId: string }) {
         to="/list"
         className="mt-2 text-sm text-[var(--color-primary-light)] hover:underline"
       >
-        ← Back to My Demons
+        ← Back to List
       </Link>
     </div>
   )
@@ -193,7 +193,7 @@ export function LevelPage() {
         <Link
           to="/list"
           className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
-          aria-label="Back to My Demons"
+          aria-label="Back to List"
         >
           <ArrowLeft size={18} />
         </Link>

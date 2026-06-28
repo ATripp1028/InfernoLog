@@ -283,7 +283,7 @@ export default $config({
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
 
-    // The "My Demons" list page — the user's full level-progress list.
+    // The List page — the user's full level-progress list.
     authedRoute('GET /v1/me/progress')
     // Edit the most recent progress update + level metadata for an entry.
     authedRoute('PATCH /v1/me/progress/{levelId}')
@@ -393,6 +393,14 @@ export default $config({
 
     // GET /v1/me/gddl-sync/{jobId} — poll for sync job status (no KMS needed).
     authedRoute('GET /v1/me/gddl-sync/{jobId}')
+
+    // ─────────────────────────────────────────────
+    // LIST PRESETS — saved view configurations for the List page.
+    // ─────────────────────────────────────────────
+    authedRoute('GET /v1/me/list-presets')
+    authedRoute('POST /v1/me/list-presets')
+    authedRoute('PATCH /v1/me/list-presets/{id}')
+    authedRoute('DELETE /v1/me/list-presets/{id}')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

@@ -45,7 +45,7 @@ export const RangeSlider = forwardRef<
       {Array.from({ length: count }).map((_, i) => (
         <SliderPrimitive.Thumb
           key={i}
-          className="block size-[18px] rounded-full bg-white shadow-[0px_2px_4px_0px_rgba(0,0,0,0.4)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50"
+          className="block size-[18px] rounded-full bg-white shadow-[0px_2px_4px_0px_rgba(0,0,0,0.4)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 cursor-grab active:cursor-grabbing"
         />
       ))}
     </SliderPrimitive.Root>

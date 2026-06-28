@@ -146,7 +146,7 @@ export function FilterPanel({
         <button
           type="button"
           onClick={() => onChange(defaultFilterState())}
-          className="rounded px-2 py-1 text-[13px] font-medium text-primary"
+          className="rounded px-2 py-1 text-[13px] font-medium text-primary cursor-pointer"
         >
           Clear all
         </button>
@@ -156,7 +156,7 @@ export function FilterPanel({
             type="button"
             onClick={onClose}
             aria-label="Close filters"
-            className="rounded px-2 py-1 text-text-secondary"
+            className="rounded px-2 py-1 text-text-secondary cursor-pointer"
           >
             <X size={16} />
           </button>
@@ -172,6 +172,7 @@ export function FilterPanel({
             {PROGRESS.map((p) => (
               <Chip
                 key={p.value}
+                className="cursor-pointer"
                 selected={filters.statuses.includes(p.value)}
                 onClick={() =>
                   set({ statuses: toggle(filters.statuses, p.value) })
@@ -212,6 +213,7 @@ export function FilterPanel({
             {SOURCES.map((s) => (
               <Chip
                 key={s}
+                className="cursor-pointer"
                 selected={filters.listSources.includes(s)}
                 onClick={() =>
                   set({ listSources: toggle(filters.listSources, s) })
@@ -277,6 +279,7 @@ export function FilterPanel({
             {LEVEL_TYPES.map((t) => (
               <Chip
                 key={t.value}
+                className="cursor-pointer"
                 selected={filters.levelTypes.includes(t.value)}
                 onClick={() =>
                   set({ levelTypes: toggle(filters.levelTypes, t.value) })
@@ -294,6 +297,7 @@ export function FilterPanel({
               {availableDifficulties.map((d) => (
                 <Chip
                   key={d}
+                  className="cursor-pointer"
                   selected={filters.difficulties.includes(d)}
                   onClick={() =>
                     set({ difficulties: toggle(filters.difficulties, d) })
@@ -313,6 +317,7 @@ export function FilterPanel({
                 key={s}
                 selected={filters.ratedStatus === s}
                 onClick={() => set({ ratedStatus: s })}
+                className="cursor-pointer"
               >
                 {s === 'ALL' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
               </Chip>
@@ -327,6 +332,7 @@ export function FilterPanel({
                 key={f.value}
                 selected={filters.flags.includes(f.value)}
                 onClick={() => set({ flags: toggle(filters.flags, f.value) })}
+                className="cursor-pointer"
               >
                 {f.label}
               </Chip>
@@ -342,6 +348,7 @@ export function FilterPanel({
                   key={len}
                   selected={filters.lengths.includes(len)}
                   onClick={() => set({ lengths: toggle(filters.lengths, len) })}
+                  className="cursor-pointer"
                 >
                   {len}
                 </Chip>
@@ -360,6 +367,7 @@ export function FilterPanel({
                   onClick={() =>
                     set({ gameVersions: toggle(filters.gameVersions, v) })
                   }
+                  className="cursor-pointer"
                 >
                   {v}
                 </Chip>
@@ -375,6 +383,7 @@ export function FilterPanel({
                 key={f.value}
                 selected={filters.flags.includes(f.value)}
                 onClick={() => set({ flags: toggle(filters.flags, f.value) })}
+                className="cursor-pointer"
               >
                 {f.label}
               </Chip>
@@ -391,7 +400,7 @@ export function FilterPanel({
         <button
           type="button"
           onClick={() => onChange(defaultFilterState())}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-xs font-medium text-text-primary"
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-xs font-medium text-text-primary cursor-pointer"
         >
           Reset
         </button>

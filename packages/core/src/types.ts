@@ -24,6 +24,9 @@ import {
   ClassicRankingResponseSchema,
   PlaceRankingInputSchema,
   ReorderRankingInputSchema,
+  ListPresetInputSchema,
+  ListPresetUpdateSchema,
+  ListPresetSchema,
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -61,3 +64,7 @@ export type ClassicRankingResponse = z.infer<
 >
 export type PlaceRankingInput = z.infer<typeof PlaceRankingInputSchema>
 export type ReorderRankingInput = z.infer<typeof ReorderRankingInputSchema>
+
+export type ListPresetInput = z.infer<typeof ListPresetInputSchema>
+export type ListPresetUpdate = z.infer<typeof ListPresetUpdateSchema>
+export type ListPresetRecord = z.infer<typeof ListPresetSchema>

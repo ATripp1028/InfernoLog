@@ -179,6 +179,7 @@ model User {
   userLists             UserList[]
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
+  listPresets           ListPreset[]
   levelUpdateNotifs     LevelUpdateNotification[]
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
@@ -706,4 +707,36 @@ model GddlSyncJob {
   finishedAt DateTime?
 
   @@map("gddl_sync_jobs")
+}
+
+// ─────────────────────────────────────────────
+// LIST PRESETS
+// Saved view configurations for the List page.
+// Each preset stores column visibility, column order, sort specs,
+// and filter state so the user can switch between named views.
+// ─────────────────────────────────────────────
+
+model ListPreset {
+  id          String   @id @default(uuid())
+  userId      String
+
+  name        String
+  description String?
+  // One of 16 palette color IDs (e.g. "blue", "rose"). Stored as string
+  // so the palette can be extended without a schema migration.
+  color       String
+
+  // Client-side view config stored as JSON blobs. The API treats these as
+  // opaque — validation of the internal shape is left to the frontend.
+  sorts       Json     // SortSpec[]
+  filters     Json     // FilterState (excludes the text search field)
+  columns     Json     // ColumnVisibility (Record<ColumnId, boolean>)
+  columnOrder Json     // ColumnId[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("list_presets")
 }

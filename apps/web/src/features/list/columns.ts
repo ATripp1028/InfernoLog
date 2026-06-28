@@ -143,3 +143,7 @@ export function defaultColumnVisibility(): ColumnVisibility {
     COLUMNS.map((c) => [c.id, c.defaultVisible])
   ) as ColumnVisibility
 }
+
+export function defaultColumnOrder(): ColumnId[] {
+  return COLUMNS.map((c) => c.id)
+}

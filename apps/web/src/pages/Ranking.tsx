@@ -68,13 +68,7 @@ export function Ranking() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex flex-col gap-3 p-4 md:p-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Ranking</h1>
-          <p className="mt-1 text-sm text-text-secondary">
-            Your personal difficulty ordering of completed demons
-          </p>
-        </div>
+      <div className="flex h-full flex-col gap-3 p-4 md:p-6">
 
         {isEmpty ? (
           <EmptyState />
@@ -86,14 +80,16 @@ export function Ranking() {
               showUnrated={showUnrated}
               onShowUnrated={setShowUnrated}
             />
-            <RankingBoard
-              data={data}
-              search={search}
-              showUnrated={showUnrated}
-              unplacedSearch={unplacedSearch}
-              onSearchUnplaced={setUnplacedSearch}
-              highlightId={placeId}
-            />
+            <div className="min-h-0 flex-1">
+              <RankingBoard
+                data={data}
+                search={search}
+                showUnrated={showUnrated}
+                unplacedSearch={unplacedSearch}
+                onSearchUnplaced={setUnplacedSearch}
+                highlightId={placeId}
+              />
+            </div>
           </>
         )}
       </div>

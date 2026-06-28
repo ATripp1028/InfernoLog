@@ -456,7 +456,7 @@ export const ResolveLevelResponseSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// THE LIST — the "My Demons" page wire contract.
+// THE LIST — the List page wire contract.
 //
 // GET /v1/me/progress returns the authed user's full level-progress list in one
 // payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
@@ -616,3 +616,44 @@ export const GddlSyncResultSchema = z.object({
   errors: z.array(z.object({ levelId: z.string(), reason: z.string() })),
 })
 export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
+
+// ─────────────────────────────────────────────
+// LIST PRESETS — saved view configurations for the List page.
+//
+// The four view-config fields (sorts, filters, columns, columnOrder) are treated
+// as opaque JSON by the API — the frontend owns their schemas. The server stores
+// and returns them verbatim without attempting deep validation.
+// ─────────────────────────────────────────────
+
+export const PRESET_COLOR_IDS = [
+  'red', 'orange', 'amber', 'yellow', 'lime', 'green',
+  'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet',
+  'purple', 'fuchsia', 'rose', 'slate',
+] as const
+export type PresetColorId = (typeof PRESET_COLOR_IDS)[number]
+
+export const ListPresetInputSchema = z.object({
+  name: z.string().min(1).max(50),
+  description: z.string().max(200).optional().nullable(),
+  color: z.enum(PRESET_COLOR_IDS),
+  sorts: z.unknown(),
+  filters: z.unknown(),
+  columns: z.unknown(),
+  columnOrder: z.unknown(),
+})
+
+export const ListPresetUpdateSchema = ListPresetInputSchema.partial()
+
+export const ListPresetSchema = z.object({
+  id: z.string().uuid(),
+  userId: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  color: z.enum(PRESET_COLOR_IDS),
+  sorts: z.unknown(),
+  filters: z.unknown(),
+  columns: z.unknown(),
+  columnOrder: z.unknown(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+})
