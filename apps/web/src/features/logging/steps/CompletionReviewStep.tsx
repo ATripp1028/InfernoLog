@@ -139,7 +139,7 @@ export function CompletionReviewStep() {
       </StepBody>
 
       <StepFooter>
-        <Button variant="outline" onClick={() => setStep('c_session')}>
+        <Button variant="outline" onClick={() => setStep('c_listrefs')}>
           Back
         </Button>
         <Button onClick={submit} disabled={logCompletion.isPending}>

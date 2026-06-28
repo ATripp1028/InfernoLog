@@ -1,13 +1,10 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldHint,
   FieldLabel,
   LevelHeader,
-  SectionLabel,
   StepBody,
   StepFooter,
 } from '../components'
@@ -16,10 +13,8 @@ import { isExtremeContext } from '../payload'
 export function CompletionListRefsStep() {
   const { level, draft, suggestedGddlTier, patchDraft, setStep } =
     useLoggingFlow()
-  const me = useMe()
   if (!level) return null
 
-  const hasGddlKey = me.data?.hasGddlApiKey ?? false
   // NLW and AREDL only apply to extreme demons (or a level the user reads as an
   // extreme demon). GDDL applies to every rated level.
   const showExtremeLists = isExtremeContext(
@@ -74,59 +69,14 @@ export function CompletionListRefsStep() {
             </div>
           </div>
         )}
-
-        <div className="space-y-3 border-t border-border-subtle pt-4">
-          <SectionLabel>GDDL record</SectionLabel>
-          {!hasGddlKey && (
-            <FieldHint>
-              Connect your GDDL API key in Settings to submit records from
-              InfernoLog.
-            </FieldHint>
-          )}
-          <ToggleRow
-            title="Submit this completion to GDDL"
-            subtitle="Uses your connected GDDL key. Optional."
-            checked={draft.submitToGddl}
-            disabled={!hasGddlKey}
-            onChange={(v) => patchDraft({ submitToGddl: v })}
-          />
-        </div>
       </StepBody>
 
       <StepFooter>
-        <Button variant="outline" onClick={() => setStep('c_rating')}>
+        <Button variant="outline" onClick={() => setStep('c_session')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_session')}>Continue</Button>
+        <Button onClick={() => setStep('c_review')}>Continue</Button>
       </StepFooter>
     </>
-  )
-}
-
-function ToggleRow({
-  title,
-  subtitle,
-  checked,
-  disabled,
-  onChange,
-}: {
-  title: string
-  subtitle: string
-  checked: boolean
-  disabled?: boolean
-  onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4">
-      <div className={disabled ? 'opacity-50' : undefined}>
-        <p className="text-sm font-medium text-text-primary">{title}</p>
-        <p className="text-xs text-text-tertiary">{subtitle}</p>
-      </div>
-      <Switch
-        checked={checked}
-        disabled={disabled}
-        onCheckedChange={onChange}
-      />
-    </div>
   )
 }

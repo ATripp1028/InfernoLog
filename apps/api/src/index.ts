@@ -9,6 +9,7 @@ import levelsRoutes from './routes/levels'
 import progressRoutes from './routes/progress'
 import rankingRoutes from './routes/ranking'
 import presetsRoutes from './routes/presets'
+import gddlRecordsRoutes from './routes/gddlRecords'
 import authRoutes from './routes/auth'
 import type { HonoVariables } from './types/hono'
 import prisma from './utils/prisma'
@@ -43,6 +44,7 @@ app.route('/v1', levelsRoutes)
 app.route('/v1', progressRoutes)
 app.route('/v1', rankingRoutes)
 app.route('/v1', presetsRoutes)
+app.route('/v1', gddlRecordsRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {

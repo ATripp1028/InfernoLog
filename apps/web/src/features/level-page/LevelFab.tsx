@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from 'react'
-import { Plus, List, Pencil, Trash2 } from 'lucide-react'
+import { Plus, List, Pencil, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // Level-page-specific FAB for owned entries.
@@ -12,9 +12,10 @@ import { cn } from '@/lib/utils'
 interface FabProps {
   onEdit: () => void
   onDelete: () => void
+  onGddlSubmit?: () => void
 }
 
-type ActionKey = 'edit' | 'add-list' | 'delete'
+type ActionKey = 'edit' | 'add-list' | 'gddl-submit' | 'delete'
 
 interface FabAction {
   key: ActionKey
@@ -24,14 +25,20 @@ interface FabAction {
   disabled?: boolean
 }
 
-const FAB_ACTIONS: FabAction[] = [
-  { key: 'edit', label: 'Edit this entry', icon: Pencil },
-  { key: 'add-list', label: 'Add to a list', icon: List, disabled: true },
-  { key: 'delete', label: 'Delete this level', icon: Trash2, danger: true },
-]
+function buildActions(onGddlSubmit?: () => void): FabAction[] {
+  const actions: FabAction[] = [
+    { key: 'edit', label: 'Edit this entry', icon: Pencil },
+    { key: 'add-list', label: 'Add to a list', icon: List, disabled: true },
+  ]
+  if (onGddlSubmit) {
+    actions.push({ key: 'gddl-submit', label: 'Submit to GDDL', icon: Upload })
+  }
+  actions.push({ key: 'delete', label: 'Delete this level', icon: Trash2, danger: true })
+  return actions
+}
 
 // ─── Desktop popover ───────────────────────────────────────────────
-function DesktopFab({ onEdit, onDelete }: FabProps) {
+function DesktopFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -51,10 +58,13 @@ function DesktopFab({ onEdit, onDelete }: FabProps) {
     }
   }, [open])
 
+  const actions = buildActions(onGddlSubmit)
+
   function handleAction(key: ActionKey) {
     setOpen(false)
     if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
+    if (key === 'gddl-submit') onGddlSubmit?.()
   }
 
   return (
@@ -68,7 +78,7 @@ function DesktopFab({ onEdit, onDelete }: FabProps) {
           role="menu"
           className="absolute bottom-16 right-0 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
         >
-          {FAB_ACTIONS.map((action) => {
+          {actions.map((action) => {
             const Icon = action.icon
             return (
               <button
@@ -116,13 +126,16 @@ function DesktopFab({ onEdit, onDelete }: FabProps) {
 }
 
 // ─── Mobile bottom sheet ───────────────────────────────────────────
-function MobileFab({ onEdit, onDelete }: FabProps) {
+function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
   const [open, setOpen] = useState(false)
+
+  const actions = buildActions(onGddlSubmit)
 
   function handleAction(key: ActionKey) {
     setOpen(false)
     if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
+    if (key === 'gddl-submit') onGddlSubmit?.()
   }
 
   return (
@@ -141,7 +154,7 @@ function MobileFab({ onEdit, onDelete }: FabProps) {
               <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
             </div>
             <ul className="flex flex-col gap-1 px-2 py-2">
-              {FAB_ACTIONS.map((action) => {
+              {actions.map((action) => {
                 const Icon = action.icon
                 if (action.disabled) {
                   return (
@@ -194,11 +207,12 @@ function MobileFab({ onEdit, onDelete }: FabProps) {
 }
 
 // ─── Public export ─────────────────────────────────────────────────
-export function LevelFab({ onEdit, onDelete }: FabProps) {
+export function LevelFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
+  const gddlProp = onGddlSubmit ? { onGddlSubmit } : {}
   return (
     <>
-      <DesktopFab onEdit={onEdit} onDelete={onDelete} />
-      <MobileFab onEdit={onEdit} onDelete={onDelete} />
+      <DesktopFab onEdit={onEdit} onDelete={onDelete} {...gddlProp} />
+      <MobileFab onEdit={onEdit} onDelete={onDelete} {...gddlProp} />
     </>
   )
 }

@@ -19,6 +19,7 @@ export function CompletionSessionStep() {
   if (!level) return null
 
   const defaultFps = me.data?.defaultFps
+  const hasGddlKey = me.data?.hasGddlApiKey ?? false
 
   return (
     <>
@@ -84,6 +85,23 @@ export function CompletionSessionStep() {
           </div>
         </div>
 
+        <div className="space-y-3 border-t border-border-subtle pt-4">
+          <SectionLabel>GDDL record</SectionLabel>
+          {!hasGddlKey && (
+            <FieldHint>
+              Connect your GDDL API key in Settings to submit records from
+              InfernoLog.
+            </FieldHint>
+          )}
+          <ToggleRow
+            title="Submit this completion to GDDL"
+            subtitle="Uses your connected GDDL key. Optional."
+            checked={draft.submitToGddl}
+            disabled={!hasGddlKey}
+            onChange={(v) => patchDraft({ submitToGddl: v })}
+          />
+        </div>
+
         <div className="space-y-3">
           <SectionLabel>Notes</SectionLabel>
           <textarea
@@ -98,10 +116,10 @@ export function CompletionSessionStep() {
       </StepBody>
 
       <StepFooter>
-        <Button variant="outline" onClick={() => setStep('c_listrefs')}>
+        <Button variant="outline" onClick={() => setStep('c_rating')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_review')}>Continue</Button>
+        <Button onClick={() => setStep('c_listrefs')}>Continue</Button>
       </StepFooter>
     </>
   )
@@ -111,20 +129,22 @@ function ToggleRow({
   title,
   subtitle,
   checked,
+  disabled,
   onChange,
 }: {
   title: string
   subtitle?: string
   checked: boolean
+  disabled?: boolean
   onChange: (v: boolean) => void
 }) {
   return (
     <div className="flex items-center justify-between gap-4">
-      <div>
+      <div className={disabled ? 'opacity-50' : undefined}>
         <p className="text-sm font-medium text-text-primary">{title}</p>
         {subtitle && <p className="text-xs text-text-tertiary">{subtitle}</p>}
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
+      <Switch checked={checked} disabled={disabled} onCheckedChange={onChange} />
     </div>
   )
 }

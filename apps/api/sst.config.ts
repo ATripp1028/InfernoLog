@@ -347,6 +347,9 @@ export default $config({
     // a GDDL record, which requires decrypting the user's stored GDDL key.
     gddlKeyRoute('POST /v1/me/completions')
 
+    // Manual GDDL record submission from the level page (retry path).
+    gddlKeyRoute('POST /v1/me/gddl-records/{levelId}')
+
     // Worker Lambda — runs the full GDDL import in the background so that
     // API Gateway's hard 29-second integration timeout never applies.
     // The route Lambda invokes this asynchronously (InvocationType: Event)

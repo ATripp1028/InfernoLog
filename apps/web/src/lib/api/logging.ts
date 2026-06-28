@@ -307,3 +307,16 @@ export function useLogDrop() {
     onSuccess: invalidate,
   })
 }
+
+export function useSubmitGddlRecord() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (levelId: string): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch(`/v1/me/gddl-records/${encodeURIComponent(levelId)}`, {
+        token,
+        method: 'POST',
+      })
+    },
+  })
+}

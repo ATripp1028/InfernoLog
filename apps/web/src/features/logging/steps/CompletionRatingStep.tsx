@@ -86,7 +86,7 @@ export function CompletionRatingStep() {
         <Button variant="outline" onClick={() => setStep('c_basics')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_listrefs')}>Continue</Button>
+        <Button onClick={() => setStep('c_session')}>Continue</Button>
       </StepFooter>
     </>
   )

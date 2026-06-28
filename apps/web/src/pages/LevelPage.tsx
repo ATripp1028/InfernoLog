@@ -3,6 +3,7 @@ import { AlertCircle, ArrowLeft, Lock } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useLevelPage } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
+import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { ApiError } from '@/lib/api/client'
 import { AlertDialog } from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/sonner'
@@ -121,7 +122,9 @@ export function LevelPage() {
   const deleteProgress = useDeleteProgress()
 
   const [pendingDelete, setPendingDelete] = useState(false)
+  const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const submitGddlRecord = useSubmitGddlRecord()
 
   const userId = me.data?.id ?? ''
   const query = useLevelPage(userId, levelId)
@@ -144,6 +147,13 @@ export function LevelPage() {
 
   function handleEditLevel() {
     setEditOpen(true)
+  }
+
+  function handleGddlSubmitConfirm() {
+    submitGddlRecord.mutate(levelId, {
+      onSuccess: () => toast.success('Submitted to GDDL'),
+      onError: () => toast.error('Failed to submit to GDDL'),
+    })
   }
 
   // ── Loading / error states ──
@@ -185,6 +195,8 @@ export function LevelPage() {
   const hasVideo = !!data.completionVideoUrl
   const hasGraph = data.runsGraph.length > 0
   const totalEntries = data.progressUpdates.length
+  const hasCompletion = completion != null
+  const canSubmitToGddl = isOwner && hasCompletion && (me.data.hasGddlApiKey ?? false)
 
   return (
     <>
@@ -360,6 +372,7 @@ export function LevelPage() {
         <LevelFab
           onEdit={handleEditLevel}
           onDelete={() => setPendingDelete(true)}
+          {...(canSubmitToGddl ? { onGddlSubmit: () => setPendingGddlSubmit(true) } : {})}
         />
       )}
 
@@ -384,6 +397,16 @@ export function LevelPage() {
         confirmLabel="Delete"
         destructive
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* GDDL submit confirmation */}
+      <AlertDialog
+        open={pendingGddlSubmit}
+        onOpenChange={(o) => !o && setPendingGddlSubmit(false)}
+        title="Submit to GDDL?"
+        description="Sends your completion to the GD Ladder using your connected API key."
+        confirmLabel="Submit"
+        onConfirm={handleGddlSubmitConfirm}
       />
     </>
   )
