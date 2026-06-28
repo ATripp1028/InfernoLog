@@ -11,6 +11,8 @@ import {
   ATTEMPTS_DOMAIN,
   DATE_MIN_MS,
 } from './types'
+import type { RatingDisplayScale } from '@/lib/api/me'
+import { formatRating } from '@/features/logging/format'
 
 // ─────────────────────────────────────────────
 // COLOR PALETTE
@@ -177,7 +179,10 @@ export function summarizeSorts(sorts: SortSpec[]): string {
     .join(', ')
 }
 
-export function summarizeFilters(filters: FilterState): string[] {
+export function summarizeFilters(
+  filters: FilterState,
+  scale: RatingDisplayScale
+): string[] {
   const lines: string[] = []
   if (filters.statuses.length > 0)
     lines.push(`Status: ${filters.statuses.join(', ')}`)
@@ -195,9 +200,13 @@ export function summarizeFilters(filters: FilterState): string[] {
   if (filters.gameVersions.length > 0)
     lines.push(`Version: ${filters.gameVersions.join(', ')}`)
   if (!rangesEqual(filters.rating, RATING_DOMAIN))
-    lines.push(`Rating: ${filters.rating[0]}–${filters.rating[1]}`)
+    lines.push(
+      `Rating: ${formatRating(filters.rating[0], scale)}–${formatRating(filters.rating[1], scale)}`
+    )
   if (!rangesEqual(filters.enjoyment, ENJOYMENT_DOMAIN))
-    lines.push(`Enjoy: ${filters.enjoyment[0]}–${filters.enjoyment[1]}`)
+    lines.push(
+      `Enjoy: ${formatRating(filters.enjoyment[0], scale)}–${formatRating(filters.enjoyment[1], scale)}`
+    )
   if (!rangesEqual(filters.tier, TIER_DOMAIN))
     lines.push(`Tier: ${filters.tier[0]}–${filters.tier[1]}`)
   if (!rangesEqual(filters.attempts, ATTEMPTS_DOMAIN))

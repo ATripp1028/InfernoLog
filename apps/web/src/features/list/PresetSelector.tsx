@@ -23,6 +23,7 @@ import {
   summarizeSorts,
 } from './presets'
 import type { ListPreset } from '@/lib/api/presets'
+import { useMe, type RatingDisplayScale } from '@/lib/api/me'
 
 // ─────────────────────────────────────────────
 // Hover card (portal-rendered, so it can overflow the Popover boundary)
@@ -38,10 +39,16 @@ function computeCardStyle(rect: DOMRect): React.CSSProperties {
   return { position: 'fixed', top, left, width: CARD_WIDTH, zIndex: 9999 }
 }
 
-function PresetHoverCard({ preset }: { preset: ListPreset }) {
+function PresetHoverCard({
+  preset,
+}: {
+  preset: ListPreset
+}) {
+  const me = useMe()
+  const scale: RatingDisplayScale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
   const color = getPresetColor(preset.color)
   const sortSummary = summarizeSorts(preset.sorts)
-  const filterLines = summarizeFilters(preset.filters)
+  const filterLines = summarizeFilters(preset.filters, scale)
   const colSummary = summarizeColumns(preset.columns, preset.columnOrder)
 
   return (
