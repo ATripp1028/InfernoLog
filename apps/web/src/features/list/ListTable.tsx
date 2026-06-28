@@ -81,7 +81,7 @@ function ColumnHeaders({
 
   return (
     <div
-      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3"
+      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-10 text-[11px] font-medium text-text-secondary"
       style={{ minWidth }}
     >
       <div
@@ -174,7 +174,7 @@ export function ListTable({
   const minWidth = rowMinWidth(orderedCols)
 
   return (
-    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border-subtle)] md:block">
+    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border-subtle)] md:block max-h-[calc(100vh-150px)]" style={{ minWidth }}>
       <ColumnHeaders
         orderedCols={orderedCols}
         sorts={sorts}
