@@ -14,6 +14,7 @@ import { CompletionRatingStep } from './steps/CompletionRatingStep'
 import { CompletionListRefsStep } from './steps/CompletionListRefsStep'
 import { CompletionSessionStep } from './steps/CompletionSessionStep'
 import { CompletionReviewStep } from './steps/CompletionReviewStep'
+import { CompletionGddlStep } from './steps/CompletionGddlStep'
 import { CompletionSuccessStep } from './steps/CompletionSuccessStep'
 import { ProgressStep } from './steps/ProgressStep'
 import { ProgressSessionStep } from './steps/ProgressSessionStep'
@@ -53,16 +54,16 @@ function headerConfig(path: FlowPath | null, step: FlowStep): HeaderConfig {
         title: 'How was it?',
         progress: 2 / 4,
       }
-    case 'c_listrefs':
-      return {
-        eyebrow: e(' · Step 3 of 4'),
-        title: 'List references',
-        progress: 3 / 4,
-      }
     case 'c_session':
       return {
-        eyebrow: e(' · Step 4 of 4'),
+        eyebrow: e(' · Step 3 of 4'),
         title: 'Session details',
+        progress: 3 / 4,
+      }
+    case 'c_listrefs':
+      return {
+        eyebrow: e(' · Step 4 of 4'),
+        title: 'List references',
         progress: 1,
       }
     case 'c_review':
@@ -104,6 +105,10 @@ function StepView({ step }: { step: FlowStep }) {
       return <CompletionSessionStep />
     case 'c_review':
       return <CompletionReviewStep />
+    case 'c_gddl':
+      return <CompletionGddlStep />
+    case 'c_success':
+      return <CompletionSuccessStep />
     case 'p_core':
       return <ProgressStep />
     case 'p_session':
@@ -119,14 +124,16 @@ export function LoggingModal() {
   const { isOpen, path, step, level, close } = useLoggingFlow()
   const [confirmingClose, setConfirmingClose] = useState(false)
 
-  const isSuccess = step === 'c_success'
+  // Both c_gddl and c_success are post-save: the completion is already written,
+  // so they use the small-card layout and don't need close-guard.
+  const isPostSave = step === 'c_gddl' || step === 'c_success'
   const header = headerConfig(path, step)
 
   // Once the user has committed to logging (anything past "find" and before the
-  // post-save success card), an accidental click outside shouldn't discard the
+  // post-save cards), an accidental click outside shouldn't discard the
   // in-progress entry, and an explicit close (X / Escape) asks for confirmation.
   const guardClose =
-    step !== 'find' && step !== 'resolving' && step !== 'c_success'
+    step !== 'find' && step !== 'resolving' && !isPostSave
 
   // Reset the confirmation prompt whenever the modal fully closes/reopens.
   useEffect(() => {
@@ -160,20 +167,22 @@ export function LoggingModal() {
             // sort order lets `inset-auto` win), which stranded the modal in the
             // top-left corner on desktop and after a viewport resize.
             'md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:max-w-[calc(100vw-2rem)] md:-translate-x-1/2 md:-translate-y-1/2',
-            isSuccess
+            isPostSave
               ? // Mobile: bottom sheet. Desktop: 420px centered card.
                 'inset-x-0 bottom-0 w-full md:w-[420px]'
               : // Mobile: full-screen. Desktop: 760px centered panel.
                 'inset-0 md:w-[760px]'
           )}
         >
-          {isSuccess ? (
+          {isPostSave ? (
             <div className="rounded-t-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:rounded-card">
               <div className="flex justify-center pt-2 pb-1 md:hidden">
                 <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
               </div>
-              <Dialog.Title className="sr-only">Completion logged</Dialog.Title>
-              <CompletionSuccessStep />
+              <Dialog.Title className="sr-only">
+                {step === 'c_gddl' ? 'Submit to GDDL' : 'Completion logged'}
+              </Dialog.Title>
+              <StepView step={step} />
             </div>
           ) : (
             <div className="relative flex h-full flex-col overflow-hidden border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:h-[640px] md:max-h-[calc(100vh-4rem)] md:rounded-card md:border">

@@ -79,7 +79,7 @@ export function buildCompletionInput(
         : null,
     enjoyment: draft.enjoyment,
     simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
-    submitToGddl: me.hasGddlApiKey ? draft.submitToGddl : false,
+    submitToGddl: false,
     ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
     ...(refs.length ? { listReferences: refs } : {}),
   }

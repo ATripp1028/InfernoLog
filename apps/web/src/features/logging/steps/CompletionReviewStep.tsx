@@ -57,7 +57,6 @@ export function CompletionReviewStep() {
 
   const gddlBits = [
     draft.gddlTier.trim() ? `Tier ${draft.gddlTier.trim()}` : null,
-    draft.submitToGddl ? 'submitting record' : null,
   ].filter(Boolean)
 
   // NLW / AREDL only apply to extreme demons — mirror the list-references step.
@@ -73,7 +72,7 @@ export function CompletionReviewStep() {
         buildCompletionInput(level, draft, me.data)
       )
       setLastCompletion(result.levelProgress.id)
-      setStep('c_success')
+      setStep(me.data.hasGddlApiKey ? 'c_gddl' : 'c_success')
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : 'Could not log completion'

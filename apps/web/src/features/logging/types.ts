@@ -17,6 +17,7 @@ export type FlowStep =
   | 'c_listrefs'
   | 'c_session'
   | 'c_review'
+  | 'c_gddl'
   | 'c_success'
   | 'p_core'
   | 'p_session'
@@ -44,7 +45,6 @@ export interface FlowDraft {
   gddlTier: string
   nlwTier: string
   aredlTier: string
-  submitToGddl: boolean
   // Session
   fps: string
   onStream: boolean
@@ -75,7 +75,6 @@ export function emptyDraft(): FlowDraft {
     gddlTier: '',
     nlwTier: '',
     aredlTier: '',
-    submitToGddl: false,
     fps: '',
     onStream: false,
     visibility: 'PUBLIC',
