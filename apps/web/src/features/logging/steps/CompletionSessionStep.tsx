@@ -21,6 +21,7 @@ export function CompletionSessionStep() {
   if (!level) return null
 
   const defaultFps = me.data?.defaultFps
+  const showHighlightUrl = me.data?.showHighlightUrl ?? true
 
   return (
     <>
@@ -82,15 +83,17 @@ export function CompletionSessionStep() {
               placeholder="https://youtube.com/..."
             />
           </div>
-          <div>
-            <FieldLabel htmlFor="c-highlight">Highlight URL</FieldLabel>
-            <Input
-              id="c-highlight"
-              value={draft.highlightUrl}
-              onChange={(e) => patchDraft({ highlightUrl: e.target.value })}
-              placeholder="https://..."
-            />
-          </div>
+          {showHighlightUrl && (
+            <div>
+              <FieldLabel htmlFor="c-highlight">Highlight URL</FieldLabel>
+              <Input
+                id="c-highlight"
+                value={draft.highlightUrl}
+                onChange={(e) => patchDraft({ highlightUrl: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">

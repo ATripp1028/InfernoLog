@@ -164,6 +164,7 @@ model User {
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
+  showHighlightUrl      Boolean              @default(true)
   includeEnjoyment      Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
   // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in

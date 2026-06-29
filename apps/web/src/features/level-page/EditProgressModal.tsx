@@ -123,6 +123,7 @@ export function EditProgressModal({
 
   const latestUpdate = data.progressUpdates[0]
   const isCompletion = latestUpdate?.isCompletion ?? false
+  const showHighlightUrl = me.data.showHighlightUrl
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
   const isTen = scale === 'ZERO_TO_TEN'
@@ -436,18 +437,22 @@ export function EditProgressModal({
                       onChange={(e) => patch({ videoUrl: e.target.value })}
                     />
                   </div>
-                  <div>
-                    <FieldLabel htmlFor="ep-highlight">
-                      Highlight URL
-                    </FieldLabel>
-                    <Input
-                      id="ep-highlight"
-                      type="url"
-                      placeholder="https://..."
-                      value={form.highlightUrl}
-                      onChange={(e) => patch({ highlightUrl: e.target.value })}
-                    />
-                  </div>
+                  {showHighlightUrl && (
+                    <div>
+                      <FieldLabel htmlFor="ep-highlight">
+                        Highlight URL
+                      </FieldLabel>
+                      <Input
+                        id="ep-highlight"
+                        type="url"
+                        placeholder="https://..."
+                        value={form.highlightUrl}
+                        onChange={(e) =>
+                          patch({ highlightUrl: e.target.value })
+                        }
+                      />
+                    </div>
+                  )}
                 </Section>
               )}
 

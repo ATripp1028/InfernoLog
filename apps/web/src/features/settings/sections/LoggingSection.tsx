@@ -8,6 +8,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/sonner'
 import { DateFormatPreference, useUpdateMe, type MeData } from '@/lib/api/me'
 
@@ -28,6 +29,14 @@ const MIN_FPS = 60
 
 export function LoggingSection({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
+
+  const handleToggle = async (field: 'showHighlightUrl', next: boolean) => {
+    try {
+      await update.mutateAsync({ [field]: next })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
 
   const handleChange = async (value: string) => {
     try {
@@ -103,6 +112,16 @@ export function LoggingSection({ me }: LoggingSectionProps) {
             onKeyDown={(e) => {
               if (e.key === 'Enter') e.currentTarget.blur()
             }}
+          />
+        }
+      />
+      <SettingRow
+        label="Show Highlight URL field"
+        description="Adds a Highlight URL field to the logging and edit workflows. Useful for content creators who maintain highlight reels."
+        control={
+          <Switch
+            checked={me.showHighlightUrl}
+            onCheckedChange={(v) => void handleToggle('showHighlightUrl', v)}
           />
         }
       />
