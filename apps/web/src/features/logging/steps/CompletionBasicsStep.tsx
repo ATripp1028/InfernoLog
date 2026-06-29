@@ -11,7 +11,6 @@ import {
   FieldHint,
   FieldLabel,
   LevelHeader,
-  SectionLabel,
   StepBody,
   StepFooter,
 } from '../components'
