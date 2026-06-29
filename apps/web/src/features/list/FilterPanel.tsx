@@ -11,7 +11,6 @@ import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from './tierColor'
 import {
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
   RATING_DOMAIN,
   TIER_DOMAIN,
   dateDomain,
@@ -35,6 +34,9 @@ interface FilterPanelProps {
   availableLengths: string[]
   availableGameVersions: string[]
   availableDifficulties: string[]
+  // Data-driven slider bounds.
+  earliestDate: number
+  maxAttempts: number
   onClose?: () => void
 }
 
@@ -130,6 +132,8 @@ export function FilterPanel({
   availableLengths,
   availableGameVersions,
   availableDifficulties,
+  earliestDate,
+  maxAttempts,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) =>
@@ -247,10 +251,10 @@ export function FilterPanel({
         <FilterSection title="Date Beaten">
           <RangeRow
             label="Date range"
-            min={DATE_MIN_MS}
+            min={earliestDate}
             max={today}
             step={86_400_000}
-            value={filters.dateBeaten}
+            value={[Math.max(earliestDate, filters.dateBeaten[0]), filters.dateBeaten[1]]}
             onChange={(dateBeaten) => set({ dateBeaten })}
             format={(v, end) =>
               end === 'max' && today - v < 2 * 86_400_000
@@ -264,13 +268,11 @@ export function FilterPanel({
           <RangeRow
             label="Attempt range"
             min={ATTEMPTS_DOMAIN[0]}
-            max={ATTEMPTS_DOMAIN[1]}
+            max={maxAttempts}
             step={100}
             value={filters.attempts}
             onChange={(attempts) => set({ attempts })}
-            format={(v) =>
-              v >= ATTEMPTS_DOMAIN[1] ? '25,000+' : formatNumber(v)
-            }
+            format={(v) => formatNumber(v)}
           />
         </FilterSection>
 

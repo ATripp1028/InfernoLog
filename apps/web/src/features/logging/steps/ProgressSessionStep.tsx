@@ -37,7 +37,7 @@ export function ProgressSessionStep() {
   async function submit() {
     if (!level) return
     try {
-      await logProgress.mutateAsync(buildProgressInput(level, draft))
+      await logProgress.mutateAsync(buildProgressInput(level, draft, me.data?.defaultFps))
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
       close()
     } catch (err) {
