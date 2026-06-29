@@ -42,6 +42,7 @@ export default $config({
 
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
+      memory: '1024 MB' as const,
       nodejs: {
         install: ['@sentry/aws-serverless'],
       },
