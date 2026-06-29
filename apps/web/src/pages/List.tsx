@@ -348,6 +348,7 @@ export function List() {
       matchCount={visible.length}
       totalCount={items.length}
       scale={ratingDisplayScale}
+      dateFormatPreference={dateFormatPreference}
       availableLengths={availableLengths}
       availableGameVersions={availableGameVersions}
       availableDifficulties={availableDifficulties}
