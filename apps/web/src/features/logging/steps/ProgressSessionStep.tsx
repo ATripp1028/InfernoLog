@@ -23,6 +23,7 @@ import {
   toDisplay,
   toInternal,
 } from '../format'
+import { DevicePicker } from './CompletionSessionStep'
 
 export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
@@ -97,6 +98,13 @@ export function ProgressSessionStep() {
             {defaultFps != null && (
               <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
             )}
+          </div>
+          <div>
+            <FieldLabel>Device</FieldLabel>
+            <DevicePicker
+              value={draft.device}
+              onChange={(v) => patchDraft({ device: v })}
+            />
           </div>
         </div>
 

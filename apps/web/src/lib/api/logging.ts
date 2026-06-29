@@ -20,6 +20,8 @@ export type DifficultyOpinion =
 
 export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
 
+export type Device = 'pc' | 'mobile'
+
 export interface Level {
   inGameId: string
   levelType: 'CLASSIC' | 'PLATFORMER'
@@ -99,6 +101,7 @@ export interface ExistingCompletion {
   highlightUrl: string | null
   notes: string | null
   visibility: EntryVisibility
+  device: Device | null
   ratingScores: Array<{ categoryId: string; score: number }>
   listReferences: Array<{
     listSource: ListSource
@@ -156,6 +159,7 @@ export interface CompletionInput {
   coinsCollected?: number | null
   twoPlayerSolo?: boolean | null
   twoPlayerPartner?: string | null
+  device?: Device | null
 }
 
 export type ProgressInput = { levelId: string } & (
@@ -171,6 +175,7 @@ export type ProgressInput = { levelId: string } & (
     highlightUrl?: string | null
     notes?: string | null
     visibility?: EntryVisibility
+    device?: Device | null
   }
 
 export interface DropInput {

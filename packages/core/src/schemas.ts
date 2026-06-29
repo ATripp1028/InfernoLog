@@ -9,6 +9,7 @@ import {
   DifficultyOpinion,
   EntryVisibility,
   LevelProgressStatus,
+  Device,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -267,6 +268,7 @@ const sessionDetailFields = {
   notes: z.string().max(2000).nullable().optional(),
   // Per-entry privacy, independent of global profile visibility.
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
+  device: z.nativeEnum(Device).nullable().optional(),
 }
 
 // A single weighted-mode category score (0–100 internally).
@@ -379,6 +381,7 @@ export const EditProgressInputSchema = z.object({
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
+  device: z.nativeEnum(Device).nullable().optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -436,6 +439,7 @@ export const ExistingCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
+  device: z.nativeEnum(Device).nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -515,6 +519,7 @@ export const LevelProgressListEntrySchema = z.object({
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
+  device: z.nativeEnum(Device).nullable(),
   loggedAt: z.coerce.date(),
   listReferences: z.array(
     z.object({

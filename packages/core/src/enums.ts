@@ -69,6 +69,11 @@ export enum ListSource {
   OTHER = 'OTHER',
 }
 
+export enum Device {
+  PC = 'pc',
+  MOBILE = 'mobile',
+}
+
 export enum ReportStatus {
   PENDING = 'PENDING',
   DISMISSED = 'DISMISSED',

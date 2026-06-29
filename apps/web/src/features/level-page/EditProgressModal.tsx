@@ -18,6 +18,8 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
+import { DevicePicker } from '@/features/logging/steps/CompletionSessionStep'
+import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
 type DifficultyOpinion =
@@ -48,6 +50,7 @@ interface EditForm {
   coinsCollected: number
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string
+  device: Device | null
 }
 
 function initForm(
@@ -86,6 +89,7 @@ function initForm(
     coinsCollected: latest?.coinsCollected ?? 0,
     twoPlayerSolo: latest?.twoPlayerSolo ?? null,
     twoPlayerPartner: latest?.twoPlayerPartner ?? '',
+    device: (latest?.device as Device | null | undefined) ?? null,
   }
 }
 
@@ -147,6 +151,8 @@ export function EditProgressModal({
       levelNotes: form.levelNotes || null,
       visibility: form.visibility,
     }
+
+    payload.device = form.device
 
     if (isCompletion) {
       payload.difficultyOpinion = form.difficultyOpinion
@@ -300,6 +306,14 @@ export function EditProgressModal({
                       On stream
                     </label>
                   </div>
+                </div>
+
+                <div>
+                  <FieldLabel>Device</FieldLabel>
+                  <DevicePicker
+                    value={form.device}
+                    onChange={(v) => patch({ device: v })}
+                  />
                 </div>
               </Section>
 

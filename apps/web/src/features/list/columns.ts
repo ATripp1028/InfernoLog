@@ -16,6 +16,7 @@ export type ColumnId =
   | 'coins'
   | 'version'
   | 'creator'
+  | 'device'
 
 export interface ColumnDef {
   id: ColumnId
@@ -131,6 +132,13 @@ export const COLUMNS: ColumnDef[] = [
     label: 'Version',
     width: 76,
     sortKey: 'gameVersion',
+    responsiveClass: 'flex',
+    defaultVisible: false,
+  },
+  {
+    id: 'device',
+    label: 'Device',
+    width: 76,
     responsiveClass: 'flex',
     defaultVisible: false,
   },

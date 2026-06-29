@@ -62,6 +62,7 @@ export interface ProgressUpdate {
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
+  device: 'pc' | 'mobile' | null
 }
 
 export interface ListReference {

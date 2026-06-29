@@ -118,6 +118,11 @@ enum DifficultyOpinion {
   EXTREME
 }
 
+enum Device {
+  pc
+  mobile
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -424,6 +429,9 @@ model ProgressUpdate {
   // true = beat it solo; false = beat it with a partner.
   twoPlayerSolo         Boolean?
   twoPlayerPartner      String?         // Partner name when twoPlayerSolo = false
+
+  // Device the level was beaten on. Null = not logged.
+  device                Device?
 
   // Ranking snapshot — only populated for completion entries
   top5AtTime            Boolean         @default(false)

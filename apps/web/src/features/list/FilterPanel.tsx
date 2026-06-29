@@ -21,6 +21,7 @@ import {
   dateDomain,
   defaultFilterState,
   type FilterState,
+  type DeviceFilter,
   type ListSourceFilter,
   type LevelTypeFilter,
   type ProgressStatus,
@@ -59,6 +60,10 @@ const SOURCES: ListSourceFilter[] = ['GDDL', 'AREDL', 'NLW']
 const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
+]
+const DEVICES: { value: DeviceFilter; label: string }[] = [
+  { value: 'pc', label: 'PC' },
+  { value: 'mobile', label: 'Mobile' },
 ]
 const RATED_STATUSES: RatedStatusFilter[] = [
   'ALL',
@@ -541,6 +546,23 @@ export function FilterPanel({
                 }
               >
                 {t.label}
+              </Chip>
+            ))}
+          </div>
+        </FilterSection>
+
+        <FilterSection title="Device">
+          <div className="flex flex-wrap gap-1.5 px-4">
+            {DEVICES.map((d) => (
+              <Chip
+                key={d.value}
+                className="cursor-pointer"
+                selected={filters.devices.includes(d.value)}
+                onClick={() =>
+                  set({ devices: toggle(filters.devices, d.value) })
+                }
+              >
+                {d.label}
               </Chip>
             ))}
           </div>

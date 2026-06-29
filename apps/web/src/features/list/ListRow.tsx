@@ -250,6 +250,17 @@ export function ListRow({
                 {level.gameVersion ?? dash}
               </Cell>
             )
+          case 'device':
+            return (
+              <Cell
+                key={col.id}
+                width={col.width}
+                responsiveClass={col.responsiveClass}
+                label="device"
+              >
+                {entry?.device ? (entry.device === 'pc' ? 'PC' : 'Mobile') : dash}
+              </Cell>
+            )
           case 'status':
             return (
               <div

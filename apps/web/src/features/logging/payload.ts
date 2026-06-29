@@ -87,6 +87,7 @@ export function buildCompletionInput(
       level.twoPlayer && draft.twoPlayerSolo === false
         ? draft.twoPlayerPartner.trim() || null
         : null,
+    device: draft.device,
   }
 }
 
@@ -104,6 +105,7 @@ export function buildProgressInput(
     onStream: draft.onStream,
     notes: draft.notes.trim() || null,
     visibility: draft.visibility,
+    device: draft.device,
   }
   if (draft.progressMode === 'from_run') {
     return {

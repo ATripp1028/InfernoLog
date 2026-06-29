@@ -35,6 +35,7 @@ export async function submitCompletionRecordToGddl(params: {
       attempts: true,
       fps: true,
       enjoyment: true,
+      device: true,
       listReferences: {
         where: { listSource: 'GDDL' },
         select: { tierOrRank: true },
@@ -55,6 +56,7 @@ export async function submitCompletionRecordToGddl(params: {
     fps: update?.fps ?? null,
     enjoyment: update?.enjoyment ?? null,
     gddlTier: Number.isNaN(gddlTier ?? NaN) ? null : gddlTier,
+    device: update?.device ?? null,
   })
 
   logger.info({ userId, progressUpdateId }, 'GDDL record submitted')

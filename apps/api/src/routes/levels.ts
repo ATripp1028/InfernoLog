@@ -113,6 +113,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     highlightUrl: completion.highlightUrl,
     notes: completion.notes,
     visibility: completion.levelProgress.visibility,
+    device: completion.device,
     ratingScores: completion.ratingScores,
     listReferences: completion.listReferences,
     coinsCollected: completion.coinsCollected,

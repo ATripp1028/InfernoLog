@@ -138,6 +138,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       coinsCollected: input.coinsCollected ?? null,
       twoPlayerSolo: input.twoPlayerSolo ?? null,
       twoPlayerPartner: input.twoPlayerPartner ?? null,
+      device: input.device ?? null,
     }
 
     // Edit-not-replace: if a completion already exists, UPDATE it in place.
@@ -234,6 +235,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
       enjoyment: input.enjoyment ?? null,
+      device: input.device ?? null,
     }
     const progressFields =
       input.mode === 'from_zero'
@@ -307,6 +309,7 @@ export async function applyEdit(
       puData.twoPlayerSolo = input.twoPlayerSolo
     if (input.twoPlayerPartner !== undefined)
       puData.twoPlayerPartner = input.twoPlayerPartner
+    if (input.device !== undefined) puData.device = input.device
 
     if (Object.keys(lpData).length > 0) {
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })

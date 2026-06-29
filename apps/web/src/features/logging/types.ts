@@ -1,4 +1,5 @@
 import type {
+  Device,
   DifficultyOpinion,
   EntryVisibility,
   ExistingCompletion,
@@ -64,6 +65,8 @@ export interface FlowDraft {
   // 2-player
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string
+  // Device
+  device: Device | null
 }
 
 function todayDateInput(): string {
@@ -98,6 +101,7 @@ export function emptyDraft(): FlowDraft {
     coinsCollected: 0,
     twoPlayerSolo: null,
     twoPlayerPartner: '',
+    device: null,
   }
 }
 
@@ -140,6 +144,7 @@ export function draftFromExistingCompletion(
   draft.coinsCollected = existing.coinsCollected ?? 0
   draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
   draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''
+  draft.device = existing.device ?? null
   return draft
 }
 
