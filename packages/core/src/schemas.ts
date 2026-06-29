@@ -301,9 +301,6 @@ export const CompletionInputSchema = z.object({
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
   listReferences: z.array(CompletionListReferenceSchema).optional(),
-  // Optional GDDL record submission side effect (non-blocking). Only honored
-  // when the user has a GDDL key configured.
-  submitToGddl: z.boolean().default(false),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.

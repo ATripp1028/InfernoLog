@@ -23,7 +23,6 @@ import {
   applyDrop,
   LevelNotFoundError,
 } from '../services/progress'
-import { submitCompletionRecordToGddl } from '../services/gddlRecord'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -39,25 +38,6 @@ app.post('/me/completions', async (c) => {
     }
 
     const result = await applyCompletion(userId, parsed.data)
-
-    // OPTIONAL, NON-BLOCKING GDDL record submission. Fire-and-forget: the
-    // completion is already written, so a slow/down GDDL must not affect this
-    // response. Errors are swallowed (logged + Sentry) — never surfaced.
-    if (parsed.data.submitToGddl && result.progressUpdate?.id) {
-      const progressUpdateId = result.progressUpdate.id as string
-      void submitCompletionRecordToGddl({
-        userId,
-        progressUpdateId,
-        levelId: parsed.data.levelId,
-        videoUrl: parsed.data.videoUrl ?? null,
-      }).catch((err) => {
-        logger.warn(
-          { userId, progressUpdateId, err: String(err) },
-          'GDDL record submission failed (non-blocking)'
-        )
-        Sentry.captureException(err)
-      })
-    }
 
     logger.info({ userId, levelId: parsed.data.levelId }, 'Logged completion')
     return c.json({ data: result }, 201)

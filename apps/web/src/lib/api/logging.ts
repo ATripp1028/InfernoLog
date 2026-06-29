@@ -150,7 +150,6 @@ export interface CompletionInput {
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
   listReferences?: CompletionListReference[]
-  submitToGddl?: boolean
 }
 
 export type ProgressInput = { levelId: string } & (
