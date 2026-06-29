@@ -59,11 +59,20 @@ export interface FlowDraft {
   runTo: string
   // Drop
   droppedReason: string
+  // Coins — bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). -1 = unset.
+  coinsCollected: number
+  // 2-player
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string
+}
+
+function todayDateInput(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export function emptyDraft(): FlowDraft {
   return {
-    date: null,
+    date: todayDateInput(),
     dateUncertain: false,
     attempts: '',
     worstFail: '',
@@ -86,6 +95,9 @@ export function emptyDraft(): FlowDraft {
     runFrom: '',
     runTo: '',
     droppedReason: '',
+    coinsCollected: 0,
+    twoPlayerSolo: null,
+    twoPlayerPartner: '',
   }
 }
 
@@ -125,6 +137,9 @@ export function draftFromExistingCompletion(
     if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank
     if (ref.listSource === 'AREDL') draft.aredlTier = ref.tierOrRank
   }
+  draft.coinsCollected = existing.coinsCollected ?? 0
+  draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
+  draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''
   return draft
 }
 

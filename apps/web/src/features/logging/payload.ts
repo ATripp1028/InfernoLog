@@ -81,6 +81,12 @@ export function buildCompletionInput(
     simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
     ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
     ...(refs.length ? { listReferences: refs } : {}),
+    coinsCollected: level.coins ? draft.coinsCollected : null,
+    twoPlayerSolo: level.twoPlayer ? draft.twoPlayerSolo : null,
+    twoPlayerPartner:
+      level.twoPlayer && draft.twoPlayerSolo === false
+        ? draft.twoPlayerPartner.trim() || null
+        : null,
   }
 }
 

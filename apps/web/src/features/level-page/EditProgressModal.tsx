@@ -18,7 +18,7 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import type { LevelPageData } from './types'
+import type { LevelMeta, LevelPageData } from './types'
 
 type DifficultyOpinion =
   | 'EASY'
@@ -45,6 +45,9 @@ interface EditForm {
   levelNotes: string
   visibility: 'PUBLIC' | 'PRIVATE'
   ratingScores: Record<string, number | null>
+  coinsCollected: number
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string
 }
 
 function initForm(
@@ -80,6 +83,9 @@ function initForm(
         return [cat.id, found != null ? toDisplay(found.score, scale) : null]
       })
     ),
+    coinsCollected: latest?.coinsCollected ?? 0,
+    twoPlayerSolo: latest?.twoPlayerSolo ?? null,
+    twoPlayerPartner: latest?.twoPlayerPartner ?? '',
   }
 }
 
@@ -162,6 +168,14 @@ export function EditProgressModal({
       }
       payload.videoUrl = form.videoUrl || null
       payload.highlightUrl = form.highlightUrl || null
+      if ((data.level.coins ?? 0) > 0) {
+        payload.coinsCollected = form.coinsCollected
+      }
+      if (data.level.twoPlayer) {
+        payload.twoPlayerSolo = form.twoPlayerSolo
+        payload.twoPlayerPartner =
+          form.twoPlayerSolo === false ? form.twoPlayerPartner || null : null
+      }
     }
 
     editProgress.mutate(payload, {
@@ -307,6 +321,36 @@ export function EditProgressModal({
                   />
                 </Section>
               )}
+
+              {/* ── Coins + 2-Player (completion only, level-conditional) ── */}
+              {isCompletion &&
+                ((data.level.coins ?? 0) > 0 || data.level.twoPlayer) && (
+                  <div
+                    className={cn(
+                      (data.level.coins ?? 0) > 0 && data.level.twoPlayer
+                        ? 'grid grid-cols-2 gap-5 items-start'
+                        : ''
+                    )}
+                  >
+                    {(data.level.coins ?? 0) > 0 && (
+                      <EditCoinsSection
+                        level={data.level}
+                        collected={form.coinsCollected}
+                        onChange={(v) => patch({ coinsCollected: v })}
+                      />
+                    )}
+                    {data.level.twoPlayer && (
+                      <EditTwoPlayerSection
+                        solo={form.twoPlayerSolo}
+                        partner={form.twoPlayerPartner}
+                        onSoloChange={(v) =>
+                          patch({ twoPlayerSolo: v, twoPlayerPartner: '' })
+                        }
+                        onPartnerChange={(v) => patch({ twoPlayerPartner: v })}
+                      />
+                    )}
+                  </div>
+                )}
 
               {/* ── Rating (completion only) ──────────────────── */}
               {isCompletion && (
@@ -711,6 +755,128 @@ function RatingRow({
           inputClassName="min-w-0 flex-1 sm:w-12 sm:flex-none"
         />
       </div>
+    </div>
+  )
+}
+
+// ─── Coins ────────────────────────────────────────────────────────
+
+function EditCoinsSection({
+  level,
+  collected,
+  onChange,
+}: {
+  level: LevelMeta
+  collected: number
+  onChange: (bitmask: number) => void
+}) {
+  const count = level.coins ?? 0
+  const isOfficial = level.officialSongId != null
+  const collectedSrc = isOfficial
+    ? '/assets/gd/coin-official.png'
+    : '/assets/gd/coin-user.png'
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+        Coins
+      </p>
+      <div className="flex gap-3">
+        {Array.from({ length: count }, (_, i) => {
+          const bit = 1 << i
+          const isCollected = (collected & bit) !== 0
+          return (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Coin ${i + 1} ${isCollected ? '(collected)' : '(not collected)'}`}
+              aria-pressed={isCollected}
+              onClick={() => onChange(collected ^ bit)}
+              className="flex flex-col items-center gap-1"
+            >
+              <img
+                src={
+                  isCollected ? collectedSrc : '/assets/gd/coin-uncollected.png'
+                }
+                alt=""
+                className={cn(
+                  'size-7 drop-shadow transition-all',
+                  !isCollected && 'opacity-40 grayscale',
+                  !isOfficial && !level.coinsVerified && isCollected
+                    ? '[filter:sepia(0.6)_saturate(2)_hue-rotate(-20deg)]'
+                    : ''
+                )}
+              />
+              <span className="text-[10px] text-text-tertiary">
+                {isCollected ? 'Got it' : `Coin ${i + 1}`}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ─── 2-Player ─────────────────────────────────────────────────────
+
+function EditTwoPlayerSection({
+  solo,
+  partner,
+  onSoloChange,
+  onPartnerChange,
+}: {
+  solo: boolean | null
+  partner: string
+  onSoloChange: (v: boolean) => void
+  onPartnerChange: (v: string) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
+        2-Player
+      </p>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          aria-pressed={solo === true}
+          onClick={() => onSoloChange(true)}
+          className={cn(
+            'rounded-md border px-4 py-2.5 text-sm font-medium transition-colors',
+            solo === true
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          )}
+        >
+          Beat it solo
+        </button>
+        <button
+          type="button"
+          aria-pressed={solo === false}
+          onClick={() => onSoloChange(false)}
+          className={cn(
+            'rounded-md border px-4 py-2.5 text-sm font-medium transition-colors',
+            solo === false
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          )}
+        >
+          With a partner
+        </button>
+      </div>
+      {solo === false && (
+        <div>
+          <Label className="mb-1.5 block text-sm text-text-secondary">
+            Partner
+          </Label>
+          <Input
+            value={partner}
+            onChange={(e) => onPartnerChange(e.target.value)}
+            placeholder="Partner's name (optional)"
+            maxLength={100}
+          />
+        </div>
+      )}
     </div>
   )
 }

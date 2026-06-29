@@ -115,6 +115,9 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     visibility: completion.levelProgress.visibility,
     ratingScores: completion.ratingScores,
     listReferences: completion.listReferences,
+    coinsCollected: completion.coinsCollected,
+    twoPlayerSolo: completion.twoPlayerSolo,
+    twoPlayerPartner: completion.twoPlayerPartner,
   }
 }
 

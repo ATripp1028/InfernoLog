@@ -238,6 +238,7 @@ export async function submitGddlRecord(
     fps: number | null
     enjoyment: number | null
     gddlTier: number | null
+    isSolo?: boolean
   }
 ): Promise<{ accepted: boolean }> {
   // Resolve the GDDL numeric userID from the key — required by the endpoint.
@@ -251,7 +252,7 @@ export async function submitGddlRecord(
     userID: gddlUserId,
     isProofPrivate: false,
     progress: 100,
-    isSolo: true,
+    isSolo: record.isSolo ?? true,
     device: 'pc',
   }
   if (record.attempts != null) payload.attempts = record.attempts

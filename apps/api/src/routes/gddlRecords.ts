@@ -36,6 +36,7 @@ app.post('/me/gddl-records/:levelId', async (c) => {
         attempts: true,
         fps: true,
         enjoyment: true,
+        twoPlayerSolo: true,
         listReferences: {
           where: { listSource: 'GDDL' },
           select: { tierOrRank: true },
@@ -63,6 +64,7 @@ app.post('/me/gddl-records/:levelId', async (c) => {
       fps: completion.fps ?? null,
       enjoyment: completion.enjoyment ?? null,
       gddlTier,
+      isSolo: completion.twoPlayerSolo ?? true,
     })
 
     logger.info({ userId, levelId }, 'GDDL record submitted manually')

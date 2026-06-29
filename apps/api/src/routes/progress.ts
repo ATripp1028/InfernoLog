@@ -256,6 +256,10 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
             length: true,
             songName: true,
             songAuthor: true,
+            coins: true,
+            coinsVerified: true,
+            twoPlayer: true,
+            officialSongId: true,
           },
         },
         progressUpdates: {
@@ -279,6 +283,9 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
             videoUrl: true,
             highlightUrl: true,
             loggedAt: true,
+            coinsCollected: true,
+            twoPlayerSolo: true,
+            twoPlayerPartner: true,
             listReferences: {
               select: {
                 listSource: true,
@@ -392,6 +399,9 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
           loggedAt: u.loggedAt,
           listReferences: u.listReferences,
           ratingScores: u.ratingScores,
+          coinsCollected: u.coinsCollected,
+          twoPlayerSolo: u.twoPlayerSolo,
+          twoPlayerPartner: u.twoPlayerPartner,
         })),
         runsGraph,
       },

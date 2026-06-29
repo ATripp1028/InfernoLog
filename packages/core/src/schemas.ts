@@ -301,6 +301,11 @@ export const CompletionInputSchema = z.object({
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
   listReferences: z.array(CompletionListReferenceSchema).optional(),
+  // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(100).nullable().optional(),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
@@ -371,6 +376,9 @@ export const EditProgressInputSchema = z.object({
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(100).nullable().optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered

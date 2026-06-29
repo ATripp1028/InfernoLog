@@ -135,6 +135,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
           ? (input.difficultyOpinionStars ?? null)
           : null,
       inGameDifficulty: level?.inGameDifficulty ?? null,
+      coinsCollected: input.coinsCollected ?? null,
+      twoPlayerSolo: input.twoPlayerSolo ?? null,
+      twoPlayerPartner: input.twoPlayerPartner ?? null,
     }
 
     // Edit-not-replace: if a completion already exists, UPDATE it in place.
@@ -298,6 +301,12 @@ export async function applyEdit(
     if (input.highlightUrl !== undefined)
       puData.highlightUrl = input.highlightUrl
     if (input.notes !== undefined) puData.notes = input.notes
+    if (input.coinsCollected !== undefined)
+      puData.coinsCollected = input.coinsCollected
+    if (input.twoPlayerSolo !== undefined)
+      puData.twoPlayerSolo = input.twoPlayerSolo
+    if (input.twoPlayerPartner !== undefined)
+      puData.twoPlayerPartner = input.twoPlayerPartner
 
     if (Object.keys(lpData).length > 0) {
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })

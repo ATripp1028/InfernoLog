@@ -5,8 +5,10 @@ import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/sonner'
 import { ApiError } from '@/lib/api/client'
 import {
+  useLevelById,
   useLevelSearch,
   useResolveLevel,
+  type Level,
   type LevelSearchResult,
 } from '@/lib/api/logging'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
@@ -22,6 +24,7 @@ export function FindLevelStep() {
   const trimmed = query.trim()
   const isNumeric = /^\d+$/.test(trimmed)
   const search = useLevelSearch(query)
+  const cachedLevel = useLevelById(trimmed)
 
   async function resolve(levelId: string) {
     try {
@@ -45,6 +48,7 @@ export function FindLevelStep() {
   }
 
   const showResults = !isNumeric && trimmed.length >= 2
+  const showCachedPreview = isNumeric && trimmed.length >= 4 && !!cachedLevel.data
   const results = search.data ?? []
 
   return (
@@ -69,13 +73,23 @@ export function FindLevelStep() {
               className="h-11 pl-9 text-base"
             />
           </div>
-          {!showResults && (
+          {!showResults && !showCachedPreview && (
             <FieldHint>
               Numbers only → looked up as an ID. Anything else → searched by
               name across levels InfernoLog already knows.
             </FieldHint>
           )}
         </div>
+
+        {showCachedPreview && cachedLevel.data && (
+          <div className="overflow-hidden rounded-md border border-border">
+            <LevelResultRow
+              level={cachedLevel.data}
+              disabled={resolveLevel.isPending}
+              onSelect={() => resolve(cachedLevel.data!.inGameId)}
+            />
+          </div>
+        )}
 
         {showResults && (
           <div className="space-y-2">
@@ -119,6 +133,63 @@ export function FindLevelStep() {
         </Button>
       </StepFooter>
     </>
+  )
+}
+
+// Variant of ResultRow for a full Level object (from the cached DB lookup).
+function LevelResultRow({
+  level,
+  onSelect,
+  disabled,
+}: {
+  level: Level
+  onSelect: () => void
+  disabled: boolean
+}) {
+  const meta = [level.creator ? `by ${level.creator}` : null, level.songName]
+    .filter(Boolean)
+    .join(' · ')
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onSelect}
+      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
+    >
+      <img
+        src={levelThumbnailUrl(level.inGameId)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+        className="absolute inset-0 size-full object-cover"
+      />
+      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
+      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
+      <span className="relative flex items-center gap-3">
+        <DifficultyFace
+          difficulty={level.inGameDifficulty}
+          featured={level.featured}
+          epicValue={level.epicValue}
+          rated={level.isRated}
+          size={100}
+          className="translate-y-[3px] drop-shadow"
+        />
+        <span>
+          <span className="block font-medium leading-tight text-text-primary">
+            {level.name ?? `Level #${level.inGameId}`}
+          </span>
+          {meta && (
+            <span className="block text-xs text-text-secondary">{meta}</span>
+          )}
+        </span>
+      </span>
+      <span className="relative font-mono text-xs text-text-secondary">
+        #{level.inGameId}
+      </span>
+    </button>
   )
 }
 

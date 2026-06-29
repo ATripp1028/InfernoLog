@@ -105,6 +105,9 @@ export interface ExistingCompletion {
     tierOrRank: string
     atTimeOfLogging: boolean
   }>
+  coinsCollected: number | null
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string | null
 }
 
 export interface ResolveLevelResponse {
@@ -150,6 +153,9 @@ export interface CompletionInput {
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
   listReferences?: CompletionListReference[]
+  coinsCollected?: number | null
+  twoPlayerSolo?: boolean | null
+  twoPlayerPartner?: string | null
 }
 
 export type ProgressInput = { levelId: string } & (
@@ -194,6 +200,30 @@ const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
 // ─────────────────────────────────────────────
 // Level entry support
 // ─────────────────────────────────────────────
+
+// Cached-only DB lookup by numeric level ID — used to preview already-seeded
+// levels as the user types a numeric ID. Does NOT call RobTop.
+export function useLevelById(levelId: string) {
+  const { getIdToken } = useAuth()
+  const enabled = /^\d{4,}$/.test(levelId.trim())
+  return useQuery({
+    queryKey: ['levels', 'byId', levelId.trim()],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Level | null> => {
+      const token = await getIdToken()
+      try {
+        const { data } = await apiFetch<{ data: Level }>(
+          `/v1/levels/${encodeURIComponent(levelId.trim())}`,
+          { token, method: 'GET' }
+        )
+        return data
+      } catch {
+        return null
+      }
+    },
+  })
+}
 
 // Fuzzy name search. Enabled only for text queries of length >= 2 — numeric
 // inputs are level IDs and resolve directly, never search.

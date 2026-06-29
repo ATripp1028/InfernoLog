@@ -105,10 +105,19 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
 
   const applyResolved = useCallback((resolved: ResolvedLevel) => {
     setState((s) => {
-      const draft =
+      let draft =
         s.path === 'completion' && resolved.existingCompletion
           ? draftFromExistingCompletion(resolved.existingCompletion)
           : s.draft
+      // Pre-fill GDDL tier from the suggested tier when starting a new
+      // completion (not editing an existing one that already has a tier).
+      if (
+        resolved.suggestedGddlTier != null &&
+        !draft.gddlTier &&
+        !resolved.existingCompletion
+      ) {
+        draft = { ...draft, gddlTier: String(Math.round(resolved.suggestedGddlTier)) }
+      }
       return {
         ...s,
         level: resolved.level,
