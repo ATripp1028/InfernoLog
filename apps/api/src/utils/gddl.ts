@@ -249,21 +249,20 @@ export async function submitGddlRecord(
   const payload: Record<string, unknown> = {
     levelID: parseInt(record.levelId, 10),
     userID: gddlUserId,
-    proof: record.videoUrl ?? '',
     isProofPrivate: false,
     progress: 100,
     isSolo: true,
-    secondPlayerID: 0,
     device: 'pc',
   }
   if (record.attempts != null) payload.attempts = record.attempts
   if (record.fps != null) payload.refreshRate = record.fps
-  if (record.enjoyment != null) payload.enjoyment = record.enjoyment
+  if (record.enjoyment != null) payload.enjoyment = Math.round(record.enjoyment / 10)
   if (record.gddlTier != null) payload.rating = record.gddlTier
+  if (record.videoUrl != null) payload.proof = record.videoUrl
 
   let res: Response
   try {
-    res = await fetch(`${GDDL_API_BASE_URL}/record`, {
+    res = await fetch(`${GDDL_API_BASE_URL}/submissions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -278,7 +277,7 @@ export async function submitGddlRecord(
   }
 
   if (!res.ok) {
-    throw new GddlError(`GDDL record submission failed with status ${res.status}`)
+    throw new GddlError(`GDDL record submission failed with status ${res.status}: ${await res.text()}`)
   }
 
   const body = (await res.json()) as { accepted?: unknown }
