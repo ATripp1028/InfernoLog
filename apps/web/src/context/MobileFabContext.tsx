@@ -11,7 +11,9 @@ const MobileFabContext = createContext<MobileFabContextValue>({
 })
 
 export function MobileFabProvider({ children }: { children: ReactNode }) {
-  const [overrideToggle, _setOverrideToggle] = useState<(() => void) | null>(null)
+  const [overrideToggle, _setOverrideToggle] = useState<(() => void) | null>(
+    null
+  )
 
   function setOverrideToggle(toggle: (() => void) | null) {
     // Wrap in arrow so React doesn't treat it as a state updater function

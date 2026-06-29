@@ -196,7 +196,8 @@ export function LevelPage() {
   const hasGraph = data.runsGraph.length > 0
   const totalEntries = data.progressUpdates.length
   const hasCompletion = completion != null
-  const canSubmitToGddl = isOwner && hasCompletion && (me.data.hasGddlApiKey ?? false)
+  const canSubmitToGddl =
+    isOwner && hasCompletion && (me.data.hasGddlApiKey ?? false)
 
   return (
     <>
@@ -372,7 +373,9 @@ export function LevelPage() {
         <LevelFab
           onEdit={handleEditLevel}
           onDelete={() => setPendingDelete(true)}
-          {...(canSubmitToGddl ? { onGddlSubmit: () => setPendingGddlSubmit(true) } : {})}
+          {...(canSubmitToGddl
+            ? { onGddlSubmit: () => setPendingGddlSubmit(true) }
+            : {})}
         />
       )}
 

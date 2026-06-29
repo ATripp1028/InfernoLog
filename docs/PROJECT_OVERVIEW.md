@@ -118,12 +118,12 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `LEVEL_LOGGING.md`     | Progress entry model, completion flow, drop flow                |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
-| `RATING_SYSTEM.md`     | Simple vs weighted rating, configurable criteria                |
-| `TIME_MACHINE.md`      | Historical ranking visualization, retroactive placement         |
-| `LEVEL_PICKER.md`      | Akinator-style guided level selection                           |
-| `IMPORT_EXPORT.md`     | Spreadsheet import template, export format, date handling       |
-| `API_DESIGN.md`        | Public API shape, versioning, scopes, pagination                |
-| `EXTERNAL_APIS.md`     | GD servers (RobTop), GDDL, levelthumbs, EventBridge sync        |
-| `MODERATION.md`        | Internal mod team policy, reports, appeals                      |
-| `COMMUNITY_POLICY.md`  | Public-facing content rules                                     |
-| `ROADMAP.md`           | v1 / v2 / v3 / v4 feature breakdown                             |
+> | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |
+> | `TIME_MACHINE.md` | Historical ranking visualization, retroactive placement |
+> | `LEVEL_PICKER.md` | Akinator-style guided level selection |
+> | `IMPORT_EXPORT.md` | Spreadsheet import template, export format, date handling |
+> | `API_DESIGN.md` | Public API shape, versioning, scopes, pagination |
+> | `EXTERNAL_APIS.md` | GD servers (RobTop), GDDL, levelthumbs, EventBridge sync |
+> | `MODERATION.md` | Internal mod team policy, reports, appeals |
+> | `COMMUNITY_POLICY.md` | Public-facing content rules |
+> | `ROADMAP.md` | v1 / v2 / v3 / v4 feature breakdown |

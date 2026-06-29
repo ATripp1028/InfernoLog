@@ -115,11 +115,7 @@ function parseFilterDate(
   if (isNaN(y) || isNaN(m) || isNaN(d)) return null
   const date = new Date(y, m, d)
   // Verify no date overflow (e.g. Feb 30 wrapping to Mar 2)
-  if (
-    date.getFullYear() !== y ||
-    date.getMonth() !== m ||
-    date.getDate() !== d
-  )
+  if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d)
     return null
   return date.getTime()
 }
@@ -281,7 +277,9 @@ function DateRangeRow({
   function showPicker(ref: React.RefObject<HTMLInputElement | null>) {
     try {
       // showPicker() requires a user gesture; supported in modern browsers.
-      ;(ref.current as HTMLInputElement & { showPicker?: () => void })?.showPicker?.()
+      ;(
+        ref.current as HTMLInputElement & { showPicker?: () => void }
+      )?.showPicker?.()
     } catch {
       // showPicker() may throw if the element lacks a user gesture or visibility
     }
@@ -638,9 +636,7 @@ export function FilterPanel({
                 <Chip
                   key={len}
                   selected={filters.lengths.includes(len)}
-                  onClick={() =>
-                    set({ lengths: toggle(filters.lengths, len) })
-                  }
+                  onClick={() => set({ lengths: toggle(filters.lengths, len) })}
                   className="cursor-pointer"
                 >
                   {len}

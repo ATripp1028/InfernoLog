@@ -34,7 +34,12 @@ function buildActions(onGddlSubmit?: () => void): FabAction[] {
   if (onGddlSubmit) {
     actions.push({ key: 'gddl-submit', label: 'Submit to GDDL', icon: Upload })
   }
-  actions.push({ key: 'delete', label: 'Delete this level', icon: Trash2, danger: true })
+  actions.push({
+    key: 'delete',
+    label: 'Delete this level',
+    icon: Trash2,
+    danger: true,
+  })
   return actions
 }
 
@@ -169,9 +174,7 @@ function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
                 <li key={action.key}>
                   <div className="flex h-12 items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70">
                     <Icon size={20} />
-                    <span className="text-sm font-medium">
-                      {action.label}
-                    </span>
+                    <span className="text-sm font-medium">{action.label}</span>
                   </div>
                 </li>
               )

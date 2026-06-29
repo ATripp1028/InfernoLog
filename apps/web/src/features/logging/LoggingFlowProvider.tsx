@@ -116,7 +116,10 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
         !draft.gddlTier &&
         !resolved.existingCompletion
       ) {
-        draft = { ...draft, gddlTier: String(Math.round(resolved.suggestedGddlTier)) }
+        draft = {
+          ...draft,
+          gddlTier: String(Math.round(resolved.suggestedGddlTier)),
+        }
       }
       return {
         ...s,

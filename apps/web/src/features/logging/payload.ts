@@ -22,7 +22,10 @@ export function isExtremeContext(
   )
 }
 
-function intOrNull(value: string, fallback: number | null = null): number | null {
+function intOrNull(
+  value: string,
+  fallback: number | null = null
+): number | null {
   const t = value.trim()
   if (t === '') return fallback
   const n = Number.parseInt(t, 10)

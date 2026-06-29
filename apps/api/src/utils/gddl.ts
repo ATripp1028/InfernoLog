@@ -258,7 +258,8 @@ export async function submitGddlRecord(
   }
   if (record.attempts != null) payload.attempts = record.attempts
   if (record.fps != null) payload.refreshRate = record.fps
-  if (record.enjoyment != null) payload.enjoyment = Math.round(record.enjoyment / 10)
+  if (record.enjoyment != null)
+    payload.enjoyment = Math.round(record.enjoyment / 10)
   if (record.gddlTier != null) payload.rating = record.gddlTier
   if (record.videoUrl != null) payload.proof = record.videoUrl
 
@@ -279,7 +280,9 @@ export async function submitGddlRecord(
   }
 
   if (!res.ok) {
-    throw new GddlError(`GDDL record submission failed with status ${res.status}: ${await res.text()}`)
+    throw new GddlError(
+      `GDDL record submission failed with status ${res.status}: ${await res.text()}`
+    )
   }
 
   const body = (await res.json()) as { accepted?: unknown }

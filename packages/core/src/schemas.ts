@@ -636,9 +636,22 @@ export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
 // ─────────────────────────────────────────────
 
 export const PRESET_COLOR_IDS = [
-  'red', 'orange', 'amber', 'yellow', 'lime', 'green',
-  'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet',
-  'purple', 'fuchsia', 'rose', 'slate',
+  'red',
+  'orange',
+  'amber',
+  'yellow',
+  'lime',
+  'green',
+  'teal',
+  'cyan',
+  'sky',
+  'blue',
+  'indigo',
+  'violet',
+  'purple',
+  'fuchsia',
+  'rose',
+  'slate',
 ] as const
 export type PresetColorId = (typeof PRESET_COLOR_IDS)[number]
 

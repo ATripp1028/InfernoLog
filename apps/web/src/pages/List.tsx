@@ -289,7 +289,10 @@ export function List() {
   ) {
     if (!editingPreset) return
     updatePreset.mutate(
-      { id: editingPreset.id, input: { name, description: description || null, color } },
+      {
+        id: editingPreset.id,
+        input: { name, description: description || null, color },
+      },
       {
         onSuccess: () => {
           setEditingPreset(null)

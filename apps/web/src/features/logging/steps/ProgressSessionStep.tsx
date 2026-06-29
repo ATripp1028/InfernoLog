@@ -17,12 +17,7 @@ import {
   StepFooter,
 } from '../components'
 import { buildProgressInput } from '../payload'
-import {
-  digitsOnly,
-  displayMax,
-  toDisplay,
-  toInternal,
-} from '../format'
+import { digitsOnly, displayMax, toDisplay, toInternal } from '../format'
 import { DevicePicker } from './CompletionSessionStep'
 
 export function ProgressSessionStep() {
@@ -39,7 +34,9 @@ export function ProgressSessionStep() {
   async function submit() {
     if (!level) return
     try {
-      await logProgress.mutateAsync(buildProgressInput(level, draft, me.data?.defaultFps))
+      await logProgress.mutateAsync(
+        buildProgressInput(level, draft, me.data?.defaultFps)
+      )
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
       close()
     } catch (err) {
@@ -65,13 +62,17 @@ export function ProgressSessionStep() {
               min={0}
               max={max}
               step={1}
-              value={[draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0]}
+              value={[
+                draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0,
+              ]}
               onValueChange={(vals) =>
                 patchDraft({ enjoyment: toInternal(vals[0] ?? 0, scale) })
               }
             />
             <StepperInput
-              value={draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0}
+              value={
+                draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0
+              }
               onChange={(d) => patchDraft({ enjoyment: toInternal(d, scale) })}
               min={0}
               max={max}

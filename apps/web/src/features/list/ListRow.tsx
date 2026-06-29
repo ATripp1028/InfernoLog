@@ -258,7 +258,11 @@ export function ListRow({
                 responsiveClass={col.responsiveClass}
                 label="device"
               >
-                {entry?.device ? (entry.device === 'pc' ? 'PC' : 'Mobile') : dash}
+                {entry?.device
+                  ? entry.device === 'pc'
+                    ? 'PC'
+                    : 'Mobile'
+                  : dash}
               </Cell>
             )
           case 'status':

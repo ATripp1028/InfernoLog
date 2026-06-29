@@ -132,8 +132,7 @@ export function LoggingModal() {
   // Once the user has committed to logging (anything past "find" and before the
   // post-save cards), an accidental click outside shouldn't discard the
   // in-progress entry, and an explicit close (X / Escape) asks for confirmation.
-  const guardClose =
-    step !== 'find' && step !== 'resolving' && !isPostSave
+  const guardClose = step !== 'find' && step !== 'resolving' && !isPostSave
 
   // Reset the confirmation prompt whenever the modal fully closes/reopens.
   useEffect(() => {

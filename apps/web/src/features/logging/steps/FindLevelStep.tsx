@@ -48,7 +48,8 @@ export function FindLevelStep() {
   }
 
   const showResults = !isNumeric && trimmed.length >= 2
-  const showCachedPreview = isNumeric && trimmed.length >= 4 && !!cachedLevel.data
+  const showCachedPreview =
+    isNumeric && trimmed.length >= 4 && !!cachedLevel.data
   const results = search.data ?? []
 
   return (

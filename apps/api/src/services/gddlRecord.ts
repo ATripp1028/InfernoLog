@@ -45,8 +45,7 @@ export async function submitCompletionRecordToGddl(params: {
   })
 
   const gddlTierRaw = update?.listReferences[0]?.tierOrRank ?? null
-  const gddlTier =
-    gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
+  const gddlTier = gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
 
   const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
   await submitGddlRecord(apiKey, {
