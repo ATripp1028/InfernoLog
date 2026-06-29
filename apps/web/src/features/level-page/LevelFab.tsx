@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
-import { Plus, List, Pencil, Trash2, Upload } from 'lucide-react'
+import { List, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useMobileFabContext } from '@/context/MobileFabContext'
 
 // Level-page-specific FAB for owned entries.
 // Desktop: anchored popover (small menu above the FAB).
@@ -126,8 +127,16 @@ function DesktopFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
 }
 
 // ─── Mobile bottom sheet ───────────────────────────────────────────
+// No floating button — registers a toggle into MobileFabContext so the
+// nav bar's center FAB slot drives this sheet instead of the logging menu.
 function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
   const [open, setOpen] = useState(false)
+  const { setOverrideToggle } = useMobileFabContext()
+
+  useEffect(() => {
+    setOverrideToggle(() => setOpen((v) => !v))
+    return () => setOverrideToggle(null)
+  }, [setOverrideToggle])
 
   const actions = buildActions(onGddlSubmit)
 
@@ -138,70 +147,55 @@ function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
     if (key === 'gddl-submit') onGddlSubmit?.()
   }
 
-  return (
-    // z-50 sits above the mobile nav (z-40)
-    <div className="md:hidden">
-      {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-50 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pb-1 pt-2">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {actions.map((action) => {
-                const Icon = action.icon
-                if (action.disabled) {
-                  return (
-                    <li key={action.key}>
-                      <div className="flex h-12 items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70">
-                        <Icon size={20} />
-                        <span className="text-sm font-medium">
-                          {action.label}
-                        </span>
-                      </div>
-                    </li>
-                  )
-                }
-                return (
-                  <li key={action.key}>
-                    <button
-                      type="button"
-                      onClick={() => handleAction(action.key)}
-                      className={cn(
-                        'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
-                        action.danger
-                          ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
-                          : 'text-text-primary hover:bg-bg-subtle'
-                      )}
-                    >
-                      <Icon size={20} />
-                      <span>{action.label}</span>
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </>
-      )}
+  if (!open) return null
 
-      {/* The mobile FAB button sits at fixed bottom-center, above the nav bar, at z-50 */}
+  return (
+    <div className="md:hidden">
       <button
         type="button"
-        aria-label="Level actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-[calc(72px+8px)] left-1/2 z-50 flex size-14 -translate-x-1/2 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
-      >
-        <Plus size={24} strokeWidth={2.5} />
-      </button>
+        aria-label="Close menu"
+        onClick={() => setOpen(false)}
+        className="fixed inset-0 z-40 bg-black/40"
+      />
+      <div className="fixed inset-x-0 bottom-[72px] z-50 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+        <div className="flex justify-center pb-1 pt-2">
+          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+        </div>
+        <ul className="flex flex-col gap-1 px-2 py-2">
+          {actions.map((action) => {
+            const Icon = action.icon
+            if (action.disabled) {
+              return (
+                <li key={action.key}>
+                  <div className="flex h-12 items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70">
+                    <Icon size={20} />
+                    <span className="text-sm font-medium">
+                      {action.label}
+                    </span>
+                  </div>
+                </li>
+              )
+            }
+            return (
+              <li key={action.key}>
+                <button
+                  type="button"
+                  onClick={() => handleAction(action.key)}
+                  className={cn(
+                    'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
+                    action.danger
+                      ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
+                      : 'text-text-primary hover:bg-bg-subtle'
+                  )}
+                >
+                  <Icon size={20} />
+                  <span>{action.label}</span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      </div>
     </div>
   )
 }

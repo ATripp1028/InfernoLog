@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
+import { StepperInput } from '@/components/ui/stepper-input'
 import { toast } from '@/components/ui/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useLogProgress } from '@/lib/api/logging'
@@ -19,7 +20,6 @@ import { buildProgressInput } from '../payload'
 import {
   digitsOnly,
   displayMax,
-  formatRating,
   toDisplay,
   toInternal,
 } from '../format'
@@ -33,6 +33,7 @@ export function ProgressSessionStep() {
   const scale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
   const defaultFps = me.data?.defaultFps
   const max = displayMax(scale)
+  const isTen = scale === 'ZERO_TO_TEN'
 
   async function submit() {
     if (!level) return
@@ -57,31 +58,28 @@ export function ProgressSessionStep() {
 
         <div>
           <SectionLabel>Enjoyment</SectionLabel>
-          <div className="mt-2 flex items-center gap-4">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <Slider
-              className="flex-1"
+              className="w-full sm:flex-1"
               min={0}
               max={max}
               step={1}
-              value={[
-                draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0,
-              ]}
+              value={[draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0]}
               onValueChange={(vals) =>
                 patchDraft({ enjoyment: toInternal(vals[0] ?? 0, scale) })
               }
             />
-            <span
-              className={
-                'w-8 text-right font-mono text-sm ' +
-                (draft.enjoyment != null
-                  ? 'text-text-primary'
-                  : 'text-text-tertiary')
-              }
-            >
-              {draft.enjoyment != null
-                ? formatRating(draft.enjoyment, scale)
-                : '—'}
-            </span>
+            <StepperInput
+              value={draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : 0}
+              onChange={(d) => patchDraft({ enjoyment: toInternal(d, scale) })}
+              min={0}
+              max={max}
+              precision={isTen ? 1 : 0}
+              deltas={isTen ? [0.5, 1] : [5, 10]}
+              aria-label="Enjoyment"
+              className="w-full sm:w-auto"
+              inputClassName="min-w-0 flex-1 sm:w-12 sm:flex-none"
+            />
           </div>
         </div>
 
