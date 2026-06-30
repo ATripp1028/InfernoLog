@@ -1,4 +1,5 @@
 import type {
+  Device,
   DifficultyOpinion,
   EntryVisibility,
   ExistingCompletion,
@@ -17,6 +18,7 @@ export type FlowStep =
   | 'c_listrefs'
   | 'c_session'
   | 'c_review'
+  | 'c_gddl'
   | 'c_success'
   | 'p_core'
   | 'p_session'
@@ -44,7 +46,6 @@ export interface FlowDraft {
   gddlTier: string
   nlwTier: string
   aredlTier: string
-  submitToGddl: boolean
   // Session
   fps: string
   onStream: boolean
@@ -59,11 +60,22 @@ export interface FlowDraft {
   runTo: string
   // Drop
   droppedReason: string
+  // Coins — bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). -1 = unset.
+  coinsCollected: number
+  // 2-player
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string
+  // Device
+  device: Device | null
+}
+
+function todayDateInput(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 export function emptyDraft(): FlowDraft {
   return {
-    date: null,
+    date: todayDateInput(),
     dateUncertain: false,
     attempts: '',
     worstFail: '',
@@ -75,7 +87,6 @@ export function emptyDraft(): FlowDraft {
     gddlTier: '',
     nlwTier: '',
     aredlTier: '',
-    submitToGddl: false,
     fps: '',
     onStream: false,
     visibility: 'PUBLIC',
@@ -87,6 +98,10 @@ export function emptyDraft(): FlowDraft {
     runFrom: '',
     runTo: '',
     droppedReason: '',
+    coinsCollected: 0,
+    twoPlayerSolo: null,
+    twoPlayerPartner: '',
+    device: null,
   }
 }
 
@@ -126,6 +141,10 @@ export function draftFromExistingCompletion(
     if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank
     if (ref.listSource === 'AREDL') draft.aredlTier = ref.tierOrRank
   }
+  draft.coinsCollected = existing.coinsCollected ?? 0
+  draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
+  draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''
+  draft.device = existing.device ?? null
   return draft
 }
 

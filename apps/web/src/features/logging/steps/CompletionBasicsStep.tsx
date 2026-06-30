@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
-import type { DifficultyOpinion } from '@/lib/api/logging'
+import type { DifficultyOpinion, Level } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldHint,
@@ -139,6 +139,34 @@ export function CompletionBasicsStep() {
             earns a demon face, then say what difficulty you&apos;d give it.
           </FieldHint>
         </div>
+
+        {((level.coins ?? 0) > 0 || level.twoPlayer) && (
+          <div
+            className={cn(
+              (level.coins ?? 0) > 0 && level.twoPlayer
+                ? 'grid grid-cols-2 gap-5 items-start'
+                : ''
+            )}
+          >
+            {(level.coins ?? 0) > 0 && (
+              <CoinsSection
+                level={level}
+                collected={draft.coinsCollected}
+                onChange={(v) => patchDraft({ coinsCollected: v })}
+              />
+            )}
+            {level.twoPlayer && (
+              <TwoPlayerSection
+                solo={draft.twoPlayerSolo}
+                partner={draft.twoPlayerPartner}
+                onSoloChange={(v) =>
+                  patchDraft({ twoPlayerSolo: v, twoPlayerPartner: '' })
+                }
+                onPartnerChange={(v) => patchDraft({ twoPlayerPartner: v })}
+              />
+            )}
+          </div>
+        )}
       </StepBody>
 
       <StepFooter>
@@ -244,6 +272,141 @@ function DifficultyOpinionSelect({
               )
             })}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Official levels are those with an officialSongId (the built-in GD song set).
+function isOfficialLevel(level: Level): boolean {
+  return level.officialSongId != null
+}
+
+function coinSrc(level: Level): string {
+  return isOfficialLevel(level)
+    ? '/assets/gd/coin-official.png'
+    : '/assets/gd/coin-user.png'
+}
+
+function coinUncollectedSrc(): string {
+  return '/assets/gd/coin-uncollected.png'
+}
+
+function CoinsSection({
+  level,
+  collected,
+  onChange,
+}: {
+  level: Level
+  collected: number
+  onChange: (bitmask: number) => void
+}) {
+  const count = level.coins ?? 0
+  const isOfficial = isOfficialLevel(level)
+  const collectedSrc = coinSrc(level)
+
+  return (
+    <div className="space-y-3">
+      <FieldLabel htmlFor="c-attempts">Coins</FieldLabel>
+      <div className="flex gap-3">
+        {Array.from({ length: count }, (_, i) => {
+          const bit = 1 << i
+          const isCollected = (collected & bit) !== 0
+          return (
+            <button
+              key={i}
+              type="button"
+              aria-label={`Coin ${i + 1} ${isCollected ? '(collected)' : '(not collected)'}`}
+              aria-pressed={isCollected}
+              onClick={() => onChange(collected ^ bit)}
+              className="group flex flex-col items-center gap-1"
+            >
+              <div
+                className={cn(
+                  'flex size-10 items-center justify-center rounded-full border transition-all',
+                  isCollected
+                    ? 'border-transparent bg-transparent'
+                    : 'border-border bg-bg-elevated/50 opacity-40 grayscale'
+                )}
+              >
+                <img
+                  src={isCollected ? collectedSrc : coinUncollectedSrc()}
+                  alt=""
+                  className={cn(
+                    'size-7 drop-shadow transition-all',
+                    !isCollected && 'opacity-60',
+                    // Unverified user coins: tint silver→bronze via CSS filter
+                    !isOfficial && !level.coinsVerified && isCollected
+                      ? '[filter:sepia(0.6)_saturate(2)_hue-rotate(-20deg)]'
+                      : ''
+                  )}
+                />
+              </div>
+              <span className="text-[10px] text-text-tertiary">
+                {isCollected ? 'Got it' : `Coin ${i + 1}`}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      <FieldHint>Click a coin to mark it as collected.</FieldHint>
+    </div>
+  )
+}
+
+function TwoPlayerSection({
+  solo,
+  partner,
+  onSoloChange,
+  onPartnerChange,
+}: {
+  solo: boolean | null
+  partner: string
+  onSoloChange: (v: boolean) => void
+  onPartnerChange: (v: string) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <FieldLabel htmlFor="c-attempts">2-Player</FieldLabel>
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          aria-pressed={solo === true}
+          onClick={() => onSoloChange(true)}
+          className={cn(
+            'rounded-md border px-4 py-2.5 text-sm font-medium transition-colors',
+            solo === true
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          )}
+        >
+          Beat it solo
+        </button>
+        <button
+          type="button"
+          aria-pressed={solo === false}
+          onClick={() => onSoloChange(false)}
+          className={cn(
+            'rounded-md border px-4 py-2.5 text-sm font-medium transition-colors',
+            solo === false
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          )}
+        >
+          With a partner
+        </button>
+      </div>
+      {solo === false && (
+        <div>
+          <FieldLabel htmlFor="c-partner">Partner</FieldLabel>
+          <Input
+            id="c-partner"
+            value={partner}
+            onChange={(e) => onPartnerChange(e.target.value)}
+            placeholder="Partner's name (optional)"
+            maxLength={100}
+          />
         </div>
       )}
     </div>

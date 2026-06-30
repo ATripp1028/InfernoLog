@@ -1,22 +1,27 @@
-import { X } from 'lucide-react'
-import type { RatingDisplayScale } from '@/lib/api/me'
+import { useState, useRef } from 'react'
+import { X, Calendar } from 'lucide-react'
+import type { DateFormatPreference, RatingDisplayScale } from '@/lib/api/me'
 import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
+import { cn } from '@/lib/utils'
+import { difficultyFaceSrc } from '@/lib/gdAssets'
+import { formatDate } from '@/lib/dateFormat'
 import {
   displayMax,
   formatRating,
   formatNumber,
+  toInternal,
 } from '@/features/logging/format'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from './tierColor'
 import {
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
   RATING_DOMAIN,
   TIER_DOMAIN,
   dateDomain,
   defaultFilterState,
   type FilterState,
+  type DeviceFilter,
   type ListSourceFilter,
   type LevelTypeFilter,
   type ProgressStatus,
@@ -31,10 +36,14 @@ interface FilterPanelProps {
   matchCount: number
   totalCount: number
   scale: RatingDisplayScale
+  dateFormatPreference: DateFormatPreference
   // Distinct values present in the data, for the chip filters.
   availableLengths: string[]
   availableGameVersions: string[]
   availableDifficulties: string[]
+  // Data-driven slider bounds.
+  earliestDate: number
+  maxAttempts: number
   onClose?: () => void
 }
 
@@ -51,6 +60,10 @@ const SOURCES: ListSourceFilter[] = ['GDDL', 'AREDL', 'NLW']
 const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
+]
+const DEVICES: { value: DeviceFilter; label: string }[] = [
+  { value: 'pc', label: 'PC' },
+  { value: 'mobile', label: 'Mobile' },
 ]
 const RATED_STATUSES: RatedStatusFilter[] = [
   'ALL',
@@ -73,6 +86,53 @@ const LEVEL_FLAGS: { value: StatusFlag; label: string }[] = [
   { value: 'verifiedCoins', label: 'Verified coins' },
 ]
 
+// Parses a date string in the user's preferred format to epoch ms.
+function parseFilterDate(
+  text: string,
+  pref: DateFormatPreference
+): number | null {
+  const t = text.trim()
+  const sep = pref === 'ISO' ? '-' : '/'
+  const parts = t.split(sep)
+  if (parts.length !== 3) return null
+
+  let y: number, m: number, d: number
+  if (pref === 'ISO' || pref === 'YMD') {
+    y = parseInt(parts[0]!, 10)
+    m = parseInt(parts[1]!, 10) - 1
+    d = parseInt(parts[2]!, 10)
+  } else if (pref === 'DMY') {
+    d = parseInt(parts[0]!, 10)
+    m = parseInt(parts[1]!, 10) - 1
+    y = parseInt(parts[2]!, 10)
+  } else {
+    // MDY
+    m = parseInt(parts[0]!, 10) - 1
+    d = parseInt(parts[1]!, 10)
+    y = parseInt(parts[2]!, 10)
+  }
+
+  if (isNaN(y) || isNaN(m) || isNaN(d)) return null
+  const date = new Date(y, m, d)
+  // Verify no date overflow (e.g. Feb 30 wrapping to Mar 2)
+  if (date.getFullYear() !== y || date.getMonth() !== m || date.getDate() !== d)
+    return null
+  return date.getTime()
+}
+
+// Epoch ms → YYYY-MM-DD for <input type="date"> value prop.
+function toIso(ms: number): string {
+  const d = new Date(ms)
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, '0'),
+    String(d.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+const inputCls =
+  'w-full rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-1.5 py-0.5 text-[11px] text-center text-text-primary outline-none focus:border-primary transition-colors'
+
 function RangeRow({
   label,
   min,
@@ -83,6 +143,7 @@ function RangeRow({
   format,
   trackClassName,
   trackStyle,
+  parseInput,
 }: {
   label: string
   min: number
@@ -93,7 +154,27 @@ function RangeRow({
   format: (v: number, end: 'min' | 'max') => string
   trackClassName?: string | undefined
   trackStyle?: React.CSSProperties | undefined
+  parseInput?: ((text: string, end: 'min' | 'max') => number | null) | undefined
 }) {
+  const [minDraft, setMinDraft] = useState<string | null>(null)
+  const [maxDraft, setMaxDraft] = useState<string | null>(null)
+
+  function commitMin(text: string) {
+    setMinDraft(null)
+    if (!parseInput) return
+    const n = parseInput(text, 'min')
+    if (n == null) return
+    onChange([Math.min(Math.max(n, min), value[1]), value[1]])
+  }
+
+  function commitMax(text: string) {
+    setMaxDraft(null)
+    if (!parseInput) return
+    const n = parseInput(text, 'max')
+    if (n == null) return
+    onChange([value[0], Math.max(Math.min(n, max), value[0])])
+  }
+
   return (
     <div className="flex flex-col gap-2 px-4 py-1.5">
       <p className="text-xs font-medium text-text-secondary">{label}</p>
@@ -106,19 +187,181 @@ function RangeRow({
         trackClassName={trackClassName}
         trackStyle={trackStyle}
       />
-      <div className="flex justify-between text-[11px] text-text-tertiary">
-        <span>{format(value[0], 'min')}</span>
-        <span>{format(value[1], 'max')}</span>
-      </div>
+      {parseInput ? (
+        <div className="flex gap-1.5">
+          <input
+            className={inputCls}
+            value={minDraft ?? format(value[0], 'min')}
+            onChange={(e) => setMinDraft(e.target.value)}
+            onBlur={(e) => commitMin(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMin(e.currentTarget.value)
+            }}
+          />
+          <input
+            className={inputCls}
+            value={maxDraft ?? format(value[1], 'max')}
+            onChange={(e) => setMaxDraft(e.target.value)}
+            onBlur={(e) => commitMax(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMax(e.currentTarget.value)
+            }}
+          />
+        </div>
+      ) : (
+        <div className="flex justify-between text-[11px] text-text-tertiary">
+          <span>{format(value[0], 'min')}</span>
+          <span>{format(value[1], 'max')}</span>
+        </div>
+      )}
     </div>
   )
 }
 
-function monthYear(ms: number): string {
-  return new Date(ms).toLocaleDateString('en-US', {
-    month: 'short',
-    year: 'numeric',
-  })
+function DateRangeRow({
+  min,
+  max,
+  step,
+  value,
+  onChange,
+  datePref,
+}: {
+  min: number
+  max: number
+  step: number
+  value: Range
+  onChange: (v: Range) => void
+  datePref: DateFormatPreference
+}) {
+  const [minDraft, setMinDraft] = useState<string | null>(null)
+  const [maxDraft, setMaxDraft] = useState<string | null>(null)
+  const minCalRef = useRef<HTMLInputElement>(null)
+  const maxCalRef = useRef<HTMLInputElement>(null)
+
+  // Clamp the stored value[0] to the slider min so the display is correct
+  // even when the filter state was initialized before data loaded.
+  const effectiveMin = Math.max(min, value[0])
+
+  function fmt(ms: number): string {
+    return formatDate(new Date(ms), datePref)
+  }
+
+  function commitMin(text: string) {
+    setMinDraft(null)
+    const n = parseFilterDate(text, datePref)
+    if (n == null) return
+    onChange([Math.min(Math.max(n, min), value[1]), value[1]])
+  }
+
+  function commitMax(text: string) {
+    setMaxDraft(null)
+    const n = parseFilterDate(text, datePref)
+    if (n == null) return
+    onChange([value[0], Math.max(Math.min(n, max), value[0])])
+  }
+
+  function handleCalMin(isoVal: string) {
+    if (!isoVal) return
+    const [y, m, d] = isoVal.split('-').map(Number)
+    const ms = new Date(y!, m! - 1, d!).getTime()
+    if (!isNaN(ms)) onChange([Math.min(Math.max(ms, min), value[1]), value[1]])
+  }
+
+  function handleCalMax(isoVal: string) {
+    if (!isoVal) return
+    const [y, m, d] = isoVal.split('-').map(Number)
+    const ms = new Date(y!, m! - 1, d!).getTime()
+    if (!isNaN(ms)) onChange([value[0], Math.max(Math.min(ms, max), value[0])])
+  }
+
+  function showPicker(ref: React.RefObject<HTMLInputElement | null>) {
+    try {
+      // showPicker() requires a user gesture; supported in modern browsers.
+      ;(
+        ref.current as HTMLInputElement & { showPicker?: () => void }
+      )?.showPicker?.()
+    } catch {
+      // showPicker() may throw if the element lacks a user gesture or visibility
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 px-4 py-1.5">
+      <p className="text-xs font-medium text-text-secondary">Date range</p>
+      <RangeSlider
+        min={min}
+        max={max}
+        step={step}
+        value={[effectiveMin, value[1]]}
+        onValueChange={(v) => onChange([v[0]!, v[1]!])}
+      />
+      <div className="flex items-center gap-1.5">
+        {/* Min date */}
+        <div className="relative flex flex-1 items-center">
+          <input
+            className={cn(inputCls, 'pr-5')}
+            value={minDraft ?? fmt(effectiveMin)}
+            onChange={(e) => setMinDraft(e.target.value)}
+            onBlur={(e) => commitMin(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMin(e.currentTarget.value)
+            }}
+          />
+          <button
+            type="button"
+            className="absolute right-1.5 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
+            onClick={() => showPicker(minCalRef)}
+            aria-label="Open calendar"
+          >
+            <Calendar size={11} />
+          </button>
+          <input
+            ref={minCalRef}
+            type="date"
+            tabIndex={-1}
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            value={toIso(effectiveMin)}
+            min={toIso(min)}
+            max={toIso(value[1])}
+            onChange={(e) => handleCalMin(e.target.value)}
+          />
+        </div>
+
+        <span className="shrink-0 text-[11px] text-text-tertiary">–</span>
+
+        {/* Max date */}
+        <div className="relative flex flex-1 items-center">
+          <input
+            className={cn(inputCls, 'pr-5')}
+            value={maxDraft ?? fmt(value[1])}
+            onChange={(e) => setMaxDraft(e.target.value)}
+            onBlur={(e) => commitMax(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') commitMax(e.currentTarget.value)
+            }}
+          />
+          <button
+            type="button"
+            className="absolute right-1.5 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
+            onClick={() => showPicker(maxCalRef)}
+            aria-label="Open calendar"
+          >
+            <Calendar size={11} />
+          </button>
+          <input
+            ref={maxCalRef}
+            type="date"
+            tabIndex={-1}
+            className="pointer-events-none absolute h-px w-px opacity-0"
+            value={toIso(value[1])}
+            min={toIso(value[0])}
+            max={toIso(max)}
+            onChange={(e) => handleCalMax(e.target.value)}
+          />
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function FilterPanel({
@@ -127,17 +370,27 @@ export function FilterPanel({
   matchCount,
   totalCount,
   scale,
+  dateFormatPreference,
   availableLengths,
   availableGameVersions,
   availableDifficulties,
+  earliestDate,
+  maxAttempts,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) =>
     onChange({ ...filters, ...patch })
   const max = displayMax(scale)
-  // dateDomain() reads "now"; routed through the helper so the render stays
-  // free of a direct (impure) Date.now() call.
   const today = dateDomain()[1]
+
+  function parseRating(text: string): number | null {
+    const v = parseFloat(text)
+    if (isNaN(v)) return null
+    return Math.min(
+      RATING_DOMAIN[1],
+      Math.max(RATING_DOMAIN[0], toInternal(v, scale))
+    )
+  }
 
   return (
     <div className="flex h-full flex-col bg-[var(--color-bg-surface)]">
@@ -193,6 +446,7 @@ export function FilterPanel({
             value={filters.rating}
             onChange={(rating) => set({ rating })}
             format={(v) => formatRating(v, scale)}
+            parseInput={parseRating}
           />
           <RangeRow
             label="Enjoyment"
@@ -202,6 +456,7 @@ export function FilterPanel({
             value={filters.enjoyment}
             onChange={(enjoyment) => set({ enjoyment })}
             format={(v) => formatRating(v, scale)}
+            parseInput={parseRating}
           />
           <p className="px-4 pt-1 text-[10px] text-text-tertiary">
             Scale 0–{max}
@@ -234,6 +489,11 @@ export function FilterPanel({
             value={filters.tier}
             onChange={(tier) => set({ tier })}
             format={(v) => (v >= TIER_DOMAIN[1] ? '35+' : String(v))}
+            parseInput={(text) => {
+              const v = parseInt(text.replace('+', ''), 10)
+              if (isNaN(v)) return null
+              return Math.min(TIER_DOMAIN[1], Math.max(TIER_DOMAIN[0], v))
+            }}
             trackClassName="bg-transparent"
             trackStyle={{
               backgroundImage: gddlTrackGradient(
@@ -245,18 +505,13 @@ export function FilterPanel({
         </FilterSection>
 
         <FilterSection title="Date Beaten">
-          <RangeRow
-            label="Date range"
-            min={DATE_MIN_MS}
+          <DateRangeRow
+            min={earliestDate}
             max={today}
             step={86_400_000}
             value={filters.dateBeaten}
             onChange={(dateBeaten) => set({ dateBeaten })}
-            format={(v, end) =>
-              end === 'max' && today - v < 2 * 86_400_000
-                ? 'Today'
-                : monthYear(v)
-            }
+            datePref={dateFormatPreference}
           />
         </FilterSection>
 
@@ -264,13 +519,16 @@ export function FilterPanel({
           <RangeRow
             label="Attempt range"
             min={ATTEMPTS_DOMAIN[0]}
-            max={ATTEMPTS_DOMAIN[1]}
+            max={maxAttempts}
             step={100}
             value={filters.attempts}
             onChange={(attempts) => set({ attempts })}
-            format={(v) =>
-              v >= ATTEMPTS_DOMAIN[1] ? '25,000+' : formatNumber(v)
-            }
+            format={(v) => formatNumber(v)}
+            parseInput={(text) => {
+              const v = parseInt(text.replace(/,/g, ''), 10)
+              if (isNaN(v)) return null
+              return Math.min(maxAttempts, Math.max(0, v))
+            }}
           />
         </FilterSection>
 
@@ -291,20 +549,51 @@ export function FilterPanel({
           </div>
         </FilterSection>
 
+        <FilterSection title="Device">
+          <div className="flex flex-wrap gap-1.5 px-4">
+            {DEVICES.map((d) => (
+              <Chip
+                key={d.value}
+                className="cursor-pointer"
+                selected={filters.devices.includes(d.value)}
+                onClick={() =>
+                  set({ devices: toggle(filters.devices, d.value) })
+                }
+              >
+                {d.label}
+              </Chip>
+            ))}
+          </div>
+        </FilterSection>
+
         {availableDifficulties.length > 0 && (
           <FilterSection title="Difficulty">
-            <div className="flex flex-wrap gap-1.5 px-4">
+            <div className="grid grid-cols-5 gap-1 px-4">
               {availableDifficulties.map((d) => (
-                <Chip
+                <button
                   key={d}
-                  className="cursor-pointer"
-                  selected={filters.difficulties.includes(d)}
+                  type="button"
+                  aria-pressed={filters.difficulties.includes(d)}
                   onClick={() =>
                     set({ difficulties: toggle(filters.difficulties, d) })
                   }
+                  className={cn(
+                    'flex flex-col items-center gap-0.5 rounded-md p-1 cursor-pointer transition-colors',
+                    filters.difficulties.includes(d)
+                      ? 'bg-[var(--color-primary)] text-white'
+                      : 'border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-text-secondary hover:text-text-primary'
+                  )}
                 >
-                  {d}
-                </Chip>
+                  <img
+                    src={difficultyFaceSrc(d)}
+                    alt={d}
+                    className="h-7 w-7 object-contain"
+                    draggable={false}
+                  />
+                  <span className="text-center text-[8px] leading-tight line-clamp-2">
+                    {d}
+                  </span>
+                </button>
               ))}
             </div>
           </FilterSection>

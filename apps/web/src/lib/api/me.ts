@@ -28,6 +28,7 @@ export interface MeData {
   ratingDisplayScale: RatingDisplayScale
   defaultFps: number
   dateFormatPreference: DateFormatPreference
+  showHighlightUrl: boolean
   includeEnjoyment: boolean
   enjoymentWeight: number
   enjoymentSortOrder: number
@@ -211,6 +212,7 @@ export interface UpdateMeInput {
   discordPublic?: boolean
   defaultFps?: number
   dateFormatPreference?: DateFormatPreference
+  showHighlightUrl?: boolean
   ratingMode?: RatingMode
   ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean

@@ -16,14 +16,15 @@ export type ColumnId =
   | 'coins'
   | 'version'
   | 'creator'
+  | 'device'
 
 export interface ColumnDef {
   id: ColumnId
   label: string
   width: number // px, matches the Figma column widths
   sortKey?: SortKey
-  // Extra Tailwind visibility class. Attempts/Enjoy are desktop-only (xl);
-  // the rest show wherever the columnar table renders (md+).
+  // Extra Tailwind visibility class applied to each cell.
+  // All columns are visible wherever the columnar table renders (md+).
   responsiveClass: string
   // Shown by default. Extra metadata columns are opt-in.
   defaultVisible: boolean
@@ -51,7 +52,7 @@ export const COLUMNS: ColumnDef[] = [
     label: 'Attempts',
     width: 80,
     sortKey: 'attempts',
-    responsiveClass: 'hidden xl:flex',
+    responsiveClass: 'flex',
     defaultVisible: true,
   },
   {
@@ -67,7 +68,7 @@ export const COLUMNS: ColumnDef[] = [
     label: 'Enjoy',
     width: 60,
     sortKey: 'enjoyment',
-    responsiveClass: 'hidden xl:flex',
+    responsiveClass: 'flex',
     defaultVisible: true,
   },
   {
@@ -131,6 +132,13 @@ export const COLUMNS: ColumnDef[] = [
     label: 'Version',
     width: 76,
     sortKey: 'gameVersion',
+    responsiveClass: 'flex',
+    defaultVisible: false,
+  },
+  {
+    id: 'device',
+    label: 'Device',
+    width: 76,
     responsiveClass: 'flex',
     defaultVisible: false,
   },

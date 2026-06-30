@@ -118,6 +118,11 @@ enum DifficultyOpinion {
   EXTREME
 }
 
+enum Device {
+  pc
+  mobile
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -159,6 +164,7 @@ model User {
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
+  showHighlightUrl      Boolean              @default(true)
   includeEnjoyment      Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
   // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in
@@ -415,6 +421,18 @@ model ProgressUpdate {
   // Media
   videoUrl              String?         // Completion video
   highlightUrl          String?         // Highlight reel — independent of onStream
+
+  // Coins collected at time of completion — bitmask (bit 0 = coin 1, etc.).
+  // Only meaningful for completion entries; null = not logged.
+  coinsCollected        Int?
+
+  // 2-player level logging. Null = not a 2-player level or not logged.
+  // true = beat it solo; false = beat it with a partner.
+  twoPlayerSolo         Boolean?
+  twoPlayerPartner      String?         // Partner name when twoPlayerSolo = false
+
+  // Device the level was beaten on. Null = not logged.
+  device                Device?
 
   // Ranking snapshot — only populated for completion entries
   top5AtTime            Boolean         @default(false)

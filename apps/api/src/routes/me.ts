@@ -73,6 +73,7 @@ const meSelect = {
   ratingDisplayScale: true,
   defaultFps: true,
   dateFormatPreference: true,
+  showHighlightUrl: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
   enjoymentSortOrder: true,

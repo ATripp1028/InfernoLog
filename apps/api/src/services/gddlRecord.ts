@@ -29,8 +29,34 @@ export async function submitCompletionRecordToGddl(params: {
   })
   if (!user?.gddlApiKeyEncrypted) return
 
+  const update = await prisma.progressUpdate.findUnique({
+    where: { id: progressUpdateId },
+    select: {
+      attempts: true,
+      fps: true,
+      enjoyment: true,
+      device: true,
+      listReferences: {
+        where: { listSource: 'GDDL' },
+        select: { tierOrRank: true },
+        take: 1,
+      },
+    },
+  })
+
+  const gddlTierRaw = update?.listReferences[0]?.tierOrRank ?? null
+  const gddlTier = gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
+
   const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
-  await submitGddlRecord(apiKey, { levelId, videoUrl })
+  await submitGddlRecord(apiKey, {
+    levelId,
+    videoUrl,
+    attempts: update?.attempts ?? null,
+    fps: update?.fps ?? null,
+    enjoyment: update?.enjoyment ?? null,
+    gddlTier: Number.isNaN(gddlTier ?? NaN) ? null : gddlTier,
+    device: update?.device ?? null,
+  })
 
   logger.info({ userId, progressUpdateId }, 'GDDL record submitted')
 }

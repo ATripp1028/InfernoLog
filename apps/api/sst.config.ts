@@ -42,6 +42,7 @@ export default $config({
 
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
+      memory: '1024 MB' as const,
       nodejs: {
         install: ['@sentry/aws-serverless'],
       },
@@ -346,6 +347,9 @@ export default $config({
     // Completion writes get KMS access too: a completion may optionally submit
     // a GDDL record, which requires decrypting the user's stored GDDL key.
     gddlKeyRoute('POST /v1/me/completions')
+
+    // Manual GDDL record submission from the level page (retry path).
+    gddlKeyRoute('POST /v1/me/gddl-records/{levelId}')
 
     // Worker Lambda — runs the full GDDL import in the background so that
     // API Gateway's hard 29-second integration timeout never applies.

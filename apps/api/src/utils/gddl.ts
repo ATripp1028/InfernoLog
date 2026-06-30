@@ -231,24 +231,48 @@ const SUBMIT_TIMEOUT_MS = 8000
 // non-blocking (the completion has already been written) and swallow failures.
 export async function submitGddlRecord(
   apiKey: string,
-  record: { levelId: string; videoUrl: string | null }
+  record: {
+    levelId: string
+    videoUrl: string | null
+    attempts: number | null
+    fps: number | null
+    enjoyment: number | null
+    gddlTier: number | null
+    isSolo?: boolean
+    device?: string | null
+  }
 ): Promise<{ accepted: boolean }> {
+  // Resolve the GDDL numeric userID from the key — required by the endpoint.
+  const { id: gddlUserId } = await fetchGddlUserInfo(apiKey)
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS)
 
+  const payload: Record<string, unknown> = {
+    levelID: parseInt(record.levelId, 10),
+    userID: gddlUserId,
+    isProofPrivate: false,
+    progress: 100,
+    isSolo: record.isSolo ?? true,
+    device: record.device ?? 'pc',
+  }
+  if (record.attempts != null) payload.attempts = record.attempts
+  if (record.fps != null) payload.refreshRate = record.fps
+  if (record.enjoyment != null)
+    payload.enjoyment = Math.round(record.enjoyment / 10)
+  if (record.gddlTier != null) payload.rating = record.gddlTier
+  if (record.videoUrl != null) payload.proof = record.videoUrl
+
   let res: Response
   try {
-    res = await fetch(`${GDDL_API_BASE_URL}/record`, {
+    res = await fetch(`${GDDL_API_BASE_URL}/submissions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        levelID: record.levelId,
-        videoLink: record.videoUrl,
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     })
   } finally {
@@ -256,7 +280,9 @@ export async function submitGddlRecord(
   }
 
   if (!res.ok) {
-    throw new Error(`GDDL record submission failed with status ${res.status}`)
+    throw new GddlError(
+      `GDDL record submission failed with status ${res.status}: ${await res.text()}`
+    )
   }
 
   const body = (await res.json()) as { accepted?: unknown }

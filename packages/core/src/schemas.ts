@@ -9,6 +9,7 @@ import {
   DifficultyOpinion,
   EntryVisibility,
   LevelProgressStatus,
+  Device,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -151,6 +152,7 @@ export const UpdateMeSchema = z
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
+    showHighlightUrl: z.boolean().optional(),
     includeEnjoyment: z.boolean().optional(),
     enjoymentWeight: z
       .string()
@@ -267,6 +269,7 @@ const sessionDetailFields = {
   notes: z.string().max(2000).nullable().optional(),
   // Per-entry privacy, independent of global profile visibility.
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
+  device: z.nativeEnum(Device).nullable().optional(),
 }
 
 // A single weighted-mode category score (0–100 internally).
@@ -301,9 +304,11 @@ export const CompletionInputSchema = z.object({
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
   listReferences: z.array(CompletionListReferenceSchema).optional(),
-  // Optional GDDL record submission side effect (non-blocking). Only honored
-  // when the user has a GDDL key configured.
-  submitToGddl: z.boolean().default(false),
+  // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(100).nullable().optional(),
 })
 
 // PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
@@ -374,6 +379,10 @@ export const EditProgressInputSchema = z.object({
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(100).nullable().optional(),
+  device: z.nativeEnum(Device).nullable().optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -431,6 +440,7 @@ export const ExistingCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
+  device: z.nativeEnum(Device).nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -510,6 +520,7 @@ export const LevelProgressListEntrySchema = z.object({
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
+  device: z.nativeEnum(Device).nullable(),
   loggedAt: z.coerce.date(),
   listReferences: z.array(
     z.object({
@@ -626,9 +637,22 @@ export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
 // ─────────────────────────────────────────────
 
 export const PRESET_COLOR_IDS = [
-  'red', 'orange', 'amber', 'yellow', 'lime', 'green',
-  'teal', 'cyan', 'sky', 'blue', 'indigo', 'violet',
-  'purple', 'fuchsia', 'rose', 'slate',
+  'red',
+  'orange',
+  'amber',
+  'yellow',
+  'lime',
+  'green',
+  'teal',
+  'cyan',
+  'sky',
+  'blue',
+  'indigo',
+  'violet',
+  'purple',
+  'fuchsia',
+  'rose',
+  'slate',
 ] as const
 export type PresetColorId = (typeof PRESET_COLOR_IDS)[number]
 

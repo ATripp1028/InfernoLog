@@ -37,6 +37,8 @@ import {
 } from '../features/list/columns'
 import { defaultDir } from '../features/list/sortMeta'
 import {
+  ATTEMPTS_DOMAIN,
+  DATE_MIN_MS,
   defaultFilterState,
   type FilterState,
   type ListItem,
@@ -122,6 +124,28 @@ export function List() {
 
   const items = useMemo(() => progress.data ?? [], [progress.data])
   const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data])
+
+  const { earliestDate, maxAttempts } = useMemo(() => {
+    let earliest = DATE_MIN_MS
+    let maxAtt = ATTEMPTS_DOMAIN[1]
+    let hasCompletionDate = false
+    for (const item of items) {
+      if (item.status === 'COMPLETED' && item.entry?.date) {
+        const ms = new Date(item.entry.date).getTime()
+        if (!hasCompletionDate || ms < earliest) {
+          earliest = ms
+          hasCompletionDate = true
+        }
+      }
+      if (item.entry?.attempts != null && item.entry.attempts > maxAtt) {
+        maxAtt = item.entry.attempts
+      }
+    }
+    return {
+      earliestDate: hasCompletionDate ? earliest : DATE_MIN_MS,
+      maxAttempts: maxAtt,
+    }
+  }, [items])
 
   const visible = useMemo(
     () => sortItems(applyFilters(items, filters, search), sorts),
@@ -265,7 +289,10 @@ export function List() {
   ) {
     if (!editingPreset) return
     updatePreset.mutate(
-      { id: editingPreset.id, input: { name, description: description || null, color } },
+      {
+        id: editingPreset.id,
+        input: { name, description: description || null, color },
+      },
       {
         onSuccess: () => {
           setEditingPreset(null)
@@ -324,9 +351,12 @@ export function List() {
       matchCount={visible.length}
       totalCount={items.length}
       scale={ratingDisplayScale}
+      dateFormatPreference={dateFormatPreference}
       availableLengths={availableLengths}
       availableGameVersions={availableGameVersions}
       availableDifficulties={availableDifficulties}
+      earliestDate={earliestDate}
+      maxAttempts={maxAttempts}
       onClose={() => setFilterOpen(false)}
     />
   )

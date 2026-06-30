@@ -11,12 +11,14 @@ import {
   LOGGING_ACTIONS,
   type LoggingAction,
 } from '@/features/logging/loggingActions'
+import { useMobileFabContext } from '@/context/MobileFabContext'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
   const location = useLocation()
   const { open } = useLoggingFlow()
+  const { overrideToggle } = useMobileFabContext()
 
   const byKey = (key: string): NavItem => {
     const item = NAV_ITEMS.find((n) => n.key === key)
@@ -93,7 +95,12 @@ export function MobileNav() {
           active={fabMenuOpen}
           onClick={() => {
             setOverflowOpen(false)
-            setFabMenuOpen((v) => !v)
+            if (overrideToggle) {
+              setFabMenuOpen(false)
+              overrideToggle()
+            } else {
+              setFabMenuOpen((v) => !v)
+            }
           }}
         />
         <BarTab item={log} active={location.pathname === log.to} />

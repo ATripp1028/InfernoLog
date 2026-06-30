@@ -3,6 +3,7 @@ import type { LevelProgressListItem } from '@infernolog/core'
 export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 export type ListSourceFilter = 'GDDL' | 'AREDL' | 'NLW'
 export type LevelTypeFilter = 'CLASSIC' | 'PLATFORMER'
+export type DeviceFilter = 'pc' | 'mobile'
 export type RatedStatusFilter =
   | 'ALL'
   | 'UNRATED'
@@ -27,6 +28,7 @@ export interface FilterState {
   statuses: ProgressStatus[] // empty = all
   listSources: ListSourceFilter[] // empty = all
   levelTypes: LevelTypeFilter[] // empty = all
+  devices: DeviceFilter[] // empty = all
   ratedStatus: RatedStatusFilter // 'ALL' = no constraint
   flags: StatusFlag[] // all selected must be true (AND)
   lengths: string[] // empty = all (level.length values)
@@ -80,6 +82,7 @@ export function defaultFilterState(): FilterState {
     statuses: [],
     listSources: [],
     levelTypes: [],
+    devices: [],
     ratedStatus: 'ALL',
     flags: [],
     lengths: [],

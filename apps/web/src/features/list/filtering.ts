@@ -191,6 +191,11 @@ export function applyFilters(
     )
       return false
 
+    if (filters.devices.length) {
+      const d = item.entry?.device ?? null
+      if (!d || !filters.devices.includes(d as 'pc' | 'mobile')) return false
+    }
+
     if (filters.listSources.length) {
       const refs = item.entry?.listReferences ?? []
       const hasAny = filters.listSources.some((src) =>
@@ -241,6 +246,7 @@ export function countActiveFilters(filters: FilterState): number {
   if (filters.statuses.length) n++
   if (filters.listSources.length) n++
   if (filters.levelTypes.length) n++
+  if (filters.devices.length) n++
   if (filters.ratedStatus !== 'ALL') n++
   if (filters.flags.length) n++
   if (filters.lengths.length) n++

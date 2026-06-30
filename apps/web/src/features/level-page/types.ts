@@ -32,6 +32,10 @@ export interface LevelMeta {
   length: string | null
   songName: string | null
   songAuthor: string | null
+  coins: number | null
+  coinsVerified: boolean | null
+  twoPlayer: boolean | null
+  officialSongId: number | null
 }
 
 export interface ProgressUpdate {
@@ -55,6 +59,10 @@ export interface ProgressUpdate {
   loggedAt: string
   listReferences: ListReference[]
   ratingScores: RatingScore[]
+  coinsCollected: number | null
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string | null
+  device: 'pc' | 'mobile' | null
 }
 
 export interface ListReference {
