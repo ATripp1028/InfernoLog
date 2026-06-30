@@ -264,7 +264,9 @@ function buildRobtopLevel(
   const creator = creators[L['6'] ?? '']
 
   return {
-    name: L['2'] || null,
+    // RobTop stores some level names with trailing/leading whitespace; trim so
+    // stored names are clean and exact-name matching during import works.
+    name: L['2']?.trim() || null,
     creator: creator?.username ?? null,
     inGameDifficulty,
     length: lengthVal !== null ? (LENGTHS[lengthVal] ?? null) : null,

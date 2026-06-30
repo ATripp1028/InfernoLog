@@ -671,6 +671,14 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       for (let i = 0; i < batches.length; i++) {
         const batch = batches[i] ?? []
         if (!batch.length) continue
+        // Reflect the in-flight batch immediately rather than leaving the bar
+        // static until the (potentially slow) request resolves.
+        setProgress((i / batches.length) * 100)
+        setProgressLabel(
+          batches.length > 1
+            ? `Importing… batch ${i + 1} / ${batches.length}`
+            : 'Importing…'
+        )
         try {
           const result = await commitBatch({
             importJobId: importJobId.current,
