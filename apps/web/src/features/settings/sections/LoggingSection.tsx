@@ -9,8 +9,16 @@ import {
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
 import { DateFormatPreference, useUpdateMe, type MeData } from '@/lib/api/me'
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { ImportWizard } from '@/features/import/ImportWizard'
 
 interface LoggingSectionProps {
   me: MeData
@@ -29,6 +37,7 @@ const MIN_FPS = 60
 
 export function LoggingSection({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
+  const [importOpen, setImportOpen] = useState(false)
 
   const handleToggle = async (field: 'showHighlightUrl', next: boolean) => {
     try {
@@ -73,6 +82,24 @@ export function LoggingSection({ me }: LoggingSectionProps) {
   }
 
   return (
+    <>
+    <Sheet open={importOpen} onOpenChange={setImportOpen}>
+      <SheetContent
+        side="right"
+        className="w-[520px] max-w-[95vw] overflow-y-auto p-6"
+        aria-describedby="import-wizard-desc"
+      >
+        <SheetTitle className="sr-only">Import spreadsheet</SheetTitle>
+        <SheetDescription id="import-wizard-desc" className="sr-only">
+          Three-step wizard to import your Geometry Dash completion history from a spreadsheet.
+        </SheetDescription>
+        <ImportWizard
+          me={me}
+          onClose={() => setImportOpen(false)}
+        />
+      </SheetContent>
+    </Sheet>
+
     <SettingsSection title="Logging">
       <SettingRow
         label="Date format"
@@ -125,6 +152,20 @@ export function LoggingSection({ me }: LoggingSectionProps) {
           />
         }
       />
+      <SettingRow
+        label="Import from spreadsheet"
+        description="Bring your existing completion history into InfernoLog from an xlsx spreadsheet."
+        control={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            Import
+          </Button>
+        }
+      />
     </SettingsSection>
+    </>
   )
 }

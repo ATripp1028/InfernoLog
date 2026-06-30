@@ -681,3 +681,126 @@ export const ListPresetSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 })
+
+// ─────────────────────────────────────────────
+// SPREADSHEET IMPORT — wire schemas
+//
+// The client parses the xlsx, interprets dates (ISO strings), and sends a
+// normalized JSON payload. The server re-validates ranges/enums/required
+// fields only — it trusts the ISO date strings from the client.
+//
+// Ratings in the import format are 0-10 (display scale per IMPORT_EXPORT.md).
+// The server multiplies by 10 to convert to the 0-100 internal scale.
+// ─────────────────────────────────────────────
+
+export const ImportCompletionRowSchema = z.object({
+  // levelId is optional — if omitted, the server resolves from levelName + creator.
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  // Creator name for disambiguation when levelId is absent.
+  creator: z.string().nullable().optional(),
+  // ISO 8601 date string, already interpreted by the client.
+  date: z.string().nullable().optional(),
+  dateUncertain: z.boolean().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  // Worst fail / last logged percentage (0-100).
+  percentage: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  onStream: z.boolean().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  // 0-10 display scale (server converts to 0-100 on write).
+  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  simpleRating: z.number().min(0).max(10).nullable().optional(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  // Ignored on import — server populates from the levels cache.
+  inGameDifficulty: z.string().nullable().optional(),
+  gddlTier: z.number().nullable().optional(),
+  nlwTier: z.string().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+})
+
+export const ImportDroppedRowSchema = z.object({
+  // levelId is optional — if omitted, the server resolves from levelName + creator.
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  // Creator name for disambiguation when levelId is absent.
+  creator: z.string().nullable().optional(),
+  // Best progress percentage (0-100).
+  bestProgress: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  // ISO 8601 date string.
+  droppedAt: z.string().nullable().optional(),
+  reason: z.string().max(2000).nullable().optional(),
+  // Snapshot GDDL tier at time of drop (stored on level_progress).
+  gddlTierAtDrop: z.number().nullable().optional(),
+})
+
+// ── Check ──────────────────────────────────────────────────────────────────
+
+export const ImportCheckRequestSchema = z.object({
+  levelIds: z.array(LevelIdSchema).min(1).max(5000),
+})
+
+// Compact existing-completion summary — enough to render the conflict UI.
+export const ImportConflictSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  date: z.string().nullable(),
+  attempts: z.number().int().nullable(),
+  // 0-10 display scale (converted from internal 0-100 on the way out).
+  enjoyment: z.number().nullable(),
+  simpleRating: z.number().nullable(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
+})
+
+export const ImportCheckResponseSchema = z.object({
+  conflicts: z.array(ImportConflictSchema),
+})
+
+// ── Commit ─────────────────────────────────────────────────────────────────
+
+const ImportConflictResolution = z.enum(['skip', 'overwrite'])
+
+export const ImportCommitRowSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('completion'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportCompletionRowSchema,
+    // Only required when a conflict exists for this level.
+    conflictResolution: ImportConflictResolution.optional(),
+  }),
+  z.object({
+    type: z.literal('dropped'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportDroppedRowSchema,
+  }),
+])
+
+export const ImportCommitRequestSchema = z.object({
+  importJobId: z.string().uuid(),
+  rows: z.array(ImportCommitRowSchema).min(1).max(50),
+})
+
+export const ImportCommitOutcomeSchema = z.object({
+  rowIndex: z.number().int(),
+  status: z.enum(['committed', 'skipped', 'failed']),
+  reason: z.string().optional(),
+})
+
+export const ImportCommitResponseSchema = z.object({
+  outcomes: z.array(ImportCommitOutcomeSchema),
+})
+
+export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
+export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
+export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
+export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
+export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
+export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
+export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
+export type ImportConflict = z.infer<typeof ImportConflictSchema>
