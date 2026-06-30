@@ -25,19 +25,38 @@ const sqs = new SQSClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
 
 // ── Name-based level resolution ────────────────────────────────────────────
 
+// Maps a human-readable inGameDifficulty label to GD search API diff/demonFilter params.
+function toDiffFilter(diff: string | null | undefined): { diff?: string; demonFilter?: string } {
+  if (!diff) return {}
+  const d = diff.toLowerCase()
+  if (d === 'easy demon') return { diff: '-2', demonFilter: '1' }
+  if (d === 'medium demon') return { diff: '-2', demonFilter: '2' }
+  if (d === 'hard demon') return { diff: '-2', demonFilter: '3' }
+  if (d === 'insane demon') return { diff: '-2', demonFilter: '4' }
+  if (d === 'extreme demon') return { diff: '-2', demonFilter: '5' }
+  if (d === 'easy') return { diff: '1' }
+  if (d === 'normal') return { diff: '2' }
+  if (d === 'hard') return { diff: '3' }
+  if (d === 'harder') return { diff: '4' }
+  if (d === 'insane') return { diff: '5' }
+  if (d === 'unrated' || d === 'na') return { diff: '-1' }
+  return {}
+}
+
 // Resolves a level ID from its name, checking InfernoLog's cache first then
 // falling back to a live RobTop name search. Returns:
 //   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
-//   'ambiguous'               — multiple candidates even after creator hint filtering
+//   'ambiguous'               — multiple candidates even after creator/difficulty filtering
 //   null                      — no match found anywhere
 async function resolveByName(
   name: string,
-  creator?: string | null
+  creator?: string | null,
+  inGameDifficulty?: string | null
 ): Promise<{ levelId: string; robtopLevel?: RobtopLevel } | 'ambiguous' | null> {
   // 1. Check local cache first.
   const dbLevels = await prisma.level.findMany({
     where: { name: { equals: name, mode: 'insensitive' } },
-    select: { inGameId: true, creator: true },
+    select: { inGameId: true, creator: true, inGameDifficulty: true },
   })
 
   let dbCandidates = dbLevels
@@ -48,13 +67,22 @@ async function resolveByName(
     )
     if (filtered.length > 0) dbCandidates = filtered
   }
+  if (inGameDifficulty && dbCandidates.length > 1) {
+    const filtered = dbCandidates.filter(
+      (l) => l.inGameDifficulty?.toLowerCase() === inGameDifficulty.toLowerCase()
+    )
+    if (filtered.length > 0) dbCandidates = filtered
+  }
 
   if (dbCandidates.length === 1) return { levelId: dbCandidates[0]!.inGameId }
   if (dbCandidates.length > 1) return 'ambiguous'
 
-  // 2. Search RobTop by name. Filter to exact-name matches (the search is
-  //    keyword-based and may return partial matches).
-  const rtResults = await searchRobtopByName(name)
+  // 2. Search RobTop by name with difficulty filter to scope results.
+  //    Filter to exact-name matches (the search is keyword-based and may return
+  //    partial matches). We do NOT fall back to an unfiltered search on 0 results
+  //    because the wrong level is worse than a clear failure.
+  const diffFilter = toDiffFilter(inGameDifficulty)
+  const rtResults = await searchRobtopByName(name, diffFilter)
   const exact = rtResults.filter(
     (r) => r.level.name?.toLowerCase() === name.toLowerCase()
   )
@@ -64,6 +92,12 @@ async function resolveByName(
     const hint = creator.toLowerCase()
     const filtered = rtCandidates.filter(
       (r) => r.level.creator?.toLowerCase().includes(hint)
+    )
+    if (filtered.length > 0) rtCandidates = filtered
+  }
+  if (inGameDifficulty && rtCandidates.length > 1) {
+    const filtered = rtCandidates.filter(
+      (r) => r.level.inGameDifficulty?.toLowerCase() === inGameDifficulty.toLowerCase()
     )
     if (filtered.length > 0) rtCandidates = filtered
   }
@@ -183,6 +217,7 @@ async function commitCompletion(
   }
 
   let progressUpdateId: string
+  let levelProgressId: string
 
   if (existingCompletion && resolution === 'overwrite') {
     await tx.progressUpdate.update({
@@ -196,6 +231,7 @@ async function commitCompletion(
       where: { progressUpdateId: existingCompletion.id },
     })
     progressUpdateId = existingCompletion.id
+    levelProgressId = lp!.id
   } else {
     const newLp = await upsertLevelProgress(tx, userId, levelId, 'COMPLETED')
     const created = await tx.progressUpdate.create({
@@ -203,6 +239,7 @@ async function commitCompletion(
       select: { id: true },
     })
     progressUpdateId = created.id
+    levelProgressId = newLp.id
   }
 
   // Build list references. GDDL tier: explicit row value takes precedence;
@@ -226,15 +263,8 @@ async function commitCompletion(
     })
   }
 
-  const lpId = (
-    await tx.levelProgress.findUniqueOrThrow({
-      where: { userId_levelId: { userId, levelId } },
-      select: { id: true },
-    })
-  ).id
-
   await tx.levelProgress.update({
-    where: { id: lpId },
+    where: { id: levelProgressId },
     data: {
       status: 'COMPLETED',
       ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
@@ -328,7 +358,8 @@ export async function commitImportBatch(
     (r) => !processed.has(r.rowIndex) && !r.data.levelId && r.data.levelName
   )
   for (const row of nameOnlyRows) {
-    const result = await resolveByName(row.data.levelName!, row.data.creator)
+    const inGameDifficulty = row.type === 'completion' ? row.data.inGameDifficulty : null
+    const result = await resolveByName(row.data.levelName!, row.data.creator, inGameDifficulty)
     if (result === 'ambiguous') {
       resolutionFailures.set(
         row.rowIndex,
@@ -507,6 +538,12 @@ export async function commitImportBatch(
         skipDuplicates: true,
       })
     }
+  }, {
+    // Default 5s timeout is too tight for a 50-row batch, especially the
+    // overwrite path (~7 sequential queries/row). Stay under API Gateway's
+    // hard 29s integration timeout (see importRoute's Lambda timeout).
+    maxWait: 5000,
+    timeout: 20000,
   })
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.

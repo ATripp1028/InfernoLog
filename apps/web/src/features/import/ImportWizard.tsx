@@ -265,11 +265,13 @@ function UploadStep({ dateFormat, onDateFormatChange, onParsed }: UploadStepProp
 interface ReviewStepProps {
   parseResult: ParseResult
   flags: AllFlags
+  conflictMode: 'skip' | 'overwrite'
+  onConflictModeChange: (m: 'skip' | 'overwrite') => void
   onSkipFlagged: () => void
   onReUpload: () => void
 }
 
-function ReviewStep({ parseResult, flags, onSkipFlagged, onReUpload }: ReviewStepProps) {
+function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, onSkipFlagged, onReUpload }: ReviewStepProps) {
   const allFlags = [...flags.completions, ...flags.dropped]
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
   const warningFlags = allFlags.filter((f) => f.severity === 'warning')
@@ -374,6 +376,27 @@ function ReviewStep({ parseResult, flags, onSkipFlagged, onReUpload }: ReviewSte
           )}
         </div>
       )}
+
+      <div>
+        <label className="block text-sm font-medium mb-1.5">Existing completions</label>
+        <Select
+          value={conflictMode}
+          onValueChange={(v) => onConflictModeChange(v as 'skip' | 'overwrite')}
+        >
+          <SelectTrigger className="w-72">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="skip">Keep existing (review conflicts)</SelectItem>
+            <SelectItem value="overwrite">Overwrite with spreadsheet data</SelectItem>
+          </SelectContent>
+        </Select>
+        {conflictMode === 'overwrite' && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+            All existing completions matched by this spreadsheet will be replaced.
+          </p>
+        )}
+      </div>
 
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onReUpload}>
@@ -568,6 +591,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [dateFormat, setDateFormat] = useState<DateFormat>(
     me.dateFormatPreference as DateFormat
   )
+  const [conflictMode, setConflictMode] = useState<'skip' | 'overwrite'>('skip')
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [allFlags, setAllFlags] = useState<AllFlags>({
     completions: [],
@@ -613,7 +637,8 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
     async (
       completions: ParsedCompletionRow[],
       dropped: ParsedDroppedRow[],
-      res: Record<string, ConflictResolution>
+      res: Record<string, ConflictResolution>,
+      globalResolution?: ConflictResolution
     ) => {
       setProgressLabel('Importing…')
       setProgress(0)
@@ -623,8 +648,9 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       // Build the flat row list with stable indices.
       const allCommitRows: ImportCommitRow[] = [
         ...completions.map((r): ImportCommitRow => {
-          // Name-only rows (null levelId) can't have pre-checked conflicts.
-          const resolution = r.data.levelId ? res[r.data.levelId] : undefined
+          // Per-row resolution (from conflict step) takes precedence;
+          // fall back to globalResolution (e.g. "overwrite all" mode).
+          const resolution = (r.data.levelId ? res[r.data.levelId] : undefined) ?? globalResolution
           return resolution
             ? { type: 'completion', rowIndex: r.rowIndex, data: r.data, conflictResolution: resolution }
             : { type: 'completion', rowIndex: r.rowIndex, data: r.data }
@@ -679,8 +705,16 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
     if (!parseResult) return
 
     const { completions, dropped } = validRows(parseResult)
-    // Only check conflicts for rows with known level IDs; name-only rows
-    // can't have pre-existing conflicts until the server resolves their ID.
+
+    if (conflictMode === 'overwrite') {
+      // Skip conflict check entirely; all completions get overwrite resolution.
+      setStep('committing')
+      await runCommit(completions, dropped, {}, 'overwrite')
+      return
+    }
+
+    // Skip mode: check conflicts for rows with known level IDs first.
+    // Name-only rows can't be pre-checked until the server resolves their ID.
     const allLevelIds = [
       ...new Set([
         ...completions.flatMap((r) => r.data.levelId ? [r.data.levelId] : []),
@@ -706,7 +740,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       setCommitError(err instanceof Error ? err.message : 'Failed to check conflicts')
       setStep('review')
     }
-  }, [parseResult, validRows, checkConflicts, runCommit])
+  }, [parseResult, validRows, checkConflicts, runCommit, conflictMode])
 
   // ── Step: conflict → commit ────────────────────────────────────────────
 
@@ -742,6 +776,8 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         <ReviewStep
           parseResult={parseResult}
           flags={allFlags}
+          conflictMode={conflictMode}
+          onConflictModeChange={setConflictMode}
           onSkipFlagged={() => void handleSkipFlagged()}
           onReUpload={() => setStep('upload')}
         />

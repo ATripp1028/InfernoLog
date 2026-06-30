@@ -435,7 +435,13 @@ export default $config({
     )
 
     // Import endpoints get the queue URL + SendMessage permission.
-    const importRoute = (route: string) =>
+    // The commit route gets a longer Lambda timeout — large batches with
+    // many overwrite-path rows or name resolutions need more than the
+    // default ~20s. 28s stays just under API Gateway's hard 29s cap.
+    const importRoute = (
+      route: string,
+      timeout?: `${number} second` | `${number} seconds`
+    ) =>
       api.route(
         route,
         {
@@ -451,13 +457,14 @@ export default $config({
               resources: [levelSeedQueue.arn],
             },
           ],
+          ...(timeout ? { timeout } : {}),
           ...sharedNodeOptions,
         },
         { auth: jwtAuth }
       )
 
     importRoute('POST /v1/me/import/check')
-    importRoute('POST /v1/me/import')
+    importRoute('POST /v1/me/import', '28 seconds')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

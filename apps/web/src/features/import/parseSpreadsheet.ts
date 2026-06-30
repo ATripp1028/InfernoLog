@@ -238,6 +238,7 @@ function parseCompletionRow(
     enjoyment: enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
     simpleRating: simpleRating != null && simpleRating >= 0 && simpleRating <= 10 ? simpleRating : null,
     difficultyOpinion,
+    inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     gddlTier: toNum(getField(raw, 'gddl_tier')),
     nlwTier: toStr(getField(raw, 'nlw_tier')),
     notes: toStr(getField(raw, 'notes')),

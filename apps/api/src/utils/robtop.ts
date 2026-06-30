@@ -389,7 +389,11 @@ export async function fetchRobtopLevel(
 // Searches RobTop's getGJLevels21 by level name and returns all matches.
 // Used during spreadsheet import to resolve name-only rows. Returns an empty
 // array on any failure — callers must handle a null resolution gracefully.
-export async function searchRobtopByName(name: string): Promise<RobtopSearchResult[]> {
+// Pass diff/demonFilter to scope results to a specific difficulty.
+export async function searchRobtopByName(
+  name: string,
+  options?: { diff?: string; demonFilter?: string }
+): Promise<RobtopSearchResult[]> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
@@ -402,6 +406,8 @@ export async function searchRobtopByName(name: string): Promise<RobtopSearchResu
       binaryVersion: '42',
       count: '10',
     })
+    if (options?.diff !== undefined) body.set('diff', options.diff)
+    if (options?.demonFilter !== undefined) body.set('demonFilter', options.demonFilter)
 
     const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
       method: 'POST',
