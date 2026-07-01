@@ -108,6 +108,21 @@ export interface ImportCommitResponse {
   outcomes: ImportCommitOutcome[]
 }
 
+export interface ImportRankingEntry {
+  levelId?: string | null
+  levelName?: string | null
+}
+
+export interface ImportRankingRequest {
+  // Ordered hardest → easiest.
+  entries: ImportRankingEntry[]
+}
+
+export interface ImportRankingResponse {
+  placed: number
+  skipped: { rank: number; label: string; reason: string }[]
+}
+
 // ── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useImportApi() {
@@ -137,5 +152,17 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  return { checkConflicts, commitBatch }
+  const commitRanking = useCallback(
+    async (req: ImportRankingRequest): Promise<ImportRankingResponse> => {
+      const token = await getIdToken()
+      return apiFetch<ImportRankingResponse>('/v1/me/import/ranking', {
+        method: 'POST',
+        token,
+        body: req,
+      })
+    },
+    [getIdToken]
+  )
+
+  return { checkConflicts, commitBatch, commitRanking }
 }

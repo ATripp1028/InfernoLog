@@ -187,6 +187,27 @@ Only rows whose data is genuinely unused are reported as *skipped* — a modifie
 
 ---
 
+## Ranking Tab Format
+
+Your personal difficulty ranking of levels you've completed. The tab is deliberately lean — the rest of each level's data lives in the log.
+
+| Column       | Required | Notes                                                                     |
+| ------------ | -------- | ------------------------------------------------------------------------- |
+| `rank`       | No       | Optional number, **1 = hardest**. If present it sorts the tab; if absent, the sheet's row order is the order (top row = hardest). |
+| `level_id`   | No\*     | In-game level ID of a level you've completed                              |
+| `level_name` | No\*     | Matched against **your completed levels** (not the GD servers)            |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Replace, not merge.** When the tab is present with at least one resolvable row, it becomes your entire ranking (the "sheet wins" rule). Omit the tab (or leave it empty) to keep the account's existing ranking untouched.
+- Ranking applies only to **completions** — a listed level you haven't completed (or that only appears in the Dropped tab) is skipped with a note.
+- Committed as one dedicated call **after** the completion/drop batches, so every ranked level already exists in your log.
+- Internally the order maps to `ClassicRanking.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
+
+---
+
 ## Export Options
 
 When exporting, the user chooses:

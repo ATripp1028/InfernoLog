@@ -9,10 +9,12 @@ import * as Sentry from '@sentry/node'
 import {
   ImportCheckRequestSchema,
   ImportCommitRequestSchema,
+  ImportRankingRequestSchema,
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
 import { commitImportBatch, checkImportConflicts } from '../services/import'
+import { commitImportRanking } from '../services/importRanking'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -74,6 +76,39 @@ app.post('/me/import', async (c) => {
     return c.json(result, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/import/ranking — replaces the user's classic ranking with an
+// ordered list (hardest → easiest). Runs once, after the row batches, so every
+// ranked level already exists as one of the user's completions.
+app.post('/me/import/ranking', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const parsed = ImportRankingRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+
+    const result = await commitImportRanking(userId, parsed.data.entries)
+
+    logger.info(
+      {
+        userId,
+        entries: parsed.data.entries.length,
+        placed: result.placed,
+        skipped: result.skipped.length,
+      },
+      'POST /me/import/ranking: ranking replaced'
+    )
+
+    return c.json(result, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'POST /me/import/ranking error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }

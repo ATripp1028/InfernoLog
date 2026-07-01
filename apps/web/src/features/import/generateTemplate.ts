@@ -96,6 +96,15 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
   gddl_tier_at_drop: 55,
 }
 
+// Ranking tab: your personal difficulty order of levels you've completed.
+// Order is what matters (top = hardest); the rank number is just a convenience.
+const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
+
+const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
+  [1, '', 'Tartarus'],
+  [2, '', 'Acheron'],
+]
+
 const FIELD_DESCRIPTIONS = [
   ['Tab', 'Field', 'Required', 'Format / Notes'],
   ['Completions', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
@@ -145,6 +154,11 @@ const FIELD_DESCRIPTIONS = [
   ['Dropped', 'reason', 'no', 'Free text (max 2000 chars)'],
   ['Dropped', 'gddl_tier_at_drop', 'no', 'Whole-number tier at time of drop (decimals are rounded).'],
   ['', '', '', ''],
+  ['Ranking', 'rank', 'no', 'Optional number (1 = hardest). If present it sorts the tab; if absent, the row order is the order (top row = hardest).'],
+  ['Ranking', 'level_id', 'no*', 'Numeric in-game level ID of a level you have completed.'],
+  ['Ranking', 'level_name', 'no*', 'Level name — matched against your completed levels. Required when level_id is blank.'],
+  ['Ranking', '(note)', '', 'The Ranking tab replaces your whole ranking. Levels you haven’t completed are skipped. Omit the tab to keep your existing ranking.'],
+  ['', '', '', ''],
   ['* Either level_id or level_name must be provided for each row.', '', '', ''],
 ]
 
@@ -166,6 +180,11 @@ export function downloadTemplate(): void {
   ]
   const droppedSheet = XLSX.utils.aoa_to_sheet(droppedData)
   XLSX.utils.book_append_sheet(wb, droppedSheet, 'Dropped')
+
+  // Ranking tab: header row + a couple example rows (order = hardest first)
+  const rankingData = [RANKING_HEADERS, ...RANKING_EXAMPLE_ROWS]
+  const rankingSheet = XLSX.utils.aoa_to_sheet(rankingData)
+  XLSX.utils.book_append_sheet(wb, rankingSheet, 'Ranking')
 
   // Descriptions tab
   const descSheet = XLSX.utils.aoa_to_sheet(FIELD_DESCRIPTIONS)

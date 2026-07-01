@@ -821,6 +821,34 @@ export const ImportCommitResponseSchema = z.object({
   outcomes: z.array(ImportCommitOutcomeSchema),
 })
 
+// ── Ranking ──────────────────────────────────────────────────────────────
+//
+// The ranking is a total order with replace semantics ("the sheet wins"), so
+// it's committed in one dedicated call rather than through the row-batched path.
+// Entries are ordered hardest → easiest; each must resolve to one of the user's
+// own completed levels (ranking only applies to completions).
+
+export const ImportRankingEntrySchema = z.object({
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+})
+
+export const ImportRankingRequestSchema = z.object({
+  // Ordered hardest (index 0) → easiest.
+  entries: z.array(ImportRankingEntrySchema).max(5000),
+})
+
+export const ImportRankingSkipSchema = z.object({
+  rank: z.number().int(),
+  label: z.string(),
+  reason: z.string(),
+})
+
+export const ImportRankingResponseSchema = z.object({
+  placed: z.number().int(),
+  skipped: z.array(ImportRankingSkipSchema),
+})
+
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
@@ -829,3 +857,6 @@ export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
 export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
 export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
 export type ImportConflict = z.infer<typeof ImportConflictSchema>
+export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
+export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
+export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>

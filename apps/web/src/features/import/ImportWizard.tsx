@@ -19,6 +19,7 @@ import type {
   ImportConflict,
   ImportCommitRow,
   ImportCommitOutcome,
+  ImportRankingResponse,
   ConflictResolution,
 } from '@/lib/api/import'
 import {
@@ -57,6 +58,7 @@ type WizardStep = 'upload' | 'review' | 'conflict' | 'committing' | 'success'
 interface AllFlags {
   completions: ParseFlag[]
   dropped: ParseFlag[]
+  ranking: ParseFlag[]
   duplicates: ParseResult['duplicateLevelIds']
 }
 
@@ -166,10 +168,12 @@ function UploadStep({ dateFormat, onDateFormatChange, onParsed }: UploadStepProp
 
         const allCompletionFlags = result.completions.flatMap((r) => r.flags)
         const allDroppedFlags = result.dropped.flatMap((r) => r.flags)
+        const allRankingFlags = result.ranking.flatMap((r) => r.flags)
 
         onParsed(result, {
           completions: allCompletionFlags,
           dropped: allDroppedFlags,
+          ranking: allRankingFlags,
           duplicates: result.duplicateLevelIds,
         })
       } catch (err) {
@@ -272,11 +276,12 @@ interface ReviewStepProps {
 }
 
 function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, onSkipFlagged, onReUpload }: ReviewStepProps) {
-  const allFlags = [...flags.completions, ...flags.dropped]
+  const allFlags = [...flags.completions, ...flags.dropped, ...flags.ranking]
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
   const errorFlagsByTab = {
     completions: flags.completions.filter((f) => f.severity === 'error'),
     dropped: flags.dropped.filter((f) => f.severity === 'error'),
+    ranking: flags.ranking.filter((f) => f.severity === 'error'),
   }
   // Two flavors of warning: a missing level_id we'll resolve by name (the row
   // is fine), and a bad field value we've dropped (the rest of the row imports).
@@ -284,13 +289,17 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
   const nameOnlyByTab = {
     completions: flags.completions.filter((f) => f.severity === 'warning' && isNameOnly(f)),
     dropped: flags.dropped.filter((f) => f.severity === 'warning' && isNameOnly(f)),
+    ranking: flags.ranking.filter((f) => f.severity === 'warning' && isNameOnly(f)),
   }
   const dataWarnByTab = {
     completions: flags.completions.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
     dropped: flags.dropped.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
+    ranking: flags.ranking.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
   }
-  const totalNameOnly = nameOnlyByTab.completions.length + nameOnlyByTab.dropped.length
-  const totalDataWarn = dataWarnByTab.completions.length + dataWarnByTab.dropped.length
+  const totalNameOnly =
+    nameOnlyByTab.completions.length + nameOnlyByTab.dropped.length + nameOnlyByTab.ranking.length
+  const totalDataWarn =
+    dataWarnByTab.completions.length + dataWarnByTab.dropped.length + dataWarnByTab.ranking.length
 
   const validCompletions = parseResult.completions.filter(
     (r) => !r.flags.some((f) => f.severity === 'error') && (r.data.levelId || r.data.levelName)
@@ -298,6 +307,9 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
   const validDropped = parseResult.dropped.filter(
     (r) => !r.flags.some((f) => f.severity === 'error') && (r.data.levelId || r.data.levelName)
   )
+  const totalRanked = parseResult.ranking.filter(
+    (r) => !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+  ).length
   const totalValid = validCompletions.length + validDropped.length
   const totalSkipped = errorFlags.length + flags.duplicates.length
 
@@ -330,6 +342,7 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
         </p>
         <div className="mt-1 text-xs text-muted-foreground">
           {validCompletions.length} completions · {validDropped.length} dropped
+          {totalRanked > 0 && ` · ${totalRanked} ranked`}
           {totalNameOnly > 0 && ' · name-only rows will be resolved during import'}
         </div>
       </div>
@@ -368,6 +381,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
               <FlagList flags={errorFlagsByTab.dropped} />
             </>
           )}
+          {errorFlagsByTab.ranking.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ranking tab</p>
+              <FlagList flags={errorFlagsByTab.ranking} />
+            </>
+          )}
         </div>
       )}
 
@@ -388,6 +407,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
               <FlagList flags={dataWarnByTab.dropped} />
             </>
           )}
+          {dataWarnByTab.ranking.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ranking tab</p>
+              <FlagList flags={dataWarnByTab.ranking} />
+            </>
+          )}
         </div>
       )}
 
@@ -406,6 +431,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">Dropped tab</p>
               <FlagList flags={nameOnlyByTab.dropped} />
+            </>
+          )}
+          {nameOnlyByTab.ranking.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ranking tab</p>
+              <FlagList flags={nameOnlyByTab.ranking} />
             </>
           )}
         </div>
@@ -557,10 +588,11 @@ function ProgressBar({ value }: { value: number }) {
 
 interface SuccessStepProps {
   outcomes: ImportCommitOutcome[]
+  rankingResult: ImportRankingResponse | null
   onClose: () => void
 }
 
-function SuccessStep({ outcomes, onClose }: SuccessStepProps) {
+function SuccessStep({ outcomes, rankingResult, onClose }: SuccessStepProps) {
   const committed = outcomes.filter((o) => o.status === 'committed')
   const updated = outcomes.filter((o) => o.status === 'updated')
   const skipped = outcomes.filter((o) => o.status === 'skipped')
@@ -577,7 +609,25 @@ function SuccessStep({ outcomes, onClose }: SuccessStepProps) {
           {skipped.length > 0 && `, ${skipped.length} skipped`}
           {failed.length > 0 && `, ${failed.length} failed`}
         </p>
+        {rankingResult && (
+          <p className="text-sm text-muted-foreground">
+            {rankingResult.placed} level{rankingResult.placed !== 1 ? 's' : ''} ranked
+            {rankingResult.skipped.length > 0 &&
+              `, ${rankingResult.skipped.length} not ranked`}
+          </p>
+        )}
       </div>
+
+      {rankingResult && rankingResult.skipped.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-amber-700 dark:text-amber-400">Not ranked</p>
+          {rankingResult.skipped.map((s, i) => (
+            <div key={i} className="text-amber-700 dark:text-amber-400">
+              {s.label} — {s.reason}
+            </div>
+          ))}
+        </div>
+      )}
 
       {(failed.length > 0 || skipped.length > 0) && (
         <div className="rounded-lg border border-[var(--color-border)] divide-y divide-[var(--color-border)] max-h-56 overflow-y-auto text-xs">
@@ -624,7 +674,7 @@ interface ImportWizardProps {
 }
 
 export function ImportWizard({ me, onClose }: ImportWizardProps) {
-  const { checkConflicts, commitBatch } = useImportApi()
+  const { checkConflicts, commitBatch, commitRanking } = useImportApi()
 
   const [step, setStep] = useState<WizardStep>('upload')
   const [dateFormat, setDateFormat] = useState<DateFormat>(
@@ -635,6 +685,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [allFlags, setAllFlags] = useState<AllFlags>({
     completions: [],
     dropped: [],
+    ranking: [],
     duplicates: [],
   })
   const [conflicts, setConflicts] = useState<ImportConflict[]>([])
@@ -642,6 +693,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
   const [outcomes, setOutcomes] = useState<ImportCommitOutcome[]>([])
+  const [rankingResult, setRankingResult] = useState<ImportRankingResponse | null>(null)
   const [commitError, setCommitError] = useState<string | null>(null)
 
   const importJobId = useRef(randomUUID())
@@ -682,6 +734,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       setProgressLabel('Importing…')
       setProgress(0)
       setOutcomes([])
+      setRankingResult(null)
       setCommitError(null)
 
       // Build the flat row list with stable indices.
@@ -741,9 +794,37 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       }
 
       setOutcomes(allOutcomes)
+
+      // Ranking runs last, once completions are committed: a dedicated call that
+      // replaces the classic ranking from the (already hardest→easiest ordered)
+      // Ranking tab. Only fires when the sheet actually carries a ranking.
+      const rankingRows = (parseResult?.ranking ?? []).filter(
+        (r) => !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+      )
+      if (rankingRows.length > 0) {
+        setProgressLabel('Applying ranking…')
+        try {
+          const res = await commitRanking({
+            entries: rankingRows.map((r) => ({ levelId: r.levelId, levelName: r.levelName })),
+          })
+          setRankingResult(res)
+        } catch (err) {
+          setRankingResult({
+            placed: 0,
+            skipped: [
+              {
+                rank: 0,
+                label: 'Ranking',
+                reason: err instanceof Error ? err.message : 'Failed to apply ranking',
+              },
+            ],
+          })
+        }
+      }
+
       setStep('success')
     },
-    [commitBatch]
+    [commitBatch, commitRanking, parseResult]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
@@ -857,7 +938,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       )}
 
       {step === 'success' && (
-        <SuccessStep outcomes={outcomes} onClose={onClose} />
+        <SuccessStep outcomes={outcomes} rankingResult={rankingResult} onClose={onClose} />
       )}
 
       {step !== 'success' && step !== 'committing' && (
