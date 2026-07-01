@@ -166,17 +166,19 @@ Only rows whose data is genuinely unused are reported as *skipped* — a modifie
 
 ## Dropped Tab Format
 
-| Column              | Required | Notes      |
-| ------------------- | -------- | ---------- |
-| `level_id`          | Yes      |            |
-| `level_name`        | No       |            |
-| `best_progress`     | No       | Percentage |
-| `run_from`          | No       |            |
-| `run_to`            | No       |            |
-| `attempts_at_drop`  | No       |            |
-| `dropped_at`        | No       | Date       |
-| `reason`            | No       | Text       |
-| `gddl_tier_at_drop` | No       | Snapshot   |
+| Column               | Required | Notes                                                     |
+| -------------------- | -------- | --------------------------------------------------------- |
+| `level_id`           | No\*     | In-game level ID                                          |
+| `level_name`         | No\*     | If blank, resolved from the GD servers by name            |
+| `creator`            | No       | Narrows name resolution when the name matches many levels |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank          |
+| `best_progress`      | No       | Percentage (a trailing `%` is accepted)                   |
+| `run_from`           | No       | Trailing `%` accepted                                     |
+| `run_to`             | No       | Trailing `%` accepted                                     |
+| `attempts_at_drop`   | No       |                                                           |
+| `dropped_at`         | No       | Date                                                      |
+| `reason`             | No       | Text                                                      |
+| `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                   |
 
 ---
 

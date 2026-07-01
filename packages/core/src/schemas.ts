@@ -741,6 +741,9 @@ export const ImportDroppedRowSchema = z.object({
   reason: z.string().max(2000).nullable().optional(),
   // Snapshot GDDL tier at time of drop (stored on level_progress).
   gddlTierAtDrop: z.number().nullable().optional(),
+  // Only used to disambiguate name resolution when levelId is absent — the same
+  // as the completions tab. Not stored.
+  inGameDifficulty: z.string().nullable().optional(),
 })
 
 // ── Check ──────────────────────────────────────────────────────────────────

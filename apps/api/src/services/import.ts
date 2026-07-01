@@ -445,8 +445,12 @@ export async function commitImportBatch(
     (r) => !processed.has(r.rowIndex) && !r.data.levelId && r.data.levelName
   )
   for (const row of nameOnlyRows) {
-    const inGameDifficulty = row.type === 'completion' ? row.data.inGameDifficulty : null
-    const result = await resolveByName(row.data.levelName!, row.data.creator, inGameDifficulty)
+    // Both tabs carry in_game_difficulty purely to disambiguate name resolution.
+    const result = await resolveByName(
+      row.data.levelName!,
+      row.data.creator,
+      row.data.inGameDifficulty
+    )
     if (result === 'ambiguous') {
       resolutionFailures.set(
         row.rowIndex,

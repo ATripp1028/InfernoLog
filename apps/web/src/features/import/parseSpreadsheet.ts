@@ -363,6 +363,7 @@ function parseDroppedRow(
     levelId: validLevelId,
     levelName,
     creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
+    inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     bestProgress: bestProgress != null && bestProgress >= 0 && bestProgress <= 100 ? bestProgress : null,
     runFrom: runFrom != null && runFrom >= 0 && runFrom <= 100 ? Math.round(runFrom) : null,
     runTo: runTo != null && runTo >= 0 && runTo <= 100 ? Math.round(runTo) : null,

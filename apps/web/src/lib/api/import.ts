@@ -64,6 +64,7 @@ export interface ImportDroppedRow {
   droppedAt?: string | null
   reason?: string | null
   gddlTierAtDrop?: number | null
+  inGameDifficulty?: string | null
 }
 
 export type ConflictResolution = 'skip' | 'overwrite'
