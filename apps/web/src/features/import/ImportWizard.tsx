@@ -21,6 +21,7 @@ import type {
   ImportCommitOutcome,
   ImportRankingResponse,
   ImportListsResponse,
+  ImportRatingsResponse,
   ConflictResolution,
 } from '@/lib/api/import'
 import {
@@ -61,6 +62,7 @@ interface AllFlags {
   dropped: ParseFlag[]
   ranking: ParseFlag[]
   lists: ParseFlag[]
+  ratings: ParseFlag[]
   duplicates: ParseResult['duplicateLevelIds']
 }
 
@@ -172,12 +174,14 @@ function UploadStep({ dateFormat, onDateFormatChange, onParsed }: UploadStepProp
         const allDroppedFlags = result.dropped.flatMap((r) => r.flags)
         const allRankingFlags = result.ranking.flatMap((r) => r.flags)
         const allListFlags = result.lists.flatMap((r) => r.flags)
+        const allRatingFlags = result.ratings.flatMap((r) => r.flags)
 
         onParsed(result, {
           completions: allCompletionFlags,
           dropped: allDroppedFlags,
           ranking: allRankingFlags,
           lists: allListFlags,
+          ratings: allRatingFlags,
           duplicates: result.duplicateLevelIds,
         })
       } catch (err) {
@@ -280,13 +284,20 @@ interface ReviewStepProps {
 }
 
 function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, onSkipFlagged, onReUpload }: ReviewStepProps) {
-  const allFlags = [...flags.completions, ...flags.dropped, ...flags.ranking, ...flags.lists]
+  const allFlags = [
+    ...flags.completions,
+    ...flags.dropped,
+    ...flags.ranking,
+    ...flags.lists,
+    ...flags.ratings,
+  ]
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
   const errorFlagsByTab = {
     completions: flags.completions.filter((f) => f.severity === 'error'),
     dropped: flags.dropped.filter((f) => f.severity === 'error'),
     ranking: flags.ranking.filter((f) => f.severity === 'error'),
     lists: flags.lists.filter((f) => f.severity === 'error'),
+    ratings: flags.ratings.filter((f) => f.severity === 'error'),
   }
   // Two flavors of warning: a missing level_id we'll resolve by name (the row
   // is fine), and a bad field value we've dropped (the rest of the row imports).
@@ -296,23 +307,19 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
     dropped: flags.dropped.filter((f) => f.severity === 'warning' && isNameOnly(f)),
     ranking: flags.ranking.filter((f) => f.severity === 'warning' && isNameOnly(f)),
     lists: flags.lists.filter((f) => f.severity === 'warning' && isNameOnly(f)),
+    ratings: flags.ratings.filter((f) => f.severity === 'warning' && isNameOnly(f)),
   }
   const dataWarnByTab = {
     completions: flags.completions.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
     dropped: flags.dropped.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
     ranking: flags.ranking.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
     lists: flags.lists.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
+    ratings: flags.ratings.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
   }
-  const totalNameOnly =
-    nameOnlyByTab.completions.length +
-    nameOnlyByTab.dropped.length +
-    nameOnlyByTab.ranking.length +
-    nameOnlyByTab.lists.length
-  const totalDataWarn =
-    dataWarnByTab.completions.length +
-    dataWarnByTab.dropped.length +
-    dataWarnByTab.ranking.length +
-    dataWarnByTab.lists.length
+  const sumTab = (o: Record<string, ParseFlag[]>) =>
+    Object.values(o).reduce((n, arr) => n + arr.length, 0)
+  const totalNameOnly = sumTab(nameOnlyByTab)
+  const totalDataWarn = sumTab(dataWarnByTab)
 
   const validCompletions = parseResult.completions.filter(
     (r) => !r.flags.some((f) => f.severity === 'error') && (r.data.levelId || r.data.levelName)
@@ -325,6 +332,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
   ).length
   const totalListed = parseResult.lists.filter(
     (r) => !r.flags.some((f) => f.severity === 'error') && r.list && (r.levelId || r.levelName)
+  ).length
+  const totalRated = parseResult.ratings.filter(
+    (r) =>
+      !r.flags.some((f) => f.severity === 'error') &&
+      (r.levelId || r.levelName) &&
+      Object.keys(r.scores).length > 0
   ).length
   const totalValid = validCompletions.length + validDropped.length
   const totalSkipped = errorFlags.length + flags.duplicates.length
@@ -360,6 +373,7 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
           {validCompletions.length} completions · {validDropped.length} dropped
           {totalRanked > 0 && ` · ${totalRanked} ranked`}
           {totalListed > 0 && ` · ${totalListed} list entries`}
+          {totalRated > 0 && ` · ${totalRated} rated`}
           {totalNameOnly > 0 && ' · name-only rows will be resolved during import'}
         </div>
       </div>
@@ -410,6 +424,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
               <FlagList flags={errorFlagsByTab.lists} />
             </>
           )}
+          {errorFlagsByTab.ratings.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ratings tab</p>
+              <FlagList flags={errorFlagsByTab.ratings} />
+            </>
+          )}
         </div>
       )}
 
@@ -442,6 +462,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
               <FlagList flags={dataWarnByTab.lists} />
             </>
           )}
+          {dataWarnByTab.ratings.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ratings tab</p>
+              <FlagList flags={dataWarnByTab.ratings} />
+            </>
+          )}
         </div>
       )}
 
@@ -472,6 +498,12 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">Lists tab</p>
               <FlagList flags={nameOnlyByTab.lists} />
+            </>
+          )}
+          {nameOnlyByTab.ratings.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Ratings tab</p>
+              <FlagList flags={nameOnlyByTab.ratings} />
             </>
           )}
         </div>
@@ -625,10 +657,17 @@ interface SuccessStepProps {
   outcomes: ImportCommitOutcome[]
   rankingResult: ImportRankingResponse | null
   listsResult: ImportListsResponse | null
+  ratingsResult: ImportRatingsResponse | null
   onClose: () => void
 }
 
-function SuccessStep({ outcomes, rankingResult, listsResult, onClose }: SuccessStepProps) {
+function SuccessStep({
+  outcomes,
+  rankingResult,
+  listsResult,
+  ratingsResult,
+  onClose,
+}: SuccessStepProps) {
   const committed = outcomes.filter((o) => o.status === 'committed')
   const updated = outcomes.filter((o) => o.status === 'updated')
   const skipped = outcomes.filter((o) => o.status === 'skipped')
@@ -659,6 +698,14 @@ function SuccessStep({ outcomes, rankingResult, listsResult, onClose }: SuccessS
               `, ${listsResult.skipped.length} list entr${listsResult.skipped.length === 1 ? 'y' : 'ies'} skipped`}
           </p>
         )}
+        {ratingsResult && (ratingsResult.scored > 0 || ratingsResult.skipped.length > 0) && (
+          <p className="text-sm text-muted-foreground">
+            {ratingsResult.scored} score{ratingsResult.scored !== 1 ? 's' : ''} across{' '}
+            {ratingsResult.levels} level{ratingsResult.levels !== 1 ? 's' : ''}
+            {ratingsResult.categoriesCreated.length > 0 &&
+              ` · new categor${ratingsResult.categoriesCreated.length === 1 ? 'y' : 'ies'}: ${ratingsResult.categoriesCreated.join(', ')}`}
+          </p>
+        )}
       </div>
 
       {rankingResult && rankingResult.skipped.length > 0 && (
@@ -676,6 +723,17 @@ function SuccessStep({ outcomes, rankingResult, listsResult, onClose }: SuccessS
         <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
           <p className="font-medium text-amber-700 dark:text-amber-400">List entries skipped</p>
           {listsResult.skipped.map((s, i) => (
+            <div key={i} className="text-amber-700 dark:text-amber-400">
+              {s.label} — {s.reason}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ratingsResult && ratingsResult.skipped.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-amber-700 dark:text-amber-400">Ratings skipped</p>
+          {ratingsResult.skipped.map((s, i) => (
             <div key={i} className="text-amber-700 dark:text-amber-400">
               {s.label} — {s.reason}
             </div>
@@ -728,7 +786,8 @@ interface ImportWizardProps {
 }
 
 export function ImportWizard({ me, onClose }: ImportWizardProps) {
-  const { checkConflicts, commitBatch, commitRanking, commitLists } = useImportApi()
+  const { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings } =
+    useImportApi()
 
   const [step, setStep] = useState<WizardStep>('upload')
   const [dateFormat, setDateFormat] = useState<DateFormat>(
@@ -741,6 +800,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
     dropped: [],
     ranking: [],
     lists: [],
+    ratings: [],
     duplicates: [],
   })
   const [conflicts, setConflicts] = useState<ImportConflict[]>([])
@@ -750,6 +810,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [outcomes, setOutcomes] = useState<ImportCommitOutcome[]>([])
   const [rankingResult, setRankingResult] = useState<ImportRankingResponse | null>(null)
   const [listsResult, setListsResult] = useState<ImportListsResponse | null>(null)
+  const [ratingsResult, setRatingsResult] = useState<ImportRatingsResponse | null>(null)
   const [commitError, setCommitError] = useState<string | null>(null)
 
   const importJobId = useRef(randomUUID())
@@ -792,6 +853,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       setOutcomes([])
       setRankingResult(null)
       setListsResult(null)
+      setRatingsResult(null)
       setCommitError(null)
 
       // Build the flat row list with stable indices.
@@ -912,9 +974,44 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         }
       }
 
+      // Ratings: write weighted category scores onto completions.
+      const ratingRows = (parseResult?.ratings ?? []).filter(
+        (r) =>
+          !r.flags.some((f) => f.severity === 'error') &&
+          (r.levelId || r.levelName) &&
+          Object.keys(r.scores).length > 0
+      )
+      if (ratingRows.length > 0) {
+        setProgressLabel('Applying ratings…')
+        try {
+          const res = await commitRatings({
+            entries: ratingRows.map((r) => ({
+              levelId: r.levelId,
+              levelName: r.levelName,
+              creator: r.creator,
+              inGameDifficulty: r.inGameDifficulty,
+              scores: r.scores,
+            })),
+          })
+          setRatingsResult(res)
+        } catch (err) {
+          setRatingsResult({
+            scored: 0,
+            levels: 0,
+            categoriesCreated: [],
+            skipped: [
+              {
+                label: 'Ratings',
+                reason: err instanceof Error ? err.message : 'Failed to apply ratings',
+              },
+            ],
+          })
+        }
+      }
+
       setStep('success')
     },
-    [commitBatch, commitRanking, commitLists, parseResult]
+    [commitBatch, commitRanking, commitLists, commitRatings, parseResult]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
@@ -1032,6 +1129,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
           outcomes={outcomes}
           rankingResult={rankingResult}
           listsResult={listsResult}
+          ratingsResult={ratingsResult}
           onClose={onClose}
         />
       )}

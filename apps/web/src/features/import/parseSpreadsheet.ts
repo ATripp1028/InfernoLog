@@ -192,6 +192,17 @@ export interface ParsedListRow {
   flags: ParseFlag[]
 }
 
+export interface ParsedRatingRow {
+  rowIndex: number
+  levelId: string | null
+  levelName: string | null
+  creator: string | null
+  inGameDifficulty: string | null
+  /** Category name → score on the internal 0-100 scale. */
+  scores: Record<string, number>
+  flags: ParseFlag[]
+}
+
 export interface ParseResult {
   completions: ParsedCompletionRow[]
   dropped: ParsedDroppedRow[]
@@ -199,6 +210,10 @@ export interface ParseResult {
   ranking: ParsedRankingRow[]
   /** Lists tab entries, in sheet row order (grouped/ordered server-side). */
   lists: ParsedListRow[]
+  /** Ratings tab entries — one row per level, one score column per category. */
+  ratings: ParsedRatingRow[]
+  /** Category column names discovered in the Ratings tab, in sheet order. */
+  ratingCategories: string[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions' | 'dropped'; levelId: string; rows: number[] }[]
 }
@@ -520,6 +535,79 @@ function parseListRow(raw: Record<string, unknown>, rowIndex: number): ParsedLis
   }
 }
 
+// ── Ratings tab ────────────────────────────────────────────────────────────
+
+// Columns in the Ratings tab that identify the level rather than a category.
+const RESERVED_RATING_COLS = new Set([
+  'level_id',
+  'level_name',
+  'creator',
+  'publisher',
+  'level_author',
+  'in_game_difficulty',
+])
+
+// Parses a rating cell to the internal 0-100 scale, accepting either a 0-10
+// value (≤10 → ×10) or a 0-100 value (>10 → as-is): "9.5" and "95" both → 95.
+function toScore100(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const s = String(v).trim().replace(/%\s*$/, '').trim()
+  if (s === '') return null
+  const n = Number(s)
+  if (isNaN(n)) return null
+  return Math.round(n <= 10 ? n * 10 : n)
+}
+
+function parseRatingRow(
+  raw: Record<string, unknown>,
+  rowIndex: number,
+  categoryNames: string[]
+): ParsedRatingRow {
+  const flags: ParseFlag[] = []
+  const rawLevelId = toStr(getField(raw, 'level_id'))
+  const levelName = toStr(getField(raw, 'level_name'))
+  const label = rowLabelFor(levelName, rawLevelId, rowIndex)
+  const pushFlag = (field: string, message: string, severity: 'error' | 'warning') =>
+    flags.push({ rowIndex, rowLabel: label, field, message, severity })
+
+  let levelId: string | null = null
+  if (rawLevelId && /^\d+$/.test(rawLevelId)) {
+    levelId = rawLevelId
+  } else if (rawLevelId && !levelName) {
+    pushFlag('level_id', `level_id "${rawLevelId}" isn't numeric and no level_name given — row cannot be imported`, 'error')
+  } else if (rawLevelId && levelName) {
+    pushFlag('level_id', `level_id "${rawLevelId}" isn't numeric — resolving by name instead`, 'warning')
+  } else if (!levelName) {
+    pushFlag('level_id', 'Missing level_id and level_name — row cannot be imported', 'error')
+  }
+
+  const scores: Record<string, number> = {}
+  for (const cat of categoryNames) {
+    const rawScore = getField(raw, cat)
+    if (rawScore == null || rawScore === '') continue
+    const score = toScore100(rawScore)
+    if (score === null) {
+      pushFlag(cat, `${cat} score "${rawScore}" isn't a valid number — value dropped`, 'warning')
+      continue
+    }
+    if (score < 0 || score > 100) {
+      pushFlag(cat, `${cat} score "${rawScore}" is out of range (0-10 or 0-100) — value dropped`, 'warning')
+      continue
+    }
+    scores[cat] = score
+  }
+
+  return {
+    rowIndex,
+    levelId,
+    levelName,
+    creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
+    inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
+    scores,
+    flags,
+  }
+}
+
 // ── Main parse function ────────────────────────────────────────────────────
 
 export function parseSpreadsheet(
@@ -538,6 +626,7 @@ export function parseSpreadsheet(
   const droppedSheet = findSheet('Dropped')
   const rankingSheet = findSheet('Ranking')
   const listsSheet = findSheet('Lists')
+  const ratingsSheet = findSheet('Ratings')
 
   const rawCompletions: Record<string, unknown>[] = completionSheet
     ? XLSX.utils.sheet_to_json(completionSheet, { defval: null })
@@ -576,6 +665,22 @@ export function parseSpreadsheet(
 
   const lists = rawLists.map((r, i) => parseListRow(r as Record<string, unknown>, i))
 
+  // Ratings tab is "wide": every header that isn't a level-identity column is a
+  // category. Read the header row to discover the category columns.
+  let ratingCategories: string[] = []
+  let ratings: ParsedRatingRow[] = []
+  if (ratingsSheet) {
+    const headerRow = (XLSX.utils.sheet_to_json(ratingsSheet, { header: 1 })[0] ??
+      []) as unknown[]
+    ratingCategories = headerRow
+      .map((h) => (h == null ? '' : String(h).trim()))
+      .filter((h) => h && !RESERVED_RATING_COLS.has(normalizeKey(h)))
+    const rawRatings = XLSX.utils.sheet_to_json(ratingsSheet, {
+      defval: null,
+    }) as Record<string, unknown>[]
+    ratings = rawRatings.map((r, i) => parseRatingRow(r, i, ratingCategories))
+  }
+
   // Detect intra-tab duplicate level IDs.
   const duplicateLevelIds: ParseResult['duplicateLevelIds'] = []
 
@@ -601,5 +706,13 @@ export function parseSpreadsheet(
     if (rows.length > 1) duplicateLevelIds.push({ tab: 'dropped', levelId, rows })
   }
 
-  return { completions, dropped, ranking, lists, duplicateLevelIds }
+  return {
+    completions,
+    dropped,
+    ranking,
+    lists,
+    ratings,
+    ratingCategories,
+    duplicateLevelIds,
+  }
 }

@@ -115,6 +115,23 @@ const LIST_EXAMPLE_ROWS: (string | number)[][] = [
   ['My Custom List', '', 'Bloodbath', 'Riot', 'Extreme Demon', 1],
 ]
 
+// Ratings tab: weighted category scores. Identity columns first, then one column
+// per rating category (headers named after your categories). The category
+// columns here are just the seeded defaults — rename / add / remove to match yours.
+const RATING_HEADERS = [
+  'level_id',
+  'level_name',
+  'creator',
+  'in_game_difficulty',
+  'Gameplay',
+  'Decoration',
+  'Song',
+]
+
+const RATING_EXAMPLE_ROWS: (string | number)[][] = [
+  ['', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 9, 7],
+]
+
 const FIELD_DESCRIPTIONS = [
   ['Tab', 'Field', 'Required', 'Format / Notes'],
   ['Completions', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
@@ -177,6 +194,13 @@ const FIELD_DESCRIPTIONS = [
   ['Lists', 'position', 'no', 'Optional order within the list. Row order is used if blank.'],
   ['Lists', '(note)', '', 'Each list named in the tab has its membership replaced. Lists you don’t mention are left alone.'],
   ['', '', '', ''],
+  ['Ratings', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
+  ['Ratings', 'level_name', 'no*', 'The level — matched against your completed levels. Scores attach to the completion.'],
+  ['Ratings', 'creator', 'no', 'Creator name — narrows name resolution when level_name matches multiple levels.'],
+  ['Ratings', 'in_game_difficulty', 'no', 'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank.'],
+  ['Ratings', '(category columns)', 'no', 'Every other column header is a rating category name; the cell is that level’s score (0-10 or 0-100 — both accepted). Categories are matched by name and created if missing.'],
+  ['Ratings', '(note)', '', 'Only the categories you include are written; a level must be completed to be rated. New categories are added with weight 0 — set weights in Settings.'],
+  ['', '', '', ''],
   ['* Either level_id or level_name must be provided for each row.', '', '', ''],
 ]
 
@@ -208,6 +232,11 @@ export function downloadTemplate(): void {
   const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]
   const listSheet = XLSX.utils.aoa_to_sheet(listData)
   XLSX.utils.book_append_sheet(wb, listSheet, 'Lists')
+
+  // Ratings tab: identity columns + one column per category
+  const ratingData = [RATING_HEADERS, ...RATING_EXAMPLE_ROWS]
+  const ratingSheet = XLSX.utils.aoa_to_sheet(ratingData)
+  XLSX.utils.book_append_sheet(wb, ratingSheet, 'Ratings')
 
   // Descriptions tab
   const descSheet = XLSX.utils.aoa_to_sheet(FIELD_DESCRIPTIONS)

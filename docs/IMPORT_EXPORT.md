@@ -231,6 +231,30 @@ Semantics:
 
 ---
 
+## Ratings Tab Format
+
+Weighted per-category scores. The tab is "wide": identity columns, then **one column per rating category** (headers named after your categories).
+
+| Column               | Required | Notes                                                          |
+| -------------------- | -------- | -------------------------------------------------------------- |
+| `level_id`           | No\*     | In-game level ID                                               |
+| `level_name`         | No\*     | Matched against **your completed levels** (scores attach to the completion) |
+| `creator`            | No       | Narrows name resolution                                        |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank               |
+| _(any other column)_ | No       | Treated as a **category name**; the cell is that level's score |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Score scale**: a value ≤ 10 is read as 0–10 (×10), a value > 10 as 0–100; both are stored as a 0–100 integer. So `9.5` and `95` both become `95`.
+- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 1.00 weight-sum invariant, and the **rating mode is left unchanged** (set weights / switch to weighted in Settings).
+- **Merge, not replace**: only the categories a row names are written; a completion's other category scores are left alone.
+- A level must be **completed** to be rated (scores attach to a completion) — rows for uncompleted levels are skipped.
+- Committed as one dedicated call **after** the completion/drop batches.
+
+---
+
 ## Export Options
 
 When exporting, the user chooses:

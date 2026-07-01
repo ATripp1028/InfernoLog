@@ -141,6 +141,26 @@ export interface ImportListsResponse {
   skipped: { list: string; label: string; reason: string }[]
 }
 
+export interface ImportRatingEntry {
+  levelId?: string | null
+  levelName?: string | null
+  creator?: string | null
+  inGameDifficulty?: string | null
+  // category name → score (0-100, internal scale)
+  scores: Record<string, number>
+}
+
+export interface ImportRatingsRequest {
+  entries: ImportRatingEntry[]
+}
+
+export interface ImportRatingsResponse {
+  scored: number
+  levels: number
+  categoriesCreated: string[]
+  skipped: { label: string; reason: string }[]
+}
+
 // ── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useImportApi() {
@@ -194,5 +214,17 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  return { checkConflicts, commitBatch, commitRanking, commitLists }
+  const commitRatings = useCallback(
+    async (req: ImportRatingsRequest): Promise<ImportRatingsResponse> => {
+      const token = await getIdToken()
+      return apiFetch<ImportRatingsResponse>('/v1/me/import/ratings', {
+        method: 'POST',
+        token,
+        body: req,
+      })
+    },
+    [getIdToken]
+  )
+
+  return { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings }
 }

@@ -11,12 +11,14 @@ import {
   ImportCommitRequestSchema,
   ImportRankingRequestSchema,
   ImportListsRequestSchema,
+  ImportRatingsRequestSchema,
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
 import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
 import { commitImportLists } from '../services/importLists'
+import { commitImportRatings } from '../services/importRatings'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -144,6 +146,41 @@ app.post('/me/import/lists', async (c) => {
     return c.json(result, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import/lists error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/import/ratings — writes weighted per-category scores onto
+// completions. Runs once, after the row batches. Categories are matched by name
+// and created on demand; only the categories the sheet names are written.
+app.post('/me/import/ratings', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const parsed = ImportRatingsRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+
+    const result = await commitImportRatings(userId, parsed.data.entries)
+
+    logger.info(
+      {
+        userId,
+        entries: parsed.data.entries.length,
+        scored: result.scored,
+        levels: result.levels,
+        categoriesCreated: result.categoriesCreated.length,
+        skipped: result.skipped.length,
+      },
+      'POST /me/import/ratings: scores written'
+    )
+
+    return c.json(result, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'POST /me/import/ratings error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }

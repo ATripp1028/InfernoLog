@@ -883,6 +883,34 @@ export const ImportListsResponseSchema = z.object({
   skipped: z.array(ImportListsSkipSchema),
 })
 
+// ── Ratings (weighted category scores) ─────────────────────────────────────
+//
+// One dedicated call, run after completions. Each entry is one level's category
+// scores (already converted to the internal 0-100 scale by the client). Scores
+// attach to the level's completion; categories are matched by name and created
+// on demand. Merge semantics: only the categories named in the sheet are
+// written — a completion's other category scores are left untouched.
+
+export const ImportRatingEntrySchema = z.object({
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  inGameDifficulty: z.string().nullable().optional(),
+  // category name → score (0-100, internal scale)
+  scores: z.record(z.string(), z.number().int().min(0).max(100)),
+})
+
+export const ImportRatingsRequestSchema = z.object({
+  entries: z.array(ImportRatingEntrySchema).max(5000),
+})
+
+export const ImportRatingsResponseSchema = z.object({
+  scored: z.number().int(), // number of individual scores written
+  levels: z.number().int(), // number of levels that received scores
+  categoriesCreated: z.array(z.string()),
+  skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
+})
+
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
@@ -897,3 +925,6 @@ export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
 export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
 export type ImportListsRequest = z.infer<typeof ImportListsRequestSchema>
 export type ImportListsResponse = z.infer<typeof ImportListsResponseSchema>
+export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
+export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
+export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
