@@ -90,7 +90,7 @@ export interface ImportCommitRequest {
 
 export interface ImportCommitOutcome {
   rowIndex: number
-  status: 'committed' | 'skipped' | 'failed'
+  status: 'committed' | 'updated' | 'skipped' | 'failed'
   reason?: string
 }
 

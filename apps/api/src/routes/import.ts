@@ -64,6 +64,7 @@ app.post('/me/import', async (c) => {
         importJobId: parsed.data.importJobId,
         rowCount: parsed.data.rows.length,
         committed: result.outcomes.filter((o) => o.status === 'committed').length,
+        updated: result.outcomes.filter((o) => o.status === 'updated').length,
         skipped: result.outcomes.filter((o) => o.status === 'skipped').length,
         failed: result.outcomes.filter((o) => o.status === 'failed').length,
       },

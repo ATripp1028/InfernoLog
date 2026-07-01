@@ -115,6 +115,17 @@ row 512 · level_id — Missing level_id and level_name — row cannot be import
 [ Fix and re-upload ]  [ Import 847 rows, skip 3 ]
 ```
 
+### Commit Outcomes
+
+After committing, each row reports one outcome:
+
+- **Imported** — a new entry was created.
+- **Updated** — an existing entry was modified (an overwrite/merge, or a drop against a level you already track).
+- **Skipped** — the row's data was not used at all: an existing completion you chose to keep (not overwrite), or a row superseded by a later row for the same level.
+- **Failed** — the row could not be processed (e.g. its level name couldn't be resolved).
+
+Only rows whose data is genuinely unused are reported as *skipped* — a modified row is always reported as *updated*, never skipped.
+
 ---
 
 ## Completions Tab Format

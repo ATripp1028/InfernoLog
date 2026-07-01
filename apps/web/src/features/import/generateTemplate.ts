@@ -70,11 +70,11 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
 }
 
 const DROPPED_EXAMPLE: Record<string, string | number> = {
-  level_id: '27340827',
+  level_id: '26681070',
   level_name: 'Sonic Wave',
-  creator: 'Serponge',
+  creator: 'lSunix',
   best_progress: 87,
-  run_from: 0,
+  run_from: 23,
   run_to: 87,
   attempts_at_drop: 3000,
   dropped_at: '06/15/2023',
@@ -106,7 +106,7 @@ const FIELD_DESCRIPTIONS = [
   ['Completions', 'coin_1', 'no', 'TRUE or FALSE — was the 1st user coin collected? Ignored for levels without coins.'],
   ['Completions', 'coin_2', 'no', 'TRUE or FALSE — was the 2nd user coin collected? Ignored for levels without coins.'],
   ['Completions', 'coin_3', 'no', 'TRUE or FALSE — was the 3rd user coin collected? Ignored for levels without coins.'],
-  ['Completions', 'in_game_difficulty', 'no', 'Ignored on import (autofilled from GD servers)'],
+  ['Completions', 'in_game_difficulty', 'no', 'Used to filter search if levelID is not provided.'],
   ['Completions', 'gddl_tier', 'no', 'Numeric tier (autofilled from GDDL if you have a key connected)'],
   ['Completions', 'nlw_tier', 'no', 'Tier name'],
   ['Completions', 'notes', 'no', 'Free text (max 2000 chars)'],

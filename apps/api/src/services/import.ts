@@ -292,7 +292,7 @@ function planCompletion(
   row: ImportCompletionRow,
   resolution: 'skip' | 'overwrite' | undefined,
   autoGddlTier: number | null
-): 'committed' | 'skipped' {
+): 'committed' | 'updated' | 'skipped' {
   const existingCompletionId = ctx.dbState.get(levelId)?.completionId ?? null
 
   if (existingCompletionId && resolution !== 'overwrite') return 'skipped'
@@ -349,7 +349,7 @@ function planCompletion(
 
     // Status is already COMPLETED; only worstFail can change, and only if given.
     if (row.percentage != null) applyLp(plan, { worstFail: Math.round(row.percentage) })
-    return 'committed'
+    return 'updated'
   }
 
   // New completion: write the full record, defaulting the booleans the sheet
@@ -389,7 +389,10 @@ function planCompletion(
   return 'committed'
 }
 
-function planDrop(ctx: PlanCtx, levelId: string, row: ImportDroppedRow): 'committed' {
+function planDrop(ctx: PlanCtx, levelId: string, row: ImportDroppedRow): 'committed' | 'updated' {
+  // A drop against a LevelProgress that already existed modifies it; otherwise
+  // it creates a new one.
+  const existed = ctx.dbState.has(levelId)
   const plan = getLpPlan(ctx, levelId)
   applyLp(plan, {
     status: plan.completed ? 'COMPLETED' : 'DROPPED',
@@ -398,7 +401,7 @@ function planDrop(ctx: PlanCtx, levelId: string, row: ImportDroppedRow): 'commit
     attemptsAtDrop: row.attemptsAtDrop ?? null,
     ...(row.bestProgress != null ? { worstFail: Math.round(row.bestProgress) } : {}),
   })
-  return 'committed'
+  return existed ? 'updated' : 'committed'
 }
 
 // ── Main commit function ───────────────────────────────────────────────────
@@ -548,7 +551,7 @@ export async function commitImportBatch(
     if (prior) {
       outcomes.push({
         rowIndex: row.rowIndex,
-        status: prior.status as 'committed' | 'skipped' | 'failed',
+        status: prior.status as 'committed' | 'updated' | 'skipped' | 'failed',
         reason: prior.reason ?? undefined,
       })
       continue
@@ -581,7 +584,7 @@ export async function commitImportBatch(
       continue
     }
 
-    let outcomeStatus: 'committed' | 'skipped' | 'failed'
+    let outcomeStatus: 'committed' | 'updated' | 'skipped' | 'failed'
     let reason: string | undefined
     try {
       if (row.type === 'completion') {
@@ -604,6 +607,12 @@ export async function commitImportBatch(
         { importJobId, rowIndex: row.rowIndex, levelId: effectiveLevelId, err },
         'importBatch: row failed'
       )
+    }
+
+    // Explain the one non-superseded skip case (superseded rows set their own
+    // reason above): an existing completion the user chose not to overwrite.
+    if (outcomeStatus! === 'skipped' && !reason) {
+      reason = 'Existing completion kept — choose Overwrite to replace it'
     }
 
     outcomes.push({ rowIndex: row.rowIndex, status: outcomeStatus!, reason })

@@ -791,7 +791,12 @@ export const ImportCommitRequestSchema = z.object({
 
 export const ImportCommitOutcomeSchema = z.object({
   rowIndex: z.number().int(),
-  status: z.enum(['committed', 'skipped', 'failed']),
+  // 'committed' — a new entry was written.
+  // 'updated'   — an existing entry was modified (overwrite/merge).
+  // 'skipped'   — the row's data was not used at all (existing entry kept, or
+  //               superseded by a later row for the same level).
+  // 'failed'    — the row could not be processed.
+  status: z.enum(['committed', 'updated', 'skipped', 'failed']),
   reason: z.string().optional(),
 })
 

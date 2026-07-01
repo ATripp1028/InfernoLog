@@ -562,6 +562,7 @@ interface SuccessStepProps {
 
 function SuccessStep({ outcomes, onClose }: SuccessStepProps) {
   const committed = outcomes.filter((o) => o.status === 'committed')
+  const updated = outcomes.filter((o) => o.status === 'updated')
   const skipped = outcomes.filter((o) => o.status === 'skipped')
   const failed = outcomes.filter((o) => o.status === 'failed')
 
@@ -572,6 +573,7 @@ function SuccessStep({ outcomes, onClose }: SuccessStepProps) {
         <p className="text-lg font-semibold">Import complete</p>
         <p className="text-sm text-muted-foreground">
           {committed.length} row{committed.length !== 1 ? 's' : ''} imported
+          {updated.length > 0 && `, ${updated.length} updated`}
           {skipped.length > 0 && `, ${skipped.length} skipped`}
           {failed.length > 0 && `, ${failed.length} failed`}
         </p>
@@ -591,7 +593,10 @@ function SuccessStep({ outcomes, onClose }: SuccessStepProps) {
           {skipped.map((o) => (
             <div key={o.rowIndex} className="px-3 py-2 flex gap-2">
               <span className="text-muted-foreground font-medium">Skipped</span>
-              <span className="text-muted-foreground">Row {o.rowIndex + 1}</span>
+              <span className="text-muted-foreground">
+                Row {o.rowIndex + 1}
+                {o.reason ? ` — ${o.reason}` : ''}
+              </span>
             </div>
           ))}
         </div>
