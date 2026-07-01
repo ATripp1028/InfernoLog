@@ -849,6 +849,40 @@ export const ImportRankingResponseSchema = z.object({
   skipped: z.array(ImportRankingSkipSchema),
 })
 
+// ── Lists ────────────────────────────────────────────────────────────────
+//
+// Like ranking, list membership is committed in one dedicated call with
+// replace-per-list semantics: any list the sheet names has its membership
+// replaced; lists the sheet doesn't mention are left alone. The `list` value is
+// a reserved keyword (want_to_beat / favorites / least_favorites) or a custom
+// list name. Level identity resolves like the completion tabs (a listed level
+// need not be completed).
+
+export const ImportListEntrySchema = z.object({
+  list: z.string().min(1).max(200),
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  inGameDifficulty: z.string().nullable().optional(),
+  // Optional explicit ordering within the list; row order is used otherwise.
+  position: z.number().int().nullable().optional(),
+})
+
+export const ImportListsRequestSchema = z.object({
+  entries: z.array(ImportListEntrySchema).max(5000),
+})
+
+export const ImportListsSkipSchema = z.object({
+  list: z.string(),
+  label: z.string(),
+  reason: z.string(),
+})
+
+export const ImportListsResponseSchema = z.object({
+  lists: z.array(z.object({ list: z.string(), placed: z.number().int() })),
+  skipped: z.array(ImportListsSkipSchema),
+})
+
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
@@ -860,3 +894,6 @@ export type ImportConflict = z.infer<typeof ImportConflictSchema>
 export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
 export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
 export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
+export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
+export type ImportListsRequest = z.infer<typeof ImportListsRequestSchema>
+export type ImportListsResponse = z.infer<typeof ImportListsResponseSchema>

@@ -208,6 +208,29 @@ Semantics:
 
 ---
 
+## Lists Tab Format
+
+Membership of your want-to-beat / favorites / least-favorites and any custom lists.
+
+| Column               | Required | Notes                                                                       |
+| -------------------- | -------- | --------------------------------------------------------------------------- |
+| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom list of that name. |
+| `level_id`           | No\*     | In-game level ID                                                            |
+| `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)       |
+| `creator`            | No       | Narrows name resolution when the name matches many levels                   |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
+| `position`           | No       | Order within the list; row order is used if blank                           |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Replace per list.** Each list named in the tab has its membership replaced with the tab's rows (in order); lists you don't mention are left alone. Custom lists are created on demand by name.
+- A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
+- Committed as one dedicated call **after** the completion/drop batches (and ranking).
+
+---
+
 ## Export Options
 
 When exporting, the user chooses:

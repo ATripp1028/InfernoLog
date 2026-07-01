@@ -76,7 +76,7 @@ function demonTierPredicate(
 //   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
 //   'ambiguous'               — multiple candidates even after creator/difficulty filtering
 //   null                      — no match found anywhere
-async function resolveByName(
+export async function resolveByName(
   name: string,
   creator?: string | null,
   inGameDifficulty?: string | null
@@ -137,7 +137,7 @@ async function resolveByName(
 
 // ── Stub level creation ────────────────────────────────────────────────────
 
-async function ensureStubLevels(
+export async function ensureStubLevels(
   tx: Tx,
   levelIds: string[]
 ): Promise<string[]> {
@@ -166,7 +166,7 @@ async function ensureStubLevels(
 
 // ── SQS enqueue ───────────────────────────────────────────────────────────
 
-async function enqueueSeedIds(levelIds: string[]): Promise<void> {
+export async function enqueueSeedIds(levelIds: string[]): Promise<void> {
   const queueUrl = process.env.LEVEL_SEED_QUEUE_URL
   if (!queueUrl || !levelIds.length) return
 

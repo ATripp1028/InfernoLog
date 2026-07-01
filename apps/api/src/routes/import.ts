@@ -10,11 +10,13 @@ import {
   ImportCheckRequestSchema,
   ImportCommitRequestSchema,
   ImportRankingRequestSchema,
+  ImportListsRequestSchema,
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
 import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
+import { commitImportLists } from '../services/importLists'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -109,6 +111,39 @@ app.post('/me/import/ranking', async (c) => {
     return c.json(result, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import/ranking error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/import/lists — replaces membership of the lists the sheet names
+// (want-to-beat / favorites / least-favorites / custom). Runs once, after the
+// row batches. Lists the sheet doesn't mention are left untouched.
+app.post('/me/import/lists', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => ({}))
+    const parsed = ImportListsRequestSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
+    }
+
+    const result = await commitImportLists(userId, parsed.data.entries)
+
+    logger.info(
+      {
+        userId,
+        entries: parsed.data.entries.length,
+        lists: result.lists.length,
+        skipped: result.skipped.length,
+      },
+      'POST /me/import/lists: lists replaced'
+    )
+
+    return c.json(result, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'POST /me/import/lists error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }

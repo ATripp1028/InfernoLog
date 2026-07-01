@@ -105,6 +105,16 @@ const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
   [2, '', 'Acheron'],
 ]
 
+// Lists tab: membership of your want-to-beat / favorites / least-favorites and
+// any custom lists. `list` is a reserved keyword or a custom list name.
+const LIST_HEADERS = ['list', 'level_id', 'level_name', 'creator', 'in_game_difficulty', 'position']
+
+const LIST_EXAMPLE_ROWS: (string | number)[][] = [
+  ['want_to_beat', '', 'Slaughterhouse', 'Icedcave', 'Extreme Demon', 1],
+  ['favorites', '', 'Sonic Wave', 'Cyclic', 'Extreme Demon', 1],
+  ['My Custom List', '', 'Bloodbath', 'Riot', 'Extreme Demon', 1],
+]
+
 const FIELD_DESCRIPTIONS = [
   ['Tab', 'Field', 'Required', 'Format / Notes'],
   ['Completions', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
@@ -159,6 +169,14 @@ const FIELD_DESCRIPTIONS = [
   ['Ranking', 'level_name', 'no*', 'Level name — matched against your completed levels. Required when level_id is blank.'],
   ['Ranking', '(note)', '', 'The Ranking tab replaces your whole ranking. Levels you haven’t completed are skipped. Omit the tab to keep your existing ranking.'],
   ['', '', '', ''],
+  ['Lists', 'list', 'yes', 'Reserved: want_to_beat, favorites, least_favorites. Anything else is a custom list of that name.'],
+  ['Lists', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
+  ['Lists', 'level_name', 'no*', 'Level name — matched against the GD servers. A listed level need not be completed.'],
+  ['Lists', 'creator', 'no', 'Creator name — narrows name resolution when level_name matches multiple levels.'],
+  ['Lists', 'in_game_difficulty', 'no', 'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank.'],
+  ['Lists', 'position', 'no', 'Optional order within the list. Row order is used if blank.'],
+  ['Lists', '(note)', '', 'Each list named in the tab has its membership replaced. Lists you don’t mention are left alone.'],
+  ['', '', '', ''],
   ['* Either level_id or level_name must be provided for each row.', '', '', ''],
 ]
 
@@ -185,6 +203,11 @@ export function downloadTemplate(): void {
   const rankingData = [RANKING_HEADERS, ...RANKING_EXAMPLE_ROWS]
   const rankingSheet = XLSX.utils.aoa_to_sheet(rankingData)
   XLSX.utils.book_append_sheet(wb, rankingSheet, 'Ranking')
+
+  // Lists tab: header row + example rows
+  const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]
+  const listSheet = XLSX.utils.aoa_to_sheet(listData)
+  XLSX.utils.book_append_sheet(wb, listSheet, 'Lists')
 
   // Descriptions tab
   const descSheet = XLSX.utils.aoa_to_sheet(FIELD_DESCRIPTIONS)

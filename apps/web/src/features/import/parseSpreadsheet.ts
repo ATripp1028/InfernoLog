@@ -181,11 +181,24 @@ export interface ParsedRankingRow {
   flags: ParseFlag[]
 }
 
+export interface ParsedListRow {
+  rowIndex: number
+  list: string | null
+  levelId: string | null
+  levelName: string | null
+  creator: string | null
+  inGameDifficulty: string | null
+  position: number | null
+  flags: ParseFlag[]
+}
+
 export interface ParseResult {
   completions: ParsedCompletionRow[]
   dropped: ParsedDroppedRow[]
   /** Ranking tab entries, ordered hardest → easiest (see parseSpreadsheet). */
   ranking: ParsedRankingRow[]
+  /** Lists tab entries, in sheet row order (grouped/ordered server-side). */
+  lists: ParsedListRow[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions' | 'dropped'; levelId: string; rows: number[] }[]
 }
@@ -461,6 +474,52 @@ function parseRankingRow(raw: Record<string, unknown>, rowIndex: number): Parsed
   return { rowIndex, levelId, levelName, rank, flags }
 }
 
+// ── Lists tab ──────────────────────────────────────────────────────────────
+
+function parseListRow(raw: Record<string, unknown>, rowIndex: number): ParsedListRow {
+  const flags: ParseFlag[] = []
+  const list = toStr(getField(raw, 'list', 'list_name'))
+  const rawLevelId = toStr(getField(raw, 'level_id'))
+  const levelName = toStr(getField(raw, 'level_name'))
+  const label = list
+    ? `${list}: ${levelName ?? rawLevelId ?? `row ${rowIndex + 2}`}`
+    : rowLabelFor(levelName, rawLevelId, rowIndex)
+  const pushFlag = (field: string, message: string, severity: 'error' | 'warning') =>
+    flags.push({ rowIndex, rowLabel: label, field, message, severity })
+
+  if (!list) pushFlag('list', 'Missing list — row cannot be imported', 'error')
+
+  let levelId: string | null = null
+  if (rawLevelId && /^\d+$/.test(rawLevelId)) {
+    levelId = rawLevelId
+  } else if (rawLevelId && !levelName) {
+    pushFlag('level_id', `level_id "${rawLevelId}" isn't numeric and no level_name given — row cannot be imported`, 'error')
+  } else if (rawLevelId && levelName) {
+    pushFlag('level_id', `level_id "${rawLevelId}" isn't numeric — resolving by name instead`, 'warning')
+  } else if (!levelName) {
+    pushFlag('level_id', 'Missing level_id and level_name — row cannot be imported', 'error')
+  } else {
+    pushFlag('level_id', 'No level_id — will be resolved from level_name during import', 'warning')
+  }
+
+  const rawPosition = getField(raw, 'position')
+  const positionNum = toNum(rawPosition)
+  if (rawPosition != null && rawPosition !== '' && positionNum === null)
+    pushFlag('position', `position "${rawPosition}" isn't a valid number — using row order`, 'warning')
+  const position = positionNum != null ? Math.round(positionNum) : null
+
+  return {
+    rowIndex,
+    list,
+    levelId,
+    levelName,
+    creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
+    inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
+    position,
+    flags,
+  }
+}
+
 // ── Main parse function ────────────────────────────────────────────────────
 
 export function parseSpreadsheet(
@@ -478,6 +537,7 @@ export function parseSpreadsheet(
   const completionSheet = findSheet('Completions')
   const droppedSheet = findSheet('Dropped')
   const rankingSheet = findSheet('Ranking')
+  const listsSheet = findSheet('Lists')
 
   const rawCompletions: Record<string, unknown>[] = completionSheet
     ? XLSX.utils.sheet_to_json(completionSheet, { defval: null })
@@ -487,6 +547,9 @@ export function parseSpreadsheet(
     : []
   const rawRanking: Record<string, unknown>[] = rankingSheet
     ? XLSX.utils.sheet_to_json(rankingSheet, { defval: null })
+    : []
+  const rawLists: Record<string, unknown>[] = listsSheet
+    ? XLSX.utils.sheet_to_json(listsSheet, { defval: null })
     : []
 
   const completions = rawCompletions.map((r, i) =>
@@ -510,6 +573,8 @@ export function parseSpreadsheet(
   const ranking = allHaveRank
     ? [...rankingRows].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
     : rankingRows
+
+  const lists = rawLists.map((r, i) => parseListRow(r as Record<string, unknown>, i))
 
   // Detect intra-tab duplicate level IDs.
   const duplicateLevelIds: ParseResult['duplicateLevelIds'] = []
@@ -536,5 +601,5 @@ export function parseSpreadsheet(
     if (rows.length > 1) duplicateLevelIds.push({ tab: 'dropped', levelId, rows })
   }
 
-  return { completions, dropped, ranking, duplicateLevelIds }
+  return { completions, dropped, ranking, lists, duplicateLevelIds }
 }
