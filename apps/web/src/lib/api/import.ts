@@ -44,6 +44,7 @@ export interface ImportCompletionRow {
   enjoyment?: number | null
   simpleRating?: number | null
   difficultyOpinion?: DifficultyOpinion | null
+  coinsCollected?: number | null
   inGameDifficulty?: string | null
   gddlTier?: number | null
   nlwTier?: string | null

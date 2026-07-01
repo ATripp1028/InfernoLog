@@ -713,6 +713,9 @@ export const ImportCompletionRowSchema = z.object({
   enjoyment: z.number().min(0).max(10).nullable().optional(),
   simpleRating: z.number().min(0).max(10).nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  // User-coin collection as a bitmask (bit 0 = coin 1 … bit 2 = coin 3).
+  // Ignored server-side for levels that have no user coins.
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   // Ignored on import — server populates from the levels cache.
   inGameDifficulty: z.string().nullable().optional(),
   gddlTier: z.number().nullable().optional(),

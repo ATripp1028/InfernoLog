@@ -225,7 +225,10 @@ interface BatchWrites {
   newProgressUpdates: Prisma.ProgressUpdateCreateManyInput[]
   newListReferences: Prisma.ListReferenceCreateManyInput[]
   progressUpdateUpdates: { id: string; data: Prisma.ProgressUpdateUncheckedUpdateInput }[]
-  clearRefsForPuIds: string[]
+  // Overwrite path: clear only the specific list-reference sources the
+  // spreadsheet is about to replace — never other sources, and never the
+  // completion's rating scores (those are InfernoLog-only data).
+  clearRefs: { progressUpdateId: string; listSource: ListSource }[]
 }
 
 interface PlanCtx {
@@ -234,6 +237,7 @@ interface PlanCtx {
   lpPlans: Map<string, LpPlan>
   dbState: Map<string, { id: string; status: LpStatus; completionId: string | null }>
   levelDiff: Map<string, string | null>
+  levelCoins: Map<string, number | null>
 }
 
 function newBatchWrites(): BatchWrites {
@@ -242,7 +246,7 @@ function newBatchWrites(): BatchWrites {
     newProgressUpdates: [],
     newListReferences: [],
     progressUpdateUpdates: [],
-    clearRefsForPuIds: [],
+    clearRefs: [],
   }
 }
 
@@ -293,8 +297,68 @@ function planCompletion(
 
   if (existingCompletionId && resolution !== 'overwrite') return 'skipped'
 
-  const updateFields = {
-    isCompletion: true as const,
+  // GDDL tier: explicit row value wins; else the autofilled value. Both are
+  // rounded to a whole number — GDDL tiers are never stored as decimals.
+  // (autoGddlTier is already rounded by fetchGddlTier; the spreadsheet value
+  // may carry decimals, so round it here.)
+  const refs: { listSource: ListSource; tierOrRank: string }[] = []
+  if (row.gddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(roundGddlTier(row.gddlTier)) })
+  else if (autoGddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
+  if (row.nlwTier != null) refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
+
+  // User-coin collection only applies to levels that actually have coins;
+  // ignore the spreadsheet's coin columns otherwise (matches the logging flow).
+  const hasCoins = (ctx.levelCoins.get(levelId) ?? 0) > 0
+  const coinsCollected = hasCoins ? (row.coinsCollected ?? null) : null
+
+  const plan = getLpPlan(ctx, levelId)
+
+  if (existingCompletionId && resolution === 'overwrite') {
+    // Merge, don't replace: only overwrite fields the spreadsheet actually
+    // provides. Fields the sheet omits keep their InfernoLog values, and
+    // InfernoLog-only data (category rating scores, list-reference sources the
+    // sheet doesn't carry) is left untouched entirely.
+    const puId = existingCompletionId
+    const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
+    if (row.date != null) merge.date = new Date(row.date)
+    if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
+    if (row.attempts != null) merge.attempts = row.attempts
+    if (row.fps != null) merge.fps = row.fps
+    if (row.onStream != null) merge.onStream = row.onStream
+    if (row.videoUrl != null) merge.videoUrl = row.videoUrl
+    if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
+    if (row.notes != null) merge.notes = row.notes
+    if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
+    if (row.simpleRating != null) merge.simpleRating = Math.round(row.simpleRating * 10)
+    if (row.difficultyOpinion != null) merge.difficultyOpinion = row.difficultyOpinion
+    if (coinsCollected != null) merge.coinsCollected = coinsCollected
+    if (Object.keys(merge).length > 0) {
+      ctx.writes.progressUpdateUpdates.push({ id: puId, data: merge })
+    }
+
+    // Replace only the list-reference sources the spreadsheet carries.
+    for (const r of refs) {
+      ctx.writes.clearRefs.push({ progressUpdateId: puId, listSource: r.listSource })
+      ctx.writes.newListReferences.push({
+        progressUpdateId: puId,
+        listSource: r.listSource,
+        tierOrRank: r.tierOrRank,
+        atTimeOfLogging: true,
+      })
+    }
+
+    // Status is already COMPLETED; only worstFail can change, and only if given.
+    if (row.percentage != null) applyLp(plan, { worstFail: Math.round(row.percentage) })
+    return 'committed'
+  }
+
+  // New completion: write the full record, defaulting the booleans the sheet
+  // may omit and snapshotting the level's current in-game difficulty.
+  const puId = randomUUID()
+  ctx.writes.newProgressUpdates.push({
+    id: puId,
+    levelProgressId: plan.id,
+    isCompletion: true,
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
@@ -306,37 +370,13 @@ function planCompletion(
     enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
     simpleRating: row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     difficultyOpinion: row.difficultyOpinion ?? null,
+    coinsCollected,
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
-  }
-
-  // GDDL tier: explicit row value wins; else the autofilled value. Both are
-  // rounded to a whole number — GDDL tiers are never stored as decimals.
-  // (autoGddlTier is already rounded by fetchGddlTier; the spreadsheet value
-  // may carry decimals, so round it here.)
-  const refs: { listSource: ListSource; tierOrRank: string }[] = []
-  if (row.gddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(roundGddlTier(row.gddlTier)) })
-  else if (autoGddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
-  if (row.nlwTier != null) refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
-
-  const plan = getLpPlan(ctx, levelId)
-
-  let puId: string
-  if (existingCompletionId && resolution === 'overwrite') {
-    puId = existingCompletionId
-    ctx.writes.progressUpdateUpdates.push({ id: puId, data: updateFields })
-    ctx.writes.clearRefsForPuIds.push(puId)
-    // The completion already exists, so status is already COMPLETED — only
-    // worstFail can change here.
-    if (row.percentage != null) applyLp(plan, { worstFail: Math.round(row.percentage) })
-  } else {
-    puId = randomUUID()
-    ctx.writes.newProgressUpdates.push({ id: puId, levelProgressId: plan.id, ...updateFields })
-    applyLp(plan, {
-      status: 'COMPLETED',
-      ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
-    })
-  }
-
+  })
+  applyLp(plan, {
+    status: 'COMPLETED',
+    ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
+  })
   for (const r of refs) {
     ctx.writes.newListReferences.push({
       progressUpdateId: puId,
@@ -468,21 +508,27 @@ export async function commitImportBatch(
 
   const levelRows = await prisma.level.findMany({
     where: { inGameId: { in: allKnownIds } },
-    select: { inGameId: true, inGameDifficulty: true },
+    select: { inGameId: true, inGameDifficulty: true, coins: true },
   })
   const levelDiff = new Map<string, string | null>(
     levelRows.map((l) => [l.inGameId, l.inGameDifficulty])
   )
+  const levelCoins = new Map<string, number | null>(
+    levelRows.map((l) => [l.inGameId, l.coins])
+  )
   // Name-resolved levels are created/enriched as stubs below; surface their
-  // RobTop difficulty now for the completion snapshot.
-  for (const [id, rt] of resolvedRobtopData) levelDiff.set(id, rt.inGameDifficulty)
+  // RobTop difficulty + coin count now for the completion snapshot / coin gate.
+  for (const [id, rt] of resolvedRobtopData) {
+    levelDiff.set(id, rt.inGameDifficulty)
+    levelCoins.set(id, rt.coins)
+  }
 
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
   const outcomes: ImportCommitResponse['outcomes'] = []
   const newOutcomes: { rowIndex: number; status: string; reason: string | null }[] = []
   const writes = newBatchWrites()
   const lpPlans = new Map<string, LpPlan>()
-  const ctx: PlanCtx = { userId, writes, lpPlans, dbState, levelDiff }
+  const ctx: PlanCtx = { userId, writes, lpPlans, dbState, levelDiff, levelCoins }
 
   // A level can appear more than once per tab (flagged as a duplicate upstream).
   // Keep only the last completion / last drop per level so we never plan two
@@ -629,17 +675,15 @@ export async function commitImportBatch(
       await tx.levelProgress.createMany({ data: writes.newLevelProgress })
     }
 
-    // Overwrite path: update the existing completion in place, then drop its
-    // old list references / rating scores before the new references go in.
+    // Overwrite path: merge the provided fields into the existing completion,
+    // then clear only the list-reference sources being replaced before the new
+    // references go in. Rating scores and other sources are left untouched.
     for (const u of writes.progressUpdateUpdates) {
       await tx.progressUpdate.update({ where: { id: u.id }, data: u.data })
     }
-    if (writes.clearRefsForPuIds.length) {
+    if (writes.clearRefs.length) {
       await tx.listReference.deleteMany({
-        where: { progressUpdateId: { in: writes.clearRefsForPuIds } },
-      })
-      await tx.ratingScore.deleteMany({
-        where: { progressUpdateId: { in: writes.clearRefsForPuIds } },
+        where: { OR: writes.clearRefs },
       })
     }
 

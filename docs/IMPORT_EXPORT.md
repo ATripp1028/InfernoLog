@@ -55,10 +55,9 @@ These are resolved automatically without flagging:
 
 ### Flagged for Manual Resolution
 
-These are included in the validation report:
+Dates that can't be interpreted are flagged as a **warning** (see severities below) — the date is dropped and the rest of the row still imports:
 
 - Dates unparseable in the selected format
-- Ambiguous dates (e.g. `04/05/2019` when the format could be either MDY or DMY and the values are ≤ 12)
 - Dates written as phrases (`"April 5th 2019"`, `"early 2019"`)
 
 ### Internal Storage
@@ -99,16 +98,21 @@ All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displa
 
 ### Validation Report
 
-The validation report shows flagged rows before committing any data:
+Flags have two severities, following the general rule of thumb for bad data — never throw away a whole row over one bad cell:
+
+- **Error (row skipped)** — the row can't be imported at all: no `level_id` **and** no `level_name`, or a non-numeric `level_id` with no name to fall back on.
+- **Warning (value dropped, rest of the row imported)** — one field is bad but the row is otherwise fine: an unparseable/out-of-range percentage/run/rating, an unparseable date, an unknown `difficulty_opinion`, or a missing `level_id` that will be resolved from `level_name`. The bad value is dropped; the row still imports.
+
+Rows are identified by **level name** (falling back to the level ID, then the spreadsheet row number) rather than by row number alone.
 
 ```
-Import Preview: 847 rows valid, 3 rows flagged
+Import Preview: 847 rows ready, 3 skipped, 5 with dropped values
 
-Row 14 — Carnage Mode — Date "June 18" unparseable. Please use MM/DD/YYYY.
-Row 67 — Phobos — Date "07/28/19" ambiguous in DD/MM format. Is this July 28 or Aug 7?
-Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric characters.
+Bloodbath · attempts — attempts "~10000" isn't a valid number — value dropped
+Phobos · date — Phrase date "June 18" — use MDY format — value dropped
+row 512 · level_id — Missing level_id and level_name — row cannot be imported
 
-[ Fix and re-upload ]  [ Import 847 valid rows, skip 3 ]
+[ Fix and re-upload ]  [ Import 847 rows, skip 3 ]
 ```
 
 ---
@@ -122,14 +126,17 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 | `date`               | No       | In selected date format                                       |
 | `date_uncertain`     | No       | TRUE/FALSE                                                    |
 | `attempts`           | No       | Integer                                                       |
-| `percentage`         | No       | Worst fail / last logged percentage                           |
-| `run_from`           | No       | Integer 0-100 (progress entries only)                         |
-| `run_to`             | No       | Integer 0-100 (progress entries only)                         |
+| `percentage`         | No       | Worst fail / last logged percentage (a trailing `%` is accepted) |
+| `run_from`           | No       | Integer 0-100 (progress entries only; trailing `%` accepted)  |
+| `run_to`             | No       | Integer 0-100 (progress entries only; trailing `%` accepted)  |
 | `on_stream`          | No       | TRUE/FALSE                                                    |
 | `fps`                | No       | Integer                                                       |
 | `enjoyment`          | No       | 0-10                                                          |
 | `simple_rating`      | No       | 0-10                                                          |
 | `difficulty_opinion` | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
+| `coin_1`             | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins) |
+| `coin_2`             | No       | TRUE/FALSE — 2nd user coin collected (ignored if the level has no coins) |
+| `coin_3`             | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
 | `in_game_difficulty` | No       | Text snapshot of the level's cached rating                    |
 | `gddl_tier`          | No       | Numeric tier                                                  |
 | `aredl_rank`         | No       | Numeric rank (extreme demons only)                            |

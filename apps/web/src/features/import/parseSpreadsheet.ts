@@ -101,6 +101,18 @@ function toNum(v: unknown): number | null {
   return isNaN(n) ? null : n
 }
 
+// Parses a percentage cell, tolerating a trailing "%" (e.g. "67%" → 67, "88 %"
+// → 88). Returns null for empty cells and for values that still aren't numeric
+// after stripping the sign (callers flag those so the user is told, rather than
+// silently dropping the value).
+function toPercent(v: unknown): number | null {
+  if (v == null || v === '') return null
+  const s = String(v).trim().replace(/%\s*$/, '').trim()
+  if (s === '') return null
+  const n = Number(s)
+  return isNaN(n) ? null : n
+}
+
 function toBool(v: unknown): boolean | null {
   if (v == null || v === '') return null
   if (typeof v === 'boolean') return v
@@ -119,9 +131,27 @@ function toStr(v: unknown): string | null {
 
 export interface ParseFlag {
   rowIndex: number    // 0-based within the tab
+  // Human-friendly row identity for display — the level name when present,
+  // else the level ID, else the spreadsheet row number. Set once per row.
+  rowLabel: string
   field: string
   message: string
+  // 'error'  — the row cannot be imported at all (skipped).
+  // 'warning' — the flagged value is dropped but the rest of the row imports.
   severity: 'error' | 'warning'
+}
+
+// Identifies a row to the user by the most recognizable thing available:
+// its level name, then its ID, then the spreadsheet row number (1-based, with
+// the header as row 1 — so a 0-based rowIndex maps to rowIndex + 2).
+function rowLabelFor(
+  levelName: string | null,
+  levelId: string | null,
+  rowIndex: number
+): string {
+  if (levelName) return levelName
+  if (levelId) return `level ${levelId}`
+  return `row ${rowIndex + 2}`
 }
 
 export interface ParsedCompletionRow {
@@ -158,58 +188,66 @@ function parseCompletionRow(
 
   const levelId = toStr(getField(raw, 'level_id'))
   const levelName = toStr(getField(raw, 'level_name'))
+  const label = rowLabelFor(levelName, levelId, rowIndex)
+  const pushFlag = (field: string, message: string, severity: 'error' | 'warning') =>
+    flags.push({ rowIndex, rowLabel: label, field, message, severity })
 
   let validLevelId: string | null = null
-  if (levelId) {
-    if (/^\d+$/.test(levelId)) {
-      validLevelId = levelId
-    } else {
-      flags.push({ rowIndex, field: 'level_id', message: `level_id "${levelId}" must be numeric`, severity: 'error' })
-    }
-  }
-  if (!validLevelId) {
-    if (levelName) {
-      flags.push({ rowIndex, field: 'level_id', message: 'No level_id — will be resolved from level_name during import', severity: 'warning' })
-    } else {
-      flags.push({ rowIndex, field: 'level_id', message: 'Missing level_id and level_name — row cannot be imported', severity: 'error' })
-    }
+  if (levelId && /^\d+$/.test(levelId)) {
+    validLevelId = levelId
+  } else if (levelId) {
+    // A non-numeric level_id is bad data, but if there's a name we can still
+    // resolve the level from it — warn and keep the row.
+    if (levelName)
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric — resolving by name instead`, 'warning')
+    else
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric and no level_name given — row cannot be imported`, 'error')
+  } else if (levelName) {
+    pushFlag('level_id', 'No level_id — will be resolved from level_name during import', 'warning')
+  } else {
+    pushFlag('level_id', 'Missing level_id and level_name — row cannot be imported', 'error')
   }
 
-  // Date
+  // Date — a bad date is dropped; the rest of the row still imports.
   const rawDate = getField(raw, 'date')
   const dateResult = parseDate(rawDate, dateFormat)
-  if (!dateResult.ok) {
-    flags.push({ rowIndex, field: 'date', message: dateResult.reason, severity: 'error' })
-  }
+  if (!dateResult.ok) pushFlag('date', `${dateResult.reason} — value dropped`, 'warning')
 
-  // Attempts field — flag non-numeric like "~10000"
+  // Attempts field — non-numeric like "~10000" is dropped with a warning.
   const rawAttempts = getField(raw, 'attempts')
   const attempts = toNum(rawAttempts)
-  if (rawAttempts != null && rawAttempts !== '' && attempts === null) {
-    flags.push({ rowIndex, field: 'attempts', message: `Attempts "${rawAttempts}" contains non-numeric characters`, severity: 'error' })
-  }
+  if (rawAttempts != null && rawAttempts !== '' && attempts === null)
+    pushFlag('attempts', `attempts "${rawAttempts}" isn't a valid number — value dropped`, 'warning')
 
-  // Percentage (worst fail) 0-100
-  const percentage = toNum(getField(raw, 'percentage'))
-  if (percentage != null && (percentage < 0 || percentage > 100)) {
-    flags.push({ rowIndex, field: 'percentage', message: `Percentage ${percentage} is outside 0-100`, severity: 'error' })
-  }
+  // Percentage (worst fail) 0-100 — tolerate a trailing "%".
+  const rawPercentage = getField(raw, 'percentage')
+  const percentage = toPercent(rawPercentage)
+  if (rawPercentage != null && rawPercentage !== '' && percentage === null)
+    pushFlag('percentage', `percentage "${rawPercentage}" isn't a valid number — value dropped`, 'warning')
+  else if (percentage != null && (percentage < 0 || percentage > 100))
+    pushFlag('percentage', `percentage ${percentage} is outside 0-100 — value dropped`, 'warning')
 
-  // Run range
-  const runFrom = toNum(getField(raw, 'run_from'))
-  const runTo = toNum(getField(raw, 'run_to'))
-  if (runFrom != null && (runFrom < 0 || runFrom > 100))
-    flags.push({ rowIndex, field: 'run_from', message: `run_from ${runFrom} is outside 0-100`, severity: 'error' })
-  if (runTo != null && (runTo < 0 || runTo > 100))
-    flags.push({ rowIndex, field: 'run_to', message: `run_to ${runTo} is outside 0-100`, severity: 'error' })
+  // Run range — tolerate a trailing "%".
+  const rawRunFrom = getField(raw, 'run_from')
+  const rawRunTo = getField(raw, 'run_to')
+  const runFrom = toPercent(rawRunFrom)
+  const runTo = toPercent(rawRunTo)
+  if (rawRunFrom != null && rawRunFrom !== '' && runFrom === null)
+    pushFlag('run_from', `run_from "${rawRunFrom}" isn't a valid number — value dropped`, 'warning')
+  else if (runFrom != null && (runFrom < 0 || runFrom > 100))
+    pushFlag('run_from', `run_from ${runFrom} is outside 0-100 — value dropped`, 'warning')
+  if (rawRunTo != null && rawRunTo !== '' && runTo === null)
+    pushFlag('run_to', `run_to "${rawRunTo}" isn't a valid number — value dropped`, 'warning')
+  else if (runTo != null && (runTo < 0 || runTo > 100))
+    pushFlag('run_to', `run_to ${runTo} is outside 0-100 — value dropped`, 'warning')
 
   // Ratings 0-10
   const enjoyment = toNum(getField(raw, 'enjoyment'))
   const simpleRating = toNum(getField(raw, 'simple_rating'))
   if (enjoyment != null && (enjoyment < 0 || enjoyment > 10))
-    flags.push({ rowIndex, field: 'enjoyment', message: `enjoyment ${enjoyment} is outside 0-10`, severity: 'error' })
+    pushFlag('enjoyment', `enjoyment ${enjoyment} is outside 0-10 — value dropped`, 'warning')
   if (simpleRating != null && (simpleRating < 0 || simpleRating > 10))
-    flags.push({ rowIndex, field: 'simple_rating', message: `simple_rating ${simpleRating} is outside 0-10`, severity: 'error' })
+    pushFlag('simple_rating', `simple_rating ${simpleRating} is outside 0-10 — value dropped`, 'warning')
 
   // Difficulty opinion enum
   const rawDO = toStr(getField(raw, 'difficulty_opinion'))
@@ -219,25 +257,39 @@ function parseCompletionRow(
     if (VALID_DIFFICULTY_OPINIONS.has(normalized)) {
       difficultyOpinion = normalized.toUpperCase() as DifficultyOpinion
     } else {
-      flags.push({ rowIndex, field: 'difficulty_opinion', message: `Unknown difficulty_opinion "${rawDO}"`, severity: 'error' })
+      pushFlag('difficulty_opinion', `unknown difficulty_opinion "${rawDO}" — value dropped`, 'warning')
     }
   }
+
+  // Coins — three booleans (coin_1..coin_3) folded into a bitmask (bit 0 =
+  // coin 1). Null when the row specifies none; levels without user coins ignore
+  // this server-side.
+  const coin1 = toBool(getField(raw, 'coin_1'))
+  const coin2 = toBool(getField(raw, 'coin_2'))
+  const coin3 = toBool(getField(raw, 'coin_3'))
+  const coinsCollected =
+    coin1 != null || coin2 != null || coin3 != null
+      ? (coin1 ? 1 : 0) | (coin2 ? 2 : 0) | (coin3 ? 4 : 0)
+      : null
 
   const data: ImportCompletionRow = {
     levelId: validLevelId,
     levelName,
     creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
     date: dateResult.ok && dateResult.iso ? dateResult.iso : null,
-    dateUncertain: toBool(getField(raw, 'date_uncertain')) ?? false,
+    // Null (not false) when the column is absent, so an overwrite import only
+    // touches booleans the spreadsheet actually specifies.
+    dateUncertain: toBool(getField(raw, 'date_uncertain')),
     attempts: attempts != null && attempts >= 0 ? Math.round(attempts) : null,
     percentage: percentage != null && percentage >= 0 && percentage <= 100 ? percentage : null,
     runFrom: runFrom != null && runFrom >= 0 && runFrom <= 100 ? Math.round(runFrom) : null,
     runTo: runTo != null && runTo >= 0 && runTo <= 100 ? Math.round(runTo) : null,
-    onStream: toBool(getField(raw, 'on_stream')) ?? false,
+    onStream: toBool(getField(raw, 'on_stream')),
     fps: toNum(getField(raw, 'fps')) != null ? Math.round(toNum(getField(raw, 'fps'))!) : null,
     enjoyment: enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
     simpleRating: simpleRating != null && simpleRating >= 0 && simpleRating <= 10 ? simpleRating : null,
     difficultyOpinion,
+    coinsCollected,
     inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     gddlTier: toNum(getField(raw, 'gddl_tier')),
     nlwTier: toStr(getField(raw, 'nlw_tier')),
@@ -260,45 +312,52 @@ function parseDroppedRow(
 
   const levelId = toStr(getField(raw, 'level_id'))
   const levelName = toStr(getField(raw, 'level_name'))
+  const label = rowLabelFor(levelName, levelId, rowIndex)
+  const pushFlag = (field: string, message: string, severity: 'error' | 'warning') =>
+    flags.push({ rowIndex, rowLabel: label, field, message, severity })
 
   let validLevelId: string | null = null
-  if (levelId) {
-    if (/^\d+$/.test(levelId)) {
-      validLevelId = levelId
-    } else {
-      flags.push({ rowIndex, field: 'level_id', message: `level_id "${levelId}" must be numeric`, severity: 'error' })
-    }
-  }
-  if (!validLevelId) {
-    if (levelName) {
-      flags.push({ rowIndex, field: 'level_id', message: 'No level_id — will be resolved from level_name during import', severity: 'warning' })
-    } else {
-      flags.push({ rowIndex, field: 'level_id', message: 'Missing level_id and level_name — row cannot be imported', severity: 'error' })
-    }
+  if (levelId && /^\d+$/.test(levelId)) {
+    validLevelId = levelId
+  } else if (levelId) {
+    if (levelName)
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric — resolving by name instead`, 'warning')
+    else
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric and no level_name given — row cannot be imported`, 'error')
+  } else if (levelName) {
+    pushFlag('level_id', 'No level_id — will be resolved from level_name during import', 'warning')
+  } else {
+    pushFlag('level_id', 'Missing level_id and level_name — row cannot be imported', 'error')
   }
 
   const rawDate = getField(raw, 'dropped_at')
   const dateResult = parseDate(rawDate, dateFormat)
-  if (!dateResult.ok) {
-    flags.push({ rowIndex, field: 'dropped_at', message: dateResult.reason, severity: 'error' })
-  }
+  if (!dateResult.ok) pushFlag('dropped_at', `${dateResult.reason} — value dropped`, 'warning')
 
-  const bestProgress = toNum(getField(raw, 'best_progress'))
-  if (bestProgress != null && (bestProgress < 0 || bestProgress > 100))
-    flags.push({ rowIndex, field: 'best_progress', message: `best_progress ${bestProgress} is outside 0-100`, severity: 'error' })
+  const rawBestProgress = getField(raw, 'best_progress')
+  const bestProgress = toPercent(rawBestProgress)
+  if (rawBestProgress != null && rawBestProgress !== '' && bestProgress === null)
+    pushFlag('best_progress', `best_progress "${rawBestProgress}" isn't a valid number — value dropped`, 'warning')
+  else if (bestProgress != null && (bestProgress < 0 || bestProgress > 100))
+    pushFlag('best_progress', `best_progress ${bestProgress} is outside 0-100 — value dropped`, 'warning')
 
-  const runFrom = toNum(getField(raw, 'run_from'))
-  const runTo = toNum(getField(raw, 'run_to'))
-  if (runFrom != null && (runFrom < 0 || runFrom > 100))
-    flags.push({ rowIndex, field: 'run_from', message: `run_from ${runFrom} is outside 0-100`, severity: 'error' })
-  if (runTo != null && (runTo < 0 || runTo > 100))
-    flags.push({ rowIndex, field: 'run_to', message: `run_to ${runTo} is outside 0-100`, severity: 'error' })
+  const rawRunFrom = getField(raw, 'run_from')
+  const rawRunTo = getField(raw, 'run_to')
+  const runFrom = toPercent(rawRunFrom)
+  const runTo = toPercent(rawRunTo)
+  if (rawRunFrom != null && rawRunFrom !== '' && runFrom === null)
+    pushFlag('run_from', `run_from "${rawRunFrom}" isn't a valid number — value dropped`, 'warning')
+  else if (runFrom != null && (runFrom < 0 || runFrom > 100))
+    pushFlag('run_from', `run_from ${runFrom} is outside 0-100 — value dropped`, 'warning')
+  if (rawRunTo != null && rawRunTo !== '' && runTo === null)
+    pushFlag('run_to', `run_to "${rawRunTo}" isn't a valid number — value dropped`, 'warning')
+  else if (runTo != null && (runTo < 0 || runTo > 100))
+    pushFlag('run_to', `run_to ${runTo} is outside 0-100 — value dropped`, 'warning')
 
   const rawAttempts = getField(raw, 'attempts_at_drop')
   const attemptsAtDrop = toNum(rawAttempts)
-  if (rawAttempts != null && rawAttempts !== '' && attemptsAtDrop === null) {
-    flags.push({ rowIndex, field: 'attempts_at_drop', message: `attempts_at_drop "${rawAttempts}" contains non-numeric characters`, severity: 'error' })
-  }
+  if (rawAttempts != null && rawAttempts !== '' && attemptsAtDrop === null)
+    pushFlag('attempts_at_drop', `attempts_at_drop "${rawAttempts}" isn't a valid number — value dropped`, 'warning')
 
   const data: ImportDroppedRow = {
     levelId: validLevelId,

@@ -126,7 +126,7 @@ function FlagList({ flags, limit = 10 }: { flags: ParseFlag[]; limit?: number })
               : 'text-[var(--color-danger)]'
           }
         >
-          Row {f.rowIndex + 2} · {f.field} — {f.message}
+          {f.rowLabel} · {f.field} — {f.message}
         </li>
       ))}
       {flags.length > limit && !showAll && (
@@ -274,15 +274,23 @@ interface ReviewStepProps {
 function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, onSkipFlagged, onReUpload }: ReviewStepProps) {
   const allFlags = [...flags.completions, ...flags.dropped]
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
-  const warningFlags = allFlags.filter((f) => f.severity === 'warning')
   const errorFlagsByTab = {
     completions: flags.completions.filter((f) => f.severity === 'error'),
     dropped: flags.dropped.filter((f) => f.severity === 'error'),
   }
-  const warningFlagsByTab = {
-    completions: flags.completions.filter((f) => f.severity === 'warning'),
-    dropped: flags.dropped.filter((f) => f.severity === 'warning'),
+  // Two flavors of warning: a missing level_id we'll resolve by name (the row
+  // is fine), and a bad field value we've dropped (the rest of the row imports).
+  const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
+  const nameOnlyByTab = {
+    completions: flags.completions.filter((f) => f.severity === 'warning' && isNameOnly(f)),
+    dropped: flags.dropped.filter((f) => f.severity === 'warning' && isNameOnly(f)),
   }
+  const dataWarnByTab = {
+    completions: flags.completions.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
+    dropped: flags.dropped.filter((f) => f.severity === 'warning' && !isNameOnly(f)),
+  }
+  const totalNameOnly = nameOnlyByTab.completions.length + nameOnlyByTab.dropped.length
+  const totalDataWarn = dataWarnByTab.completions.length + dataWarnByTab.dropped.length
 
   const validCompletions = parseResult.completions.filter(
     (r) => !r.flags.some((f) => f.severity === 'error') && (r.data.levelId || r.data.levelName)
@@ -292,7 +300,6 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
   )
   const totalValid = validCompletions.length + validDropped.length
   const totalSkipped = errorFlags.length + flags.duplicates.length
-  const totalNameOnly = warningFlags.length
 
   return (
     <div className="space-y-5">
@@ -310,6 +317,13 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
             <>,{' '}
               <span className="text-amber-600 dark:text-amber-400">
                 {totalNameOnly} name-only
+              </span>
+            </>
+          )}
+          {totalDataWarn > 0 && (
+            <>,{' '}
+              <span className="text-amber-600 dark:text-amber-400">
+                {totalDataWarn} with dropped value{totalDataWarn !== 1 ? 's' : ''}
               </span>
             </>
           )}
@@ -357,21 +371,41 @@ function ReviewStep({ parseResult, flags, conflictMode, onConflictModeChange, on
         </div>
       )}
 
-      {warningFlags.length > 0 && (
+      {totalDataWarn > 0 && (
+        <div>
+          <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
+            Bad values (dropped — the rest of the row still imports)
+          </p>
+          {dataWarnByTab.completions.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Completions tab</p>
+              <FlagList flags={dataWarnByTab.completions} />
+            </>
+          )}
+          {dataWarnByTab.dropped.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">Dropped tab</p>
+              <FlagList flags={dataWarnByTab.dropped} />
+            </>
+          )}
+        </div>
+      )}
+
+      {totalNameOnly > 0 && (
         <div>
           <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
             Name-only rows (ID resolved during import)
           </p>
-          {warningFlagsByTab.completions.length > 0 && (
+          {nameOnlyByTab.completions.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">Completions tab</p>
-              <FlagList flags={warningFlagsByTab.completions} />
+              <FlagList flags={nameOnlyByTab.completions} />
             </>
           )}
-          {warningFlagsByTab.dropped.length > 0 && (
+          {nameOnlyByTab.dropped.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">Dropped tab</p>
-              <FlagList flags={warningFlagsByTab.dropped} />
+              <FlagList flags={nameOnlyByTab.dropped} />
             </>
           )}
         </div>
