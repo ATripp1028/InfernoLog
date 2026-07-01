@@ -6,7 +6,13 @@
 // and returns structured rows ready to send to the API.
 
 import * as XLSX from 'xlsx'
-import type { ImportCompletionRow, ImportDroppedRow, DifficultyOpinion } from '@/lib/api/import'
+import type {
+  ImportCompletionRow,
+  ImportDroppedRow,
+  DifficultyOpinion,
+  Device,
+  EntryVisibility,
+} from '@/lib/api/import'
 
 // ── Date format ────────────────────────────────────────────────────────────
 
@@ -261,6 +267,14 @@ function parseCompletionRow(
     }
   }
 
+  // Non-demon star rating (1-9) — only meaningful with a not_demon_worthy opinion.
+  const rawStars = getField(raw, 'difficulty_opinion_stars')
+  const difficultyOpinionStars = toNum(rawStars)
+  if (rawStars != null && rawStars !== '' && difficultyOpinionStars === null)
+    pushFlag('difficulty_opinion_stars', `difficulty_opinion_stars "${rawStars}" isn't a valid number — value dropped`, 'warning')
+  else if (difficultyOpinionStars != null && (difficultyOpinionStars < 1 || difficultyOpinionStars > 9))
+    pushFlag('difficulty_opinion_stars', `difficulty_opinion_stars ${difficultyOpinionStars} is outside 1-9 — value dropped`, 'warning')
+
   // Coins — three booleans (coin_1..coin_3) folded into a bitmask (bit 0 =
   // coin 1). Null when the row specifies none; levels without user coins ignore
   // this server-side.
@@ -271,6 +285,25 @@ function parseCompletionRow(
     coin1 != null || coin2 != null || coin3 != null
       ? (coin1 ? 1 : 0) | (coin2 ? 2 : 0) | (coin3 ? 4 : 0)
       : null
+
+  // Device beaten on — 'pc' or 'mobile'.
+  const rawDevice = toStr(getField(raw, 'device'))
+  let device: Device | null = null
+  if (rawDevice) {
+    const d = rawDevice.toLowerCase()
+    if (d === 'pc' || d === 'mobile') device = d
+    else pushFlag('device', `unknown device "${rawDevice}" (use pc or mobile) — value dropped`, 'warning')
+  }
+
+  // Per-entry privacy — 'public' or 'private'.
+  const rawVisibility = toStr(getField(raw, 'visibility'))
+  let visibility: EntryVisibility | null = null
+  if (rawVisibility) {
+    const v = rawVisibility.toLowerCase()
+    if (v === 'public') visibility = 'PUBLIC'
+    else if (v === 'private') visibility = 'PRIVATE'
+    else pushFlag('visibility', `unknown visibility "${rawVisibility}" (use public or private) — value dropped`, 'warning')
+  }
 
   const data: ImportCompletionRow = {
     levelId: validLevelId,
@@ -289,7 +322,16 @@ function parseCompletionRow(
     enjoyment: enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
     simpleRating: simpleRating != null && simpleRating >= 0 && simpleRating <= 10 ? simpleRating : null,
     difficultyOpinion,
+    difficultyOpinionStars:
+      difficultyOpinionStars != null && difficultyOpinionStars >= 1 && difficultyOpinionStars <= 9
+        ? Math.round(difficultyOpinionStars)
+        : null,
     coinsCollected,
+    twoPlayerSolo: toBool(getField(raw, 'two_player_solo')),
+    twoPlayerPartner: toStr(getField(raw, 'two_player_partner')),
+    device,
+    visibility,
+    levelNotes: toStr(getField(raw, 'level_notes')),
     inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     gddlTier: toNum(getField(raw, 'gddl_tier')),
     nlwTier: toStr(getField(raw, 'nlw_tier')),

@@ -713,9 +713,23 @@ export const ImportCompletionRowSchema = z.object({
   enjoyment: z.number().min(0).max(10).nullable().optional(),
   simpleRating: z.number().min(0).max(10).nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  // Non-demon star rating (1–9) — only meaningful when difficultyOpinion is
+  // NOT_DEMON_WORTHY.
+  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
   // User-coin collection as a bitmask (bit 0 = coin 1 … bit 2 = coin 3).
   // Ignored server-side for levels that have no user coins.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // 2-player: true = beaten solo, false = beaten with a partner (name in
+  // twoPlayerPartner). Null = not a 2-player level or not logged.
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(200).nullable().optional(),
+  // Device the level was beaten on.
+  device: z.nativeEnum(Device).nullable().optional(),
+  // Per-entry privacy for the completion's LevelProgress.
+  visibility: z.nativeEnum(EntryVisibility).nullable().optional(),
+  // "About this level overall" note, stored on LevelProgress (distinct from the
+  // per-completion `notes`).
+  levelNotes: z.string().max(2000).nullable().optional(),
   // Ignored on import — server populates from the levels cache.
   inGameDifficulty: z.string().nullable().optional(),
   gddlTier: z.number().nullable().optional(),

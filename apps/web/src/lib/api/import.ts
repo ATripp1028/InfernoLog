@@ -15,6 +15,9 @@ export type DifficultyOpinion =
   | 'INSANE'
   | 'EXTREME'
 
+export type Device = 'pc' | 'mobile'
+export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
+
 export interface ImportConflict {
   levelId: string
   levelName: string | null
@@ -44,7 +47,13 @@ export interface ImportCompletionRow {
   enjoyment?: number | null
   simpleRating?: number | null
   difficultyOpinion?: DifficultyOpinion | null
+  difficultyOpinionStars?: number | null
   coinsCollected?: number | null
+  twoPlayerSolo?: boolean | null
+  twoPlayerPartner?: string | null
+  device?: Device | null
+  visibility?: EntryVisibility | null
+  levelNotes?: string | null
   inGameDifficulty?: string | null
   gddlTier?: number | null
   nlwTier?: string | null

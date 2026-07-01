@@ -138,23 +138,28 @@ Only rows whose data is genuinely unused are reported as *skipped* — a modifie
 | `date_uncertain`     | No       | TRUE/FALSE                                                    |
 | `attempts`           | No       | Integer                                                       |
 | `percentage`         | No       | Worst fail / last logged percentage (a trailing `%` is accepted) |
-| `run_from`           | No       | Integer 0-100 (progress entries only; trailing `%` accepted)  |
-| `run_to`             | No       | Integer 0-100 (progress entries only; trailing `%` accepted)  |
+| `run_from`           | No       | Integer 0-100 (trailing `%` accepted)                         |
+| `run_to`             | No       | Integer 0-100 (trailing `%` accepted)                         |
 | `on_stream`          | No       | TRUE/FALSE                                                    |
 | `fps`                | No       | Integer                                                       |
+| `device`             | No       | pc or mobile                                                  |
 | `enjoyment`          | No       | 0-10                                                          |
 | `simple_rating`      | No       | 0-10                                                          |
 | `difficulty_opinion` | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
+| `difficulty_opinion_stars` | No | Integer 1-9 — only when `difficulty_opinion` is not_demon_worthy |
 | `coin_1`             | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins) |
 | `coin_2`             | No       | TRUE/FALSE — 2nd user coin collected (ignored if the level has no coins) |
 | `coin_3`             | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
-| `in_game_difficulty` | No       | Text snapshot of the level's cached rating                    |
-| `gddl_tier`          | No       | Numeric tier                                                  |
-| `aredl_rank`         | No       | Numeric rank (extreme demons only)                            |
-| `nlw_tier`           | No       | Tier name                                                     |
-| `notes`              | No       | Text                                                          |
-| `video_url`          | No       | URL                                                           |
-| `highlight_url`      | No       | URL                                                           |
+| `two_player_solo`    | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level) |
+| `two_player_partner` | No       | Partner's name (only when `two_player_solo` is FALSE)         |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; otherwise autofilled |
+| `gddl_tier`          | No       | Whole-number tier                                             |
+| `nlw_tier`           | No       | Tier name                                                    |
+| `notes`              | No       | Text about this completion                                    |
+| `level_notes`        | No       | Text about the level overall (separate from `notes`)          |
+| `video_url`          | No       | URL                                                          |
+| `highlight_url`      | No       | URL                                                          |
+| `visibility`         | No       | public or private (defaults to public)                       |
 
 ### Column Tolerance
 

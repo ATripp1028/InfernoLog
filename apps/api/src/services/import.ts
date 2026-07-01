@@ -209,6 +209,8 @@ interface LpFields {
   droppedAt?: Date | null
   droppedReason?: string | null
   attemptsAtDrop?: number | null
+  visibility?: 'PUBLIC' | 'PRIVATE'
+  levelNotes?: string
 }
 
 interface LpPlan {
@@ -328,10 +330,16 @@ function planCompletion(
     if (row.videoUrl != null) merge.videoUrl = row.videoUrl
     if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
     if (row.notes != null) merge.notes = row.notes
+    if (row.runFrom != null) merge.runFrom = row.runFrom
+    if (row.runTo != null) merge.runTo = row.runTo
     if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
     if (row.simpleRating != null) merge.simpleRating = Math.round(row.simpleRating * 10)
     if (row.difficultyOpinion != null) merge.difficultyOpinion = row.difficultyOpinion
+    if (row.difficultyOpinionStars != null) merge.difficultyOpinionStars = row.difficultyOpinionStars
     if (coinsCollected != null) merge.coinsCollected = coinsCollected
+    if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
+    if (row.twoPlayerPartner != null) merge.twoPlayerPartner = row.twoPlayerPartner
+    if (row.device != null) merge.device = row.device
     if (Object.keys(merge).length > 0) {
       ctx.writes.progressUpdateUpdates.push({ id: puId, data: merge })
     }
@@ -347,8 +355,14 @@ function planCompletion(
       })
     }
 
-    // Status is already COMPLETED; only worstFail can change, and only if given.
-    if (row.percentage != null) applyLp(plan, { worstFail: Math.round(row.percentage) })
+    // LevelProgress-level fields: worstFail, per-entry privacy, and the overall
+    // level note — each only when the sheet provides it (status stays COMPLETED).
+    const lpMerge: LpFields = {
+      ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
+      ...(row.visibility != null ? { visibility: row.visibility } : {}),
+      ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
+    }
+    if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return 'updated'
   }
 
@@ -362,6 +376,8 @@ function planCompletion(
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
+    runFrom: row.runFrom ?? null,
+    runTo: row.runTo ?? null,
     fps: row.fps ?? null,
     onStream: row.onStream ?? false,
     videoUrl: row.videoUrl ?? null,
@@ -370,12 +386,18 @@ function planCompletion(
     enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
     simpleRating: row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     difficultyOpinion: row.difficultyOpinion ?? null,
+    difficultyOpinionStars: row.difficultyOpinionStars ?? null,
     coinsCollected,
+    twoPlayerSolo: row.twoPlayerSolo ?? null,
+    twoPlayerPartner: row.twoPlayerPartner ?? null,
+    device: row.device ?? null,
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
   })
   applyLp(plan, {
     status: 'COMPLETED',
     ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
+    ...(row.visibility != null ? { visibility: row.visibility } : {}),
+    ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
   })
   for (const r of refs) {
     ctx.writes.newListReferences.push({
