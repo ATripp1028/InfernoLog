@@ -18,7 +18,7 @@ import type {
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
-import { fetchGddlTier } from '../utils/gddl'
+import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
 
 type Tx = Prisma.TransactionClient
 
@@ -309,9 +309,12 @@ function planCompletion(
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
   }
 
-  // GDDL tier: explicit row value wins; else the autofilled value.
+  // GDDL tier: explicit row value wins; else the autofilled value. Both are
+  // rounded to a whole number — GDDL tiers are never stored as decimals.
+  // (autoGddlTier is already rounded by fetchGddlTier; the spreadsheet value
+  // may carry decimals, so round it here.)
   const refs: { listSource: ListSource; tierOrRank: string }[] = []
-  if (row.gddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(row.gddlTier) })
+  if (row.gddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(roundGddlTier(row.gddlTier)) })
   else if (autoGddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
   if (row.nlwTier != null) refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
 

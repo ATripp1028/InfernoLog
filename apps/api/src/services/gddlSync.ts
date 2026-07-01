@@ -3,6 +3,7 @@ import prisma from '../utils/prisma'
 import {
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
+  roundGddlTier,
   type GddlSubmission,
 } from '../utils/gddl'
 import { fetchRobtopLevel } from '../utils/robtop'
@@ -166,7 +167,7 @@ async function createCompletion(
     data: {
       progressUpdateId: pu.id,
       listSource: 'GDDL',
-      tierOrRank: sub.Rating.toString(),
+      tierOrRank: roundGddlTier(sub.Rating).toString(),
       atTimeOfLogging: true,
     },
   })
@@ -223,14 +224,14 @@ async function enrichCompletion(
   if (existingRef !== null) {
     await tx.listReference.update({
       where: { id: existingRef.id },
-      data: { tierOrRank: sub.Rating.toString() },
+      data: { tierOrRank: roundGddlTier(sub.Rating).toString() },
     })
   } else {
     await tx.listReference.create({
       data: {
         progressUpdateId,
         listSource: 'GDDL',
-        tierOrRank: sub.Rating.toString(),
+        tierOrRank: roundGddlTier(sub.Rating).toString(),
         atTimeOfLogging: false,
       },
     })
