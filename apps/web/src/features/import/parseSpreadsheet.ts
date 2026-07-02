@@ -453,7 +453,6 @@ function parseDroppedRow(
     attemptsAtDrop: attemptsAtDrop != null && attemptsAtDrop >= 0 ? Math.round(attemptsAtDrop) : null,
     droppedAt: dateResult.ok && dateResult.iso ? dateResult.iso : null,
     reason: toStr(getField(raw, 'reason')),
-    gddlTierAtDrop: toNum(getField(raw, 'gddl_tier_at_drop')),
   }
 
   return { rowIndex, data, flags }

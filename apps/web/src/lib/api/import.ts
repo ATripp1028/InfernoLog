@@ -72,7 +72,6 @@ export interface ImportDroppedRow {
   attemptsAtDrop?: number | null
   droppedAt?: string | null
   reason?: string | null
-  gddlTierAtDrop?: number | null
   inGameDifficulty?: string | null
 }
 
