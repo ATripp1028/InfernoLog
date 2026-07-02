@@ -32,3 +32,28 @@ jobs:
         run: pnpm turbo run build
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Runs both vitest projects: unit (mocked) and integration (real Postgres).
+      # The integration globalSetup starts/stops the test database itself via
+      # docker-compose.test.yml — ubuntu-latest ships Docker + `docker compose`.
+      - name: Run tests
+        run: pnpm turbo run test
+        env:
+          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
