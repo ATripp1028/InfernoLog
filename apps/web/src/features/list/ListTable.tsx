@@ -29,6 +29,19 @@ function rowMinWidth(orderedCols: ColumnDef[]): number {
   return LEVEL_MIN_WIDTH + colsWidth + ROW_PADDING
 }
 
+// The minimum width the table needs for the currently visible columns. The page
+// uses this to decide whether the filter panel can dock beside the table or must
+// open as an overlay instead.
+export function tableMinWidth(
+  columns: ColumnVisibility,
+  columnOrder: ColumnId[]
+): number {
+  const orderedCols = columnOrder
+    .map((id) => COLUMNS.find((c) => c.id === id)!)
+    .filter((col) => columns[col.id])
+  return rowMinWidth(orderedCols)
+}
+
 function SortIndicator({
   sort,
   index,
@@ -173,8 +186,11 @@ export function ListTable({
 
   const minWidth = rowMinWidth(orderedCols)
 
+  // Only one row's kebab menu open at a time — opening another closes it.
+  const [openKebabId, setOpenKebabId] = useState<string | null>(null)
+
   return (
-    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border-subtle)] md:block max-h-[calc(100vh-150px)]" style={{ minWidth }}>
+    <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
       <ColumnHeaders
         orderedCols={orderedCols}
         sorts={sorts}
@@ -209,7 +225,20 @@ export function ListTable({
                 style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
               />
               <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
-                <RowActionsKebab handlers={handlers} />
+                <RowActionsKebab
+                  handlers={handlers}
+                  open={openKebabId === item.levelProgressId}
+                  onOpenChange={(o) => {
+                    if (o) setOpenKebabId(item.levelProgressId)
+                    // Only clear if this row is still the open one — otherwise a
+                    // just-closed row's dismiss would clobber the newly-opened
+                    // row (the click that opens B also dismisses A).
+                    else
+                      setOpenKebabId((cur) =>
+                        cur === item.levelProgressId ? null : cur
+                      )
+                  }}
+                />
               </div>
             </div>
           </RowContextMenu>

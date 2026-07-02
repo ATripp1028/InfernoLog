@@ -41,10 +41,19 @@ export function RowContextMenu({
 }
 
 // Hover-revealed kebab opening the same actions via a popover. For discovery /
-// mouse-only users alongside the right-click menu.
-export function RowActionsKebab({ handlers }: { handlers: RowActionHandlers }) {
+// mouse-only users alongside the right-click menu. Controlled by the parent so
+// opening one row's menu closes any other that's open.
+export function RowActionsKebab({
+  handlers,
+  open,
+  onOpenChange,
+}: {
+  handlers: RowActionHandlers
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   return (
-    <Popover>
+    <Popover open={open} onOpenChange={onOpenChange}>
       <PopoverTrigger asChild>
         <button
           type="button"

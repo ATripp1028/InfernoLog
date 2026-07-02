@@ -329,7 +329,9 @@ model LevelProgress {
 
   // Drop-specific fields
   droppedReason   String?
-  droppedAt       DateTime?
+  // A calendar date (the day the user dropped the level), not a timestamp —
+  // matches ProgressUpdate.date. Populated from a `yyyy-MM-dd` input.
+  droppedAt       DateTime? @db.Date
   // Optional attempt count captured on the drop screen. Aligns with the
   // import format's `attempts_at_drop`. Puts the eventual completion's
   // attempt count in perspective if the level is later beaten.
