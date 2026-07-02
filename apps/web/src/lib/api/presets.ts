@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
 import type { FilterState, SortSpec } from '../../features/list/types'
+import { normalizeFilterState } from '../../features/list/types'
 import type { ColumnId, ColumnVisibility } from '../../features/list/columns'
 import type { PresetColorId } from '../../features/list/presets'
 
@@ -52,7 +53,12 @@ export function useListPresets() {
         '/v1/me/list-presets',
         { token, method: 'GET' }
       )
-      return data
+      // Normalize stored filters so presets saved before a filter field was
+      // added still have every field present (avoids undefined access crashes).
+      return data.map((p) => ({
+        ...p,
+        filters: normalizeFilterState(p.filters),
+      }))
     },
   })
 }

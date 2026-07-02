@@ -95,3 +95,11 @@ export function defaultFilterState(): FilterState {
     dateBeaten: dateDomain(),
   }
 }
+
+// Merge a possibly-incomplete stored FilterState (e.g. a preset saved before a
+// filter field existed) onto the current defaults so every field is present.
+export function normalizeFilterState(
+  stored: Partial<FilterState> | null | undefined
+): FilterState {
+  return { ...defaultFilterState(), ...stored }
+}
