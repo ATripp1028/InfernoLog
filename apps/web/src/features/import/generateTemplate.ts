@@ -4,7 +4,7 @@
 
 import * as XLSX from 'xlsx'
 
-const COMPLETION_HEADERS = [
+export const COMPLETION_HEADERS = [
   'level_id',
   'level_name',
   'creator',
@@ -36,7 +36,7 @@ const COMPLETION_HEADERS = [
   'visibility',
 ]
 
-const DROPPED_HEADERS = [
+export const DROPPED_HEADERS = [
   'level_id',
   'level_name',
   'creator',
@@ -98,7 +98,7 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
 
 // Ranking tab: your personal difficulty order of levels you've completed.
 // Order is what matters (top = hardest); the rank number is just a convenience.
-const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
+export const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
 
 const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
   [1, '', 'Tartarus'],
@@ -107,7 +107,7 @@ const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
 
 // Lists tab: membership of your want-to-beat / favorites / least-favorites and
 // any custom lists. `list` is a reserved keyword or a custom list name.
-const LIST_HEADERS = ['list', 'level_id', 'level_name', 'creator', 'in_game_difficulty', 'position']
+export const LIST_HEADERS = ['list', 'level_id', 'level_name', 'creator', 'in_game_difficulty', 'position']
 
 const LIST_EXAMPLE_ROWS: (string | number)[][] = [
   ['want_to_beat', '', 'Slaughterhouse', 'Icedcave', 'Extreme Demon', 1],
@@ -118,21 +118,21 @@ const LIST_EXAMPLE_ROWS: (string | number)[][] = [
 // Ratings tab: weighted category scores. Identity columns first, then one column
 // per rating category (headers named after your categories). The category
 // columns here are just the seeded defaults — rename / add / remove to match yours.
-const RATING_HEADERS = [
+// Identity columns shared by the Ratings tab; the category columns follow.
+export const RATING_IDENTITY_HEADERS = [
   'level_id',
   'level_name',
   'creator',
   'in_game_difficulty',
-  'Gameplay',
-  'Decoration',
-  'Song',
 ]
+
+const RATING_HEADERS = [...RATING_IDENTITY_HEADERS, 'Gameplay', 'Decoration', 'Song']
 
 const RATING_EXAMPLE_ROWS: (string | number)[][] = [
   ['', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 9, 7],
 ]
 
-const FIELD_DESCRIPTIONS = [
+export const FIELD_DESCRIPTIONS = [
   ['Tab', 'Field', 'Required', 'Format / Notes'],
   ['Completions', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
   ['Completions', 'level_name', 'no*', 'Level name. Required when level_id is blank — matched against the GD servers.'],

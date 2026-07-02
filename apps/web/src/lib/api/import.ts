@@ -161,6 +161,60 @@ export interface ImportRatingsResponse {
   skipped: { label: string; reason: string }[]
 }
 
+export interface ExportCompletion {
+  levelId: string
+  levelName: string | null
+  creator: string | null
+  inGameDifficulty: string | null
+  date: string | null
+  dateUncertain: boolean
+  attempts: number | null
+  percentage: number | null
+  runFrom: number | null
+  runTo: number | null
+  onStream: boolean
+  fps: number | null
+  device: string | null
+  enjoyment: number | null
+  simpleRating: number | null
+  difficultyOpinion: string | null
+  difficultyOpinionStars: number | null
+  coinsCollected: number | null
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string | null
+  visibility: string
+  notes: string | null
+  levelNotes: string | null
+  gddlTier: string | null
+  nlwTier: string | null
+  videoUrl: string | null
+  highlightUrl: string | null
+}
+
+export interface ExportResponse {
+  completions: ExportCompletion[]
+  dropped: {
+    levelId: string
+    levelName: string | null
+    creator: string | null
+    inGameDifficulty: string | null
+    bestProgress: number | null
+    attemptsAtDrop: number | null
+    droppedAt: string | null
+    reason: string | null
+  }[]
+  ranking: { rank: number; levelId: string; levelName: string | null }[]
+  lists: { list: string; levelId: string; levelName: string | null; position: number }[]
+  ratingCategories: string[]
+  ratings: {
+    levelId: string
+    levelName: string | null
+    creator: string | null
+    inGameDifficulty: string | null
+    scores: Record<string, number>
+  }[]
+}
+
 // ── Hooks ──────────────────────────────────────────────────────────────────
 
 export function useImportApi() {
@@ -226,5 +280,10 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  return { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings }
+  const getExport = useCallback(async (): Promise<ExportResponse> => {
+    const token = await getIdToken()
+    return apiFetch<ExportResponse>('/v1/me/export', { method: 'GET', token })
+  }, [getIdToken])
+
+  return { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings, getExport }
 }

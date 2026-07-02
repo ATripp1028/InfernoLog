@@ -468,6 +468,7 @@ export default $config({
     importRoute('POST /v1/me/import/ranking', '28 seconds')
     importRoute('POST /v1/me/import/lists', '28 seconds')
     importRoute('POST /v1/me/import/ratings', '28 seconds')
+    importRoute('GET /v1/me/export', '28 seconds')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

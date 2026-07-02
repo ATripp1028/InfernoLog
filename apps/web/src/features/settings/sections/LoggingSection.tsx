@@ -19,6 +19,8 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { ImportWizard } from '@/features/import/ImportWizard'
+import { useImportApi } from '@/lib/api/import'
+import { downloadExport } from '@/features/import/generateExport'
 
 interface LoggingSectionProps {
   me: MeData
@@ -38,6 +40,7 @@ const MIN_FPS = 60
 export function LoggingSection({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
   const [importOpen, setImportOpen] = useState(false)
+  const { getExport } = useImportApi()
 
   const handleToggle = async (field: 'showHighlightUrl', next: boolean) => {
     try {
@@ -78,6 +81,15 @@ export function LoggingSection({ me }: LoggingSectionProps) {
     } catch (err) {
       setFpsDraft(String(me.defaultFps))
       toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const exportData = await getExport()
+      downloadExport(exportData, me.dateFormatPreference)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export')
     }
   }
 
@@ -162,6 +174,19 @@ export function LoggingSection({ me }: LoggingSectionProps) {
             onClick={() => setImportOpen(true)}
           >
             Import
+          </Button>
+        }
+      />
+      <SettingRow
+        label="Export to spreadsheet"
+        description="Download your completion history as an xlsx spreadsheet. Useful for backups or sharing with others."
+        control={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+          >
+            Export
           </Button>
         }
       />

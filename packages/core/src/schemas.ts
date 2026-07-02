@@ -911,6 +911,83 @@ export const ImportRatingsResponseSchema = z.object({
   skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
 })
 
+// ── Export ─────────────────────────────────────────────────────────────────
+//
+// GET /v1/me/export returns the account's data in a faithful domain form; the
+// client formats it into the import-compatible spreadsheet (date formatting,
+// 0-100 → 0-10 rating scale, coin bitmask → columns, etc.). Dates are ISO here.
+
+export const ExportCompletionSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  date: z.string().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  percentage: z.number().int().nullable(),
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  onStream: z.boolean(),
+  fps: z.number().int().nullable(),
+  device: z.string().nullable(),
+  enjoyment: z.number().int().nullable(), // 0-100 internal
+  simpleRating: z.number().int().nullable(), // 0-100 internal
+  difficultyOpinion: z.string().nullable(),
+  difficultyOpinionStars: z.number().int().nullable(),
+  coinsCollected: z.number().int().nullable(),
+  twoPlayerSolo: z.boolean().nullable(),
+  twoPlayerPartner: z.string().nullable(),
+  visibility: z.string(),
+  notes: z.string().nullable(),
+  levelNotes: z.string().nullable(),
+  gddlTier: z.string().nullable(),
+  nlwTier: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+})
+
+export const ExportDroppedSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  bestProgress: z.number().int().nullable(),
+  attemptsAtDrop: z.number().int().nullable(),
+  droppedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+})
+
+export const ExportRankingSchema = z.object({
+  rank: z.number().int(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+})
+
+export const ExportListSchema = z.object({
+  list: z.string(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  position: z.number().int(),
+})
+
+export const ExportRatingSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  scores: z.record(z.string(), z.number().int()), // 0-100 internal
+})
+
+export const ExportResponseSchema = z.object({
+  completions: z.array(ExportCompletionSchema),
+  dropped: z.array(ExportDroppedSchema),
+  ranking: z.array(ExportRankingSchema),
+  lists: z.array(ExportListSchema),
+  ratingCategories: z.array(z.string()),
+  ratings: z.array(ExportRatingSchema),
+})
+
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
@@ -928,3 +1005,9 @@ export type ImportListsResponse = z.infer<typeof ImportListsResponseSchema>
 export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
 export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
 export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
+export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
+export type ExportDropped = z.infer<typeof ExportDroppedSchema>
+export type ExportRanking = z.infer<typeof ExportRankingSchema>
+export type ExportList = z.infer<typeof ExportListSchema>
+export type ExportRating = z.infer<typeof ExportRatingSchema>
+export type ExportResponse = z.infer<typeof ExportResponseSchema>

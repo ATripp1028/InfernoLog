@@ -19,6 +19,7 @@ import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
 import { commitImportLists } from '../services/importLists'
 import { commitImportRatings } from '../services/importRatings'
+import { buildExport } from '../services/exportData'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -181,6 +182,32 @@ app.post('/me/import/ratings', async (c) => {
     return c.json(result, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import/ratings error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// GET /v1/me/export — returns the account's data in a faithful domain form.
+// The client turns it into the import-compatible spreadsheet. Read-only.
+app.get('/me/export', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const result = await buildExport(userId)
+    logger.info(
+      {
+        userId,
+        completions: result.completions.length,
+        dropped: result.dropped.length,
+        ranking: result.ranking.length,
+        lists: result.lists.length,
+        ratings: result.ratings.length,
+      },
+      'GET /me/export: built'
+    )
+    return c.json(result, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'GET /me/export error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }
