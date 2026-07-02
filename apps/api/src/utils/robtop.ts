@@ -213,47 +213,32 @@ function parsePairs(str: string, sep: string): Record<string, string> {
   return out
 }
 
-// Pure parser for a getGJLevels21 response. Returns the level matching `wantId`
-// (or the first level when omitted), joined with its creator and song, or null
-// for "-1"/empty/garbage. We query by id via type=0 search, which can return
-// more than one name-matched level, so selecting the exact id matters.
-export function parseGetGJLevels21(
-  body: string,
-  wantId?: string
-): RobtopLevel | null {
-  const trimmed = body.trim()
-  if (!trimmed || trimmed.startsWith('-1')) return null
+type CreatorMap = Record<string, { username: string | null; accountId: string | null }>
+type SongMap = Record<string, Record<string, string>>
 
-  const sections = trimmed.split('#')
-  const levelEntries = (sections[0] ?? '').split('|').filter(Boolean)
-  const parsedLevels = levelEntries.map((e) => parsePairs(e, ':'))
-  const L =
-    (wantId && parsedLevels.find((p) => p['1'] === wantId)) ??
-    parsedLevels[0]
-  if (!L || !L['1']) return null // a valid level always has an id
-
-  // Creators: "playerID:username:accountID" entries.
-  const creators: Record<
-    string,
-    { username: string | null; accountId: string | null }
-  > = {}
-  for (const entry of (sections[1] ?? '').split('|')) {
+function parseCreatorSection(section: string): CreatorMap {
+  const map: CreatorMap = {}
+  for (const entry of section.split('|')) {
     const [playerId, username, accountId] = entry.split(':')
-    if (playerId) {
-      creators[playerId] = {
-        username: username || null,
-        accountId: accountId || null,
-      }
-    }
+    if (playerId) map[playerId] = { username: username || null, accountId: accountId || null }
   }
+  return map
+}
 
-  // Songs: "~:~"-separated objects, each "~|~"-delimited key/value pairs.
-  const songs: Record<string, Record<string, string>> = {}
-  for (const entry of (sections[2] ?? '').split('~:~')) {
+function parseSongSection(section: string): SongMap {
+  const map: SongMap = {}
+  for (const entry of section.split('~:~')) {
     const song = parsePairs(entry, '~|~')
-    if (song['1']) songs[song['1']] = song
+    if (song['1']) map[song['1']] = song
   }
+  return map
+}
 
+function buildRobtopLevel(
+  L: Record<string, string>,
+  creators: CreatorMap,
+  songs: SongMap
+): RobtopLevel {
   const demon = L['17'] === '1'
   const auto = L['25'] === '1'
   const { label: inGameDifficulty, partial: partialDiff } = deriveDifficulty(
@@ -269,20 +254,19 @@ export function parseGetGJLevels21(
   const featureScore = int(L['19'])
   const likes = int(L['14'])
 
-  // Custom song when key 35 is a real id; otherwise it's a built-in track.
   const customSongId = L['35']
   const isCustom = !!customSongId && customSongId !== '0'
   const song = isCustom ? songs[customSongId] : undefined
   const officialSongIndex = int(L['12'])
   const official =
-    !isCustom && officialSongIndex !== null
-      ? OFFICIAL_SONGS[officialSongIndex]
-      : undefined
+    !isCustom && officialSongIndex !== null ? OFFICIAL_SONGS[officialSongIndex] : undefined
 
   const creator = creators[L['6'] ?? '']
 
   return {
-    name: L['2'] || null,
+    // RobTop stores some level names with trailing/leading whitespace; trim so
+    // stored names are clean and exact-name matching during import works.
+    name: L['2']?.trim() || null,
     creator: creator?.username ?? null,
     inGameDifficulty,
     length: lengthVal !== null ? (LENGTHS[lengthVal] ?? null) : null,
@@ -294,7 +278,6 @@ export function parseGetGJLevels21(
     description: decodeDescription(L['3']),
     creatorPlayerId: L['6'] || null,
     creatorAccountId: creator?.accountId ?? null,
-    // Not exposed by getGJLevels21 — kept null (was GDBrowser-derived).
     creatorPoints: null,
     stars,
     starsRequested: int(L['39']),
@@ -324,6 +307,42 @@ export function parseGetGJLevels21(
     songLink: isCustom ? decodeUrl(song?.['10']) : null,
     songSize: isCustom && song?.['5'] ? `${song['5']}MB` : null,
   }
+}
+
+export interface RobtopSearchResult {
+  levelId: string
+  level: RobtopLevel
+}
+
+// Parses all levels from a getGJLevels21 response body.
+export function parseAllFromGetGJLevels21(body: string): RobtopSearchResult[] {
+  const trimmed = body.trim()
+  if (!trimmed || trimmed.startsWith('-1')) return []
+
+  const sections = trimmed.split('#')
+  const creators = parseCreatorSection(sections[1] ?? '')
+  const songs = parseSongSection(sections[2] ?? '')
+
+  return (sections[0] ?? '')
+    .split('|')
+    .filter(Boolean)
+    .flatMap((e) => {
+      const L = parsePairs(e, ':')
+      if (!L['1']) return []
+      return [{ levelId: L['1'], level: buildRobtopLevel(L, creators, songs) }]
+    })
+}
+
+// Pure parser for a getGJLevels21 response. Returns the level matching `wantId`
+// (or the first level when omitted), or null for "-1"/empty/garbage.
+export function parseGetGJLevels21(
+  body: string,
+  wantId?: string
+): RobtopLevel | null {
+  const all = parseAllFromGetGJLevels21(body)
+  if (!all.length) return null
+  const found = (wantId ? all.find((x) => x.levelId === wantId) : undefined) ?? all[0]
+  return found?.level ?? null
 }
 
 // Fetches a single level by id from RobTop's getGJLevels21. We use type=0
@@ -364,6 +383,48 @@ export async function fetchRobtopLevel(
   } catch {
     // Network error, timeout/abort, or parse failure — fall back to manual.
     return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
+// Searches RobTop's getGJLevels21 by level name and returns all matches.
+// Used during spreadsheet import to resolve name-only rows. Returns an empty
+// array on any failure — callers must handle a null resolution gracefully.
+// Pass diff/demonFilter to scope results to a specific difficulty.
+export async function searchRobtopByName(
+  name: string,
+  options?: { diff?: string; demonFilter?: string }
+): Promise<RobtopSearchResult[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+
+  try {
+    const body = new URLSearchParams({
+      type: '0',
+      str: name,
+      secret: GETLEVELS_SECRET,
+      gameVersion: '22',
+      binaryVersion: '42',
+      count: '10',
+    })
+    if (options?.diff !== undefined) body.set('diff', options.diff)
+    if (options?.demonFilter !== undefined) body.set('demonFilter', options.demonFilter)
+
+    const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': '',
+      },
+      body,
+      signal: controller.signal,
+    })
+    if (!res.ok) return []
+
+    return parseAllFromGetGJLevels21(await res.text())
+  } catch {
+    return []
   } finally {
     clearTimeout(timeout)
   }

@@ -728,6 +728,35 @@ model GddlSyncJob {
 }
 
 // ─────────────────────────────────────────────
+// SPREADSHEET IMPORT
+// Tracks client-generated import jobs for idempotency. The client sends a
+// UUID per import job; the server records (jobId, rowIndex) pairs so that
+// a retried or double-clicked batch never double-writes data.
+// ─────────────────────────────────────────────
+
+model ImportJob {
+  id        String         @id // client-generated UUID
+  userId    String
+  createdAt DateTime       @default(now())
+  rows      ImportJobRow[]
+
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  id       String    @id @default(uuid())
+  jobId    String
+  rowIndex Int
+  status   String    // "committed" | "updated" | "skipped" | "failed"
+  reason   String?
+
+  job      ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowIndex])
+  @@map("import_job_rows")
+}
+
+// ─────────────────────────────────────────────
 // LIST PRESETS
 // Saved view configurations for the List page.
 // Each preset stores column visibility, column order, sort specs,

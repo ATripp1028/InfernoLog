@@ -25,6 +25,7 @@
     "@aws-sdk/client-cognito-identity-provider": "^3.1032.0",
     "@aws-sdk/client-kms": "^3.1072.0",
     "@aws-sdk/client-lambda": "^3.1072.0",
+    "@aws-sdk/client-sqs": "^3.1076.0",
     "@hono/node-server": "^1.19.14",
     "@infernolog/core": "workspace:*",
     "@neondatabase/serverless": "^0.10.4",

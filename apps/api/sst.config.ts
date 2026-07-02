@@ -407,6 +407,70 @@ export default $config({
     authedRoute('DELETE /v1/me/list-presets/{id}')
 
     // ─────────────────────────────────────────────
+    // SPREADSHEET IMPORT — level-seed SQS queue + consumer.
+    //
+    // The import endpoint commits stub levels immediately and enqueues their
+    // IDs for async metadata enrichment via RobTop. Reserved concurrency 1
+    // on the consumer is the system-wide rate-limit guarantee (no two
+    // invocations run concurrently, so in-handler pacing = true rate).
+    // ─────────────────────────────────────────────
+    const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
+
+    const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {
+      dlq: {
+        queue: levelSeedDlq.arn,
+        retry: 3,
+      },
+    })
+
+    levelSeedQueue.subscribe(
+      {
+        handler: 'src/handlers/levelSeedWorker.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+        concurrency: 1,
+      },
+      { batch: { size: 1 } }
+    )
+
+    // Import endpoints get the queue URL + SendMessage permission.
+    // The commit route gets a longer Lambda timeout — large batches with
+    // many overwrite-path rows or name resolutions need more than the
+    // default ~20s. 28s stays just under API Gateway's hard 29s cap.
+    const importRoute = (
+      route: string,
+      timeout?: `${number} second` | `${number} seconds`
+    ) =>
+      api.route(
+        route,
+        {
+          handler: 'src/index.handler',
+          link: [...sharedLinks, levelSeedQueue],
+          environment: {
+            ...sharedEnvironment,
+            LEVEL_SEED_QUEUE_URL: levelSeedQueue.url,
+          },
+          permissions: [
+            {
+              actions: ['sqs:SendMessage'],
+              resources: [levelSeedQueue.arn],
+            },
+          ],
+          ...(timeout ? { timeout } : {}),
+          ...sharedNodeOptions,
+        },
+        { auth: jwtAuth }
+      )
+
+    importRoute('POST /v1/me/import/check')
+    importRoute('POST /v1/me/import', '28 seconds')
+    importRoute('POST /v1/me/import/ranking', '28 seconds')
+    importRoute('POST /v1/me/import/lists', '28 seconds')
+    importRoute('POST /v1/me/import/ratings', '28 seconds')
+    importRoute('GET /v1/me/export', '28 seconds')
+
+    // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────
     new aws.ssm.Parameter('SsmApiUrl', {

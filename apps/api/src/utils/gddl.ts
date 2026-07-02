@@ -68,13 +68,20 @@ export async function verifyGddlApiKey(
   return { name: body.Name }
 }
 
+// GDDL exposes tiers as decimals (e.g. 18.43), but GDDL itself displays — and
+// treats as canonical — the tier rounded to the nearest whole number. Round at
+// every point we ingest a GDDL rating so we never store or surface the decimal.
+export function roundGddlTier(rating: number): number {
+  return Math.round(rating)
+}
+
 // How long to wait on the public GDDL tier lookup before giving up. Like the
 // level metadata autofill, this must never block the logging flow.
 const TIER_TIMEOUT_MS = 5000
 
 // Fetches GDDL's suggested tier for a level (public list data — no key needed).
-// Resolves with the numeric tier, or `null` for any failure (down, timeout,
-// not-found, malformed). Never throws to its caller.
+// Resolves with the numeric tier (rounded to the nearest whole number), or
+// `null` for any failure (down, timeout, not-found, malformed). Never throws.
 export async function fetchGddlTier(levelId: string): Promise<number | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIER_TIMEOUT_MS)
@@ -89,7 +96,7 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
     const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
     // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
     const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+    return typeof raw === 'number' && Number.isFinite(raw) ? roundGddlTier(raw) : null
   } catch {
     return null
   } finally {

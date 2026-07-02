@@ -53,6 +53,8 @@ When a user enters a level ID during logging, InfernoLog calls the GD servers fi
 - Current GDDL tier (presented to user as a suggested snapshot value to confirm)
 - Record eligibility status
 
+**Tier rounding:** GDDL's API exposes tiers as decimals (e.g. `18.43`), but GDDL itself displays and treats the tier rounded to the nearest whole number as canonical. InfernoLog rounds every GDDL rating to the nearest whole number at ingestion — both the per-level autofill lookup and the bulk submission sync — so we never store or surface the raw decimal. (Rounding lives in `roundGddlTier` in `apps/api/src/utils/gddl.ts`.)
+
 ### Record Submission
 
 If the user has provided their GDDL API key, they can submit a completion record to GDDL when logging a completion in InfernoLog. This is optional and user-initiated. The submission is made server-side via Lambda using the encrypted stored API key.

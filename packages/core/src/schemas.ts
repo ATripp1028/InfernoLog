@@ -681,3 +681,350 @@ export const ListPresetSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 })
+
+// ─────────────────────────────────────────────
+// SPREADSHEET IMPORT — wire schemas
+//
+// The client parses the xlsx, interprets dates (ISO strings), and sends a
+// normalized JSON payload. The server re-validates ranges/enums/required
+// fields only — it trusts the ISO date strings from the client.
+//
+// Ratings in the import format are 0-10 (display scale per IMPORT_EXPORT.md).
+// The server multiplies by 10 to convert to the 0-100 internal scale.
+// ─────────────────────────────────────────────
+
+export const ImportCompletionRowSchema = z.object({
+  // levelId is optional — if omitted, the server resolves from levelName + creator.
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  // Creator name for disambiguation when levelId is absent.
+  creator: z.string().nullable().optional(),
+  // ISO 8601 date string, already interpreted by the client.
+  date: z.string().nullable().optional(),
+  dateUncertain: z.boolean().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  // Worst fail / last logged percentage (0-100).
+  percentage: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  onStream: z.boolean().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  // 0-10 display scale (server converts to 0-100 on write).
+  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  simpleRating: z.number().min(0).max(10).nullable().optional(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+  // Non-demon star rating (1–9) — only meaningful when difficultyOpinion is
+  // NOT_DEMON_WORTHY.
+  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
+  // User-coin collection as a bitmask (bit 0 = coin 1 … bit 2 = coin 3).
+  // Ignored server-side for levels that have no user coins.
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // 2-player: true = beaten solo, false = beaten with a partner (name in
+  // twoPlayerPartner). Null = not a 2-player level or not logged.
+  twoPlayerSolo: z.boolean().nullable().optional(),
+  twoPlayerPartner: z.string().max(200).nullable().optional(),
+  // Device the level was beaten on.
+  device: z.nativeEnum(Device).nullable().optional(),
+  // Per-entry privacy for the completion's LevelProgress.
+  visibility: z.nativeEnum(EntryVisibility).nullable().optional(),
+  // "About this level overall" note, stored on LevelProgress (distinct from the
+  // per-completion `notes`).
+  levelNotes: z.string().max(2000).nullable().optional(),
+  // Ignored on import — server populates from the levels cache.
+  inGameDifficulty: z.string().nullable().optional(),
+  gddlTier: z.number().nullable().optional(),
+  nlwTier: z.string().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  videoUrl: z.string().url().nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+})
+
+export const ImportDroppedRowSchema = z.object({
+  // levelId is optional — if omitted, the server resolves from levelName + creator.
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  // Creator name for disambiguation when levelId is absent.
+  creator: z.string().nullable().optional(),
+  // Best progress percentage (0-100).
+  bestProgress: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  // ISO 8601 date string.
+  droppedAt: z.string().nullable().optional(),
+  reason: z.string().max(2000).nullable().optional(),
+  // Only used to disambiguate name resolution when levelId is absent — the same
+  // as the completions tab. Not stored.
+  inGameDifficulty: z.string().nullable().optional(),
+})
+
+// ── Check ──────────────────────────────────────────────────────────────────
+
+export const ImportCheckRequestSchema = z.object({
+  levelIds: z.array(LevelIdSchema).min(1).max(5000),
+})
+
+// Compact existing-completion summary — enough to render the conflict UI.
+export const ImportConflictSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  date: z.string().nullable(),
+  attempts: z.number().int().nullable(),
+  // 0-10 display scale (converted from internal 0-100 on the way out).
+  enjoyment: z.number().nullable(),
+  simpleRating: z.number().nullable(),
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
+})
+
+export const ImportCheckResponseSchema = z.object({
+  conflicts: z.array(ImportConflictSchema),
+})
+
+// ── Commit ─────────────────────────────────────────────────────────────────
+
+const ImportConflictResolution = z.enum(['skip', 'overwrite'])
+
+export const ImportCommitRowSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('completion'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportCompletionRowSchema,
+    // Only required when a conflict exists for this level.
+    conflictResolution: ImportConflictResolution.optional(),
+  }),
+  z.object({
+    type: z.literal('dropped'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportDroppedRowSchema,
+  }),
+])
+
+export const ImportCommitRequestSchema = z.object({
+  importJobId: z.string().uuid(),
+  rows: z.array(ImportCommitRowSchema).min(1).max(50),
+})
+
+export const ImportCommitOutcomeSchema = z.object({
+  rowIndex: z.number().int(),
+  // 'committed' — a new entry was written.
+  // 'updated'   — an existing entry was modified (overwrite/merge).
+  // 'skipped'   — the row's data was not used at all (existing entry kept, or
+  //               superseded by a later row for the same level).
+  // 'failed'    — the row could not be processed.
+  status: z.enum(['committed', 'updated', 'skipped', 'failed']),
+  reason: z.string().optional(),
+})
+
+export const ImportCommitResponseSchema = z.object({
+  outcomes: z.array(ImportCommitOutcomeSchema),
+})
+
+// ── Ranking ──────────────────────────────────────────────────────────────
+//
+// The ranking is a total order with replace semantics ("the sheet wins"), so
+// it's committed in one dedicated call rather than through the row-batched path.
+// Entries are ordered hardest → easiest; each must resolve to one of the user's
+// own completed levels (ranking only applies to completions).
+
+export const ImportRankingEntrySchema = z.object({
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+})
+
+export const ImportRankingRequestSchema = z.object({
+  // Ordered hardest (index 0) → easiest.
+  entries: z.array(ImportRankingEntrySchema).max(5000),
+})
+
+export const ImportRankingSkipSchema = z.object({
+  rank: z.number().int(),
+  label: z.string(),
+  reason: z.string(),
+})
+
+export const ImportRankingResponseSchema = z.object({
+  placed: z.number().int(),
+  skipped: z.array(ImportRankingSkipSchema),
+})
+
+// ── Lists ────────────────────────────────────────────────────────────────
+//
+// Like ranking, list membership is committed in one dedicated call with
+// replace-per-list semantics: any list the sheet names has its membership
+// replaced; lists the sheet doesn't mention are left alone. The `list` value is
+// a reserved keyword (want_to_beat / favorites / least_favorites) or a custom
+// list name. Level identity resolves like the completion tabs (a listed level
+// need not be completed).
+
+export const ImportListEntrySchema = z.object({
+  list: z.string().min(1).max(200),
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  inGameDifficulty: z.string().nullable().optional(),
+  // Optional explicit ordering within the list; row order is used otherwise.
+  position: z.number().int().nullable().optional(),
+})
+
+export const ImportListsRequestSchema = z.object({
+  entries: z.array(ImportListEntrySchema).max(5000),
+})
+
+export const ImportListsSkipSchema = z.object({
+  list: z.string(),
+  label: z.string(),
+  reason: z.string(),
+})
+
+export const ImportListsResponseSchema = z.object({
+  lists: z.array(z.object({ list: z.string(), placed: z.number().int() })),
+  skipped: z.array(ImportListsSkipSchema),
+})
+
+// ── Ratings (weighted category scores) ─────────────────────────────────────
+//
+// One dedicated call, run after completions. Each entry is one level's category
+// scores (already converted to the internal 0-100 scale by the client). Scores
+// attach to the level's completion; categories are matched by name and created
+// on demand. Merge semantics: only the categories named in the sheet are
+// written — a completion's other category scores are left untouched.
+
+export const ImportRatingEntrySchema = z.object({
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  inGameDifficulty: z.string().nullable().optional(),
+  // category name → score (0-100, internal scale)
+  scores: z.record(z.string(), z.number().int().min(0).max(100)),
+})
+
+export const ImportRatingsRequestSchema = z.object({
+  entries: z.array(ImportRatingEntrySchema).max(5000),
+})
+
+export const ImportRatingsResponseSchema = z.object({
+  scored: z.number().int(), // number of individual scores written
+  levels: z.number().int(), // number of levels that received scores
+  categoriesCreated: z.array(z.string()),
+  skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
+})
+
+// ── Export ─────────────────────────────────────────────────────────────────
+//
+// GET /v1/me/export returns the account's data in a faithful domain form; the
+// client formats it into the import-compatible spreadsheet (date formatting,
+// 0-100 → 0-10 rating scale, coin bitmask → columns, etc.). Dates are ISO here.
+
+export const ExportCompletionSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  date: z.string().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  percentage: z.number().int().nullable(),
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  onStream: z.boolean(),
+  fps: z.number().int().nullable(),
+  device: z.string().nullable(),
+  enjoyment: z.number().int().nullable(), // 0-100 internal
+  simpleRating: z.number().int().nullable(), // 0-100 internal
+  difficultyOpinion: z.string().nullable(),
+  difficultyOpinionStars: z.number().int().nullable(),
+  coinsCollected: z.number().int().nullable(),
+  twoPlayerSolo: z.boolean().nullable(),
+  twoPlayerPartner: z.string().nullable(),
+  visibility: z.string(),
+  notes: z.string().nullable(),
+  levelNotes: z.string().nullable(),
+  gddlTier: z.string().nullable(),
+  nlwTier: z.string().nullable(),
+  videoUrl: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+})
+
+export const ExportDroppedSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  bestProgress: z.number().int().nullable(),
+  attemptsAtDrop: z.number().int().nullable(),
+  droppedAt: z.string().nullable(),
+  reason: z.string().nullable(),
+})
+
+export const ExportRankingSchema = z.object({
+  rank: z.number().int(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+})
+
+export const ExportListSchema = z.object({
+  list: z.string(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  position: z.number().int(),
+})
+
+export const ExportRatingSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  scores: z.record(z.string(), z.number().int()), // 0-100 internal
+})
+
+export const ExportResponseSchema = z.object({
+  completions: z.array(ExportCompletionSchema),
+  dropped: z.array(ExportDroppedSchema),
+  ranking: z.array(ExportRankingSchema),
+  lists: z.array(ExportListSchema),
+  ratingCategories: z.array(z.string()),
+  ratings: z.array(ExportRatingSchema),
+})
+
+// The export is fetched section by section with offset pagination, so no single
+// response can blow past API Gateway's response cap for a large account. The
+// client stitches the sections back into an ExportResponse.
+export const EXPORT_SECTIONS = [
+  'completions',
+  'dropped',
+  'ranking',
+  'lists',
+  'ratings',
+  'categories',
+] as const
+export type ExportSection = (typeof EXPORT_SECTIONS)[number]
+
+export const ExportPageResponseSchema = z.object({
+  items: z.array(z.unknown()),
+  hasMore: z.boolean(),
+})
+
+export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
+export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
+export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
+export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
+export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
+export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
+export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
+export type ImportConflict = z.infer<typeof ImportConflictSchema>
+export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
+export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
+export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
+export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
+export type ImportListsRequest = z.infer<typeof ImportListsRequestSchema>
+export type ImportListsResponse = z.infer<typeof ImportListsResponseSchema>
+export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
+export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
+export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
+export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
+export type ExportDropped = z.infer<typeof ExportDroppedSchema>
+export type ExportRanking = z.infer<typeof ExportRankingSchema>
+export type ExportList = z.infer<typeof ExportListSchema>
+export type ExportRating = z.infer<typeof ExportRatingSchema>
+export type ExportResponse = z.infer<typeof ExportResponseSchema>
+export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
