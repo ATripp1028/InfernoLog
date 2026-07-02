@@ -34,7 +34,9 @@ function parseDate(raw: unknown, format: DateFormat): DateParseResult {
   // SheetJS may return a JS Date for cells formatted as dates.
   if (raw instanceof Date) {
     if (isNaN(raw.getTime())) return { ok: false, reason: 'Unparseable date', value: String(raw) }
-    return { ok: true, iso: raw.toISOString().slice(0, 10) }
+    // Excel dates are date-only; avoid timezone shifts by normalizing to a local YYYY-MM-DD.
+    const local = new Date(raw.getTime() - raw.getTimezoneOffset() * 60_000)
+    return { ok: true, iso: local.toISOString().slice(0, 10) }
   }
 
   const s = String(raw).trim()

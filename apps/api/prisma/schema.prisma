@@ -747,7 +747,7 @@ model ImportJobRow {
   id       String    @id @default(uuid())
   jobId    String
   rowIndex Int
-  status   String    // "committed" | "skipped" | "failed"
+  status   String    // "committed" | "updated" | "skipped" | "failed"
   reason   String?
 
   job      ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
