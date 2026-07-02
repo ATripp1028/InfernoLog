@@ -76,48 +76,46 @@ function demonTierPredicate(
 //   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
 //   'ambiguous'               — multiple candidates even after creator/difficulty filtering
 //   null                      — no match found anywhere
-export async function resolveByName(
-  name: string,
-  creator?: string | null,
-  inGameDifficulty?: string | null
-): Promise<{ levelId: string; robtopLevel?: RobtopLevel } | 'ambiguous' | null> {
-  // When a demon tier is given, it's a hard requirement — not just a tiebreaker.
+export type ResolveResult = { levelId: string; robtopLevel?: RobtopLevel } | 'ambiguous' | null
+
+type DbCandidate = { inGameId: string; creator: string | null; inGameDifficulty: string | null }
+
+// Resolve from already-fetched DB candidates for a name. Returns a unique match,
+// 'ambiguous', or null (no DB match → caller should try RobTop).
+function resolveFromDbCandidates(
+  dbLevels: DbCandidate[],
+  creator: string | null | undefined,
+  inGameDifficulty: string | null | undefined
+): { levelId: string } | 'ambiguous' | null {
   const matchesTier = demonTierPredicate(inGameDifficulty)
-
-  // 1. Check local cache first.
-  const dbLevels = await prisma.level.findMany({
-    where: { name: { equals: name, mode: 'insensitive' } },
-    select: { inGameId: true, creator: true, inGameDifficulty: true },
-  })
-
-  let dbCandidates = dbLevels
+  let candidates = dbLevels
   // Difficulty is a hard filter (applied even when it empties the list, so the
   // wrong-difficulty single match falls through to RobTop instead of resolving).
-  if (matchesTier) {
-    dbCandidates = dbCandidates.filter((l) => matchesTier(l.inGameDifficulty))
-  }
+  if (matchesTier) candidates = candidates.filter((l) => matchesTier(l.inGameDifficulty))
   // Creator is a lenient tiebreaker only (the column is fuzzy / often blank).
-  if (creator && dbCandidates.length > 1) {
+  if (creator && candidates.length > 1) {
     const hint = creator.toLowerCase()
-    const filtered = dbCandidates.filter((l) => l.creator?.toLowerCase().includes(hint))
-    if (filtered.length > 0) dbCandidates = filtered
+    const filtered = candidates.filter((l) => l.creator?.toLowerCase().includes(hint))
+    if (filtered.length > 0) candidates = filtered
   }
+  if (candidates.length === 1) return { levelId: candidates[0]!.inGameId }
+  if (candidates.length > 1) return 'ambiguous'
+  return null
+}
 
-  if (dbCandidates.length === 1) return { levelId: dbCandidates[0]!.inGameId }
-  if (dbCandidates.length > 1) return 'ambiguous'
-
-  // 2. Search RobTop by name with difficulty filter to scope results.
-  //    Filter to exact-name matches (the search is keyword-based and may return
-  //    partial matches). We do NOT fall back to an unfiltered search on 0 results
-  //    because the wrong level is worse than a clear failure.
-  const diffFilter = toDiffFilter(inGameDifficulty)
-  const rtResults = await searchRobtopByName(name, diffFilter)
+// RobTop fallback (step 2) for a single name. Filters to exact-name matches (the
+// search is keyword-based) and re-applies the difficulty filter. We do NOT fall
+// back to an unfiltered search — the wrong level is worse than a clear failure.
+async function resolveViaRobtop(
+  name: string,
+  creator: string | null | undefined,
+  inGameDifficulty: string | null | undefined
+): Promise<ResolveResult> {
+  const matchesTier = demonTierPredicate(inGameDifficulty)
+  const rtResults = await searchRobtopByName(name, toDiffFilter(inGameDifficulty))
   // Compare trimmed: RobTop stores some names with trailing/leading whitespace.
   const wantName = name.trim().toLowerCase()
-  let rtCandidates = rtResults.filter(
-    (r) => r.level.name?.trim().toLowerCase() === wantName
-  )
-  // Re-apply the tier as a hard filter — RobTop sometimes ignores demonFilter.
+  let rtCandidates = rtResults.filter((r) => r.level.name?.trim().toLowerCase() === wantName)
   if (matchesTier) {
     rtCandidates = rtCandidates.filter((r) => matchesTier(r.level.inGameDifficulty))
   }
@@ -126,13 +124,67 @@ export async function resolveByName(
     const filtered = rtCandidates.filter((r) => r.level.creator?.toLowerCase().includes(hint))
     if (filtered.length > 0) rtCandidates = filtered
   }
-
   if (rtCandidates.length === 1) {
     const match = rtCandidates[0]!
     return { levelId: match.levelId, robtopLevel: match.level }
   }
   if (rtCandidates.length > 1) return 'ambiguous'
   return null
+}
+
+export async function resolveByName(
+  name: string,
+  creator?: string | null,
+  inGameDifficulty?: string | null
+): Promise<ResolveResult> {
+  // 1. Check the local cache first, then fall back to RobTop.
+  const dbLevels = await prisma.level.findMany({
+    where: { name: { equals: name, mode: 'insensitive' } },
+    select: { inGameId: true, creator: true, inGameDifficulty: true },
+  })
+  const db = resolveFromDbCandidates(dbLevels, creator, inGameDifficulty)
+  if (db) return db // unique match or 'ambiguous'
+  return resolveViaRobtop(name, creator, inGameDifficulty)
+}
+
+// Bulk name resolution: fetches all DB candidates in a few queries (grouped by
+// lowercased name) rather than one query per name, then falls back to RobTop
+// only for the DB misses. Keeps the DB-first ordering for a large one-shot
+// import (e.g. a Lists tab with thousands of name-only rows). Returns results
+// positionally aligned with `inputs`.
+export async function resolveNamesBatch(
+  inputs: {
+    name: string
+    creator?: string | null | undefined
+    inGameDifficulty?: string | null | undefined
+  }[]
+): Promise<ResolveResult[]> {
+  const distinct = [...new Set(inputs.map((i) => i.name.trim().toLowerCase()))]
+  const byName = new Map<string, DbCandidate[]>()
+
+  const CHUNK = 200
+  for (let i = 0; i < distinct.length; i += CHUNK) {
+    const chunk = distinct.slice(i, i + CHUNK)
+    const rows = await prisma.level.findMany({
+      where: { OR: chunk.map((n) => ({ name: { equals: n, mode: 'insensitive' as const } })) },
+      select: { inGameId: true, name: true, creator: true, inGameDifficulty: true },
+    })
+    for (const r of rows) {
+      const key = (r.name ?? '').trim().toLowerCase()
+      const list = byName.get(key)
+      if (list) list.push(r)
+      else byName.set(key, [r])
+    }
+  }
+
+  const results: ResolveResult[] = []
+  for (const input of inputs) {
+    const dbLevels = byName.get(input.name.trim().toLowerCase()) ?? []
+    const db = resolveFromDbCandidates(dbLevels, input.creator, input.inGameDifficulty)
+    // DB miss → RobTop fallback (sequential; only for unseeded levels).
+    results.push(db ?? (await resolveViaRobtop(input.name, input.creator, input.inGameDifficulty)))
+  }
+  return results
 }
 
 // ── Stub level creation ────────────────────────────────────────────────────

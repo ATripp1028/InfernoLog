@@ -12,6 +12,8 @@ import {
   ImportRankingRequestSchema,
   ImportListsRequestSchema,
   ImportRatingsRequestSchema,
+  EXPORT_SECTIONS,
+  type ExportSection,
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
@@ -19,7 +21,7 @@ import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
 import { commitImportLists } from '../services/importLists'
 import { commitImportRatings } from '../services/importRatings'
-import { buildExport } from '../services/exportData'
+import { exportSection, EXPORT_DEFAULT_LIMIT, EXPORT_MAX_LIMIT } from '../services/exportData'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -187,25 +189,27 @@ app.post('/me/import/ratings', async (c) => {
   }
 })
 
-// GET /v1/me/export — returns the account's data in a faithful domain form.
-// The client turns it into the import-compatible spreadsheet. Read-only.
+// GET /v1/me/export?section=&offset=&limit= — one paginated section of the
+// account's data in a faithful domain form. The client fetches every section to
+// completion and stitches the import-compatible spreadsheet. Read-only.
 app.get('/me/export', async (c) => {
   const userId = c.get('userId') as string
 
   try {
-    const result = await buildExport(userId)
-    logger.info(
-      {
-        userId,
-        completions: result.completions.length,
-        dropped: result.dropped.length,
-        ranking: result.ranking.length,
-        lists: result.lists.length,
-        ratings: result.ratings.length,
-      },
-      'GET /me/export: built'
-    )
-    return c.json(result, 200)
+    const section = c.req.query('section')
+    if (!section || !(EXPORT_SECTIONS as readonly string[]).includes(section)) {
+      return c.json({ error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` }, 400)
+    }
+
+    const rawOffset = Number(c.req.query('offset') ?? '0')
+    const rawLimit = Number(c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT))
+    const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.trunc(rawOffset)) : 0
+    const limit = Number.isFinite(rawLimit)
+      ? Math.min(EXPORT_MAX_LIMIT, Math.max(1, Math.trunc(rawLimit)))
+      : EXPORT_DEFAULT_LIMIT
+
+    const page = await exportSection(userId, section as ExportSection, offset, limit)
+    return c.json(page, 200)
   } catch (err) {
     logger.error({ userId, err }, 'GET /me/export error')
     Sentry.captureException(err)

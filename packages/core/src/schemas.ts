@@ -988,6 +988,24 @@ export const ExportResponseSchema = z.object({
   ratings: z.array(ExportRatingSchema),
 })
 
+// The export is fetched section by section with offset pagination, so no single
+// response can blow past API Gateway's response cap for a large account. The
+// client stitches the sections back into an ExportResponse.
+export const EXPORT_SECTIONS = [
+  'completions',
+  'dropped',
+  'ranking',
+  'lists',
+  'ratings',
+  'categories',
+] as const
+export type ExportSection = (typeof EXPORT_SECTIONS)[number]
+
+export const ExportPageResponseSchema = z.object({
+  items: z.array(z.unknown()),
+  hasMore: z.boolean(),
+})
+
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
@@ -1011,3 +1029,4 @@ export type ExportRanking = z.infer<typeof ExportRankingSchema>
 export type ExportList = z.infer<typeof ExportListSchema>
 export type ExportRating = z.infer<typeof ExportRatingSchema>
 export type ExportResponse = z.infer<typeof ExportResponseSchema>
+export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>

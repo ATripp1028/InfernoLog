@@ -280,9 +280,42 @@ export function useImportApi() {
     [getIdToken]
   )
 
+  // The export is paginated section by section (so no single response can
+  // exceed API Gateway's cap). Fetch every section to completion in parallel
+  // and stitch them back into one ExportResponse.
   const getExport = useCallback(async (): Promise<ExportResponse> => {
     const token = await getIdToken()
-    return apiFetch<ExportResponse>('/v1/me/export', { method: 'GET', token })
+    const PAGE = 500
+    const fetchAll = async (section: string): Promise<unknown[]> => {
+      const items: unknown[] = []
+      let offset = 0
+      for (;;) {
+        const page = await apiFetch<{ items: unknown[]; hasMore: boolean }>(
+          `/v1/me/export?section=${section}&offset=${offset}&limit=${PAGE}`,
+          { method: 'GET', token }
+        )
+        items.push(...page.items)
+        if (!page.hasMore) break
+        offset += PAGE
+      }
+      return items
+    }
+    const [completions, dropped, ranking, lists, ratings, categories] = await Promise.all([
+      fetchAll('completions'),
+      fetchAll('dropped'),
+      fetchAll('ranking'),
+      fetchAll('lists'),
+      fetchAll('ratings'),
+      fetchAll('categories'),
+    ])
+    return {
+      completions: completions as ExportResponse['completions'],
+      dropped: dropped as ExportResponse['dropped'],
+      ranking: ranking as ExportResponse['ranking'],
+      lists: lists as ExportResponse['lists'],
+      ratings: ratings as ExportResponse['ratings'],
+      ratingCategories: categories as string[],
+    }
   }, [getIdToken])
 
   return { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings, getExport }

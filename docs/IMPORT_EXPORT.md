@@ -255,28 +255,13 @@ Semantics:
 
 ---
 
-## Export Options
+## Export
 
-When exporting, the user chooses:
+Export produces the **same workbook shape as the import template** (all tabs above + a Field Descriptions tab), so an export is itself a valid import file — export → reimport round-trips.
 
-```
-┌─────────────────────────────────────────┐
-│             Export Options              │
-│                                         │
-│  Data to include:                       │
-│  ○ Current filtered view only           │
-│  ● Full unfiltered log                  │
-│                                         │
-│  Non-completion entries:                │
-│  ○ Exclude (completions only)           │
-│  ● Include all progress updates         │
-│                                         │
-│  List references:                       │
-│  Always included (all sources)          │
-│                                         │
-│            [ Export .xlsx ]             │
-└─────────────────────────────────────────┘
-```
+- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `dropped`, `ranking`, `lists`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
+- **Formatting is client-side**: dates in the user's `date_format_preference`, ratings on the 0–10 scale (internal `0-100 ÷ 10`, which round-trips through the importer's ≤10 rule), coin bitmask → `coin_1/2/3`, enum casing lowered.
+- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, progress history beyond the single completion, drop metadata on dropped-then-beaten levels, system timestamps, and AREDL references.
 
 ---
 

@@ -2,12 +2,20 @@
 // domain form. The client formats it into the import-compatible spreadsheet
 // (date formatting, 0-100 → 0-10 rating scale, coin bitmask → columns).
 //
+// Fetched one section at a time with offset pagination so no single response
+// can exceed API Gateway's response cap for a large account. Offset pagination
+// is safe here: an export is a read-only snapshot of a single user's own data,
+// which isn't being mutated concurrently mid-export.
+//
 // What it intentionally does NOT include (out of the import model / user-only):
 // rating category weights + mode, progress history beyond the completion,
 // AREDL references, and system timestamps. See docs/IMPORT_EXPORT.md.
 
 import prisma from '../utils/prisma'
-import type { ExportResponse } from '@infernolog/core'
+import type { ExportSection } from '@infernolog/core'
+
+export const EXPORT_DEFAULT_LIMIT = 500
+export const EXPORT_MAX_LIMIT = 1000
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null)
 
@@ -18,11 +26,12 @@ const LIST_KEYWORD: Record<string, string> = {
   LEAST_FAVORITES: 'least_favorites',
 }
 
-export async function buildExport(userId: string): Promise<ExportResponse> {
-  // ── Completions ───────────────────────────────────────────────────────
-  const completionLps = await prisma.levelProgress.findMany({
+async function exportCompletions(userId: string, skip: number, take: number) {
+  const lps = await prisma.levelProgress.findMany({
     where: { userId, progressUpdates: { some: { isCompletion: true } } },
     orderBy: { createdAt: 'asc' },
+    skip,
+    take,
     select: {
       levelId: true,
       worstFail: true,
@@ -58,7 +67,7 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
     },
   })
 
-  const completions: ExportResponse['completions'] = completionLps.flatMap((lp) => {
+  return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
     if (!pu) return []
     const gddl = pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
@@ -95,11 +104,14 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
       },
     ]
   })
+}
 
-  // ── Dropped ───────────────────────────────────────────────────────────
-  const droppedLps = await prisma.levelProgress.findMany({
+async function exportDropped(userId: string, skip: number, take: number) {
+  const lps = await prisma.levelProgress.findMany({
     where: { userId, status: 'DROPPED' },
     orderBy: { createdAt: 'asc' },
+    skip,
+    take,
     select: {
       levelId: true,
       worstFail: true,
@@ -109,7 +121,7 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
       level: { select: { name: true, creator: true, inGameDifficulty: true } },
     },
   })
-  const dropped: ExportResponse['dropped'] = droppedLps.map((lp) => ({
+  return lps.map((lp) => ({
     levelId: lp.levelId,
     levelName: lp.level.name,
     creator: lp.level.creator,
@@ -119,55 +131,59 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
     droppedAt: iso(lp.droppedAt),
     reason: lp.droppedReason,
   }))
+}
 
-  // ── Ranking (hardest first) ───────────────────────────────────────────
-  const rankingRows = await prisma.classicRanking.findMany({
+async function exportRanking(userId: string, skip: number, take: number) {
+  const rows = await prisma.classicRanking.findMany({
     where: { userId },
-    orderBy: { rankingIndex: 'desc' },
+    orderBy: { rankingIndex: 'desc' }, // hardest first
+    skip,
+    take,
     select: { levelProgress: { select: { levelId: true, level: { select: { name: true } } } } },
   })
-  const ranking: ExportResponse['ranking'] = rankingRows.map((r, i) => ({
-    rank: i + 1,
+  return rows.map((r, i) => ({
+    rank: skip + i + 1,
     levelId: r.levelProgress.levelId,
     levelName: r.levelProgress.level.name,
   }))
+}
 
-  // ── Lists ─────────────────────────────────────────────────────────────
-  const userLists = await prisma.userList.findMany({
-    where: { userId },
+async function exportLists(userId: string, skip: number, take: number) {
+  const entries = await prisma.levelListEntry.findMany({
+    where: { list: { userId } },
+    orderBy: [{ listId: 'asc' }, { position: 'asc' }],
+    skip,
+    take,
     select: {
-      name: true,
-      type: true,
-      entries: {
-        orderBy: { position: 'asc' },
-        select: { levelId: true, position: true, level: { select: { name: true } } },
-      },
+      levelId: true,
+      position: true,
+      level: { select: { name: true } },
+      list: { select: { type: true, name: true } },
     },
   })
-  const lists: ExportResponse['lists'] = userLists.flatMap((ul) => {
-    const listCol = ul.type === 'CUSTOM' ? ul.name : (LIST_KEYWORD[ul.type] ?? ul.name)
-    return ul.entries.map((e) => ({
-      list: listCol,
-      levelId: e.levelId,
-      levelName: e.level.name,
-      position: e.position,
-    }))
-  })
+  return entries.map((e) => ({
+    list: e.list.type === 'CUSTOM' ? e.list.name : (LIST_KEYWORD[e.list.type] ?? e.list.name),
+    levelId: e.levelId,
+    levelName: e.level.name,
+    position: e.position,
+  }))
+}
 
-  // ── Ratings ───────────────────────────────────────────────────────────
+async function exportRatings(userId: string, skip: number, take: number) {
   const categories = await prisma.ratingCategory.findMany({
     where: { userId },
-    orderBy: { sortOrder: 'asc' },
     select: { id: true, name: true },
   })
   const catNameById = new Map(categories.map((c) => [c.id, c.name]))
-  const ratingCategories = categories.map((c) => c.name)
 
-  const scoredLps = await prisma.levelProgress.findMany({
+  const lps = await prisma.levelProgress.findMany({
     where: {
       userId,
       progressUpdates: { some: { isCompletion: true, ratingScores: { some: {} } } },
     },
+    orderBy: { createdAt: 'asc' },
+    skip,
+    take,
     select: {
       levelId: true,
       level: { select: { name: true, creator: true } },
@@ -181,7 +197,8 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
       },
     },
   })
-  const ratings: ExportResponse['ratings'] = scoredLps.flatMap((lp) => {
+
+  return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
     if (!pu || pu.ratingScores.length === 0) return []
     const scores: Record<string, number> = {}
@@ -200,6 +217,37 @@ export async function buildExport(userId: string): Promise<ExportResponse> {
       },
     ]
   })
+}
 
-  return { completions, dropped, ranking, lists, ratingCategories, ratings }
+async function exportCategories(userId: string): Promise<string[]> {
+  const categories = await prisma.ratingCategory.findMany({
+    where: { userId },
+    orderBy: { sortOrder: 'asc' },
+    select: { name: true },
+  })
+  return categories.map((c) => c.name)
+}
+
+// One page of a section. `hasMore` is true when a full page came back, so the
+// client keeps advancing the offset. `categories` is small and never paginated.
+export async function exportSection(
+  userId: string,
+  section: ExportSection,
+  offset: number,
+  limit: number
+): Promise<{ items: unknown[]; hasMore: boolean }> {
+  if (section === 'categories') {
+    return { items: await exportCategories(userId), hasMore: false }
+  }
+
+  const fetchers = {
+    completions: exportCompletions,
+    dropped: exportDropped,
+    ranking: exportRanking,
+    lists: exportLists,
+    ratings: exportRatings,
+  } as const
+
+  const items = await fetchers[section](userId, offset, limit)
+  return { items, hasMore: items.length === limit }
 }

@@ -13,7 +13,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
 import type { ImportListEntry } from '@infernolog/core'
-import { resolveByName, ensureStubLevels, enqueueSeedIds } from './import'
+import { resolveNamesBatch, ensureStubLevels, enqueueSeedIds } from './import'
 import { logger } from '../utils/logger'
 
 type Tx = Prisma.TransactionClient
@@ -82,14 +82,32 @@ export async function commitImportLists(
   const groups = new Map<string, { target: ListTarget; entries: ResolvedEntry[]; seen: Set<string> }>()
   const allLevelIds = new Set<string>()
 
-  // ── Resolve levels (outside the transaction — RobTop name lookups) ────
-  for (const entry of entries) {
+  // Pre-resolve every name-only entry against the DB in bulk (RobTop only for
+  // DB misses), so a large name-only tab isn't one query per row.
+  const nameOnly = entries
+    .map((e, index) => ({ e, index }))
+    .filter(({ e }) => !e.levelId && e.levelName)
+  const resolvedByIndex = new Map<number, Awaited<ReturnType<typeof resolveNamesBatch>>[number]>()
+  if (nameOnly.length > 0) {
+    const resolved = await resolveNamesBatch(
+      nameOnly.map(({ e }) => ({
+        name: e.levelName as string,
+        creator: e.creator,
+        inGameDifficulty: e.inGameDifficulty,
+      }))
+    )
+    nameOnly.forEach(({ index }, i) => resolvedByIndex.set(index, resolved[i]!))
+  }
+
+  // ── Group resolved entries by target list, preserving order ───────────
+  for (let index = 0; index < entries.length; index++) {
+    const entry = entries[index]!
     const target = classifyList(entry.list)
     const label = entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : target.name)
 
     let levelId = entry.levelId ?? undefined
     if (!levelId && entry.levelName) {
-      const res = await resolveByName(entry.levelName, entry.creator, entry.inGameDifficulty)
+      const res = resolvedByIndex.get(index) ?? null
       if (res === 'ambiguous') {
         skipped.push({ list: target.name, label, reason: 'Matches more than one level — add a level_id' })
         continue

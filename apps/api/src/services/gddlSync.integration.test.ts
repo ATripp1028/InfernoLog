@@ -102,8 +102,9 @@ describe('syncGddlSubmissions', () => {
     const pu = lp.progressUpdates[0]!
     expect(pu.isCompletion).toBe(true)
     expect(pu.enjoyment).toBe(70) // 7 × 10
-    expect(pu.simpleRating).toBe(80) // 8 × 10
     expect(pu.videoUrl).toBe('https://youtube.com/watch?v=abc')
+    // GDDL's "Rating" is the level's tier, not a quality score — it becomes a
+    // GDDL list reference, never our simpleRating.
     expect(pu.listReferences[0]!.listSource).toBe('GDDL')
     expect(pu.listReferences[0]!.tierOrRank).toBe('8')
   })
@@ -187,7 +188,6 @@ describe('syncGddlSubmissions', () => {
       where: { id: pu.id },
     })
     expect(updated.enjoyment).toBe(70)
-    expect(updated.simpleRating).toBe(80)
     expect(updated.videoUrl).toBe('https://youtube.com/watch?v=abc')
   })
 
@@ -210,7 +210,6 @@ describe('syncGddlSubmissions', () => {
         isCompletion: true,
         date: new Date('2023-01-01'), // already set — must not be overwritten
         enjoyment: 50,
-        simpleRating: 60,
         videoUrl: 'https://original.video',
       },
       select: { id: true },
@@ -234,7 +233,6 @@ describe('syncGddlSubmissions', () => {
       where: { id: pu.id },
     })
     expect(unchanged.enjoyment).toBe(50) // unchanged
-    expect(unchanged.simpleRating).toBe(60)
     expect(unchanged.videoUrl).toBe('https://original.video')
   })
 
