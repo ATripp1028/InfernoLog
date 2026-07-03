@@ -11,14 +11,23 @@ const GDDL_API_BASE_URL =
 // pinning the Lambda until its own timeout.
 const VERIFY_TIMEOUT_MS = 8000
 
-// Thrown when GDDL responds but rejects the key (or returns a shape that means
-// the key isn't a valid, named user). Distinct from network/timeout failures,
-// which propagate as ordinary errors and should surface as a 500 — we only
-// tell the user their key is invalid when GDDL actually said so.
-export class GddlInvalidKeyError extends Error {
+// Base class for all GDDL-side errors. The worker uses this to distinguish
+// "GDDL is misbehaving" (no Sentry, user-facing message) from "our bug" (Sentry).
+export class GddlError extends Error {}
+
+// GDDL responded and explicitly rejected the key.
+export class GddlInvalidKeyError extends GddlError {
   constructor(message = 'GDDL rejected the API key') {
     super(message)
     this.name = 'GddlInvalidKeyError'
+  }
+}
+
+// GDDL could not be reached, timed out, or returned a server error.
+export class GddlUnavailableError extends GddlError {
+  constructor(message = 'GDDL is unavailable') {
+    super(message)
+    this.name = 'GddlUnavailableError'
   }
 }
 
@@ -59,13 +68,20 @@ export async function verifyGddlApiKey(
   return { name: body.Name }
 }
 
+// GDDL exposes tiers as decimals (e.g. 18.43), but GDDL itself displays — and
+// treats as canonical — the tier rounded to the nearest whole number. Round at
+// every point we ingest a GDDL rating so we never store or surface the decimal.
+export function roundGddlTier(rating: number): number {
+  return Math.round(rating)
+}
+
 // How long to wait on the public GDDL tier lookup before giving up. Like the
 // level metadata autofill, this must never block the logging flow.
 const TIER_TIMEOUT_MS = 5000
 
 // Fetches GDDL's suggested tier for a level (public list data — no key needed).
-// Resolves with the numeric tier, or `null` for any failure (down, timeout,
-// not-found, malformed). Never throws to its caller.
+// Resolves with the numeric tier (rounded to the nearest whole number), or
+// `null` for any failure (down, timeout, not-found, malformed). Never throws.
 export async function fetchGddlTier(levelId: string): Promise<number | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIER_TIMEOUT_MS)
@@ -80,12 +96,137 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
     const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
     // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
     const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
-    return typeof raw === 'number' && Number.isFinite(raw) ? raw : null
+    return typeof raw === 'number' && Number.isFinite(raw) ? roundGddlTier(raw) : null
   } catch {
     return null
   } finally {
     clearTimeout(timeout)
   }
+}
+
+// Fetches the authenticated user's GDDL account info (id + name).
+// Reuses the same /user/me endpoint as verifyGddlApiKey but also extracts the
+// numeric user ID needed for the submissions endpoint.
+export async function fetchGddlUserInfo(
+  apiKey: string
+): Promise<{ id: number; name: string }> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/user/me`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
+  }
+
+  if (!res.ok) {
+    // 4xx = key explicitly rejected; 5xx = GDDL server error (not the key's fault).
+    if (res.status >= 500)
+      throw new GddlUnavailableError(`GDDL returned ${res.status}`)
+    throw new GddlInvalidKeyError()
+  }
+
+  const body = (await res.json()) as { ID?: unknown; Name?: unknown }
+  if (typeof body.ID !== 'number' || typeof body.Name !== 'string') {
+    throw new GddlInvalidKeyError('GDDL response missing ID or Name')
+  }
+
+  return { id: body.ID, name: body.Name }
+}
+
+export interface GddlSubmissionLevel {
+  ID: number
+  Rating: number
+  Enjoyment: number
+  Meta: {
+    Name: string
+    Difficulty: string
+    Length: number
+    Rarity: number
+    IsTwoPlayer: boolean
+    Song: { Name: string }
+    Publisher: { name: string } | null
+  }
+}
+
+export interface GddlSubmission {
+  ID: number
+  Rating: number
+  Enjoyment: number
+  Proof: string | null
+  DateAdded: string
+  Level: GddlSubmissionLevel
+}
+
+export interface GddlSyncResponse {
+  total: number
+  limit: number
+  page: number
+  submissions: GddlSubmission[]
+}
+
+const SUBMISSIONS_PAGE_LIMIT = 25
+
+// Fetches all pages of the user's GDDL submission history. Throws on any
+// non-2xx page response so the caller can record partial progress.
+export async function fetchAllGddlSubmissions(
+  apiKey: string,
+  gddlUserId: number
+): Promise<GddlSubmission[]> {
+  const all: GddlSubmission[] = []
+  let page = 0
+
+  while (true) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS)
+
+    let res: Response
+    try {
+      res = await fetch(
+        `${GDDL_API_BASE_URL}/user/${gddlUserId}/submissions?page=${page}&limit=${SUBMISSIONS_PAGE_LIMIT}&sort=levelID&sortDirection=asc`,
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            Accept: 'application/json',
+          },
+          signal: controller.signal,
+        }
+      )
+      clearTimeout(timeout)
+    } catch {
+      clearTimeout(timeout)
+      throw new GddlUnavailableError('Could not reach GDDL')
+    }
+
+    if (!res.ok) {
+      throw new GddlUnavailableError(
+        `GDDL returned ${res.status} on submissions page ${page}`
+      )
+    }
+
+    const body = (await res.json()) as GddlSyncResponse
+    const submissions = body.submissions as GddlSubmission[] | undefined
+    if (!Array.isArray(submissions)) {
+      throw new GddlUnavailableError(
+        `GDDL returned unexpected shape on submissions page ${page}`
+      )
+    }
+
+    all.push(...submissions)
+    if (submissions.length < SUBMISSIONS_PAGE_LIMIT) break
+    page++
+  }
+
+  return all
 }
 
 // How long to wait on a GDDL record submission before giving up. This call is
@@ -97,24 +238,48 @@ const SUBMIT_TIMEOUT_MS = 8000
 // non-blocking (the completion has already been written) and swallow failures.
 export async function submitGddlRecord(
   apiKey: string,
-  record: { levelId: string; videoUrl: string | null }
+  record: {
+    levelId: string
+    videoUrl: string | null
+    attempts: number | null
+    fps: number | null
+    enjoyment: number | null
+    gddlTier: number | null
+    isSolo?: boolean
+    device?: string | null
+  }
 ): Promise<{ accepted: boolean }> {
+  // Resolve the GDDL numeric userID from the key — required by the endpoint.
+  const { id: gddlUserId } = await fetchGddlUserInfo(apiKey)
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), SUBMIT_TIMEOUT_MS)
 
+  const payload: Record<string, unknown> = {
+    levelID: parseInt(record.levelId, 10),
+    userID: gddlUserId,
+    isProofPrivate: false,
+    progress: 100,
+    isSolo: record.isSolo ?? true,
+    device: record.device ?? 'pc',
+  }
+  if (record.attempts != null) payload.attempts = record.attempts
+  if (record.fps != null) payload.refreshRate = record.fps
+  if (record.enjoyment != null)
+    payload.enjoyment = Math.round(record.enjoyment / 10)
+  if (record.gddlTier != null) payload.rating = record.gddlTier
+  if (record.videoUrl != null) payload.proof = record.videoUrl
+
   let res: Response
   try {
-    res = await fetch(`${GDDL_API_BASE_URL}/record`, {
+    res = await fetch(`${GDDL_API_BASE_URL}/submissions`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        levelID: record.levelId,
-        videoLink: record.videoUrl,
-      }),
+      body: JSON.stringify(payload),
       signal: controller.signal,
     })
   } finally {
@@ -122,7 +287,9 @@ export async function submitGddlRecord(
   }
 
   if (!res.ok) {
-    throw new Error(`GDDL record submission failed with status ${res.status}`)
+    throw new GddlError(
+      `GDDL record submission failed with status ${res.status}: ${await res.text()}`
+    )
   }
 
   const body = (await res.json()) as { accepted?: unknown }

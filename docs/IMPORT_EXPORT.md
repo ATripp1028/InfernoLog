@@ -55,10 +55,9 @@ These are resolved automatically without flagging:
 
 ### Flagged for Manual Resolution
 
-These are included in the validation report:
+Dates that can't be interpreted are flagged as a **warning** (see severities below) — the date is dropped and the rest of the row still imports:
 
 - Dates unparseable in the selected format
-- Ambiguous dates (e.g. `04/05/2019` when the format could be either MDY or DMY and the values are ≤ 12)
 - Dates written as phrases (`"April 5th 2019"`, `"early 2019"`)
 
 ### Internal Storage
@@ -99,17 +98,33 @@ All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displa
 
 ### Validation Report
 
-The validation report shows flagged rows before committing any data:
+Flags have two severities, following the general rule of thumb for bad data — never throw away a whole row over one bad cell:
+
+- **Error (row skipped)** — the row can't be imported at all: no `level_id` **and** no `level_name`, or a non-numeric `level_id` with no name to fall back on.
+- **Warning (value dropped, rest of the row imported)** — one field is bad but the row is otherwise fine: an unparseable/out-of-range percentage/run/rating, an unparseable date, an unknown `difficulty_opinion`, or a missing `level_id` that will be resolved from `level_name`. The bad value is dropped; the row still imports.
+
+Rows are identified by **level name** (falling back to the level ID, then the spreadsheet row number) rather than by row number alone.
 
 ```
-Import Preview: 847 rows valid, 3 rows flagged
+Import Preview: 847 rows ready, 3 skipped, 5 with dropped values
 
-Row 14 — Carnage Mode — Date "June 18" unparseable. Please use MM/DD/YYYY.
-Row 67 — Phobos — Date "07/28/19" ambiguous in DD/MM format. Is this July 28 or Aug 7?
-Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric characters.
+Bloodbath · attempts — attempts "~10000" isn't a valid number — value dropped
+Phobos · date — Phrase date "June 18" — use MDY format — value dropped
+row 512 · level_id — Missing level_id and level_name — row cannot be imported
 
-[ Fix and re-upload ]  [ Import 847 valid rows, skip 3 ]
+[ Fix and re-upload ]  [ Import 847 rows, skip 3 ]
 ```
+
+### Commit Outcomes
+
+After committing, each row reports one outcome:
+
+- **Imported** — a new entry was created.
+- **Updated** — an existing entry was modified (an overwrite/merge, or a drop against a level you already track).
+- **Skipped** — the row's data was not used at all: an existing completion you chose to keep (not overwrite), or a row superseded by a later row for the same level.
+- **Failed** — the row could not be processed (e.g. its level name couldn't be resolved).
+
+Only rows whose data is genuinely unused are reported as *skipped* — a modified row is always reported as *updated*, never skipped.
 
 ---
 
@@ -122,21 +137,29 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 | `date`               | No       | In selected date format                                       |
 | `date_uncertain`     | No       | TRUE/FALSE                                                    |
 | `attempts`           | No       | Integer                                                       |
-| `percentage`         | No       | Worst fail / last logged percentage                           |
-| `run_from`           | No       | Integer 0-100 (progress entries only)                         |
-| `run_to`             | No       | Integer 0-100 (progress entries only)                         |
+| `percentage`         | No       | Worst fail / last logged percentage (a trailing `%` is accepted) |
+| `run_from`           | No       | Integer 0-100 (trailing `%` accepted)                         |
+| `run_to`             | No       | Integer 0-100 (trailing `%` accepted)                         |
 | `on_stream`          | No       | TRUE/FALSE                                                    |
 | `fps`                | No       | Integer                                                       |
+| `device`             | No       | pc or mobile                                                  |
 | `enjoyment`          | No       | 0-10                                                          |
 | `simple_rating`      | No       | 0-10                                                          |
 | `difficulty_opinion` | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
-| `in_game_difficulty` | No       | Text snapshot of the level's cached rating                    |
-| `gddl_tier`          | No       | Numeric tier                                                  |
-| `aredl_rank`         | No       | Numeric rank (extreme demons only)                            |
-| `nlw_tier`           | No       | Tier name                                                     |
-| `notes`              | No       | Text                                                          |
-| `video_url`          | No       | URL                                                           |
-| `highlight_url`      | No       | URL                                                           |
+| `difficulty_opinion_stars` | No | Integer 1-9 — only when `difficulty_opinion` is not_demon_worthy |
+| `coin_1`             | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins) |
+| `coin_2`             | No       | TRUE/FALSE — 2nd user coin collected (ignored if the level has no coins) |
+| `coin_3`             | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
+| `two_player_solo`    | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level) |
+| `two_player_partner` | No       | Partner's name (only when `two_player_solo` is FALSE)         |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; otherwise autofilled |
+| `gddl_tier`          | No       | Whole-number tier                                             |
+| `nlw_tier`           | No       | Tier name                                                    |
+| `notes`              | No       | Text about this completion                                    |
+| `level_notes`        | No       | Text about the level overall (separate from `notes`)          |
+| `video_url`          | No       | URL                                                          |
+| `highlight_url`      | No       | URL                                                          |
+| `visibility`         | No       | public or private (defaults to public)                       |
 
 ### Column Tolerance
 
@@ -148,42 +171,97 @@ Row 203 — Bloodbath — Attempts field contains "~10000". Remove non-numeric c
 
 ## Dropped Tab Format
 
-| Column              | Required | Notes      |
-| ------------------- | -------- | ---------- |
-| `level_id`          | Yes      |            |
-| `level_name`        | No       |            |
-| `best_progress`     | No       | Percentage |
-| `run_from`          | No       |            |
-| `run_to`            | No       |            |
-| `attempts_at_drop`  | No       |            |
-| `dropped_at`        | No       | Date       |
-| `reason`            | No       | Text       |
-| `gddl_tier_at_drop` | No       | Snapshot   |
+| Column               | Required | Notes                                                     |
+| -------------------- | -------- | --------------------------------------------------------- |
+| `level_id`           | No\*     | In-game level ID                                          |
+| `level_name`         | No\*     | If blank, resolved from the GD servers by name            |
+| `creator`            | No       | Narrows name resolution when the name matches many levels |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank          |
+| `best_progress`      | No       | Percentage (a trailing `%` is accepted)                   |
+| `run_from`           | No       | Trailing `%` accepted                                     |
+| `run_to`             | No       | Trailing `%` accepted                                     |
+| `attempts_at_drop`   | No       |                                                           |
+| `dropped_at`         | No       | Date                                                      |
+| `reason`             | No       | Text                                                      |
+| `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                   |
 
 ---
 
-## Export Options
+## Ranking Tab Format
 
-When exporting, the user chooses:
+Your personal difficulty ranking of levels you've completed. The tab is deliberately lean — the rest of each level's data lives in the log.
 
-```
-┌─────────────────────────────────────────┐
-│             Export Options              │
-│                                         │
-│  Data to include:                       │
-│  ○ Current filtered view only           │
-│  ● Full unfiltered log                  │
-│                                         │
-│  Non-completion entries:                │
-│  ○ Exclude (completions only)           │
-│  ● Include all progress updates         │
-│                                         │
-│  List references:                       │
-│  Always included (all sources)          │
-│                                         │
-│            [ Export .xlsx ]             │
-└─────────────────────────────────────────┘
-```
+| Column       | Required | Notes                                                                     |
+| ------------ | -------- | ------------------------------------------------------------------------- |
+| `rank`       | No       | Optional number, **1 = hardest**. If present it sorts the tab; if absent, the sheet's row order is the order (top row = hardest). |
+| `level_id`   | No\*     | In-game level ID of a level you've completed                              |
+| `level_name` | No\*     | Matched against **your completed levels** (not the GD servers)            |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Replace, not merge.** When the tab is present with at least one resolvable row, it becomes your entire ranking (the "sheet wins" rule). Omit the tab (or leave it empty) to keep the account's existing ranking untouched.
+- Ranking applies only to **completions** — a listed level you haven't completed (or that only appears in the Dropped tab) is skipped with a note.
+- Committed as one dedicated call **after** the completion/drop batches, so every ranked level already exists in your log.
+- Internally the order maps to `ClassicRanking.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
+
+---
+
+## Lists Tab Format
+
+Membership of your want-to-beat / favorites / least-favorites and any custom lists.
+
+| Column               | Required | Notes                                                                       |
+| -------------------- | -------- | --------------------------------------------------------------------------- |
+| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom list of that name. |
+| `level_id`           | No\*     | In-game level ID                                                            |
+| `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)       |
+| `creator`            | No       | Narrows name resolution when the name matches many levels                   |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
+| `position`           | No       | Order within the list; row order is used if blank                           |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Replace per list.** Each list named in the tab has its membership replaced with the tab's rows (in order); lists you don't mention are left alone. Custom lists are created on demand by name.
+- A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
+- Committed as one dedicated call **after** the completion/drop batches (and ranking).
+
+---
+
+## Ratings Tab Format
+
+Weighted per-category scores. The tab is "wide": identity columns, then **one column per rating category** (headers named after your categories).
+
+| Column               | Required | Notes                                                          |
+| -------------------- | -------- | -------------------------------------------------------------- |
+| `level_id`           | No\*     | In-game level ID                                               |
+| `level_name`         | No\*     | Matched against **your completed levels** (scores attach to the completion) |
+| `creator`            | No       | Narrows name resolution                                        |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank               |
+| _(any other column)_ | No       | Treated as a **category name**; the cell is that level's score |
+
+\* one of `level_id` / `level_name` required.
+
+Semantics:
+
+- **Score scale**: a value ≤ 10 is read as 0–10 (×10), a value > 10 as 0–100; both are stored as a 0–100 integer. So `9.5` and `95` both become `95`.
+- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 1.00 weight-sum invariant, and the **rating mode is left unchanged** (set weights / switch to weighted in Settings).
+- **Merge, not replace**: only the categories a row names are written; a completion's other category scores are left alone.
+- A level must be **completed** to be rated (scores attach to a completion) — rows for uncompleted levels are skipped.
+- Committed as one dedicated call **after** the completion/drop batches.
+
+---
+
+## Export
+
+Export produces the **same workbook shape as the import template** (all tabs above + a Field Descriptions tab), so an export is itself a valid import file — export → reimport round-trips.
+
+- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `dropped`, `ranking`, `lists`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
+- **Formatting is client-side**: dates in the user's `date_format_preference`, ratings on the 0–10 scale (internal `0-100 ÷ 10`, which round-trips through the importer's ≤10 rule), coin bitmask → `coin_1/2/3`, enum casing lowered.
+- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, progress history beyond the single completion, drop metadata on dropped-then-beaten levels, system timestamps, and AREDL references.
 
 ---
 

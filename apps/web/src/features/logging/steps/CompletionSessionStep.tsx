@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -12,6 +13,7 @@ import {
   StepFooter,
 } from '../components'
 import { digitsOnly } from '../format'
+import type { Device } from '@/lib/api/logging'
 
 export function CompletionSessionStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
@@ -19,6 +21,7 @@ export function CompletionSessionStep() {
   if (!level) return null
 
   const defaultFps = me.data?.defaultFps
+  const showHighlightUrl = me.data?.showHighlightUrl ?? true
 
   return (
     <>
@@ -42,6 +45,13 @@ export function CompletionSessionStep() {
             {defaultFps != null && (
               <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
             )}
+          </div>
+          <div>
+            <FieldLabel>Device</FieldLabel>
+            <DevicePicker
+              value={draft.device}
+              onChange={(v) => patchDraft({ device: v })}
+            />
           </div>
         </div>
 
@@ -73,15 +83,17 @@ export function CompletionSessionStep() {
               placeholder="https://youtube.com/..."
             />
           </div>
-          <div>
-            <FieldLabel htmlFor="c-highlight">Highlight URL</FieldLabel>
-            <Input
-              id="c-highlight"
-              value={draft.highlightUrl}
-              onChange={(e) => patchDraft({ highlightUrl: e.target.value })}
-              placeholder="https://..."
-            />
-          </div>
+          {showHighlightUrl && (
+            <div>
+              <FieldLabel htmlFor="c-highlight">Highlight URL</FieldLabel>
+              <Input
+                id="c-highlight"
+                value={draft.highlightUrl}
+                onChange={(e) => patchDraft({ highlightUrl: e.target.value })}
+                placeholder="https://..."
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -98,10 +110,10 @@ export function CompletionSessionStep() {
       </StepBody>
 
       <StepFooter>
-        <Button variant="outline" onClick={() => setStep('c_listrefs')}>
+        <Button variant="outline" onClick={() => setStep('c_rating')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_review')}>Continue</Button>
+        <Button onClick={() => setStep('c_listrefs')}>Continue</Button>
       </StepFooter>
     </>
   )
@@ -125,6 +137,42 @@ function ToggleRow({
         {subtitle && <p className="text-xs text-text-tertiary">{subtitle}</p>}
       </div>
       <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  )
+}
+
+export function DevicePicker({
+  value,
+  onChange,
+}: {
+  value: Device | null
+  onChange: (v: Device | null) => void
+}) {
+  const options: { value: Device; label: string }[] = [
+    { value: 'pc', label: 'PC' },
+    { value: 'mobile', label: 'Mobile' },
+  ]
+  return (
+    <div className="flex gap-2">
+      {options.map((opt) => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(active ? null : opt.value)}
+            className={cn(
+              'flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
+              active
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+            )}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
     </div>
   )
 }

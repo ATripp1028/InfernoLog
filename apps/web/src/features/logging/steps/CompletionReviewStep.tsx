@@ -29,7 +29,7 @@ function opinionLabel(opinion: string, stars: number | null): string {
 }
 
 export function CompletionReviewStep() {
-  const { level, draft, setStep } = useLoggingFlow()
+  const { level, draft, setStep, setLastCompletion } = useLoggingFlow()
   const me = useMe()
   const logCompletion = useLogCompletion()
   if (!level || !me.data) return null
@@ -57,7 +57,6 @@ export function CompletionReviewStep() {
 
   const gddlBits = [
     draft.gddlTier.trim() ? `Tier ${draft.gddlTier.trim()}` : null,
-    draft.submitToGddl ? 'submitting record' : null,
   ].filter(Boolean)
 
   // NLW / AREDL only apply to extreme demons — mirror the list-references step.
@@ -69,10 +68,11 @@ export function CompletionReviewStep() {
   async function submit() {
     if (!level || !me.data) return
     try {
-      await logCompletion.mutateAsync(
+      const result = await logCompletion.mutateAsync(
         buildCompletionInput(level, draft, me.data)
       )
-      setStep('c_success')
+      setLastCompletion(result.levelProgress.id)
+      setStep(me.data.hasGddlApiKey ? 'c_gddl' : 'c_success')
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : 'Could not log completion'
@@ -138,7 +138,7 @@ export function CompletionReviewStep() {
       </StepBody>
 
       <StepFooter>
-        <Button variant="outline" onClick={() => setStep('c_session')}>
+        <Button variant="outline" onClick={() => setStep('c_listrefs')}>
           Back
         </Button>
         <Button onClick={submit} disabled={logCompletion.isPending}>

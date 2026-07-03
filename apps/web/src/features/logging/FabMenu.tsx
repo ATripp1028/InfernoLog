@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, Flag, List, Plus, Star, X } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLoggingFlow } from './LoggingFlowProvider'
+import { LOGGING_ACTIONS, type LoggingAction } from './loggingActions'
 import type { FlowPath } from './types'
 
 // Desktop FAB + popover menu (Figma screen 01). The two list-related actions
@@ -35,36 +36,29 @@ export function FabMenu() {
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-6 right-6 z-20 hidden md:block"
+      className="fixed bottom-6 z-20 hidden transition-[right] duration-200 md:block"
+      // Shifts left of the List page's docked filter panel when open (the page
+      // sets --fab-shift; it defaults to 0 everywhere else).
+      style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
     >
       {menuOpen && (
         <div
           role="menu"
           className="absolute bottom-16 right-0 w-64 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
         >
-          <MenuItem
-            icon={<Check size={16} />}
-            label="Log a completion"
-            highlight
-            onClick={() => start('completion')}
-          />
-          <MenuItem
-            icon={<Flag size={16} />}
-            label="Log progress"
-            onClick={() => start('progress')}
-          />
-          <MenuItem
-            icon={<X size={16} />}
-            label="Drop a level"
-            onClick={() => start('drop')}
-          />
-          <div className="my-1.5 h-px bg-border-subtle" />
-          <MenuItem
-            icon={<Star size={16} />}
-            label="Add to Want to Beat"
-            disabled
-          />
-          <MenuItem icon={<List size={16} />} label="Add to a list" disabled />
+          {LOGGING_ACTIONS.map((action, i) => {
+            const prev = LOGGING_ACTIONS[i - 1]
+            const divider = action.disabled && prev && !prev.disabled
+            return (
+              <div key={action.key}>
+                {divider && <div className="my-1.5 h-px bg-border-subtle" />}
+                <MenuItem
+                  action={action}
+                  onClick={action.path ? () => start(action.path!) : undefined}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -83,18 +77,13 @@ export function FabMenu() {
 }
 
 function MenuItem({
-  icon,
-  label,
+  action,
   onClick,
-  highlight,
-  disabled,
 }: {
-  icon: React.ReactNode
-  label: string
-  onClick?: () => void
-  highlight?: boolean
-  disabled?: boolean
+  action: LoggingAction
+  onClick?: (() => void) | undefined
 }) {
+  const { label, icon: Icon, highlight, disabled } = action
   return (
     <button
       type="button"
@@ -117,7 +106,7 @@ function MenuItem({
               : 'text-text-secondary'
         )}
       >
-        {icon}
+        <Icon size={16} />
       </span>
       <span>{label}</span>
     </button>

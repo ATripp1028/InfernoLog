@@ -27,13 +27,21 @@ interface FlowState {
   // The numeric level id typed by the user — carried into the manual-entry
   // fallback when the Geometry Dash servers can't be reached.
   manualLevelId: string | null
+  // Set by openForEdit: the level the `resolving` step should auto-resolve.
+  pendingEditLevelId: string | null
+  // The level_progress id of the just-submitted completion — handed to the
+  // ranking page's "Place now" navigation so it can highlight/scroll to it.
+  lastCompletionLevelProgressId: string | null
   draft: FlowDraft
 }
 
 interface FlowContextValue extends FlowState {
   open: (path: FlowPath) => void
+  // Open the flow pre-targeted to an existing level (edit), skipping `find`.
+  openForEdit: (levelId: string, path: FlowPath) => void
   close: () => void
   setStep: (step: FlowStep) => void
+  setLastCompletion: (levelProgressId: string) => void
   patchDraft: (patch: Partial<FlowDraft>) => void
   applyResolved: (resolved: ResolvedLevel) => void
   goManual: (levelId: string, existing: ExistingCompletion | null) => void
@@ -56,6 +64,8 @@ const CLOSED: FlowState = {
   existingCompletion: null,
   suggestedGddlTier: null,
   manualLevelId: null,
+  pendingEditLevelId: null,
+  lastCompletionLevelProgressId: null,
   draft: emptyDraft(),
 }
 
@@ -66,6 +76,17 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     setState({ ...CLOSED, draft: emptyDraft(), isOpen: true, path })
   }, [])
 
+  const openForEdit = useCallback((levelId: string, path: FlowPath) => {
+    setState({
+      ...CLOSED,
+      draft: emptyDraft(),
+      isOpen: true,
+      path,
+      step: 'resolving',
+      pendingEditLevelId: levelId,
+    })
+  }, [])
+
   const close = useCallback(() => {
     setState(CLOSED)
   }, [])
@@ -74,21 +95,38 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     setState((s) => ({ ...s, step }))
   }, [])
 
+  const setLastCompletion = useCallback((levelProgressId: string) => {
+    setState((s) => ({ ...s, lastCompletionLevelProgressId: levelProgressId }))
+  }, [])
+
   const patchDraft = useCallback((patch: Partial<FlowDraft>) => {
     setState((s) => ({ ...s, draft: { ...s.draft, ...patch } }))
   }, [])
 
   const applyResolved = useCallback((resolved: ResolvedLevel) => {
     setState((s) => {
-      const draft =
+      let draft =
         s.path === 'completion' && resolved.existingCompletion
           ? draftFromExistingCompletion(resolved.existingCompletion)
           : s.draft
+      // Pre-fill GDDL tier from the suggested tier when starting a new
+      // completion (not editing an existing one that already has a tier).
+      if (
+        resolved.suggestedGddlTier != null &&
+        !draft.gddlTier &&
+        !resolved.existingCompletion
+      ) {
+        draft = {
+          ...draft,
+          gddlTier: String(Math.round(resolved.suggestedGddlTier)),
+        }
+      }
       return {
         ...s,
         level: resolved.level,
         existingCompletion: resolved.existingCompletion,
         suggestedGddlTier: resolved.suggestedGddlTier,
+        pendingEditLevelId: null,
         draft,
         step: s.path ? firstStepFor[s.path] : s.step,
       }
@@ -101,6 +139,7 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
         ...s,
         manualLevelId: levelId,
         existingCompletion: existing,
+        pendingEditLevelId: null,
         step: 'manual',
       }))
     },
@@ -126,8 +165,10 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     () => ({
       ...state,
       open,
+      openForEdit,
       close,
       setStep,
+      setLastCompletion,
       patchDraft,
       applyResolved,
       goManual,
@@ -136,8 +177,10 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
     [
       state,
       open,
+      openForEdit,
       close,
       setStep,
+      setLastCompletion,
       patchDraft,
       applyResolved,
       goManual,

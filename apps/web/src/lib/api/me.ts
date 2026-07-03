@@ -28,6 +28,7 @@ export interface MeData {
   ratingDisplayScale: RatingDisplayScale
   defaultFps: number
   dateFormatPreference: DateFormatPreference
+  showHighlightUrl: boolean
   includeEnjoyment: boolean
   enjoymentWeight: number
   enjoymentSortOrder: number
@@ -148,6 +149,61 @@ export function useRemoveGddlApiKey() {
 }
 
 // ─────────────────────────────────────────────
+// GDDL sync
+// ─────────────────────────────────────────────
+
+export interface GddlSyncResult {
+  created: number
+  enriched: number
+  skipped: number
+  errors: { levelId: string; reason: string }[]
+}
+
+export interface GddlSyncJobStatus {
+  status: 'pending' | 'completed' | 'failed'
+  result: GddlSyncResult | null
+  error: string | null
+}
+
+// Starts an async sync job. Returns the jobId immediately (202); the caller
+// should poll useGddlSyncStatus until status is not "pending".
+export function useGddlSync() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (): Promise<{ jobId: string }> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: { jobId: string } }>(
+        '/v1/me/gddl-sync',
+        { token, method: 'POST' }
+      )
+      return data
+    },
+  })
+}
+
+// Polls for the status of a sync job. Pass null to disable.
+// Stops refetching automatically once status is no longer "pending".
+export function useGddlSyncStatus(jobId: string | null) {
+  const { getIdToken } = useAuth()
+  return useQuery({
+    queryKey: ['gddl-sync', jobId],
+    enabled: jobId !== null,
+    queryFn: async (): Promise<GddlSyncJobStatus> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: GddlSyncJobStatus }>(
+        `/v1/me/gddl-sync/${jobId}`,
+        { token, method: 'GET' }
+      )
+      return data
+    },
+    refetchInterval: (query) => {
+      return query.state.data?.status === 'pending' ? 2000 : false
+    },
+    retry: false,
+  })
+}
+
+// ─────────────────────────────────────────────
 // Settings mutations
 // ─────────────────────────────────────────────
 
@@ -156,6 +212,7 @@ export interface UpdateMeInput {
   discordPublic?: boolean
   defaultFps?: number
   dateFormatPreference?: DateFormatPreference
+  showHighlightUrl?: boolean
   ratingMode?: RatingMode
   ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean

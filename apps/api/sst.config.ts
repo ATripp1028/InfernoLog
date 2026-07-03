@@ -42,6 +42,7 @@ export default $config({
 
     // Shared options for all Lambda functions
     const sharedNodeOptions = {
+      memory: '1024 MB' as const,
       nodejs: {
         install: ['@sentry/aws-serverless'],
       },
@@ -283,6 +284,24 @@ export default $config({
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
 
+    // The List page — the user's full level-progress list.
+    authedRoute('GET /v1/me/progress')
+    // Edit the most recent progress update + level metadata for an entry.
+    authedRoute('PATCH /v1/me/progress/{levelId}')
+    // Delete an entire level entry from the list.
+    authedRoute('DELETE /v1/me/progress/{levelId}')
+    // Level Page — the per-user view of a single level's full history.
+    authedRoute('GET /v1/users/{usernameOrId}/progress/{levelId}')
+
+    // ─────────────────────────────────────────────
+    // CLASSIC RANKING — the personal difficulty-ordering page.
+    // ─────────────────────────────────────────────
+    // Placed + unplaced columns in one payload; place / reorder / unplace.
+    authedRoute('GET /v1/me/ranking/classic')
+    authedRoute('POST /v1/me/ranking/classic')
+    authedRoute('PATCH /v1/me/ranking/classic/{levelProgressId}')
+    authedRoute('DELETE /v1/me/ranking/classic/{levelProgressId}')
+
     // ─────────────────────────────────────────────
     // LOGGING — entry-creation writes + level-entry support
     // ─────────────────────────────────────────────
@@ -328,6 +347,128 @@ export default $config({
     // Completion writes get KMS access too: a completion may optionally submit
     // a GDDL record, which requires decrypting the user's stored GDDL key.
     gddlKeyRoute('POST /v1/me/completions')
+
+    // Manual GDDL record submission from the level page (retry path).
+    gddlKeyRoute('POST /v1/me/gddl-records/{levelId}')
+
+    // Worker Lambda — runs the full GDDL import in the background so that
+    // API Gateway's hard 29-second integration timeout never applies.
+    // The route Lambda invokes this asynchronously (InvocationType: Event)
+    // and returns 202 + jobId immediately.
+    const gddlSyncWorker = new sst.aws.Function('GddlSyncWorker', {
+      handler: 'src/handlers/gddlSyncWorker.handler',
+      link: sharedLinks,
+      environment: {
+        ...sharedEnvironment,
+        GDDL_KMS_KEY_ID: gddlKmsKey.arn,
+      },
+      permissions: [
+        {
+          actions: ['kms:Decrypt'],
+          resources: [gddlKmsKey.arn],
+        },
+      ],
+      timeout: '15 minutes',
+      ...sharedNodeOptions,
+    })
+
+    // POST /v1/me/gddl-sync — creates the job row, invokes the worker async,
+    // returns 202 + jobId. No KMS access needed here: the check is whether the
+    // encrypted key field is non-null; decryption is done by the worker.
+    api.route(
+      'POST /v1/me/gddl-sync',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: {
+          ...sharedEnvironment,
+          GDDL_SYNC_WORKER_ARN: gddlSyncWorker.arn,
+        },
+        permissions: [
+          {
+            actions: ['lambda:InvokeFunction'],
+            resources: [gddlSyncWorker.arn],
+          },
+        ],
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    // GET /v1/me/gddl-sync/{jobId} — poll for sync job status (no KMS needed).
+    authedRoute('GET /v1/me/gddl-sync/{jobId}')
+
+    // ─────────────────────────────────────────────
+    // LIST PRESETS — saved view configurations for the List page.
+    // ─────────────────────────────────────────────
+    authedRoute('GET /v1/me/list-presets')
+    authedRoute('POST /v1/me/list-presets')
+    authedRoute('PATCH /v1/me/list-presets/{id}')
+    authedRoute('DELETE /v1/me/list-presets/{id}')
+
+    // ─────────────────────────────────────────────
+    // SPREADSHEET IMPORT — level-seed SQS queue + consumer.
+    //
+    // The import endpoint commits stub levels immediately and enqueues their
+    // IDs for async metadata enrichment via RobTop. Reserved concurrency 1
+    // on the consumer is the system-wide rate-limit guarantee (no two
+    // invocations run concurrently, so in-handler pacing = true rate).
+    // ─────────────────────────────────────────────
+    const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
+
+    const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {
+      dlq: {
+        queue: levelSeedDlq.arn,
+        retry: 3,
+      },
+    })
+
+    levelSeedQueue.subscribe(
+      {
+        handler: 'src/handlers/levelSeedWorker.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+        concurrency: 1,
+      },
+      { batch: { size: 1 } }
+    )
+
+    // Import endpoints get the queue URL + SendMessage permission.
+    // The commit route gets a longer Lambda timeout — large batches with
+    // many overwrite-path rows or name resolutions need more than the
+    // default ~20s. 28s stays just under API Gateway's hard 29s cap.
+    const importRoute = (
+      route: string,
+      timeout?: `${number} second` | `${number} seconds`
+    ) =>
+      api.route(
+        route,
+        {
+          handler: 'src/index.handler',
+          link: [...sharedLinks, levelSeedQueue],
+          environment: {
+            ...sharedEnvironment,
+            LEVEL_SEED_QUEUE_URL: levelSeedQueue.url,
+          },
+          permissions: [
+            {
+              actions: ['sqs:SendMessage'],
+              resources: [levelSeedQueue.arn],
+            },
+          ],
+          ...(timeout ? { timeout } : {}),
+          ...sharedNodeOptions,
+        },
+        { auth: jwtAuth }
+      )
+
+    importRoute('POST /v1/me/import/check')
+    importRoute('POST /v1/me/import', '28 seconds')
+    importRoute('POST /v1/me/import/ranking', '28 seconds')
+    importRoute('POST /v1/me/import/lists', '28 seconds')
+    importRoute('POST /v1/me/import/ratings', '28 seconds')
+    importRoute('GET /v1/me/export', '28 seconds')
 
     // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts

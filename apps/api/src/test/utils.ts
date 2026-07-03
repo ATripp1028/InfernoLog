@@ -66,9 +66,9 @@ export function getTestPrisma(): PrismaClient {
 
 // Tables touched by the logging flow, ordered so CASCADE handles the rest.
 const TABLES = [
-  'record_acceptances',
   'list_references',
   'rating_scores',
+  'classic_ranking',
   'progress_updates',
   'level_progress',
   'levels',
@@ -112,6 +112,10 @@ export async function seedLevel(
     inGameDifficulty: string
     dataSource: string
     verified: boolean
+    isDemon: boolean
+    isRated: boolean
+    levelType: 'CLASSIC' | 'PLATFORMER'
+    hasPendingUpdate: boolean
   }> = {}
 ) {
   return prisma.level.create({
@@ -122,6 +126,12 @@ export async function seedLevel(
       inGameDifficulty: overrides.inGameDifficulty ?? 'Insane Demon',
       dataSource: overrides.dataSource ?? 'robtop_autofill',
       verified: overrides.verified ?? true,
+      // Defaults mirror the schema (both false) so existing callers are
+      // unaffected; ranking tests opt in with isDemon: true.
+      isDemon: overrides.isDemon ?? false,
+      isRated: overrides.isRated ?? false,
+      levelType: overrides.levelType ?? 'CLASSIC',
+      hasPendingUpdate: overrides.hasPendingUpdate ?? false,
     },
   })
 }

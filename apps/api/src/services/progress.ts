@@ -13,6 +13,7 @@ import type {
   CompletionInput,
   ProgressInput,
   DropInput,
+  EditProgressInput,
 } from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient
@@ -134,6 +135,10 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
           ? (input.difficultyOpinionStars ?? null)
           : null,
       inGameDifficulty: level?.inGameDifficulty ?? null,
+      coinsCollected: input.coinsCollected ?? null,
+      twoPlayerSolo: input.twoPlayerSolo ?? null,
+      twoPlayerPartner: input.twoPlayerPartner ?? null,
+      device: input.device ?? null,
     }
 
     // Edit-not-replace: if a completion already exists, UPDATE it in place.
@@ -186,27 +191,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       })
     }
 
-    // Self-reported GDDL record-accepted toggle. Independent of the async
-    // submitToGddl side effect — when the client sends it, upsert the GDDL
-    // RecordAcceptance synchronously. Omitted → leave any existing row alone.
-    if (input.gddlRecordAccepted !== undefined) {
-      await tx.recordAcceptance.upsert({
-        where: {
-          progressUpdateId_listSource: { progressUpdateId, listSource: 'GDDL' },
-        },
-        create: {
-          progressUpdateId,
-          listSource: 'GDDL',
-          isAccepted: input.gddlRecordAccepted,
-          acceptedAt: input.gddlRecordAccepted ? new Date() : null,
-        },
-        update: {
-          isAccepted: input.gddlRecordAccepted,
-          acceptedAt: input.gddlRecordAccepted ? new Date() : null,
-        },
-      })
-    }
-
     // Mark the level_progress completed and apply the per-entry privacy.
     await tx.levelProgress.update({
       where: { id: lp.id },
@@ -251,6 +235,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
       enjoyment: input.enjoyment ?? null,
+      device: input.device ?? null,
     }
     const progressFields =
       input.mode === 'from_zero'
@@ -268,6 +253,98 @@ export async function applyProgress(userId: string, input: ProgressInput) {
     })
 
     return loadFullEntry(tx, lp.id, created.id)
+  })
+}
+
+// ─────────────────────────────────────────────
+// EDIT — partial update on the most recent ProgressUpdate and/or LevelProgress
+// metadata. Only present keys are written. Returns null if no entry exists.
+// ─────────────────────────────────────────────
+
+export async function applyEdit(
+  userId: string,
+  levelId: string,
+  input: EditProgressInput
+) {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.levelProgress.findUnique({
+      where: { userId_levelId: { userId, levelId } },
+      select: {
+        id: true,
+        progressUpdates: {
+          orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }] as const,
+          take: 1,
+          select: { id: true },
+        },
+      },
+    })
+    if (!lp) return null
+
+    const lpData: Prisma.LevelProgressUpdateInput = {}
+    if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
+    if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
+    if (input.visibility !== undefined) lpData.visibility = input.visibility
+
+    const puData: Prisma.ProgressUpdateUpdateInput = {}
+    if (input.date !== undefined) puData.date = input.date
+    if (input.dateUncertain !== undefined)
+      puData.dateUncertain = input.dateUncertain
+    if (input.attempts !== undefined) puData.attempts = input.attempts
+    if (input.fps !== undefined) puData.fps = input.fps
+    if (input.onStream !== undefined) puData.onStream = input.onStream
+    if (input.difficultyOpinion !== undefined)
+      puData.difficultyOpinion = input.difficultyOpinion
+    if (input.difficultyOpinionStars !== undefined)
+      puData.difficultyOpinionStars = input.difficultyOpinionStars
+    if (input.enjoyment !== undefined) puData.enjoyment = input.enjoyment
+    if (input.simpleRating !== undefined)
+      puData.simpleRating = input.simpleRating
+    if (input.videoUrl !== undefined) puData.videoUrl = input.videoUrl
+    if (input.highlightUrl !== undefined)
+      puData.highlightUrl = input.highlightUrl
+    if (input.notes !== undefined) puData.notes = input.notes
+    if (input.coinsCollected !== undefined)
+      puData.coinsCollected = input.coinsCollected
+    if (input.twoPlayerSolo !== undefined)
+      puData.twoPlayerSolo = input.twoPlayerSolo
+    if (input.twoPlayerPartner !== undefined)
+      puData.twoPlayerPartner = input.twoPlayerPartner
+    if (input.device !== undefined) puData.device = input.device
+
+    if (Object.keys(lpData).length > 0) {
+      await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })
+    }
+
+    const latestUpdateId = lp.progressUpdates[0]?.id
+    if (latestUpdateId) {
+      if (Object.keys(puData).length > 0) {
+        await tx.progressUpdate.update({
+          where: { id: latestUpdateId },
+          data: puData,
+        })
+      }
+      if (input.ratingScores !== undefined) {
+        await tx.ratingScore.deleteMany({
+          where: { progressUpdateId: latestUpdateId },
+        })
+        if (input.ratingScores.length > 0) {
+          await tx.ratingScore.createMany({
+            data: input.ratingScores.map((r) => ({
+              progressUpdateId: latestUpdateId,
+              categoryId: r.categoryId,
+              score: r.score,
+            })),
+          })
+        }
+      }
+      return loadFullEntry(tx, lp.id, latestUpdateId)
+    }
+
+    // Drop-only entry (no ProgressUpdate): return just the LevelProgress.
+    const updated = await tx.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+    })
+    return { levelProgress: updated, progressUpdate: null }
   })
 }
 

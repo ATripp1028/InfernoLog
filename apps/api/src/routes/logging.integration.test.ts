@@ -8,7 +8,6 @@ import {
   seedRatingCategory,
 } from '../test/utils'
 
-// Real DB; mock ONLY the external HTTP (GDDL) and KMS decrypt.
 vi.mock('../utils/prisma', async () => {
   const { getTestPrisma } = await import('../test/utils')
   return { default: getTestPrisma() }
@@ -17,16 +16,10 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../utils/gddl', () => ({ submitGddlRecord: vi.fn() }))
-vi.mock('../utils/kms', () => ({
-  decryptSecret: vi.fn(async () => 'plaintext-key'),
-}))
 
 const { default: loggingApp } = await import('./logging')
-const { submitGddlRecord } = await import('../utils/gddl')
 
 const prisma = getTestPrisma()
-const submitGddlMock = submitGddlRecord as unknown as ReturnType<typeof vi.fn>
 
 function post(userId: string, path: string, payload: unknown) {
   return buildApp(loggingApp, { userId }).request(path, {
@@ -125,51 +118,6 @@ describe('POST /me/completions', () => {
     // Child rows were replaced, not accumulated.
     expect(completion.ratingScores).toHaveLength(1)
     expect(completion.ratingScores[0]?.score).toBe(90)
-  })
-
-  it('writes a self-reported GDDL record acceptance when gddlRecordAccepted is set', async () => {
-    const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '103' })
-
-    const res = await post(user.id, '/me/completions', {
-      levelId: '103',
-      attempts: 700,
-      gddlRecordAccepted: true,
-    })
-
-    expect(res.status).toBe(201)
-    const pu = await prisma.progressUpdate.findFirstOrThrow({
-      where: {
-        levelProgress: { userId: user.id, levelId: '103' },
-        isCompletion: true,
-      },
-      include: { recordAcceptances: true },
-    })
-    expect(pu.recordAcceptances).toHaveLength(1)
-    const acceptance = pu.recordAcceptances[0]
-    if (!acceptance) throw new Error('expected a record acceptance')
-    expect(acceptance.listSource).toBe('GDDL')
-    expect(acceptance.isAccepted).toBe(true)
-    expect(acceptance.acceptedAt).not.toBeNull()
-  })
-
-  it('succeeds even when a configured GDDL submission fails (non-blocking)', async () => {
-    const user = await seedUser(prisma, { gddlApiKeyEncrypted: 'cipher-blob' })
-    await seedLevel(prisma, { inGameId: '102' })
-    submitGddlMock.mockRejectedValue(new Error('GDDL is down'))
-
-    const res = await post(user.id, '/me/completions', {
-      levelId: '102',
-      attempts: 500,
-      submitToGddl: true,
-    })
-
-    // The completion write succeeds regardless of GDDL failing.
-    expect(res.status).toBe(201)
-    const lp = await prisma.levelProgress.findUniqueOrThrow({
-      where: { userId_levelId: { userId: user.id, levelId: '102' } },
-    })
-    expect(lp.status).toBe('COMPLETED')
   })
 })
 

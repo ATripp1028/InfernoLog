@@ -22,9 +22,12 @@ export function isExtremeContext(
   )
 }
 
-function intOrNull(value: string): number | null {
+function intOrNull(
+  value: string,
+  fallback: number | null = null
+): number | null {
   const t = value.trim()
-  if (t === '') return null
+  if (t === '') return fallback
   const n = Number.parseInt(t, 10)
   return Number.isNaN(n) ? null : n
 }
@@ -66,7 +69,7 @@ export function buildCompletionInput(
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     worstFail: intOrNull(draft.worstFail),
-    fps: intOrNull(draft.fps),
+    fps: intOrNull(draft.fps, me.defaultFps ?? null),
     onStream: draft.onStream,
     highlightUrl: draft.highlightUrl.trim() || null,
     notes: draft.notes.trim() || null,
@@ -79,28 +82,33 @@ export function buildCompletionInput(
         : null,
     enjoyment: draft.enjoyment,
     simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
-    submitToGddl: me.hasGddlApiKey ? draft.submitToGddl : false,
     ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
     ...(refs.length ? { listReferences: refs } : {}),
-    ...(me.hasGddlApiKey
-      ? { gddlRecordAccepted: draft.gddlRecordAccepted }
-      : {}),
+    coinsCollected: level.coins ? draft.coinsCollected : null,
+    twoPlayerSolo: level.twoPlayer ? draft.twoPlayerSolo : null,
+    twoPlayerPartner:
+      level.twoPlayer && draft.twoPlayerSolo === false
+        ? draft.twoPlayerPartner.trim() || null
+        : null,
+    device: draft.device,
   }
 }
 
 export function buildProgressInput(
   level: Level,
-  draft: FlowDraft
+  draft: FlowDraft,
+  defaultFps?: number
 ): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
     date: draft.date,
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
-    fps: intOrNull(draft.fps),
+    fps: intOrNull(draft.fps, defaultFps ?? null),
     onStream: draft.onStream,
     notes: draft.notes.trim() || null,
     visibility: draft.visibility,
+    device: draft.device,
   }
   if (draft.progressMode === 'from_run') {
     return {

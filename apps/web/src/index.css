@@ -47,3 +47,24 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
 }
+
+/* Baseline visible keyboard focus for every interactive element. Uses :where()
+   so it has zero specificity — components that define their own focus-visible
+   ring (Button, Input, Chip, sliders…) override this automatically, while
+   plain custom buttons/links get a consistent ring for free. */
+:where(
+  a[href],
+  button,
+  input,
+  select,
+  textarea,
+  [role='button'],
+  [role='menuitem'],
+  [role='switch'],
+  [role='slider'],
+  [role='tab'],
+  [tabindex]:not([tabindex='-1'])
+):focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}

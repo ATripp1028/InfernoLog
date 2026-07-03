@@ -8,8 +8,19 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
+import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
 import { DateFormatPreference, useUpdateMe, type MeData } from '@/lib/api/me'
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
+import { ImportWizard } from '@/features/import/ImportWizard'
+import { useImportApi } from '@/lib/api/import'
+import { downloadExport } from '@/features/import/generateExport'
 
 interface LoggingSectionProps {
   me: MeData
@@ -28,6 +39,16 @@ const MIN_FPS = 60
 
 export function LoggingSection({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
+  const [importOpen, setImportOpen] = useState(false)
+  const { getExport } = useImportApi()
+
+  const handleToggle = async (field: 'showHighlightUrl', next: boolean) => {
+    try {
+      await update.mutateAsync({ [field]: next })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
 
   const handleChange = async (value: string) => {
     try {
@@ -63,7 +84,34 @@ export function LoggingSection({ me }: LoggingSectionProps) {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      const exportData = await getExport()
+      downloadExport(exportData, me.dateFormatPreference)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to export')
+    }
+  }
+
   return (
+    <>
+    <Sheet open={importOpen} onOpenChange={setImportOpen}>
+      <SheetContent
+        side="right"
+        className="w-[520px] max-w-[95vw] overflow-y-auto p-6"
+        aria-describedby="import-wizard-desc"
+      >
+        <SheetTitle className="sr-only">Import spreadsheet</SheetTitle>
+        <SheetDescription id="import-wizard-desc" className="sr-only">
+          Three-step wizard to import your Geometry Dash completion history from a spreadsheet.
+        </SheetDescription>
+        <ImportWizard
+          me={me}
+          onClose={() => setImportOpen(false)}
+        />
+      </SheetContent>
+    </Sheet>
+
     <SettingsSection title="Logging">
       <SettingRow
         label="Date format"
@@ -106,6 +154,43 @@ export function LoggingSection({ me }: LoggingSectionProps) {
           />
         }
       />
+      <SettingRow
+        label="Show Highlight URL field"
+        description="Adds a Highlight URL field to the logging and edit workflows. Useful for content creators who maintain highlight reels."
+        control={
+          <Switch
+            checked={me.showHighlightUrl}
+            onCheckedChange={(v) => void handleToggle('showHighlightUrl', v)}
+          />
+        }
+      />
+      <SettingRow
+        label="Import from spreadsheet"
+        description="Bring your existing completion history into InfernoLog from an xlsx spreadsheet."
+        control={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportOpen(true)}
+          >
+            Import
+          </Button>
+        }
+      />
+      <SettingRow
+        label="Export to spreadsheet"
+        description="Download your completion history as an xlsx spreadsheet. Useful for backups or sharing with others."
+        control={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExport}
+          >
+            Export
+          </Button>
+        }
+      />
     </SettingsSection>
+    </>
   )
 }

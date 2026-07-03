@@ -1,6 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { List } from '@/pages/List'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/list')({
-  component: List,
+  component: () => <Outlet />,
 })

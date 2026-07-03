@@ -10,6 +10,8 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 ### Core Logging
 
+> **Note:** The Log page (a dedicated feed/history view) has been shelved pending user feedback. The underlying data model and logging flow are unchanged — only the page that surfaces logged events as a browsable feed is deferred. The nav link is inactive in the current build.
+
 - Level progress model — every interaction with a level is a progress update. Completion = `is_completion = true`
 - All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, simple or weighted rating, in-game difficulty snapshot, notes, completion video URL, highlight video URL
 - Non-completion entries hidden by default, revealed by toggle

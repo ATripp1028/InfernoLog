@@ -20,6 +20,7 @@ import {
 } from '@infernolog/core'
 import { encryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -72,6 +73,7 @@ const meSelect = {
   ratingDisplayScale: true,
   defaultFps: true,
   dateFormatPreference: true,
+  showHighlightUrl: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
   enjoymentSortOrder: true,
@@ -378,6 +380,68 @@ app.delete('/me/gddl-key', async (c) => {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }
+})
+
+// POST /v1/me/gddl-sync — creates an async sync job and returns 202 + jobId
+// immediately. The actual import is handled by the GddlSyncWorker Lambda
+// (invoked asynchronously) so API Gateway's 29-second integration timeout
+// never applies regardless of how many GDDL pages / RobTop lookups are needed.
+app.post('/me/gddl-sync', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { gddlApiKeyEncrypted: true },
+    })
+
+    if (!user.gddlApiKeyEncrypted) {
+      return c.json(
+        {
+          error: 'No GDDL API key configured. Connect your GDDL account first.',
+        },
+        400
+      )
+    }
+
+    const job = await prisma.gddlSyncJob.create({
+      data: { userId, status: 'pending' },
+      select: { id: true },
+    })
+
+    const lambda = new LambdaClient({})
+    await lambda.send(
+      new InvokeCommand({
+        FunctionName: process.env.GDDL_SYNC_WORKER_ARN!, // always set by SST
+        InvocationType: 'Event', // async — do not wait for the worker to finish
+        Payload: JSON.stringify({ jobId: job.id, userId }),
+      })
+    )
+
+    return c.json({ data: { jobId: job.id } }, 202)
+  } catch (err) {
+    logger.error({ userId, err }, 'gddl-sync: failed to create job')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// GET /v1/me/gddl-sync/:jobId — poll for the status of an async sync job.
+// Returns { status, result?, error? }; poll until status is not "pending".
+app.get('/me/gddl-sync/:jobId', async (c) => {
+  const userId = c.get('userId') as string
+  const jobId = c.req.param('jobId')
+
+  const job = await prisma.gddlSyncJob.findFirst({
+    where: { id: jobId, userId },
+    select: { status: true, result: true, error: true },
+  })
+
+  if (!job) {
+    return c.json({ error: 'Job not found' }, 404)
+  }
+
+  return c.json({ data: job })
 })
 
 // POST /v1/me/onboarding

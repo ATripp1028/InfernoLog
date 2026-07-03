@@ -118,6 +118,11 @@ enum DifficultyOpinion {
   EXTREME
 }
 
+enum Device {
+  pc
+  mobile
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -159,6 +164,7 @@ model User {
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
+  showHighlightUrl      Boolean              @default(true)
   includeEnjoyment      Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
   // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in
@@ -179,6 +185,7 @@ model User {
   userLists             UserList[]
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
+  listPresets           ListPreset[]
   levelUpdateNotifs     LevelUpdateNotification[]
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
@@ -337,6 +344,11 @@ model LevelProgress {
   // Use case: hide a completion until YouTube video goes live.
   visibility      EntryVisibility      @default(PUBLIC)
 
+  // "About this level overall" — distinct from progress_updates.notes (which is
+  // per-completion). Survives edits or deletions of individual progress updates.
+  // One value per user per level. See DATA_MODEL.md.
+  levelNotes      String?
+
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -410,6 +422,18 @@ model ProgressUpdate {
   videoUrl              String?         // Completion video
   highlightUrl          String?         // Highlight reel — independent of onStream
 
+  // Coins collected at time of completion — bitmask (bit 0 = coin 1, etc.).
+  // Only meaningful for completion entries; null = not logged.
+  coinsCollected        Int?
+
+  // 2-player level logging. Null = not a 2-player level or not logged.
+  // true = beat it solo; false = beat it with a partner.
+  twoPlayerSolo         Boolean?
+  twoPlayerPartner      String?         // Partner name when twoPlayerSolo = false
+
+  // Device the level was beaten on. Null = not logged.
+  device                Device?
+
   // Ranking snapshot — only populated for completion entries
   top5AtTime            Boolean         @default(false)
   top5Position          Int?            // 1-5, null if not top 5
@@ -421,7 +445,6 @@ model ProgressUpdate {
   levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
   listReferences        ListReference[]
   ratingScores          RatingScore[]
-  recordAcceptances     RecordAcceptance[]
 
   @@map("progress_updates")
 }
@@ -451,30 +474,6 @@ model ListReference {
   progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
 
   @@map("list_references")
-}
-
-// ─────────────────────────────────────────────
-// RECORD ACCEPTANCES
-// Whether a completion has an accepted record on each ranking authority.
-// Manually set by user — not synced from external APIs.
-// GDDL acceptance is v1. Other authorities follow their integration phases.
-// ─────────────────────────────────────────────
-
-model RecordAcceptance {
-  id                  String          @id @default(uuid())
-  // Must reference a ProgressUpdate where isCompletion = true
-  // Enforced at application level, not database level
-  progressUpdateId    String
-
-  listSource          ListSource
-  isAccepted          Boolean         @default(false)
-  acceptedAt          DateTime?
-
-  // Relations
-  progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
-
-  @@unique([progressUpdateId, listSource])
-  @@map("record_acceptances")
 }
 
 // ─────────────────────────────────────────────
@@ -711,4 +710,80 @@ model ModerationAction {
   targetUser      User                  @relation("TargetUserRelation", fields: [targetUserId], references: [id])
 
   @@map("moderation_actions")
+}
+
+// Tracks an async GDDL submission-history import. The route Lambda creates a
+// pending row and returns the id immediately; the worker Lambda updates the row
+// to completed/failed when the sync finishes.
+model GddlSyncJob {
+  id         String    @id @default(uuid())
+  userId     String
+  status     String    // "pending" | "completed" | "failed"
+  result     Json?
+  error      String?
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@map("gddl_sync_jobs")
+}
+
+// ─────────────────────────────────────────────
+// SPREADSHEET IMPORT
+// Tracks client-generated import jobs for idempotency. The client sends a
+// UUID per import job; the server records (jobId, rowIndex) pairs so that
+// a retried or double-clicked batch never double-writes data.
+// ─────────────────────────────────────────────
+
+model ImportJob {
+  id        String         @id // client-generated UUID
+  userId    String
+  createdAt DateTime       @default(now())
+  rows      ImportJobRow[]
+
+  @@map("import_jobs")
+}
+
+model ImportJobRow {
+  id       String    @id @default(uuid())
+  jobId    String
+  rowIndex Int
+  status   String    // "committed" | "updated" | "skipped" | "failed"
+  reason   String?
+
+  job      ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, rowIndex])
+  @@map("import_job_rows")
+}
+
+// ─────────────────────────────────────────────
+// LIST PRESETS
+// Saved view configurations for the List page.
+// Each preset stores column visibility, column order, sort specs,
+// and filter state so the user can switch between named views.
+// ─────────────────────────────────────────────
+
+model ListPreset {
+  id          String   @id @default(uuid())
+  userId      String
+
+  name        String
+  description String?
+  // One of 16 palette color IDs (e.g. "blue", "rose"). Stored as string
+  // so the palette can be extended without a schema migration.
+  color       String
+
+  // Client-side view config stored as JSON blobs. The API treats these as
+  // opaque — validation of the internal shape is left to the frontend.
+  sorts       Json     // SortSpec[]
+  filters     Json     // FilterState (excludes the text search field)
+  columns     Json     // ColumnVisibility (Record<ColumnId, boolean>)
+  columnOrder Json     // ColumnId[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("list_presets")
 }

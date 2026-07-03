@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { SettingsSection } from '../components/SettingsSection'
 import { UsernameEditor } from '../components/UsernameEditor'
 import { ConnectedAccountRow } from '../components/ConnectedAccountRow'
 import { GddlApiKeyEditor } from '../components/GddlApiKeyEditor'
 import { Button } from '@/components/ui/button'
+import { AlertDialog } from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/sonner'
 import {
   useConnectDiscord,
@@ -17,6 +19,8 @@ interface AccountSectionProps {
 export function AccountSection({ me }: AccountSectionProps) {
   const connect = useConnectDiscord()
   const disconnect = useDisconnectDiscord()
+  const [confirmDiscordDisconnect, setConfirmDiscordDisconnect] =
+    useState(false)
 
   const handleConnect = async () => {
     try {
@@ -73,7 +77,7 @@ export function AccountSection({ me }: AccountSectionProps) {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => void handleDisconnect()}
+                  onClick={() => setConfirmDiscordDisconnect(true)}
                   disabled={disconnect.isPending}
                 >
                   {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
@@ -92,6 +96,16 @@ export function AccountSection({ me }: AccountSectionProps) {
           <GddlApiKeyEditor me={me} />
         </div>
       </div>
+
+      <AlertDialog
+        open={confirmDiscordDisconnect}
+        onOpenChange={setConfirmDiscordDisconnect}
+        title="Disconnect Discord?"
+        description="This unlinks your Discord account from InfernoLog."
+        confirmLabel="Disconnect"
+        destructive
+        onConfirm={() => void handleDisconnect()}
+      />
     </SettingsSection>
   )
 }

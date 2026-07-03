@@ -29,22 +29,34 @@ export async function submitCompletionRecordToGddl(params: {
   })
   if (!user?.gddlApiKeyEncrypted) return
 
-  const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
-  const { accepted } = await submitGddlRecord(apiKey, { levelId, videoUrl })
-
-  // Record the acceptance state on the completion (unique per source).
-  await prisma.recordAcceptance.upsert({
-    where: {
-      progressUpdateId_listSource: { progressUpdateId, listSource: 'GDDL' },
+  const update = await prisma.progressUpdate.findUnique({
+    where: { id: progressUpdateId },
+    select: {
+      attempts: true,
+      fps: true,
+      enjoyment: true,
+      device: true,
+      listReferences: {
+        where: { listSource: 'GDDL' },
+        select: { tierOrRank: true },
+        take: 1,
+      },
     },
-    create: {
-      progressUpdateId,
-      listSource: 'GDDL',
-      isAccepted: accepted,
-      acceptedAt: accepted ? new Date() : null,
-    },
-    update: { isAccepted: accepted, acceptedAt: accepted ? new Date() : null },
   })
 
-  logger.info({ userId, progressUpdateId, accepted }, 'GDDL record submitted')
+  const gddlTierRaw = update?.listReferences[0]?.tierOrRank ?? null
+  const gddlTier = gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
+
+  const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+  await submitGddlRecord(apiKey, {
+    levelId,
+    videoUrl,
+    attempts: update?.attempts ?? null,
+    fps: update?.fps ?? null,
+    enjoyment: update?.enjoyment ?? null,
+    gddlTier: Number.isNaN(gddlTier ?? NaN) ? null : gddlTier,
+    device: update?.device ?? null,
+  })
+
+  logger.info({ userId, progressUpdateId }, 'GDDL record submitted')
 }

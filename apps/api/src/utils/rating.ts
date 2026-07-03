@@ -1,0 +1,57 @@
+// Overall-rating computation for a single progress update.
+//
+// The displayed/filtered rating is computed at query time and never stored
+// (see docs/RATING_SYSTEM.md). In SIMPLE mode it is just `simpleRating`; in
+// WEIGHTED mode it is the weighted average of the user's per-category scores:
+//
+//   weighted_avg = Σ(score_i × weight_i) / Σ(weight_i)
+//
+// Enjoyment is excluded by default and only folded in (with `enjoymentWeight`)
+// when the user has opted in via `includeEnjoyment`. The division normalizes
+// automatically, so terms whose category has no score on this update are simply
+// omitted rather than counted as zero. All values are on the 0–100 internal
+// scale; display conversion happens in the UI per `user.ratingDisplayScale`.
+
+// `ratingMode` is a plain string union rather than the core/Prisma enum so the
+// helper accepts values from either without a nominal-enum mismatch.
+export interface OverallRatingConfig {
+  ratingMode: 'SIMPLE' | 'WEIGHTED'
+  includeEnjoyment: boolean
+  enjoymentWeight: number
+  // categoryId → weight, for the user's current rating categories.
+  categoryWeights: Map<string, number>
+}
+
+interface RatingUpdate {
+  simpleRating: number | null
+  enjoyment: number | null
+  ratingScores: { categoryId: string; score: number }[]
+}
+
+export function computeOverallRating(
+  config: OverallRatingConfig,
+  update: RatingUpdate
+): number | null {
+  if (config.ratingMode === 'SIMPLE') {
+    return update.simpleRating
+  }
+
+  let weightedSum = 0
+  let weightTotal = 0
+
+  for (const { categoryId, score } of update.ratingScores) {
+    const weight = config.categoryWeights.get(categoryId)
+    // Skip scores whose category is no longer part of the user's config.
+    if (weight === undefined) continue
+    weightedSum += score * weight
+    weightTotal += weight
+  }
+
+  if (config.includeEnjoyment && update.enjoyment !== null) {
+    weightedSum += update.enjoyment * config.enjoymentWeight
+    weightTotal += config.enjoymentWeight
+  }
+
+  if (weightTotal === 0) return null
+  return Math.round(weightedSum / weightTotal)
+}

@@ -20,6 +20,8 @@ export type DifficultyOpinion =
 
 export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
 
+export type Device = 'pc' | 'mobile'
+
 export interface Level {
   inGameId: string
   levelType: 'CLASSIC' | 'PLATFORMER'
@@ -99,13 +101,16 @@ export interface ExistingCompletion {
   highlightUrl: string | null
   notes: string | null
   visibility: EntryVisibility
-  gddlRecordAccepted: boolean | null
+  device: Device | null
   ratingScores: Array<{ categoryId: string; score: number }>
   listReferences: Array<{
     listSource: ListSource
     tierOrRank: string
     atTimeOfLogging: boolean
   }>
+  coinsCollected: number | null
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string | null
 }
 
 export interface ResolveLevelResponse {
@@ -151,8 +156,10 @@ export interface CompletionInput {
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
   listReferences?: CompletionListReference[]
-  submitToGddl?: boolean
-  gddlRecordAccepted?: boolean
+  coinsCollected?: number | null
+  twoPlayerSolo?: boolean | null
+  twoPlayerPartner?: string | null
+  device?: Device | null
 }
 
 export type ProgressInput = { levelId: string } & (
@@ -168,6 +175,7 @@ export type ProgressInput = { levelId: string } & (
     highlightUrl?: string | null
     notes?: string | null
     visibility?: EntryVisibility
+    device?: Device | null
   }
 
 export interface DropInput {
@@ -197,6 +205,30 @@ const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
 // ─────────────────────────────────────────────
 // Level entry support
 // ─────────────────────────────────────────────
+
+// Cached-only DB lookup by numeric level ID — used to preview already-seeded
+// levels as the user types a numeric ID. Does NOT call RobTop.
+export function useLevelById(levelId: string) {
+  const { getIdToken } = useAuth()
+  const enabled = /^\d{4,}$/.test(levelId.trim())
+  return useQuery({
+    queryKey: ['levels', 'byId', levelId.trim()],
+    enabled,
+    staleTime: 60_000,
+    queryFn: async (): Promise<Level | null> => {
+      const token = await getIdToken()
+      try {
+        const { data } = await apiFetch<{ data: Level }>(
+          `/v1/levels/${encodeURIComponent(levelId.trim())}`,
+          { token, method: 'GET' }
+        )
+        return data
+      } catch {
+        return null
+      }
+    },
+  })
+}
 
 // Fuzzy name search. Enabled only for text queries of length >= 2 — numeric
 // inputs are level IDs and resolve directly, never search.
@@ -307,5 +339,18 @@ export function useLogDrop() {
       return data
     },
     onSuccess: invalidate,
+  })
+}
+
+export function useSubmitGddlRecord() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (levelId: string): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch(`/v1/me/gddl-records/${encodeURIComponent(levelId)}`, {
+        token,
+        method: 'POST',
+      })
+    },
   })
 }
