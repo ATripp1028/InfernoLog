@@ -9,11 +9,9 @@ This document is a template for the public-facing acknowledgments page (`/about`
 ### Hero Section
 
 ```
-InfernoLog wouldn't exist without the people and projects listed here.
-This app is built on top of years of community work, and I want to make
-sure that work is recognized. Thank you.
+"When I started logging my demon completions in a spreadsheet, I thought to myself, 'man, there must be a better way to do this.' I wasn't satisfied with the existing solutions, so I made my own."
 
-— [Your name / handle]
+— MrSp0rkMan (Alex)
 ```
 
 ---
@@ -21,7 +19,7 @@ sure that work is recognized. Thank you.
 ## Community Infrastructure
 
 _These projects provide the APIs, data, and assets that power InfernoLog.
-None of them owe anyone their time or infrastructure — I'm grateful they exist._
+None of them owe anyone their time or infrastructure — I'm grateful they exist, and InfernoLog wouldn't be possible without them._
 
 ### Geometry Dash (RobTop Games)
 
@@ -31,8 +29,8 @@ None of them owe anyone their time or infrastructure — I'm grateful they exist
 
 ### GDBrowser
 
-**What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`).
-**Credit:** [GDBrowser author handle / link to project]
+**What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`). While I ended up using the official API for level metadata in the end, I used GDBrowser for inspiration for the level  schema and data structure.
+**Credit:** [Colon](https://gdcolon.com/)
 **Link:** gdbrowser.com
 
 ### GD Demon Ladder (GDDL)
