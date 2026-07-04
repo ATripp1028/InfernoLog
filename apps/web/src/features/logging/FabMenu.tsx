@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLoggingFlow } from './LoggingFlowProvider'
@@ -11,6 +12,9 @@ export function FabMenu() {
   const { open } = useLoggingFlow()
   const [menuOpen, setMenuOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
+  // The collections pages render their own context-scoped FAB.
+  const suppressed = location.pathname.startsWith('/collections')
 
   useEffect(() => {
     if (!menuOpen) return
@@ -32,6 +36,8 @@ export function FabMenu() {
     setMenuOpen(false)
     open(path)
   }
+
+  if (suppressed) return null
 
   return (
     <div

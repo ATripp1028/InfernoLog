@@ -13,7 +13,12 @@ export function Sidebar() {
         <SidebarItem
           key={item.key}
           item={item}
-          active={item.to ? location.pathname === item.to : false}
+          active={
+            item.to
+              ? location.pathname === item.to ||
+                location.pathname.startsWith(`${item.to}/`)
+              : false
+          }
         />
       ))}
     </nav>

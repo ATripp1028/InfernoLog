@@ -1,5 +1,6 @@
 import {
   LayoutList,
+  Library,
   Trophy,
   ScrollText,
   History,
@@ -34,6 +35,13 @@ export const NAV_ITEMS: NavItem[] = [
     to: '/ranking',
     status: 'enabled',
   },
+  {
+    key: 'collections',
+    label: 'Collections',
+    icon: Library,
+    to: '/collections',
+    status: 'enabled',
+  },
   { key: 'log', label: 'Log', icon: ScrollText, status: 'disabled' },
   { key: 'time', label: 'Time Machine', icon: History, status: 'disabled' },
   { key: 'stats', label: 'Stats', icon: BarChart3, status: 'disabled' },
@@ -47,6 +55,7 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 export const MOBILE_OVERFLOW_KEYS = [
+  'collections',
   'time',
   'stats',
   'picker',

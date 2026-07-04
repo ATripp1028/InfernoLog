@@ -200,6 +200,8 @@ const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   ['log'],
   ['list'],
   ['ranking'],
+  // A completion can auto-remove a level from Want to Beat.
+  ['collections'],
 ]
 
 // ─────────────────────────────────────────────
