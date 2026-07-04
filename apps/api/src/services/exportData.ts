@@ -19,7 +19,7 @@ export const EXPORT_MAX_LIMIT = 1000
 
 const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null)
 
-// Reserved list types → the import keyword; custom lists export by name.
+// Reserved collection types → the import keyword; custom collections export by name.
 const LIST_KEYWORD: Record<string, string> = {
   WANT_TO_BEAT: 'want_to_beat',
   FAVORITES: 'favorites',
@@ -148,24 +148,30 @@ async function exportRanking(userId: string, skip: number, take: number) {
   }))
 }
 
-async function exportLists(userId: string, skip: number, take: number) {
-  const entries = await prisma.levelListEntry.findMany({
-    where: { list: { userId } },
-    orderBy: [{ listId: 'asc' }, { position: 'asc' }],
+async function exportCollections(userId: string, skip: number, take: number) {
+  const entries = await prisma.collectionEntry.findMany({
+    where: { collection: { userId } },
+    orderBy: [{ collectionId: 'asc' }, { rankingIndex: 'asc' }],
     skip,
     take,
     select: {
       levelId: true,
-      position: true,
+      collectionId: true,
       level: { select: { name: true } },
-      list: { select: { type: true, name: true } },
+      collection: { select: { type: true, name: true } },
     },
   })
-  return entries.map((e) => ({
-    list: e.list.type === 'CUSTOM' ? e.list.name : (LIST_KEYWORD[e.list.type] ?? e.list.name),
+  // The sheet's position column is an ordering key, not a rank: import sorts
+  // each collection's rows by it. skip+i is increasing across the paginated
+  // stream (ordered collectionId, rankingIndex), so per-collection order holds.
+  return entries.map((e, i) => ({
+    list:
+      e.collection.type === 'CUSTOM'
+        ? e.collection.name
+        : (LIST_KEYWORD[e.collection.type] ?? e.collection.name),
     levelId: e.levelId,
     levelName: e.level.name,
-    position: e.position,
+    position: skip + i,
   }))
 }
 
@@ -244,7 +250,7 @@ export async function exportSection(
     completions: exportCompletions,
     dropped: exportDropped,
     ranking: exportRanking,
-    lists: exportLists,
+    collections: exportCollections,
     ratings: exportRatings,
   } as const
 

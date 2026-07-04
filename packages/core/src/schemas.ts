@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  CollectionType,
   LevelType,
   ListSource,
   RatingMode,
@@ -620,6 +621,103 @@ export const PlaceRankingInputSchema = z.object({
 
 export const ReorderRankingInputSchema = z.object(rankingNeighbours)
 
+// ─────────────────────────────────────────────
+// COLLECTIONS — user-owned groupings of levels: the three built-ins
+// (Want to Beat / Favorites / Least Favorites) plus custom named collections.
+// Entry order is a fractional index (same pattern as the classic ranking);
+// reads return entries ordered by rankingIndex asc.
+// ─────────────────────────────────────────────
+
+// Built-in collection names — reserved case-insensitively for custom names.
+export const RESERVED_COLLECTION_NAMES = [
+  'Want to Beat',
+  'Favorites',
+  'Least Favorites',
+] as const
+
+export const isReservedCollectionName = (name: string): boolean =>
+  (RESERVED_COLLECTION_NAMES as readonly string[]).some(
+    (r) => r.toLowerCase() === name.trim().toLowerCase()
+  )
+
+// Machine-readable error codes for collection writes.
+export const COLLECTION_ERRORS = {
+  DUPLICATE_NAME: 'DUPLICATE_NAME',
+  RESERVED_NAME: 'RESERVED_NAME',
+  BUILT_IN_COLLECTION: 'BUILT_IN_COLLECTION',
+  LEVEL_ALREADY_COMPLETED: 'LEVEL_ALREADY_COMPLETED',
+} as const
+export type CollectionErrorCode = keyof typeof COLLECTION_ERRORS
+
+export const CreateCollectionInputSchema = z.object({
+  name: z.string().trim().min(1).max(50),
+  description: z.string().trim().max(200).nullable().optional(),
+})
+
+// Rename/edit description — custom collections only (built-ins are immutable).
+export const UpdateCollectionInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(50).optional(),
+    description: z.string().trim().max(200).nullable().optional(),
+  })
+  .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
+
+// Index-card summary: identity + count + the leading entries' level ids for
+// the thumbnail-cluster preview (first entry = the identity thumbnail).
+export const CollectionSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  type: z.nativeEnum(CollectionType),
+  description: z.string().nullable(),
+  entryCount: z.number().int(),
+  previewLevelIds: z.array(z.string()),
+  createdAt: z.coerce.date(),
+})
+
+export const CollectionsResponseSchema = z.object({
+  data: z.array(CollectionSummarySchema),
+})
+
+// A member row: trimmed level metadata plus the completion-derived extras the
+// row renders (GDDL/AREDL badge, completed state for the Want to Beat rules).
+export const CollectionEntrySchema = z.object({
+  id: z.string().uuid(),
+  rankingIndex: z.number(),
+  addedAt: z.coerce.date(),
+  level: LevelListSummarySchema,
+  hasPendingUpdate: z.boolean(),
+  badge: RankingBadgeSchema,
+  // Whether the viewer's account has a completion for this level. Drives the
+  // greyed "already completed" treatment in Want to Beat contexts.
+  completed: z.boolean(),
+})
+
+export const CollectionDetailSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  type: z.nativeEnum(CollectionType),
+  description: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  entries: z.array(CollectionEntrySchema),
+})
+
+export const AddCollectionEntryInputSchema = z.object({
+  levelId: LevelIdSchema,
+})
+
+// Reorder neighbours, in display order (rankingIndex asc):
+//   prevId — the entry shown directly ABOVE the drop slot (lower index)
+//   nextId — the entry shown directly BELOW the drop slot (higher index)
+// Omit prevId to move to the top, nextId for the bottom. The server bisects
+// the gap and renormalises when it closes past the rebalance threshold.
+export const ReorderCollectionEntryInputSchema = z
+  .object({
+    prevId: z.string().uuid().optional(),
+    nextId: z.string().uuid().optional(),
+  })
+  .refine((v) => v.prevId || v.nextId, 'prevId or nextId is required')
+  .refine((v) => v.prevId !== v.nextId, 'Neighbours must differ')
+
 export const GddlSyncResultSchema = z.object({
   created: z.number().int(),
   enriched: z.number().int(),
@@ -847,38 +945,39 @@ export const ImportRankingResponseSchema = z.object({
   skipped: z.array(ImportRankingSkipSchema),
 })
 
-// ── Lists ────────────────────────────────────────────────────────────────
+// ── Collections (the sheet's "Lists" tab) ──────────────────────────────────
 //
-// Like ranking, list membership is committed in one dedicated call with
-// replace-per-list semantics: any list the sheet names has its membership
-// replaced; lists the sheet doesn't mention are left alone. The `list` value is
-// a reserved keyword (want_to_beat / favorites / least_favorites) or a custom
-// list name. Level identity resolves like the completion tabs (a listed level
-// need not be completed).
+// Like ranking, collection membership is committed in one dedicated call with
+// replace-per-collection semantics: any collection the sheet names has its
+// membership replaced; collections the sheet doesn't mention are left alone.
+// The `list` value (the sheet's column — a user data contract, so the wire
+// field keeps that name) is a reserved keyword (want_to_beat / favorites /
+// least_favorites) or a custom collection name. Level identity resolves like
+// the completion tabs (a collected level need not be completed).
 
-export const ImportListEntrySchema = z.object({
+export const ImportCollectionEntrySchema = z.object({
   list: z.string().min(1).max(200),
   levelId: LevelIdSchema.nullable().optional(),
   levelName: z.string().nullable().optional(),
   creator: z.string().nullable().optional(),
   inGameDifficulty: z.string().nullable().optional(),
-  // Optional explicit ordering within the list; row order is used otherwise.
+  // Optional explicit ordering within the collection; row order otherwise.
   position: z.number().int().nullable().optional(),
 })
 
-export const ImportListsRequestSchema = z.object({
-  entries: z.array(ImportListEntrySchema).max(5000),
+export const ImportCollectionsRequestSchema = z.object({
+  entries: z.array(ImportCollectionEntrySchema).max(5000),
 })
 
-export const ImportListsSkipSchema = z.object({
+export const ImportCollectionsSkipSchema = z.object({
   list: z.string(),
   label: z.string(),
   reason: z.string(),
 })
 
-export const ImportListsResponseSchema = z.object({
+export const ImportCollectionsResponseSchema = z.object({
   lists: z.array(z.object({ list: z.string(), placed: z.number().int() })),
-  skipped: z.array(ImportListsSkipSchema),
+  skipped: z.array(ImportCollectionsSkipSchema),
 })
 
 // ── Ratings (weighted category scores) ─────────────────────────────────────
@@ -962,7 +1061,8 @@ export const ExportRankingSchema = z.object({
   levelName: z.string().nullable(),
 })
 
-export const ExportListSchema = z.object({
+export const ExportCollectionSchema = z.object({
+  // The sheet's `list` column value (reserved keyword or custom name).
   list: z.string(),
   levelId: z.string(),
   levelName: z.string().nullable(),
@@ -981,7 +1081,8 @@ export const ExportResponseSchema = z.object({
   completions: z.array(ExportCompletionSchema),
   dropped: z.array(ExportDroppedSchema),
   ranking: z.array(ExportRankingSchema),
-  lists: z.array(ExportListSchema),
+  // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
+  collections: z.array(ExportCollectionSchema),
   ratingCategories: z.array(z.string()),
   ratings: z.array(ExportRatingSchema),
 })
@@ -993,7 +1094,7 @@ export const EXPORT_SECTIONS = [
   'completions',
   'dropped',
   'ranking',
-  'lists',
+  'collections',
   'ratings',
   'categories',
 ] as const
@@ -1015,16 +1116,20 @@ export type ImportConflict = z.infer<typeof ImportConflictSchema>
 export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
 export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
 export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
-export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
-export type ImportListsRequest = z.infer<typeof ImportListsRequestSchema>
-export type ImportListsResponse = z.infer<typeof ImportListsResponseSchema>
+export type ImportCollectionEntry = z.infer<typeof ImportCollectionEntrySchema>
+export type ImportCollectionsRequest = z.infer<
+  typeof ImportCollectionsRequestSchema
+>
+export type ImportCollectionsResponse = z.infer<
+  typeof ImportCollectionsResponseSchema
+>
 export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
 export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
 export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
 export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
 export type ExportDropped = z.infer<typeof ExportDroppedSchema>
 export type ExportRanking = z.infer<typeof ExportRankingSchema>
-export type ExportList = z.infer<typeof ExportListSchema>
+export type ExportCollection = z.infer<typeof ExportCollectionSchema>
 export type ExportRating = z.infer<typeof ExportRatingSchema>
 export type ExportResponse = z.infer<typeof ExportResponseSchema>
 export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>

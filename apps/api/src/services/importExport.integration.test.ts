@@ -17,7 +17,7 @@ import { Device, DifficultyOpinion, EntryVisibility } from '@infernolog/core'
 import type {
   ImportCommitRow,
   ImportRankingEntry,
-  ImportListEntry,
+  ImportCollectionEntry,
   ImportRatingEntry,
   ExportResponse,
 } from '@infernolog/core'
@@ -44,7 +44,7 @@ vi.mock('../utils/gddl', async (importOriginal) => {
 
 const { commitImportBatch } = await import('./import')
 const { commitImportRanking } = await import('./importRanking')
-const { commitImportLists } = await import('./importLists')
+const { commitImportCollections } = await import('./importCollections')
 const { commitImportRatings } = await import('./importRatings')
 const { exportSection } = await import('./exportData')
 
@@ -71,7 +71,7 @@ async function fullExport(userId: string): Promise<ExportResponse> {
     completions: (await all('completions')) as ExportResponse['completions'],
     dropped: (await all('dropped')) as ExportResponse['dropped'],
     ranking: (await all('ranking')) as ExportResponse['ranking'],
-    lists: (await all('lists')) as ExportResponse['lists'],
+    collections: (await all('collections')) as ExportResponse['collections'],
     ratings: (await all('ratings')) as ExportResponse['ratings'],
     ratingCategories: categories.items as string[],
   }
@@ -138,11 +138,11 @@ function completionRows(): ImportCommitRow[] {
 async function importFullAccount(userId: string) {
   await commitImportBatch(userId, randomUUID(), completionRows())
   await commitImportRanking(userId, [{ levelId: '200' }, { levelId: '100' }] satisfies ImportRankingEntry[])
-  await commitImportLists(userId, [
+  await commitImportCollections(userId, [
     { list: 'want_to_beat', levelId: '300', position: 1 },
     { list: 'favorites', levelId: '100', position: 1 },
     { list: 'My List', levelId: '200', position: 1 },
-  ] satisfies ImportListEntry[])
+  ] satisfies ImportCollectionEntry[])
   await commitImportRatings(userId, [
     { levelId: '100', scores: { Gameplay: 80, Decoration: 90 } },
     { levelId: '200', scores: { Gameplay: 70 } },
@@ -204,7 +204,7 @@ function normalize(exp: ExportResponse) {
     completions: [...exp.completions].sort(byLevel),
     dropped: [...exp.dropped].sort(byLevel),
     ranking: exp.ranking.map((r) => r.levelId), // order matters
-    lists: [...exp.lists].sort(
+    collections: [...exp.collections].sort(
       (a, b) => a.list.localeCompare(b.list) || a.levelId.localeCompare(b.levelId)
     ),
     ratingCategories: [...exp.ratingCategories].sort(),
@@ -242,9 +242,9 @@ describe('import → export round-trip', () => {
       userB.id,
       expA.ranking.map((r) => ({ levelId: r.levelId }))
     )
-    await commitImportLists(
+    await commitImportCollections(
       userB.id,
-      expA.lists.map((l) => ({ list: l.list, levelId: l.levelId, position: l.position }))
+      expA.collections.map((l) => ({ list: l.list, levelId: l.levelId, position: l.position }))
     )
     await commitImportRatings(
       userB.id,
@@ -325,25 +325,25 @@ describe('commitImportRanking', () => {
   })
 })
 
-describe('commitImportLists', () => {
+describe('commitImportCollections', () => {
   it('resolves reserved + custom lists and replaces membership per list', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
 
-    await commitImportLists(user.id, [
+    await commitImportCollections(user.id, [
       { list: 'favorites', levelId: '100', position: 1 },
       { list: 'favorites', levelId: '200', position: 2 },
       { list: 'My List', levelId: '300', position: 1 },
     ])
     let exp = await fullExport(user.id)
-    expect(exp.lists.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['100', '200'])
-    expect(exp.lists.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
+    expect(exp.collections.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['100', '200'])
+    expect(exp.collections.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
 
     // Replace favorites; leave the custom list alone (not mentioned).
-    await commitImportLists(user.id, [{ list: 'favorites', levelId: '300', position: 1 }])
+    await commitImportCollections(user.id, [{ list: 'favorites', levelId: '300', position: 1 }])
     exp = await fullExport(user.id)
-    expect(exp.lists.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['300'])
-    expect(exp.lists.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
+    expect(exp.collections.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['300'])
+    expect(exp.collections.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
   })
 })
 

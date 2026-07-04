@@ -27,6 +27,14 @@ import {
   ListPresetInputSchema,
   ListPresetUpdateSchema,
   ListPresetSchema,
+  CreateCollectionInputSchema,
+  UpdateCollectionInputSchema,
+  CollectionSummarySchema,
+  CollectionsResponseSchema,
+  CollectionEntrySchema,
+  CollectionDetailSchema,
+  AddCollectionEntryInputSchema,
+  ReorderCollectionEntryInputSchema,
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -68,3 +76,16 @@ export type ReorderRankingInput = z.infer<typeof ReorderRankingInputSchema>
 export type ListPresetInput = z.infer<typeof ListPresetInputSchema>
 export type ListPresetUpdate = z.infer<typeof ListPresetUpdateSchema>
 export type ListPresetRecord = z.infer<typeof ListPresetSchema>
+
+export type CreateCollectionInput = z.infer<typeof CreateCollectionInputSchema>
+export type UpdateCollectionInput = z.infer<typeof UpdateCollectionInputSchema>
+export type CollectionSummary = z.infer<typeof CollectionSummarySchema>
+export type CollectionsResponse = z.infer<typeof CollectionsResponseSchema>
+export type CollectionEntry = z.infer<typeof CollectionEntrySchema>
+export type CollectionDetail = z.infer<typeof CollectionDetailSchema>
+export type AddCollectionEntryInput = z.infer<
+  typeof AddCollectionEntryInputSchema
+>
+export type ReorderCollectionEntryInput = z.infer<
+  typeof ReorderCollectionEntryInputSchema
+>

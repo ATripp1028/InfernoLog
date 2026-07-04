@@ -29,7 +29,7 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
               { name: 'Song', weight: 0.2, sortOrder: 2 },
             ],
           },
-          userLists: {
+          collections: {
             create: [
               { name: 'Favorites', type: 'FAVORITES' },
               { name: 'Least Favorites', type: 'LEAST_FAVORITES' },

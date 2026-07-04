@@ -20,7 +20,7 @@ import type {
   ImportCommitRow,
   ImportCommitOutcome,
   ImportRankingResponse,
-  ImportListsResponse,
+  ImportCollectionsResponse,
   ImportRatingsResponse,
   ConflictResolution,
 } from '@/lib/api/import'
@@ -656,7 +656,7 @@ function ProgressBar({ value }: { value: number }) {
 interface SuccessStepProps {
   outcomes: ImportCommitOutcome[]
   rankingResult: ImportRankingResponse | null
-  listsResult: ImportListsResponse | null
+  listsResult: ImportCollectionsResponse | null
   ratingsResult: ImportRatingsResponse | null
   onClose: () => void
 }
@@ -786,7 +786,7 @@ interface ImportWizardProps {
 }
 
 export function ImportWizard({ me, onClose }: ImportWizardProps) {
-  const { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings } =
+  const { checkConflicts, commitBatch, commitRanking, commitCollections, commitRatings } =
     useImportApi()
 
   const [step, setStep] = useState<WizardStep>('upload')
@@ -809,7 +809,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [progressLabel, setProgressLabel] = useState('')
   const [outcomes, setOutcomes] = useState<ImportCommitOutcome[]>([])
   const [rankingResult, setRankingResult] = useState<ImportRankingResponse | null>(null)
-  const [listsResult, setListsResult] = useState<ImportListsResponse | null>(null)
+  const [listsResult, setListsResult] = useState<ImportCollectionsResponse | null>(null)
   const [ratingsResult, setRatingsResult] = useState<ImportRatingsResponse | null>(null)
   const [commitError, setCommitError] = useState<string | null>(null)
 
@@ -949,7 +949,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       if (listRows.length > 0) {
         setProgressLabel('Applying lists…')
         try {
-          const res = await commitLists({
+          const res = await commitCollections({
             entries: listRows.map((r) => ({
               list: r.list as string,
               levelId: r.levelId,
@@ -1011,7 +1011,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
 
       setStep('success')
     },
-    [commitBatch, commitRanking, commitLists, commitRatings, parseResult]
+    [commitBatch, commitRanking, commitCollections, commitRatings, parseResult]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────

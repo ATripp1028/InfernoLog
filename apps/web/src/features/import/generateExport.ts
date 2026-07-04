@@ -135,7 +135,7 @@ export function downloadExport(data: ExportResponse, dateFormat: DateFormat): vo
   )
 
   // Lists
-  const listRecords = data.lists.map((l) => ({
+  const listRecords = data.collections.map((l) => ({
     list: l.list,
     level_id: l.levelId,
     level_name: l.levelName ?? '',

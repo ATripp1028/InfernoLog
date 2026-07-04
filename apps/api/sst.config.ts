@@ -399,6 +399,26 @@ export default $config({
     authedRoute('GET /v1/me/gddl-sync/{jobId}')
 
     // ─────────────────────────────────────────────
+    // COLLECTIONS — built-in (Want to Beat / Favorites / Least Favorites)
+    // and custom user collections of levels. Reads are user-scoped by path;
+    // writes are always the authenticated user's own collections.
+    // ─────────────────────────────────────────────
+    authedRoute('GET /v1/users/{usernameOrId}/collections')
+    authedRoute('POST /v1/users/{usernameOrId}/collections')
+    authedRoute('GET /v1/users/{usernameOrId}/collections/{collectionId}')
+    authedRoute('PATCH /v1/users/{usernameOrId}/collections/{collectionId}')
+    authedRoute('DELETE /v1/users/{usernameOrId}/collections/{collectionId}')
+    authedRoute(
+      'POST /v1/users/{usernameOrId}/collections/{collectionId}/entries'
+    )
+    authedRoute(
+      'PATCH /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}'
+    )
+    authedRoute(
+      'DELETE /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}'
+    )
+
+    // ─────────────────────────────────────────────
     // LIST PRESETS — saved view configurations for the List page.
     // ─────────────────────────────────────────────
     authedRoute('GET /v1/me/list-presets')
@@ -466,7 +486,7 @@ export default $config({
     importRoute('POST /v1/me/import/check')
     importRoute('POST /v1/me/import', '28 seconds')
     importRoute('POST /v1/me/import/ranking', '28 seconds')
-    importRoute('POST /v1/me/import/lists', '28 seconds')
+    importRoute('POST /v1/me/import/collections', '28 seconds')
     importRoute('POST /v1/me/import/ratings', '28 seconds')
     importRoute('GET /v1/me/export', '28 seconds')
 

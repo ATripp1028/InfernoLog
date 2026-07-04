@@ -122,7 +122,8 @@ export interface ImportRankingResponse {
   skipped: { rank: number; label: string; reason: string }[]
 }
 
-export interface ImportListEntry {
+export interface ImportCollectionEntry {
+  // The sheet's `list` column value (reserved keyword or custom name).
   list: string
   levelId?: string | null
   levelName?: string | null
@@ -131,11 +132,11 @@ export interface ImportListEntry {
   position?: number | null
 }
 
-export interface ImportListsRequest {
-  entries: ImportListEntry[]
+export interface ImportCollectionsRequest {
+  entries: ImportCollectionEntry[]
 }
 
-export interface ImportListsResponse {
+export interface ImportCollectionsResponse {
   lists: { list: string; placed: number }[]
   skipped: { list: string; label: string; reason: string }[]
 }
@@ -203,7 +204,7 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
-  lists: { list: string; levelId: string; levelName: string | null; position: number }[]
+  collections: { list: string; levelId: string; levelName: string | null; position: number }[]
   ratingCategories: string[]
   ratings: {
     levelId: string
@@ -255,10 +256,10 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  const commitLists = useCallback(
-    async (req: ImportListsRequest): Promise<ImportListsResponse> => {
+  const commitCollections = useCallback(
+    async (req: ImportCollectionsRequest): Promise<ImportCollectionsResponse> => {
       const token = await getIdToken()
-      return apiFetch<ImportListsResponse>('/v1/me/import/lists', {
+      return apiFetch<ImportCollectionsResponse>('/v1/me/import/collections', {
         method: 'POST',
         token,
         body: req,
@@ -299,11 +300,11 @@ export function useImportApi() {
       }
       return items
     }
-    const [completions, dropped, ranking, lists, ratings, categories] = await Promise.all([
+    const [completions, dropped, ranking, collections, ratings, categories] = await Promise.all([
       fetchAll('completions'),
       fetchAll('dropped'),
       fetchAll('ranking'),
-      fetchAll('lists'),
+      fetchAll('collections'),
       fetchAll('ratings'),
       fetchAll('categories'),
     ])
@@ -311,11 +312,11 @@ export function useImportApi() {
       completions: completions as ExportResponse['completions'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
-      lists: lists as ExportResponse['lists'],
+      collections: collections as ExportResponse['collections'],
       ratings: ratings as ExportResponse['ratings'],
       ratingCategories: categories as string[],
     }
   }, [getIdToken])
 
-  return { checkConflicts, commitBatch, commitRanking, commitLists, commitRatings, getExport }
+  return { checkConflicts, commitBatch, commitRanking, commitCollections, commitRatings, getExport }
 }

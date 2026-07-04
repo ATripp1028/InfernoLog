@@ -55,7 +55,7 @@ export enum EntryVisibility {
   PRIVATE = 'PRIVATE',
 }
 
-export enum ListType {
+export enum CollectionType {
   WANT_TO_BEAT = 'WANT_TO_BEAT',
   FAVORITES = 'FAVORITES',
   LEAST_FAVORITES = 'LEAST_FAVORITES',

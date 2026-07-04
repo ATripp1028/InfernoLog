@@ -62,7 +62,7 @@ enum EntryVisibility {
   PRIVATE
 }
 
-enum ListType {
+enum CollectionType {
   WANT_TO_BEAT
   FAVORITES
   LEAST_FAVORITES
@@ -182,7 +182,7 @@ model User {
   // Relations
   levelProgress         LevelProgress[]
   classicRankings       ClassicRanking[]
-  userLists             UserList[]
+  collections           Collection[]
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
   listPresets           ListPreset[]
@@ -304,7 +304,7 @@ model Level {
 
   // Relations
   levelProgress         LevelProgress[]
-  levelListEntries      LevelListEntry[]
+  collectionEntries     CollectionEntry[]
   levelUpdateNotifs     LevelUpdateNotification[]
 
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
@@ -564,17 +564,20 @@ model ClassicRanking {
 }
 
 // ─────────────────────────────────────────────
-// USER LISTS
-// Favorites, least favorites, want-to-beat, and custom lists.
+// COLLECTIONS
+// Favorites, least favorites, want-to-beat, and custom collections.
 // Adding to want-to-beat does NOT create a LevelProgress entry.
+// Entry order uses fractional indexing (same pattern as ClassicRanking):
+// insert between two entries by averaging their indices; a renormalization
+// pass resets to integers when a gap shrinks past 0.0001.
 // ─────────────────────────────────────────────
 
-model UserList {
+model Collection {
   id          String          @id @default(uuid())
   userId      String
 
   name        String
-  type        ListType
+  type        CollectionType
   description String?
 
   createdAt   DateTime        @default(now())
@@ -582,25 +585,26 @@ model UserList {
 
   // Relations
   user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries     LevelListEntry[]
+  entries     CollectionEntry[]
 
-  @@map("user_lists")
+  @@map("collections")
 }
 
-model LevelListEntry {
-  id        String    @id @default(uuid())
-  listId    String
-  levelId   String    // FK → levels.inGameId
+model CollectionEntry {
+  id           String     @id @default(uuid())
+  collectionId String
+  levelId      String     // FK → levels.inGameId
 
-  position  Int
-  addedAt   DateTime  @default(now())
+  // Fractional index — lower = earlier in the collection (displayed asc).
+  rankingIndex Decimal    @db.Decimal(20, 10)
+  addedAt      DateTime   @default(now())
 
   // Relations
-  list      UserList  @relation(fields: [listId], references: [id], onDelete: Cascade)
-  level     Level     @relation(fields: [levelId], references: [inGameId])
+  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  level        Level      @relation(fields: [levelId], references: [inGameId])
 
-  @@unique([listId, levelId]) // A level can only appear once per list
-  @@map("level_list_entries")
+  @@unique([collectionId, levelId]) // A level can only appear once per collection
+  @@map("collection_entries")
 }
 
 // ─────────────────────────────────────────────
