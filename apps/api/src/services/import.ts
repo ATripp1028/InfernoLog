@@ -19,6 +19,7 @@ import type {
 import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
 import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
+import { removeFromWantToBeat } from './collections'
 
 type Tx = Prisma.TransactionClient
 
@@ -611,6 +612,10 @@ export async function commitImportBatch(
   const lpPlans = new Map<string, LpPlan>()
   const ctx: PlanCtx = { userId, writes, lpPlans, dbState, levelDiff, levelCoins }
 
+  // Levels whose completion was written/updated this batch — they leave the
+  // user's Want to Beat collection in the same transaction.
+  const completedLevelIds = new Set<string>()
+
   // A level can appear more than once per tab (flagged as a duplicate upstream).
   // Keep only the last completion / last drop per level so we never plan two
   // completions for one LevelProgress; earlier occurrences are recorded skipped.
@@ -675,6 +680,9 @@ export async function commitImportBatch(
           row.conflictResolution,
           autoGddlTier
         )
+        if (outcomeStatus === 'committed' || outcomeStatus === 'updated') {
+          completedLevelIds.add(effectiveLevelId)
+        }
       } else {
         outcomeStatus = planDrop(ctx, effectiveLevelId, row.data)
       }
@@ -788,6 +796,9 @@ export async function commitImportBatch(
         await tx.levelProgress.update({ where: { id: plan.id }, data: plan.update })
       }
     }
+
+    // Auto-removal: a level with a fresh completion leaves Want to Beat.
+    await removeFromWantToBeat(tx, userId, [...completedLevelIds])
 
     if (newOutcomes.length) {
       await tx.importJobRow.createMany({

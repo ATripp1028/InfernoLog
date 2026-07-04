@@ -9,6 +9,7 @@
 import prisma from '../utils/prisma'
 import type { Prisma } from '@prisma/client'
 import { DifficultyOpinion } from '@infernolog/core'
+import { removeFromWantToBeat } from './collections'
 import type {
   CompletionInput,
   ProgressInput,
@@ -200,6 +201,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         worstFail: input.worstFail ?? null,
       },
     })
+
+    // A beaten level leaves Want to Beat — same transaction as the completion.
+    await removeFromWantToBeat(tx, userId, input.levelId)
 
     return loadFullEntry(tx, lp.id, progressUpdateId)
   })

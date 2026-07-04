@@ -12,13 +12,17 @@
 
 import { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
+import { bisectIndices, gapTooTight } from '../utils/fractionalIndex'
+import {
+  levelSelect,
+  completionSelect,
+  deriveBadge,
+  completionAttempts,
+  mapLevel,
+} from './levelRow'
 import type { PlaceRankingInput, ReorderRankingInput } from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient
-
-// Gap below which a bisect would lose precision → renormalise to integers.
-const REBALANCE_GAP = new Prisma.Decimal('0.0001')
 
 // 400 — caller-fixable (e.g. placing a non-demon, neighbours out of order).
 export class RankingError extends Error {
@@ -97,94 +101,22 @@ async function computeIndex(
     throw new RankingError('aboveId must rank harder than belowId')
   }
 
-  const bisect = (): Prisma.Decimal => {
-    if (above && below) return above.plus(below).dividedBy(2)
-    if (above) return above.minus(1) // dropped at the bottom (easiest)
-    if (below) return below.plus(1) // dropped at the top (hardest)
-    return new Prisma.Decimal(1) // first entry in an empty ranking
-  }
-
-  if (above && below && above.minus(below).lt(REBALANCE_GAP)) {
+  // In ranking terms the displayed "above" neighbour holds the HIGHER index
+  // (rankingIndex DESC), so it maps to bisectIndices' `higher` bound.
+  if (gapTooTight(below, above)) {
     await rebalance(tx, userId)
     above = aboveId ? await neighbourIndex(tx, userId, aboveId) : null
     below = belowId ? await neighbourIndex(tx, userId, belowId) : null
   }
-  return bisect()
+  return bisectIndices(below, above)
 }
 
 // ─────────────────────────────────────────────
 // Reads / serialization
 // ─────────────────────────────────────────────
 
-// Level identity columns for a ranking row (LevelListSummarySchema) plus
-// hasPendingUpdate, which drives the pending-data dot. Kept in sync with the
-// list page's levelListSelect.
-const levelSelect = {
-  inGameId: true,
-  name: true,
-  creator: true,
-  levelType: true,
-  inGameDifficulty: true,
-  isDemon: true,
-  isRated: true,
-  difficultyFace: true,
-  featured: true,
-  epicValue: true,
-  length: true,
-  songName: true,
-  songAuthor: true,
-  coins: true,
-  coinsVerified: true,
-  twoPlayer: true,
-  gameVersion: true,
-  hasPendingUpdate: true,
-} satisfies Prisma.LevelSelect
-
-// The completion update's fields the ranking row needs: attempts (shown next to
-// the badge) and the list references (for the badge).
-const completionSelect = {
-  where: { isCompletion: true },
-  take: 1,
-  select: {
-    attempts: true,
-    listReferences: { select: { listSource: true, tierOrRank: true } },
-  },
-} satisfies Prisma.LevelProgress$progressUpdatesArgs
-
-type LevelRow = Prisma.LevelGetPayload<{ select: typeof levelSelect }>
-type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
-  select: (typeof completionSelect)['select']
-}>[]
-
-// Single badge per row. AREDL gives an exact rank, so it leads for extreme
-// demons (the levels AREDL actually ranks); GDDL leads otherwise since it
-// covers every demon. NLW / OTHER are kept as data on the completion but never
-// surface here. See RANKING_SYSTEM.md / schemas.ts.
-function deriveBadge(updates: CompletionRefs, inGameDifficulty: string | null) {
-  const refs = updates[0]?.listReferences ?? []
-  const gddl = refs.find((r) => r.listSource === 'GDDL')
-  const aredl = refs.find((r) => r.listSource === 'AREDL')
-  const isExtreme = (inGameDifficulty ?? '').toLowerCase().includes('extreme')
-  const order = isExtreme ? [aredl, gddl] : [gddl, aredl]
-  for (const ref of order) {
-    if (ref) return { listSource: ref.listSource, tierOrRank: ref.tierOrRank }
-  }
-  return null
-}
-
-// Attempts from the completion update (null when not logged).
-function completionAttempts(updates: CompletionRefs): number | null {
-  return updates[0]?.attempts ?? null
-}
-
-// Official levels (ids 1–38) aren't served by RobTop; their version + coin
-// count come from our data file, matching the list page's treatment.
-function mapLevel(level: Omit<LevelRow, 'hasPendingUpdate'>) {
-  const official = OFFICIAL_LEVELS_BY_ID.get(level.inGameId)
-  return official
-    ? { ...level, gameVersion: official.gameVersion, coins: official.coins }
-    : level
-}
+// Row serialization (levelSelect / completionSelect / deriveBadge /
+// completionAttempts / mapLevel) is shared with collections — see levelRow.ts.
 
 export async function getClassicRanking(userId: string) {
   const [placedRows, unplacedRows] = await Promise.all([

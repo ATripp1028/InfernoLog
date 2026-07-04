@@ -157,22 +157,43 @@ async function exportCollections(userId: string, skip: number, take: number) {
     select: {
       levelId: true,
       collectionId: true,
+      rankingIndex: true,
       level: { select: { name: true } },
       collection: { select: { type: true, name: true } },
     },
   })
-  // The sheet's position column is an ordering key, not a rank: import sorts
-  // each collection's rows by it. skip+i is increasing across the paginated
-  // stream (ordered collectionId, rankingIndex), so per-collection order holds.
-  return entries.map((e, i) => ({
-    list:
-      e.collection.type === 'CUSTOM'
-        ? e.collection.name
-        : (LIST_KEYWORD[e.collection.type] ?? e.collection.name),
-    levelId: e.levelId,
-    levelName: e.level.name,
-    position: skip + i,
-  }))
+  if (entries.length === 0) return []
+
+  // The sheet's position column is 0-based per collection (import sorts each
+  // collection's rows by it). A page can start mid-collection, so seed the
+  // counter with how many of the first collection's entries precede the page.
+  const first = entries[0]!
+  let counter =
+    skip === 0
+      ? 0
+      : await prisma.collectionEntry.count({
+          where: {
+            collectionId: first.collectionId,
+            rankingIndex: { lt: first.rankingIndex },
+          },
+        })
+  let currentId = first.collectionId
+
+  return entries.map((e) => {
+    if (e.collectionId !== currentId) {
+      currentId = e.collectionId
+      counter = 0
+    }
+    return {
+      list:
+        e.collection.type === 'CUSTOM'
+          ? e.collection.name
+          : (LIST_KEYWORD[e.collection.type] ?? e.collection.name),
+      levelId: e.levelId,
+      levelName: e.level.name,
+      position: counter++,
+    }
+  })
 }
 
 async function exportRatings(userId: string, skip: number, take: number) {
