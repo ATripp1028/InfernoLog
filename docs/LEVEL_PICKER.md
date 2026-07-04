@@ -23,7 +23,7 @@ The Level Picker is an Akinator-style guided decision tool that helps players ch
 └─────────────────────────────────────────────────────┘
 ```
 
-**Personal Mode (v2):** Immediately useful from day one. Works from the user's own want-to-beat list. Useful for players who have a curated backlog and want help deciding what to tackle next.
+**Personal Mode (v2):** Immediately useful from day one. Works from the user's own Want to Beat collection. Useful for players who have a curated backlog and want help deciding what to tackle next.
 
 **Discovery Mode (v4):** Queries the broader cached level database. Useful for players who want to find something new rather than choose from a personal list. Held until after v4's initial release to ensure meaningful database population. This is the same **InfernoLog `levels` cache** that backs the logging flow's name search (a level is searchable only after its first log by any user — see `LOGGING_FLOW.md` and `EXTERNAL_APIS.md`), so Discovery Mode's pool grows with adoption.
 
@@ -136,7 +136,7 @@ The user can pick any of the shown levels or choose none and restart or exit.
 
 ## Version Notes
 
-- **v2:** Personal Mode ships alongside want-to-beat list functionality
+- **v2:** Personal Mode ships alongside Want to Beat collection functionality
 - **v4:** Discovery Mode ships after v4's initial release, once the database has meaningful population
 - Skill-tag-based questions require v3 skill tag integration to function. They are simply absent from the question pool in v2
 - NONG-based questions require v2 NONG fields to function

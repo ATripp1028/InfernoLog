@@ -210,22 +210,22 @@ Semantics:
 
 ## Lists Tab Format
 
-Membership of your want-to-beat / favorites / least-favorites and any custom lists.
+Membership of your collections — Want to Beat / Favorites / Least Favorites and any custom collections. (The tab is named `Lists` for compatibility; it maps to the in-app Collections feature.)
 
 | Column               | Required | Notes                                                                       |
 | -------------------- | -------- | --------------------------------------------------------------------------- |
-| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom list of that name. |
+| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom collection of that name. |
 | `level_id`           | No\*     | In-game level ID                                                            |
 | `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)       |
 | `creator`            | No       | Narrows name resolution when the name matches many levels                   |
 | `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
-| `position`           | No       | Order within the list; row order is used if blank                           |
+| `position`           | No       | Order within the collection; row order is used if blank                           |
 
 \* one of `level_id` / `level_name` required.
 
 Semantics:
 
-- **Replace per list.** Each list named in the tab has its membership replaced with the tab's rows (in order); lists you don't mention are left alone. Custom lists are created on demand by name.
+- **Replace per collection.** Each collection named in the tab has its membership replaced with the tab's rows (in order); collections you don't mention are left alone. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels).
 - A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
 - Committed as one dedicated call **after** the completion/drop batches (and ranking).
 
