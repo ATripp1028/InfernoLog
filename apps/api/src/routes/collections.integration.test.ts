@@ -267,7 +267,7 @@ describe('collection entries', () => {
     // Duplicate add → no-op, same membership back.
     const dupRes = await send(user.id, 'POST', path, { levelId: '100' })
     expect(dupRes.status).toBe(200)
-    let detail = (await dupRes.json()) as DetailBody
+    const detail = (await dupRes.json()) as DetailBody
     expect(detail.data.entries.map((e) => e.level.inGameId)).toEqual([
       '100',
       '200',
