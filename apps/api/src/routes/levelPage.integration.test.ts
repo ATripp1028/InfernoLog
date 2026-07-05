@@ -74,13 +74,10 @@ type LevelPageBody = {
 }
 
 async function getLevelPage(
-  viewerUserId: string,
-  usernameOrId: string,
+  userId: string,
   levelId: string
 ): Promise<Response> {
-  return buildApp(progressApp, { userId: viewerUserId }).request(
-    `/users/${usernameOrId}/progress/${levelId}`
-  )
+  return buildApp(progressApp, { userId }).request(`/me/progress/${levelId}`)
 }
 
 async function seedProgress(
@@ -162,7 +159,7 @@ afterAll(async () => {
 // READ — owner view
 // ─────────────────────────────────────────────
 
-describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
+describe('GET /me/progress/:levelId — owner', () => {
   it('returns all progress updates including non-completions', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '1001' })
@@ -180,7 +177,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       ],
     })
 
-    const res = await getLevelPage(user.id, user.username, '1001')
+    const res = await getLevelPage(user.id, '1001')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.status).toBe('COMPLETED')
@@ -206,7 +203,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       status: 'IN_PROGRESS',
     })
 
-    const res = await getLevelPage(user.id, user.id, '1002')
+    const res = await getLevelPage(user.id, '1002')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.level).toMatchObject({
@@ -232,7 +229,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       ],
     })
 
-    const res = await getLevelPage(user.id, user.username, '1003')
+    const res = await getLevelPage(user.id, '1003')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     const completion = body.data.progressUpdates.find((u) => u.isCompletion)
@@ -250,7 +247,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       levelNotes: 'Started this because of Sunix',
     })
 
-    const res = await getLevelPage(user.id, user.username, '1004')
+    const res = await getLevelPage(user.id, '1004')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.levelNotes).toBe('Started this because of Sunix')
@@ -273,7 +270,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
     })
     await prisma.progressUpdate.delete({ where: { id: pu.id } })
 
-    const res = await getLevelPage(user.id, user.username, '1005')
+    const res = await getLevelPage(user.id, '1005')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.levelNotes).toBe('I will beat this eventually')
@@ -293,7 +290,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 3 },
     })
 
-    const res = await getLevelPage(user.id, user.username, '1006')
+    const res = await getLevelPage(user.id, '1006')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.rankingIndex).toBe(3)
@@ -311,26 +308,11 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       updates: [{ isCompletion: true }],
     })
 
-    const res = await getLevelPage(user.id, user.username, '1007')
+    const res = await getLevelPage(user.id, '1007')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
     expect(body.data.rankingIndex).toBeNull()
     expect(body.data.rankPosition).toBeNull()
-  })
-
-  it('resolves by UUID as well as username', async () => {
-    const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '1008' })
-    await seedProgress(prisma, {
-      userId: user.id,
-      levelId: '1008',
-      status: 'IN_PROGRESS',
-    })
-
-    const resByUsername = await getLevelPage(user.id, user.username, '1008')
-    const resByUuid = await getLevelPage(user.id, user.id, '1008')
-    expect(resByUsername.status).toBe(200)
-    expect(resByUuid.status).toBe(200)
   })
 
   it('returns completion video/highlight on the top level (not just on the update)', async () => {
@@ -349,7 +331,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
       ],
     })
 
-    const res = await getLevelPage(user.id, user.username, '1009')
+    const res = await getLevelPage(user.id, '1009')
     const body = (await res.json()) as LevelPageBody
     expect(body.data.completionVideoUrl).toBe('https://youtube.com/watch?v=abc')
     expect(body.data.completionHighlightUrl).toBe(
@@ -362,7 +344,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — owner', () => {
 // READ — runsGraph
 // ─────────────────────────────────────────────
 
-describe('GET /users/:usernameOrId/progress/:levelId — runsGraph', () => {
+describe('GET /me/progress/:levelId — runsGraph', () => {
   it('includes a runsGraph entry for each progress update, ordered oldest→newest', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '2001' })
@@ -377,7 +359,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — runsGraph', () => {
       ],
     })
 
-    const res = await getLevelPage(user.id, user.username, '2001')
+    const res = await getLevelPage(user.id, '2001')
     const body = (await res.json()) as LevelPageBody
     const graph = body.data.runsGraph
     expect(graph).toHaveLength(3)
@@ -398,7 +380,7 @@ describe('GET /users/:usernameOrId/progress/:levelId — runsGraph', () => {
       updates: [{ percentage: 65, loggedAt: new Date('2025-01-01') }],
     })
 
-    const res = await getLevelPage(user.id, user.username, '2002')
+    const res = await getLevelPage(user.id, '2002')
     const body = (await res.json()) as LevelPageBody
     expect(body.data.runsGraph).toHaveLength(1)
     expect(body.data.runsGraph[0]).toMatchObject({ to: 65, droppedAfter: true })
@@ -406,95 +388,16 @@ describe('GET /users/:usernameOrId/progress/:levelId — runsGraph', () => {
 })
 
 // ─────────────────────────────────────────────
-// READ — privacy
+// READ — 404 cases
 // ─────────────────────────────────────────────
 
-describe('GET /users/:usernameOrId/progress/:levelId — privacy', () => {
-  it('private profile → 403 for non-owner', async () => {
-    const owner = await seedUser(prisma)
-    const viewer = await seedUser(prisma)
-    // Make owner's profile private
-    await prisma.user.update({
-      where: { id: owner.id },
-      data: { profilePublic: false },
-    })
+describe('GET /me/progress/:levelId — 404 cases', () => {
+  it('returns 404 when the level has not been logged by the authenticated user', async () => {
+    const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '3001' })
-    await seedProgress(prisma, {
-      userId: owner.id,
-      levelId: '3001',
-      status: 'COMPLETED',
-      updates: [{ isCompletion: true }],
-    })
+    // user has NOT logged level 3001
 
-    const res = await getLevelPage(viewer.id, owner.username, '3001')
-    expect(res.status).toBe(403)
-  })
-
-  it('private profile → owner can still see own entry', async () => {
-    const owner = await seedUser(prisma)
-    await prisma.user.update({
-      where: { id: owner.id },
-      data: { profilePublic: false },
-    })
-    await seedLevel(prisma, { inGameId: '3002' })
-    await seedProgress(prisma, {
-      userId: owner.id,
-      levelId: '3002',
-      status: 'IN_PROGRESS',
-      updates: [{ percentage: 40 }],
-    })
-
-    const res = await getLevelPage(owner.id, owner.username, '3002')
-    expect(res.status).toBe(200)
-  })
-
-  it('private entry on public profile → 404 for non-owner', async () => {
-    const owner = await seedUser(prisma)
-    const viewer = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '3003' })
-    await seedProgress(prisma, {
-      userId: owner.id,
-      levelId: '3003',
-      status: 'COMPLETED',
-      visibility: 'PRIVATE',
-      updates: [{ isCompletion: true }],
-    })
-
-    const res = await getLevelPage(viewer.id, owner.username, '3003')
-    expect(res.status).toBe(404)
-  })
-
-  it('public entry on public profile → 200 for non-owner', async () => {
-    const owner = await seedUser(prisma)
-    const viewer = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '3004' })
-    await seedProgress(prisma, {
-      userId: owner.id,
-      levelId: '3004',
-      status: 'COMPLETED',
-      visibility: 'PUBLIC',
-      updates: [{ isCompletion: true }],
-    })
-
-    const res = await getLevelPage(viewer.id, owner.username, '3004')
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as LevelPageBody
-    expect(body.data.progressUpdates).toHaveLength(1)
-  })
-
-  it('level never logged by target user → 404', async () => {
-    const owner = await seedUser(prisma)
-    const viewer = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '3005' })
-    // owner has NOT logged level 3005
-
-    const res = await getLevelPage(viewer.id, owner.username, '3005')
-    expect(res.status).toBe(404)
-  })
-
-  it('unknown username → 404', async () => {
-    const viewer = await seedUser(prisma)
-    const res = await getLevelPage(viewer.id, 'no_such_user', '12345')
+    const res = await getLevelPage(user.id, '3001')
     expect(res.status).toBe(404)
   })
 })

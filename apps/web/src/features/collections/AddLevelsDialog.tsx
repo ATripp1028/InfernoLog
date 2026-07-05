@@ -17,7 +17,7 @@ import { ApiError } from '@/lib/api/client'
 import {
   useLevelById,
   useLevelSearch,
-  useResolveLevel
+  useResolveLevel,
 } from '@/lib/api/logging'
 import {
   collectionErrorCode,
