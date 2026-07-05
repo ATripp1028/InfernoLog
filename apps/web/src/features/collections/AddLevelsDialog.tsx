@@ -83,9 +83,25 @@ export function AddLevelsDialog({
 
   if (!open) return null
 
-  // Resolve-or-seed through the logging flow's cache-backed path, then hold
-  // the level as the SELECTED candidate.
-  async function select(levelId: string) {
+  // Select a level that's already in our cache — no network call needed.
+  // `completed` defaults to false; if wrong, the API will reject with
+  // LEVEL_ALREADY_COMPLETED and the catch block surfaces the right toast.
+  function selectKnown(level: Pick<Level, 'inGameId' | 'name' | 'creator' | 'inGameDifficulty' | 'featured' | 'epicValue' | 'isRated'>) {
+    setSelected({
+      inGameId: level.inGameId,
+      name: level.name,
+      creator: level.creator,
+      inGameDifficulty: level.inGameDifficulty,
+      featured: level.featured,
+      epicValue: level.epicValue,
+      isRated: level.isRated,
+      completed: false,
+    })
+    setQuery('')
+  }
+
+  // Seed an unknown numeric ID from RobTop, then hold the result as SELECTED.
+  async function seedAndSelect(levelId: string) {
     setSeedingId(levelId)
     try {
       const res = await resolveLevel.mutateAsync(levelId)
@@ -180,7 +196,10 @@ export function AddLevelsDialog({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && isNumeric) void select(trimmed)
+                if (e.key === 'Enter' && isNumeric) {
+                  if (cachedLevel.data) selectKnown(cachedLevel.data)
+                  else void seedAndSelect(trimmed)
+                }
               }}
               placeholder="Search by name or paste a level ID"
               className="h-12 pl-9 text-base"
@@ -269,7 +288,7 @@ export function AddLevelsDialog({
                 level={cachedLevel.data}
                 added={inCollection.has(cachedLevel.data.inGameId)}
                 disabled={resolveLevel.isPending}
-                onSelect={() => void select(cachedLevel.data!.inGameId)}
+                onSelect={() => selectKnown(cachedLevel.data!)}
               />
             </div>
           </div>
@@ -281,7 +300,7 @@ export function AddLevelsDialog({
             <SectionLabel>Results</SectionLabel>
             <button
               type="button"
-              onClick={() => void select(trimmed)}
+              onClick={() => void seedAndSelect(trimmed)}
               className="flex h-12 w-full items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-left text-sm text-text-primary transition-colors hover:bg-bg-subtle"
             >
               <Search size={16} className="text-text-tertiary" />
@@ -314,7 +333,7 @@ export function AddLevelsDialog({
                     level={r}
                     added={inCollection.has(r.inGameId)}
                     disabled={resolveLevel.isPending}
-                    onSelect={() => void select(r.inGameId)}
+                    onSelect={() => selectKnown(r)}
                   />
                 ))}
               </div>

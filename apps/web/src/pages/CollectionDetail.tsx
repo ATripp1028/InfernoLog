@@ -24,8 +24,8 @@ import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/PageLoading'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { RankingBadge } from '@/features/ranking/RankingBadge'
+import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { ApiError } from '@/lib/api/client'
 import {
   useCollection,
@@ -132,9 +132,8 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
     }
   }
 
-  const activeEntry = activeId
-    ? entries.find((x) => x.id === activeId)
-    : null
+  const activeIndex = activeId ? entries.findIndex((x) => x.id === activeId) : -1
+  const activeEntry = activeIndex >= 0 ? entries[activeIndex] : null
 
   return (
     <div className="mx-auto flex max-w-[1136px] flex-col gap-5 p-4 pb-24 md:p-8 md:pt-5">
@@ -166,9 +165,10 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
               strategy={verticalListSortingStrategy}
             >
               <div className="flex flex-col gap-2">
-                {entries.map((entry) => (
+                {entries.map((entry, i) => (
                   <SortableRow
                     key={entry.id}
+                    position={i + 1}
                     entry={entry}
                     dimmed={entry.id === activeId}
                     onRemove={() =>
@@ -189,7 +189,9 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
               </div>
             </SortableContext>
             <DragOverlay>
-              {activeEntry ? <Row entry={activeEntry} overlay /> : null}
+              {activeEntry ? (
+                <Row entry={activeEntry} position={activeIndex + 1} overlay />
+              ) : null}
             </DragOverlay>
           </DndContext>
         </section>
@@ -323,10 +325,12 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 function SortableRow({
+  position,
   entry,
   dimmed,
   onRemove,
 }: {
+  position: number
   entry: CollectionEntry
   dimmed: boolean
   onRemove: () => void
@@ -340,6 +344,7 @@ function SortableRow({
       className={dimmed ? 'opacity-40' : undefined}
     >
       <Row
+        position={position}
         entry={entry}
         onRemove={onRemove}
         handleProps={{ ...attributes, ...listeners }}
@@ -348,13 +353,14 @@ function SortableRow({
   )
 }
 
-// One member row. `overlay` renders the floating drag copy (no handle wiring).
 function Row({
+  position,
   entry,
   onRemove,
   handleProps,
   overlay = false,
 }: {
+  position: number
   entry: CollectionEntry
   onRemove?: () => void
   handleProps?: Record<string, unknown>
@@ -363,65 +369,52 @@ function Row({
   const { level } = entry
   return (
     <div
-      className={`flex h-[72px] items-center gap-3 rounded-card border border-border bg-bg-surface pl-2 pr-3 md:gap-3.5 md:pr-4 ${
-        overlay ? 'shadow-[0_8px_24px_rgba(0,0,0,0.6)]' : ''
-      }`}
+      className={[
+        'relative h-[72px] overflow-hidden rounded-card border border-border-subtle bg-bg-surface',
+        overlay ? 'shadow-[0_8px_24px_rgba(0,0,0,0.6)]' : '',
+      ].join(' ')}
     >
-      <button
-        type="button"
-        aria-label={`Reorder ${level.name ?? 'level'}`}
-        className="flex h-full w-5 shrink-0 cursor-grab touch-none items-center justify-center text-text-tertiary active:cursor-grabbing"
-        {...handleProps}
-      >
-        <GripVertical size={16} />
-      </button>
-      <img
-        src={levelThumbnailUrl(level.inGameId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.visibility = 'hidden'
-        }}
-        className="hidden h-[54px] w-24 shrink-0 rounded object-cover md:block"
-      />
-      <DifficultyFace
-        difficulty={level.inGameDifficulty}
-        featured={level.featured}
-        epicValue={level.epicValue}
-        rated={level.isRated}
-        size={64}
-        className="shrink-0 drop-shadow"
-      />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold leading-tight text-text-primary">
-          {level.name ?? `Level #${level.inGameId}`}
-        </p>
-        <div className="mt-0.5 flex items-center gap-2">
-          {level.creator && (
-            <p className="truncate text-[13px] text-text-secondary">
-              {level.creator}
-            </p>
-          )}
-          {/* Mobile: badges drop under the name (mock 1213:2). */}
-          <span className="flex items-center gap-1.5 md:hidden">
-            <RankingBadge badge={entry.badge} />
-          </span>
-        </div>
-      </div>
-      <span className="hidden items-center gap-1.5 md:flex">
-        <RankingBadge badge={entry.badge} />
-      </span>
-      {onRemove && (
+      <ThumbnailWash levelId={level.inGameId} />
+      <div className="relative z-10 flex h-full items-center gap-3 pl-2 pr-3 md:pr-4">
         <button
           type="button"
-          aria-label={`Remove ${level.name ?? 'level'} from collection`}
-          onClick={onRemove}
-          className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
+          aria-label={`Reorder ${level.name ?? 'level'}`}
+          className="flex h-full w-5 shrink-0 cursor-grab touch-none items-center justify-center text-text-tertiary active:cursor-grabbing"
+          {...handleProps}
         >
-          <X size={14} />
+          <GripVertical size={16} />
         </button>
-      )}
+        <span className="w-6 shrink-0 text-right text-sm font-bold tabular-nums text-text-secondary">
+          {position}
+        </span>
+        <DifficultyFace
+          difficulty={level.inGameDifficulty}
+          featured={level.featured}
+          epicValue={level.epicValue}
+          rated={level.isRated}
+          size={80}
+          className="shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-text-primary">
+            {level.name ?? `Level #${level.inGameId}`}
+          </p>
+          <p className="truncate text-xs text-text-secondary">
+            {level.creator ? `Published by ${level.creator}` : 'Unknown creator'}
+          </p>
+        </div>
+        <RankingBadge badge={entry.badge} />
+        {onRemove && (
+          <button
+            type="button"
+            aria-label={`Remove ${level.name ?? 'level'} from collection`}
+            onClick={onRemove}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
+          >
+            <X size={14} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }
