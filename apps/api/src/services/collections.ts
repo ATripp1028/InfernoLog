@@ -403,7 +403,11 @@ export async function reorderEntry(
   input: ReorderCollectionEntryInput
 ) {
   if (input.prevId === entryId || input.nextId === entryId) {
-    throw new CollectionNotFoundError('An entry cannot be its own neighbour')
+    throw new CollectionError(
+      COLLECTION_ERRORS.SELF_REFERENTIAL_NEIGHBOR,
+      422,
+      'An entry cannot be its own neighbor'
+    )
   }
   await requireCollection(userId, collectionId, { customOnly: false })
 

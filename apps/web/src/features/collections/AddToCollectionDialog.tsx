@@ -404,7 +404,33 @@ export function AddToCollectionDialog({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {filteredCollections.length === 0 ? (
+        {collections.isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 size={20} className="animate-spin text-text-tertiary" />
+          </div>
+        ) : collections.isError ||
+          !collections.data?.some((c) => isBuiltIn(c.type)) ? (
+          <div className="flex flex-col items-center px-6 py-10 text-center">
+            <p className="text-sm font-medium text-text-primary">
+              {collections.isError
+                ? "Couldn't load your collections"
+                : 'Collections not set up yet'}
+            </p>
+            <p className="mt-1.5 text-[13px] text-text-tertiary">
+              {collections.isError
+                ? 'Check your connection and reload the page.'
+                : 'Your built-in collections are missing. Try signing out and back in.'}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4"
+              onClick={onClose}
+            >
+              Close
+            </Button>
+          </div>
+        ) : filteredCollections.length === 0 ? (
           <p className="px-6 py-8 text-center text-sm text-text-tertiary">
             {collectionQuery
               ? `No collections match "${collectionQuery}"`
