@@ -126,8 +126,7 @@ export function LevelPage() {
   const [editOpen, setEditOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
 
-  const userId = me.data?.id ?? ''
-  const query = useLevelPage(userId, levelId)
+  const query = useLevelPage(levelId)
 
   // Resolve error types before rendering
   const is403 = query.error instanceof ApiError && query.error.status === 403
@@ -385,7 +384,6 @@ export function LevelPage() {
           open={editOpen}
           onClose={() => setEditOpen(false)}
           data={data}
-          userId={userId}
           levelId={levelId}
           scale={ratingDisplayScale}
         />

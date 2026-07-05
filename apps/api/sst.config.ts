@@ -291,7 +291,7 @@ export default $config({
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
     // Level Page — the per-user view of a single level's full history.
-    authedRoute('GET /v1/users/{usernameOrId}/progress/{levelId}')
+    authedRoute('GET /v1/me/progress/{levelId}')
 
     // ─────────────────────────────────────────────
     // CLASSIC RANKING — the personal difficulty-ordering page.
@@ -400,23 +400,16 @@ export default $config({
 
     // ─────────────────────────────────────────────
     // COLLECTIONS — built-in (Want to Beat / Favorites / Least Favorites)
-    // and custom user collections of levels. Reads are user-scoped by path;
-    // writes are always the authenticated user's own collections.
+    // and custom user collections of levels.
     // ─────────────────────────────────────────────
-    authedRoute('GET /v1/users/{usernameOrId}/collections')
-    authedRoute('POST /v1/users/{usernameOrId}/collections')
-    authedRoute('GET /v1/users/{usernameOrId}/collections/{collectionId}')
-    authedRoute('PATCH /v1/users/{usernameOrId}/collections/{collectionId}')
-    authedRoute('DELETE /v1/users/{usernameOrId}/collections/{collectionId}')
-    authedRoute(
-      'POST /v1/users/{usernameOrId}/collections/{collectionId}/entries'
-    )
-    authedRoute(
-      'PATCH /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}'
-    )
-    authedRoute(
-      'DELETE /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}'
-    )
+    authedRoute('GET /v1/me/collections')
+    authedRoute('POST /v1/me/collections')
+    authedRoute('GET /v1/me/collections/{collectionId}')
+    authedRoute('PATCH /v1/me/collections/{collectionId}')
+    authedRoute('DELETE /v1/me/collections/{collectionId}')
+    authedRoute('POST /v1/me/collections/{collectionId}/entries')
+    authedRoute('PATCH /v1/me/collections/{collectionId}/entries/{entryId}')
+    authedRoute('DELETE /v1/me/collections/{collectionId}/entries/{entryId}')
 
     // ─────────────────────────────────────────────
     // LIST PRESETS — saved view configurations for the List page.

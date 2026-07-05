@@ -1,6 +1,4 @@
-// Collections API client — /v1/users/{id}/collections. All calls address the
-// authenticated user's own collections (the path user is `me`); the API
-// enforces that writes match the JWT user.
+// Collections API client — /v1/me/collections.
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
@@ -12,7 +10,6 @@ import type {
 } from '@infernolog/core'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch, ApiError } from './client'
-import { useMe } from './me'
 
 export type { CollectionSummary, CollectionDetail, CollectionEntry }
 
@@ -39,22 +36,14 @@ export function collectionErrorCode(err: unknown): CollectionErrorCode | null {
 export const collectionsQueryKey = ['collections'] as const
 export const collectionQueryKey = (id: string) => ['collections', id] as const
 
-// The authed user's id for the path segment. Callers are only mounted behind
-// AuthenticatedRoutes, so `me` is always cached by the time hooks run.
-function useMyBasePath(): string | null {
-  const me = useMe()
-  return me.data ? `/v1/users/${me.data.id}/collections` : null
-}
-
 export function useCollections() {
   const { isAuthenticated, getIdToken } = useAuth()
-  const base = useMyBasePath()
   return useQuery({
     queryKey: collectionsQueryKey,
-    enabled: isAuthenticated && base !== null,
+    enabled: isAuthenticated,
     queryFn: async (): Promise<CollectionSummary[]> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: CollectionSummary[] }>(base!, {
+      const { data } = await apiFetch<{ data: CollectionSummary[] }>('/v1/me/collections', {
         token,
         method: 'GET',
       })
@@ -65,14 +54,13 @@ export function useCollections() {
 
 export function useCollection(collectionId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
-  const base = useMyBasePath()
   return useQuery({
     queryKey: collectionQueryKey(collectionId),
-    enabled: isAuthenticated && base !== null,
+    enabled: isAuthenticated,
     queryFn: async (): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `${base}/${collectionId}`,
+        `/v1/me/collections/${collectionId}`,
         { token, method: 'GET' }
       )
       return data
@@ -91,14 +79,13 @@ function useApplyDetail() {
 
 export function useCreateCollection() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const applyDetail = useApplyDetail()
   return useMutation({
     mutationFn: async (
       input: CreateCollectionInput
     ): Promise<CollectionDetail> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: CollectionDetail }>(base!, {
+      const { data } = await apiFetch<{ data: CollectionDetail }>('/v1/me/collections', {
         token,
         method: 'POST',
         body: input,
@@ -111,7 +98,6 @@ export function useCreateCollection() {
 
 export function useUpdateCollection() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const applyDetail = useApplyDetail()
   return useMutation({
     mutationFn: async (vars: {
@@ -120,7 +106,7 @@ export function useUpdateCollection() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `${base}/${vars.collectionId}`,
+        `/v1/me/collections/${vars.collectionId}`,
         { token, method: 'PATCH', body: vars.input }
       )
       return data
@@ -131,12 +117,11 @@ export function useUpdateCollection() {
 
 export function useDeleteCollection() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (collectionId: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`${base}/${collectionId}`, { token, method: 'DELETE' })
+      await apiFetch(`/v1/me/collections/${collectionId}`, { token, method: 'DELETE' })
     },
     onSuccess: (_data, collectionId) => {
       qc.removeQueries({ queryKey: collectionQueryKey(collectionId) })
@@ -147,7 +132,6 @@ export function useDeleteCollection() {
 
 export function useAddCollectionEntry() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const applyDetail = useApplyDetail()
   return useMutation({
     mutationFn: async (vars: {
@@ -156,7 +140,7 @@ export function useAddCollectionEntry() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `${base}/${vars.collectionId}/entries`,
+        `/v1/me/collections/${vars.collectionId}/entries`,
         { token, method: 'POST', body: { levelId: vars.levelId } }
       )
       return data
@@ -167,7 +151,6 @@ export function useAddCollectionEntry() {
 
 export function useRemoveCollectionEntry() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const qc = useQueryClient()
   const applyDetail = useApplyDetail()
   return useMutation({
@@ -177,7 +160,7 @@ export function useRemoveCollectionEntry() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `${base}/${vars.collectionId}/entries/${vars.entryId}`,
+        `/v1/me/collections/${vars.collectionId}/entries/${vars.entryId}`,
         { token, method: 'DELETE' }
       )
       return data
@@ -215,7 +198,6 @@ export interface ReorderEntryVars {
 
 export function useReorderCollectionEntry() {
   const { getIdToken } = useAuth()
-  const base = useMyBasePath()
   const qc = useQueryClient()
   const applyDetail = useApplyDetail()
   return useMutation({
@@ -225,7 +207,7 @@ export function useReorderCollectionEntry() {
       if (vars.prevId) body.prevId = vars.prevId
       if (vars.nextId) body.nextId = vars.nextId
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `${base}/${vars.collectionId}/entries/${vars.entryId}`,
+        `/v1/me/collections/${vars.collectionId}/entries/${vars.entryId}`,
         { token, method: 'PATCH', body }
       )
       return data

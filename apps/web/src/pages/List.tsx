@@ -118,8 +118,7 @@ export function List() {
   }, [])
 
   // Fetch full level-page data when the user triggers edit from the list.
-  const userId = me.data?.id ?? ''
-  const editLevelQuery = useLevelPage(userId, editingLevelId ?? '')
+  const editLevelQuery = useLevelPage(editingLevelId ?? '')
 
   useEffect(() => {
     if (editLevelQuery.isError) {
@@ -494,7 +493,6 @@ export function List() {
           open
           onClose={() => setEditingLevelId(null)}
           data={editLevelQuery.data}
-          userId={userId}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
         />
