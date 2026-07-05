@@ -58,7 +58,7 @@ Change in packages/core/ → rebuild both, deploy both
 - **PostgreSQL (Neon)** — serverless Postgres database
 - **Prisma** — ORM with TypeScript-native schema
 - **AWS Cognito** — authentication (Google OAuth)
-- **AWS EventBridge Scheduler** — monthly level data sync job
+- **AWS EventBridge Scheduler** — RobTop level-cache sync jobs (weekly + monthly)
 - **AWS CloudWatch** — logging and observability
 - **Sentry** — error tracking
 

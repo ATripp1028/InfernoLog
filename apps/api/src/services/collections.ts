@@ -161,14 +161,13 @@ export async function getCollectionDetail(
     description: collection.description,
     createdAt: collection.createdAt,
     entries: collection.entries.map((e) => {
-      const { hasPendingUpdate, ...level } = e.level
+      const level = e.level
       const updates = completions.get(level.inGameId) ?? []
       return {
         id: e.id,
         rankingIndex: e.rankingIndex.toNumber(),
         addedAt: e.addedAt,
         level: mapLevel(level),
-        hasPendingUpdate,
         badge: deriveBadge(updates, level.inGameDifficulty),
         completed: updates.length > 0,
       }

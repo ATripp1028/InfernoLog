@@ -54,14 +54,12 @@ type RankingBody = {
       rank: number
       levelProgressId: string
       rankingIndex: number
-      hasPendingUpdate: boolean
       attempts: number | null
       level: { inGameId: string; isRated: boolean }
       badge: { listSource: string; tierOrRank: string } | null
     }>
     unplaced: Array<{
       levelProgressId: string
-      hasPendingUpdate: boolean
       attempts: number | null
       badge: { listSource: string; tierOrRank: string } | null
     }>
@@ -254,16 +252,15 @@ describe('GET /me/ranking/classic', () => {
     })
   })
 
-  it('surfaces hasPendingUpdate, isRated, and attempts on entries', async () => {
+  it('surfaces isRated and attempts on entries', async () => {
     const user = await seedUser(prisma)
     await seedPlaced(user.id, 1, {
-      levelOverrides: { isDemon: true, isRated: false, hasPendingUpdate: true },
+      levelOverrides: { isDemon: true, isRated: false },
       attempts: 14231,
     })
 
     const { data } = await getRanking(user.id)
 
-    expect(data.placed[0]?.hasPendingUpdate).toBe(true)
     expect(data.placed[0]?.level.isRated).toBe(false)
     expect(data.placed[0]?.attempts).toBe(14231)
   })

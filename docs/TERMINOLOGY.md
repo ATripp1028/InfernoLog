@@ -111,13 +111,13 @@ The showcase "fire"/ring behind the Difficulty Face that denotes a level's ratin
 ## Infrastructure
 
 **Level Cache**
-The `levels` table in the database, which stores level metadata autofilled from the GD servers, shared across all users. Populated on first autofill of a given level ID and updated monthly by the sync job.
+The `levels` table in the database, which stores level metadata autofilled from the GD servers, shared across all users. Populated on first autofill of a given level ID and kept current by the RobTop sync jobs.
 
-**Sync Job**
-The AWS EventBridge Scheduler Lambda that runs on the first of each month, checking cached level metadata against the GD servers for nudge-worthy changes (name, creator, song name, song author).
+**Sync Jobs**
+Two AWS EventBridge Scheduler Lambdas that re-check cached level metadata against the GD servers and overwrite the cache directly on change. The **volatile** job runs weekly (never-rated + recently-rated levels); the **standard** job runs on the first of each month (everything else that's rated and not delisted). Both share one fetch/compare/write core. See `EXTERNAL_APIS.md`.
 
-**Nudge**
-A notification informing the user that cached level metadata has changed (name, creator, song name, song author). Delivered as a persistent notification and visual indicator on the affected entry. Sometimes called a **level update nudge** to distinguish it from other notification types.
+**Delisted**
+A level the sync jobs can no longer find on RobTop's servers. Its cached metadata is frozen at last-known values and the row is excluded from further syncs. (A cache-only state; per-user progress and completions are untouched.)
 
 ---
 

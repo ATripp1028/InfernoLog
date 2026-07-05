@@ -186,7 +186,6 @@ model User {
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
   listPresets           ListPreset[]
-  levelUpdateNotifs     LevelUpdateNotification[]
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
   reportsModerated      Report[]             @relation("AssignedModeratorRelation")
@@ -290,14 +289,19 @@ model Level {
   // (and may override) the manually-entered metadata.
   verified              Boolean              @default(false)
 
-  // Monthly sync job fields
-  // See EXTERNAL_APIS.md — EventBridge fires on the 1st of each month
+  // RobTop sync job fields
+  // See EXTERNAL_APIS.md — two EventBridge schedules (weekly "volatile" +
+  // monthly "standard") share one fetch/compare/write core that overwrites the
+  // cache directly on diff. No staging, no nudges.
   lastCheckedAt         DateTime?
-  hasPendingUpdate      Boolean              @default(false)
-  pendingName           String?
-  pendingCreator        String?
-  pendingSongName       String?
-  pendingSongAuthor     String?
+  // Stamped whenever `isRated` flips or `inGameDifficulty` changes value. Drives
+  // the 14-day "volatile" window the weekly job re-checks a rated level for.
+  ratingStatusSince     DateTime?
+  // Set when a sync finds the level is gone from GD's servers (RobTop "not
+  // found"). A delisted row is frozen at its last-known values and excluded
+  // from both sync jobs.
+  delisted              Boolean              @default(false)
+  delistedAt            DateTime?
 
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
@@ -305,7 +309,6 @@ model Level {
   // Relations
   levelProgress         LevelProgress[]
   collectionEntries     CollectionEntry[]
-  levelUpdateNotifs     LevelUpdateNotification[]
 
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
   // (GET /v1/levels/search). Queried via the `%` operator / similarity().
@@ -629,28 +632,6 @@ model ApiKey {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("api_keys")
-}
-
-// ─────────────────────────────────────────────
-// LEVEL UPDATE NOTIFICATIONS
-// Created by monthly EventBridge sync job when level metadata changes.
-// Nudge-worthy changes: name, creator, song name, song author.
-// One row per user per level update event.
-// ─────────────────────────────────────────────
-
-model LevelUpdateNotification {
-  id        String    @id @default(uuid())
-  userId    String
-  levelId   String
-
-  seen      Boolean   @default(false)
-  createdAt DateTime  @default(now())
-
-  // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  level     Level     @relation(fields: [levelId], references: [inGameId])
-
-  @@map("level_update_notifications")
 }
 
 // ─────────────────────────────────────────────

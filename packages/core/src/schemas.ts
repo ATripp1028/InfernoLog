@@ -580,8 +580,6 @@ export const ClassicRankingEntrySchema = z.object({
   // and reorder only ever send neighbour IDs, never a raw index.
   rankingIndex: z.number(),
   level: LevelListSummarySchema,
-  // Level.hasPendingUpdate — drives the pending-data dot on the row.
-  hasPendingUpdate: z.boolean(),
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
@@ -590,7 +588,6 @@ export const ClassicRankingEntrySchema = z.object({
 export const UnplacedRankingEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
-  hasPendingUpdate: z.boolean(),
   attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
 })
@@ -686,7 +683,6 @@ export const CollectionEntrySchema = z.object({
   rankingIndex: z.number(),
   addedAt: z.coerce.date(),
   level: LevelListSummarySchema,
-  hasPendingUpdate: z.boolean(),
   badge: RankingBadgeSchema,
   // Whether the viewer's account has a completion for this level. Drives the
   // greyed "already completed" treatment in Want to Beat contexts.

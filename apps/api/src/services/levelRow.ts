@@ -5,9 +5,8 @@
 import type { Prisma } from '@prisma/client'
 import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 
-// Level identity columns for a row (LevelListSummarySchema) plus
-// hasPendingUpdate, which drives the pending-data dot. Kept in sync with the
-// list page's levelListSelect.
+// Level identity columns for a row (LevelListSummarySchema). Kept in sync with
+// the list page's levelListSelect.
 export const levelSelect = {
   inGameId: true,
   name: true,
@@ -26,7 +25,6 @@ export const levelSelect = {
   coinsVerified: true,
   twoPlayer: true,
   gameVersion: true,
-  hasPendingUpdate: true,
 } satisfies Prisma.LevelSelect
 
 // The completion update's fields a row needs: attempts (shown next to the
@@ -71,7 +69,7 @@ export function completionAttempts(updates: CompletionRefs): number | null {
 
 // Official levels (ids 1–38) aren't served by RobTop; their version + coin
 // count come from our data file, matching the list page's treatment.
-export function mapLevel(level: Omit<LevelRow, 'hasPendingUpdate'>) {
+export function mapLevel(level: LevelRow) {
   const official = OFFICIAL_LEVELS_BY_ID.get(level.inGameId)
   return official
     ? { ...level, gameVersion: official.gameVersion, coins: official.coins }

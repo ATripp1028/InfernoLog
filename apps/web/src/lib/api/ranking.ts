@@ -67,7 +67,6 @@ function toUnplaced(entry: ClassicRankingEntry): UnplacedRankingEntry {
   return {
     levelProgressId: entry.levelProgressId,
     level: entry.level,
-    hasPendingUpdate: entry.hasPendingUpdate,
     attempts: entry.attempts,
     badge: entry.badge,
   }
@@ -82,7 +81,6 @@ function toPlaced(
     levelProgressId: card.levelProgressId,
     rankingIndex: 0, // placeholder; reconciled from the server response
     level: card.level,
-    hasPendingUpdate: card.hasPendingUpdate,
     attempts: card.attempts,
     badge: card.badge,
   }

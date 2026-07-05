@@ -96,7 +96,7 @@ Attempts represent cumulative attempts across all uploads and copies of the leve
 - AWS S3 + CloudFront (frontend)
 - AWS Route 53 + ACM
 - AWS Cognito
-- AWS EventBridge Scheduler (monthly level data sync)
+- AWS EventBridge Scheduler (RobTop level-cache sync: weekly + monthly)
 - AWS CloudWatch + Sentry
 - GitHub Actions CI/CD (path-based independent deploys)
 - Manual database migrations

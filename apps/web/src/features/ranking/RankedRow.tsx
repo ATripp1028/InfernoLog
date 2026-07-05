@@ -26,7 +26,7 @@ interface RankedRowProps {
 // Presentational ranked row. The sortable wrapper below feeds it a ref + style.
 export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
   ({ rank, item, handle, highlight, isDragging, style, domId }, ref) => {
-    const { level, badge, hasPendingUpdate, attempts } = item
+    const { level, badge, attempts } = item
     return (
       <div
         ref={ref}
@@ -70,13 +70,6 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
                   : 'Unknown creator'}
               </div>
             </div>
-            {hasPendingUpdate && (
-              <span
-                aria-label="Level data update pending"
-                title="Level data update pending"
-                className="size-2 shrink-0 rounded-full bg-[var(--color-accent)]"
-              />
-            )}
             {attempts != null && (
               <span
                 title="Attempts"
