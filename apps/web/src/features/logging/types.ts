@@ -70,7 +70,13 @@ export interface FlowDraft {
 }
 
 function todayDateInput(): string {
-  return new Date().toISOString().slice(0, 10)
+  // Local calendar date, not UTC — otherwise "today" can land a day ahead in
+  // the evening for negative-UTC timezones (the ISO string has already rolled).
+  const d = new Date()
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
 }
 
 export function emptyDraft(): FlowDraft {

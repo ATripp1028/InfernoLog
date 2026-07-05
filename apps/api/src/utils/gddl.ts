@@ -96,7 +96,9 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
     const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
     // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
     const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
-    return typeof raw === 'number' && Number.isFinite(raw) ? roundGddlTier(raw) : null
+    return typeof raw === 'number' && Number.isFinite(raw)
+      ? roundGddlTier(raw)
+      : null
   } catch {
     return null
   } finally {
@@ -228,6 +230,126 @@ export async function fetchAllGddlSubmissions(
 
   return all
 }
+
+// ─── Favorites / least-favorites list management ─────────────────────────────
+// These lists are per-user and cap at 4 entries on the GDDL side.
+
+const LIST_TIMEOUT_MS = 8000
+
+// Fetches all level IDs currently in a GDDL user list.
+// Returns string-form GD level IDs (GDDL stores them as integers).
+export async function fetchGddlList(
+  apiKey: string,
+  gddlUserId: number,
+  list: 'favorites' | 'least-favorites'
+): Promise<string[]> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), LIST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/user/${gddlUserId}/${list}`, {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
+  }
+
+  if (!res.ok) {
+    throw new GddlUnavailableError(`GDDL returned ${res.status} for ${list}`)
+  }
+
+  const body = (await res.json()) as unknown
+  if (!Array.isArray(body)) return []
+
+  return body
+    .map((item) => {
+      if (typeof item !== 'object' || item === null) return null
+      // GDDL uses levelID (camelCase) in most list endpoints; fall back to ID.
+      const rec = item as Record<string, unknown>
+      const raw = rec.levelID ?? rec.ID ?? rec.levelId
+      return typeof raw === 'number' ? String(raw) : null
+    })
+    .filter((id): id is string => id !== null)
+}
+
+// Adds a level to a GDDL user list. The body uses `levelId` (integer).
+export async function addGddlListEntry(
+  apiKey: string,
+  gddlUserId: number,
+  list: 'favorites' | 'least-favorites',
+  levelId: string
+): Promise<void> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), LIST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/user/${gddlUserId}/${list}`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ levelId: parseInt(levelId, 10) }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
+  }
+
+  if (!res.ok) {
+    throw new GddlError(
+      `GDDL returned ${res.status} adding level ${levelId} to ${list}`
+    )
+  }
+}
+
+// Removes a level from a GDDL user list. The body uses `levelId` (integer).
+export async function removeGddlListEntry(
+  apiKey: string,
+  gddlUserId: number,
+  list: 'favorites' | 'least-favorites',
+  levelId: string
+): Promise<void> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), LIST_TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${GDDL_API_BASE_URL}/user/${gddlUserId}/${list}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ levelId: parseInt(levelId, 10) }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+  } catch {
+    clearTimeout(timeout)
+    throw new GddlUnavailableError('Could not reach GDDL')
+  }
+
+  if (!res.ok) {
+    throw new GddlError(
+      `GDDL returned ${res.status} removing level ${levelId} from ${list}`
+    )
+  }
+}
+
+// ─── Record submission ────────────────────────────────────────────────────────
 
 // How long to wait on a GDDL record submission before giving up. This call is
 // fire-and-forget from the completion flow; the timeout just bounds the work.

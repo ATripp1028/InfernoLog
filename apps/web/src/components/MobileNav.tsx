@@ -12,10 +12,14 @@ import {
   type LoggingAction,
 } from '@/features/logging/loggingActions'
 import { useMobileFabContext } from '@/context/MobileFabContext'
+import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
+import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
+  const [wtbOpen, setWtbOpen] = useState(false)
+  const [addColOpen, setAddColOpen] = useState(false)
   const location = useLocation()
   const { open } = useLoggingFlow()
   const { overrideToggle } = useMobileFabContext()
@@ -47,7 +51,10 @@ export function MobileNav() {
             <ul className="flex flex-col gap-1 px-2 py-2">
               {overflow.map((item) => (
                 <li key={item.key}>
-                  <SheetItem item={item} />
+                  <SheetItem
+                    item={item}
+                    onNavigate={() => setOverflowOpen(false)}
+                  />
                 </li>
               ))}
             </ul>
@@ -73,9 +80,14 @@ export function MobileNav() {
                   <FabSheetItem
                     action={action}
                     onSelect={() => {
-                      if (!action.path) return
                       setFabMenuOpen(false)
-                      open(action.path)
+                      if (action.path) {
+                        open(action.path)
+                      } else if (action.key === 'want-to-beat') {
+                        setWtbOpen(true)
+                      } else if (action.key === 'add-to-list') {
+                        setAddColOpen(true)
+                      }
                     }}
                   />
                 </li>
@@ -112,6 +124,11 @@ export function MobileNav() {
           }}
         />
       </nav>
+      <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
+      <AddToCollectionDialog
+        open={addColOpen}
+        onClose={() => setAddColOpen(false)}
+      />
     </div>
   )
 }
@@ -227,12 +244,31 @@ function FabSheetItem({
   )
 }
 
-function SheetItem({ item }: { item: NavItem }) {
+function SheetItem({
+  item,
+  onNavigate,
+}: {
+  item: NavItem
+  onNavigate: () => void
+}) {
   const Icon = item.icon
-  const className =
-    'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70'
+  if (item.status === 'enabled' && item.to) {
+    return (
+      <Link
+        to={item.to}
+        onClick={onNavigate}
+        className="flex h-12 w-full items-center gap-3 rounded-btn px-3 text-sm font-medium text-text-primary transition-colors hover:bg-bg-subtle"
+      >
+        <Icon size={20} />
+        <span>{item.label}</span>
+      </Link>
+    )
+  }
   return (
-    <div className={className} aria-disabled>
+    <div
+      className="flex h-12 w-full items-center gap-3 rounded-btn px-3 text-text-tertiary opacity-70"
+      aria-disabled
+    >
       <Icon size={20} />
       <span className="text-sm font-medium">{item.label}</span>
     </div>

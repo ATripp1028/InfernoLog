@@ -8,6 +8,7 @@ import {
 } from '../utils/gddl'
 import { fetchRobtopLevel } from '../utils/robtop'
 import { findOrCreateLevelProgress } from './progress'
+import { removeFromWantToBeat } from './collections'
 import { logger } from '../utils/logger'
 import type { Prisma } from '@prisma/client'
 
@@ -171,6 +172,9 @@ async function createCompletion(
       atTimeOfLogging: true,
     },
   })
+
+  // A beaten level leaves Want to Beat — same transaction as the completion.
+  await removeFromWantToBeat(tx, userId, levelId)
 }
 
 async function enrichCompletion(

@@ -10,7 +10,7 @@ import {
   ImportCheckRequestSchema,
   ImportCommitRequestSchema,
   ImportRankingRequestSchema,
-  ImportListsRequestSchema,
+  ImportCollectionsRequestSchema,
   ImportRatingsRequestSchema,
   EXPORT_SECTIONS,
   type ExportSection,
@@ -19,9 +19,13 @@ import { logger } from '../utils/logger'
 import type { HonoVariables } from '../types/hono'
 import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
-import { commitImportLists } from '../services/importLists'
+import { commitImportCollections } from '../services/importCollections'
 import { commitImportRatings } from '../services/importRatings'
-import { exportSection, EXPORT_DEFAULT_LIMIT, EXPORT_MAX_LIMIT } from '../services/exportData'
+import {
+  exportSection,
+  EXPORT_DEFAULT_LIMIT,
+  EXPORT_MAX_LIMIT,
+} from '../services/exportData'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -72,7 +76,8 @@ app.post('/me/import', async (c) => {
         userId,
         importJobId: parsed.data.importJobId,
         rowCount: parsed.data.rows.length,
-        committed: result.outcomes.filter((o) => o.status === 'committed').length,
+        committed: result.outcomes.filter((o) => o.status === 'committed')
+          .length,
         updated: result.outcomes.filter((o) => o.status === 'updated').length,
         skipped: result.outcomes.filter((o) => o.status === 'skipped').length,
         failed: result.outcomes.filter((o) => o.status === 'failed').length,
@@ -121,20 +126,21 @@ app.post('/me/import/ranking', async (c) => {
   }
 })
 
-// POST /v1/me/import/lists — replaces membership of the lists the sheet names
-// (want-to-beat / favorites / least-favorites / custom). Runs once, after the
-// row batches. Lists the sheet doesn't mention are left untouched.
-app.post('/me/import/lists', async (c) => {
+// POST /v1/me/import/collections — replaces membership of the collections the
+// sheet's Lists tab names (want-to-beat / favorites / least-favorites /
+// custom). Runs once, after the row batches. Collections the sheet doesn't
+// mention are left untouched.
+app.post('/me/import/collections', async (c) => {
   const userId = c.get('userId') as string
 
   try {
     const body = await c.req.json().catch(() => ({}))
-    const parsed = ImportListsRequestSchema.safeParse(body)
+    const parsed = ImportCollectionsRequestSchema.safeParse(body)
     if (!parsed.success) {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const result = await commitImportLists(userId, parsed.data.entries)
+    const result = await commitImportCollections(userId, parsed.data.entries)
 
     logger.info(
       {
@@ -143,12 +149,12 @@ app.post('/me/import/lists', async (c) => {
         lists: result.lists.length,
         skipped: result.skipped.length,
       },
-      'POST /me/import/lists: lists replaced'
+      'POST /me/import/collections: collections replaced'
     )
 
     return c.json(result, 200)
   } catch (err) {
-    logger.error({ userId, err }, 'POST /me/import/lists error')
+    logger.error({ userId, err }, 'POST /me/import/collections error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }
@@ -198,17 +204,29 @@ app.get('/me/export', async (c) => {
   try {
     const section = c.req.query('section')
     if (!section || !(EXPORT_SECTIONS as readonly string[]).includes(section)) {
-      return c.json({ error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` }, 400)
+      return c.json(
+        { error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` },
+        400
+      )
     }
 
     const rawOffset = Number(c.req.query('offset') ?? '0')
-    const rawLimit = Number(c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT))
-    const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.trunc(rawOffset)) : 0
+    const rawLimit = Number(
+      c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT)
+    )
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.trunc(rawOffset))
+      : 0
     const limit = Number.isFinite(rawLimit)
       ? Math.min(EXPORT_MAX_LIMIT, Math.max(1, Math.trunc(rawLimit)))
       : EXPORT_DEFAULT_LIMIT
 
-    const page = await exportSection(userId, section as ExportSection, offset, limit)
+    const page = await exportSection(
+      userId,
+      section as ExportSection,
+      offset,
+      limit
+    )
     return c.json(page, 200)
   } catch (err) {
     logger.error({ userId, err }, 'GET /me/export error')

@@ -17,9 +17,10 @@ import type { ExportSection } from '@infernolog/core'
 export const EXPORT_DEFAULT_LIMIT = 500
 export const EXPORT_MAX_LIMIT = 1000
 
-const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null)
+const iso = (d: Date | null): string | null =>
+  d ? d.toISOString().slice(0, 10) : null
 
-// Reserved list types → the import keyword; custom lists export by name.
+// Reserved collection types → the import keyword; custom collections export by name.
 const LIST_KEYWORD: Record<string, string> = {
   WANT_TO_BEAT: 'want_to_beat',
   FAVORITES: 'favorites',
@@ -70,8 +71,10 @@ async function exportCompletions(userId: string, skip: number, take: number) {
   return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
     if (!pu) return []
-    const gddl = pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
-    const nlw = pu.listReferences.find((r) => r.listSource === 'NLW')?.tierOrRank ?? null
+    const gddl =
+      pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
+    const nlw =
+      pu.listReferences.find((r) => r.listSource === 'NLW')?.tierOrRank ?? null
     return [
       {
         levelId: lp.levelId,
@@ -139,7 +142,11 @@ async function exportRanking(userId: string, skip: number, take: number) {
     orderBy: { rankingIndex: 'desc' }, // hardest first
     skip,
     take,
-    select: { levelProgress: { select: { levelId: true, level: { select: { name: true } } } } },
+    select: {
+      levelProgress: {
+        select: { levelId: true, level: { select: { name: true } } },
+      },
+    },
   })
   return rows.map((r, i) => ({
     rank: skip + i + 1,
@@ -148,25 +155,52 @@ async function exportRanking(userId: string, skip: number, take: number) {
   }))
 }
 
-async function exportLists(userId: string, skip: number, take: number) {
-  const entries = await prisma.levelListEntry.findMany({
-    where: { list: { userId } },
-    orderBy: [{ listId: 'asc' }, { position: 'asc' }],
+async function exportCollections(userId: string, skip: number, take: number) {
+  const entries = await prisma.collectionEntry.findMany({
+    where: { collection: { userId } },
+    orderBy: [{ collectionId: 'asc' }, { rankingIndex: 'asc' }],
     skip,
     take,
     select: {
       levelId: true,
-      position: true,
+      collectionId: true,
+      rankingIndex: true,
       level: { select: { name: true } },
-      list: { select: { type: true, name: true } },
+      collection: { select: { type: true, name: true } },
     },
   })
-  return entries.map((e) => ({
-    list: e.list.type === 'CUSTOM' ? e.list.name : (LIST_KEYWORD[e.list.type] ?? e.list.name),
-    levelId: e.levelId,
-    levelName: e.level.name,
-    position: e.position,
-  }))
+  if (entries.length === 0) return []
+
+  // The sheet's position column is 0-based per collection (import sorts each
+  // collection's rows by it). A page can start mid-collection, so seed the
+  // counter with how many of the first collection's entries precede the page.
+  const first = entries[0]!
+  let counter =
+    skip === 0
+      ? 0
+      : await prisma.collectionEntry.count({
+          where: {
+            collectionId: first.collectionId,
+            rankingIndex: { lt: first.rankingIndex },
+          },
+        })
+  let currentId = first.collectionId
+
+  return entries.map((e) => {
+    if (e.collectionId !== currentId) {
+      currentId = e.collectionId
+      counter = 0
+    }
+    return {
+      list:
+        e.collection.type === 'CUSTOM'
+          ? e.collection.name
+          : (LIST_KEYWORD[e.collection.type] ?? e.collection.name),
+      levelId: e.levelId,
+      levelName: e.level.name,
+      position: counter++,
+    }
+  })
 }
 
 async function exportRatings(userId: string, skip: number, take: number) {
@@ -179,7 +213,9 @@ async function exportRatings(userId: string, skip: number, take: number) {
   const lps = await prisma.levelProgress.findMany({
     where: {
       userId,
-      progressUpdates: { some: { isCompletion: true, ratingScores: { some: {} } } },
+      progressUpdates: {
+        some: { isCompletion: true, ratingScores: { some: {} } },
+      },
     },
     orderBy: { createdAt: 'asc' },
     skip,
@@ -244,7 +280,7 @@ export async function exportSection(
     completions: exportCompletions,
     dropped: exportDropped,
     ranking: exportRanking,
-    lists: exportLists,
+    collections: exportCollections,
     ratings: exportRatings,
   } as const
 

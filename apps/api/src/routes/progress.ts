@@ -188,12 +188,7 @@ app.get('/me/progress', async (c) => {
 })
 
 // ─────────────────────────────────────────────
-// GET /v1/users/:usernameOrId/progress/:levelId — Level Page payload
-//
-// Privacy model (per PRIVACY.md and API_DESIGN.md):
-//   - Private profile → 403 (for non-owners; owner sees own private profile)
-//   - level_progress.visibility=PRIVATE on public profile → 404 (hidden for non-owners)
-//   - Owner sees everything
+// GET /v1/me/progress/:levelId — Level Page payload
 //
 // Returns: level_progress fields, level metadata, ALL progress_updates (with
 // list_references and rating_scores, newest-first), classicRanking placement,
@@ -203,31 +198,13 @@ app.get('/me/progress', async (c) => {
 // non-completions" toggle — that toggle governs The List and The Ranking only.
 // ─────────────────────────────────────────────
 
-const UUID_RE =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
-  const viewerId = c.get('userId') as string
-  const { usernameOrId, levelId } = c.req.param()
+app.get('/me/progress/:levelId', async (c) => {
+  const userId = c.get('userId') as string
+  const { levelId } = c.req.param()
 
   try {
-    // Resolve usernameOrId → user row.
-    const isUuid = UUID_RE.test(usernameOrId)
-    const targetUser = await prisma.user.findFirst({
-      where: isUuid ? { id: usernameOrId } : { username: usernameOrId },
-      select: { id: true, profilePublic: true },
-    })
-    if (!targetUser) return c.json({ error: 'User not found' }, 404)
-
-    const isOwner = targetUser.id === viewerId
-
-    // Private profile → 403 for non-owners.
-    if (!isOwner && !targetUser.profilePublic) {
-      return c.json({ error: 'Forbidden' }, 403)
-    }
-
     const lp = await prisma.levelProgress.findUnique({
-      where: { userId_levelId: { userId: targetUser.id, levelId } },
+      where: { userId_levelId: { userId, levelId } },
       select: {
         id: true,
         status: true,
@@ -306,11 +283,6 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
     // No entry → 404 (whether the level doesn't exist or the user never logged it).
     if (!lp) return c.json({ error: 'Level progress not found' }, 404)
 
-    // Private entry on a public profile → 404 for non-owners (hidden, not 403).
-    if (!isOwner && lp.visibility === 'PRIVATE') {
-      return c.json({ error: 'Level progress not found' }, 404)
-    }
-
     // Build runsGraph. In v1 there is at most one drop event on level_progress;
     // computeRunsGraph accepts an array for forward-compatibility.
     // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on
@@ -346,7 +318,7 @@ app.get('/users/:usernameOrId/progress/:levelId', async (c) => {
     if (lp.classicRanking) {
       const count = await prisma.classicRanking.count({
         where: {
-          userId: targetUser.id,
+          userId,
           rankingIndex: { gt: lp.classicRanking.rankingIndex },
         },
       })

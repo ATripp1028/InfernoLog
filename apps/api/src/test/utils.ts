@@ -69,6 +69,8 @@ const TABLES = [
   'list_references',
   'rating_scores',
   'classic_ranking',
+  'collection_entries',
+  'collections',
   'progress_updates',
   'level_progress',
   'levels',

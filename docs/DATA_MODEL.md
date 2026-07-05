@@ -21,11 +21,11 @@
        ├──────────────────┬─────────────────┐
        │                  │                 │
 ┌──────▼──────┐   ┌───────▼──────┐  ┌──────▼──────┐
-│level_progress│   │classic_ranking│  │ user_lists  │
+│level_progress│   │classic_ranking│  │ collections │
 └──────┬──────┘   └───────────────┘  └──────┬──────┘
        │                                     │
        ├─────────────────┐          ┌────────▼────────┐
-       │                 │          │level_list_entries│
+       │                 │          │collection_entries│
 ┌──────▼──────┐  ┌───────▼──────┐  └─────────────────┘
 │progress_    │  │ levels       │
 │updates      │  │ (shared cache)│
@@ -46,7 +46,7 @@
 ```
                     ┌─────────────────┐
                     │   want_to_beat  │
-                    │   (user_lists)  │
+                    │  (collections)  │
                     └────────┬────────┘
                              │ user logs first update
                              ▼
@@ -137,7 +137,7 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 
 ### `level_progress`
 
-One row per user per level. Created when the user logs their first progress update. Not created by adding to want-to-beat list.
+One row per user per level. Created when the user logs their first progress update. Not created by adding to the Want to Beat collection.
 
 | Column             | Type      | Notes                                                                                                                                                                                                                             |
 | ------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -235,7 +235,9 @@ Only entries where the associated `level_progress` has a completion update appea
 
 Placement is fully manual — nothing auto-places a completion or assumes a default position (fractional `ranking_index` is set when the user places the level). A completion with **no `classic_ranking` row is simply "unplaced"** (the user chose "Place later"); no schema change is needed to represent this.
 
-### `user_lists`
+### `collections`
+
+User-owned groupings of levels: the three built-ins (Want to Beat, Favorites, Least Favorites) plus unlimited custom named collections. Distinct from `list_references`, which point at external community difficulty lists.
 
 | Column        | Type      | Notes                                                    |
 | ------------- | --------- | -------------------------------------------------------- |
@@ -246,17 +248,21 @@ Placement is fully manual — nothing auto-places a completion or assumes a defa
 | `description` | TEXT      | Nullable                                                 |
 | `created_at`  | TIMESTAMP |                                                          |
 
-### `level_list_entries`
+Built-ins are created at signup, cannot be renamed or deleted, and their names are reserved (case-insensitively) for custom collections. Want to Beat only holds levels without a completion: adding a completed level is rejected, and logging a completion auto-removes the level from Want to Beat inside the same transaction (all completion write paths: logging, spreadsheet import, GDDL sync).
 
-| Column     | Type      | Notes                  |
-| ---------- | --------- | ---------------------- |
-| `id`       | UUID      |                        |
-| `list_id`  | UUID      | FK → user_lists        |
-| `level_id` | VARCHAR   | FK → levels.in_game_id |
-| `position` | INTEGER   |                        |
-| `added_at` | TIMESTAMP |                        |
+### `collection_entries`
 
-Adding a level to the want-to-beat list does **not** create a `level_progress` entry. That only happens when the first progress update is logged.
+| Column          | Type      | Notes                                              |
+| --------------- | --------- | -------------------------------------------------- |
+| `id`            | UUID      |                                                    |
+| `collection_id` | UUID      | FK → collections                                   |
+| `level_id`      | VARCHAR   | FK → levels.in_game_id                             |
+| `ranking_index` | DECIMAL   | Fractional index (same pattern as classic_ranking) |
+| `added_at`      | TIMESTAMP |                                                    |
+
+Entries are displayed by `ranking_index` ascending. Reorders bisect the gap between the two neighbours; when a gap shrinks past 0.0001 the collection is renormalised to integers — the same fractional-indexing scheme as `classic_ranking`.
+
+Adding a level to the Want to Beat collection does **not** create a `level_progress` entry. That only happens when the first progress update is logged.
 
 ### `api_keys` _(v3)_
 
@@ -373,7 +379,7 @@ Profile public/private (global override)
                   │
                   ├── level_progress entries
                   ├── progress_updates
-                  └── user_lists entries
+                  └── collections entries
 ```
 
 A private profile forces all entries private regardless of per-entry setting. A public profile respects per-entry settings. This allows e.g. a YouTuber to hide a specific completion until their video goes live while keeping their profile public.

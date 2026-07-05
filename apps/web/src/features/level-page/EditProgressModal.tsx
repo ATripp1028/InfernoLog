@@ -97,7 +97,6 @@ interface EditProgressModalProps {
   open: boolean
   onClose: () => void
   data: LevelPageData
-  userId: string
   levelId: string
   scale: RatingDisplayScale
 }
@@ -106,12 +105,11 @@ export function EditProgressModal({
   open,
   onClose,
   data,
-  userId,
   levelId,
   scale,
 }: EditProgressModalProps) {
   const [form, setForm] = useState<EditForm>(() => initForm(data, scale, []))
-  const editProgress = useEditProgress(userId, levelId)
+  const editProgress = useEditProgress(levelId)
   const me = useMe()
 
   useEffect(() => {

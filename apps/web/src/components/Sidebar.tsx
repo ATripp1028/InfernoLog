@@ -9,11 +9,16 @@ export function Sidebar() {
       aria-label="Primary"
       className="hidden shrink-0 flex-col gap-1 border-r border-border-subtle bg-bg-surface py-4 md:flex md:w-16 md:px-2 xl:w-60 xl:px-3"
     >
-      {NAV_ITEMS.map(item => (
+      {NAV_ITEMS.map((item) => (
         <SidebarItem
           key={item.key}
           item={item}
-          active={item.to ? location.pathname === item.to : false}
+          active={
+            item.to
+              ? location.pathname === item.to ||
+                location.pathname.startsWith(`${item.to}/`)
+              : false
+          }
         />
       ))}
     </nav>
@@ -40,8 +45,9 @@ function SidebarItem({ item, active }: SidebarItemProps) {
     <>
       <span
         aria-hidden
-        className={`absolute left-0 h-5 w-[3px] rounded-sm bg-primary transition-opacity ${active ? 'opacity-100' : 'opacity-0'
-          }`}
+        className={`absolute left-0 h-5 w-[3px] rounded-sm bg-primary transition-opacity ${
+          active ? 'opacity-100' : 'opacity-0'
+        }`}
       />
       <Icon size={18} className="shrink-0" />
       <span className="hidden text-sm font-medium xl:inline">{item.label}</span>
@@ -54,7 +60,11 @@ function SidebarItem({ item, active }: SidebarItemProps) {
 
   if (active && item.to) {
     return (
-      <Link to={item.to} className={`${baseClasses} ${stateClasses}`} aria-current="page">
+      <Link
+        to={item.to}
+        className={`${baseClasses} ${stateClasses}`}
+        aria-current="page"
+      >
         {content}
       </Link>
     )

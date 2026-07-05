@@ -50,7 +50,7 @@ A community-facing page for a level independent of any user (`/levels/{levelId}`
 The historical visualization of a user's personal ranking over time. A multi-line graph showing how the user's top N hardest demons have evolved. Uses the mirror portal as its icon — a reference to the base game level "Time Machine" which introduces the mirror portal mechanic, and a visual metaphor for looking back in time.
 
 **Level Picker**
-The Akinator-style guided tool for choosing a next level to attempt. Asks sequential yes/no questions that filter a pool of levels until 5 or fewer remain, then presents the candidates. Operates in Personal Mode (from the user's Want to Beat list, v2) or Discovery Mode (from the broader cached database, v4).
+The Akinator-style guided tool for choosing a next level to attempt. Asks sequential yes/no questions that filter a pool of levels until 5 or fewer remain, then presents the candidates. Operates in Personal Mode (from the user's Want to Beat collection, v2) or Discovery Mode (from the broader cached database, v4).
 
 ---
 
@@ -69,8 +69,11 @@ A stored tier or rank value from any community list, attached to a progress entr
 
 ## Lists
 
+**Collection**
+A user-owned grouping of levels: the built-ins (Want to Beat, Favorites, Least Favorites) plus custom named collections. Entries are ordered by a fractional index (drag to reorder). Not to be confused with _list references_, which point at external community difficulty lists (GDDL/AREDL/NLW).
+
 **Want to Beat**
-A user list specifically designated as the pool for the Level Picker's Personal Mode. A type of UserList distinct from favorites, least favorites, and custom lists.
+The built-in collection designated as the pool for the Level Picker's Personal Mode. Only holds levels the user has not completed; a level is auto-removed when its completion is logged.
 
 **Favorites / Least Favorites**
 Special built-in user lists. Can optionally sync with GDDL favorites.

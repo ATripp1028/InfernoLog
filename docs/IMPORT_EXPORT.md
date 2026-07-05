@@ -124,42 +124,42 @@ After committing, each row reports one outcome:
 - **Skipped** — the row's data was not used at all: an existing completion you chose to keep (not overwrite), or a row superseded by a later row for the same level.
 - **Failed** — the row could not be processed (e.g. its level name couldn't be resolved).
 
-Only rows whose data is genuinely unused are reported as *skipped* — a modified row is always reported as *updated*, never skipped.
+Only rows whose data is genuinely unused are reported as _skipped_ — a modified row is always reported as _updated_, never skipped.
 
 ---
 
 ## Completions Tab Format
 
-| Column               | Required | Notes                                                         |
-| -------------------- | -------- | ------------------------------------------------------------- |
-| `level_id`           | Yes      | In-game level ID                                              |
-| `level_name`         | No       | If blank, autofilled from the GD servers                      |
-| `date`               | No       | In selected date format                                       |
-| `date_uncertain`     | No       | TRUE/FALSE                                                    |
-| `attempts`           | No       | Integer                                                       |
-| `percentage`         | No       | Worst fail / last logged percentage (a trailing `%` is accepted) |
-| `run_from`           | No       | Integer 0-100 (trailing `%` accepted)                         |
-| `run_to`             | No       | Integer 0-100 (trailing `%` accepted)                         |
-| `on_stream`          | No       | TRUE/FALSE                                                    |
-| `fps`                | No       | Integer                                                       |
-| `device`             | No       | pc or mobile                                                  |
-| `enjoyment`          | No       | 0-10                                                          |
-| `simple_rating`      | No       | 0-10                                                          |
-| `difficulty_opinion` | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme |
-| `difficulty_opinion_stars` | No | Integer 1-9 — only when `difficulty_opinion` is not_demon_worthy |
-| `coin_1`             | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins) |
-| `coin_2`             | No       | TRUE/FALSE — 2nd user coin collected (ignored if the level has no coins) |
-| `coin_3`             | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
-| `two_player_solo`    | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level) |
-| `two_player_partner` | No       | Partner's name (only when `two_player_solo` is FALSE)         |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; otherwise autofilled |
-| `gddl_tier`          | No       | Whole-number tier                                             |
-| `nlw_tier`           | No       | Tier name                                                    |
-| `notes`              | No       | Text about this completion                                    |
-| `level_notes`        | No       | Text about the level overall (separate from `notes`)          |
-| `video_url`          | No       | URL                                                          |
-| `highlight_url`      | No       | URL                                                          |
-| `visibility`         | No       | public or private (defaults to public)                       |
+| Column                     | Required | Notes                                                                    |
+| -------------------------- | -------- | ------------------------------------------------------------------------ |
+| `level_id`                 | Yes      | In-game level ID                                                         |
+| `level_name`               | No       | If blank, autofilled from the GD servers                                 |
+| `date`                     | No       | In selected date format                                                  |
+| `date_uncertain`           | No       | TRUE/FALSE                                                               |
+| `attempts`                 | No       | Integer                                                                  |
+| `percentage`               | No       | Worst fail / last logged percentage (a trailing `%` is accepted)         |
+| `run_from`                 | No       | Integer 0-100 (trailing `%` accepted)                                    |
+| `run_to`                   | No       | Integer 0-100 (trailing `%` accepted)                                    |
+| `on_stream`                | No       | TRUE/FALSE                                                               |
+| `fps`                      | No       | Integer                                                                  |
+| `device`                   | No       | pc or mobile                                                             |
+| `enjoyment`                | No       | 0-10                                                                     |
+| `simple_rating`            | No       | 0-10                                                                     |
+| `difficulty_opinion`       | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme            |
+| `difficulty_opinion_stars` | No       | Integer 1-9 — only when `difficulty_opinion` is not_demon_worthy         |
+| `coin_1`                   | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins) |
+| `coin_2`                   | No       | TRUE/FALSE — 2nd user coin collected (ignored if the level has no coins) |
+| `coin_3`                   | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
+| `two_player_solo`          | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level)      |
+| `two_player_partner`       | No       | Partner's name (only when `two_player_solo` is FALSE)                    |
+| `in_game_difficulty`       | No       | Filters name resolution when `level_id` is blank; otherwise autofilled   |
+| `gddl_tier`                | No       | Whole-number tier                                                        |
+| `nlw_tier`                 | No       | Tier name                                                                |
+| `notes`                    | No       | Text about this completion                                               |
+| `level_notes`              | No       | Text about the level overall (separate from `notes`)                     |
+| `video_url`                | No       | URL                                                                      |
+| `highlight_url`            | No       | URL                                                                      |
+| `visibility`               | No       | public or private (defaults to public)                                   |
 
 ### Column Tolerance
 
@@ -191,11 +191,11 @@ Only rows whose data is genuinely unused are reported as *skipped* — a modifie
 
 Your personal difficulty ranking of levels you've completed. The tab is deliberately lean — the rest of each level's data lives in the log.
 
-| Column       | Required | Notes                                                                     |
-| ------------ | -------- | ------------------------------------------------------------------------- |
+| Column       | Required | Notes                                                                                                                             |
+| ------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `rank`       | No       | Optional number, **1 = hardest**. If present it sorts the tab; if absent, the sheet's row order is the order (top row = hardest). |
-| `level_id`   | No\*     | In-game level ID of a level you've completed                              |
-| `level_name` | No\*     | Matched against **your completed levels** (not the GD servers)            |
+| `level_id`   | No\*     | In-game level ID of a level you've completed                                                                                      |
+| `level_name` | No\*     | Matched against **your completed levels** (not the GD servers)                                                                    |
 
 \* one of `level_id` / `level_name` required.
 
@@ -210,22 +210,22 @@ Semantics:
 
 ## Lists Tab Format
 
-Membership of your want-to-beat / favorites / least-favorites and any custom lists.
+Membership of your collections — Want to Beat / Favorites / Least Favorites and any custom collections. (The tab is named `Lists` for compatibility; it maps to the in-app Collections feature.)
 
-| Column               | Required | Notes                                                                       |
-| -------------------- | -------- | --------------------------------------------------------------------------- |
-| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom list of that name. |
-| `level_id`           | No\*     | In-game level ID                                                            |
-| `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)       |
-| `creator`            | No       | Narrows name resolution when the name matches many levels                   |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
-| `position`           | No       | Order within the list; row order is used if blank                           |
+| Column               | Required | Notes                                                                                                        |
+| -------------------- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `list`               | Yes      | Reserved: `want_to_beat`, `favorites`, `least_favorites`. Anything else is a custom collection of that name. |
+| `level_id`           | No\*     | In-game level ID                                                                                             |
+| `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)                                        |
+| `creator`            | No       | Narrows name resolution when the name matches many levels                                                    |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                                                             |
+| `position`           | No       | Order within the collection; row order is used if blank                                                      |
 
 \* one of `level_id` / `level_name` required.
 
 Semantics:
 
-- **Replace per list.** Each list named in the tab has its membership replaced with the tab's rows (in order); lists you don't mention are left alone. Custom lists are created on demand by name.
+- **Replace per collection.** Each collection named in the tab has its membership replaced with the tab's rows (in order); collections you don't mention are left alone. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels).
 - A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
 - Committed as one dedicated call **after** the completion/drop batches (and ranking).
 
@@ -235,13 +235,13 @@ Semantics:
 
 Weighted per-category scores. The tab is "wide": identity columns, then **one column per rating category** (headers named after your categories).
 
-| Column               | Required | Notes                                                          |
-| -------------------- | -------- | -------------------------------------------------------------- |
-| `level_id`           | No\*     | In-game level ID                                               |
+| Column               | Required | Notes                                                                       |
+| -------------------- | -------- | --------------------------------------------------------------------------- |
+| `level_id`           | No\*     | In-game level ID                                                            |
 | `level_name`         | No\*     | Matched against **your completed levels** (scores attach to the completion) |
-| `creator`            | No       | Narrows name resolution                                        |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank               |
-| _(any other column)_ | No       | Treated as a **category name**; the cell is that level's score |
+| `creator`            | No       | Narrows name resolution                                                     |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
+| _(any other column)_ | No       | Treated as a **category name**; the cell is that level's score              |
 
 \* one of `level_id` / `level_name` required.
 

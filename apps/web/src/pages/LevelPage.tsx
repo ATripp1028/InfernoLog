@@ -15,6 +15,7 @@ import { Timeline } from '@/features/level-page/Timeline'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
 import { LevelFab } from '@/features/level-page/LevelFab'
 import { EditProgressModal } from '@/features/level-page/EditProgressModal'
+import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { useState } from 'react'
 
 // ─── Error states ──────────────────────────────────────────────────
@@ -124,10 +125,10 @@ export function LevelPage() {
   const [pendingDelete, setPendingDelete] = useState(false)
   const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
 
-  const userId = me.data?.id ?? ''
-  const query = useLevelPage(userId, levelId)
+  const query = useLevelPage(levelId)
 
   // Resolve error types before rendering
   const is403 = query.error instanceof ApiError && query.error.status === 403
@@ -373,6 +374,7 @@ export function LevelPage() {
         <LevelFab
           onEdit={handleEditLevel}
           onDelete={() => setPendingDelete(true)}
+          onAddToCollection={() => setAddToCollectionOpen(true)}
           {...(canSubmitToGddl
             ? { onGddlSubmit: () => setPendingGddlSubmit(true) }
             : {})}
@@ -385,11 +387,17 @@ export function LevelPage() {
           open={editOpen}
           onClose={() => setEditOpen(false)}
           data={data}
-          userId={userId}
           levelId={levelId}
           scale={ratingDisplayScale}
         />
       )}
+
+      {/* Add to collection */}
+      <AddToCollectionDialog
+        open={addToCollectionOpen}
+        onClose={() => setAddToCollectionOpen(false)}
+        preselectedLevel={data.level}
+      />
 
       {/* Delete confirmation */}
       <AlertDialog

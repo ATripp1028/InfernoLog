@@ -8,15 +8,15 @@ import { useMobileFabContext } from '@/context/MobileFabContext'
 // Mobile: bottom sheet above the bottom nav.
 //
 // Both patterns overlay the global FabMenu at higher z-index.
-// "Add to a list" is shown disabled — the workflow isn't built yet.
 
 interface FabProps {
   onEdit: () => void
   onDelete: () => void
   onGddlSubmit?: () => void
+  onAddToCollection?: () => void
 }
 
-type ActionKey = 'edit' | 'add-list' | 'gddl-submit' | 'delete'
+type ActionKey = 'edit' | 'add-collection' | 'gddl-submit' | 'delete'
 
 interface FabAction {
   key: ActionKey
@@ -26,10 +26,18 @@ interface FabAction {
   disabled?: boolean
 }
 
-function buildActions(onGddlSubmit?: () => void): FabAction[] {
+function buildActions(
+  onGddlSubmit?: () => void,
+  onAddToCollection?: () => void
+): FabAction[] {
   const actions: FabAction[] = [
     { key: 'edit', label: 'Edit this entry', icon: Pencil },
-    { key: 'add-list', label: 'Add to a list', icon: List, disabled: true },
+    {
+      key: 'add-collection',
+      label: 'Add to a Collection',
+      icon: List,
+      disabled: !onAddToCollection,
+    },
   ]
   if (onGddlSubmit) {
     actions.push({ key: 'gddl-submit', label: 'Submit to GDDL', icon: Upload })
@@ -44,7 +52,12 @@ function buildActions(onGddlSubmit?: () => void): FabAction[] {
 }
 
 // ─── Desktop popover ───────────────────────────────────────────────
-function DesktopFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
+function DesktopFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -64,13 +77,14 @@ function DesktopFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
     }
   }, [open])
 
-  const actions = buildActions(onGddlSubmit)
+  const actions = buildActions(onGddlSubmit, onAddToCollection)
 
   function handleAction(key: ActionKey) {
     setOpen(false)
     if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
     if (key === 'gddl-submit') onGddlSubmit?.()
+    if (key === 'add-collection') onAddToCollection?.()
   }
 
   return (
@@ -134,7 +148,12 @@ function DesktopFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
 // ─── Mobile bottom sheet ───────────────────────────────────────────
 // No floating button — registers a toggle into MobileFabContext so the
 // nav bar's center FAB slot drives this sheet instead of the logging menu.
-function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
+function MobileFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
   const [open, setOpen] = useState(false)
   const { setOverrideToggle } = useMobileFabContext()
 
@@ -143,13 +162,14 @@ function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
     return () => setOverrideToggle(null)
   }, [setOverrideToggle])
 
-  const actions = buildActions(onGddlSubmit)
+  const actions = buildActions(onGddlSubmit, onAddToCollection)
 
   function handleAction(key: ActionKey) {
     setOpen(false)
     if (key === 'edit') onEdit()
     if (key === 'delete') onDelete()
     if (key === 'gddl-submit') onGddlSubmit?.()
+    if (key === 'add-collection') onAddToCollection?.()
   }
 
   if (!open) return null
@@ -204,12 +224,20 @@ function MobileFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
 }
 
 // ─── Public export ─────────────────────────────────────────────────
-export function LevelFab({ onEdit, onDelete, onGddlSubmit }: FabProps) {
-  const gddlProp = onGddlSubmit ? { onGddlSubmit } : {}
+export function LevelFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
+  const extra = {
+    ...(onGddlSubmit ? { onGddlSubmit } : {}),
+    ...(onAddToCollection ? { onAddToCollection } : {}),
+  }
   return (
     <>
-      <DesktopFab onEdit={onEdit} onDelete={onDelete} {...gddlProp} />
-      <MobileFab onEdit={onEdit} onDelete={onDelete} {...gddlProp} />
+      <DesktopFab onEdit={onEdit} onDelete={onDelete} {...extra} />
+      <MobileFab onEdit={onEdit} onDelete={onDelete} {...extra} />
     </>
   )
 }

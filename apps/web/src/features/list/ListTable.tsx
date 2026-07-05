@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import { COLUMNS, type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
+import {
+  COLUMNS,
+  type ColumnDef,
+  type ColumnId,
+  type ColumnVisibility,
+} from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
@@ -19,6 +24,7 @@ interface ListTableProps {
   onEditItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
   onNavigate: (item: ListItem) => void
+  onAddToCollectionItem: (item: ListItem) => void
 }
 
 // px-3 (12px) on each side of every row.
@@ -27,6 +33,19 @@ const ROW_PADDING = 24
 function rowMinWidth(orderedCols: ColumnDef[]): number {
   const colsWidth = orderedCols.reduce((sum, c) => sum + c.width, 0)
   return LEVEL_MIN_WIDTH + colsWidth + ROW_PADDING
+}
+
+// The minimum width the table needs for the currently visible columns. The page
+// uses this to decide whether the filter panel can dock beside the table or must
+// open as an overlay instead.
+export function tableMinWidth(
+  columns: ColumnVisibility,
+  columnOrder: ColumnId[]
+): number {
+  const orderedCols = columnOrder
+    .map((id) => COLUMNS.find((c) => c.id === id)!)
+    .filter((col) => columns[col.id])
+  return rowMinWidth(orderedCols)
 }
 
 function SortIndicator({
@@ -138,7 +157,9 @@ function ColumnHeaders({
             className={cn(
               'h-8 shrink-0 items-center justify-center gap-1 text-[11px] font-medium text-text-secondary transition-opacity',
               col.sortKey && 'hover:text-text-primary',
-              isDraggable && !isDragging && 'cursor-grab active:cursor-grabbing',
+              isDraggable &&
+                !isDragging &&
+                'cursor-grab active:cursor-grabbing',
               isDragging && 'opacity-40',
               isOver && 'border-l-2 border-primary',
               col.responsiveClass
@@ -166,6 +187,7 @@ export function ListTable({
   onEditItem,
   onDeleteItem,
   onNavigate,
+  onAddToCollectionItem,
 }: ListTableProps) {
   const orderedCols = columnOrder
     .map((id) => COLUMNS.find((c) => c.id === id)!)
@@ -173,8 +195,20 @@ export function ListTable({
 
   const minWidth = rowMinWidth(orderedCols)
 
+  // Only one row's kebab menu open at a time — opening another closes it.
+  const [openKebabId, setOpenKebabId] = useState<string | null>(null)
+
+  // Timer used to disambiguate single-click (navigate) from double-click (add
+  // to collection). A 250ms window matches standard OS double-click thresholds.
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    }
+  }, [])
   return (
-    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border-subtle)] md:block max-h-[calc(100vh-150px)]" style={{ minWidth }}>
+    <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
       <ColumnHeaders
         orderedCols={orderedCols}
         sorts={sorts}
@@ -187,13 +221,27 @@ export function ListTable({
         const handlers = {
           onEdit: () => onEditItem(item),
           onDelete: () => onDeleteItem(item),
+          onAddToCollection: () => onAddToCollectionItem(item),
         }
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
             <div
               className="group relative cursor-pointer border-b border-[var(--color-border-subtle)] last:border-b-0 hover:bg-white/[0.02]"
               style={{ minWidth }}
-              onClick={() => onNavigate(item)}
+              onClick={() => {
+                if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+                clickTimerRef.current = setTimeout(() => {
+                  clickTimerRef.current = null
+                  onNavigate(item)
+                }, 250)
+              }}
+              onDoubleClick={() => {
+                if (clickTimerRef.current) {
+                  clearTimeout(clickTimerRef.current)
+                  clickTimerRef.current = null
+                }
+                onAddToCollectionItem(item)
+              }}
             >
               <ListRow
                 item={item}
@@ -209,7 +257,20 @@ export function ListTable({
                 style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
               />
               <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2">
-                <RowActionsKebab handlers={handlers} />
+                <RowActionsKebab
+                  handlers={handlers}
+                  open={openKebabId === item.levelProgressId}
+                  onOpenChange={(o) => {
+                    if (o) setOpenKebabId(item.levelProgressId)
+                    // Only clear if this row is still the open one — otherwise a
+                    // just-closed row's dismiss would clobber the newly-opened
+                    // row (the click that opens B also dismisses A).
+                    else
+                      setOpenKebabId((cur) =>
+                        cur === item.levelProgressId ? null : cur
+                      )
+                  }}
+                />
               </div>
             </div>
           </RowContextMenu>

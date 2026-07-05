@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
@@ -17,8 +17,9 @@ import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { EditProgressModal } from '../features/level-page/EditProgressModal'
+import { AddToCollectionDialog } from '../features/collections/AddToCollectionDialog'
 import { Toolbar } from '../features/list/Toolbar'
-import { ListTable } from '../features/list/ListTable'
+import { ListTable, tableMinWidth } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
 import { FilterPanel } from '../features/list/FilterPanel'
 import { ControlsSheet } from '../features/list/ControlsSheet'
@@ -65,6 +66,8 @@ export function List() {
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
+  const [addToCollectionItem, setAddToCollectionItem] =
+    useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<FilterState>(defaultFilterState)
   const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS)
@@ -103,9 +106,22 @@ export function List() {
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
 
+  // Measure the content row so we can dock the panel only when the table's
+  // minimum width still fits beside it — otherwise the panel opens as an overlay
+  // (like mobile) rather than squeezing/overlapping the table.
+  const [containerWidth, setContainerWidth] = useState(0)
+  const resizeObs = useRef<ResizeObserver | null>(null)
+  const containerRef = useCallback((el: HTMLDivElement | null) => {
+    resizeObs.current?.disconnect()
+    if (!el) return
+    setContainerWidth(el.clientWidth)
+    const ro = new ResizeObserver(() => setContainerWidth(el.clientWidth))
+    ro.observe(el)
+    resizeObs.current = ro
+  }, [])
+
   // Fetch full level-page data when the user triggers edit from the list.
-  const userId = me.data?.id ?? ''
-  const editLevelQuery = useLevelPage(userId, editingLevelId ?? '')
+  const editLevelQuery = useLevelPage(editingLevelId ?? '')
 
   useEffect(() => {
     if (editLevelQuery.isError) {
@@ -114,8 +130,19 @@ export function List() {
     }
   }, [editLevelQuery.isError])
 
+  // The docked panel is 320px wide; the content column adds ~48px padding at md+.
+  // Dock only if the table's min width still fits in what's left.
+  const PANEL_WIDTH = 320
+  const CONTENT_PADDING = 48
+  const minTableWidth = useMemo(
+    () => tableMinWidth(columns, columnOrder),
+    [columns, columnOrder]
+  )
+  const canDock =
+    isWide && containerWidth - PANEL_WIDTH - CONTENT_PADDING >= minTableWidth
+
   // Push the global FAB left of the docked filter panel while it's open.
-  const dockedOpen = isWide && filterOpen
+  const dockedOpen = canDock && filterOpen
   useEffect(() => {
     const root = document.documentElement
     root.style.setProperty('--fab-shift', dockedOpen ? '320px' : '0px')
@@ -363,7 +390,7 @@ export function List() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex">
+      <div ref={containerRef} className="flex">
         <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 md:p-6 max-h-[calc(100dvh-64px)]">
           <Toolbar
             search={search}
@@ -407,6 +434,7 @@ export function List() {
                 onEditItem={handleEdit}
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
+                onAddToCollectionItem={setAddToCollectionItem}
               />
               <MobilePager
                 items={visible}
@@ -418,8 +446,9 @@ export function List() {
           )}
         </div>
 
-        {/* Docked filter panel (md+) — table updates live as filters change. */}
-        {isWide && filterOpen && (
+        {/* Docked filter panel — only when the table's min width still fits
+            beside it; otherwise it falls through to the overlay sheet below. */}
+        {canDock && filterOpen && (
           <aside className="w-[320px] shrink-0 border-l border-[var(--color-border-subtle)]">
             <div className="sticky top-0 h-[calc(100dvh-64px)] overflow-hidden">
               {filterPanel}
@@ -428,8 +457,8 @@ export function List() {
         )}
       </div>
 
-      {/* Mobile: filter panel as an overlay sheet. */}
-      {!isWide && (
+      {/* Overlay sheet — mobile, and any width too narrow to dock the panel. */}
+      {!canDock && (
         <Sheet open={filterOpen} onOpenChange={setFilterOpen}>
           <SheetContent side="right" className="p-0">
             <SheetTitle className="sr-only">Filters</SheetTitle>
@@ -468,11 +497,18 @@ export function List() {
           open
           onClose={() => setEditingLevelId(null)}
           data={editLevelQuery.data}
-          userId={userId}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
         />
       )}
+
+      <AddToCollectionDialog
+        open={addToCollectionItem !== null}
+        onClose={() => setAddToCollectionItem(null)}
+        {...(addToCollectionItem && {
+          preselectedLevel: addToCollectionItem.level,
+        })}
+      />
 
       <PresetCreateDialog
         open={createDialogOpen}

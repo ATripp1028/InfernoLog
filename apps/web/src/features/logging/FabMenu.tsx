@@ -1,16 +1,23 @@
 import { useEffect, useRef, useState } from 'react'
+import { useLocation } from '@tanstack/react-router'
 import { Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import { LOGGING_ACTIONS, type LoggingAction } from './loggingActions'
 import type { FlowPath } from './types'
+import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
+import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
-// Desktop FAB + popover menu (Figma screen 01). The two list-related actions
-// are deferred — shown but disabled — until those workflows are built.
+// Desktop FAB + popover menu.
 export function FabMenu() {
   const { open } = useLoggingFlow()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [wtbOpen, setWtbOpen] = useState(false)
+  const [addColOpen, setAddColOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const location = useLocation()
+  // The collections pages render their own context-scoped FAB.
+  const suppressed = location.pathname.startsWith('/collections')
 
   useEffect(() => {
     if (!menuOpen) return
@@ -33,46 +40,61 @@ export function FabMenu() {
     open(path)
   }
 
+  function getOnClick(action: LoggingAction): (() => void) | undefined {
+    if (action.path) return () => start(action.path!)
+    if (action.key === 'want-to-beat')
+      return () => {
+        setMenuOpen(false)
+        setWtbOpen(true)
+      }
+    if (action.key === 'add-to-list')
+      return () => {
+        setMenuOpen(false)
+        setAddColOpen(true)
+      }
+  }
+
   return (
-    <div
-      ref={containerRef}
-      className="fixed bottom-6 z-20 hidden transition-[right] duration-200 md:block"
-      // Shifts left of the List page's docked filter panel when open (the page
-      // sets --fab-shift; it defaults to 0 everywhere else).
-      style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
-    >
-      {menuOpen && (
+    <>
+      {!suppressed && (
         <div
-          role="menu"
-          className="absolute bottom-16 right-0 w-64 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+          ref={containerRef}
+          className="fixed bottom-6 z-20 hidden transition-[right] duration-200 md:block"
+          style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
         >
-          {LOGGING_ACTIONS.map((action, i) => {
-            const prev = LOGGING_ACTIONS[i - 1]
-            const divider = action.disabled && prev && !prev.disabled
-            return (
-              <div key={action.key}>
-                {divider && <div className="my-1.5 h-px bg-border-subtle" />}
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-16 right-0 w-64 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            >
+              {LOGGING_ACTIONS.map((action) => (
                 <MenuItem
+                  key={action.key}
                   action={action}
-                  onClick={action.path ? () => start(action.path!) : undefined}
+                  onClick={getOnClick(action)}
                 />
-              </div>
-            )
-          })}
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            aria-label="Add level"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
+          >
+            <Plus size={24} strokeWidth={2.5} />
+          </button>
         </div>
       )}
-
-      <button
-        type="button"
-        aria-label="Add level"
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-        onClick={() => setMenuOpen((v) => !v)}
-        className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
-      >
-        <Plus size={24} strokeWidth={2.5} />
-      </button>
-    </div>
+      <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
+      <AddToCollectionDialog
+        open={addColOpen}
+        onClose={() => setAddColOpen(false)}
+      />
+    </>
   )
 }
 

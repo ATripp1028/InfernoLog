@@ -5,15 +5,15 @@ import type { LevelPageData } from '../../features/level-page/types'
 
 export { ApiError }
 
-export function useLevelPage(usernameOrId: string, levelId: string) {
+export function useLevelPage(levelId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
-    queryKey: ['level-page', usernameOrId, levelId],
-    enabled: isAuthenticated && !!usernameOrId && !!levelId,
+    queryKey: ['level-page', levelId],
+    enabled: isAuthenticated && !!levelId,
     queryFn: async (): Promise<LevelPageData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: LevelPageData }>(
-        `/v1/users/${usernameOrId}/progress/${levelId}`,
+        `/v1/me/progress/${levelId}`,
         { token, method: 'GET' }
       )
       return data
@@ -22,7 +22,7 @@ export function useLevelPage(usernameOrId: string, levelId: string) {
   })
 }
 
-export function useEditProgress(userId: string, levelId: string) {
+export function useEditProgress(levelId: string) {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
@@ -35,9 +35,7 @@ export function useEditProgress(userId: string, levelId: string) {
       })
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: ['level-page', userId, levelId],
-      })
+      void queryClient.invalidateQueries({ queryKey: ['level-page', levelId] })
       void queryClient.invalidateQueries({ queryKey: ['list'] })
     },
   })

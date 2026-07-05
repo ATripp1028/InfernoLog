@@ -4,7 +4,7 @@ import type { PrismaClient } from '@prisma/client'
 import { buildApp as buildAppWith, TEST_USER_ID } from '../test/utils'
 import { mintConnectDiscordState } from './auth'
 import { encryptSecret } from '../utils/kms'
-import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
+import { verifyGddlApiKey, GddlInvalidKeyError, GddlError } from '../utils/gddl'
 
 // Mocks must be declared before the route module is imported so the route
 // picks up the mocked modules. vi.mock is hoisted, but the factory cannot
@@ -29,8 +29,10 @@ vi.mock('../utils/kms', () => ({
   decryptSecret: vi.fn(async () => 'plaintext'),
 }))
 vi.mock('../utils/gddl', () => {
-  class GddlInvalidKeyError extends Error {}
+  class GddlError extends Error {}
+  class GddlInvalidKeyError extends GddlError {}
   return {
+    GddlError,
     GddlInvalidKeyError,
     verifyGddlApiKey: vi.fn(async () => ({ name: 'GDDLUser' })),
   }
@@ -38,6 +40,14 @@ vi.mock('../utils/gddl', () => {
 
 const { mockLambdaSend } = vi.hoisted(() => ({
   mockLambdaSend: vi.fn(async () => ({})),
+}))
+
+const { mockSyncGddlLists } = vi.hoisted(() => ({
+  mockSyncGddlLists: vi.fn(),
+}))
+
+vi.mock('../services/gddlListSync', () => ({
+  syncGddlLists: mockSyncGddlLists,
 }))
 
 vi.mock('@aws-sdk/client-lambda', () => {
@@ -513,5 +523,78 @@ describe('GET /me/gddl-sync/:jobId', () => {
     })
 
     expect(res.status).toBe(404)
+  })
+})
+
+describe('POST /me/gddl-lists-sync', () => {
+  const mockResult = {
+    favorites: {
+      addedToInferno: ['100'],
+      addedToGddl: [],
+      removedFromGddl: [],
+      skipped: [],
+    },
+    leastFavorites: {
+      addedToInferno: [],
+      addedToGddl: ['200'],
+      removedFromGddl: ['300'],
+      skipped: [],
+    },
+  }
+
+  it('decrypts the key, runs the sync, and returns the result', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    mockSyncGddlLists.mockResolvedValueOnce(mockResult)
+
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
+    const body = (await res.json()) as { data: typeof mockResult }
+
+    expect(res.status).toBe(200)
+    expect(body.data).toEqual(mockResult)
+    expect(mockSyncGddlLists).toHaveBeenCalledWith(USER_ID, 'plaintext')
+  })
+
+  it('returns 400 when the user has no GDDL API key', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: null,
+    } as never)
+
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
+
+    expect(res.status).toBe(400)
+    expect(mockSyncGddlLists).not.toHaveBeenCalled()
+  })
+
+  it('returns 502 when GDDL throws a GddlError', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    mockSyncGddlLists.mockRejectedValueOnce(new GddlError('GDDL is down'))
+
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(502)
+    expect(body.error).toBe('GDDL is down')
+  })
+
+  it('returns 500 on database errors', async () => {
+    prisma.user.findUniqueOrThrow.mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('Internal server error')
   })
 })

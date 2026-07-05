@@ -9,8 +9,10 @@ import {
   useSetGddlApiKey,
   useGddlSync,
   useGddlSyncStatus,
+  useGddlListsSync,
   type MeData,
   type GddlSyncResult,
+  type GddlListSyncResult,
 } from '@/lib/api/me'
 import { listQueryKey } from '@/lib/api/list'
 import { rankingQueryKey } from '@/lib/api/ranking'
@@ -18,6 +20,32 @@ import { ConnectedAccountRow } from './ConnectedAccountRow'
 
 interface GddlApiKeyEditorProps {
   me: MeData
+}
+
+function buildListSyncToast(result: GddlListSyncResult): string {
+  const totalAdded =
+    result.favorites.addedToInferno.length +
+    result.leastFavorites.addedToInferno.length
+  const totalPushed =
+    result.favorites.addedToGddl.length +
+    result.leastFavorites.addedToGddl.length
+  const totalRemoved =
+    result.favorites.removedFromGddl.length +
+    result.leastFavorites.removedFromGddl.length
+  const totalSkipped =
+    result.favorites.skipped.length + result.leastFavorites.skipped.length
+
+  const parts: string[] = []
+  if (totalAdded > 0)
+    parts.push(
+      `${totalAdded} level${totalAdded === 1 ? '' : 's'} added to InfernoLog`
+    )
+  if (totalPushed > 0) parts.push(`${totalPushed} pushed to GDDL`)
+  if (totalRemoved > 0) parts.push(`${totalRemoved} removed from GDDL`)
+  const summary = parts.length > 0 ? parts.join(', ') : 'Nothing to sync'
+  return totalSkipped > 0
+    ? `Lists synced — ${summary} · ${totalSkipped} level${totalSkipped === 1 ? '' : 's'} could not be cached`
+    : `Lists synced — ${summary}`
 }
 
 function buildSyncToast(result: GddlSyncResult): string {
@@ -41,6 +69,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
   const setKey = useSetGddlApiKey()
   const removeKey = useRemoveGddlApiKey()
   const sync = useGddlSync()
+  const listSync = useGddlListsSync()
   const queryClient = useQueryClient()
 
   const [editing, setEditing] = useState(false)
@@ -64,7 +93,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       toast.error(error ?? 'Sync failed', { id: `gddl-sync-${syncJobId}` })
       setSyncJobId(null)
     }
-  }, [syncStatus.data?.status, syncJobId, queryClient])
+  }, [syncStatus.data, syncJobId, queryClient])
 
   const isSyncing = sync.isPending || syncJobId !== null
 
@@ -106,6 +135,15 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
     }
   }
 
+  const runListSync = async () => {
+    try {
+      const result = await listSync.mutateAsync()
+      toast.success(buildListSyncToast(result))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'List sync failed')
+    }
+  }
+
   return (
     <div className="space-y-2">
       <ConnectedAccountRow
@@ -128,7 +166,15 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
                 onClick={() => void runSync()}
                 disabled={isSyncing}
               >
-                {isSyncing ? 'Syncing…' : 'Sync with GDDL'}
+                {isSyncing ? 'Syncing…' : 'Sync Completions'}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void runListSync()}
+                disabled={listSync.isPending}
+              >
+                {listSync.isPending ? 'Syncing…' : 'Sync Lists'}
               </Button>
               <Button
                 variant="outline"

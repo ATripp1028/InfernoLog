@@ -19,6 +19,7 @@ import type {
 import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
 import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
+import { removeFromWantToBeat } from './collections'
 
 type Tx = Prisma.TransactionClient
 
@@ -41,11 +42,19 @@ const DEMON_TIER_FILTERS: Record<string, string> = {
 
 function normalizeTier(diff: string | null | undefined): string | null {
   if (!diff) return null
-  return diff.toLowerCase().replace(/\s*demon\s*$/, '').trim() || null
+  return (
+    diff
+      .toLowerCase()
+      .replace(/\s*demon\s*$/, '')
+      .trim() || null
+  )
 }
 
 // Maps a human-readable inGameDifficulty label to GD search API diff/demonFilter params.
-function toDiffFilter(diff: string | null | undefined): { diff?: string; demonFilter?: string } {
+function toDiffFilter(diff: string | null | undefined): {
+  diff?: string
+  demonFilter?: string
+} {
   const tier = normalizeTier(diff)
   if (!tier) return {}
   const demonFilter = DEMON_TIER_FILTERS[tier]
@@ -76,9 +85,16 @@ function demonTierPredicate(
 //   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
 //   'ambiguous'               — multiple candidates even after creator/difficulty filtering
 //   null                      — no match found anywhere
-export type ResolveResult = { levelId: string; robtopLevel?: RobtopLevel } | 'ambiguous' | null
+export type ResolveResult =
+  | { levelId: string; robtopLevel?: RobtopLevel }
+  | 'ambiguous'
+  | null
 
-type DbCandidate = { inGameId: string; creator: string | null; inGameDifficulty: string | null }
+type DbCandidate = {
+  inGameId: string
+  creator: string | null
+  inGameDifficulty: string | null
+}
 
 // Resolve from already-fetched DB candidates for a name. Returns a unique match,
 // 'ambiguous', or null (no DB match → caller should try RobTop).
@@ -91,11 +107,14 @@ function resolveFromDbCandidates(
   let candidates = dbLevels
   // Difficulty is a hard filter (applied even when it empties the list, so the
   // wrong-difficulty single match falls through to RobTop instead of resolving).
-  if (matchesTier) candidates = candidates.filter((l) => matchesTier(l.inGameDifficulty))
+  if (matchesTier)
+    candidates = candidates.filter((l) => matchesTier(l.inGameDifficulty))
   // Creator is a lenient tiebreaker only (the column is fuzzy / often blank).
   if (creator && candidates.length > 1) {
     const hint = creator.toLowerCase()
-    const filtered = candidates.filter((l) => l.creator?.toLowerCase().includes(hint))
+    const filtered = candidates.filter((l) =>
+      l.creator?.toLowerCase().includes(hint)
+    )
     if (filtered.length > 0) candidates = filtered
   }
   if (candidates.length === 1) return { levelId: candidates[0]!.inGameId }
@@ -112,16 +131,25 @@ async function resolveViaRobtop(
   inGameDifficulty: string | null | undefined
 ): Promise<ResolveResult> {
   const matchesTier = demonTierPredicate(inGameDifficulty)
-  const rtResults = await searchRobtopByName(name, toDiffFilter(inGameDifficulty))
+  const rtResults = await searchRobtopByName(
+    name,
+    toDiffFilter(inGameDifficulty)
+  )
   // Compare trimmed: RobTop stores some names with trailing/leading whitespace.
   const wantName = name.trim().toLowerCase()
-  let rtCandidates = rtResults.filter((r) => r.level.name?.trim().toLowerCase() === wantName)
+  let rtCandidates = rtResults.filter(
+    (r) => r.level.name?.trim().toLowerCase() === wantName
+  )
   if (matchesTier) {
-    rtCandidates = rtCandidates.filter((r) => matchesTier(r.level.inGameDifficulty))
+    rtCandidates = rtCandidates.filter((r) =>
+      matchesTier(r.level.inGameDifficulty)
+    )
   }
   if (creator && rtCandidates.length > 1) {
     const hint = creator.toLowerCase()
-    const filtered = rtCandidates.filter((r) => r.level.creator?.toLowerCase().includes(hint))
+    const filtered = rtCandidates.filter((r) =>
+      r.level.creator?.toLowerCase().includes(hint)
+    )
     if (filtered.length > 0) rtCandidates = filtered
   }
   if (rtCandidates.length === 1) {
@@ -166,8 +194,17 @@ export async function resolveNamesBatch(
   for (let i = 0; i < distinct.length; i += CHUNK) {
     const chunk = distinct.slice(i, i + CHUNK)
     const rows = await prisma.level.findMany({
-      where: { OR: chunk.map((n) => ({ name: { equals: n, mode: 'insensitive' as const } })) },
-      select: { inGameId: true, name: true, creator: true, inGameDifficulty: true },
+      where: {
+        OR: chunk.map((n) => ({
+          name: { equals: n, mode: 'insensitive' as const },
+        })),
+      },
+      select: {
+        inGameId: true,
+        name: true,
+        creator: true,
+        inGameDifficulty: true,
+      },
     })
     for (const r of rows) {
       const key = (r.name ?? '').trim().toLowerCase()
@@ -180,9 +217,20 @@ export async function resolveNamesBatch(
   const results: ResolveResult[] = []
   for (const input of inputs) {
     const dbLevels = byName.get(input.name.trim().toLowerCase()) ?? []
-    const db = resolveFromDbCandidates(dbLevels, input.creator, input.inGameDifficulty)
+    const db = resolveFromDbCandidates(
+      dbLevels,
+      input.creator,
+      input.inGameDifficulty
+    )
     // DB miss → RobTop fallback (sequential; only for unseeded levels).
-    results.push(db ?? (await resolveViaRobtop(input.name, input.creator, input.inGameDifficulty)))
+    results.push(
+      db ??
+        (await resolveViaRobtop(
+          input.name,
+          input.creator,
+          input.inGameDifficulty
+        ))
+    )
   }
   return results
 }
@@ -278,7 +326,10 @@ interface BatchWrites {
   newLevelProgress: Prisma.LevelProgressCreateManyInput[]
   newProgressUpdates: Prisma.ProgressUpdateCreateManyInput[]
   newListReferences: Prisma.ListReferenceCreateManyInput[]
-  progressUpdateUpdates: { id: string; data: Prisma.ProgressUpdateUncheckedUpdateInput }[]
+  progressUpdateUpdates: {
+    id: string
+    data: Prisma.ProgressUpdateUncheckedUpdateInput
+  }[]
   // Overwrite path: clear only the specific list-reference sources the
   // spreadsheet is about to replace — never other sources, and never the
   // completion's rating scores (those are InfernoLog-only data).
@@ -289,7 +340,10 @@ interface PlanCtx {
   userId: string
   writes: BatchWrites
   lpPlans: Map<string, LpPlan>
-  dbState: Map<string, { id: string; status: LpStatus; completionId: string | null }>
+  dbState: Map<
+    string,
+    { id: string; status: LpStatus; completionId: string | null }
+  >
   levelDiff: Map<string, string | null>
   levelCoins: Map<string, number | null>
 }
@@ -313,7 +367,13 @@ function getLpPlan(ctx: PlanCtx, levelId: string): LpPlan {
   const db = ctx.dbState.get(levelId)
   let plan: LpPlan
   if (db) {
-    plan = { id: db.id, isNew: false, completed: db.status === 'COMPLETED', update: {}, touched: false }
+    plan = {
+      id: db.id,
+      isNew: false,
+      completed: db.status === 'COMPLETED',
+      update: {},
+      touched: false,
+    }
   } else {
     const create: Prisma.LevelProgressCreateManyInput = {
       id: randomUUID(),
@@ -322,7 +382,14 @@ function getLpPlan(ctx: PlanCtx, levelId: string): LpPlan {
       status: 'IN_PROGRESS',
     }
     ctx.writes.newLevelProgress.push(create)
-    plan = { id: create.id!, isNew: true, completed: false, create, update: {}, touched: false }
+    plan = {
+      id: create.id!,
+      isNew: true,
+      completed: false,
+      create,
+      update: {},
+      touched: false,
+    }
   }
   ctx.lpPlans.set(levelId, plan)
   return plan
@@ -356,9 +423,15 @@ function planCompletion(
   // (autoGddlTier is already rounded by fetchGddlTier; the spreadsheet value
   // may carry decimals, so round it here.)
   const refs: { listSource: ListSource; tierOrRank: string }[] = []
-  if (row.gddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(roundGddlTier(row.gddlTier)) })
-  else if (autoGddlTier != null) refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
-  if (row.nlwTier != null) refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
+  if (row.gddlTier != null)
+    refs.push({
+      listSource: ListSource.GDDL,
+      tierOrRank: String(roundGddlTier(row.gddlTier)),
+    })
+  else if (autoGddlTier != null)
+    refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
+  if (row.nlwTier != null)
+    refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
 
   // User-coin collection only applies to levels that actually have coins;
   // ignore the spreadsheet's coin columns otherwise (matches the logging flow).
@@ -385,12 +458,16 @@ function planCompletion(
     if (row.runFrom != null) merge.runFrom = row.runFrom
     if (row.runTo != null) merge.runTo = row.runTo
     if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
-    if (row.simpleRating != null) merge.simpleRating = Math.round(row.simpleRating * 10)
-    if (row.difficultyOpinion != null) merge.difficultyOpinion = row.difficultyOpinion
-    if (row.difficultyOpinionStars != null) merge.difficultyOpinionStars = row.difficultyOpinionStars
+    if (row.simpleRating != null)
+      merge.simpleRating = Math.round(row.simpleRating * 10)
+    if (row.difficultyOpinion != null)
+      merge.difficultyOpinion = row.difficultyOpinion
+    if (row.difficultyOpinionStars != null)
+      merge.difficultyOpinionStars = row.difficultyOpinionStars
     if (coinsCollected != null) merge.coinsCollected = coinsCollected
     if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
-    if (row.twoPlayerPartner != null) merge.twoPlayerPartner = row.twoPlayerPartner
+    if (row.twoPlayerPartner != null)
+      merge.twoPlayerPartner = row.twoPlayerPartner
     if (row.device != null) merge.device = row.device
     if (Object.keys(merge).length > 0) {
       ctx.writes.progressUpdateUpdates.push({ id: puId, data: merge })
@@ -398,7 +475,10 @@ function planCompletion(
 
     // Replace only the list-reference sources the spreadsheet carries.
     for (const r of refs) {
-      ctx.writes.clearRefs.push({ progressUpdateId: puId, listSource: r.listSource })
+      ctx.writes.clearRefs.push({
+        progressUpdateId: puId,
+        listSource: r.listSource,
+      })
       ctx.writes.newListReferences.push({
         progressUpdateId: puId,
         listSource: r.listSource,
@@ -410,7 +490,9 @@ function planCompletion(
     // LevelProgress-level fields: worstFail, per-entry privacy, and the overall
     // level note — each only when the sheet provides it (status stays COMPLETED).
     const lpMerge: LpFields = {
-      ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
+      ...(row.percentage != null
+        ? { worstFail: Math.round(row.percentage) }
+        : {}),
       ...(row.visibility != null ? { visibility: row.visibility } : {}),
       ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     }
@@ -436,7 +518,8 @@ function planCompletion(
     highlightUrl: row.highlightUrl ?? null,
     notes: row.notes ?? null,
     enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
-    simpleRating: row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
+    simpleRating:
+      row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     difficultyOpinion: row.difficultyOpinion ?? null,
     difficultyOpinionStars: row.difficultyOpinionStars ?? null,
     coinsCollected,
@@ -447,7 +530,9 @@ function planCompletion(
   })
   applyLp(plan, {
     status: 'COMPLETED',
-    ...(row.percentage != null ? { worstFail: Math.round(row.percentage) } : {}),
+    ...(row.percentage != null
+      ? { worstFail: Math.round(row.percentage) }
+      : {}),
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
   })
@@ -463,7 +548,11 @@ function planCompletion(
   return 'committed'
 }
 
-function planDrop(ctx: PlanCtx, levelId: string, row: ImportDroppedRow): 'committed' | 'updated' {
+function planDrop(
+  ctx: PlanCtx,
+  levelId: string,
+  row: ImportDroppedRow
+): 'committed' | 'updated' {
   // A drop against a LevelProgress that already existed modifies it; otherwise
   // it creates a new one.
   const existed = ctx.dbState.has(levelId)
@@ -473,7 +562,9 @@ function planDrop(ctx: PlanCtx, levelId: string, row: ImportDroppedRow): 'commit
     droppedAt: row.droppedAt ? new Date(row.droppedAt) : null,
     droppedReason: row.reason ?? null,
     attemptsAtDrop: row.attemptsAtDrop ?? null,
-    ...(row.bestProgress != null ? { worstFail: Math.round(row.bestProgress) } : {}),
+    ...(row.bestProgress != null
+      ? { worstFail: Math.round(row.bestProgress) }
+      : {}),
   })
   return existed ? 'updated' : 'committed'
 }
@@ -498,7 +589,10 @@ export async function commitImportBatch(
     },
   })
   const processed = new Map(
-    existingRows.map((r) => [r.rowIndex, { status: r.status, reason: r.reason }])
+    existingRows.map((r) => [
+      r.rowIndex,
+      { status: r.status, reason: r.reason },
+    ])
   )
 
   // Check whether this user has a GDDL key registered (gates autofill).
@@ -511,7 +605,7 @@ export async function commitImportBatch(
   // ── Pre-resolve name-only rows (outside the transaction) ──────────────
   // Resolving via RobTop involves network I/O that must not hold a DB
   // transaction open.
-  const resolvedIds = new Map<number, string>()       // rowIndex → levelId
+  const resolvedIds = new Map<number, string>() // rowIndex → levelId
   const resolvedRobtopData = new Map<string, RobtopLevel>() // levelId → full data
   const resolutionFailures = new Map<number, string>() // rowIndex → reason
 
@@ -537,7 +631,8 @@ export async function commitImportBatch(
       )
     } else {
       resolvedIds.set(row.rowIndex, result.levelId)
-      if (result.robtopLevel) resolvedRobtopData.set(result.levelId, result.robtopLevel)
+      if (result.robtopLevel)
+        resolvedRobtopData.set(result.levelId, result.robtopLevel)
     }
   }
 
@@ -545,7 +640,10 @@ export async function commitImportBatch(
   const gddlTierCache = new Map<string, number | null>()
   if (hasGddlKey) {
     const completionRows = rows.filter(
-      (r) => r.type === 'completion' && !processed.has(r.rowIndex) && !r.data.gddlTier
+      (r) =>
+        r.type === 'completion' &&
+        !processed.has(r.rowIndex) &&
+        !r.data.gddlTier
     )
     const idsNeedingGddl = [
       ...new Set(
@@ -577,13 +675,21 @@ export async function commitImportBatch(
       id: true,
       levelId: true,
       status: true,
-      progressUpdates: { where: { isCompletion: true }, select: { id: true }, take: 1 },
+      progressUpdates: {
+        where: { isCompletion: true },
+        select: { id: true },
+        take: 1,
+      },
     },
   })
   const dbState = new Map(
     lpRows.map((r) => [
       r.levelId,
-      { id: r.id, status: r.status as LpStatus, completionId: r.progressUpdates[0]?.id ?? null },
+      {
+        id: r.id,
+        status: r.status as LpStatus,
+        completionId: r.progressUpdates[0]?.id ?? null,
+      },
     ])
   )
 
@@ -606,10 +712,25 @@ export async function commitImportBatch(
 
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
   const outcomes: ImportCommitResponse['outcomes'] = []
-  const newOutcomes: { rowIndex: number; status: string; reason: string | null }[] = []
+  const newOutcomes: {
+    rowIndex: number
+    status: string
+    reason: string | null
+  }[] = []
   const writes = newBatchWrites()
   const lpPlans = new Map<string, LpPlan>()
-  const ctx: PlanCtx = { userId, writes, lpPlans, dbState, levelDiff, levelCoins }
+  const ctx: PlanCtx = {
+    userId,
+    writes,
+    lpPlans,
+    dbState,
+    levelDiff,
+    levelCoins,
+  }
+
+  // Levels whose completion was written/updated this batch — they leave the
+  // user's Want to Beat collection in the same transaction.
+  const completedLevelIds = new Set<string>()
 
   // A level can appear more than once per tab (flagged as a duplicate upstream).
   // Keep only the last completion / last drop per level so we never plan two
@@ -617,7 +738,8 @@ export async function commitImportBatch(
   const lastCompletion = new Map<string, number>()
   const lastDrop = new Map<string, number>()
   for (const row of rows) {
-    if (processed.has(row.rowIndex) || resolutionFailures.has(row.rowIndex)) continue
+    if (processed.has(row.rowIndex) || resolutionFailures.has(row.rowIndex))
+      continue
     const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!id) continue
     if (row.type === 'completion') lastCompletion.set(id, row.rowIndex)
@@ -638,8 +760,16 @@ export async function commitImportBatch(
     // Resolution failure for name-only rows.
     const failureReason = resolutionFailures.get(row.rowIndex)
     if (failureReason) {
-      outcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason: failureReason })
-      newOutcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason: failureReason })
+      outcomes.push({
+        rowIndex: row.rowIndex,
+        status: 'failed',
+        reason: failureReason,
+      })
+      newOutcomes.push({
+        rowIndex: row.rowIndex,
+        status: 'failed',
+        reason: failureReason,
+      })
       continue
     }
 
@@ -656,7 +786,8 @@ export async function commitImportBatch(
         ? lastCompletion.get(effectiveLevelId)
         : lastDrop.get(effectiveLevelId)
     if (lastForLevel !== row.rowIndex) {
-      const reason = 'Superseded by a later row for the same level in this import'
+      const reason =
+        'Superseded by a later row for the same level in this import'
       outcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
       newOutcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
       continue
@@ -667,7 +798,9 @@ export async function commitImportBatch(
     try {
       if (row.type === 'completion') {
         const autoGddlTier =
-          hasGddlKey && !row.data.gddlTier ? (gddlTierCache.get(effectiveLevelId) ?? null) : null
+          hasGddlKey && !row.data.gddlTier
+            ? (gddlTierCache.get(effectiveLevelId) ?? null)
+            : null
         outcomeStatus = planCompletion(
           ctx,
           effectiveLevelId,
@@ -675,6 +808,9 @@ export async function commitImportBatch(
           row.conflictResolution,
           autoGddlTier
         )
+        if (outcomeStatus === 'committed' || outcomeStatus === 'updated') {
+          completedLevelIds.add(effectiveLevelId)
+        }
       } else {
         outcomeStatus = planDrop(ctx, effectiveLevelId, row.data)
       }
@@ -694,127 +830,143 @@ export async function commitImportBatch(
     }
 
     outcomes.push({ rowIndex: row.rowIndex, status: outcomeStatus!, reason })
-    newOutcomes.push({ rowIndex: row.rowIndex, status: outcomeStatus!, reason: reason ?? null })
+    newOutcomes.push({
+      rowIndex: row.rowIndex,
+      status: outcomeStatus!,
+      reason: reason ?? null,
+    })
   }
 
   // ── Flush: stubs, batched writes, outcomes (one short transaction) ────
   let newStubIds: string[] = []
 
-  await prisma.$transaction(async (tx) => {
-    newStubIds = await ensureStubLevels(tx, allKnownIds)
+  await prisma.$transaction(
+    async (tx) => {
+      newStubIds = await ensureStubLevels(tx, allKnownIds)
 
-    // Upgrade freshly-created stubs that have RobTop data — avoids a separate
-    // seed-worker round-trip for name-resolved levels.
-    for (const [levelId, rtData] of resolvedRobtopData) {
-      if (newStubIds.includes(levelId)) {
-        await tx.level.update({
-          where: { inGameId: levelId },
-          data: {
-            name: rtData.name,
-            creator: rtData.creator,
-            inGameDifficulty: rtData.inGameDifficulty,
-            length: rtData.length,
-            songName: rtData.songName,
-            songAuthor: rtData.songAuthor,
-            isRated: rtData.isRated,
-            isDemon: rtData.isDemon,
-            levelType: rtData.platformer ? 'PLATFORMER' : 'CLASSIC',
-            description: rtData.description,
-            creatorPlayerId: rtData.creatorPlayerId,
-            creatorAccountId: rtData.creatorAccountId,
-            stars: rtData.stars,
-            starsRequested: rtData.starsRequested,
-            partialDiff: rtData.partialDiff,
-            difficultyFace: rtData.difficultyFace,
-            downloads: rtData.downloads,
-            likes: rtData.likes,
-            disliked: rtData.disliked,
-            objectCount: rtData.objectCount,
-            largeLevel: rtData.largeLevel,
-            coins: rtData.coins,
-            coinsVerified: rtData.coinsVerified,
-            featured: rtData.featured,
-            featureScore: rtData.featureScore,
-            epicValue: rtData.epicValue,
-            twoPlayer: rtData.twoPlayer,
-            lowDetailMode: rtData.lowDetailMode,
-            copiedFromId: rtData.copiedFromId,
-            levelVersion: rtData.levelVersion,
-            gameVersion: rtData.gameVersion,
-            editorSeconds: rtData.editorSeconds,
-            editorSecondsTotal: rtData.editorSecondsTotal,
-            officialSongId: rtData.officialSongId,
-            songId: rtData.songId,
-            songLink: rtData.songLink,
-            songSize: rtData.songSize,
-            dataSource: 'robtop_autofill',
-            verified: true,
-            lastCheckedAt: new Date(),
-          },
+      // Upgrade freshly-created stubs that have RobTop data — avoids a separate
+      // seed-worker round-trip for name-resolved levels.
+      for (const [levelId, rtData] of resolvedRobtopData) {
+        if (newStubIds.includes(levelId)) {
+          await tx.level.update({
+            where: { inGameId: levelId },
+            data: {
+              name: rtData.name,
+              creator: rtData.creator,
+              inGameDifficulty: rtData.inGameDifficulty,
+              length: rtData.length,
+              songName: rtData.songName,
+              songAuthor: rtData.songAuthor,
+              isRated: rtData.isRated,
+              isDemon: rtData.isDemon,
+              levelType: rtData.platformer ? 'PLATFORMER' : 'CLASSIC',
+              description: rtData.description,
+              creatorPlayerId: rtData.creatorPlayerId,
+              creatorAccountId: rtData.creatorAccountId,
+              stars: rtData.stars,
+              starsRequested: rtData.starsRequested,
+              partialDiff: rtData.partialDiff,
+              difficultyFace: rtData.difficultyFace,
+              downloads: rtData.downloads,
+              likes: rtData.likes,
+              disliked: rtData.disliked,
+              objectCount: rtData.objectCount,
+              largeLevel: rtData.largeLevel,
+              coins: rtData.coins,
+              coinsVerified: rtData.coinsVerified,
+              featured: rtData.featured,
+              featureScore: rtData.featureScore,
+              epicValue: rtData.epicValue,
+              twoPlayer: rtData.twoPlayer,
+              lowDetailMode: rtData.lowDetailMode,
+              copiedFromId: rtData.copiedFromId,
+              levelVersion: rtData.levelVersion,
+              gameVersion: rtData.gameVersion,
+              editorSeconds: rtData.editorSeconds,
+              editorSecondsTotal: rtData.editorSecondsTotal,
+              officialSongId: rtData.officialSongId,
+              songId: rtData.songId,
+              songLink: rtData.songLink,
+              songSize: rtData.songSize,
+              dataSource: 'robtop_autofill',
+              verified: true,
+              lastCheckedAt: new Date(),
+            },
+          })
+          // Already enriched — remove from the seed queue list.
+          newStubIds = newStubIds.filter((id) => id !== levelId)
+        }
+      }
+
+      // New LevelProgress rows first — ProgressUpdate creates below FK to them.
+      if (writes.newLevelProgress.length) {
+        await tx.levelProgress.createMany({ data: writes.newLevelProgress })
+      }
+
+      // Overwrite path: merge the provided fields into the existing completion,
+      // then clear only the list-reference sources being replaced before the new
+      // references go in. Rating scores and other sources are left untouched.
+      for (const u of writes.progressUpdateUpdates) {
+        await tx.progressUpdate.update({ where: { id: u.id }, data: u.data })
+      }
+      if (writes.clearRefs.length) {
+        await tx.listReference.deleteMany({
+          where: { OR: writes.clearRefs },
         })
-        // Already enriched — remove from the seed queue list.
-        newStubIds = newStubIds.filter((id) => id !== levelId)
       }
-    }
 
-    // New LevelProgress rows first — ProgressUpdate creates below FK to them.
-    if (writes.newLevelProgress.length) {
-      await tx.levelProgress.createMany({ data: writes.newLevelProgress })
-    }
-
-    // Overwrite path: merge the provided fields into the existing completion,
-    // then clear only the list-reference sources being replaced before the new
-    // references go in. Rating scores and other sources are left untouched.
-    for (const u of writes.progressUpdateUpdates) {
-      await tx.progressUpdate.update({ where: { id: u.id }, data: u.data })
-    }
-    if (writes.clearRefs.length) {
-      await tx.listReference.deleteMany({
-        where: { OR: writes.clearRefs },
-      })
-    }
-
-    if (writes.newProgressUpdates.length) {
-      await tx.progressUpdate.createMany({ data: writes.newProgressUpdates })
-    }
-    if (writes.newListReferences.length) {
-      await tx.listReference.createMany({ data: writes.newListReferences })
-    }
-
-    // Per-level LevelProgress updates (status / drop fields / worstFail) for
-    // levels that already existed — new ones folded their changes into create.
-    for (const plan of lpPlans.values()) {
-      if (!plan.isNew && plan.touched) {
-        await tx.levelProgress.update({ where: { id: plan.id }, data: plan.update })
+      if (writes.newProgressUpdates.length) {
+        await tx.progressUpdate.createMany({ data: writes.newProgressUpdates })
       }
-    }
+      if (writes.newListReferences.length) {
+        await tx.listReference.createMany({ data: writes.newListReferences })
+      }
 
-    if (newOutcomes.length) {
-      await tx.importJobRow.createMany({
-        data: newOutcomes.map((o) => ({
-          jobId: importJobId,
-          rowIndex: o.rowIndex,
-          status: o.status,
-          reason: o.reason ?? null,
-        })),
-        skipDuplicates: true,
-      })
+      // Per-level LevelProgress updates (status / drop fields / worstFail) for
+      // levels that already existed — new ones folded their changes into create.
+      for (const plan of lpPlans.values()) {
+        if (!plan.isNew && plan.touched) {
+          await tx.levelProgress.update({
+            where: { id: plan.id },
+            data: plan.update,
+          })
+        }
+      }
+
+      // Auto-removal: a level with a fresh completion leaves Want to Beat.
+      await removeFromWantToBeat(tx, userId, [...completedLevelIds])
+
+      if (newOutcomes.length) {
+        await tx.importJobRow.createMany({
+          data: newOutcomes.map((o) => ({
+            jobId: importJobId,
+            rowIndex: o.rowIndex,
+            status: o.status,
+            reason: o.reason ?? null,
+          })),
+          skipDuplicates: true,
+        })
+      }
+    },
+    {
+      // The transaction now issues only batched writes (a handful of createMany /
+      // deleteMany calls plus a few per-row updates), so it comfortably fits the
+      // window. Kept generous to absorb Neon latency spikes and overwrite-heavy
+      // batches, while staying under API Gateway's hard 29s integration timeout.
+      maxWait: 5000,
+      timeout: 20000,
     }
-  }, {
-    // The transaction now issues only batched writes (a handful of createMany /
-    // deleteMany calls plus a few per-row updates), so it comfortably fits the
-    // window. Kept generous to absorb Neon latency spikes and overwrite-heavy
-    // batches, while staying under API Gateway's hard 29s integration timeout.
-    maxWait: 5000,
-    timeout: 20000,
-  })
+  )
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.
   if (newStubIds.length) {
     try {
       await enqueueSeedIds(newStubIds)
     } catch (err) {
-      logger.warn({ newStubIds, err }, 'importBatch: failed to enqueue seed IDs')
+      logger.warn(
+        { newStubIds, err },
+        'importBatch: failed to enqueue seed IDs'
+      )
     }
   }
 
@@ -826,15 +978,17 @@ export async function commitImportBatch(
 export async function checkImportConflicts(
   userId: string,
   levelIds: string[]
-): Promise<{ conflicts: Array<{
-  levelId: string
-  levelName: string | null
-  date: string | null
-  attempts: number | null
-  enjoyment: number | null
-  simpleRating: number | null
-  difficultyOpinion: DifficultyOpinion | null
-}> }> {
+): Promise<{
+  conflicts: Array<{
+    levelId: string
+    levelName: string | null
+    date: string | null
+    attempts: number | null
+    enjoyment: number | null
+    simpleRating: number | null
+    difficultyOpinion: DifficultyOpinion | null
+  }>
+}> {
   const rows = await prisma.levelProgress.findMany({
     where: {
       userId,

@@ -130,15 +130,26 @@ are out of scope for the entry-creation work and unchanged here.
 
 ---
 
-### Lists (Custom, Favorites, Least Favorites)
+### Collections (Want to Beat, Favorites, Least Favorites, Custom)
 
 ```
-GET    /v1/users/{usernameOrId}/lists
-GET    /v1/users/{usernameOrId}/lists/{listId}
-POST   /v1/users/{usernameOrId}/lists
-PATCH  /v1/users/{usernameOrId}/lists/{listId}
-DELETE /v1/users/{usernameOrId}/lists/{listId}
+GET    /v1/users/{usernameOrId}/collections
+GET    /v1/users/{usernameOrId}/collections/{collectionId}
+POST   /v1/users/{usernameOrId}/collections
+PATCH  /v1/users/{usernameOrId}/collections/{collectionId}
+DELETE /v1/users/{usernameOrId}/collections/{collectionId}
+POST   /v1/users/{usernameOrId}/collections/{collectionId}/entries
+PATCH  /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}
+DELETE /v1/users/{usernameOrId}/collections/{collectionId}/entries/{entryId}
 ```
+
+Reads resolve the path user and respect `profilePublic`; writes require the path
+user to be the JWT user. Create/rename validation returns machine-readable codes:
+`DUPLICATE_NAME` (409), `RESERVED_NAME` (422), `BUILT_IN_COLLECTION` (403 — edit
+or delete of a built-in), `LEVEL_ALREADY_COMPLETED` (409 — adding a completed
+level to Want to Beat). Adding an already-present level is an idempotent no-op.
+Entry reorder sends the two neighbour entry ids (`prevId` / `nextId`); the server
+computes the fractional midpoint and renormalises when the gap underflows.
 
 ---
 

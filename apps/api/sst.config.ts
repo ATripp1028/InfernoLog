@@ -291,7 +291,7 @@ export default $config({
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
     // Level Page — the per-user view of a single level's full history.
-    authedRoute('GET /v1/users/{usernameOrId}/progress/{levelId}')
+    authedRoute('GET /v1/me/progress/{levelId}')
 
     // ─────────────────────────────────────────────
     // CLASSIC RANKING — the personal difficulty-ordering page.
@@ -351,6 +351,10 @@ export default $config({
     // Manual GDDL record submission from the level page (retry path).
     gddlKeyRoute('POST /v1/me/gddl-records/{levelId}')
 
+    // Bidirectional favorites/least-favorites list sync — needs KMS decrypt to
+    // read the stored GDDL API key. Synchronous (lists are small, max 4 items).
+    gddlKeyRoute('POST /v1/me/gddl-lists-sync')
+
     // Worker Lambda — runs the full GDDL import in the background so that
     // API Gateway's hard 29-second integration timeout never applies.
     // The route Lambda invokes this asynchronously (InvocationType: Event)
@@ -397,6 +401,19 @@ export default $config({
 
     // GET /v1/me/gddl-sync/{jobId} — poll for sync job status (no KMS needed).
     authedRoute('GET /v1/me/gddl-sync/{jobId}')
+
+    // ─────────────────────────────────────────────
+    // COLLECTIONS — built-in (Want to Beat / Favorites / Least Favorites)
+    // and custom user collections of levels.
+    // ─────────────────────────────────────────────
+    authedRoute('GET /v1/me/collections')
+    authedRoute('POST /v1/me/collections')
+    authedRoute('GET /v1/me/collections/{collectionId}')
+    authedRoute('PATCH /v1/me/collections/{collectionId}')
+    authedRoute('DELETE /v1/me/collections/{collectionId}')
+    authedRoute('POST /v1/me/collections/{collectionId}/entries')
+    authedRoute('PATCH /v1/me/collections/{collectionId}/entries/{entryId}')
+    authedRoute('DELETE /v1/me/collections/{collectionId}/entries/{entryId}')
 
     // ─────────────────────────────────────────────
     // LIST PRESETS — saved view configurations for the List page.
@@ -466,7 +483,7 @@ export default $config({
     importRoute('POST /v1/me/import/check')
     importRoute('POST /v1/me/import', '28 seconds')
     importRoute('POST /v1/me/import/ranking', '28 seconds')
-    importRoute('POST /v1/me/import/lists', '28 seconds')
+    importRoute('POST /v1/me/import/collections', '28 seconds')
     importRoute('POST /v1/me/import/ratings', '28 seconds')
     importRoute('GET /v1/me/export', '28 seconds')
 

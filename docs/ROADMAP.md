@@ -140,7 +140,7 @@ Goal: Deepen the core logging experience. No new platform features.
 ### Features
 
 - Custom named lists beyond favorites/least favorites
-- Level Picker — Personal Mode (want-to-beat list, dynamic question ordering, 5-level threshold)
+- Level Picker — Personal Mode (Want to Beat collection, dynamic question ordering, 5-level threshold)
 - Non-completion entries in ranking (toggle, off by default)
 - Visx added for Time Machine groundwork
 

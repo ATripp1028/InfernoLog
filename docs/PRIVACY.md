@@ -10,7 +10,7 @@ Profile visibility (global)
                   ├── level_progress entries
                   │    └── (hides all associated progress_updates)
                   ├── Individual progress_updates
-                  └── user_lists entries
+                  └── collections entries
 ```
 
 A private profile forces all entries private regardless of per-entry settings. A public profile respects per-entry visibility settings.

@@ -61,7 +61,9 @@ function completionRecord(
     device: c.device ?? '',
     enjoyment: toTenScale(c.enjoyment),
     simple_rating: toTenScale(c.simpleRating),
-    difficulty_opinion: c.difficultyOpinion ? c.difficultyOpinion.toLowerCase() : '',
+    difficulty_opinion: c.difficultyOpinion
+      ? c.difficultyOpinion.toLowerCase()
+      : '',
     difficulty_opinion_stars: c.difficultyOpinionStars ?? '',
     coin_1: coinBit(c.coinsCollected, 0),
     coin_2: coinBit(c.coinsCollected, 1),
@@ -79,7 +81,9 @@ function completionRecord(
   }
 }
 
-function droppedRecord(d: ExportResponse['dropped'][number]): Record<string, Cell> {
+function droppedRecord(
+  d: ExportResponse['dropped'][number]
+): Record<string, Cell> {
   return {
     level_id: d.levelId,
     level_name: d.levelName ?? '',
@@ -99,11 +103,16 @@ function rows(headers: string[], records: Record<string, Cell>[]): Cell[][] {
   return [headers, ...records.map((rec) => headers.map((h) => rec[h] ?? ''))]
 }
 
-export function downloadExport(data: ExportResponse, dateFormat: DateFormat): void {
+export function downloadExport(
+  data: ExportResponse,
+  dateFormat: DateFormat
+): void {
   const wb = XLSX.utils.book_new()
 
   // Completions
-  const completionRecords = data.completions.map((c) => completionRecord(c, dateFormat))
+  const completionRecords = data.completions.map((c) =>
+    completionRecord(c, dateFormat)
+  )
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet(rows(COMPLETION_HEADERS, completionRecords)),
@@ -135,7 +144,7 @@ export function downloadExport(data: ExportResponse, dateFormat: DateFormat): vo
   )
 
   // Lists
-  const listRecords = data.lists.map((l) => ({
+  const listRecords = data.collections.map((l) => ({
     list: l.list,
     level_id: l.levelId,
     level_name: l.levelName ?? '',
@@ -163,7 +172,11 @@ export function downloadExport(data: ExportResponse, dateFormat: DateFormat): vo
       })
     ),
   ]
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(ratingAoa), 'Ratings')
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(ratingAoa),
+    'Ratings'
+  )
 
   // Descriptions (same as the template) so the file is self-documenting.
   XLSX.utils.book_append_sheet(

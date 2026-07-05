@@ -17,7 +17,7 @@ import { Device, DifficultyOpinion, EntryVisibility } from '@infernolog/core'
 import type {
   ImportCommitRow,
   ImportRankingEntry,
-  ImportListEntry,
+  ImportCollectionEntry,
   ImportRatingEntry,
   ExportResponse,
 } from '@infernolog/core'
@@ -44,7 +44,7 @@ vi.mock('../utils/gddl', async (importOriginal) => {
 
 const { commitImportBatch } = await import('./import')
 const { commitImportRanking } = await import('./importRanking')
-const { commitImportLists } = await import('./importLists')
+const { commitImportCollections } = await import('./importCollections')
 const { commitImportRatings } = await import('./importRatings')
 const { exportSection } = await import('./exportData')
 
@@ -71,7 +71,7 @@ async function fullExport(userId: string): Promise<ExportResponse> {
     completions: (await all('completions')) as ExportResponse['completions'],
     dropped: (await all('dropped')) as ExportResponse['dropped'],
     ranking: (await all('ranking')) as ExportResponse['ranking'],
-    lists: (await all('lists')) as ExportResponse['lists'],
+    collections: (await all('collections')) as ExportResponse['collections'],
     ratings: (await all('ratings')) as ExportResponse['ratings'],
     ratingCategories: categories.items as string[],
   }
@@ -89,10 +89,28 @@ afterAll(async () => {
 // Seed the three levels the tests reference. Level 100 has user coins so its
 // coinsCollected survives the server-side coin gate.
 async function seedLevels() {
-  await seedLevel(prisma, { inGameId: '100', name: 'Bloodbath', creator: 'Riot', inGameDifficulty: 'Extreme Demon', isDemon: true })
+  await seedLevel(prisma, {
+    inGameId: '100',
+    name: 'Bloodbath',
+    creator: 'Riot',
+    inGameDifficulty: 'Extreme Demon',
+    isDemon: true,
+  })
   await prisma.level.update({ where: { inGameId: '100' }, data: { coins: 3 } })
-  await seedLevel(prisma, { inGameId: '200', name: 'Cataclysm', creator: 'Ggb0y', inGameDifficulty: 'Extreme Demon', isDemon: true })
-  await seedLevel(prisma, { inGameId: '300', name: 'Future Funk', creator: 'Serponge', inGameDifficulty: 'Insane Demon', isDemon: true })
+  await seedLevel(prisma, {
+    inGameId: '200',
+    name: 'Cataclysm',
+    creator: 'Ggb0y',
+    inGameDifficulty: 'Extreme Demon',
+    isDemon: true,
+  })
+  await seedLevel(prisma, {
+    inGameId: '300',
+    name: 'Future Funk',
+    creator: 'Serponge',
+    inGameDifficulty: 'Insane Demon',
+    isDemon: true,
+  })
 }
 
 // A representative account: two completions (one richly populated), one drop.
@@ -124,12 +142,22 @@ function completionRows(): ImportCommitRow[] {
     {
       type: 'completion',
       rowIndex: 1,
-      data: { levelId: '200', date: '2024-11-01', attempts: 2000, enjoyment: 8 },
+      data: {
+        levelId: '200',
+        date: '2024-11-01',
+        attempts: 2000,
+        enjoyment: 8,
+      },
     },
     {
       type: 'dropped',
       rowIndex: 100000,
-      data: { levelId: '300', bestProgress: 40, droppedAt: '2024-10-01', reason: 'shelved' },
+      data: {
+        levelId: '300',
+        bestProgress: 40,
+        droppedAt: '2024-10-01',
+        reason: 'shelved',
+      },
     },
   ]
 }
@@ -137,12 +165,15 @@ function completionRows(): ImportCommitRow[] {
 // Import a full account for `userId` (completions/drops → ranking → lists → ratings).
 async function importFullAccount(userId: string) {
   await commitImportBatch(userId, randomUUID(), completionRows())
-  await commitImportRanking(userId, [{ levelId: '200' }, { levelId: '100' }] satisfies ImportRankingEntry[])
-  await commitImportLists(userId, [
+  await commitImportRanking(userId, [
+    { levelId: '200' },
+    { levelId: '100' },
+  ] satisfies ImportRankingEntry[])
+  await commitImportCollections(userId, [
     { list: 'want_to_beat', levelId: '300', position: 1 },
     { list: 'favorites', levelId: '100', position: 1 },
     { list: 'My List', levelId: '200', position: 1 },
-  ] satisfies ImportListEntry[])
+  ] satisfies ImportCollectionEntry[])
   await commitImportRatings(userId, [
     { levelId: '100', scores: { Gameplay: 80, Decoration: 90 } },
     { levelId: '200', scores: { Gameplay: 70 } },
@@ -204,8 +235,9 @@ function normalize(exp: ExportResponse) {
     completions: [...exp.completions].sort(byLevel),
     dropped: [...exp.dropped].sort(byLevel),
     ranking: exp.ranking.map((r) => r.levelId), // order matters
-    lists: [...exp.lists].sort(
-      (a, b) => a.list.localeCompare(b.list) || a.levelId.localeCompare(b.levelId)
+    collections: [...exp.collections].sort(
+      (a, b) =>
+        a.list.localeCompare(b.list) || a.levelId.localeCompare(b.levelId)
     ),
     ratingCategories: [...exp.ratingCategories].sort(),
     ratings: [...exp.ratings].sort(byLevel),
@@ -237,14 +269,22 @@ describe('import → export round-trip', () => {
 
     // Round-trip: reconstruct import rows from the export, load a fresh account.
     const userB = await seedUser(prisma)
-    await commitImportBatch(userB.id, randomUUID(), completionRowsFromExport(expA))
+    await commitImportBatch(
+      userB.id,
+      randomUUID(),
+      completionRowsFromExport(expA)
+    )
     await commitImportRanking(
       userB.id,
       expA.ranking.map((r) => ({ levelId: r.levelId }))
     )
-    await commitImportLists(
+    await commitImportCollections(
       userB.id,
-      expA.lists.map((l) => ({ list: l.list, levelId: l.levelId, position: l.position }))
+      expA.collections.map((l) => ({
+        list: l.list,
+        levelId: l.levelId,
+        position: l.position,
+      }))
     )
     await commitImportRatings(
       userB.id,
@@ -261,9 +301,15 @@ describe('commitImportBatch — overwrite merge', () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [
-      { type: 'completion', rowIndex: 0, data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' } },
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+      },
     ])
-    await commitImportRatings(user.id, [{ levelId: '100', scores: { Gameplay: 80 } }])
+    await commitImportRatings(user.id, [
+      { levelId: '100', scores: { Gameplay: 80 } },
+    ])
 
     // Re-import with overwrite, providing only attempts.
     await commitImportBatch(user.id, randomUUID(), [
@@ -281,21 +327,33 @@ describe('commitImportBatch — overwrite merge', () => {
     expect(c.enjoyment).toBe(70) // untouched (not in the overwrite row)
     expect(c.notes).toBe('first') // untouched
     // Category rating survives the overwrite entirely.
-    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({ Gameplay: 80 })
+    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+      Gameplay: 80,
+    })
   })
 
   it('skips an existing completion when resolution is not overwrite', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [
-      { type: 'completion', rowIndex: 0, data: { levelId: '100', attempts: 1000 } },
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000 },
+      },
     ])
     const res = await commitImportBatch(user.id, randomUUID(), [
-      { type: 'completion', rowIndex: 0, data: { levelId: '100', attempts: 9999 } },
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 9999 },
+      },
     ])
     expect(res.outcomes[0]?.status).toBe('skipped')
     const exp = await fullExport(user.id)
-    expect(exp.completions.find((x) => x.levelId === '100')!.attempts).toBe(1000)
+    expect(exp.completions.find((x) => x.levelId === '100')!.attempts).toBe(
+      1000
+    )
   })
 })
 
@@ -325,25 +383,39 @@ describe('commitImportRanking', () => {
   })
 })
 
-describe('commitImportLists', () => {
+describe('commitImportCollections', () => {
   it('resolves reserved + custom lists and replaces membership per list', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
 
-    await commitImportLists(user.id, [
+    await commitImportCollections(user.id, [
       { list: 'favorites', levelId: '100', position: 1 },
       { list: 'favorites', levelId: '200', position: 2 },
       { list: 'My List', levelId: '300', position: 1 },
     ])
     let exp = await fullExport(user.id)
-    expect(exp.lists.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['100', '200'])
-    expect(exp.lists.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
+    expect(
+      exp.collections
+        .filter((l) => l.list === 'favorites')
+        .map((l) => l.levelId)
+    ).toEqual(['100', '200'])
+    expect(
+      exp.collections.filter((l) => l.list === 'My List').map((l) => l.levelId)
+    ).toEqual(['300'])
 
     // Replace favorites; leave the custom list alone (not mentioned).
-    await commitImportLists(user.id, [{ list: 'favorites', levelId: '300', position: 1 }])
+    await commitImportCollections(user.id, [
+      { list: 'favorites', levelId: '300', position: 1 },
+    ])
     exp = await fullExport(user.id)
-    expect(exp.lists.filter((l) => l.list === 'favorites').map((l) => l.levelId)).toEqual(['300'])
-    expect(exp.lists.filter((l) => l.list === 'My List').map((l) => l.levelId)).toEqual(['300'])
+    expect(
+      exp.collections
+        .filter((l) => l.list === 'favorites')
+        .map((l) => l.levelId)
+    ).toEqual(['300'])
+    expect(
+      exp.collections.filter((l) => l.list === 'My List').map((l) => l.levelId)
+    ).toEqual(['300'])
   })
 })
 
@@ -362,7 +434,9 @@ describe('commitImportRatings', () => {
     expect(res.categoriesCreated.sort()).toEqual(['Decoration', 'Gameplay'])
 
     // Merge: update Gameplay, add Song, leave Decoration untouched.
-    await commitImportRatings(user.id, [{ levelId: '100', scores: { Gameplay: 60, Song: 50 } }])
+    await commitImportRatings(user.id, [
+      { levelId: '100', scores: { Gameplay: 60, Song: 50 } },
+    ])
     const exp = await fullExport(user.id)
     expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 60,
@@ -376,9 +450,15 @@ describe('commitImportRatings', () => {
     const user = await seedUser(prisma)
     // 300 is only dropped, never completed.
     await commitImportBatch(user.id, randomUUID(), [
-      { type: 'dropped', rowIndex: 100000, data: { levelId: '300', bestProgress: 20 } },
+      {
+        type: 'dropped',
+        rowIndex: 100000,
+        data: { levelId: '300', bestProgress: 20 },
+      },
     ])
-    const res = await commitImportRatings(user.id, [{ levelId: '300', scores: { Gameplay: 80 } }])
+    const res = await commitImportRatings(user.id, [
+      { levelId: '300', scores: { Gameplay: 80 } },
+    ])
     expect(res.scored).toBe(0)
     expect(res.skipped).toHaveLength(1)
   })

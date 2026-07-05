@@ -144,9 +144,9 @@ Community members vote on what skillsets a level challenges. Requires an establi
 
 GDDL exposes a favorites and least favorites feature via its API. InfernoLog mirrors this concept and extends it:
 
-- Users have built-in `favorites` and `least_favorites` lists (special `type` values on `user_lists`)
+- Users have built-in `favorites` and `least_favorites` collections (special `type` values on `collections`)
 - On initial GDDL connection, users can optionally **import** their existing GDDL favorites/least favorites
 - When marking a level as a favorite in InfernoLog, users can optionally **sync** that to their GDDL account simultaneously
-- Beyond these, users can create unlimited **custom named lists** (e.g. "Want to Beat", "Recommended to Friends")
+- Beyond these, users can create unlimited **custom named collections** (e.g. "Recommended to Friends"); "Want to Beat" is itself a built-in
 
-See `DATA_MODEL.md` — `user_lists` and `level_list_entries` tables.
+See `DATA_MODEL.md` — `collections` and `collection_entries` tables.

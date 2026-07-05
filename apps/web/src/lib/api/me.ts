@@ -204,6 +204,43 @@ export function useGddlSyncStatus(jobId: string | null) {
 }
 
 // ─────────────────────────────────────────────
+// GDDL lists sync (favorites / least favorites)
+// ─────────────────────────────────────────────
+
+export interface GddlListSyncSummary {
+  addedToInferno: string[]
+  addedToGddl: string[]
+  removedFromGddl: string[]
+  skipped: string[]
+}
+
+export interface GddlListSyncResult {
+  favorites: GddlListSyncSummary
+  leastFavorites: GddlListSyncSummary
+}
+
+// Synchronously syncs InfernoLog FAVORITES/LEAST_FAVORITES with the
+// corresponding GDDL user lists. Returns the diff summary.
+export function useGddlListsSync() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (): Promise<GddlListSyncResult> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: GddlListSyncResult }>(
+        '/v1/me/gddl-lists-sync',
+        { token, method: 'POST' }
+      )
+      return data
+    },
+    onSuccess: () => {
+      // Invalidate all collection queries so the updated lists are re-fetched.
+      void queryClient.invalidateQueries({ queryKey: ['collections'] })
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
 // Settings mutations
 // ─────────────────────────────────────────────
 
