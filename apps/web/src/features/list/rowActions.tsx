@@ -1,4 +1,4 @@
-import { MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import { FolderPlus, MoreVertical, Pencil, Trash2 } from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -14,6 +14,7 @@ import {
 export interface RowActionHandlers {
   onEdit: () => void
   onDelete: () => void
+  onAddToCollection: () => void
 }
 
 // Right-click context menu wrapping a desktop row. The trigger child must be a
@@ -29,6 +30,10 @@ export function RowContextMenu({
     <ContextMenu>
       <ContextMenuTrigger asChild>{children}</ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onSelect={handlers.onAddToCollection}>
+          <FolderPlus size={14} /> Add to a Collection
+        </ContextMenuItem>
+        <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
         <ContextMenuItem onSelect={handlers.onEdit}>
           <Pencil size={14} /> Edit
         </ContextMenuItem>
@@ -65,6 +70,12 @@ export function RowActionsKebab({
         </button>
       </PopoverTrigger>
       <PopoverContent align="end" className="min-w-[8rem]">
+        <MenuButton
+          icon={FolderPlus}
+          label="Add to a Collection"
+          onClick={handlers.onAddToCollection}
+        />
+        <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
         <MenuButton icon={Pencil} label="Edit" onClick={handlers.onEdit} />
         <MenuButton
           icon={Trash2}

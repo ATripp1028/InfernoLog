@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
@@ -19,6 +19,7 @@ interface ListTableProps {
   onEditItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
   onNavigate: (item: ListItem) => void
+  onAddToCollectionItem: (item: ListItem) => void
 }
 
 // px-3 (12px) on each side of every row.
@@ -179,6 +180,7 @@ export function ListTable({
   onEditItem,
   onDeleteItem,
   onNavigate,
+  onAddToCollectionItem,
 }: ListTableProps) {
   const orderedCols = columnOrder
     .map((id) => COLUMNS.find((c) => c.id === id)!)
@@ -188,6 +190,10 @@ export function ListTable({
 
   // Only one row's kebab menu open at a time — opening another closes it.
   const [openKebabId, setOpenKebabId] = useState<string | null>(null)
+
+  // Timer used to disambiguate single-click (navigate) from double-click (add
+  // to collection). A 250ms window matches standard OS double-click thresholds.
+  const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   return (
     <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
@@ -203,13 +209,27 @@ export function ListTable({
         const handlers = {
           onEdit: () => onEditItem(item),
           onDelete: () => onDeleteItem(item),
+          onAddToCollection: () => onAddToCollectionItem(item),
         }
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
             <div
               className="group relative cursor-pointer border-b border-[var(--color-border-subtle)] last:border-b-0 hover:bg-white/[0.02]"
               style={{ minWidth }}
-              onClick={() => onNavigate(item)}
+              onClick={() => {
+                if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+                clickTimerRef.current = setTimeout(() => {
+                  clickTimerRef.current = null
+                  onNavigate(item)
+                }, 250)
+              }}
+              onDoubleClick={() => {
+                if (clickTimerRef.current) {
+                  clearTimeout(clickTimerRef.current)
+                  clickTimerRef.current = null
+                }
+                onAddToCollectionItem(item)
+              }}
             >
               <ListRow
                 item={item}

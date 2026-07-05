@@ -17,6 +17,7 @@ import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { EditProgressModal } from '../features/level-page/EditProgressModal'
+import { AddToCollectionDialog } from '../features/collections/AddToCollectionDialog'
 import { Toolbar } from '../features/list/Toolbar'
 import { ListTable, tableMinWidth } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
@@ -65,6 +66,7 @@ export function List() {
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
+  const [addToCollectionItem, setAddToCollectionItem] = useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<FilterState>(defaultFilterState)
   const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS)
@@ -431,6 +433,7 @@ export function List() {
                 onEditItem={handleEdit}
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
+                onAddToCollectionItem={setAddToCollectionItem}
               />
               <MobilePager
                 items={visible}
@@ -497,6 +500,12 @@ export function List() {
           scale={ratingDisplayScale}
         />
       )}
+
+      <AddToCollectionDialog
+        open={addToCollectionItem !== null}
+        onClose={() => setAddToCollectionItem(null)}
+        {...(addToCollectionItem && { preselectedLevel: addToCollectionItem.level })}
+      />
 
       <PresetCreateDialog
         open={createDialogOpen}
