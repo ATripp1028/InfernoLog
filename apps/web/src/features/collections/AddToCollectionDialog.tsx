@@ -7,7 +7,7 @@
 //   Step 2 (collection picker) — searchable list with checkboxes.
 //     Confirm adds the level to all selected collections in parallel.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
@@ -18,9 +18,11 @@ import { useLevelById, useLevelSearch, useResolveLevel } from '@/lib/api/logging
 import {
   collectionErrorCode,
   useAddCollectionEntry,
+  useCollectionDetails,
   useCollections,
 } from '@/lib/api/collections'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
+import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 
@@ -63,6 +65,17 @@ export function AddToCollectionDialog({
   const resolveLevel = useResolveLevel()
   const addEntry = useAddCollectionEntry()
   const collections = useCollections()
+  const list = useMyProgress()
+
+  const completedIds = useMemo(
+    () =>
+      new Set(
+        list.data
+          ?.filter((i) => i.status === 'COMPLETED')
+          .map((i) => i.level.inGameId) ?? []
+      ),
+    [list.data]
+  )
 
   const trimmed = levelQuery.trim()
   const isNumeric = /^\d+$/.test(trimmed)
@@ -80,6 +93,38 @@ export function AddToCollectionDialog({
       setIsSubmitting(false)
     }
   }, [open, preselectedLevel])
+
+  // Batch-load collection details only once the user reaches the pick step.
+  const collectionIds = useMemo(
+    () => (collections.data ?? []).map((c) => c.id),
+    [collections.data]
+  )
+  const collectionDetailQueries = useCollectionDetails(collectionIds, step === 'pick')
+
+  // Set of collection IDs that already contain the picked level (from loaded details).
+  const levelAlreadyInCollectionIds = useMemo(() => {
+    const result = new Set<string>()
+    if (!pickedLevel) return result
+    collectionIds.forEach((id, i) => {
+      const q = collectionDetailQueries[i]
+      if (q?.data?.entries.some((e) => e.level.inGameId === pickedLevel.inGameId)) {
+        result.add(id)
+      }
+    })
+    return result
+  }, [collectionIds, collectionDetailQueries, pickedLevel])
+
+  // Auto-uncheck any selection that is discovered to already have the level.
+  useEffect(() => {
+    if (levelAlreadyInCollectionIds.size === 0) return
+    setSelectedIds((prev) => {
+      const toRemove = [...prev].filter((id) => levelAlreadyInCollectionIds.has(id))
+      if (toRemove.length === 0) return prev
+      const next = new Set(prev)
+      toRemove.forEach((id) => next.delete(id))
+      return next
+    })
+  }, [levelAlreadyInCollectionIds])
 
   if (!open) return null
 
@@ -294,7 +339,10 @@ export function AddToCollectionDialog({
 
   // ── Step 2: collection picker ──────────────────────────────────────
 
-  const allCollections = collections.data ?? []
+  const pickedIsCompleted = !!pickedLevel && completedIds.has(pickedLevel.inGameId)
+  const allCollections = (collections.data ?? []).filter(
+    (c) => !(pickedIsCompleted && c.type === 'WANT_TO_BEAT')
+  )
   const filteredCollections = collectionQuery.trim()
     ? allCollections.filter((c) =>
         c.name.toLowerCase().includes(collectionQuery.toLowerCase())
@@ -354,10 +402,16 @@ export function AddToCollectionDialog({
             const identity = collectionIdentity(c.type, c.id)
             const Icon = identity.icon
             const checked = selectedIds.has(c.id)
+            const alreadyIn = levelAlreadyInCollectionIds.has(c.id)
             return (
               <label
                 key={c.id}
-                className="flex cursor-pointer items-center gap-3 border-b border-border-subtle px-5 py-3 last:border-b-0 hover:bg-bg-subtle"
+                className={[
+                  'flex items-center gap-3 border-b border-border-subtle px-5 py-3 last:border-b-0',
+                  alreadyIn
+                    ? 'cursor-not-allowed opacity-50'
+                    : 'cursor-pointer hover:bg-bg-subtle',
+                ].join(' ')}
               >
                 <span
                   className="flex size-7 shrink-0 items-center justify-center rounded-[6px]"
@@ -368,24 +422,32 @@ export function AddToCollectionDialog({
                 <span className="min-w-0 flex-1 text-sm font-medium text-text-primary truncate">
                   {c.name}
                 </span>
-                {isBuiltIn(c.type) && (
+                {alreadyIn ? (
                   <span className="shrink-0 text-[11px] text-text-tertiary">
-                    Built-in
+                    Already added
                   </span>
+                ) : (
+                  <>
+                    {isBuiltIn(c.type) && (
+                      <span className="shrink-0 text-[11px] text-text-tertiary">
+                        Built-in
+                      </span>
+                    )}
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setSelectedIds((prev) => {
+                          const next = new Set(prev)
+                          if (e.target.checked) next.add(c.id)
+                          else next.delete(c.id)
+                          return next
+                        })
+                      }}
+                      className="size-4 accent-[var(--color-primary,#e8390e)]"
+                    />
+                  </>
                 )}
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  onChange={(e) => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev)
-                      if (e.target.checked) next.add(c.id)
-                      else next.delete(c.id)
-                      return next
-                    })
-                  }}
-                  className="size-4 accent-[var(--color-primary,#e8390e)]"
-                />
               </label>
             )
           })

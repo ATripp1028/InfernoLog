@@ -1,6 +1,6 @@
 // Collections API client — /v1/me/collections.
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
 import type {
   CollectionSummary,
   CollectionDetail,
@@ -56,7 +56,7 @@ export function useCollection(collectionId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
     queryKey: collectionQueryKey(collectionId),
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && !!collectionId,
     queryFn: async (): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
@@ -65,6 +65,27 @@ export function useCollection(collectionId: string) {
       )
       return data
     },
+  })
+}
+
+// Batch-load multiple collection details in parallel, sharing the same cache
+// keys as useCollection. Pass enabled=false to defer loading (e.g. until a
+// dialog step is reached).
+export function useCollectionDetails(ids: string[], enabled = true) {
+  const { isAuthenticated, getIdToken } = useAuth()
+  return useQueries({
+    queries: ids.map((id) => ({
+      queryKey: collectionQueryKey(id),
+      enabled: isAuthenticated && enabled && !!id,
+      queryFn: async (): Promise<CollectionDetail> => {
+        const token = await getIdToken()
+        const { data } = await apiFetch<{ data: CollectionDetail }>(
+          `/v1/me/collections/${id}`,
+          { token, method: 'GET' }
+        )
+        return data
+      },
+    })),
   })
 }
 

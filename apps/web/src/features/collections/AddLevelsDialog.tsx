@@ -34,6 +34,9 @@ interface AddLevelsDialogProps {
   open: boolean
   onClose: () => void
   collection: CollectionDetail
+  // When provided, results whose level ID is in this set are greyed out with
+  // an "Already beaten" label. Used by the Want to Beat wrapper.
+  completedIds?: Set<string>
 }
 
 // Holds a level resolved from RobTop for the seeded confirmation step.
@@ -52,12 +55,14 @@ export function AddLevelsDialog({
   open,
   onClose,
   collection,
+  completedIds,
 }: AddLevelsDialogProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)')
   const [query, setQuery] = useState('')
   const [seeded, setSeeded] = useState<SeededLevel | null>(null)
   const [addAnother, setAddAnother] = useState(false)
   const [seedingId, setSeedingId] = useState<string | null>(null)
+  const [addingId, setAddingId] = useState<string | null>(null)
 
   const resolveLevel = useResolveLevel()
   const addEntry = useAddCollectionEntry()
@@ -76,6 +81,7 @@ export function AddLevelsDialog({
       setSeeded(null)
       setAddAnother(false)
       setSeedingId(null)
+      setAddingId(null)
     }
   }, [open])
 
@@ -84,6 +90,7 @@ export function AddLevelsDialog({
   // Direct add — for name-search results and known cached IDs where the user
   // can see exactly what they're clicking.
   async function handleDirectAdd(levelId: string, levelName: string | null) {
+    setAddingId(levelId)
     try {
       await addEntry.mutateAsync({ collectionId: collection.id, levelId })
       toast.success(`Added ${levelName ?? 'level'} to ${collection.name}`)
@@ -98,6 +105,8 @@ export function AddLevelsDialog({
             ? err.message
             : 'Could not add that level'
       )
+    } finally {
+      setAddingId(null)
     }
   }
 
@@ -293,6 +302,8 @@ export function AddLevelsDialog({
                 epicValue={cachedLevel.data.epicValue}
                 isRated={cachedLevel.data.isRated}
                 added={inCollection.has(cachedLevel.data.inGameId)}
+                beaten={completedIds?.has(cachedLevel.data.inGameId) ?? false}
+                loading={addingId === cachedLevel.data.inGameId}
                 disabled={addEntry.isPending}
                 onSelect={() => void handleDirectAdd(cachedLevel.data!.inGameId, cachedLevel.data!.name)}
               />
@@ -345,6 +356,8 @@ export function AddLevelsDialog({
                     epicValue={r.epicValue}
                     isRated={r.isRated}
                     added={inCollection.has(r.inGameId)}
+                    beaten={completedIds?.has(r.inGameId) ?? false}
+                    loading={addingId === r.inGameId}
                     disabled={addEntry.isPending}
                     onSelect={() => void handleDirectAdd(r.inGameId, r.name)}
                   />
@@ -472,7 +485,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 // Shared result row — matches the logging flow's FindLevelStep visual style.
 // Thumbnail backdrop, gradient scrim, difficulty face, name/meta, ID on right.
-// "Added" rows show a tag instead of the ID and are not clickable.
+// "Added" / "Already beaten" rows show a tag and are not clickable.
 function ResultRow({
   levelId,
   name,
@@ -483,6 +496,8 @@ function ResultRow({
   epicValue,
   isRated,
   added,
+  beaten = false,
+  loading = false,
   disabled,
   onSelect,
 }: {
@@ -495,6 +510,8 @@ function ResultRow({
   epicValue: number | null
   isRated: boolean
   added: boolean
+  beaten?: boolean
+  loading?: boolean
   disabled: boolean
   onSelect: () => void
 }) {
@@ -504,7 +521,7 @@ function ResultRow({
   return (
     <button
       type="button"
-      disabled={added || disabled}
+      disabled={added || beaten || disabled}
       onClick={onSelect}
       className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
     >
@@ -536,9 +553,15 @@ function ResultRow({
           )}
         </span>
       </span>
-      {added ? (
+      {loading ? (
+        <Loader2 size={16} className="relative animate-spin text-text-tertiary" />
+      ) : added ? (
         <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
           Added
+        </span>
+      ) : beaten ? (
+        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+          Already beaten
         </span>
       ) : (
         <span className="relative font-mono text-xs text-text-secondary">
