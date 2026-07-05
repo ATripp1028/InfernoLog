@@ -96,7 +96,9 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
     const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
     // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
     const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
-    return typeof raw === 'number' && Number.isFinite(raw) ? roundGddlTier(raw) : null
+    return typeof raw === 'number' && Number.isFinite(raw)
+      ? roundGddlTier(raw)
+      : null
   } catch {
     return null
   } finally {
@@ -247,7 +249,10 @@ export async function fetchGddlList(
   let res: Response
   try {
     res = await fetch(`${GDDL_API_BASE_URL}/user/${gddlUserId}/${list}`, {
-      headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' },
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        Accept: 'application/json',
+      },
       signal: controller.signal,
     })
     clearTimeout(timeout)

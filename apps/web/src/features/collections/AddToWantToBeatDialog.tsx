@@ -14,7 +14,10 @@ interface AddToWantToBeatDialogProps {
   onClose: () => void
 }
 
-export function AddToWantToBeatDialog({ open, onClose }: AddToWantToBeatDialogProps) {
+export function AddToWantToBeatDialog({
+  open,
+  onClose,
+}: AddToWantToBeatDialogProps) {
   const collections = useCollections()
   const list = useMyProgress()
 

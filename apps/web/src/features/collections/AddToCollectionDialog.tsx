@@ -14,7 +14,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { ApiError } from '@/lib/api/client'
-import { useLevelById, useLevelSearch, useResolveLevel } from '@/lib/api/logging'
+import {
+  useLevelById,
+  useLevelSearch,
+  useResolveLevel,
+} from '@/lib/api/logging'
 import {
   collectionErrorCode,
   useAddCollectionEntry,
@@ -99,7 +103,10 @@ export function AddToCollectionDialog({
     () => (collections.data ?? []).map((c) => c.id),
     [collections.data]
   )
-  const collectionDetailQueries = useCollectionDetails(collectionIds, step === 'pick')
+  const collectionDetailQueries = useCollectionDetails(
+    collectionIds,
+    step === 'pick'
+  )
 
   // Set of collection IDs that already contain the picked level (from loaded details).
   const levelAlreadyInCollectionIds = useMemo(() => {
@@ -107,7 +114,9 @@ export function AddToCollectionDialog({
     if (!pickedLevel) return result
     collectionIds.forEach((id, i) => {
       const q = collectionDetailQueries[i]
-      if (q?.data?.entries.some((e) => e.level.inGameId === pickedLevel.inGameId)) {
+      if (
+        q?.data?.entries.some((e) => e.level.inGameId === pickedLevel.inGameId)
+      ) {
         result.add(id)
       }
     })
@@ -118,7 +127,9 @@ export function AddToCollectionDialog({
   useEffect(() => {
     if (levelAlreadyInCollectionIds.size === 0) return
     setSelectedIds((prev) => {
-      const toRemove = [...prev].filter((id) => levelAlreadyInCollectionIds.has(id))
+      const toRemove = [...prev].filter((id) =>
+        levelAlreadyInCollectionIds.has(id)
+      )
       if (toRemove.length === 0) return prev
       const next = new Set(prev)
       toRemove.forEach((id) => next.delete(id))
@@ -176,7 +187,8 @@ export function AddToCollectionDialog({
       const successNames: string[] = []
       results.forEach((r, i) => {
         const id = idList[i]!
-        const colName = collections.data?.find((c) => c.id === id)?.name ?? 'collection'
+        const colName =
+          collections.data?.find((c) => c.id === id)?.name ?? 'collection'
         if (r.status === 'fulfilled') {
           successNames.push(colName)
         } else {
@@ -339,7 +351,8 @@ export function AddToCollectionDialog({
 
   // ── Step 2: collection picker ──────────────────────────────────────
 
-  const pickedIsCompleted = !!pickedLevel && completedIds.has(pickedLevel.inGameId)
+  const pickedIsCompleted =
+    !!pickedLevel && completedIds.has(pickedLevel.inGameId)
   const allCollections = (collections.data ?? []).filter(
     (c) => !(pickedIsCompleted && c.type === 'WANT_TO_BEAT')
   )

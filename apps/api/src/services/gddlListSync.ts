@@ -31,10 +31,10 @@ import { logger } from '../utils/logger'
 const GDDL_LIST_MAX = 4
 
 export interface ListSyncSummary {
-  addedToInferno: string[]   // GDDL level IDs added to the InfernoLog collection
-  addedToGddl: string[]      // InfernoLog level IDs pushed to GDDL
-  removedFromGddl: string[]  // Level IDs removed from GDDL (outside top-N)
-  skipped: string[]          // GDDL IDs that couldn't be cached — not added
+  addedToInferno: string[] // GDDL level IDs added to the InfernoLog collection
+  addedToGddl: string[] // InfernoLog level IDs pushed to GDDL
+  removedFromGddl: string[] // Level IDs removed from GDDL (outside top-N)
+  skipped: string[] // GDDL IDs that couldn't be cached — not added
 }
 
 export interface GddlListSyncResult {
@@ -146,7 +146,10 @@ async function syncList(
   ])
 
   if (!collection) {
-    logger.warn({ userId, collectionType }, 'gddlListSync: collection not found')
+    logger.warn(
+      { userId, collectionType },
+      'gddlListSync: collection not found'
+    )
     return summary
   }
 
@@ -161,7 +164,10 @@ async function syncList(
     if (ilIdSet.has(gddlId)) continue
 
     const cached = await ensureLevelCached(gddlId).catch((err) => {
-      logger.warn({ gddlId, err }, `gddlListSync: error caching level ${gddlId}`)
+      logger.warn(
+        { gddlId, err },
+        `gddlListSync: error caching level ${gddlId}`
+      )
       return false
     })
     if (!cached) {
@@ -171,7 +177,12 @@ async function syncList(
 
     await prisma.$transaction(async (tx) => {
       const dup = await tx.collectionEntry.findUnique({
-        where: { collectionId_levelId: { collectionId: collection.id, levelId: gddlId } },
+        where: {
+          collectionId_levelId: {
+            collectionId: collection.id,
+            levelId: gddlId,
+          },
+        },
         select: { id: true },
       })
       if (dup) return
@@ -203,7 +214,10 @@ async function syncList(
       gddlIdSet.add(ilId)
       summary.addedToGddl.push(ilId)
     } catch (err) {
-      logger.warn({ ilId, err }, `gddlListSync: failed to add ${ilId} to GDDL ${gddlList}`)
+      logger.warn(
+        { ilId, err },
+        `gddlListSync: failed to add ${ilId} to GDDL ${gddlList}`
+      )
     }
   }
 
@@ -214,7 +228,10 @@ async function syncList(
       await removeGddlListEntry(apiKey, gddlUserId, gddlList, gddlId)
       summary.removedFromGddl.push(gddlId)
     } catch (err) {
-      logger.warn({ gddlId, err }, `gddlListSync: failed to remove ${gddlId} from GDDL ${gddlList}`)
+      logger.warn(
+        { gddlId, err },
+        `gddlListSync: failed to remove ${gddlId} from GDDL ${gddlList}`
+      )
     }
   }
 

@@ -52,7 +52,12 @@ function buildActions(
 }
 
 // ─── Desktop popover ───────────────────────────────────────────────
-function DesktopFab({ onEdit, onDelete, onGddlSubmit, onAddToCollection }: FabProps) {
+function DesktopFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -143,7 +148,12 @@ function DesktopFab({ onEdit, onDelete, onGddlSubmit, onAddToCollection }: FabPr
 // ─── Mobile bottom sheet ───────────────────────────────────────────
 // No floating button — registers a toggle into MobileFabContext so the
 // nav bar's center FAB slot drives this sheet instead of the logging menu.
-function MobileFab({ onEdit, onDelete, onGddlSubmit, onAddToCollection }: FabProps) {
+function MobileFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
   const [open, setOpen] = useState(false)
   const { setOverrideToggle } = useMobileFabContext()
 
@@ -214,7 +224,12 @@ function MobileFab({ onEdit, onDelete, onGddlSubmit, onAddToCollection }: FabPro
 }
 
 // ─── Public export ─────────────────────────────────────────────────
-export function LevelFab({ onEdit, onDelete, onGddlSubmit, onAddToCollection }: FabProps) {
+export function LevelFab({
+  onEdit,
+  onDelete,
+  onGddlSubmit,
+  onAddToCollection,
+}: FabProps) {
   const extra = {
     ...(onGddlSubmit ? { onGddlSubmit } : {}),
     ...(onAddToCollection ? { onAddToCollection } : {}),

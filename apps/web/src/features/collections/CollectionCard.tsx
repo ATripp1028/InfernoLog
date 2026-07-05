@@ -33,7 +33,9 @@ export function CollectionCard({
             alt=""
             aria-hidden
             loading="lazy"
-            onError={(e) => { e.currentTarget.style.display = 'none' }}
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+            }}
             className="absolute inset-0 size-full object-cover"
           />
         )}

@@ -42,8 +42,16 @@ export function FabMenu() {
 
   function getOnClick(action: LoggingAction): (() => void) | undefined {
     if (action.path) return () => start(action.path!)
-    if (action.key === 'want-to-beat') return () => { setMenuOpen(false); setWtbOpen(true) }
-    if (action.key === 'add-to-list') return () => { setMenuOpen(false); setAddColOpen(true) }
+    if (action.key === 'want-to-beat')
+      return () => {
+        setMenuOpen(false)
+        setWtbOpen(true)
+      }
+    if (action.key === 'add-to-list')
+      return () => {
+        setMenuOpen(false)
+        setAddColOpen(true)
+      }
   }
 
   return (
@@ -82,7 +90,10 @@ export function FabMenu() {
         </div>
       )}
       <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
-      <AddToCollectionDialog open={addColOpen} onClose={() => setAddColOpen(false)} />
+      <AddToCollectionDialog
+        open={addColOpen}
+        onClose={() => setAddColOpen(false)}
+      />
     </>
   )
 }

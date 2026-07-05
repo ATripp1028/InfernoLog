@@ -20,7 +20,11 @@ import { resolveNamesBatch, ensureStubLevels, enqueueSeedIds } from './import'
 import { logger } from '../utils/logger'
 
 type Tx = Prisma.TransactionClient
-type CollectionType = 'WANT_TO_BEAT' | 'FAVORITES' | 'LEAST_FAVORITES' | 'CUSTOM'
+type CollectionType =
+  | 'WANT_TO_BEAT'
+  | 'FAVORITES'
+  | 'LEAST_FAVORITES'
+  | 'CUSTOM'
 
 interface CollectionTarget {
   key: string // grouping key (stable per target collection)
@@ -33,11 +37,27 @@ interface CollectionTarget {
 // collection by name.
 function classifyCollection(raw: string): CollectionTarget {
   const k = raw.toLowerCase().replace(/[\s_-]+/g, '')
-  if (k === 'wanttobeat') return { key: 'type:WANT_TO_BEAT', type: 'WANT_TO_BEAT', name: 'Want to Beat' }
+  if (k === 'wanttobeat')
+    return {
+      key: 'type:WANT_TO_BEAT',
+      type: 'WANT_TO_BEAT',
+      name: 'Want to Beat',
+    }
   if (['favorites', 'favourites', 'favorite', 'favourite'].includes(k))
     return { key: 'type:FAVORITES', type: 'FAVORITES', name: 'Favorites' }
-  if (['leastfavorites', 'leastfavourites', 'leastfavorite', 'leastfavourite'].includes(k))
-    return { key: 'type:LEAST_FAVORITES', type: 'LEAST_FAVORITES', name: 'Least Favorites' }
+  if (
+    [
+      'leastfavorites',
+      'leastfavourites',
+      'leastfavorite',
+      'leastfavourite',
+    ].includes(k)
+  )
+    return {
+      key: 'type:LEAST_FAVORITES',
+      type: 'LEAST_FAVORITES',
+      name: 'Least Favorites',
+    }
   const name = raw.trim()
   return { key: `custom:${name.toLowerCase()}`, type: 'CUSTOM', name }
 }
@@ -55,7 +75,9 @@ async function resolveCollectionId(
   const found =
     target.type === 'CUSTOM'
       ? existing.find(
-          (l) => l.type === 'CUSTOM' && l.name.trim().toLowerCase() === target.name.toLowerCase()
+          (l) =>
+            l.type === 'CUSTOM' &&
+            l.name.trim().toLowerCase() === target.name.toLowerCase()
         )
       : existing.find((l) => l.type === target.type)
   if (found) return found.id
@@ -95,7 +117,10 @@ export async function commitImportCollections(
   const nameOnly = entries
     .map((e, index) => ({ e, index }))
     .filter(({ e }) => !e.levelId && e.levelName)
-  const resolvedByIndex = new Map<number, Awaited<ReturnType<typeof resolveNamesBatch>>[number]>()
+  const resolvedByIndex = new Map<
+    number,
+    Awaited<ReturnType<typeof resolveNamesBatch>>[number]
+  >()
   if (nameOnly.length > 0) {
     const resolved = await resolveNamesBatch(
       nameOnly.map(({ e }) => ({
@@ -111,23 +136,37 @@ export async function commitImportCollections(
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index]!
     const target = classifyCollection(entry.list)
-    const label = entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : target.name)
+    const label =
+      entry.levelName ??
+      (entry.levelId ? `level ${entry.levelId}` : target.name)
 
     let levelId = entry.levelId ?? undefined
     if (!levelId && entry.levelName) {
       const res = resolvedByIndex.get(index) ?? null
       if (res === 'ambiguous') {
-        skipped.push({ list: target.name, label, reason: 'Matches more than one level — add a level_id' })
+        skipped.push({
+          list: target.name,
+          label,
+          reason: 'Matches more than one level — add a level_id',
+        })
         continue
       }
       if (res === null) {
-        skipped.push({ list: target.name, label, reason: 'Level not found on the GD servers' })
+        skipped.push({
+          list: target.name,
+          label,
+          reason: 'Level not found on the GD servers',
+        })
         continue
       }
       levelId = res.levelId
     }
     if (!levelId) {
-      skipped.push({ list: target.name, label, reason: 'No level_id or level_name provided' })
+      skipped.push({
+        list: target.name,
+        label,
+        reason: 'No level_id or level_name provided',
+      })
       continue
     }
 
@@ -137,7 +176,11 @@ export async function commitImportCollections(
       groups.set(target.key, g)
     }
     if (g.seen.has(levelId)) {
-      skipped.push({ list: target.name, label, reason: 'Already in this collection (duplicate)' })
+      skipped.push({
+        list: target.name,
+        label,
+        reason: 'Already in this collection (duplicate)',
+      })
       continue
     }
     g.seen.add(levelId)
@@ -148,8 +191,10 @@ export async function commitImportCollections(
   // Order within each collection: by explicit position if every entry has one,
   // else the order they arrived (the sheet's row order).
   for (const g of groups.values()) {
-    const allHavePos = g.entries.length > 0 && g.entries.every((e) => e.position != null)
-    if (allHavePos) g.entries.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+    const allHavePos =
+      g.entries.length > 0 && g.entries.every((e) => e.position != null)
+    if (allHavePos)
+      g.entries.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   }
 
   const result: ImportCollectionsResult = { lists: [], skipped }
@@ -185,18 +230,28 @@ export async function commitImportCollections(
           skipped.push({
             list: g.target.name,
             label: e.label,
-            reason: 'Already completed — Want to Beat only holds unbeaten levels',
+            reason:
+              'Already completed — Want to Beat only holds unbeaten levels',
           })
           return false
         })
       }
 
-      const collectionId = await resolveCollectionId(tx, userId, g.target, existing)
+      const collectionId = await resolveCollectionId(
+        tx,
+        userId,
+        g.target,
+        existing
+      )
       await tx.collectionEntry.deleteMany({ where: { collectionId } })
       if (placeable.length) {
         await tx.collectionEntry.createMany({
           // Fresh integer fractional indices 1.0, 2.0, … in sheet order.
-          data: placeable.map((e, i) => ({ collectionId, levelId: e.levelId, rankingIndex: i + 1 })),
+          data: placeable.map((e, i) => ({
+            collectionId,
+            levelId: e.levelId,
+            rankingIndex: i + 1,
+          })),
         })
       }
       result.lists.push({ list: g.target.name, placed: placeable.length })
@@ -207,7 +262,10 @@ export async function commitImportCollections(
     try {
       await enqueueSeedIds(newStubIds)
     } catch (err) {
-      logger.warn({ newStubIds, err }, 'importCollections: failed to enqueue seed IDs')
+      logger.warn(
+        { newStubIds, err },
+        'importCollections: failed to enqueue seed IDs'
+      )
     }
   }
 

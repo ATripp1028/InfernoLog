@@ -174,7 +174,11 @@ export function AddLevelsDialog({
 
   const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
   const showCachedPreview =
-    isNumeric && trimmed.length >= 4 && !!cachedLevel.data && !seedingId && !seeded
+    isNumeric &&
+    trimmed.length >= 4 &&
+    !!cachedLevel.data &&
+    !seedingId &&
+    !seeded
   const showSeedHint =
     isNumeric &&
     trimmed.length >= 4 &&
@@ -205,7 +209,11 @@ export function AddLevelsDialog({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && isNumeric) {
-                  if (cachedLevel.data) void handleDirectAdd(cachedLevel.data.inGameId, cachedLevel.data.name)
+                  if (cachedLevel.data)
+                    void handleDirectAdd(
+                      cachedLevel.data.inGameId,
+                      cachedLevel.data.name
+                    )
                   else void seedAndSelect(trimmed)
                 }
               }}
@@ -305,7 +313,12 @@ export function AddLevelsDialog({
                 beaten={completedIds?.has(cachedLevel.data.inGameId) ?? false}
                 loading={addingId === cachedLevel.data.inGameId}
                 disabled={addEntry.isPending}
-                onSelect={() => void handleDirectAdd(cachedLevel.data!.inGameId, cachedLevel.data!.name)}
+                onSelect={() =>
+                  void handleDirectAdd(
+                    cachedLevel.data!.inGameId,
+                    cachedLevel.data!.name
+                  )
+                }
               />
             </div>
           </div>
@@ -338,8 +351,8 @@ export function AddLevelsDialog({
                   No levels match &ldquo;{trimmed}&rdquo;
                 </p>
                 <p className="mx-auto mt-1.5 max-w-[320px] text-[13px] text-text-tertiary">
-                  Nothing in your cache matched. If you know the level ID,
-                  paste it to pull it in.
+                  Nothing in your cache matched. If you know the level ID, paste
+                  it to pull it in.
                 </p>
               </div>
             ) : (
@@ -385,8 +398,8 @@ export function AddLevelsDialog({
                 Find a level to add
               </p>
               <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
-                Search your cache by name, or paste any level ID to pull it
-                from the GD servers.
+                Search your cache by name, or paste any level ID to pull it from
+                the GD servers.
               </p>
             </div>
           )}
@@ -530,7 +543,9 @@ function ResultRow({
         alt=""
         aria-hidden
         loading="lazy"
-        onError={(e) => { e.currentTarget.style.display = 'none' }}
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
         className="absolute inset-0 size-full object-cover"
       />
       <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
@@ -554,7 +569,10 @@ function ResultRow({
         </span>
       </span>
       {loading ? (
-        <Loader2 size={16} className="relative animate-spin text-text-tertiary" />
+        <Loader2
+          size={16}
+          className="relative animate-spin text-text-tertiary"
+        />
       ) : added ? (
         <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
           Added

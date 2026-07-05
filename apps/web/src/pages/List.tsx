@@ -66,7 +66,8 @@ export function List() {
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
-  const [addToCollectionItem, setAddToCollectionItem] = useState<ListItem | null>(null)
+  const [addToCollectionItem, setAddToCollectionItem] =
+    useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<FilterState>(defaultFilterState)
   const [sorts, setSorts] = useState<SortSpec[]>(DEFAULT_SORTS)
@@ -504,7 +505,9 @@ export function List() {
       <AddToCollectionDialog
         open={addToCollectionItem !== null}
         onClose={() => setAddToCollectionItem(null)}
-        {...(addToCollectionItem && { preselectedLevel: addToCollectionItem.level })}
+        {...(addToCollectionItem && {
+          preselectedLevel: addToCollectionItem.level,
+        })}
       />
 
       <PresetCreateDialog

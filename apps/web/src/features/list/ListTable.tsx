@@ -2,7 +2,12 @@ import { useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import { COLUMNS, type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
+import {
+  COLUMNS,
+  type ColumnDef,
+  type ColumnId,
+  type ColumnVisibility,
+} from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
@@ -152,7 +157,9 @@ function ColumnHeaders({
             className={cn(
               'h-8 shrink-0 items-center justify-center gap-1 text-[11px] font-medium text-text-secondary transition-opacity',
               col.sortKey && 'hover:text-text-primary',
-              isDraggable && !isDragging && 'cursor-grab active:cursor-grabbing',
+              isDraggable &&
+                !isDragging &&
+                'cursor-grab active:cursor-grabbing',
               isDragging && 'opacity-40',
               isOver && 'border-l-2 border-primary',
               col.responsiveClass

@@ -19,7 +19,10 @@ interface CollectionFormDialogProps {
   open: boolean
   onClose: () => void
   // Resolves when the save succeeds; rejects with the ApiError otherwise.
-  onSave: (input: { name: string; description: string | null }) => Promise<unknown>
+  onSave: (input: {
+    name: string
+    description: string | null
+  }) => Promise<unknown>
   isSaving: boolean
   // Edit mode: seed with the collection being edited (its own name is
   // excluded from the duplicate check so rename-to-same is allowed).

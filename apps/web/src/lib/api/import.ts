@@ -204,7 +204,12 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
-  collections: { list: string; levelId: string; levelName: string | null; position: number }[]
+  collections: {
+    list: string
+    levelId: string
+    levelName: string | null
+    position: number
+  }[]
   ratingCategories: string[]
   ratings: {
     levelId: string
@@ -257,7 +262,9 @@ export function useImportApi() {
   )
 
   const commitCollections = useCallback(
-    async (req: ImportCollectionsRequest): Promise<ImportCollectionsResponse> => {
+    async (
+      req: ImportCollectionsRequest
+    ): Promise<ImportCollectionsResponse> => {
       const token = await getIdToken()
       return apiFetch<ImportCollectionsResponse>('/v1/me/import/collections', {
         method: 'POST',
@@ -300,14 +307,15 @@ export function useImportApi() {
       }
       return items
     }
-    const [completions, dropped, ranking, collections, ratings, categories] = await Promise.all([
-      fetchAll('completions'),
-      fetchAll('dropped'),
-      fetchAll('ranking'),
-      fetchAll('collections'),
-      fetchAll('ratings'),
-      fetchAll('categories'),
-    ])
+    const [completions, dropped, ranking, collections, ratings, categories] =
+      await Promise.all([
+        fetchAll('completions'),
+        fetchAll('dropped'),
+        fetchAll('ranking'),
+        fetchAll('collections'),
+        fetchAll('ratings'),
+        fetchAll('categories'),
+      ])
     return {
       completions: completions as ExportResponse['completions'],
       dropped: dropped as ExportResponse['dropped'],
@@ -318,5 +326,12 @@ export function useImportApi() {
     }
   }, [getIdToken])
 
-  return { checkConflicts, commitBatch, commitRanking, commitCollections, commitRatings, getExport }
+  return {
+    checkConflicts,
+    commitBatch,
+    commitRanking,
+    commitCollections,
+    commitRatings,
+    getExport,
+  }
 }

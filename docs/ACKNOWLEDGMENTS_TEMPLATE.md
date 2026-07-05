@@ -29,7 +29,7 @@ None of them owe anyone their time or infrastructure — I'm grateful they exist
 
 ### GDBrowser
 
-**What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`). While I ended up using the official API for level metadata in the end, I used GDBrowser for inspiration for the level  schema and data structure.
+**What it does for InfernoLog:** Reference for how the community organizes GD's in-game sprite assets in web-friendly formats (see `DESIGN_LANGUAGE.md`). While I ended up using the official API for level metadata in the end, I used GDBrowser for inspiration for the level schema and data structure.
 **Credit:** [Colon](https://gdcolon.com/)
 **Link:** gdbrowser.com
 

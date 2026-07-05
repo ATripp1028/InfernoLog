@@ -40,7 +40,10 @@ export function collectionIdentity(
 ): CollectionIdentity {
   const builtIn = BUILT_IN_IDENTITY[type]
   if (builtIn) return builtIn
-  return { icon: List, color: CUSTOM_COLORS[hashString(id) % CUSTOM_COLORS.length]! }
+  return {
+    icon: List,
+    color: CUSTOM_COLORS[hashString(id) % CUSTOM_COLORS.length]!,
+  }
 }
 
 // rgba() for an accent hex at the given alpha (identity strips, tints).

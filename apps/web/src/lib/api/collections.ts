@@ -1,6 +1,11 @@
 // Collections API client — /v1/me/collections.
 
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import type {
   CollectionSummary,
   CollectionDetail,
@@ -43,10 +48,13 @@ export function useCollections() {
     enabled: isAuthenticated,
     queryFn: async (): Promise<CollectionSummary[]> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: CollectionSummary[] }>('/v1/me/collections', {
-        token,
-        method: 'GET',
-      })
+      const { data } = await apiFetch<{ data: CollectionSummary[] }>(
+        '/v1/me/collections',
+        {
+          token,
+          method: 'GET',
+        }
+      )
       return data
     },
   })
@@ -106,11 +114,14 @@ export function useCreateCollection() {
       input: CreateCollectionInput
     ): Promise<CollectionDetail> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: CollectionDetail }>('/v1/me/collections', {
-        token,
-        method: 'POST',
-        body: input,
-      })
+      const { data } = await apiFetch<{ data: CollectionDetail }>(
+        '/v1/me/collections',
+        {
+          token,
+          method: 'POST',
+          body: input,
+        }
+      )
       return data
     },
     onSuccess: applyDetail,
@@ -142,7 +153,10 @@ export function useDeleteCollection() {
   return useMutation({
     mutationFn: async (collectionId: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/collections/${collectionId}`, { token, method: 'DELETE' })
+      await apiFetch(`/v1/me/collections/${collectionId}`, {
+        token,
+        method: 'DELETE',
+      })
     },
     onSuccess: (_data, collectionId) => {
       qc.removeQueries({ queryKey: collectionQueryKey(collectionId) })

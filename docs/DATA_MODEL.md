@@ -252,13 +252,13 @@ Built-ins are created at signup, cannot be renamed or deleted, and their names a
 
 ### `collection_entries`
 
-| Column          | Type      | Notes                                             |
-| --------------- | --------- | ------------------------------------------------- |
-| `id`            | UUID      |                                                   |
-| `collection_id` | UUID      | FK → collections                                  |
-| `level_id`      | VARCHAR   | FK → levels.in_game_id                            |
+| Column          | Type      | Notes                                              |
+| --------------- | --------- | -------------------------------------------------- |
+| `id`            | UUID      |                                                    |
+| `collection_id` | UUID      | FK → collections                                   |
+| `level_id`      | VARCHAR   | FK → levels.in_game_id                             |
 | `ranking_index` | DECIMAL   | Fractional index (same pattern as classic_ranking) |
-| `added_at`      | TIMESTAMP |                                                   |
+| `added_at`      | TIMESTAMP |                                                    |
 
 Entries are displayed by `ranking_index` ascending. Reorders bisect the gap between the two neighbours; when a gap shrinks past 0.0001 the collection is renormalised to integers — the same fractional-indexing scheme as `classic_ranking`.
 

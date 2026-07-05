@@ -36,7 +36,11 @@ import {
   type CollectionDetail as CollectionDetailData,
   type CollectionEntry,
 } from '@/lib/api/collections'
-import { collectionIdentity, isBuiltIn, withAlpha } from '@/features/collections/identity'
+import {
+  collectionIdentity,
+  isBuiltIn,
+  withAlpha,
+} from '@/features/collections/identity'
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
 import {
@@ -132,7 +136,9 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
     }
   }
 
-  const activeIndex = activeId ? entries.findIndex((x) => x.id === activeId) : -1
+  const activeIndex = activeId
+    ? entries.findIndex((x) => x.id === activeId)
+    : -1
   const activeEntry = activeIndex >= 0 ? entries[activeIndex] : null
 
   return (
@@ -400,7 +406,9 @@ function Row({
             {level.name ?? `Level #${level.inGameId}`}
           </p>
           <p className="truncate text-xs text-text-secondary">
-            {level.creator ? `Published by ${level.creator}` : 'Unknown creator'}
+            {level.creator
+              ? `Published by ${level.creator}`
+              : 'Unknown creator'}
           </p>
         </div>
         <RankingBadge badge={entry.badge} />

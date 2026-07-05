@@ -125,7 +125,10 @@ export function MobileNav() {
         />
       </nav>
       <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
-      <AddToCollectionDialog open={addColOpen} onClose={() => setAddColOpen(false)} />
+      <AddToCollectionDialog
+        open={addColOpen}
+        onClose={() => setAddColOpen(false)}
+      />
     </div>
   )
 }

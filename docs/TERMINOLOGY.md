@@ -70,7 +70,7 @@ A stored tier or rank value from any community list, attached to a progress entr
 ## Lists
 
 **Collection**
-A user-owned grouping of levels: the built-ins (Want to Beat, Favorites, Least Favorites) plus custom named collections. Entries are ordered by a fractional index (drag to reorder). Not to be confused with *list references*, which point at external community difficulty lists (GDDL/AREDL/NLW).
+A user-owned grouping of levels: the built-ins (Want to Beat, Favorites, Least Favorites) plus custom named collections. Entries are ordered by a fractional index (drag to reorder). Not to be confused with _list references_, which point at external community difficulty lists (GDDL/AREDL/NLW).
 
 **Want to Beat**
 The built-in collection designated as the pool for the Level Picker's Personal Mode. Only holds levels the user has not completed; a level is auto-removed when its completion is logged.
