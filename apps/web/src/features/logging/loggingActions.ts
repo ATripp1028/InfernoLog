@@ -24,11 +24,6 @@ export const LOGGING_ACTIONS: LoggingAction[] = [
   },
   { key: 'progress', label: 'Log progress', icon: Flag, path: 'progress' },
   { key: 'drop', label: 'Drop a level', icon: X, path: 'drop' },
-  {
-    key: 'want-to-beat',
-    label: 'Add to Want to Beat',
-    icon: Star,
-    disabled: true,
-  },
-  { key: 'add-to-list', label: 'Add to a list', icon: List, disabled: true },
+  { key: 'want-to-beat', label: 'Add to Want to Beat', icon: Star },
+  { key: 'add-to-list', label: 'Add to a Collection', icon: List },
 ]

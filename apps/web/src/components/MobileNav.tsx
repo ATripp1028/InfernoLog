@@ -12,10 +12,14 @@ import {
   type LoggingAction,
 } from '@/features/logging/loggingActions'
 import { useMobileFabContext } from '@/context/MobileFabContext'
+import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
+import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
+  const [wtbOpen, setWtbOpen] = useState(false)
+  const [addColOpen, setAddColOpen] = useState(false)
   const location = useLocation()
   const { open } = useLoggingFlow()
   const { overrideToggle } = useMobileFabContext()
@@ -76,9 +80,14 @@ export function MobileNav() {
                   <FabSheetItem
                     action={action}
                     onSelect={() => {
-                      if (!action.path) return
                       setFabMenuOpen(false)
-                      open(action.path)
+                      if (action.path) {
+                        open(action.path)
+                      } else if (action.key === 'want-to-beat') {
+                        setWtbOpen(true)
+                      } else if (action.key === 'add-to-list') {
+                        setAddColOpen(true)
+                      }
                     }}
                   />
                 </li>
@@ -115,6 +124,8 @@ export function MobileNav() {
           }}
         />
       </nav>
+      <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
+      <AddToCollectionDialog open={addColOpen} onClose={() => setAddColOpen(false)} />
     </div>
   )
 }
