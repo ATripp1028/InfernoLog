@@ -351,6 +351,10 @@ export default $config({
     // Manual GDDL record submission from the level page (retry path).
     gddlKeyRoute('POST /v1/me/gddl-records/{levelId}')
 
+    // Bidirectional favorites/least-favorites list sync — needs KMS decrypt to
+    // read the stored GDDL API key. Synchronous (lists are small, max 4 items).
+    gddlKeyRoute('POST /v1/me/gddl-lists-sync')
+
     // Worker Lambda — runs the full GDDL import in the background so that
     // API Gateway's hard 29-second integration timeout never applies.
     // The route Lambda invokes this asynchronously (InvocationType: Event)

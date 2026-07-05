@@ -18,8 +18,9 @@ import {
   SetGddlApiKeySchema,
   RATING_WEIGHT_SUM_TARGET_CENTS,
 } from '@infernolog/core'
-import { encryptSecret } from '../utils/kms'
-import { verifyGddlApiKey, GddlInvalidKeyError } from '../utils/gddl'
+import { encryptSecret, decryptSecret } from '../utils/kms'
+import { verifyGddlApiKey, GddlInvalidKeyError, GddlError } from '../utils/gddl'
+import { syncGddlLists } from '../services/gddlListSync'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -442,6 +443,40 @@ app.get('/me/gddl-sync/:jobId', async (c) => {
   }
 
   return c.json({ data: job })
+})
+
+// POST /v1/me/gddl-lists-sync — bidirectional sync of FAVORITES and
+// LEAST_FAVORITES collections with the corresponding GDDL user lists.
+// Synchronous (lists are small); requires KMS decrypt to read the stored key.
+app.post('/me/gddl-lists-sync', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: { gddlApiKeyEncrypted: true },
+    })
+
+    if (!user.gddlApiKeyEncrypted) {
+      return c.json(
+        { error: 'No GDDL API key configured. Connect your GDDL account first.' },
+        400
+      )
+    }
+
+    const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+    const result = await syncGddlLists(userId, apiKey)
+
+    logger.info({ userId, result }, 'gddl-lists-sync: complete')
+    return c.json({ data: result })
+  } catch (err) {
+    if (err instanceof GddlError) {
+      return c.json({ error: err.message }, 502)
+    }
+    logger.error({ userId, err }, 'gddl-lists-sync: failed')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
 })
 
 // POST /v1/me/onboarding
