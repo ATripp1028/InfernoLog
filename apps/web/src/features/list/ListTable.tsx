@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
@@ -202,6 +202,11 @@ export function ListTable({
   // to collection). A 250ms window matches standard OS double-click thresholds.
   const clickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => {
+    return () => {
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current)
+    }
+  }, [])
   return (
     <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
       <ColumnHeaders
