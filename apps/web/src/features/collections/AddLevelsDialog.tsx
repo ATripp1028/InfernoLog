@@ -1,12 +1,11 @@
-// Add-levels-to-collection flow (mocks 1236:2 / 1237:2 desktop, 1239:2 /
-// 1240:2 mobile sheet; search states 1251:2). Single-level resolve → confirm,
-// sharing the logging flow's cache search + RobTop seeding:
-//   • name queries search the shared level cache (useLevelSearch)
-//   • numeric IDs preview from the cache (useLevelById) and unknown IDs seed
-//     via GET /levels/:id/resolve, with a non-blocking inline loading row
-// Duplicates already in the collection render greyed with an "Added" tag.
-// In Want to Beat, a resolved level the user already beat renders the same
-// greyed treatment ("Already completed") and cannot be added.
+// Add-levels-to-collection flow. Two distinct paths:
+//
+//   Name search / cached ID — clicking a result adds immediately (no confirmation
+//   needed — the user can see exactly what they're clicking).
+//
+//   Unknown numeric ID — "Fetch from GD servers" seeds the level from RobTop,
+//   then shows a confirmation card before adding, since the user typed a raw ID
+//   with no name visible.
 
 import { useEffect, useState } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
@@ -20,12 +19,14 @@ import {
   useLevelSearch,
   useResolveLevel,
   type Level,
+  type LevelSearchResult,
 } from '@/lib/api/logging'
 import {
   collectionErrorCode,
   useAddCollectionEntry,
   type CollectionDetail,
 } from '@/lib/api/collections'
+import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { cn } from '@/lib/utils'
 
@@ -35,7 +36,8 @@ interface AddLevelsDialogProps {
   collection: CollectionDetail
 }
 
-interface SelectedLevel {
+// Holds a level resolved from RobTop for the seeded confirmation step.
+interface SeededLevel {
   inGameId: string
   name: string | null
   creator: string | null
@@ -43,7 +45,6 @@ interface SelectedLevel {
   featured: boolean | null
   epicValue: number | null
   isRated: boolean
-  // Only known after a resolve; drives the Want to Beat completed gate.
   completed: boolean
 }
 
@@ -54,9 +55,8 @@ export function AddLevelsDialog({
 }: AddLevelsDialogProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)')
   const [query, setQuery] = useState('')
-  const [selected, setSelected] = useState<SelectedLevel | null>(null)
+  const [seeded, setSeeded] = useState<SeededLevel | null>(null)
   const [addAnother, setAddAnother] = useState(false)
-  // The unknown ID currently being fetched from the GD servers (seeding row).
   const [seedingId, setSeedingId] = useState<string | null>(null)
 
   const resolveLevel = useResolveLevel()
@@ -70,12 +70,10 @@ export function AddLevelsDialog({
   const inCollection = new Set(collection.entries.map((e) => e.level.inGameId))
   const isWantToBeat = collection.type === 'WANT_TO_BEAT'
 
-  // Reset per open; "Add another" persists checked across adds within a
-  // session but starts unchecked each time the dialog opens.
   useEffect(() => {
     if (open) {
       setQuery('')
-      setSelected(null)
+      setSeeded(null)
       setAddAnother(false)
       setSeedingId(null)
     }
@@ -83,24 +81,27 @@ export function AddLevelsDialog({
 
   if (!open) return null
 
-  // Select a level that's already in our cache — no network call needed.
-  // `completed` defaults to false; if wrong, the API will reject with
-  // LEVEL_ALREADY_COMPLETED and the catch block surfaces the right toast.
-  function selectKnown(level: Pick<Level, 'inGameId' | 'name' | 'creator' | 'inGameDifficulty' | 'featured' | 'epicValue' | 'isRated'>) {
-    setSelected({
-      inGameId: level.inGameId,
-      name: level.name,
-      creator: level.creator,
-      inGameDifficulty: level.inGameDifficulty,
-      featured: level.featured,
-      epicValue: level.epicValue,
-      isRated: level.isRated,
-      completed: false,
-    })
-    setQuery('')
+  // Direct add — for name-search results and known cached IDs where the user
+  // can see exactly what they're clicking.
+  async function handleDirectAdd(levelId: string, levelName: string | null) {
+    try {
+      await addEntry.mutateAsync({ collectionId: collection.id, levelId })
+      toast.success(`Added ${levelName ?? 'level'} to ${collection.name}`)
+      setQuery('')
+      if (!addAnother) onClose()
+    } catch (err) {
+      const code = collectionErrorCode(err)
+      toast.error(
+        code === 'LEVEL_ALREADY_COMPLETED'
+          ? 'Already completed — Want to Beat only holds unbeaten levels'
+          : err instanceof ApiError
+            ? err.message
+            : 'Could not add that level'
+      )
+    }
   }
 
-  // Seed an unknown numeric ID from RobTop, then hold the result as SELECTED.
+  // Seeded add — fetch an unknown ID from RobTop, then hold for confirmation.
   async function seedAndSelect(levelId: string) {
     setSeedingId(levelId)
     try {
@@ -111,7 +112,7 @@ export function AddLevelsDialog({
         )
         return
       }
-      setSelected({
+      setSeeded({
         inGameId: res.level.inGameId,
         name: res.level.name,
         creator: res.level.creator,
@@ -131,24 +132,17 @@ export function AddLevelsDialog({
     }
   }
 
-  const alreadyAdded = !!selected && inCollection.has(selected.inGameId)
-  const blockedCompleted = !!selected && isWantToBeat && selected.completed
-  const canAdd = !!selected && !blockedCompleted && !addEntry.isPending
-
-  async function handleAdd() {
-    if (!selected || !canAdd) return
+  // Confirm add after seeding.
+  async function handleSeededAdd() {
+    if (!seeded || seeded.completed) return
     try {
       await addEntry.mutateAsync({
         collectionId: collection.id,
-        levelId: selected.inGameId,
+        levelId: seeded.inGameId,
       })
-      toast.success(
-        alreadyAdded
-          ? `${selected.name ?? 'Level'} is already in ${collection.name}`
-          : `Added ${selected.name ?? 'level'} to ${collection.name}`
-      )
+      toast.success(`Added ${seeded.name ?? 'level'} to ${collection.name}`)
       if (addAnother) {
-        setSelected(null)
+        setSeeded(null)
         setQuery('')
       } else {
         onClose()
@@ -165,15 +159,20 @@ export function AddLevelsDialog({
     }
   }
 
-  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId
+  const seededAlreadyAdded = !!seeded && inCollection.has(seeded.inGameId)
+  const seededBlocked = !!seeded && isWantToBeat && seeded.completed
+  const canConfirm = !!seeded && !seededBlocked && !addEntry.isPending
+
+  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
   const showCachedPreview =
-    isNumeric && trimmed.length >= 4 && !!cachedLevel.data && !seedingId
+    isNumeric && trimmed.length >= 4 && !!cachedLevel.data && !seedingId && !seeded
   const showSeedHint =
     isNumeric &&
     trimmed.length >= 4 &&
     !cachedLevel.data &&
     !cachedLevel.isFetching &&
-    !seedingId
+    !seedingId &&
+    !seeded
 
   const body = (
     <>
@@ -197,7 +196,7 @@ export function AddLevelsDialog({
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && isNumeric) {
-                  if (cachedLevel.data) selectKnown(cachedLevel.data)
+                  if (cachedLevel.data) void handleDirectAdd(cachedLevel.data.inGameId, cachedLevel.data.name)
                   else void seedAndSelect(trimmed)
                 }
               }}
@@ -207,7 +206,7 @@ export function AddLevelsDialog({
           </div>
         </div>
 
-        {/* Seeding an unknown ID — inline, non-blocking (mock state 3). */}
+        {/* Fetching an unknown ID from RobTop. */}
         {seedingId && (
           <div>
             <SectionLabel>Results</SectionLabel>
@@ -222,80 +221,87 @@ export function AddLevelsDialog({
           </div>
         )}
 
-        {/* SELECTED candidate → confirm (mock 1237:2). */}
-        {selected && !seedingId && (
+        {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
+        {seeded && !seedingId && (
           <div>
             <SectionLabel>Selected</SectionLabel>
             <div
               className={cn(
                 'flex items-center gap-3 rounded-btn border px-4 py-3.5',
-                blockedCompleted || alreadyAdded
+                seededBlocked || seededAlreadyAdded
                   ? 'border-border bg-bg-surface opacity-60'
                   : 'border-primary/50 bg-primary/10'
               )}
             >
               <DifficultyFace
-                difficulty={selected.inGameDifficulty}
-                featured={selected.featured}
-                epicValue={selected.epicValue}
-                rated={selected.isRated}
+                difficulty={seeded.inGameDifficulty}
+                featured={seeded.featured}
+                epicValue={seeded.epicValue}
+                rated={seeded.isRated}
                 size={72}
                 className="drop-shadow"
               />
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-semibold text-text-primary">
-                  {selected.name ?? `Level #${selected.inGameId}`}
+                  {seeded.name ?? `Level #${seeded.inGameId}`}
                 </span>
                 <span className="block truncate text-[13px] text-text-secondary">
                   {[
-                    selected.creator ? `by ${selected.creator}` : null,
-                    selected.inGameDifficulty,
-                    `#${selected.inGameId}`,
+                    seeded.creator ? `by ${seeded.creator}` : null,
+                    seeded.inGameDifficulty,
+                    `#${seeded.inGameId}`,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
                 </span>
               </span>
-              {(blockedCompleted || alreadyAdded) && (
+              {(seededBlocked || seededAlreadyAdded) && (
                 <span className="shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-                  {alreadyAdded ? 'Added' : 'Already completed'}
+                  {seededAlreadyAdded ? 'Added' : 'Already completed'}
                 </span>
               )}
               <button
                 type="button"
-                onClick={() => setSelected(null)}
+                onClick={() => setSeeded(null)}
                 className="shrink-0 text-sm font-medium text-primary hover:underline"
               >
                 Change
               </button>
             </div>
             <p className="mt-3 text-sm text-text-secondary">
-              {blockedCompleted
+              {seededBlocked
                 ? 'You already beat this level — Want to Beat only holds unbeaten levels.'
-                : alreadyAdded
+                : seededAlreadyAdded
                   ? `This level is already in ${collection.name}.`
                   : `This level will be added to ${collection.name}.`}
             </p>
           </div>
         )}
 
-        {/* Cached preview for a typed numeric ID. */}
-        {!selected && showCachedPreview && cachedLevel.data && (
+        {/* Cached preview for a typed numeric ID — direct add on click. */}
+        {showCachedPreview && cachedLevel.data && (
           <div>
             <SectionLabel>Results</SectionLabel>
-            <div className="overflow-hidden rounded-btn border border-border">
-              <CandidateRow
-                level={cachedLevel.data}
+            <div className="overflow-hidden rounded-md border border-border">
+              <ResultRow
+                levelId={cachedLevel.data.inGameId}
+                name={cachedLevel.data.name}
+                creator={cachedLevel.data.creator}
+                songName={cachedLevel.data.songName}
+                inGameDifficulty={cachedLevel.data.inGameDifficulty}
+                featured={cachedLevel.data.featured}
+                epicValue={cachedLevel.data.epicValue}
+                isRated={cachedLevel.data.isRated}
                 added={inCollection.has(cachedLevel.data.inGameId)}
-                disabled={resolveLevel.isPending}
-                onSelect={() => selectKnown(cachedLevel.data!)}
+                disabled={addEntry.isPending}
+                onSelect={() => void handleDirectAdd(cachedLevel.data!.inGameId, cachedLevel.data!.name)}
               />
             </div>
           </div>
         )}
 
-        {/* Unknown numeric ID → offer to fetch/seed it. */}
-        {!selected && showSeedHint && (
+        {/* Unknown numeric ID — offer to seed from RobTop. */}
+        {showSeedHint && (
           <div>
             <SectionLabel>Results</SectionLabel>
             <button
@@ -309,8 +315,8 @@ export function AddLevelsDialog({
           </div>
         )}
 
-        {/* Name-search results; duplicates greyed with an "Added" tag. */}
-        {!selected && showResults && (
+        {/* Name search results — direct add on click. */}
+        {showResults && (
           <div>
             <SectionLabel>Results</SectionLabel>
             {search.isPending ? (
@@ -326,28 +332,34 @@ export function AddLevelsDialog({
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-btn border border-border">
+              <div className="overflow-hidden rounded-md border border-border">
                 {(search.data ?? []).map((r) => (
-                  <CandidateRow
+                  <ResultRow
                     key={r.inGameId}
-                    level={r}
+                    levelId={r.inGameId}
+                    name={r.name}
+                    creator={r.creator}
+                    songName={r.songName}
+                    inGameDifficulty={r.inGameDifficulty}
+                    featured={r.featured}
+                    epicValue={r.epicValue}
+                    isRated={r.isRated}
                     added={inCollection.has(r.inGameId)}
-                    disabled={resolveLevel.isPending}
-                    onSelect={() => selectKnown(r)}
+                    disabled={addEntry.isPending}
+                    onSelect={() => void handleDirectAdd(r.inGameId, r.name)}
                   />
                 ))}
               </div>
             )}
             <p className="mt-2 px-1 text-xs text-text-tertiary">
               Paste a level ID to add one InfernoLog doesn&apos;t know yet —
-              we&apos;ll fetch it. Levels already in this collection are greyed
-              out.
+              we&apos;ll fetch it from the GD servers.
             </p>
           </div>
         )}
 
-        {/* Empty prompt (mock state 1). */}
-        {!selected &&
+        {/* Empty prompt. */}
+        {!seeded &&
           !showResults &&
           !showCachedPreview &&
           !showSeedHint &&
@@ -367,6 +379,7 @@ export function AddLevelsDialog({
           )}
       </div>
 
+      {/* Footer — checkbox always visible; confirm button only for seeded path. */}
       <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
         <label className="flex cursor-pointer select-none items-center gap-2.5 text-sm text-text-primary">
           <input
@@ -377,13 +390,15 @@ export function AddLevelsDialog({
           />
           Add another after this
         </label>
-        <Button
-          onClick={() => void handleAdd()}
-          disabled={!canAdd}
-          className="min-w-[150px]"
-        >
-          {addEntry.isPending ? 'Adding…' : 'Add to collection'}
-        </Button>
+        {seeded && (
+          <Button
+            onClick={() => void handleSeededAdd()}
+            disabled={!canConfirm}
+            className="min-w-[150px]"
+          >
+            {addEntry.isPending ? 'Adding…' : 'Add to collection'}
+          </Button>
+        )}
       </div>
     </>
   )
@@ -428,7 +443,6 @@ export function AddLevelsDialog({
     )
   }
 
-  // Mobile — bottom sheet (mocks 1239:2 / 1240:2).
   return (
     <div className="fixed inset-0 z-50 md:hidden">
       <button
@@ -456,71 +470,79 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-// One search-result / cached-preview row. `added` rows are greyed with an
-// "Added" pill and not selectable (mock 1236:2).
-function CandidateRow({
-  level,
+// Shared result row — matches the logging flow's FindLevelStep visual style.
+// Thumbnail backdrop, gradient scrim, difficulty face, name/meta, ID on right.
+// "Added" rows show a tag instead of the ID and are not clickable.
+function ResultRow({
+  levelId,
+  name,
+  creator,
+  songName,
+  inGameDifficulty,
+  featured,
+  epicValue,
+  isRated,
   added,
   disabled,
   onSelect,
 }: {
-  level: Pick<
-    Level,
-    | 'inGameId'
-    | 'name'
-    | 'creator'
-    | 'inGameDifficulty'
-    | 'featured'
-    | 'epicValue'
-    | 'isRated'
-  >
+  levelId: string
+  name: string | null
+  creator: string | null
+  songName: string | null
+  inGameDifficulty: string | null
+  featured: boolean | null
+  epicValue: number | null
+  isRated: boolean
   added: boolean
   disabled: boolean
   onSelect: () => void
 }) {
-  const meta = [
-    level.creator ? `by ${level.creator}` : null,
-    level.inGameDifficulty,
-  ]
+  const meta = [creator ? `by ${creator}` : null, songName]
     .filter(Boolean)
     .join(' · ')
   return (
     <button
       type="button"
-      disabled={disabled || added}
+      disabled={added || disabled}
       onClick={onSelect}
-      className={cn(
-        'flex h-16 w-full items-center gap-3 border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0',
-        added
-          ? 'cursor-not-allowed opacity-50'
-          : 'hover:bg-bg-subtle disabled:opacity-60'
-      )}
+      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
     >
-      <DifficultyFace
-        difficulty={level.inGameDifficulty}
-        featured={level.featured}
-        epicValue={level.epicValue}
-        rated={level.isRated}
-        size={72}
-        className="shrink-0 drop-shadow"
+      <img
+        src={levelThumbnailUrl(levelId)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        onError={(e) => { e.currentTarget.style.display = 'none' }}
+        className="absolute inset-0 size-full object-cover"
       />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate font-medium leading-tight text-text-primary">
-          {level.name ?? `Level #${level.inGameId}`}
-        </span>
-        {meta && (
-          <span className="block truncate text-xs text-text-secondary">
-            {meta}
+      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
+      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
+      <span className="relative flex items-center gap-3">
+        <DifficultyFace
+          difficulty={inGameDifficulty}
+          featured={featured}
+          epicValue={epicValue}
+          rated={isRated}
+          size={100}
+          className="translate-y-[3px] drop-shadow"
+        />
+        <span>
+          <span className="block font-medium leading-tight text-text-primary">
+            {name ?? `Level #${levelId}`}
           </span>
-        )}
+          {meta && (
+            <span className="block text-xs text-text-secondary">{meta}</span>
+          )}
+        </span>
       </span>
       {added ? (
-        <span className="shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
           Added
         </span>
       ) : (
-        <span className="shrink-0 font-mono text-xs text-text-secondary">
-          #{level.inGameId}
+        <span className="relative font-mono text-xs text-text-secondary">
+          #{levelId}
         </span>
       )}
     </button>
