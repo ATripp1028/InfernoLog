@@ -29,7 +29,7 @@ const { applyCompletion } = await import('../services/progress')
 const prisma = getTestPrisma()
 
 // ─────────────────────────────────────────────
-// Request helpers — paths address the user by username (the app's usual form).
+// Request helpers
 // ─────────────────────────────────────────────
 
 function send(
@@ -97,7 +97,7 @@ async function seedAccount() {
   }
 }
 
-const base = (username: string) => `/users/${username}/collections`
+const base = '/me/collections'
 
 beforeEach(async () => {
   vi.clearAllMocks()
@@ -120,7 +120,7 @@ describe('Want to Beat membership rules', () => {
     const add = await send(
       user.id,
       'POST',
-      `${base(user.username)}/${wtb.id}/entries`,
+      `${base}/${wtb.id}/entries`,
       { levelId: '100' }
     )
     expect(add.status).toBe(200)
@@ -136,7 +136,7 @@ describe('Want to Beat membership rules', () => {
     } as Parameters<typeof applyCompletion>[1])
 
     // The level has disappeared from Want to Beat.
-    const res = await send(user.id, 'GET', `${base(user.username)}/${wtb.id}`)
+    const res = await send(user.id, 'GET', `${base}/${wtb.id}`)
     detail = (await res.json()) as DetailBody
     expect(detail.data.entries).toEqual([])
   })
@@ -153,7 +153,7 @@ describe('Want to Beat membership rules', () => {
     const res = await send(
       user.id,
       'POST',
-      `${base(user.username)}/${wtb.id}/entries`,
+      `${base}/${wtb.id}/entries`,
       { levelId: '200' }
     )
     expect(res.status).toBe(409)
@@ -164,7 +164,7 @@ describe('Want to Beat membership rules', () => {
     const ok = await send(
       user.id,
       'POST',
-      `${base(user.username)}/${favorites.id}/entries`,
+      `${base}/${favorites.id}/entries`,
       { levelId: '200' }
     )
     expect(ok.status).toBe(200)
@@ -180,13 +180,13 @@ describe('Want to Beat membership rules', () => {
 describe('collection CRUD', () => {
   it('creates a custom collection and lists built-ins first', async () => {
     const { user } = await seedAccount()
-    const create = await send(user.id, 'POST', base(user.username), {
+    const create = await send(user.id, 'POST', base, {
       name: 'Hardest Beaten',
       description: 'bragging rights',
     })
     expect(create.status).toBe(200)
 
-    const res = await send(user.id, 'GET', base(user.username))
+    const res = await send(user.id, 'GET', base)
     const body = (await res.json()) as SummaryBody
     expect(body.data.map((c) => c.type)).toEqual([
       'WANT_TO_BEAT',
@@ -203,15 +203,15 @@ describe('collection CRUD', () => {
 
   it('rejects duplicate names (409) and reserved names (422), case-insensitively', async () => {
     const { user } = await seedAccount()
-    await send(user.id, 'POST', base(user.username), { name: 'My Picks' })
+    await send(user.id, 'POST', base, { name: 'My Picks' })
 
-    const dup = await send(user.id, 'POST', base(user.username), {
+    const dup = await send(user.id, 'POST', base, {
       name: 'my picks',
     })
     expect(dup.status).toBe(409)
     expect(await dup.json()).toMatchObject({ error: 'DUPLICATE_NAME' })
 
-    const reserved = await send(user.id, 'POST', base(user.username), {
+    const reserved = await send(user.id, 'POST', base, {
       name: 'want to beat',
     })
     expect(reserved.status).toBe(422)
@@ -220,7 +220,7 @@ describe('collection CRUD', () => {
 
   it('renames/edits custom collections but rejects edits and deletes of built-ins', async () => {
     const { user, wtb } = await seedAccount()
-    const create = await send(user.id, 'POST', base(user.username), {
+    const create = await send(user.id, 'POST', base, {
       name: 'Temp',
     })
     const created = (await create.json()) as DetailBody
@@ -228,7 +228,7 @@ describe('collection CRUD', () => {
     const rename = await send(
       user.id,
       'PATCH',
-      `${base(user.username)}/${created.data.id}`,
+      `${base}/${created.data.id}`,
       { name: 'Renamed', description: 'now with words' }
     )
     expect(rename.status).toBe(200)
@@ -240,7 +240,7 @@ describe('collection CRUD', () => {
     const editBuiltIn = await send(
       user.id,
       'PATCH',
-      `${base(user.username)}/${wtb.id}`,
+      `${base}/${wtb.id}`,
       { name: 'nope' }
     )
     expect(editBuiltIn.status).toBe(403)
@@ -251,25 +251,23 @@ describe('collection CRUD', () => {
     const deleteBuiltIn = await send(
       user.id,
       'DELETE',
-      `${base(user.username)}/${wtb.id}`
+      `${base}/${wtb.id}`
     )
     expect(deleteBuiltIn.status).toBe(403)
 
     const deleteCustom = await send(
       user.id,
       'DELETE',
-      `${base(user.username)}/${created.data.id}`
+      `${base}/${created.data.id}`
     )
     expect(deleteCustom.status).toBe(204)
   })
 
-  it("blocks writes against another user's path (403) even when authenticated", async () => {
-    const { user } = await seedAccount()
+  it("cannot access another user's collection by its ID (404)", async () => {
+    const { favorites } = await seedAccount()
     const other = await seedUser(prisma)
-    const res = await send(other.id, 'POST', base(user.username), {
-      name: 'Sneaky',
-    })
-    expect(res.status).toBe(403)
+    const res = await send(other.id, 'GET', `${base}/${favorites.id}`)
+    expect(res.status).toBe(404)
   })
 })
 
@@ -280,7 +278,7 @@ describe('collection CRUD', () => {
 describe('collection entries', () => {
   it('appends entries in order, is idempotent on duplicates, and removes', async () => {
     const { user, favorites } = await seedAccount()
-    const path = `${base(user.username)}/${favorites.id}/entries`
+    const path = `${base}/${favorites.id}/entries`
 
     await send(user.id, 'POST', path, { levelId: '100' })
     await send(user.id, 'POST', path, { levelId: '200' })
@@ -302,19 +300,21 @@ describe('collection entries', () => {
       'DELETE',
       `${path}/${detail.data.entries[0]!.id}`
     )
-    expect(removeRes.status).toBe(200)
-    detail = (await removeRes.json()) as DetailBody
-    expect(detail.data.entries.map((e) => e.level.inGameId)).toEqual(['200'])
+    expect(removeRes.status).toBe(204)
+    const afterRemove = (await (
+      await send(user.id, 'GET', `${base}/${favorites.id}`)
+    ).json()) as DetailBody
+    expect(afterRemove.data.entries.map((e) => e.level.inGameId)).toEqual(['200'])
   })
 
   it('reorders an entry between neighbours by bisecting the gap', async () => {
     const { user, favorites } = await seedAccount()
-    const path = `${base(user.username)}/${favorites.id}/entries`
+    const path = `${base}/${favorites.id}/entries`
     for (const levelId of ['100', '200', '300']) {
       await send(user.id, 'POST', path, { levelId })
     }
     const before = (await (
-      await send(user.id, 'GET', `${base(user.username)}/${favorites.id}`)
+      await send(user.id, 'GET', `${base}/${favorites.id}`)
     ).json()) as DetailBody
     const [a, b, c] = before.data.entries
     expect(before.data.entries.map((e) => e.level.inGameId)).toEqual([
