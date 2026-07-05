@@ -93,7 +93,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       toast.error(error ?? 'Sync failed', { id: `gddl-sync-${syncJobId}` })
       setSyncJobId(null)
     }
-  }, [syncStatus.data?.status, syncJobId, queryClient])
+  }, [syncStatus.data, syncJobId, queryClient])
 
   const isSyncing = sync.isPending || syncJobId !== null
 
