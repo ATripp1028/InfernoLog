@@ -17,7 +17,8 @@ import type { ExportSection } from '@infernolog/core'
 export const EXPORT_DEFAULT_LIMIT = 500
 export const EXPORT_MAX_LIMIT = 1000
 
-const iso = (d: Date | null): string | null => (d ? d.toISOString().slice(0, 10) : null)
+const iso = (d: Date | null): string | null =>
+  d ? d.toISOString().slice(0, 10) : null
 
 // Reserved collection types → the import keyword; custom collections export by name.
 const LIST_KEYWORD: Record<string, string> = {
@@ -70,8 +71,10 @@ async function exportCompletions(userId: string, skip: number, take: number) {
   return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
     if (!pu) return []
-    const gddl = pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
-    const nlw = pu.listReferences.find((r) => r.listSource === 'NLW')?.tierOrRank ?? null
+    const gddl =
+      pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
+    const nlw =
+      pu.listReferences.find((r) => r.listSource === 'NLW')?.tierOrRank ?? null
     return [
       {
         levelId: lp.levelId,
@@ -139,7 +142,11 @@ async function exportRanking(userId: string, skip: number, take: number) {
     orderBy: { rankingIndex: 'desc' }, // hardest first
     skip,
     take,
-    select: { levelProgress: { select: { levelId: true, level: { select: { name: true } } } } },
+    select: {
+      levelProgress: {
+        select: { levelId: true, level: { select: { name: true } } },
+      },
+    },
   })
   return rows.map((r, i) => ({
     rank: skip + i + 1,
@@ -206,7 +213,9 @@ async function exportRatings(userId: string, skip: number, take: number) {
   const lps = await prisma.levelProgress.findMany({
     where: {
       userId,
-      progressUpdates: { some: { isCompletion: true, ratingScores: { some: {} } } },
+      progressUpdates: {
+        some: { isCompletion: true, ratingScores: { some: {} } },
+      },
     },
     orderBy: { createdAt: 'asc' },
     skip,

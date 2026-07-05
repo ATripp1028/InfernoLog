@@ -21,7 +21,11 @@ import { commitImportBatch, checkImportConflicts } from '../services/import'
 import { commitImportRanking } from '../services/importRanking'
 import { commitImportCollections } from '../services/importCollections'
 import { commitImportRatings } from '../services/importRatings'
-import { exportSection, EXPORT_DEFAULT_LIMIT, EXPORT_MAX_LIMIT } from '../services/exportData'
+import {
+  exportSection,
+  EXPORT_DEFAULT_LIMIT,
+  EXPORT_MAX_LIMIT,
+} from '../services/exportData'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -72,7 +76,8 @@ app.post('/me/import', async (c) => {
         userId,
         importJobId: parsed.data.importJobId,
         rowCount: parsed.data.rows.length,
-        committed: result.outcomes.filter((o) => o.status === 'committed').length,
+        committed: result.outcomes.filter((o) => o.status === 'committed')
+          .length,
         updated: result.outcomes.filter((o) => o.status === 'updated').length,
         skipped: result.outcomes.filter((o) => o.status === 'skipped').length,
         failed: result.outcomes.filter((o) => o.status === 'failed').length,
@@ -199,17 +204,29 @@ app.get('/me/export', async (c) => {
   try {
     const section = c.req.query('section')
     if (!section || !(EXPORT_SECTIONS as readonly string[]).includes(section)) {
-      return c.json({ error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` }, 400)
+      return c.json(
+        { error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` },
+        400
+      )
     }
 
     const rawOffset = Number(c.req.query('offset') ?? '0')
-    const rawLimit = Number(c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT))
-    const offset = Number.isFinite(rawOffset) ? Math.max(0, Math.trunc(rawOffset)) : 0
+    const rawLimit = Number(
+      c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT)
+    )
+    const offset = Number.isFinite(rawOffset)
+      ? Math.max(0, Math.trunc(rawOffset))
+      : 0
     const limit = Number.isFinite(rawLimit)
       ? Math.min(EXPORT_MAX_LIMIT, Math.max(1, Math.trunc(rawLimit)))
       : EXPORT_DEFAULT_LIMIT
 
-    const page = await exportSection(userId, section as ExportSection, offset, limit)
+    const page = await exportSection(
+      userId,
+      section as ExportSection,
+      offset,
+      limit
+    )
     return c.json(page, 200)
   } catch (err) {
     logger.error({ userId, err }, 'GET /me/export error')

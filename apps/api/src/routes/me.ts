@@ -459,7 +459,9 @@ app.post('/me/gddl-lists-sync', async (c) => {
 
     if (!user.gddlApiKeyEncrypted) {
       return c.json(
-        { error: 'No GDDL API key configured. Connect your GDDL account first.' },
+        {
+          error: 'No GDDL API key configured. Connect your GDDL account first.',
+        },
         400
       )
     }

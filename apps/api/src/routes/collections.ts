@@ -37,7 +37,10 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
 function mapServiceError(error: unknown, label: string) {
   if (error instanceof CollectionError) {
-    return { status: error.status, body: { error: error.code, message: error.message } } as const
+    return {
+      status: error.status,
+      body: { error: error.code, message: error.message },
+    } as const
   }
   if (error instanceof CollectionNotFoundError) {
     return { status: 404 as const, body: { error: error.message } }
@@ -71,7 +74,10 @@ app.post('/me/collections', async (c) => {
     logger.info({ userId, collectionId: detail.id }, 'Collection created')
     return c.json({ data: detail })
   } catch (error) {
-    const { status, body: errBody } = mapServiceError(error, 'POST /me/collections')
+    const { status, body: errBody } = mapServiceError(
+      error,
+      'POST /me/collections'
+    )
     return c.json(errBody, status)
   }
 })
@@ -79,7 +85,9 @@ app.post('/me/collections', async (c) => {
 app.get('/me/collections/:collectionId', async (c) => {
   const userId = c.get('userId') as string
   try {
-    return c.json({ data: await getCollectionDetail(userId, c.req.param('collectionId')) })
+    return c.json({
+      data: await getCollectionDetail(userId, c.req.param('collectionId')),
+    })
   } catch (error) {
     const { status, body } = mapServiceError(error, 'GET /me/collections/:id')
     return c.json(body, status)
@@ -93,9 +101,18 @@ app.patch('/me/collections/:collectionId', async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
 
   try {
-    return c.json({ data: await updateCollection(userId, c.req.param('collectionId'), parsed.data) })
+    return c.json({
+      data: await updateCollection(
+        userId,
+        c.req.param('collectionId'),
+        parsed.data
+      ),
+    })
   } catch (error) {
-    const { status, body: errBody } = mapServiceError(error, 'PATCH /me/collections/:id')
+    const { status, body: errBody } = mapServiceError(
+      error,
+      'PATCH /me/collections/:id'
+    )
     return c.json(errBody, status)
   }
 })
@@ -106,7 +123,10 @@ app.delete('/me/collections/:collectionId', async (c) => {
     await deleteCollection(userId, c.req.param('collectionId'))
     return c.body(null, 204)
   } catch (error) {
-    const { status, body } = mapServiceError(error, 'DELETE /me/collections/:id')
+    const { status, body } = mapServiceError(
+      error,
+      'DELETE /me/collections/:id'
+    )
     return c.json(body, status)
   }
 })
@@ -118,9 +138,18 @@ app.post('/me/collections/:collectionId/entries', async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
 
   try {
-    return c.json({ data: await addEntry(userId, c.req.param('collectionId'), parsed.data.levelId) })
+    return c.json({
+      data: await addEntry(
+        userId,
+        c.req.param('collectionId'),
+        parsed.data.levelId
+      ),
+    })
   } catch (error) {
-    const { status, body: errBody } = mapServiceError(error, 'POST /me/collections/:id/entries')
+    const { status, body: errBody } = mapServiceError(
+      error,
+      'POST /me/collections/:id/entries'
+    )
     return c.json(errBody, status)
   }
 })
@@ -132,9 +161,19 @@ app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
 
   try {
-    return c.json({ data: await reorderEntry(userId, c.req.param('collectionId'), c.req.param('entryId'), parsed.data) })
+    return c.json({
+      data: await reorderEntry(
+        userId,
+        c.req.param('collectionId'),
+        c.req.param('entryId'),
+        parsed.data
+      ),
+    })
   } catch (error) {
-    const { status, body: errBody } = mapServiceError(error, 'PATCH /me/collections/:id/entries/:entryId')
+    const { status, body: errBody } = mapServiceError(
+      error,
+      'PATCH /me/collections/:id/entries/:entryId'
+    )
     return c.json(errBody, status)
   }
 })
@@ -142,10 +181,17 @@ app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
 app.delete('/me/collections/:collectionId/entries/:entryId', async (c) => {
   const userId = c.get('userId') as string
   try {
-    await removeEntry(userId, c.req.param('collectionId'), c.req.param('entryId'))
+    await removeEntry(
+      userId,
+      c.req.param('collectionId'),
+      c.req.param('entryId')
+    )
     return c.body(null, 204)
   } catch (error) {
-    const { status, body } = mapServiceError(error, 'DELETE /me/collections/:id/entries/:entryId')
+    const { status, body } = mapServiceError(
+      error,
+      'DELETE /me/collections/:id/entries/:entryId'
+    )
     return c.json(body, status)
   }
 })

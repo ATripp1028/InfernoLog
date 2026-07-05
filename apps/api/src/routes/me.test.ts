@@ -528,8 +528,18 @@ describe('GET /me/gddl-sync/:jobId', () => {
 
 describe('POST /me/gddl-lists-sync', () => {
   const mockResult = {
-    favorites: { addedToInferno: ['100'], addedToGddl: [], removedFromGddl: [], skipped: [] },
-    leastFavorites: { addedToInferno: [], addedToGddl: ['200'], removedFromGddl: ['300'], skipped: [] },
+    favorites: {
+      addedToInferno: ['100'],
+      addedToGddl: [],
+      removedFromGddl: [],
+      skipped: [],
+    },
+    leastFavorites: {
+      addedToInferno: [],
+      addedToGddl: ['200'],
+      removedFromGddl: ['300'],
+      skipped: [],
+    },
   }
 
   it('decrypts the key, runs the sync, and returns the result', async () => {
@@ -538,7 +548,9 @@ describe('POST /me/gddl-lists-sync', () => {
     } as never)
     mockSyncGddlLists.mockResolvedValueOnce(mockResult)
 
-    const res = await buildApp().request('/me/gddl-lists-sync', { method: 'POST' })
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
     const body = (await res.json()) as { data: typeof mockResult }
 
     expect(res.status).toBe(200)
@@ -551,7 +563,9 @@ describe('POST /me/gddl-lists-sync', () => {
       gddlApiKeyEncrypted: null,
     } as never)
 
-    const res = await buildApp().request('/me/gddl-lists-sync', { method: 'POST' })
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
 
     expect(res.status).toBe(400)
     expect(mockSyncGddlLists).not.toHaveBeenCalled()
@@ -563,7 +577,9 @@ describe('POST /me/gddl-lists-sync', () => {
     } as never)
     mockSyncGddlLists.mockRejectedValueOnce(new GddlError('GDDL is down'))
 
-    const res = await buildApp().request('/me/gddl-lists-sync', { method: 'POST' })
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
     const body = (await res.json()) as { error: string }
 
     expect(res.status).toBe(502)
@@ -573,7 +589,9 @@ describe('POST /me/gddl-lists-sync', () => {
   it('returns 500 on database errors', async () => {
     prisma.user.findUniqueOrThrow.mockRejectedValueOnce(new Error('DB error'))
 
-    const res = await buildApp().request('/me/gddl-lists-sync', { method: 'POST' })
+    const res = await buildApp().request('/me/gddl-lists-sync', {
+      method: 'POST',
+    })
     const body = (await res.json()) as { error: string }
 
     expect(res.status).toBe(500)

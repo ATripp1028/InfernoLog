@@ -283,7 +283,6 @@ app.get('/me/progress/:levelId', async (c) => {
     // No entry → 404 (whether the level doesn't exist or the user never logged it).
     if (!lp) return c.json({ error: 'Level progress not found' }, 404)
 
-
     // Build runsGraph. In v1 there is at most one drop event on level_progress;
     // computeRunsGraph accepts an array for forward-compatibility.
     // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on

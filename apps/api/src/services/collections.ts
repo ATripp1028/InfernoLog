@@ -124,7 +124,10 @@ async function loadCompletionsByLevel(userId: string, levelIds: string[]) {
   return new Map(lps.map((lp) => [lp.levelId, lp.progressUpdates]))
 }
 
-export async function getCollectionDetail(userId: string, collectionId: string) {
+export async function getCollectionDetail(
+  userId: string,
+  collectionId: string
+) {
   const collection = await prisma.collection.findFirst({
     where: { id: collectionId, userId },
     select: {

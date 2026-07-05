@@ -117,12 +117,9 @@ describe('Want to Beat membership rules', () => {
     const { user, wtb } = await seedAccount()
 
     // Add level 100 to Want to Beat.
-    const add = await send(
-      user.id,
-      'POST',
-      `${base}/${wtb.id}/entries`,
-      { levelId: '100' }
-    )
+    const add = await send(user.id, 'POST', `${base}/${wtb.id}/entries`, {
+      levelId: '100',
+    })
     expect(add.status).toBe(200)
     let detail = (await add.json()) as DetailBody
     expect(detail.data.entries.map((e) => e.level.inGameId)).toEqual(['100'])
@@ -150,23 +147,17 @@ describe('Want to Beat membership rules', () => {
       visibility: 'PUBLIC',
     } as Parameters<typeof applyCompletion>[1])
 
-    const res = await send(
-      user.id,
-      'POST',
-      `${base}/${wtb.id}/entries`,
-      { levelId: '200' }
-    )
+    const res = await send(user.id, 'POST', `${base}/${wtb.id}/entries`, {
+      levelId: '200',
+    })
     expect(res.status).toBe(409)
     expect(await res.json()).toMatchObject({ error: 'LEVEL_ALREADY_COMPLETED' })
 
     // The same completed level is still fine in a non-WTB collection, and its
     // entry carries completed: true.
-    const ok = await send(
-      user.id,
-      'POST',
-      `${base}/${favorites.id}/entries`,
-      { levelId: '200' }
-    )
+    const ok = await send(user.id, 'POST', `${base}/${favorites.id}/entries`, {
+      levelId: '200',
+    })
     expect(ok.status).toBe(200)
     const detail = (await ok.json()) as DetailBody
     expect(detail.data.entries[0]).toMatchObject({ completed: true })
@@ -225,34 +216,25 @@ describe('collection CRUD', () => {
     })
     const created = (await create.json()) as DetailBody
 
-    const rename = await send(
-      user.id,
-      'PATCH',
-      `${base}/${created.data.id}`,
-      { name: 'Renamed', description: 'now with words' }
-    )
+    const rename = await send(user.id, 'PATCH', `${base}/${created.data.id}`, {
+      name: 'Renamed',
+      description: 'now with words',
+    })
     expect(rename.status).toBe(200)
     expect(((await rename.json()) as DetailBody).data).toMatchObject({
       name: 'Renamed',
       description: 'now with words',
     })
 
-    const editBuiltIn = await send(
-      user.id,
-      'PATCH',
-      `${base}/${wtb.id}`,
-      { name: 'nope' }
-    )
+    const editBuiltIn = await send(user.id, 'PATCH', `${base}/${wtb.id}`, {
+      name: 'nope',
+    })
     expect(editBuiltIn.status).toBe(403)
     expect(await editBuiltIn.json()).toMatchObject({
       error: 'BUILT_IN_COLLECTION',
     })
 
-    const deleteBuiltIn = await send(
-      user.id,
-      'DELETE',
-      `${base}/${wtb.id}`
-    )
+    const deleteBuiltIn = await send(user.id, 'DELETE', `${base}/${wtb.id}`)
     expect(deleteBuiltIn.status).toBe(403)
 
     const deleteCustom = await send(
@@ -304,7 +286,9 @@ describe('collection entries', () => {
     const afterRemove = (await (
       await send(user.id, 'GET', `${base}/${favorites.id}`)
     ).json()) as DetailBody
-    expect(afterRemove.data.entries.map((e) => e.level.inGameId)).toEqual(['200'])
+    expect(afterRemove.data.entries.map((e) => e.level.inGameId)).toEqual([
+      '200',
+    ])
   })
 
   it('reorders an entry between neighbours by bisecting the gap', async () => {
