@@ -16,6 +16,7 @@ export function CollectionCard({
   const identity = collectionIdentity(collection.type, collection.id)
   const Icon = identity.icon
   const count = collection.entryCount
+  const thumbId = collection.previewLevelIds[0]
 
   return (
     <Link
@@ -23,17 +24,36 @@ export function CollectionCard({
       params={{ collectionId: collection.id }}
       className="group overflow-hidden rounded-card border border-border bg-bg-surface transition-colors hover:border-border-subtle hover:bg-bg-elevated"
     >
-      <div
-        className="flex h-24 items-center justify-between p-4"
-        style={{ backgroundColor: withAlpha(identity.color, 0.14) }}
-      >
-        <span
-          className="flex size-11 items-center justify-center rounded-[10px]"
-          style={{ backgroundColor: withAlpha(identity.color, 0.9) }}
-        >
-          <Icon size={22} className="text-bg-base" strokeWidth={2.5} />
-        </span>
-        <ThumbCluster levelIds={collection.previewLevelIds} />
+      <div className="relative h-24 overflow-hidden">
+        {/* Base surface so the area is opaque if the thumbnail 404s. */}
+        <div className="absolute inset-0 bg-bg-surface" />
+        {thumbId && (
+          <img
+            src={levelThumbnailUrl(thumbId)}
+            alt=""
+            aria-hidden
+            loading="lazy"
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+            className="absolute inset-0 size-full object-cover"
+          />
+        )}
+        {/* Identity-color gradient scrim — stronger when a thumbnail is present. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background: thumbId
+              ? `linear-gradient(135deg, ${withAlpha(identity.color, 0.82)} 0%, ${withAlpha(identity.color, 0.5)} 100%)`
+              : withAlpha(identity.color, 0.14),
+          }}
+        />
+        <div className="relative z-10 flex h-full items-center justify-center">
+          <span
+            className="flex size-11 items-center justify-center rounded-[10px]"
+            style={{ backgroundColor: withAlpha(identity.color, 0.9) }}
+          >
+            <Icon size={22} className="text-bg-base" strokeWidth={2.5} />
+          </span>
+        </div>
       </div>
       <div className="flex flex-col gap-1.5 px-4 py-3.5">
         <div className="flex items-center gap-2">
@@ -51,40 +71,6 @@ export function CollectionCard({
         </span>
       </div>
     </Link>
-  )
-}
-
-// Up to four overlapping level thumbnails, newest-in-collection on the left.
-// An empty collection shows a single dashed placeholder frame (mock 1250:41).
-function ThumbCluster({ levelIds }: { levelIds: string[] }) {
-  if (levelIds.length === 0) {
-    return (
-      <span className="h-14 w-[120px]">
-        <span className="ml-auto mt-2 block h-10 w-[52px] rounded border-2 border-dashed border-border" />
-      </span>
-    )
-  }
-  return (
-    <span className="relative block h-14 w-[120px]">
-      {levelIds.slice(0, 4).map((levelId, i) => (
-        <img
-          key={levelId}
-          src={levelThumbnailUrl(levelId)}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.style.visibility = 'hidden'
-          }}
-          className="absolute h-10 w-[52px] rounded border-2 border-bg-base bg-bg-elevated object-cover"
-          style={{
-            left: 80 - i * 22,
-            top: i % 2 === 0 ? 8 : 12,
-            zIndex: 4 - i,
-          }}
-        />
-      ))}
-    </span>
   )
 }
 
