@@ -208,7 +208,10 @@ export function ListTable({
     }
   }, [])
   return (
-    <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
+    <div
+      className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block"
+      style={{ maskImage: 'linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%)' }}
+    >
       <ColumnHeaders
         orderedCols={orderedCols}
         sorts={sorts}
@@ -276,6 +279,7 @@ export function ListTable({
           </RowContextMenu>
         )
       })}
+      <div aria-hidden className="h-20 shrink-0" />
     </div>
   )
 }
