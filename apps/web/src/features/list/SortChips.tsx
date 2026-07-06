@@ -14,20 +14,23 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
-import { SORT_LABEL, SORT_OPTIONS, defaultDir } from './sortMeta'
+import { SORT_OPTIONS, defaultDir, getSortLabel } from './sortMeta'
 import type { SortKey, SortSpec } from './types'
 
 interface SortChipsProps {
   sorts: SortSpec[]
   onChange: (sorts: SortSpec[]) => void
+  extraSortOptions?: { key: SortKey; label: string }[]
 }
 
 function Chip({
   spec,
+  label,
   onToggleDir,
   onRemove,
 }: {
   spec: SortSpec
+  label: string
   onToggleDir: () => void
   onRemove: () => void
 }) {
@@ -62,7 +65,7 @@ function Chip({
         onClick={onToggleDir}
         className="flex items-center gap-1 font-medium text-text-primary"
       >
-        {SORT_LABEL[spec.key]}
+        {label}
         {spec.dir === 'asc' ? (
           <ArrowUp size={12} className="text-success" />
         ) : (
@@ -72,7 +75,7 @@ function Chip({
       <button
         type="button"
         onClick={onRemove}
-        aria-label={`Remove ${SORT_LABEL[spec.key]} sort`}
+        aria-label={`Remove ${label} sort`}
         className="text-text-secondary hover:text-text-primary"
       >
         <X size={12} />
@@ -81,10 +84,11 @@ function Chip({
   )
 }
 
-export function SortChips({ sorts, onChange }: SortChipsProps) {
+export function SortChips({ sorts, onChange, extraSortOptions = [] }: SortChipsProps) {
   const sensors = useSortableSensors()
   const activeKeys = new Set(sorts.map((s) => s.key))
-  const available = SORT_OPTIONS.filter((o) => !activeKeys.has(o.key))
+  const allOptions = [...SORT_OPTIONS, ...extraSortOptions]
+  const available = allOptions.filter((o) => !activeKeys.has(o.key))
 
   function handleDragEnd(e: DragEndEvent) {
     const { active, over } = e
@@ -126,6 +130,7 @@ export function SortChips({ sorts, onChange }: SortChipsProps) {
             <Chip
               key={spec.key}
               spec={spec}
+              label={getSortLabel(spec.key, extraSortOptions)}
               onToggleDir={() => toggleDir(spec.key)}
               onRemove={() => remove(spec.key)}
             />

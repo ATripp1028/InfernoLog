@@ -114,6 +114,7 @@ function serializeEntry(
     device: update.device,
     loggedAt: update.loggedAt,
     listReferences: update.listReferences,
+    ratingScores: update.ratingScores,
   }
 }
 

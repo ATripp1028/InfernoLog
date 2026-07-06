@@ -24,6 +24,7 @@ import {
 } from './presets'
 import type { ListPreset } from '@/lib/api/presets'
 import { useMe, type RatingDisplayScale } from '@/lib/api/me'
+import { getCategoryColumnDefs } from './columns'
 
 // ─────────────────────────────────────────────
 // Hover card (portal-rendered, so it can overflow the Popover boundary)
@@ -46,10 +47,17 @@ function PresetHoverCard({
 }) {
   const me = useMe()
   const scale: RatingDisplayScale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
+  const categories =
+    me.data?.ratingMode === 'WEIGHTED' ? (me.data.ratingCategories ?? []) : []
+  const catSortOptions = categories.map((cat) => ({
+    key: `cat:${cat.id}` as `cat:${string}`,
+    label: cat.name,
+  }))
+  const allColumnDefs = getCategoryColumnDefs(categories)
   const color = getPresetColor(preset.color)
-  const sortSummary = summarizeSorts(preset.sorts)
-  const filterLines = summarizeFilters(preset.filters, scale)
-  const colSummary = summarizeColumns(preset.columns, preset.columnOrder)
+  const sortSummary = summarizeSorts(preset.sorts, catSortOptions)
+  const filterLines = summarizeFilters(preset.filters, scale, categories)
+  const colSummary = summarizeColumns(preset.columns, preset.columnOrder, allColumnDefs)
 
   return (
     <div className="space-y-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">

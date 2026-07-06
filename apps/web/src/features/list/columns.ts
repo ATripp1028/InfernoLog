@@ -1,8 +1,9 @@
 import type { SortKey } from './types'
+import type { RatingCategory } from '@/lib/api/me'
 
 // The optional, toggleable columns of the columnar (desktop/tablet) layout.
 // The Level column is always present and not part of this registry.
-export type ColumnId =
+export type StaticColumnId =
   | 'tier'
   | 'date'
   | 'attempts'
@@ -17,6 +18,9 @@ export type ColumnId =
   | 'version'
   | 'creator'
   | 'device'
+
+// `cat:${categoryId}` columns display a single weighted-rating category score.
+export type ColumnId = StaticColumnId | `cat:${string}`
 
 export interface ColumnDef {
   id: ColumnId
@@ -144,12 +148,31 @@ export const COLUMNS: ColumnDef[] = [
   },
 ]
 
-export type ColumnVisibility = Record<ColumnId, boolean>
+// Generate ColumnDef entries for the user's weighted-rating categories.
+// Categories are ordered by sortOrder ascending (priority order).
+// These columns are opt-in (defaultVisible: false) and only relevant in WEIGHTED mode.
+export function getCategoryColumnDefs(categories: RatingCategory[]): ColumnDef[] {
+  return [...categories]
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .map((cat): ColumnDef => ({
+      id: `cat:${cat.id}`,
+      label: cat.name,
+      width: 70,
+      sortKey: `cat:${cat.id}`,
+      responsiveClass: 'flex',
+      defaultVisible: false,
+    }))
+}
+
+// ColumnVisibility is a string-keyed boolean map. Missing keys default to false
+// (not visible). Using Record<string, boolean> rather than Record<ColumnId, boolean>
+// to accommodate dynamic `cat:${id}` column keys without losing static safety.
+export type ColumnVisibility = Record<string, boolean>
 
 export function defaultColumnVisibility(): ColumnVisibility {
   return Object.fromEntries(
     COLUMNS.map((c) => [c.id, c.defaultVisible])
-  ) as ColumnVisibility
+  )
 }
 
 export function defaultColumnOrder(): ColumnId[] {

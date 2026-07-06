@@ -142,6 +142,11 @@ export function applyFilters(
   const attemptsActive = isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)
   const dateActive = isDateActive(filters.dateBeaten)
 
+  // Pre-compute active category rating filters.
+  const activeCatFilters = Object.entries(filters.categoryRatings ?? {}).filter(
+    ([, range]) => isRangeActive(range, RATING_DOMAIN)
+  )
+
   return items.filter((item) => {
     if (q) {
       // Search matches name, creator, level id, and song name/artist.
@@ -236,6 +241,13 @@ export function applyFilters(
       if (d == null || !inRange(d, filters.dateBeaten)) return false
     }
 
+    for (const [catId, range] of activeCatFilters) {
+      const score = item.entry?.ratingScores.find(
+        (r) => r.categoryId === catId
+      )?.score
+      if (score == null || !inRange(score, range)) return false
+    }
+
     return true
   })
 }
@@ -257,6 +269,9 @@ export function countActiveFilters(filters: FilterState): number {
   if (isRangeActive(filters.tier, TIER_DOMAIN)) n++
   if (isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)) n++
   if (isDateActive(filters.dateBeaten)) n++
+  for (const range of Object.values(filters.categoryRatings ?? {})) {
+    if (isRangeActive(range, RATING_DOMAIN)) n++
+  }
   return n
 }
 
@@ -308,6 +323,17 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
       return item.level.creator?.toLowerCase() ?? null
     case 'difficulty':
       return difficultyRank(item.level.inGameDifficulty)
+    default: {
+      // `cat:${categoryId}` — return the individual category score.
+      if (key.startsWith('cat:')) {
+        const catId = key.slice(4)
+        return (
+          item.entry?.ratingScores.find((r) => r.categoryId === catId)
+            ?.score ?? null
+        )
+      }
+      return null
+    }
   }
 }
 
@@ -326,16 +352,45 @@ function compareValues(
   return dir === 'asc' ? cmp : -cmp
 }
 
+// Minimal category info needed for tie-breaking; avoids importing API types.
+export interface RatingCategoryTiebreaker {
+  id: string
+  sortOrder: number
+}
+
 // Stable multi-key sort: specs are applied in priority order.
-export function sortItems(items: ListItem[], sorts: SortSpec[]): ListItem[] {
+// When sorting by 'rating' with ratingCategories provided, ties in the weighted
+// average are broken by category score in priority order (lowest sortOrder first).
+export function sortItems(
+  items: ListItem[],
+  sorts: SortSpec[],
+  ratingCategories?: RatingCategoryTiebreaker[]
+): ListItem[] {
   if (!sorts.length) return items
+  // Pre-sort categories by priority (lowest sortOrder = highest priority).
+  const tiebreakerCats = ratingCategories
+    ? [...ratingCategories].sort((a, b) => a.sortOrder - b.sortOrder)
+    : []
   return [...items].sort((x, y) => {
     for (const spec of sorts) {
-      const cmp = compareValues(
+      let cmp = compareValues(
         sortValue(x, spec.key),
         sortValue(y, spec.key),
         spec.dir
       )
+      // Break weighted-rating ties by category priority order.
+      if (cmp === 0 && spec.key === 'rating' && tiebreakerCats.length > 0) {
+        for (const cat of tiebreakerCats) {
+          const aScore =
+            x.entry?.ratingScores.find((r) => r.categoryId === cat.id)
+              ?.score ?? null
+          const bScore =
+            y.entry?.ratingScores.find((r) => r.categoryId === cat.id)
+              ?.score ?? null
+          cmp = compareValues(aScore, bScore, spec.dir)
+          if (cmp !== 0) break
+        }
+      }
       if (cmp !== 0) return cmp
     }
     return 0

@@ -39,9 +39,12 @@ export interface FilterState {
   tier: Range // 1–35 (35 = 35+)
   attempts: Range // 0–25000 (25000 = 25000+)
   dateBeaten: Range // epoch ms
+  // Per-category range filters: categoryId → [min, max]. Only active entries
+  // constrain results; missing entries are treated as the full domain.
+  categoryRatings: Record<string, Range>
 }
 
-export type SortKey =
+export type StaticSortKey =
   | 'name'
   | 'date'
   | 'attempts'
@@ -58,6 +61,9 @@ export type SortKey =
   | 'twoPlayer'
   | 'creator'
   | 'difficulty'
+
+// `cat:${categoryId}` keys sort by a specific weighted-rating category score.
+export type SortKey = StaticSortKey | `cat:${string}`
 
 export interface SortSpec {
   key: SortKey
@@ -93,6 +99,7 @@ export function defaultFilterState(): FilterState {
     tier: [...TIER_DOMAIN] as Range,
     attempts: [...ATTEMPTS_DOMAIN] as Range,
     dateBeaten: dateDomain(),
+    categoryRatings: {},
   }
 }
 

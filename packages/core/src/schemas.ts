@@ -539,6 +539,11 @@ export const LevelProgressListEntrySchema = z.object({
       atTimeOfLogging: z.boolean(),
     })
   ),
+  // Per-category scores used for tie-breaking weighted-average sorts and for
+  // individual category columns. Only meaningful in WEIGHTED mode.
+  ratingScores: z.array(
+    z.object({ categoryId: z.string(), score: z.number().int() })
+  ),
 })
 
 export const LevelProgressListItemSchema = z.object({

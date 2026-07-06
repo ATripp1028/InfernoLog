@@ -1,7 +1,8 @@
 import { Switch } from '@/components/ui/switch'
 import { SortChips } from './SortChips'
-import { COLUMNS, type ColumnVisibility, type ColumnId } from './columns'
-import type { SortSpec } from './types'
+import type { ColumnDef, ColumnVisibility, ColumnId } from './columns'
+import { COLUMNS } from './columns'
+import type { SortKey, SortSpec } from './types'
 
 // Content for the mobile "Controls" bottom sheet: sort + column toggles, which
 // live inline in the toolbar on larger screens.
@@ -10,20 +11,31 @@ export function ControlsSheet({
   onSorts,
   columns,
   onColumns,
+  allColumnDefs,
+  categorySortOptions,
 }: {
   sorts: SortSpec[]
   onSorts: (s: SortSpec[]) => void
   columns: ColumnVisibility
   onColumns: (c: ColumnVisibility) => void
+  allColumnDefs: ColumnDef[]
+  categorySortOptions: { key: SortKey; label: string }[]
 }) {
   function toggle(id: ColumnId) {
     onColumns({ ...columns, [id]: !columns[id] })
   }
+
+  const catCols = allColumnDefs.filter((c) => c.id.startsWith('cat:'))
+
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-4">
       <section className="flex flex-col gap-2">
         <h3 className="text-xs font-semibold text-text-secondary">Sort</h3>
-        <SortChips sorts={sorts} onChange={onSorts} />
+        <SortChips
+          sorts={sorts}
+          onChange={onSorts}
+          extraSortOptions={categorySortOptions}
+        />
       </section>
       <section className="flex flex-col gap-1">
         <h3 className="text-xs font-semibold text-text-secondary">Columns</h3>
@@ -34,11 +46,30 @@ export function ControlsSheet({
           >
             {col.label}
             <Switch
-              checked={columns[col.id]}
+              checked={columns[col.id] ?? false}
               onCheckedChange={() => toggle(col.id)}
             />
           </label>
         ))}
+        {catCols.length > 0 && (
+          <>
+            <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+              Rating Categories
+            </p>
+            {catCols.map((col) => (
+              <label
+                key={col.id}
+                className="flex cursor-pointer items-center justify-between py-1.5 text-sm text-text-primary"
+              >
+                {col.label}
+                <Switch
+                  checked={columns[col.id] ?? false}
+                  onCheckedChange={() => toggle(col.id)}
+                />
+              </label>
+            ))}
+          </>
+        )}
       </section>
     </div>
   )

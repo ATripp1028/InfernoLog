@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
 import { X, Calendar } from 'lucide-react'
-import type { DateFormatPreference, RatingDisplayScale } from '@/lib/api/me'
+import type { DateFormatPreference, RatingCategory, RatingDisplayScale } from '@/lib/api/me'
 import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
 import { cn } from '@/lib/utils'
@@ -44,6 +44,8 @@ interface FilterPanelProps {
   // Data-driven slider bounds.
   earliestDate: number
   maxAttempts: number
+  // Rating categories for per-category range filters (WEIGHTED mode only).
+  ratingCategories?: RatingCategory[]
   onClose?: () => void
 }
 
@@ -376,6 +378,7 @@ export function FilterPanel({
   availableDifficulties,
   earliestDate,
   maxAttempts,
+  ratingCategories,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) =>
@@ -458,6 +461,31 @@ export function FilterPanel({
             format={(v) => formatRating(v, scale)}
             parseInput={parseRating}
           />
+          {ratingCategories &&
+            [...ratingCategories]
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((cat) => (
+                <RangeRow
+                  key={cat.id}
+                  label={cat.name}
+                  min={RATING_DOMAIN[0]}
+                  max={RATING_DOMAIN[1]}
+                  step={1}
+                  value={
+                    (filters.categoryRatings ?? {})[cat.id] ?? RATING_DOMAIN
+                  }
+                  onChange={(range) =>
+                    set({
+                      categoryRatings: {
+                        ...(filters.categoryRatings ?? {}),
+                        [cat.id]: range,
+                      },
+                    })
+                  }
+                  format={(v) => formatRating(v, scale)}
+                  parseInput={parseRating}
+                />
+              ))}
           <p className="px-4 pt-1 text-[10px] text-text-tertiary">
             Scale 0–{max}
           </p>
