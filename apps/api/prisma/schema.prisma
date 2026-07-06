@@ -123,6 +123,13 @@ enum Device {
   mobile
 }
 
+// GD 2.1 measured percentage by distance to the endwall (speed-dependent).
+// GD 2.2 reworked to time-based: 100% = duration of the verification attempt.
+enum GdVersion {
+  TWO_ONE
+  TWO_TWO
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -161,6 +168,9 @@ model User {
   // Default FPS pre-filled into the Log Level form. Always >= 60 (the GD
   // floor); enforced at the application layer.
   defaultFps            Int                  @default(60)
+  // Default GD version for percentage interpretation (2.1 = distance-based,
+  // 2.2 = time-based). Pre-filled into the Log Level form.
+  defaultPercentageVersion GdVersion         @default(TWO_TWO)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
@@ -405,6 +415,9 @@ model ProgressUpdate {
   dateUncertain         Boolean         @default(false)
   onStream              Boolean         @default(false)
   fps                   Int?
+  // Which GD version's percentage system was used. Only meaningful for classic
+  // levels (percentage/runFrom/runTo). Null = not recorded (legacy entries).
+  percentageVersion     GdVersion?
   peakHeartRateBpm      Int?            // v2 — heart rate monitor data
 
   // Ratings

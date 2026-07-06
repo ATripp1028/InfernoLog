@@ -50,6 +50,7 @@ export interface ProgressUpdate {
   dateUncertain: boolean
   onStream: boolean
   fps: number | null
+  percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   enjoyment: number | null
   simpleRating: number | null
   difficultyOpinion: string | null

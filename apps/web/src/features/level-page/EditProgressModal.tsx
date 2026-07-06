@@ -18,7 +18,7 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import { DevicePicker } from '@/features/logging/steps/CompletionSessionStep'
+import { DevicePicker, GdVersionPicker, GdVersionInfoButton } from '@/features/logging/steps/CompletionSessionStep'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -37,6 +37,7 @@ interface EditForm {
   worstFail: string
   worstFailDate: string
   fps: string
+  percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   onStream: boolean
   difficultyOpinion: DifficultyOpinion | null
   difficultyOpinionStars: number | null
@@ -58,7 +59,8 @@ function initForm(
   data: LevelPageData,
   scale: RatingDisplayScale,
   categories: RatingCategory[],
-  progressUpdateId: string | null
+  progressUpdateId: string | null,
+  defaultPercentageVersion: 'TWO_ONE' | 'TWO_TWO' = 'TWO_TWO'
 ): EditForm {
   const latest =
     (progressUpdateId
@@ -71,6 +73,7 @@ function initForm(
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
     worstFailDate: data.worstFailDate ? (data.worstFailDate as string).slice(0, 10) : '',
     fps: latest?.fps != null ? String(latest.fps) : '',
+    percentageVersion: (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ?? defaultPercentageVersion,
     onStream: latest?.onStream ?? false,
     difficultyOpinion:
       (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
@@ -122,7 +125,7 @@ export function EditProgressModal({
 
   useEffect(() => {
     if (open && me.data)
-      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId))
+      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId, me.data.defaultPercentageVersion))
   }, [open, data, scale, me.data, progressUpdateId])
 
   if (!me.data) return null
@@ -158,6 +161,7 @@ export function EditProgressModal({
       worstFail: form.worstFail !== '' ? parseInt(form.worstFail, 10) : null,
       worstFailDate: form.worstFailDate || null,
       fps: form.fps !== '' ? parseInt(form.fps, 10) : null,
+      percentageVersion: form.percentageVersion,
       onStream: form.onStream,
       notes: form.notes || null,
       levelNotes: form.levelNotes || null,
@@ -339,6 +343,18 @@ export function EditProgressModal({
                     onChange={(v) => patch({ device: v })}
                   />
                 </div>
+                {data.level.levelType === 'CLASSIC' && (
+                  <div>
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <Label className="text-sm text-text-secondary">% version</Label>
+                      <GdVersionInfoButton />
+                    </div>
+                    <GdVersionPicker
+                      value={form.percentageVersion}
+                      onChange={(v) => patch({ percentageVersion: v })}
+                    />
+                  </div>
+                )}
               </Section>
 
               {/* ── Difficulty (completion only) ──────────────── */}

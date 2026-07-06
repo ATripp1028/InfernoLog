@@ -3,6 +3,7 @@ import type {
   DifficultyOpinion,
   EntryVisibility,
   ExistingCompletion,
+  GdVersion,
   Level,
 } from '@/lib/api/logging'
 
@@ -50,6 +51,7 @@ export interface FlowDraft {
   aredlTier: string
   // Session
   fps: string
+  percentageVersion: GdVersion | null
   onStream: boolean
   visibility: EntryVisibility
   videoUrl: string
@@ -98,6 +100,7 @@ export function emptyDraft(): FlowDraft {
     nlwTier: '',
     aredlTier: '',
     fps: '',
+    percentageVersion: null,
     onStream: false,
     visibility: 'PUBLIC',
     videoUrl: '',
@@ -143,6 +146,7 @@ export function draftFromExistingCompletion(
     existing.ratingScores.map((s) => [s.categoryId, s.score])
   )
   draft.fps = existing.fps != null ? String(existing.fps) : ''
+  draft.percentageVersion = existing.percentageVersion ?? null
   draft.onStream = existing.onStream
   draft.visibility = existing.visibility
   draft.videoUrl = existing.videoUrl ?? ''

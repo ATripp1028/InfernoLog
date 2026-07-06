@@ -22,6 +22,8 @@ export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
 
 export type Device = 'pc' | 'mobile'
 
+export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
+
 export interface Level {
   inGameId: string
   levelType: 'CLASSIC' | 'PLATFORMER'
@@ -97,6 +99,7 @@ export interface ExistingCompletion {
   worstFail: number | null
   worstFailDate: string | null
   fps: number | null
+  percentageVersion: GdVersion | null
   onStream: boolean
   videoUrl: string | null
   highlightUrl: string | null
@@ -147,6 +150,7 @@ export interface CompletionInput {
   worstFail?: number | null
   worstFailDate?: string | null
   fps?: number | null
+  percentageVersion?: GdVersion | null
   onStream?: boolean
   highlightUrl?: string | null
   notes?: string | null
@@ -173,6 +177,7 @@ export type ProgressInput = { levelId: string } & (
     dateUncertain?: boolean
     attempts?: number | null
     fps?: number | null
+    percentageVersion?: GdVersion | null
     onStream?: boolean
     highlightUrl?: string | null
     notes?: string | null

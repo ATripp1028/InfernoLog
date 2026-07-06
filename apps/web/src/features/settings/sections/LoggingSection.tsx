@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
-import { DateFormatPreference, useUpdateMe, type MeData } from '@/lib/api/me'
+import { DateFormatPreference, type GdVersion, useUpdateMe, type MeData } from '@/lib/api/me'
 import {
   Sheet,
   SheetContent,
@@ -55,6 +55,14 @@ export function LoggingSection({ me }: LoggingSectionProps) {
       await update.mutateAsync({
         dateFormatPreference: value as DateFormatPreference,
       })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  const handlePercentageVersionChange = async (value: GdVersion) => {
+    try {
+      await update.mutateAsync({ defaultPercentageVersion: value })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }
@@ -130,6 +138,24 @@ export function LoggingSection({ me }: LoggingSectionProps) {
                   {o.label}
                 </SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+        }
+      />
+      <SettingRow
+        label="Default % version"
+        description="Which GD version's percentage system to pre-select when logging. 2.1 uses distance to the endwall; 2.2 uses time relative to the verification attempt."
+        control={
+          <Select
+            value={me.defaultPercentageVersion}
+            onValueChange={(v) => void handlePercentageVersionChange(v as GdVersion)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TWO_TWO">2.2 (time-based)</SelectItem>
+              <SelectItem value="TWO_ONE">2.1 (distance-based)</SelectItem>
             </SelectContent>
           </Select>
         }

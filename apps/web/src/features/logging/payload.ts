@@ -3,6 +3,7 @@ import type {
   CompletionListReference,
   DifficultyOpinion,
   DropInput,
+  GdVersion,
   Level,
   ProgressInput,
 } from '@/lib/api/logging'
@@ -79,6 +80,7 @@ export function buildCompletionInput(
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
     fps: intOrNull(draft.fps, me.defaultFps ?? null),
+    percentageVersion: draft.percentageVersion ?? me.defaultPercentageVersion ?? 'TWO_TWO',
     onStream: draft.onStream,
     highlightUrl: draft.highlightUrl.trim() || null,
     notes: draft.notes.trim() || null,
@@ -106,7 +108,8 @@ export function buildCompletionInput(
 export function buildProgressInput(
   level: Level,
   draft: FlowDraft,
-  defaultFps?: number
+  defaultFps?: number,
+  defaultPercentageVersion?: GdVersion
 ): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
@@ -114,6 +117,7 @@ export function buildProgressInput(
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     fps: intOrNull(draft.fps, defaultFps ?? null),
+    percentageVersion: draft.percentageVersion ?? defaultPercentageVersion ?? 'TWO_TWO',
     onStream: draft.onStream,
     notes: draft.notes.trim() || null,
     visibility: draft.visibility,

@@ -74,6 +74,13 @@ export enum Device {
   MOBILE = 'mobile',
 }
 
+// GD 2.1 measured percentage by distance to the endwall (speed-dependent).
+// GD 2.2 reworked to time-based: 100% = duration of the verification attempt.
+export enum GdVersion {
+  TWO_ONE = 'TWO_ONE',
+  TWO_TWO = 'TWO_TWO',
+}
+
 export enum ReportStatus {
   PENDING = 'PENDING',
   DISMISSED = 'DISMISSED',

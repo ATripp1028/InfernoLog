@@ -11,6 +11,7 @@ import {
   EntryVisibility,
   LevelProgressStatus,
   Device,
+  GdVersion,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -150,6 +151,7 @@ export const UpdateMeSchema = z
     profilePublic: z.boolean().optional(),
     discordPublic: z.boolean().optional(),
     defaultFps: z.number().int().min(MIN_FPS).optional(),
+    defaultPercentageVersion: z.nativeEnum(GdVersion).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
@@ -265,6 +267,9 @@ const sessionDetailFields = {
   dateUncertain: z.boolean().default(false),
   attempts: z.number().int().nonnegative().nullable().optional(),
   fps: z.number().int().positive().nullable().optional(),
+  // Which GD version's percentage system was used. Only meaningful for classic
+  // levels (percentage/runFrom/runTo). Null = not recorded.
+  percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().default(false),
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
@@ -379,6 +384,7 @@ export const EditProgressInputSchema = z.object({
   dateUncertain: z.boolean().optional(),
   attempts: z.number().int().nonnegative().nullable().optional(),
   fps: z.number().int().positive().nullable().optional(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
@@ -527,6 +533,7 @@ export const LevelProgressListEntrySchema = z.object({
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   onStream: z.boolean(),
   fps: z.number().int().nullable(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable(),
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),

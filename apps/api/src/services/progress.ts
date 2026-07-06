@@ -123,6 +123,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
+      percentageVersion: input.percentageVersion ?? null,
       onStream: input.onStream,
       videoUrl: input.videoUrl ?? null,
       highlightUrl: input.highlightUrl ?? null,
@@ -240,6 +241,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
+      percentageVersion: input.percentageVersion ?? null,
       onStream: input.onStream,
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
@@ -313,6 +315,7 @@ export async function applyEdit(
       puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
     if (input.fps !== undefined) puData.fps = input.fps
+    if (input.percentageVersion !== undefined) puData.percentageVersion = input.percentageVersion
     if (input.onStream !== undefined) puData.onStream = input.onStream
     if (input.difficultyOpinion !== undefined)
       puData.difficultyOpinion = input.difficultyOpinion

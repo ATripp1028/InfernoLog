@@ -1,6 +1,10 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -13,11 +17,20 @@ import {
   StepFooter,
 } from '../components'
 import { digitsOnly } from '../format'
-import type { Device } from '@/lib/api/logging'
+import type { Device, GdVersion } from '@/lib/api/logging'
 
 export function CompletionSessionStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
+
+  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
+  useEffect(() => {
+    if (draft.percentageVersion === null) {
+      patchDraft({ percentageVersion: defaultPercentageVersion })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPercentageVersion])
+
   if (!level) return null
 
   const defaultFps = me.data?.defaultFps
@@ -53,6 +66,18 @@ export function CompletionSessionStep() {
               onChange={(v) => patchDraft({ device: v })}
             />
           </div>
+          {level.levelType === 'CLASSIC' && (
+            <div>
+              <div className="mb-1.5 flex items-center gap-1.5">
+                <Label>% version</Label>
+                <GdVersionInfoButton />
+              </div>
+              <GdVersionPicker
+                value={draft.percentageVersion}
+                onChange={(v) => patchDraft({ percentageVersion: v })}
+              />
+            </div>
+          )}
         </div>
 
         <div className="space-y-3">
@@ -174,5 +199,71 @@ export function DevicePicker({
         )
       })}
     </div>
+  )
+}
+
+export function GdVersionPicker({
+  value,
+  onChange,
+}: {
+  value: GdVersion | null
+  onChange: (v: GdVersion) => void
+}) {
+  const options: { value: GdVersion; label: string }[] = [
+    { value: 'TWO_ONE', label: '2.1' },
+    { value: 'TWO_TWO', label: '2.2' },
+  ]
+  return (
+    <div className="flex gap-2">
+      {options.map((opt) => {
+        const active = value === opt.value
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(opt.value)}
+            className={cn(
+              'flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors',
+              active
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+            )}
+          >
+            {opt.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+export function GdVersionInfoButton() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="What is the percentage version?"
+          className="inline-flex size-4 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
+        >
+          <Info size={12} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
+        <p className="font-medium text-text-primary">2.1 vs 2.2 percentages</p>
+        <p className="text-text-secondary">
+          <span className="font-medium text-text-primary">2.1</span> measured progress by{' '}
+          <span className="italic">distance</span> to the endwall — the counter moved faster
+          through high-speed sections and slower through low-speed ones.
+        </p>
+        <p className="text-text-secondary">
+          <span className="font-medium text-text-primary">2.2</span> uses{' '}
+          <span className="italic">time</span> instead — 100% equals the duration of the
+          verification attempt. The same position can show a noticeably different number
+          between the two versions.
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }
