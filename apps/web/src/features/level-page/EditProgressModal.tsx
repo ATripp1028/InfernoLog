@@ -57,9 +57,13 @@ interface EditForm {
 function initForm(
   data: LevelPageData,
   scale: RatingDisplayScale,
-  categories: RatingCategory[]
+  categories: RatingCategory[],
+  progressUpdateId: string | null
 ): EditForm {
-  const latest = data.progressUpdates[0]
+  const latest =
+    (progressUpdateId
+      ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
+      : undefined) ?? data.progressUpdates[0]
   return {
     date: latest?.date ? (latest.date as string).slice(0, 10) : '',
     dateUncertain: latest?.dateUncertain ?? false,
@@ -101,6 +105,7 @@ interface EditProgressModalProps {
   data: LevelPageData
   levelId: string
   scale: RatingDisplayScale
+  progressUpdateId: string | null
 }
 
 export function EditProgressModal({
@@ -109,19 +114,23 @@ export function EditProgressModal({
   data,
   levelId,
   scale,
+  progressUpdateId,
 }: EditProgressModalProps) {
-  const [form, setForm] = useState<EditForm>(() => initForm(data, scale, []))
+  const [form, setForm] = useState<EditForm>(() => initForm(data, scale, [], progressUpdateId))
   const editProgress = useEditProgress(levelId)
   const me = useMe()
 
   useEffect(() => {
     if (open && me.data)
-      setForm(initForm(data, scale, me.data.ratingCategories))
-  }, [open, data, scale, me.data])
+      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId))
+  }, [open, data, scale, me.data, progressUpdateId])
 
   if (!me.data) return null
 
-  const latestUpdate = data.progressUpdates[0]
+  const latestUpdate =
+    (progressUpdateId
+      ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
+      : undefined) ?? data.progressUpdates[0]
   const isCompletion = latestUpdate?.isCompletion ?? false
   const showHighlightUrl = me.data.showHighlightUrl
   const weighted = me.data.ratingMode === 'WEIGHTED'
@@ -142,6 +151,7 @@ export function EditProgressModal({
 
   function handleSave() {
     const payload: Record<string, unknown> = {
+      ...(progressUpdateId ? { progressUpdateId } : {}),
       date: form.date || null,
       dateUncertain: form.dateUncertain,
       attempts: form.attempts !== '' ? parseInt(form.attempts, 10) : null,

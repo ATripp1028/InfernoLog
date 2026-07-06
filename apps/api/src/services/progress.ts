@@ -266,8 +266,10 @@ export async function applyProgress(userId: string, input: ProgressInput) {
 }
 
 // ─────────────────────────────────────────────
-// EDIT — partial update on the most recent ProgressUpdate and/or LevelProgress
-// metadata. Only present keys are written. Returns null if no entry exists.
+// EDIT — partial update on a specific (or the most recent) ProgressUpdate and/or
+// LevelProgress metadata. Only present keys are written. Returns null if no entry
+// exists. When input.progressUpdateId is provided, that specific update is targeted;
+// otherwise falls back to completion-first, then loggedAt desc.
 // ─────────────────────────────────────────────
 
 export async function applyEdit(
@@ -278,16 +280,26 @@ export async function applyEdit(
   return prisma.$transaction(async (tx) => {
     const lp = await tx.levelProgress.findUnique({
       where: { userId_levelId: { userId, levelId } },
-      select: {
-        id: true,
-        progressUpdates: {
-          orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }] as const,
-          take: 1,
-          select: { id: true },
-        },
-      },
+      select: { id: true },
     })
     if (!lp) return null
+
+    let targetUpdateId: string | undefined
+    if (input.progressUpdateId) {
+      const update = await tx.progressUpdate.findFirst({
+        where: { id: input.progressUpdateId, levelProgressId: lp.id },
+        select: { id: true },
+      })
+      if (!update) return null
+      targetUpdateId = update.id
+    } else {
+      const mostRecent = await tx.progressUpdate.findFirst({
+        where: { levelProgressId: lp.id },
+        orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }],
+        select: { id: true },
+      })
+      targetUpdateId = mostRecent?.id
+    }
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
@@ -325,29 +337,28 @@ export async function applyEdit(
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })
     }
 
-    const latestUpdateId = lp.progressUpdates[0]?.id
-    if (latestUpdateId) {
+    if (targetUpdateId) {
       if (Object.keys(puData).length > 0) {
         await tx.progressUpdate.update({
-          where: { id: latestUpdateId },
+          where: { id: targetUpdateId },
           data: puData,
         })
       }
       if (input.ratingScores !== undefined) {
         await tx.ratingScore.deleteMany({
-          where: { progressUpdateId: latestUpdateId },
+          where: { progressUpdateId: targetUpdateId },
         })
         if (input.ratingScores.length > 0) {
           await tx.ratingScore.createMany({
             data: input.ratingScores.map((r) => ({
-              progressUpdateId: latestUpdateId,
+              progressUpdateId: targetUpdateId!,
               categoryId: r.categoryId,
               score: r.score,
             })),
           })
         }
       }
-      return loadFullEntry(tx, lp.id, latestUpdateId)
+      return loadFullEntry(tx, lp.id, targetUpdateId)
     }
 
     // Drop-only entry (no ProgressUpdate): return just the LevelProgress.

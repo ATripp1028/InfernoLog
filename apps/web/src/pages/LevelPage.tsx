@@ -125,6 +125,7 @@ export function LevelPage() {
   const [pendingDelete, setPendingDelete] = useState(false)
   const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [editProgressUpdateId, setEditProgressUpdateId] = useState<string | null>(null)
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
 
@@ -265,7 +266,7 @@ export function LevelPage() {
               data={data}
               datePref={dateFormatPreference}
               isOwner={isOwner}
-              onEdit={() => setEditOpen(true)}
+              onEdit={(id) => { setEditProgressUpdateId(id); setEditOpen(true) }}
             />
           </div>
         </div>
@@ -343,7 +344,7 @@ export function LevelPage() {
                     data={data}
                     datePref={dateFormatPreference}
                     isOwner={isOwner}
-                    onEdit={() => setEditOpen(true)}
+                    onEdit={(id) => { setEditProgressUpdateId(id); setEditOpen(true) }}
                   />
                 </div>
               </div>
@@ -385,10 +386,11 @@ export function LevelPage() {
       {isOwner && (
         <EditProgressModal
           open={editOpen}
-          onClose={() => setEditOpen(false)}
+          onClose={() => { setEditOpen(false); setEditProgressUpdateId(null) }}
           data={data}
           levelId={levelId}
           scale={ratingDisplayScale}
+          progressUpdateId={editProgressUpdateId}
         />
       )}
 

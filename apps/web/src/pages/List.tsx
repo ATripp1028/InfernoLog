@@ -499,6 +499,7 @@ export function List() {
           data={editLevelQuery.data}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
+          progressUpdateId={null}
         />
       )}
 

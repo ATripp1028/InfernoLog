@@ -166,16 +166,10 @@ function CompletionEntry({
       )}
 
       {/* Meta chips row */}
-      {(update.fps != null ||
-        update.highlightUrl ||
+      {(update.highlightUrl ||
         update.videoUrl ||
         update.onStream) && (
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
-          {update.fps != null && (
-            <span className="inline-flex h-[22px] items-center rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary">
-              {update.fps} FPS
-            </span>
-          )}
           {update.highlightUrl && (
             <a
               href={update.highlightUrl}
@@ -229,29 +223,86 @@ function ProgressEntry({
   )
 
   const label = rangeLabel(update)
+  const hasExtra =
+    update.notes || update.highlightUrl || update.videoUrl || update.onStream
 
   return (
-    <div className="relative ml-8 flex h-[46px] items-center justify-between rounded-card border border-border-subtle bg-[#141414] px-3.5">
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-        <span className="shrink-0 text-[13px] font-medium text-text-primary">
-          {label}
-        </span>
-        <span className="shrink-0 text-xs text-text-secondary">{dateText}</span>
-        {update.attempts != null && (
-          <span className="text-xs text-text-tertiary">
-            {formatNumber(update.attempts)} attempts
+    <div className="relative ml-8 overflow-hidden rounded-card border border-border-subtle bg-[#141414]">
+      <div
+        className={[
+          'flex items-center justify-between px-3.5',
+          hasExtra ? 'pt-3 pb-1' : 'h-[46px]',
+        ].join(' ')}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
+          <span className="shrink-0 text-[13px] font-medium text-text-primary">
+            {label}
           </span>
+          <span className="shrink-0 text-xs text-text-secondary">
+            {dateText}
+          </span>
+          {update.attempts != null && (
+            <span className="text-xs text-text-tertiary">
+              {formatNumber(update.attempts)} attempts
+            </span>
+          )}
+        </div>
+        {isOwner && (
+          <button
+            type="button"
+            onClick={onEdit}
+            aria-label="Edit entry"
+            className="shrink-0 text-sm text-text-tertiary transition-colors hover:text-text-secondary"
+          >
+            ✎
+          </button>
         )}
       </div>
-      {isOwner && (
-        <button
-          type="button"
-          onClick={onEdit}
-          aria-label="Edit entry"
-          className="shrink-0 text-sm text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          ✎
-        </button>
+
+      {update.notes && (
+        <>
+          <div className="mx-3.5 mt-2 h-px bg-[#242424]" />
+          <div className="px-3.5 pb-2 pt-2.5">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#666]">
+              Notes on this run
+            </p>
+            <p className="text-[13px] leading-snug text-[#c8c8c8]">
+              {update.notes}
+            </p>
+          </div>
+        </>
+      )}
+
+      {(update.highlightUrl || update.videoUrl || update.onStream) && (
+        <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
+          {update.highlightUrl && (
+            <a
+              href={update.highlightUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-[22px] items-center gap-1 rounded bg-[rgba(232,57,14,0.08)] px-2 text-[11px] font-medium text-[#ff8a6a] hover:opacity-80"
+            >
+              <Film size={10} />
+              Highlight
+            </a>
+          )}
+          {update.videoUrl && !update.highlightUrl && (
+            <a
+              href={update.videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex h-[22px] items-center gap-1 rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary hover:opacity-80"
+            >
+              <ExternalLink size={10} />
+              Video
+            </a>
+          )}
+          {update.onStream && (
+            <span className="inline-flex h-[22px] items-center rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary">
+              📡 On stream
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
