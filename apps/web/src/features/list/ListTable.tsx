@@ -100,7 +100,7 @@ function ColumnHeaders({
 
   return (
     <div
-      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-10 text-[11px] font-medium text-text-secondary"
+      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-20 text-[11px] font-medium text-text-secondary"
       style={{ minWidth }}
     >
       <div
