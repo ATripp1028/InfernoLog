@@ -568,13 +568,6 @@ export async function commitImportBatch(
     ])
   )
 
-  // Check whether this user has a GDDL key registered (gates autofill).
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { gddlApiKeyEncrypted: true },
-  })
-  const hasGddlKey = !!user.gddlApiKeyEncrypted
-
   // ── Pre-resolve name-only rows (outside the transaction) ──────────────
   // Resolving via RobTop involves network I/O that must not hold a DB
   // transaction open.
@@ -611,26 +604,24 @@ export async function commitImportBatch(
 
   // ── Pre-fetch GDDL tiers in parallel (outside the transaction) ────────
   const gddlTierCache = new Map<string, number | null>()
-  if (hasGddlKey) {
-    const completionRows = rows.filter(
-      (r) =>
-        r.type === 'completion' &&
-        !processed.has(r.rowIndex) &&
-        !r.data.userGddlTier
-    )
-    const idsNeedingGddl = [
-      ...new Set(
-        completionRows
-          .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
-          .filter((id): id is string => !!id)
-      ),
-    ]
-    await Promise.all(
-      idsNeedingGddl.map(async (id) => {
-        gddlTierCache.set(id, await fetchGddlTier(id))
-      })
-    )
-  }
+  const completionRows = rows.filter(
+    (r) =>
+      r.type === 'completion' &&
+      !processed.has(r.rowIndex) &&
+      !r.data.userGddlTier
+  )
+  const idsNeedingGddl = [
+    ...new Set(
+      completionRows
+        .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
+        .filter((id): id is string => !!id)
+    ),
+  ]
+  await Promise.all(
+    idsNeedingGddl.map(async (id) => {
+      gddlTierCache.set(id, await fetchGddlTier(id))
+    })
+  )
 
   const allKnownIds = [
     ...new Set([
@@ -770,10 +761,9 @@ export async function commitImportBatch(
     let reason: string | undefined
     try {
       if (row.type === 'completion') {
-        const autoGddlTier =
-          hasGddlKey && !row.data.userGddlTier
-            ? (gddlTierCache.get(effectiveLevelId) ?? null)
-            : null
+        const autoGddlTier = !row.data.userGddlTier
+          ? (gddlTierCache.get(effectiveLevelId) ?? null)
+          : null
         outcomeStatus = planCompletion(
           ctx,
           effectiveLevelId,
