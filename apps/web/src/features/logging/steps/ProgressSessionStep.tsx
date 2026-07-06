@@ -1,10 +1,8 @@
-import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { StepperInput } from '@/components/ui/stepper-input'
-import { Label } from '@/components/ui/label'
 import { toast } from '@/components/ui/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useLogProgress } from '@/lib/api/logging'
@@ -20,20 +18,12 @@ import {
 } from '../components'
 import { buildProgressInput } from '../payload'
 import { digitsOnly, displayMax, toDisplay, toInternal } from '../format'
-import { DevicePicker, GdVersionPicker, GdVersionInfoButton } from './CompletionSessionStep'
+import { DevicePicker } from './CompletionSessionStep'
 
 export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const me = useMe()
   const logProgress = useLogProgress()
-
-  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
-  useEffect(() => {
-    if (draft.percentageVersion === null) {
-      patchDraft({ percentageVersion: defaultPercentageVersion })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultPercentageVersion])
 
   if (!level) return null
 
@@ -118,18 +108,6 @@ export function ProgressSessionStep() {
               onChange={(v) => patchDraft({ device: v })}
             />
           </div>
-          {level.levelType === 'CLASSIC' && (
-            <div>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <Label>% version</Label>
-                <GdVersionInfoButton />
-              </div>
-              <GdVersionPicker
-                value={draft.percentageVersion}
-                onChange={(v) => patchDraft({ percentageVersion: v })}
-              />
-            </div>
-          )}
         </div>
 
         <div className="space-y-3">

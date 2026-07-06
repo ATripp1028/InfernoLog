@@ -1,13 +1,17 @@
-import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
+
+export const GD_22_RELEASE_DATE = '2023-12-19'
+export function isPreTwoTwo(dateStr: string | null | undefined): boolean {
+  if (!dateStr) return false
+  return dateStr.slice(0, 10) < GD_22_RELEASE_DATE
+}
 import {
   FieldHint,
   FieldLabel,
@@ -22,14 +26,6 @@ import type { Device, GdVersion } from '@/lib/api/logging'
 export function CompletionSessionStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
-
-  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
-  useEffect(() => {
-    if (draft.percentageVersion === null) {
-      patchDraft({ percentageVersion: defaultPercentageVersion })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultPercentageVersion])
 
   if (!level) return null
 
@@ -66,18 +62,6 @@ export function CompletionSessionStep() {
               onChange={(v) => patchDraft({ device: v })}
             />
           </div>
-          {level.levelType === 'CLASSIC' && (
-            <div>
-              <div className="mb-1.5 flex items-center gap-1.5">
-                <Label>% version</Label>
-                <GdVersionInfoButton />
-              </div>
-              <GdVersionPicker
-                value={draft.percentageVersion}
-                onChange={(v) => patchDraft({ percentageVersion: v })}
-              />
-            </div>
-          )}
         </div>
 
         <div className="space-y-3">

@@ -18,7 +18,7 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import { DevicePicker, GdVersionPicker, GdVersionInfoButton } from '@/features/logging/steps/CompletionSessionStep'
+import { DevicePicker, GdVersionPicker, GdVersionInfoButton, isPreTwoTwo } from '@/features/logging/steps/CompletionSessionStep'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -124,8 +124,14 @@ export function EditProgressModal({
   const me = useMe()
 
   useEffect(() => {
-    if (open && me.data)
-      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId, me.data.defaultPercentageVersion))
+    if (open && me.data) {
+      const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+      const effectiveDefault =
+        completionUpdate?.date != null && isPreTwoTwo(String(completionUpdate.date))
+          ? 'TWO_ONE'
+          : me.data.defaultPercentageVersion
+      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId, effectiveDefault))
+    }
   }, [open, data, scale, me.data, progressUpdateId])
 
   if (!me.data) return null
@@ -136,6 +142,10 @@ export function EditProgressModal({
       : undefined) ?? data.progressUpdates[0]
   const isCompletion = latestUpdate?.isCompletion ?? false
   const showHighlightUrl = me.data.showHighlightUrl
+  const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+  const showVersionPicker =
+    data.level.levelType === 'CLASSIC' &&
+    !(completionUpdate?.date != null && isPreTwoTwo(String(completionUpdate.date)))
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
   const isTen = scale === 'ZERO_TO_TEN'
@@ -312,6 +322,19 @@ export function EditProgressModal({
                   />
                 </div>
 
+                {showVersionPicker && (
+                  <div>
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <Label className="text-sm text-text-secondary">% version</Label>
+                      <GdVersionInfoButton />
+                    </div>
+                    <GdVersionPicker
+                      value={form.percentageVersion}
+                      onChange={(v) => patch({ percentageVersion: v })}
+                    />
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <FieldLabel htmlFor="ep-fps">FPS</FieldLabel>
@@ -343,18 +366,6 @@ export function EditProgressModal({
                     onChange={(v) => patch({ device: v })}
                   />
                 </div>
-                {data.level.levelType === 'CLASSIC' && (
-                  <div>
-                    <div className="mb-1.5 flex items-center gap-1.5">
-                      <Label className="text-sm text-text-secondary">% version</Label>
-                      <GdVersionInfoButton />
-                    </div>
-                    <GdVersionPicker
-                      value={form.percentageVersion}
-                      onChange={(v) => patch({ percentageVersion: v })}
-                    />
-                  </div>
-                )}
               </Section>
 
               {/* ── Difficulty (completion only) ──────────────── */}

@@ -1,11 +1,14 @@
+import { useEffect } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
+import { Label } from '@/components/ui/label'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import type { DifficultyOpinion, Level } from '@/lib/api/logging'
+import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldHint,
@@ -15,6 +18,7 @@ import {
   StepFooter,
 } from '../components'
 import { clampPercent, digitsOnly } from '../format'
+import { GdVersionPicker, GdVersionInfoButton, isPreTwoTwo } from './CompletionSessionStep'
 
 // The five demon-tier opinions, each shown as a round face button. The sixth
 // opinion (NOT_DEMON_WORTHY) is kept as a labelled text button for clarity.
@@ -44,7 +48,26 @@ const DEMON_OPINIONS: ReadonlyArray<{
 
 export function CompletionBasicsStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
+  const me = useMe()
+
+  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
+  useEffect(() => {
+    if (draft.percentageVersion === null) {
+      patchDraft({ percentageVersion: defaultPercentageVersion })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPercentageVersion])
+
+  useEffect(() => {
+    if (draft.date && isPreTwoTwo(draft.date)) {
+      patchDraft({ percentageVersion: 'TWO_ONE' })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.date])
+
   if (!level) return null
+
+  const showVersionPicker = level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
 
   return (
     <>
@@ -141,6 +164,19 @@ export function CompletionBasicsStep() {
             )}
           </div>
         </div>
+
+        {showVersionPicker && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <Label>% version</Label>
+              <GdVersionInfoButton />
+            </div>
+            <GdVersionPicker
+              value={draft.percentageVersion}
+              onChange={(v) => patchDraft({ percentageVersion: v })}
+            />
+          </div>
+        )}
 
         <div>
           <FieldLabel hint="What you think it deserves — separate from the in-game rating.">
