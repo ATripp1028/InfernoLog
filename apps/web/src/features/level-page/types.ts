@@ -79,7 +79,7 @@ export interface RatingScore {
 
 export interface RunsGraphEntry {
   progressUpdateId: string | null
-  kind: string
+  kind: 'from_zero' | 'from_run' | 'completion' | 'worst_fail'
   from: number
   to: number
   droppedAfter: boolean

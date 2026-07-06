@@ -311,7 +311,14 @@ app.get('/me/progress/:levelId', async (c) => {
       loggedAt: u.loggedAt,
     }))
 
-    const runsGraph = computeRunsGraph(updatesForGraph, drops)
+    // For completed levels, pass the worst-fail milestone so it appears as a
+    // distinct bar in the timeline. Dropped levels use the drop-merge rule instead.
+    const worstFailForGraph =
+      lp.status === 'COMPLETED' && lp.worstFail != null
+        ? { percentage: lp.worstFail, date: lp.worstFailDate }
+        : null
+
+    const runsGraph = computeRunsGraph(updatesForGraph, drops, worstFailForGraph)
 
     // Derive rank position from rankingIndex: count how many of the user's
     // placed completions have a higher (easier) rankingIndex. 1-based.

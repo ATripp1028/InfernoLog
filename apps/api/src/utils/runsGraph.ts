@@ -27,9 +27,9 @@ export type DropForGraph = {
 }
 
 export type RunsGraphEntry = {
-  // null for synthetic bars emitted from a drop event with a distinct worstFail
+  // null for synthetic bars emitted from a drop event or worst-fail entry
   progressUpdateId: string | null
-  kind: 'from_zero' | 'from_run' | 'completion'
+  kind: 'from_zero' | 'from_run' | 'completion' | 'worst_fail'
   from: number
   to: number
   date: string | null
@@ -37,9 +37,15 @@ export type RunsGraphEntry = {
   droppedAfter: boolean
 }
 
+export type WorstFailForGraph = {
+  percentage: number
+  date: Date | null
+}
+
 type Event =
   | { type: 'update'; update: ProgressUpdateForGraph; effectiveDate: Date }
   | { type: 'drop'; drop: DropForGraph; effectiveDate: Date | null }
+  | { type: 'worst_fail'; entry: RunsGraphEntry; effectiveDate: Date }
 
 // The effective date used to sort a progress update within the timeline.
 function effectiveDateOf(u: ProgressUpdateForGraph): Date {
@@ -92,12 +98,28 @@ function entryFromUpdate(u: ProgressUpdateForGraph): RunsGraphEntry {
  * @param drops - Drop events in history. In v1 this is zero or one element
  *   (from level_progress drop fields), but the function handles multiple drops
  *   correctly for future schema extensions.
+ * @param worstFail - Optional worst-fail milestone for completed levels. When
+ *   `date` is set the bar is sorted chronologically; when `date` is null it is
+ *   spliced immediately before the completion entry (or appended if none exists).
  * @returns Entries ordered oldest→newest by effective date (date ?? loggedAt).
  */
 export function computeRunsGraph(
   progressUpdates: readonly ProgressUpdateForGraph[],
-  drops: readonly DropForGraph[]
+  drops: readonly DropForGraph[],
+  worstFail?: WorstFailForGraph | null
 ): RunsGraphEntry[] {
+  const worstFailEntry: RunsGraphEntry | null = worstFail
+    ? {
+        progressUpdateId: null,
+        kind: 'worst_fail',
+        from: 0,
+        to: worstFail.percentage,
+        date: toIso(worstFail.date),
+        dateUncertain: false,
+        droppedAfter: false,
+      }
+    : null
+
   // Merge updates and drops into a single event stream, then sort chronologically.
   // Updates with the same effective date sort before drops.
   const events: Event[] = [
@@ -113,6 +135,15 @@ export function computeRunsGraph(
     })),
   ]
 
+  // If the worst fail has a known date, include it in the chronological stream.
+  if (worstFailEntry && worstFail!.date !== null) {
+    events.push({
+      type: 'worst_fail',
+      entry: worstFailEntry,
+      effectiveDate: worstFail!.date,
+    })
+  }
+
   events.sort((a, b) => {
     const aDate = a.effectiveDate
     const bDate = b.effectiveDate
@@ -124,9 +155,16 @@ export function computeRunsGraph(
     if (bDate === null) return -1
     const diff = aDate.getTime() - bDate.getTime()
     if (diff !== 0) return diff
-    // Same millisecond: updates sort before drops so the drop correctly
-    // identifies the last update that preceded it.
-    return a.type === 'update' ? -1 : 1
+    // Same-date tiebreakers (in priority order):
+    // 1. worst_fail sorts before a completion — it happened just before the win.
+    // 2. updates sort before drops — the drop should reference the preceding update.
+    const aIsCompletion = a.type === 'update' && a.update.isCompletion
+    const bIsCompletion = b.type === 'update' && b.update.isCompletion
+    if (a.type === 'worst_fail' && bIsCompletion) return -1
+    if (b.type === 'worst_fail' && aIsCompletion) return 1
+    if (a.type === 'update' && b.type !== 'update') return -1
+    if (a.type !== 'update' && b.type === 'update') return 1
+    return 0
   })
 
   const result: RunsGraphEntry[] = []
@@ -138,20 +176,23 @@ export function computeRunsGraph(
     if (event.type === 'update') {
       result.push(entryFromUpdate(event.update))
       lastRealIdx = result.length - 1
+    } else if (event.type === 'worst_fail') {
+      // Synthetic bar — does not advance lastRealIdx.
+      result.push(event.entry)
     } else {
       // Drop event — apply the drop-merge rule.
       if (lastRealIdx === -1) continue // no prior progress entries
 
       const prior = result[lastRealIdx]!
-      const { worstFail, droppedAt } = event.drop
+      const { worstFail: dropWorstFail, droppedAt } = event.drop
 
-      if (worstFail !== null && worstFail !== prior.to) {
+      if (dropWorstFail !== null && dropWorstFail !== prior.to) {
         // Drop has a distinct worst-fail → emit a synthetic bar for that %.
         result.push({
           progressUpdateId: null,
           kind: 'from_zero',
           from: 0,
-          to: worstFail,
+          to: dropWorstFail,
           date: toIso(droppedAt),
           dateUncertain: false,
           droppedAfter: true,
@@ -163,6 +204,16 @@ export function computeRunsGraph(
         // No distinct worst-fail → flag the most recent real progress entry.
         prior.droppedAfter = true
       }
+    }
+  }
+
+  // If the worst fail has no date, splice it immediately before the completion.
+  if (worstFailEntry && worstFail!.date === null) {
+    const completionIdx = result.findIndex((e) => e.kind === 'completion')
+    if (completionIdx !== -1) {
+      result.splice(completionIdx, 0, worstFailEntry)
+    } else {
+      result.push(worstFailEntry)
     }
   }
 

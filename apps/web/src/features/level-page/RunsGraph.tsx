@@ -4,17 +4,20 @@ import type { RunsGraphEntry } from './types'
 function barColor(entry: RunsGraphEntry): string {
   if (entry.droppedAfter) return 'rgba(226,74,74,0.9)'
   if (entry.kind === 'completion') return '#22c55e'
+  if (entry.kind === 'worst_fail') return 'rgba(251,146,60,0.9)'
   return 'rgba(115,115,115,0.9)'
 }
 
 function labelColor(entry: RunsGraphEntry): string {
   if (entry.droppedAfter) return '#ff8a8a'
   if (entry.kind === 'completion') return '#5ddc8a'
+  if (entry.kind === 'worst_fail') return '#fb923c'
   return '#c8c8c8'
 }
 
 function entryLabel(entry: RunsGraphEntry): string {
   if (entry.kind === 'completion') return 'Completion'
+  if (entry.kind === 'worst_fail') return 'Worst fail'
   if (entry.from === 0) return `${entry.to}% from 0`
   return `run ${entry.from} → ${entry.to}%`
 }
@@ -136,7 +139,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
       </div>
 
       <p className="mt-2 text-[11px] text-text-tertiary">
-        Red marks the run a level was dropped after.
+        Orange = worst fail · Red = dropped after · Green = completion
       </p>
     </div>
   )
