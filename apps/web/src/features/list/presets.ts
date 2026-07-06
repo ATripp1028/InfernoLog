@@ -10,7 +10,6 @@ import {
   ENJOYMENT_DOMAIN,
   TIER_DOMAIN,
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
 } from './types'
 import { isRangeActive } from './filtering'
 import type { RatingDisplayScale, RatingCategory } from '@/lib/api/me'
@@ -131,10 +130,8 @@ function filtersEqual(a: FilterState, b: FilterState): boolean {
     rangesEqual(a.enjoyment, b.enjoyment) &&
     rangesEqual(a.tier, b.tier) &&
     rangesEqual(a.attempts, b.attempts) &&
-    // Compare dateBeaten[0] exactly, but treat dateBeaten[1] as equal if both
-    // are ≥ today (i.e. neither is actually constraining the upper bound).
-    a.dateBeaten[0] === b.dateBeaten[0] &&
-    a.dateBeaten[1] >= Date.now() - 86_400_000 === b.dateBeaten[1] >= Date.now() - 86_400_000 &&
+    a.dateBeaten.from === b.dateBeaten.from &&
+    a.dateBeaten.to === b.dateBeaten.to &&
     catRatingsEqual
   )
 }
@@ -188,8 +185,9 @@ export function isDefaultConfig(config: ViewConfig): boolean {
 // PRESET CLEANUP
 // ─────────────────────────────────────────────
 
-// Strip references to deleted rating categories from a view config. Called when
-// applying a saved preset or when the user's category list changes.
+// Strip references to deleted rating categories from a view config, and append
+// any active category columns that aren't present yet. Called when applying a
+// saved preset or when the user's category list changes.
 export function cleanupPresetForCategories(
   config: ViewConfig,
   activeCategoryIds: Set<string>
@@ -200,7 +198,13 @@ export function cleanupPresetForCategories(
   const columns = Object.fromEntries(
     Object.entries(config.columns).filter(([k]) => isActiveCatKey(k))
   )
-  const columnOrder = config.columnOrder.filter(isActiveCatKey)
+  const filteredOrder = config.columnOrder.filter(isActiveCatKey)
+  // Append active cat keys missing from the order (e.g. categories added after
+  // the preset was saved, or a fresh default config that predates categories).
+  const activeCatKeys = [...activeCategoryIds].map((id) => `cat:${id}` as ColumnId)
+  const newCatKeys = activeCatKeys.filter((k) => !filteredOrder.includes(k))
+  const columnOrder = newCatKeys.length ? [...filteredOrder, ...newCatKeys] : filteredOrder
+
   const sorts = config.sorts.filter((s) => isActiveCatKey(s.key))
   const categoryRatings = Object.fromEntries(
     Object.entries(config.filters.categoryRatings ?? {}).filter(([k]) =>
@@ -266,12 +270,11 @@ export function summarizeFilters(
     lines.push(`Tier: ${filters.tier[0]}–${filters.tier[1]}`)
   if (!rangesEqual(filters.attempts, ATTEMPTS_DOMAIN))
     lines.push(`Attempts: ${filters.attempts[0]}–${filters.attempts[1]}`)
-  if (
-    filters.dateBeaten[0] !== DATE_MIN_MS ||
-    filters.dateBeaten[1] < Date.now() - 86_400_000
-  ) {
+  if (filters.dateBeaten.from != null || filters.dateBeaten.to != null) {
     const fmt = (ms: number) => new Date(ms).getFullYear().toString()
-    lines.push(`Date: ${fmt(filters.dateBeaten[0])}–${fmt(filters.dateBeaten[1])}`)
+    const fromStr = filters.dateBeaten.from != null ? fmt(filters.dateBeaten.from) : 'Any'
+    const toStr = filters.dateBeaten.to != null ? fmt(filters.dateBeaten.to) : 'Today'
+    lines.push(`Date: ${fromStr}–${toStr}`)
   }
   // Per-category rating filters.
   for (const [catId, range] of Object.entries(filters.categoryRatings ?? {})) {

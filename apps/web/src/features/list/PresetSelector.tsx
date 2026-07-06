@@ -429,6 +429,19 @@ export function PresetSelector({
         </button>
       )}
 
+      {/* Inline overwrite button — only when a named preset is active */}
+      {isModified && selectedPresetId !== null && (
+        <button
+          type="button"
+          onClick={() => onOverwrite(selectedPresetId)}
+          title={`Overwrite "${selectedPreset?.name}" with current view`}
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+        >
+          <RotateCcw size={12} />
+          Overwrite
+        </button>
+      )}
+
       {/* Inline discard button that appears when the view has drifted from the preset */}
       {isModified && (
         <button

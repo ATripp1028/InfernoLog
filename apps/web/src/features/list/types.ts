@@ -24,6 +24,10 @@ export type StatusFlag =
 // A [min, max] inclusive range. Equal to its domain means "no constraint".
 export type Range = [number, number]
 
+// Open-ended date bounds — either bound may be null (= unbounded).
+// Stored separately so the right bound never silently captures "today."
+export type DateBounds = { from: number | null; to: number | null }
+
 export interface FilterState {
   statuses: ProgressStatus[] // empty = all
   listSources: ListSourceFilter[] // empty = all
@@ -38,7 +42,7 @@ export interface FilterState {
   enjoyment: Range // internal 0–100
   tier: Range // 1–35 (35 = 35+)
   attempts: Range // 0–25000 (25000 = 25000+)
-  dateBeaten: Range // epoch ms
+  dateBeaten: DateBounds
   // Per-category range filters: categoryId → [min, max]. Only active entries
   // constrain results; missing entries are treated as the full domain.
   categoryRatings: Record<string, Range>
@@ -79,10 +83,6 @@ export const TIER_DOMAIN: Range = [1, 35]
 export const ATTEMPTS_DOMAIN: Range = [0, 25000]
 export const DATE_MIN_MS = Date.UTC(2013, 0, 1) // Jan 2013 — GD's launch
 
-export function dateDomain(): Range {
-  return [DATE_MIN_MS, Date.now()]
-}
-
 export function defaultFilterState(): FilterState {
   return {
     statuses: [],
@@ -98,7 +98,7 @@ export function defaultFilterState(): FilterState {
     enjoyment: [...ENJOYMENT_DOMAIN] as Range,
     tier: [...TIER_DOMAIN] as Range,
     attempts: [...ATTEMPTS_DOMAIN] as Range,
-    dateBeaten: dateDomain(),
+    dateBeaten: { from: null, to: null },
     categoryRatings: {},
   }
 }
@@ -108,5 +108,5 @@ export function defaultFilterState(): FilterState {
 export function normalizeFilterState(
   stored: Partial<FilterState> | null | undefined
 ): FilterState {
-  return { ...defaultFilterState(), ...stored }
+  return { ...defaultFilterState(), ...(stored ?? {}) }
 }

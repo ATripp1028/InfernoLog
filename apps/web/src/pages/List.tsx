@@ -44,6 +44,7 @@ import {
   ATTEMPTS_DOMAIN,
   DATE_MIN_MS,
   defaultFilterState,
+  normalizeFilterState,
   type FilterState,
   type ListItem,
   type SortKey,
@@ -283,18 +284,27 @@ export function List() {
   )
 
   const isPresetModified = useMemo(() => {
+    const activeIds = new Set(activeCategories.map((c) => c.id))
+    // Normalize a config the same way applyPresetConfig does: add missing active
+    // cat keys to columnOrder, and fill in any filter fields added after the
+    // preset was saved.
+    function normalize(config: {
+      sorts: SortSpec[]
+      filters: FilterState
+      columns: ColumnVisibility
+      columnOrder: ColumnId[]
+    }) {
+      const cleaned = cleanupPresetForCategories(config, activeIds)
+      return { ...cleaned, filters: normalizeFilterState(cleaned.filters) }
+    }
+
     if (selectedPresetId === null) {
-      return !viewConfigsEqual(currentConfig, defaultViewConfig())
+      return !viewConfigsEqual(currentConfig, normalize(defaultViewConfig()))
     }
     const preset = presets.find((p) => p.id === selectedPresetId)
     if (!preset) return false
-    return !viewConfigsEqual(currentConfig, {
-      sorts: preset.sorts,
-      filters: preset.filters,
-      columns: preset.columns,
-      columnOrder: preset.columnOrder,
-    })
-  }, [selectedPresetId, currentConfig, presets])
+    return !viewConfigsEqual(currentConfig, normalize(preset))
+  }, [selectedPresetId, currentConfig, presets, activeCategories])
 
   if (me.isPending || !me.data || progress.isPending) {
     return <PageLoading />
@@ -308,10 +318,15 @@ export function List() {
     columns: ColumnVisibility
     columnOrder: ColumnId[]
   }) {
+    // Ensure active cat keys are always in columnOrder regardless of whether the
+    // preset or default config was saved before those categories existed.
+    const activeCatKeys = activeCategories.map((c) => `cat:${c.id}` as ColumnId)
+    const order = config.columnOrder
+    const fullOrder = [...order, ...activeCatKeys.filter((k) => !order.includes(k))]
     setSorts(config.sorts)
     setFilters(config.filters)
     setColumns(config.columns)
-    setColumnOrder(config.columnOrder)
+    setColumnOrder(fullOrder)
   }
 
   function handleSelectPreset(id: string | null) {

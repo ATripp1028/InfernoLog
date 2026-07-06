@@ -12,19 +12,10 @@ import type {
 } from './types'
 import {
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
   ENJOYMENT_DOMAIN,
   RATING_DOMAIN,
   TIER_DOMAIN,
 } from './types'
-
-const DAY_MS = 86_400_000
-
-// The date domain's max is "now" (changes constantly), so detect activity with a
-// one-day tolerance at both ends rather than exact domain equality.
-function isDateActive(range: Range): boolean {
-  return range[0] > DATE_MIN_MS + DAY_MS || range[1] < Date.now() - DAY_MS
-}
 
 // ── Row value extractors ─────────────────────────────────────────────────────
 
@@ -140,7 +131,8 @@ export function applyFilters(
   const enjoyActive = isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)
   const tierActive = isRangeActive(filters.tier, TIER_DOMAIN)
   const attemptsActive = isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)
-  const dateActive = isDateActive(filters.dateBeaten)
+  const { from: dateFrom, to: dateTo } = filters.dateBeaten
+  const dateActive = dateFrom != null || dateTo != null
 
   // Pre-compute active category rating filters.
   const activeCatFilters = Object.entries(filters.categoryRatings ?? {}).filter(
@@ -238,7 +230,9 @@ export function applyFilters(
 
     if (dateActive) {
       const d = dateMs(item)
-      if (d == null || !inRange(d, filters.dateBeaten)) return false
+      if (d == null) return false
+      if (dateFrom != null && d < dateFrom) return false
+      if (dateTo != null && d > dateTo) return false
     }
 
     for (const [catId, range] of activeCatFilters) {
@@ -268,7 +262,7 @@ export function countActiveFilters(filters: FilterState): number {
   if (isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)) n++
   if (isRangeActive(filters.tier, TIER_DOMAIN)) n++
   if (isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)) n++
-  if (isDateActive(filters.dateBeaten)) n++
+  if (filters.dateBeaten.from != null || filters.dateBeaten.to != null) n++
   for (const range of Object.values(filters.categoryRatings ?? {})) {
     if (isRangeActive(range, RATING_DOMAIN)) n++
   }
