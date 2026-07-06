@@ -294,6 +294,9 @@ export const CompletionInputSchema = z.object({
   ...sessionDetailFields,
   // Best run from 0% reached before beating the level (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  // Calendar date of the worst fail session. Omitted when the user checks
+  // "I already logged my worst fail" (so the server keeps the existing value).
+  worstFailDate: z.coerce.date().nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // Non-demon difficulty opinion as a star count (1–9), only meaningful when
@@ -354,6 +357,8 @@ export const DropInputSchema = z.object({
   attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  // Calendar date of the worst fail session.
+  worstFailDate: z.coerce.date().nullable().optional(),
   droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
@@ -365,6 +370,7 @@ export const EditProgressInputSchema = z.object({
   // LevelProgress fields
   levelNotes: z.string().max(5000).nullable().optional(),
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  worstFailDate: z.coerce.date().nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).optional(),
   // Most recent ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
@@ -431,6 +437,7 @@ export const ExistingCompletionSchema = z.object({
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   worstFail: z.number().int().nullable(),
+  worstFailDate: z.coerce.date().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   difficultyOpinionStars: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(),
@@ -800,6 +807,8 @@ export const ImportCompletionRowSchema = z.object({
   attempts: z.number().int().nonnegative().nullable().optional(),
   // Worst fail / last logged percentage (0-100).
   percentage: z.number().min(0).max(100).nullable().optional(),
+  // ISO 8601 date string — date of the worst fail session.
+  worstFailDate: z.string().nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
   onStream: z.boolean().nullable().optional(),
@@ -1020,6 +1029,7 @@ export const ExportCompletionSchema = z.object({
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   percentage: z.number().int().nullable(),
+  worstFailDate: z.string().nullable(),
   runFrom: z.number().int().nullable(),
   runTo: z.number().int().nullable(),
   onStream: z.boolean(),

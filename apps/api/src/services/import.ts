@@ -306,6 +306,7 @@ type LpStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 interface LpFields {
   status?: LpStatus
   worstFail?: number
+  worstFailDate?: Date | null
   droppedAt?: Date | null
   droppedReason?: string | null
   attemptsAtDrop?: number | null
@@ -493,6 +494,9 @@ function planCompletion(
       ...(row.percentage != null
         ? { worstFail: Math.round(row.percentage) }
         : {}),
+      ...(row.worstFailDate != null
+        ? { worstFailDate: new Date(row.worstFailDate) }
+        : {}),
       ...(row.visibility != null ? { visibility: row.visibility } : {}),
       ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     }
@@ -532,6 +536,9 @@ function planCompletion(
     status: 'COMPLETED',
     ...(row.percentage != null
       ? { worstFail: Math.round(row.percentage) }
+      : {}),
+    ...(row.worstFailDate != null
+      ? { worstFailDate: new Date(row.worstFailDate) }
       : {}),
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),

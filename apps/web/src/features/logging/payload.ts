@@ -63,12 +63,21 @@ export function buildCompletionInput(
         }))
       : undefined
 
+  // When the user checks "already logged", omit both worst fail fields so the
+  // server leaves the existing LevelProgress.worstFail/worstFailDate untouched.
+  const worstFailFields = draft.worstFailAlreadyLogged
+    ? {}
+    : {
+        worstFail: intOrNull(draft.worstFail),
+        worstFailDate: draft.worstFailDate || null,
+      }
+
   return {
     levelId: level.inGameId,
     date: draft.date,
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
-    worstFail: intOrNull(draft.worstFail),
+    ...worstFailFields,
     fps: intOrNull(draft.fps, me.defaultFps ?? null),
     onStream: draft.onStream,
     highlightUrl: draft.highlightUrl.trim() || null,
@@ -128,11 +137,17 @@ export function buildProgressInput(
 }
 
 export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
+  const worstFailFields = draft.worstFailAlreadyLogged
+    ? {}
+    : {
+        worstFail: intOrNull(draft.worstFail),
+        worstFailDate: draft.worstFailDate || null,
+      }
   return {
     levelId: level.inGameId,
     droppedAt: draft.date,
     attemptsAtDrop: intOrNull(draft.attempts),
-    worstFail: intOrNull(draft.worstFail),
+    ...worstFailFields,
     droppedReason: draft.droppedReason.trim() || null,
     visibility: draft.visibility,
   }

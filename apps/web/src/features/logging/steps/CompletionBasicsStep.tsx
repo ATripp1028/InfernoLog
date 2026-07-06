@@ -96,22 +96,49 @@ export function CompletionBasicsStep() {
             />
             <FieldHint>Cumulative across all copies and reuploads.</FieldHint>
           </div>
-          <div>
-            <FieldLabel
-              htmlFor="c-worstfail"
-              hint="Your best run from 0% before beating it."
-            >
-              Worst fail
-            </FieldLabel>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <FieldLabel
+                htmlFor="c-worstfail"
+                hint="Your best run from 0% before beating it."
+              >
+                Worst fail
+              </FieldLabel>
+              <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
+                <input
+                  type="checkbox"
+                  checked={draft.worstFailAlreadyLogged}
+                  onChange={(e) =>
+                    patchDraft({ worstFailAlreadyLogged: e.target.checked })
+                  }
+                  className="rounded border-border"
+                />
+                Already logged
+              </label>
+            </div>
             <Input
               id="c-worstfail"
               inputMode="numeric"
+              disabled={draft.worstFailAlreadyLogged}
               value={draft.worstFail}
               onChange={(e) =>
                 patchDraft({ worstFail: clampPercent(e.target.value) })
               }
             />
-            <FieldHint>Best run from 0% before the win.</FieldHint>
+            <Input
+              id="c-worstfaildate"
+              type="date"
+              disabled={draft.worstFailAlreadyLogged}
+              value={draft.worstFailDate}
+              onChange={(e) =>
+                patchDraft({ worstFailDate: e.target.value })
+              }
+            />
+            {draft.worstFailAlreadyLogged ? (
+              <FieldHint>Keeping your previously logged worst fail.</FieldHint>
+            ) : (
+              <FieldHint>% and date of your best run from 0%.</FieldHint>
+            )}
           </div>
         </div>
 

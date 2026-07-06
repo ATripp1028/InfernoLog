@@ -344,6 +344,9 @@ model LevelProgress {
   // — the user's "worst fail". Captured on the completion and drop screens.
   // Level-scoped (one value per user/level), updated on each such log.
   worstFail       Int?
+  // Calendar date of the worst fail session. Null when the user opts out
+  // ("I already logged my worst fail") or leaves it blank.
+  worstFailDate   DateTime? @db.Date
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.

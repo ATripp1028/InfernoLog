@@ -36,6 +36,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
     select: {
       levelId: true,
       worstFail: true,
+      worstFailDate: true,
       visibility: true,
       levelNotes: true,
       level: { select: { name: true, creator: true } },
@@ -85,6 +86,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         dateUncertain: pu.dateUncertain,
         attempts: pu.attempts,
         percentage: lp.worstFail,
+        worstFailDate: iso(lp.worstFailDate),
         runFrom: pu.runFrom,
         runTo: pu.runTo,
         onStream: pu.onStream,

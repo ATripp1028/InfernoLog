@@ -92,7 +92,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
       listReferences: {
         select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
       },
-      levelProgress: { select: { visibility: true, worstFail: true } },
+      levelProgress: { select: { visibility: true, worstFail: true, worstFailDate: true } },
     },
   })
   if (!completion) return null
@@ -103,6 +103,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     dateUncertain: completion.dateUncertain,
     attempts: completion.attempts,
     worstFail: completion.levelProgress.worstFail,
+    worstFailDate: completion.levelProgress.worstFailDate,
     difficultyOpinion: completion.difficultyOpinion,
     difficultyOpinionStars: completion.difficultyOpinionStars,
     enjoyment: completion.enjoyment,

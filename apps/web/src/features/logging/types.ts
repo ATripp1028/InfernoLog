@@ -34,6 +34,8 @@ export interface FlowDraft {
   dateUncertain: boolean
   attempts: string
   worstFail: string
+  worstFailDate: string
+  worstFailAlreadyLogged: boolean
   difficultyOpinion: DifficultyOpinion | null
   // Non-demon difficulty opinion as a star count (1–9), only when the opinion
   // is NOT_DEMON_WORTHY.
@@ -85,6 +87,8 @@ export function emptyDraft(): FlowDraft {
     dateUncertain: false,
     attempts: '',
     worstFail: '',
+    worstFailDate: '',
+    worstFailAlreadyLogged: false,
     difficultyOpinion: null,
     difficultyOpinionStars: null,
     enjoyment: null,
@@ -129,6 +133,8 @@ export function draftFromExistingCompletion(
   draft.dateUncertain = existing.dateUncertain
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
   draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
+  draft.worstFailDate = isoToDateInput(existing.worstFailDate) ?? ''
+  draft.worstFailAlreadyLogged = false
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.difficultyOpinionStars = existing.difficultyOpinionStars
   draft.enjoyment = existing.enjoyment

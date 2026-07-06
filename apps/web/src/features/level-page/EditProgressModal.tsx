@@ -35,6 +35,7 @@ interface EditForm {
   dateUncertain: boolean
   attempts: string
   worstFail: string
+  worstFailDate: string
   fps: string
   onStream: boolean
   difficultyOpinion: DifficultyOpinion | null
@@ -64,6 +65,7 @@ function initForm(
     dateUncertain: latest?.dateUncertain ?? false,
     attempts: latest?.attempts != null ? String(latest.attempts) : '',
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
+    worstFailDate: data.worstFailDate ? (data.worstFailDate as string).slice(0, 10) : '',
     fps: latest?.fps != null ? String(latest.fps) : '',
     onStream: latest?.onStream ?? false,
     difficultyOpinion:
@@ -144,6 +146,7 @@ export function EditProgressModal({
       dateUncertain: form.dateUncertain,
       attempts: form.attempts !== '' ? parseInt(form.attempts, 10) : null,
       worstFail: form.worstFail !== '' ? parseInt(form.worstFail, 10) : null,
+      worstFailDate: form.worstFailDate || null,
       fps: form.fps !== '' ? parseInt(form.fps, 10) : null,
       onStream: form.onStream,
       notes: form.notes || null,
@@ -281,6 +284,18 @@ export function EditProgressModal({
                       }
                     />
                   </div>
+                </div>
+
+                <div>
+                  <FieldLabel htmlFor="ep-worstfaildate">
+                    Worst fail date
+                  </FieldLabel>
+                  <Input
+                    id="ep-worstfaildate"
+                    type="date"
+                    value={form.worstFailDate}
+                    onChange={(e) => patch({ worstFailDate: e.target.value })}
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

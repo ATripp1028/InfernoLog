@@ -214,6 +214,7 @@ app.get('/me/progress/:levelId', async (c) => {
         droppedAt: true,
         attemptsAtDrop: true,
         worstFail: true,
+        worstFailDate: true,
         createdAt: true,
         updatedAt: true,
         classicRanking: {
@@ -339,6 +340,7 @@ app.get('/me/progress/:levelId', async (c) => {
         droppedAt: lp.droppedAt,
         attemptsAtDrop: lp.attemptsAtDrop,
         worstFail: lp.worstFail,
+        worstFailDate: lp.worstFailDate,
         createdAt: lp.createdAt,
         updatedAt: lp.updatedAt,
         // Ranking placement (null if unplaced or not completed)

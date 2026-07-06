@@ -7,6 +7,7 @@ export interface LevelPageData {
   droppedAt: string | null
   attemptsAtDrop: number | null
   worstFail: number | null
+  worstFailDate: string | null
   createdAt: string
   updatedAt: string
   rankingIndex: number | null

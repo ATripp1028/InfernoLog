@@ -95,6 +95,7 @@ export interface ExistingCompletion {
   enjoyment: number | null
   simpleRating: number | null
   worstFail: number | null
+  worstFailDate: string | null
   fps: number | null
   onStream: boolean
   videoUrl: string | null
@@ -144,6 +145,7 @@ export interface CompletionInput {
   dateUncertain?: boolean
   attempts?: number | null
   worstFail?: number | null
+  worstFailDate?: string | null
   fps?: number | null
   onStream?: boolean
   highlightUrl?: string | null
@@ -183,6 +185,7 @@ export interface DropInput {
   droppedAt?: string | null
   attemptsAtDrop?: number | null
   worstFail?: number | null
+  worstFailDate?: string | null
   droppedReason?: string | null
   visibility?: EntryVisibility
 }

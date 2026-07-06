@@ -193,12 +193,17 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     }
 
     // Mark the level_progress completed and apply the per-entry privacy.
+    // worstFail/worstFailDate are only written when explicitly provided —
+    // undefined means the user checked "I already logged my worst fail".
     await tx.levelProgress.update({
       where: { id: lp.id },
       data: {
         status: 'COMPLETED',
         visibility: input.visibility,
-        worstFail: input.worstFail ?? null,
+        ...(input.worstFail !== undefined ? { worstFail: input.worstFail } : {}),
+        ...(input.worstFailDate !== undefined
+          ? { worstFailDate: input.worstFailDate }
+          : {}),
       },
     })
 
@@ -287,6 +292,7 @@ export async function applyEdit(
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
+    if (input.worstFailDate !== undefined) lpData.worstFailDate = input.worstFailDate
     if (input.visibility !== undefined) lpData.visibility = input.visibility
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
@@ -373,8 +379,11 @@ export async function applyDrop(userId: string, input: DropInput) {
         droppedAt: input.droppedAt ?? null,
         droppedReason: input.droppedReason ?? null,
         attemptsAtDrop: input.attemptsAtDrop ?? null,
-        worstFail: input.worstFail ?? null,
         visibility: input.visibility,
+        ...(input.worstFail !== undefined ? { worstFail: input.worstFail } : {}),
+        ...(input.worstFailDate !== undefined
+          ? { worstFailDate: input.worstFailDate }
+          : {}),
       },
     })
     return { levelProgress: updated, progressUpdate: null }
