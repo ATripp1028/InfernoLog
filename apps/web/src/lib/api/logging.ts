@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
-import type { ListSource } from './me'
 
 // ─────────────────────────────────────────────
 // Logging flow — wire types. We mirror packages/core's Zod schemas as plain TS
@@ -107,11 +106,7 @@ export interface ExistingCompletion {
   visibility: EntryVisibility
   device: Device | null
   ratingScores: Array<{ categoryId: string; score: number }>
-  listReferences: Array<{
-    listSource: ListSource
-    tierOrRank: string
-    atTimeOfLogging: boolean
-  }>
+  userGddlTier: number | null
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
@@ -136,12 +131,6 @@ export interface ManualLevelInput {
   length?: string | null
 }
 
-export interface CompletionListReference {
-  listSource: ListSource
-  tierOrRank: string
-  atTimeOfLogging?: boolean
-}
-
 export interface CompletionInput {
   levelId: string
   date?: string | null
@@ -161,7 +150,7 @@ export interface CompletionInput {
   enjoyment?: number | null
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
-  listReferences?: CompletionListReference[]
+  userGddlTier?: number | null
   coinsCollected?: number | null
   twoPlayerSolo?: boolean | null
   twoPlayerPartner?: string | null

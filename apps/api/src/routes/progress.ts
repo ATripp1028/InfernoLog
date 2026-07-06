@@ -51,13 +51,11 @@ const levelListSelect = {
   coinsVerified: true,
   twoPlayer: true,
   gameVersion: true,
+  gddlTier: true,
 } satisfies Prisma.LevelSelect
 
 const listEntryInclude = {
   ratingScores: { select: { categoryId: true, score: true } },
-  listReferences: {
-    select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
-  },
 } satisfies Prisma.ProgressUpdateInclude
 
 const levelProgressListSelect = {
@@ -72,6 +70,7 @@ const levelProgressListSelect = {
   updatedAt: true,
   // Presence of a ranking row → !needsPlacement for completed classic levels.
   classicRanking: { select: { id: true } },
+  userGddlTier: true,
   level: { select: levelListSelect },
   // The representative update: completion first (isCompletion desc), else the
   // most recent. `take: 1` yields exactly one per level in a single query.
@@ -114,7 +113,6 @@ function serializeEntry(
     notes: update.notes,
     device: update.device,
     loggedAt: update.loggedAt,
-    listReferences: update.listReferences,
     ratingScores: update.ratingScores,
   }
 }
@@ -141,6 +139,7 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
       row.status === 'COMPLETED' &&
       level.levelType === 'CLASSIC' &&
       row.classicRanking === null,
+    userGddlTier: row.userGddlTier,
     level,
     entry: update ? serializeEntry(update, ratingConfig) : null,
   }
@@ -217,6 +216,7 @@ app.get('/me/progress/:levelId', async (c) => {
         attemptsAtDrop: true,
         worstFail: true,
         worstFailDate: true,
+        userGddlTier: true,
         createdAt: true,
         updatedAt: true,
         classicRanking: {
@@ -241,6 +241,7 @@ app.get('/me/progress/:levelId', async (c) => {
             coinsVerified: true,
             twoPlayer: true,
             officialSongId: true,
+            gddlTier: true,
           },
         },
         progressUpdates: {
@@ -269,14 +270,7 @@ app.get('/me/progress/:levelId', async (c) => {
             twoPlayerSolo: true,
             twoPlayerPartner: true,
             device: true,
-            listReferences: {
-              select: {
-                listSource: true,
-                tierOrRank: true,
-                atTimeOfLogging: true,
-              },
-            },
-            ratingScores: {
+              ratingScores: {
               select: { categoryId: true, score: true },
             },
           },
@@ -351,6 +345,7 @@ app.get('/me/progress/:levelId', async (c) => {
         attemptsAtDrop: lp.attemptsAtDrop,
         worstFail: lp.worstFail,
         worstFailDate: lp.worstFailDate,
+        userGddlTier: lp.userGddlTier,
         createdAt: lp.createdAt,
         updatedAt: lp.updatedAt,
         // Ranking placement (null if unplaced or not completed)
@@ -384,7 +379,6 @@ app.get('/me/progress/:levelId', async (c) => {
           videoUrl: u.videoUrl,
           highlightUrl: u.highlightUrl,
           loggedAt: u.loggedAt,
-          listReferences: u.listReferences,
           ratingScores: u.ratingScores,
           coinsCollected: u.coinsCollected,
           twoPlayerSolo: u.twoPlayerSolo,

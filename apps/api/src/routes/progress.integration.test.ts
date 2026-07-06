@@ -144,8 +144,6 @@ describe('GET /me/progress', () => {
     expect(completed.entry?.isCompletion).toBe(true)
     expect(completed.entry?.attempts).toBe(12000)
     expect(completed.entry?.overallRating).toBe(70) // SIMPLE → simpleRating
-    expect(completed.entry?.listReferences).toHaveLength(1)
-    expect(completed.entry?.listReferences[0]?.tierOrRank).toBe('28')
     // Completed classic level with no ClassicRanking row.
     expect(completed.needsPlacement).toBe(true)
 
@@ -272,9 +270,6 @@ describe('DELETE /me/progress/:levelId', () => {
     ).toBeNull()
     expect(
       await prisma.progressUpdate.count({ where: { levelProgressId: lp.id } })
-    ).toBe(0)
-    expect(
-      await prisma.listReference.count({ where: { progressUpdateId: pu.id } })
     ).toBe(0)
   })
 

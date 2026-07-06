@@ -113,8 +113,6 @@ function filtersEqual(a: FilterState, b: FilterState): boolean {
   return (
     JSON.stringify(a.statuses.slice().sort()) ===
       JSON.stringify(b.statuses.slice().sort()) &&
-    JSON.stringify(a.listSources.slice().sort()) ===
-      JSON.stringify(b.listSources.slice().sort()) &&
     JSON.stringify(a.levelTypes.slice().sort()) ===
       JSON.stringify(b.levelTypes.slice().sort()) &&
     a.ratedStatus === b.ratedStatus &&
@@ -245,8 +243,6 @@ export function summarizeFilters(
   const lines: string[] = []
   if (filters.statuses.length > 0)
     lines.push(`Status: ${filters.statuses.join(', ')}`)
-  if (filters.listSources.length > 0)
-    lines.push(`Lists: ${filters.listSources.join(', ')}`)
   if (filters.levelTypes.length > 0)
     lines.push(`Type: ${filters.levelTypes.join(', ')}`)
   if (filters.ratedStatus !== 'ALL') lines.push(`Rated: ${filters.ratedStatus}`)

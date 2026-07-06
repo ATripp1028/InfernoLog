@@ -4,7 +4,6 @@ import { ApiError, apiFetch } from './client'
 
 export { ApiError }
 
-export type ListSource = 'GDDL' | 'AREDL' | 'NLW' | 'OTHER'
 export type RatingMode = 'SIMPLE' | 'WEIGHTED'
 export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'

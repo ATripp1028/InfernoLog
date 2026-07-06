@@ -507,30 +507,23 @@ export function EditProgressModal({
               )}
 
               {/* ── GDDL tier (read-only, managed by GDDL) ───── */}
-              {isCompletion &&
-                (() => {
-                  const gddlRef = latestUpdate?.listReferences.find(
-                    (r) => r.listSource === 'GDDL'
-                  )
-                  if (!gddlRef) return null
-                  return (
-                    <Section label="List references">
-                      <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            GDDL tier
-                          </p>
-                          <p className="text-xs text-text-tertiary">
-                            Managed via the GDDL platform.
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary">
-                          {gddlRef.tierOrRank}
-                        </span>
-                      </div>
-                    </Section>
-                  )
-                })()}
+              {isCompletion && data.userGddlTier != null && (
+                <Section label="List references">
+                  <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
+                    <div>
+                      <p className="text-sm font-medium text-text-primary">
+                        GDDL tier
+                      </p>
+                      <p className="text-xs text-text-tertiary">
+                        Managed via the GDDL platform.
+                      </p>
+                    </div>
+                    <span className="text-sm font-semibold text-text-primary">
+                      {data.userGddlTier}
+                    </span>
+                  </div>
+                </Section>
+              )}
 
               {/* ── Notes ────────────────────────────────────── */}
               <Section label="Notes">

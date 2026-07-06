@@ -22,7 +22,6 @@ import {
   type DateBounds,
   type FilterState,
   type DeviceFilter,
-  type ListSourceFilter,
   type LevelTypeFilter,
   type ProgressStatus,
   type Range,
@@ -58,7 +57,6 @@ const PROGRESS: { value: ProgressStatus; label: string }[] = [
   { value: 'IN_PROGRESS', label: 'In Progress' },
   { value: 'DROPPED', label: 'Dropped' },
 ]
-const SOURCES: ListSourceFilter[] = ['GDDL', 'AREDL', 'NLW']
 const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
@@ -478,23 +476,6 @@ export function FilterPanel({
           <p className="px-4 pt-1 text-[10px] text-text-tertiary">
             Scale 0–{max}
           </p>
-        </FilterSection>
-
-        <FilterSection title="List Source">
-          <div className="flex flex-wrap gap-1.5 px-4">
-            {SOURCES.map((s) => (
-              <Chip
-                key={s}
-                className="cursor-pointer"
-                selected={filters.listSources.includes(s)}
-                onClick={() =>
-                  set({ listSources: toggle(filters.listSources, s) })
-                }
-              >
-                {s}
-              </Chip>
-            ))}
-          </div>
         </FilterSection>
 
         <FilterSection title="GDDL Tier">

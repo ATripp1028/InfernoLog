@@ -20,10 +20,7 @@ import {
 // ── Row value extractors ─────────────────────────────────────────────────────
 
 export function gddlTier(item: ListItem): number | null {
-  const ref = item.entry?.listReferences.find((r) => r.listSource === 'GDDL')
-  if (!ref) return null
-  const n = Number.parseInt(ref.tierOrRank, 10)
-  return Number.isFinite(n) ? n : null
+  return item.level.gddlTier ?? null
 }
 
 function dateMs(item: ListItem): number | null {
@@ -193,14 +190,6 @@ export function applyFilters(
       if (!d || !filters.devices.includes(d as 'pc' | 'mobile')) return false
     }
 
-    if (filters.listSources.length) {
-      const refs = item.entry?.listReferences ?? []
-      const hasAny = filters.listSources.some((src) =>
-        refs.some((r) => r.listSource === src)
-      )
-      if (!hasAny) return false
-    }
-
     if (!matchesRatedStatus(item, filters.ratedStatus)) return false
 
     if (filters.flags.length && !filters.flags.every((f) => flagValue(item, f)))
@@ -250,7 +239,6 @@ export function applyFilters(
 export function countActiveFilters(filters: FilterState): number {
   let n = 0
   if (filters.statuses.length) n++
-  if (filters.listSources.length) n++
   if (filters.levelTypes.length) n++
   if (filters.devices.length) n++
   if (filters.ratedStatus !== 'ALL') n++

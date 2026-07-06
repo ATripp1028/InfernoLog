@@ -1,7 +1,6 @@
 import type { LevelProgressListItem } from '@infernolog/core'
 
 export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
-export type ListSourceFilter = 'GDDL' | 'AREDL' | 'NLW'
 export type LevelTypeFilter = 'CLASSIC' | 'PLATFORMER'
 export type DeviceFilter = 'pc' | 'mobile'
 export type RatedStatusFilter =
@@ -30,7 +29,6 @@ export type DateBounds = { from: number | null; to: number | null }
 
 export interface FilterState {
   statuses: ProgressStatus[] // empty = all
-  listSources: ListSourceFilter[] // empty = all
   levelTypes: LevelTypeFilter[] // empty = all
   devices: DeviceFilter[] // empty = all
   ratedStatus: RatedStatusFilter // 'ALL' = no constraint
@@ -86,7 +84,6 @@ export const DATE_MIN_MS = Date.UTC(2013, 0, 1) // Jan 2013 — GD's launch
 export function defaultFilterState(): FilterState {
   return {
     statuses: [],
-    listSources: [],
     levelTypes: [],
     devices: [],
     ratedStatus: 'ALL',

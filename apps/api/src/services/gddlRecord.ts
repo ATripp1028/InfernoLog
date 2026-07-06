@@ -36,16 +36,11 @@ export async function submitCompletionRecordToGddl(params: {
       fps: true,
       enjoyment: true,
       device: true,
-      listReferences: {
-        where: { listSource: 'GDDL' },
-        select: { tierOrRank: true },
-        take: 1,
-      },
+      levelProgress: { select: { userGddlTier: true } },
     },
   })
 
-  const gddlTierRaw = update?.listReferences[0]?.tierOrRank ?? null
-  const gddlTier = gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
+  const gddlTier = update?.levelProgress.userGddlTier ?? null
 
   const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
   await submitGddlRecord(apiKey, {

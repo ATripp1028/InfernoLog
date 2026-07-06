@@ -114,14 +114,16 @@ export async function getCollections(userId: string) {
   }))
 }
 
+type CompletionInfo = { userGddlTier: number | null; updates: CompletionRefs }
+
 // The viewer's completion state per level, for badges + the completed flag.
 async function loadCompletionsByLevel(userId: string, levelIds: string[]) {
-  if (levelIds.length === 0) return new Map<string, CompletionRefs>()
+  if (levelIds.length === 0) return new Map<string, CompletionInfo>()
   const lps = await prisma.levelProgress.findMany({
     where: { userId, levelId: { in: levelIds } },
-    select: { levelId: true, progressUpdates: completionSelect },
+    select: { levelId: true, userGddlTier: true, progressUpdates: completionSelect },
   })
-  return new Map(lps.map((lp) => [lp.levelId, lp.progressUpdates]))
+  return new Map(lps.map((lp) => [lp.levelId, { userGddlTier: lp.userGddlTier, updates: lp.progressUpdates }]))
 }
 
 export async function getCollectionDetail(
@@ -162,14 +164,14 @@ export async function getCollectionDetail(
     createdAt: collection.createdAt,
     entries: collection.entries.map((e) => {
       const level = e.level
-      const updates = completions.get(level.inGameId) ?? []
+      const info = completions.get(level.inGameId) ?? null
       return {
         id: e.id,
         rankingIndex: e.rankingIndex.toNumber(),
         addedAt: e.addedAt,
         level: mapLevel(level),
-        badge: deriveBadge(updates, level.inGameDifficulty),
-        completed: updates.length > 0,
+        badge: deriveBadge(info?.userGddlTier ?? null),
+        completed: (info?.updates.length ?? 0) > 0,
       }
     }),
   }

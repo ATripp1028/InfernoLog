@@ -96,17 +96,15 @@ describe('syncGddlSubmissions', () => {
 
     const lp = await prisma.levelProgress.findUniqueOrThrow({
       where: { userId_levelId: { userId: user.id, levelId: '12345' } },
-      include: { progressUpdates: { include: { listReferences: true } } },
+      include: { progressUpdates: true },
     })
     expect(lp.status).toBe('COMPLETED')
     const pu = lp.progressUpdates[0]!
     expect(pu.isCompletion).toBe(true)
     expect(pu.enjoyment).toBe(70) // 7 × 10
     expect(pu.videoUrl).toBe('https://youtube.com/watch?v=abc')
-    // GDDL's "Rating" is the level's tier, not a quality score — it becomes a
-    // GDDL list reference, never our simpleRating.
-    expect(pu.listReferences[0]!.listSource).toBe('GDDL')
-    expect(pu.listReferences[0]!.tierOrRank).toBe('8')
+    // GDDL's "Rating" is the level's tier — stored as userGddlTier on LevelProgress.
+    expect(lp.userGddlTier).toBe(8)
   })
 
   it('creates the level from GDDL metadata when RobTop is unavailable', async () => {
@@ -214,16 +212,6 @@ describe('syncGddlSubmissions', () => {
       },
       select: { id: true },
     })
-    // Existing GDDL list reference → nothing to add.
-    await prisma.listReference.create({
-      data: {
-        progressUpdateId: pu.id,
-        listSource: 'GDDL',
-        tierOrRank: '7',
-        atTimeOfLogging: false,
-      },
-    })
-
     mockFetchAll.mockResolvedValueOnce([makeSubmission()])
     const result = await syncGddlSubmissions(user.id, 'api-key')
 

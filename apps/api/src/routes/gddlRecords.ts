@@ -25,37 +25,23 @@ app.post('/me/gddl-records/:levelId', async (c) => {
       return c.json({ error: 'No GDDL API key configured' }, 400)
     }
 
-    const completion = await prisma.progressUpdate.findFirst({
-      where: {
-        levelProgress: { userId, levelId },
-        isCompletion: true,
-      },
+    const lp = await prisma.levelProgress.findUnique({
+      where: { userId_levelId: { userId, levelId } },
       select: {
-        id: true,
-        videoUrl: true,
-        attempts: true,
-        fps: true,
-        enjoyment: true,
-        twoPlayerSolo: true,
-        device: true,
-        listReferences: {
-          where: { listSource: 'GDDL' },
-          select: { tierOrRank: true },
+        userGddlTier: true,
+        progressUpdates: {
+          where: { isCompletion: true },
           take: 1,
+          select: { id: true, videoUrl: true, attempts: true, fps: true, enjoyment: true, twoPlayerSolo: true, device: true },
         },
       },
     })
+    const completion = lp?.progressUpdates[0] ?? null
     if (!completion) {
       return c.json({ error: 'No completion found for this level' }, 404)
     }
 
-    const gddlTierRaw = completion.listReferences[0]?.tierOrRank ?? null
-    const gddlTierParsed =
-      gddlTierRaw != null ? parseInt(gddlTierRaw, 10) : null
-    const gddlTier =
-      gddlTierParsed != null && !Number.isNaN(gddlTierParsed)
-        ? gddlTierParsed
-        : null
+    const gddlTier = lp?.userGddlTier ?? null
 
     const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
     await submitGddlRecord(apiKey, {

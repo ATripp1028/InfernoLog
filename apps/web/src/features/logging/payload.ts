@@ -1,7 +1,5 @@
 import type {
   CompletionInput,
-  CompletionListReference,
-  DifficultyOpinion,
   DropInput,
   GdVersion,
   Level,
@@ -9,19 +7,6 @@ import type {
 } from '@/lib/api/logging'
 import type { MeData } from '@/lib/api/me'
 import type { FlowDraft } from './types'
-
-// NLW and AREDL are extreme-demon lists (AREDL = All Rated Extreme Demons
-// List), so their fields only apply when the level IS an extreme demon or the
-// user's difficulty opinion is Extreme. GDDL applies to every rated level.
-export function isExtremeContext(
-  inGameDifficulty: string | null,
-  difficultyOpinion: DifficultyOpinion | null
-): boolean {
-  return (
-    (inGameDifficulty?.toLowerCase().includes('extreme') ?? false) ||
-    difficultyOpinion === 'EXTREME'
-  )
-}
 
 function intOrNull(
   value: string,
@@ -33,29 +18,12 @@ function intOrNull(
   return Number.isNaN(n) ? null : n
 }
 
-function listReferences(
-  draft: FlowDraft,
-  allowExtremeLists: boolean
-): CompletionListReference[] {
-  const refs: CompletionListReference[] = []
-  if (draft.gddlTier.trim())
-    refs.push({ listSource: 'GDDL', tierOrRank: draft.gddlTier.trim() })
-  if (allowExtremeLists && draft.nlwTier.trim())
-    refs.push({ listSource: 'NLW', tierOrRank: draft.nlwTier.trim() })
-  if (allowExtremeLists && draft.aredlTier.trim())
-    refs.push({ listSource: 'AREDL', tierOrRank: draft.aredlTier.trim() })
-  return refs
-}
-
 export function buildCompletionInput(
   level: Level,
   draft: FlowDraft,
   me: MeData
 ): CompletionInput {
-  const refs = listReferences(
-    draft,
-    isExtremeContext(level.inGameDifficulty, draft.difficultyOpinion)
-  )
+  const userGddlTier = intOrNull(draft.userGddlTier)
   const ratingScores =
     me.ratingMode === 'WEIGHTED'
       ? Object.entries(draft.ratingScores).map(([categoryId, score]) => ({
@@ -94,7 +62,7 @@ export function buildCompletionInput(
     enjoyment: draft.enjoyment,
     simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
     ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
-    ...(refs.length ? { listReferences: refs } : {}),
+    userGddlTier: userGddlTier,
     coinsCollected: level.coins ? draft.coinsCollected : null,
     twoPlayerSolo: level.twoPlayer ? draft.twoPlayerSolo : null,
     twoPlayerPartner:

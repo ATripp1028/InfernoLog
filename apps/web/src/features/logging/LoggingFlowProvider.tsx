@@ -113,12 +113,12 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
       // completion (not editing an existing one that already has a tier).
       if (
         resolved.suggestedGddlTier != null &&
-        !draft.gddlTier &&
+        !draft.userGddlTier &&
         !resolved.existingCompletion
       ) {
         draft = {
           ...draft,
-          gddlTier: String(Math.round(resolved.suggestedGddlTier)),
+          userGddlTier: String(Math.round(resolved.suggestedGddlTier)),
         }
       }
       return {

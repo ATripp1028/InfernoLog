@@ -136,7 +136,7 @@ function completionRows(): ImportCommitRow[] {
         notes: 'clutch ending',
         levelNotes: 'overall a great level',
         videoUrl: 'https://youtube.com/watch?v=abc',
-        gddlTier: 24,
+        userGddlTier: 24,
       },
     },
     {
@@ -207,8 +207,7 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       visibility: c.visibility as EntryVisibility,
       notes: c.notes,
       levelNotes: c.levelNotes,
-      gddlTier: c.gddlTier == null ? null : Number(c.gddlTier),
-      nlwTier: c.nlwTier,
+      userGddlTier: c.userGddlTier,
       videoUrl: c.videoUrl,
       highlightUrl: c.highlightUrl,
     },
@@ -261,7 +260,7 @@ describe('import → export round-trip', () => {
     expect(bb.percentage).toBe(99)
     expect(bb.coinsCollected).toBe(5)
     expect(bb.visibility).toBe('PRIVATE')
-    expect(bb.gddlTier).toBe('24')
+    expect(bb.userGddlTier).toBe(24)
     expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
       Decoration: 90,

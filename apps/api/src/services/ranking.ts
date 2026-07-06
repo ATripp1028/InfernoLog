@@ -128,6 +128,7 @@ export async function getClassicRanking(userId: string) {
         levelProgress: {
           select: {
             id: true,
+            userGddlTier: true,
             level: { select: levelSelect },
             progressUpdates: completionSelect,
           },
@@ -144,6 +145,7 @@ export async function getClassicRanking(userId: string) {
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,
+        userGddlTier: true,
         level: { select: levelSelect },
         progressUpdates: completionSelect,
       },
@@ -158,10 +160,7 @@ export async function getClassicRanking(userId: string) {
       rankingIndex: row.rankingIndex.toNumber(),
       level: mapLevel(level),
       attempts: completionAttempts(row.levelProgress.progressUpdates),
-      badge: deriveBadge(
-        row.levelProgress.progressUpdates,
-        level.inGameDifficulty
-      ),
+      badge: deriveBadge(row.levelProgress.userGddlTier),
     }
   })
 
@@ -171,7 +170,7 @@ export async function getClassicRanking(userId: string) {
       levelProgressId: row.id,
       level: mapLevel(level),
       attempts: completionAttempts(row.progressUpdates),
-      badge: deriveBadge(row.progressUpdates, level.inGameDifficulty),
+      badge: deriveBadge(row.userGddlTier),
     }
   })
 

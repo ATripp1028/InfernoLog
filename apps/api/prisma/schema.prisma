@@ -69,13 +69,6 @@ enum CollectionType {
   CUSTOM
 }
 
-enum ListSource {
-  GDDL
-  AREDL
-  NLW
-  OTHER
-}
-
 enum ReportStatus {
   PENDING
   DISMISSED
@@ -293,6 +286,11 @@ model Level {
   songLink              String?
   songSize              String?
 
+  // Community GDDL tier for this level (rounded integer). Updated opportunistically
+  // when level metadata is fetched and the requesting user has a GDDL API key.
+  // Null when no GDDL data has been fetched yet or the level is not on GDDL.
+  gddlTier              Int?
+
   // Data provenance
   dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
   // False for `manual` rows until a later RobTop sync backfills/verifies
@@ -366,6 +364,11 @@ model LevelProgress {
   // per-completion). Survives edits or deletions of individual progress updates.
   // One value per user per level. See DATA_MODEL.md.
   levelNotes      String?
+
+  // The user's own opinion on the level's GDDL tier (independent of the
+  // community value stored on Level.gddlTier). Set during completion logging
+  // or via the edit form. Null when the user has not given an opinion.
+  userGddlTier    Int?
 
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -464,37 +467,9 @@ model ProgressUpdate {
 
   // Relations
   levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-  listReferences        ListReference[]
   ratingScores          RatingScore[]
 
   @@map("progress_updates")
-}
-
-// ─────────────────────────────────────────────
-// LIST REFERENCES
-// Tier/rank values from community lists.
-// Attached to a ProgressUpdate (typically the completion update).
-// Deleted when parent ProgressUpdate is deleted.
-// ─────────────────────────────────────────────
-
-model ListReference {
-  id                  String          @id @default(uuid())
-  progressUpdateId    String
-
-  listSource          ListSource
-  // Raw value — varies by list (numeric tier, numeric rank, named tier)
-  // e.g. "28" for GDDL, "Extreme" for AREDL, "Hard" for NLW
-  tierOrRank          String
-  // Whether this was the value at time of logging (true)
-  // or added retroactively (false)
-  atTimeOfLogging     Boolean         @default(true)
-
-  addedAt             DateTime        @default(now())
-
-  // Relations
-  progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
-
-  @@map("list_references")
 }
 
 // ─────────────────────────────────────────────

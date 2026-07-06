@@ -8,6 +8,7 @@ export interface LevelPageData {
   attemptsAtDrop: number | null
   worstFail: number | null
   worstFailDate: string | null
+  userGddlTier: number | null
   createdAt: string
   updatedAt: string
   rankingIndex: number | null
@@ -37,6 +38,7 @@ export interface LevelMeta {
   coinsVerified: boolean | null
   twoPlayer: boolean | null
   officialSongId: number | null
+  gddlTier: number | null
 }
 
 export interface ProgressUpdate {
@@ -59,18 +61,11 @@ export interface ProgressUpdate {
   videoUrl: string | null
   highlightUrl: string | null
   loggedAt: string
-  listReferences: ListReference[]
   ratingScores: RatingScore[]
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
   device: 'pc' | 'mobile' | null
-}
-
-export interface ListReference {
-  listSource: string
-  tierOrRank: string
-  atTimeOfLogging: boolean
 }
 
 export interface RatingScore {

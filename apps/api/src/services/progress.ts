@@ -67,9 +67,6 @@ const toNum = (v: DecimalLike | number | null): number | null =>
 
 const progressUpdateInclude = {
   ratingScores: { select: { categoryId: true, score: true } },
-  listReferences: {
-    select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
-  },
 } satisfies Prisma.ProgressUpdateInclude
 
 // Loads the full resulting record so handlers can return it without a
@@ -161,9 +158,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       await tx.ratingScore.deleteMany({
         where: { progressUpdateId: existing.id },
       })
-      await tx.listReference.deleteMany({
-        where: { progressUpdateId: existing.id },
-      })
       progressUpdateId = existing.id
     } else {
       const created = await tx.progressUpdate.create({
@@ -182,17 +176,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         })),
       })
     }
-    if (input.listReferences?.length) {
-      await tx.listReference.createMany({
-        data: input.listReferences.map((l) => ({
-          progressUpdateId,
-          listSource: l.listSource,
-          tierOrRank: l.tierOrRank,
-          atTimeOfLogging: l.atTimeOfLogging,
-        })),
-      })
-    }
-
     // Mark the level_progress completed and apply the per-entry privacy.
     // worstFail/worstFailDate are only written when explicitly provided —
     // undefined means the user checked "I already logged my worst fail".
@@ -201,6 +184,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       data: {
         status: 'COMPLETED',
         visibility: input.visibility,
+        userGddlTier: input.userGddlTier ?? null,
         ...(input.worstFail !== undefined ? { worstFail: input.worstFail } : {}),
         ...(input.worstFailDate !== undefined
           ? { worstFailDate: input.worstFailDate }

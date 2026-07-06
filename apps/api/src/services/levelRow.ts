@@ -27,14 +27,12 @@ export const levelSelect = {
   gameVersion: true,
 } satisfies Prisma.LevelSelect
 
-// The completion update's fields a row needs: attempts (shown next to the
-// badge) and the list references (for the badge).
+// The completion update's fields a row needs: just attempts (shown next to the badge).
 export const completionSelect = {
   where: { isCompletion: true },
   take: 1,
   select: {
     attempts: true,
-    listReferences: { select: { listSource: true, tierOrRank: true } },
   },
 } satisfies Prisma.LevelProgress$progressUpdatesArgs
 
@@ -43,23 +41,10 @@ export type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
   select: (typeof completionSelect)['select']
 }>[]
 
-// Single badge per row. AREDL gives an exact rank, so it leads for extreme
-// demons (the levels AREDL actually ranks); GDDL leads otherwise since it
-// covers every demon. NLW / OTHER are kept as data on the completion but never
-// surface here. See RANKING_SYSTEM.md / schemas.ts.
-export function deriveBadge(
-  updates: CompletionRefs,
-  inGameDifficulty: string | null
-) {
-  const refs = updates[0]?.listReferences ?? []
-  const gddl = refs.find((r) => r.listSource === 'GDDL')
-  const aredl = refs.find((r) => r.listSource === 'AREDL')
-  const isExtreme = (inGameDifficulty ?? '').toLowerCase().includes('extreme')
-  const order = isExtreme ? [aredl, gddl] : [gddl, aredl]
-  for (const ref of order) {
-    if (ref) return { listSource: ref.listSource, tierOrRank: ref.tierOrRank }
-  }
-  return null
+// Badge sourced from the user's own GDDL tier opinion on LevelProgress.
+export function deriveBadge(userGddlTier: number | null) {
+  if (userGddlTier == null) return null
+  return { gddlTier: userGddlTier }
 }
 
 // Attempts from the completion update (null when not logged).

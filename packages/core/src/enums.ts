@@ -62,13 +62,6 @@ export enum CollectionType {
   CUSTOM = 'CUSTOM',
 }
 
-export enum ListSource {
-  GDDL = 'GDDL',
-  AREDL = 'AREDL',
-  NLW = 'NLW',
-  OTHER = 'OTHER',
-}
-
 export enum Device {
   PC = 'pc',
   MOBILE = 'mobile',

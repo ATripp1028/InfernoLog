@@ -155,10 +155,7 @@ export function StatGrid({
   const rankedDisplay =
     rankPosition != null ? `#${rankPosition} hardest` : 'Unplaced'
 
-  // GDDL TIER — from the completion's list references (if present)
-  const gddlRef = completion?.listReferences.find(
-    (r) => r.listSource === 'GDDL'
-  )
+  const userGddlTier = data.userGddlTier
 
   return (
     <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-3 md:gap-2 md:px-0 md:py-0">
@@ -190,7 +187,7 @@ export function StatGrid({
         label="FPS"
         value={completion?.fps != null ? formatNumber(completion.fps) : '—'}
       />
-      {gddlRef && <StatBox label="GDDL TIER" value={gddlRef.tierOrRank} />}
+      {userGddlTier != null && <StatBox label="GDDL TIER" value={String(userGddlTier)} />}
     </div>
   )
 }

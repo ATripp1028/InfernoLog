@@ -45,10 +45,8 @@ export interface FlowDraft {
   enjoyment: number | null
   simpleRating: number | null
   ratingScores: RatingScoresDraft
-  // List references
-  gddlTier: string
-  nlwTier: string
-  aredlTier: string
+  // User's GDDL tier opinion
+  userGddlTier: string
   // Session
   fps: string
   percentageVersion: GdVersion | null
@@ -96,9 +94,7 @@ export function emptyDraft(): FlowDraft {
     enjoyment: null,
     simpleRating: null,
     ratingScores: {},
-    gddlTier: '',
-    nlwTier: '',
-    aredlTier: '',
+    userGddlTier: '',
     fps: '',
     percentageVersion: null,
     onStream: false,
@@ -152,11 +148,7 @@ export function draftFromExistingCompletion(
   draft.videoUrl = existing.videoUrl ?? ''
   draft.highlightUrl = existing.highlightUrl ?? ''
   draft.notes = existing.notes ?? ''
-  for (const ref of existing.listReferences) {
-    if (ref.listSource === 'GDDL') draft.gddlTier = ref.tierOrRank
-    if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank
-    if (ref.listSource === 'AREDL') draft.aredlTier = ref.tierOrRank
-  }
+  draft.userGddlTier = existing.userGddlTier != null ? String(existing.userGddlTier) : ''
   draft.coinsCollected = existing.coinsCollected ?? 0
   draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
   draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''

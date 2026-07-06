@@ -39,7 +39,7 @@ afterAll(async () => {
 })
 
 describe('POST /me/completions', () => {
-  it('creates level_progress (completed) + completion update + rating_scores + list_references', async () => {
+  it('creates level_progress (completed) + completion update + rating_scores', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, {
       inGameId: '100',
@@ -54,9 +54,7 @@ describe('POST /me/completions', () => {
       difficultyOpinion: 'EXTREME',
       enjoyment: 90,
       ratingScores: [{ categoryId: category.id, score: 75 }],
-      listReferences: [
-        { listSource: 'GDDL', tierOrRank: '28', atTimeOfLogging: true },
-      ],
+      userGddlTier: 28,
       videoUrl: 'https://youtu.be/abc',
     })
 
@@ -66,7 +64,7 @@ describe('POST /me/completions', () => {
       where: { userId_levelId: { userId: user.id, levelId: '100' } },
       include: {
         progressUpdates: {
-          include: { ratingScores: true, listReferences: true },
+          include: { ratingScores: true },
         },
       },
     })
@@ -81,8 +79,7 @@ describe('POST /me/completions', () => {
     expect(pu.inGameDifficulty).toBe('Insane Demon')
     expect(pu.ratingScores).toHaveLength(1)
     expect(pu.ratingScores[0]?.score).toBe(75)
-    expect(pu.listReferences).toHaveLength(1)
-    expect(pu.listReferences[0]?.listSource).toBe('GDDL')
+    expect(lp.userGddlTier).toBe(28)
   })
 
   it('edits the existing completion in place rather than creating a second one', async () => {
