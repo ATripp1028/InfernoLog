@@ -1,6 +1,6 @@
 **Privacy Policy**
 
-This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by Alex Tripp (collectively, the "Application"). Alex Tripp is hereby referred to as the "Service Provider".
+This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, the "Application"). InfernoLog Team is hereby referred to as the "Service Provider".
 
 **Information Collection and Use**
 
@@ -76,9 +76,9 @@ Upon verification of your identity, the Service Provider will delete your person
 
 **Children**
 
-The Application is not intended for children under 13 years of age, or such higher age as required by applicable law. The Service Provider does not knowingly solicit data from children or market the Application to them.
+The Application is not intended for children under 13 years of age, or such higher age as required by applicable law. The Service Provider does not knowingly solicit data from children or market the Application to them. No Personally Identifiable Information, including age, is stored when account creation is rejected on the basis of age.
 
-Where parental or guardian consent is required under applicable law, the Application is not intended for use without that consent. The Service Provider does not knowingly collect personally identifiable information from children under 13 years of age in violation of applicable law. In the event the Service Provider discovers that a child has provided personal information, the Service Provider will immediately delete this from their servers. If you are a parent or guardian and you are aware that your child has provided the Service Provider with personal information, please contact the Service Provider (contact@infernolog.com) so that they will be able to take the necessary actions.
+If it is discovered that InfernoLog is storing information for a person under 13 years old, the account and information of the individual in question will be deleted.
 
 **Security**
 

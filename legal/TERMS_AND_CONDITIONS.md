@@ -1,6 +1,6 @@
 **Terms & Conditions**  
 
-These terms and conditions apply to the InfernoLog app for web browsers, together with any related services operated by Alex Tripp (collectively, the "Application"). Alex Tripp is hereby referred to as the "Service Provider".
+These terms and conditions apply to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, the "Application"). The InfernoLog Team is hereby referred to as the "Service Provider".
 
 By downloading or using the Application, you agree to these Terms and Conditions. You should read them carefully before using the Application.
 
