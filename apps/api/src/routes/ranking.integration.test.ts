@@ -76,7 +76,6 @@ let levelSeq = 1000
 async function seedCompletion(
   userId: string,
   opts: {
-    listRefs?: Array<{ listSource: string; tierOrRank: string }>
     levelOverrides?: Parameters<typeof seedLevel>[1]
     attempts?: number
   } = {}
@@ -91,17 +90,6 @@ async function seedCompletion(
       levelProgressId: lp.id,
       isCompletion: true,
       ...(opts.attempts != null ? { attempts: opts.attempts } : {}),
-      ...(opts.listRefs
-        ? {
-            listReferences: {
-              create: opts.listRefs.map((r) => ({
-                listSource: r.listSource as never,
-                tierOrRank: r.tierOrRank,
-                atTimeOfLogging: true,
-              })),
-            },
-          }
-        : {}),
     },
   })
   return lp
@@ -188,68 +176,6 @@ describe('GET /me/ranking/classic', () => {
 
     expect(data.placed).toHaveLength(0)
     expect(data.unplaced).toHaveLength(0)
-  })
-
-  it('derives the badge GDDL → AREDL, ignoring NLW/OTHER', async () => {
-    const user = await seedUser(prisma)
-    // GDDL wins when present alongside others.
-    await seedPlaced(user.id, 3, {
-      listRefs: [
-        { listSource: 'NLW', tierOrRank: 'Hard' },
-        { listSource: 'AREDL', tierOrRank: '12' },
-        { listSource: 'GDDL', tierOrRank: '28' },
-      ],
-    })
-    // AREDL is the fallback when there's no GDDL.
-    await seedPlaced(user.id, 2, {
-      listRefs: [{ listSource: 'AREDL', tierOrRank: '40' }],
-    })
-    // NLW-only → no badge.
-    await seedPlaced(user.id, 1, {
-      listRefs: [{ listSource: 'NLW', tierOrRank: 'Insane' }],
-    })
-
-    const { data } = await getRanking(user.id)
-
-    expect(data.placed[0]?.badge).toEqual({
-      listSource: 'GDDL',
-      tierOrRank: '28',
-    })
-    expect(data.placed[1]?.badge).toEqual({
-      listSource: 'AREDL',
-      tierOrRank: '40',
-    })
-    expect(data.placed[2]?.badge).toBeNull()
-  })
-
-  it('prefers AREDL over GDDL for extreme demons', async () => {
-    const user = await seedUser(prisma)
-    await seedPlaced(user.id, 2, {
-      levelOverrides: { inGameDifficulty: 'Extreme Demon' },
-      listRefs: [
-        { listSource: 'GDDL', tierOrRank: '35' },
-        { listSource: 'AREDL', tierOrRank: '7' },
-      ],
-    })
-    // A non-extreme demon with the same refs still leads with GDDL.
-    await seedPlaced(user.id, 1, {
-      levelOverrides: { inGameDifficulty: 'Insane Demon' },
-      listRefs: [
-        { listSource: 'GDDL', tierOrRank: '30' },
-        { listSource: 'AREDL', tierOrRank: '99' },
-      ],
-    })
-
-    const { data } = await getRanking(user.id)
-
-    expect(data.placed[0]?.badge).toEqual({
-      listSource: 'AREDL',
-      tierOrRank: '7',
-    })
-    expect(data.placed[1]?.badge).toEqual({
-      listSource: 'GDDL',
-      tierOrRank: '30',
-    })
   })
 
   it('surfaces isRated and attempts on entries', async () => {

@@ -53,7 +53,6 @@ async function seedProgress(
       percentage?: number | null
       attempts?: number | null
       ratingScores?: Array<{ categoryId: string; score: number }>
-      listReferences?: Array<{ listSource: 'GDDL'; tierOrRank: string }>
     }>
   }
 ) {
@@ -71,14 +70,6 @@ async function seedProgress(
           percentage: u.percentage ?? null,
           attempts: u.attempts ?? null,
           ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
-          listReferences: u.listReferences
-            ? {
-                create: u.listReferences.map((r) => ({
-                  listSource: r.listSource,
-                  tierOrRank: r.tierOrRank,
-                })),
-              }
-            : undefined,
         })),
       },
     },
@@ -114,7 +105,6 @@ describe('GET /me/progress', () => {
           loggedAt: new Date('2025-12-01'),
           simpleRating: 70,
           attempts: 12000,
-          listReferences: [{ listSource: 'GDDL', tierOrRank: '28' }],
         },
       ],
     })
@@ -251,7 +241,6 @@ describe('DELETE /me/progress/:levelId', () => {
         {
           isCompletion: true,
           simpleRating: 70,
-          listReferences: [{ listSource: 'GDDL', tierOrRank: '20' }],
         },
       ],
     })
