@@ -24,6 +24,7 @@ export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const me = useMe()
   const logProgress = useLogProgress()
+
   if (!level) return null
 
   const scale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
@@ -35,7 +36,12 @@ export function ProgressSessionStep() {
     if (!level) return
     try {
       await logProgress.mutateAsync(
-        buildProgressInput(level, draft, me.data?.defaultFps)
+        buildProgressInput(
+          level,
+          draft,
+          me.data?.defaultFps,
+          me.data?.defaultPercentageVersion
+        )
       )
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
       close()

@@ -488,6 +488,43 @@ export default $config({
     importRoute('GET /v1/me/export', '28 seconds')
 
     // ─────────────────────────────────────────────
+    // ROBTOP LEVEL-CACHE SYNC — two EventBridge Scheduler cadences over one
+    // shared fetch/compare/write core (services/levelSync.ts). Both overwrite
+    // the `levels` cache directly on diff; there is no staging or nudge.
+    //
+    //   Volatile (weekly): never-rated + recently-rated levels — the values
+    //     most likely to change soon after a level appears/gets rated.
+    //   Standard (monthly): everything else that's rated and not delisted.
+    //
+    // 15-minute timeout covers the ~670ms/level RobTop pacing at current cache
+    // size. See EXTERNAL_APIS.md.
+    // ─────────────────────────────────────────────
+    const syncFunctionOptions = {
+      link: sharedLinks,
+      environment: sharedEnvironment,
+      timeout: '15 minutes' as const,
+      ...sharedNodeOptions,
+    }
+
+    new sst.aws.CronV2('VolatileLevelSync', {
+      // Every Monday at 00:00 UTC.
+      schedule: 'cron(0 0 ? * MON *)',
+      function: {
+        handler: 'src/handlers/volatileSyncWorker.handler',
+        ...syncFunctionOptions,
+      },
+    })
+
+    new sst.aws.CronV2('StandardLevelSync', {
+      // 00:00 UTC on the 1st of every month.
+      schedule: 'cron(0 0 1 * ? *)',
+      function: {
+        handler: 'src/handlers/standardSyncWorker.handler',
+        ...syncFunctionOptions,
+      },
+    })
+
+    // ─────────────────────────────────────────────
     // SSM OUTPUTS — read by apps/web/sst.config.ts
     // ─────────────────────────────────────────────
     new aws.ssm.Parameter('SsmApiUrl', {

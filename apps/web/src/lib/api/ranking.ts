@@ -8,6 +8,7 @@ import type {
 } from '@infernolog/core'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
+import { toast } from '@/components/ui/sonner'
 
 export type {
   ClassicRankingResponse,
@@ -67,7 +68,6 @@ function toUnplaced(entry: ClassicRankingEntry): UnplacedRankingEntry {
   return {
     levelProgressId: entry.levelProgressId,
     level: entry.level,
-    hasPendingUpdate: entry.hasPendingUpdate,
     attempts: entry.attempts,
     badge: entry.badge,
   }
@@ -82,7 +82,6 @@ function toPlaced(
     levelProgressId: card.levelProgressId,
     rankingIndex: 0, // placeholder; reconciled from the server response
     level: card.level,
-    hasPendingUpdate: card.hasPendingUpdate,
     attempts: card.attempts,
     badge: card.badge,
   }
@@ -97,6 +96,8 @@ export function usePlaceRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
   return useMutation({
+    mutationKey: ['rankingReorder'],
+    scope: { id: 'rankingReorder' },
     mutationFn: async (
       input: PlaceRankingInput
     ): Promise<ClassicRankingResponse> => {
@@ -128,8 +129,8 @@ export function usePlaceRanking() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
+      toast.error('Could not save ranking order')
     },
-    onSuccess: (data) => qc.setQueryData(rankingQueryKey, data),
   })
 }
 
@@ -140,6 +141,8 @@ export function useReorderRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
   return useMutation({
+    mutationKey: ['rankingReorder'],
+    scope: { id: 'rankingReorder' },
     mutationFn: async ({
       levelProgressId,
       ...body
@@ -173,8 +176,8 @@ export function useReorderRanking() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
+      toast.error('Could not save ranking order')
     },
-    onSuccess: (data) => qc.setQueryData(rankingQueryKey, data),
   })
 }
 
@@ -183,6 +186,8 @@ export function useUnplaceRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
   return useMutation({
+    mutationKey: ['rankingReorder'],
+    scope: { id: 'rankingReorder' },
     mutationFn: async (
       levelProgressId: string
     ): Promise<ClassicRankingResponse> => {
@@ -211,7 +216,7 @@ export function useUnplaceRanking() {
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
+      toast.error('Could not save ranking order')
     },
-    onSuccess: (data) => qc.setQueryData(rankingQueryKey, data),
   })
 }

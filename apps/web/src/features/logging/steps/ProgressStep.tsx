@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Segmented } from '@/components/ui/segmented'
+import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldHint,
@@ -10,6 +13,11 @@ import {
   StepFooter,
 } from '../components'
 import { digitsOnly } from '../format'
+import {
+  GdVersionPicker,
+  GdVersionInfoButton,
+  isPreTwoTwo,
+} from './CompletionSessionStep'
 
 const MODE_OPTIONS = [
   { value: 'from_zero', label: 'From 0%' },
@@ -18,9 +26,29 @@ const MODE_OPTIONS = [
 
 export function ProgressStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
+  const me = useMe()
+
+  const defaultPercentageVersion =
+    me.data?.defaultPercentageVersion ?? 'TWO_TWO'
+  useEffect(() => {
+    if (draft.percentageVersion === null) {
+      patchDraft({ percentageVersion: defaultPercentageVersion })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultPercentageVersion])
+
+  useEffect(() => {
+    if (draft.date && isPreTwoTwo(draft.date)) {
+      patchDraft({ percentageVersion: 'TWO_ONE' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.date])
+
   if (!level) return null
 
   const fromRun = draft.progressMode === 'from_run'
+  const showVersionPicker =
+    level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
   const canContinue = fromRun
     ? draft.runFrom.trim() !== '' && draft.runTo.trim() !== ''
     : draft.percentage.trim() !== ''
@@ -113,6 +141,20 @@ export function ProgressStep() {
             />
           </div>
         </div>
+
+        {showVersionPicker && (
+          <div>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <Label>% version</Label>
+              <GdVersionInfoButton />
+            </div>
+            <GdVersionPicker
+              value={draft.percentageVersion}
+              onChange={(v) => patchDraft({ percentageVersion: v })}
+            />
+          </div>
+        )}
+
         <FieldHint>
           Cumulative across all copies and reuploads. Pick &quot;From a
           run&quot; to log a segment (e.g. 30% → 63%) instead of progress from

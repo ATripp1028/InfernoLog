@@ -125,6 +125,9 @@ export function LevelPage() {
   const [pendingDelete, setPendingDelete] = useState(false)
   const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [editProgressUpdateId, setEditProgressUpdateId] = useState<
+    string | null
+  >(null)
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
 
@@ -189,9 +192,7 @@ export function LevelPage() {
   const isOwner = data.levelProgressId != null
   const levelName = data.level.name ?? `Level #${levelId}`
 
-  // Completion list references for the identity strip
   const completion = data.progressUpdates.find((u) => u.isCompletion)
-  const completionRefs = completion?.listReferences ?? []
 
   const hasVideo = !!data.completionVideoUrl
   const hasGraph = data.runsGraph.length > 0
@@ -226,11 +227,7 @@ export function LevelPage() {
         )}
 
         <div className="border-b border-border-subtle">
-          <IdentityStrip
-            level={data.level}
-            listRefs={completionRefs}
-            variant="mobile"
-          />
+          <IdentityStrip level={data.level} variant="mobile" />
         </div>
 
         <StatGrid
@@ -265,7 +262,10 @@ export function LevelPage() {
               data={data}
               datePref={dateFormatPreference}
               isOwner={isOwner}
-              onEdit={() => setEditOpen(true)}
+              onEdit={(id) => {
+                setEditProgressUpdateId(id)
+                setEditOpen(true)
+              }}
             />
           </div>
         </div>
@@ -300,11 +300,7 @@ export function LevelPage() {
 
               {/* Identity card */}
               <div className="mb-4 overflow-hidden rounded-card border border-border-subtle bg-bg-surface">
-                <IdentityStrip
-                  level={data.level}
-                  listRefs={completionRefs}
-                  variant="desktop"
-                />
+                <IdentityStrip level={data.level} variant="desktop" />
                 <div className="p-4">
                   <StatGrid
                     data={data}
@@ -343,7 +339,10 @@ export function LevelPage() {
                     data={data}
                     datePref={dateFormatPreference}
                     isOwner={isOwner}
-                    onEdit={() => setEditOpen(true)}
+                    onEdit={(id) => {
+                      setEditProgressUpdateId(id)
+                      setEditOpen(true)
+                    }}
                   />
                 </div>
               </div>
@@ -385,10 +384,14 @@ export function LevelPage() {
       {isOwner && (
         <EditProgressModal
           open={editOpen}
-          onClose={() => setEditOpen(false)}
+          onClose={() => {
+            setEditOpen(false)
+            setEditProgressUpdateId(null)
+          }}
           data={data}
           levelId={levelId}
           scale={ratingDisplayScale}
+          progressUpdateId={editProgressUpdateId}
         />
       )}
 

@@ -148,7 +148,7 @@ async function createCompletion(
   const lp = await findOrCreateLevelProgress(tx, userId, levelId, 'COMPLETED')
   const fields = mapGddlFields(sub)
 
-  const pu = await tx.progressUpdate.create({
+  await tx.progressUpdate.create({
     data: {
       levelProgressId: lp.id,
       isCompletion: true,
@@ -156,20 +156,14 @@ async function createCompletion(
       dateUncertain: fields.date !== undefined,
       ...fields,
     },
-    select: { id: true },
   })
 
   await tx.levelProgress.update({
     where: { id: lp.id },
-    data: { status: 'COMPLETED', visibility: 'PUBLIC' },
-  })
-
-  await tx.listReference.create({
     data: {
-      progressUpdateId: pu.id,
-      listSource: 'GDDL',
-      tierOrRank: roundGddlTier(sub.Rating).toString(),
-      atTimeOfLogging: true,
+      status: 'COMPLETED',
+      visibility: 'PUBLIC',
+      userGddlTier: roundGddlTier(sub.Rating),
     },
   })
 
@@ -209,14 +203,13 @@ async function enrichCompletion(
     updateData.videoUrl = gddl.videoUrl
   }
 
-  const existingRef = await tx.listReference.findFirst({
-    where: { progressUpdateId, listSource: 'GDDL' },
-    select: { id: true },
+  // Find the LevelProgress that owns this update so we can write userGddlTier.
+  const pu = await tx.progressUpdate.findUniqueOrThrow({
+    where: { id: progressUpdateId },
+    select: { levelProgressId: true },
   })
 
-  const willWrite = Object.keys(updateData).length > 0 || existingRef === null
-
-  if (!willWrite) return false
+  const willWrite = Object.keys(updateData).length > 0
 
   if (Object.keys(updateData).length > 0) {
     await tx.progressUpdate.update({
@@ -225,23 +218,12 @@ async function enrichCompletion(
     })
   }
 
-  if (existingRef !== null) {
-    await tx.listReference.update({
-      where: { id: existingRef.id },
-      data: { tierOrRank: roundGddlTier(sub.Rating).toString() },
-    })
-  } else {
-    await tx.listReference.create({
-      data: {
-        progressUpdateId,
-        listSource: 'GDDL',
-        tierOrRank: roundGddlTier(sub.Rating).toString(),
-        atTimeOfLogging: false,
-      },
-    })
-  }
+  await tx.levelProgress.update({
+    where: { id: pu.levelProgressId },
+    data: { userGddlTier: roundGddlTier(sub.Rating) },
+  })
 
-  return true
+  return willWrite
 }
 
 export async function syncGddlSubmissions(

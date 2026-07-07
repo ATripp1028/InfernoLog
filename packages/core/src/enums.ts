@@ -62,16 +62,16 @@ export enum CollectionType {
   CUSTOM = 'CUSTOM',
 }
 
-export enum ListSource {
-  GDDL = 'GDDL',
-  AREDL = 'AREDL',
-  NLW = 'NLW',
-  OTHER = 'OTHER',
-}
-
 export enum Device {
   PC = 'pc',
   MOBILE = 'mobile',
+}
+
+// GD 2.1 measured percentage by distance to the endwall (speed-dependent).
+// GD 2.2 reworked to time-based: 100% = duration of the verification attempt.
+export enum GdVersion {
+  TWO_ONE = 'TWO_ONE',
+  TWO_TWO = 'TWO_TWO',
 }
 
 export enum ReportStatus {

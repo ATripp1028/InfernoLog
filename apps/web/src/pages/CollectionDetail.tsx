@@ -4,7 +4,7 @@
 // Mocks: desktop 1206:164, tablet 1212:2, mobile 1213:2; empty 1241:3;
 // built-in variant 1256:2 / 1257:2.
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
   DndContext,
@@ -14,6 +14,7 @@ import {
 } from '@dnd-kit/core'
 import {
   SortableContext,
+  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
@@ -25,6 +26,7 @@ import { PageLoading } from '@/components/PageLoading'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { RankingBadge } from '@/features/ranking/RankingBadge'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
+import { useMutationState } from '@tanstack/react-query'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { ApiError } from '@/lib/api/client'
 import {
@@ -89,7 +91,19 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSortableSensors()
-  const entries = collection.entries
+
+  // Locally-controlled entry order so drag-end re-renders are immediate rather
+  // than waiting for the async onMutate cache update (mirrors RankingBoard's
+  // containers pattern). Sync back from the cache only when the queue is idle.
+  const pendingCollectionsCount = useMutationState({
+    filters: { mutationKey: ['collectionReorder'], status: 'pending' },
+  }).length
+  const [displayEntries, setDisplayEntries] = useState(collection.entries)
+  useEffect(() => {
+    if (activeId) return
+    if (pendingCollectionsCount > 0) return
+    setDisplayEntries(collection.entries)
+  }, [collection.entries, activeId, pendingCollectionsCount])
 
   function handleDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id))
@@ -99,13 +113,14 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
     setActiveId(null)
     const { active, over } = e
     if (!over || active.id === over.id) return
-    const from = entries.findIndex((x) => x.id === active.id)
-    const to = entries.findIndex((x) => x.id === over.id)
+    const from = displayEntries.findIndex((x) => x.id === active.id)
+    const to = displayEntries.findIndex((x) => x.id === over.id)
     if (from < 0 || to < 0) return
+    setDisplayEntries((cur) => arrayMove(cur, from, to))
     // Neighbours at the drop slot AFTER the moved row leaves its old spot.
     // Whether moving up or down, the landing index within the remaining rows
     // equals the over-row's index in the original array.
-    const without = entries.filter((x) => x.id !== active.id)
+    const without = displayEntries.filter((x) => x.id !== active.id)
     const prev = without[to - 1]
     const next = without[to]
     reorderEntry.mutate(
@@ -137,9 +152,9 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
   }
 
   const activeIndex = activeId
-    ? entries.findIndex((x) => x.id === activeId)
+    ? displayEntries.findIndex((x) => x.id === activeId)
     : -1
-  const activeEntry = activeIndex >= 0 ? entries[activeIndex] : null
+  const activeEntry = activeIndex >= 0 ? displayEntries[activeIndex] : null
 
   return (
     <div className="mx-auto flex max-w-[1136px] flex-col gap-5 p-4 pb-24 md:p-8 md:pt-5">
@@ -153,7 +168,7 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
 
       <Hero collection={collection} />
 
-      {entries.length === 0 ? (
+      {displayEntries.length === 0 ? (
         <EmptyState onAdd={() => setAddOpen(true)} />
       ) : (
         <section aria-label="Collection levels">
@@ -167,11 +182,11 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
             onDragCancel={() => setActiveId(null)}
           >
             <SortableContext
-              items={entries.map((x) => x.id)}
+              items={displayEntries.map((x) => x.id)}
               strategy={verticalListSortingStrategy}
             >
               <div className="flex flex-col gap-2">
-                {entries.map((entry, i) => (
+                {displayEntries.map((entry, i) => (
                   <SortableRow
                     key={entry.id}
                     position={i + 1}
@@ -341,12 +356,21 @@ function SortableRow({
   dimmed: boolean
   onRemove: () => void
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition } =
-    useSortable({ id: entry.id })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.id })
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition: isDragging ? undefined : transition,
+      }}
       className={dimmed ? 'opacity-40' : undefined}
     >
       <Row

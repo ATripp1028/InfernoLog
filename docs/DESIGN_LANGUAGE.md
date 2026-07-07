@@ -55,7 +55,7 @@ Used for secondary highlights, warning-adjacent states, and GDDL tier indicators
 ```
 --color-success:       #22c55e   Completion indicator, accepted record badge
 --color-success-dim:   #22c55e1a
---color-warning:       #f59e0b   Uncertain date, needs placement, pending nudge
+--color-warning:       #f59e0b   Uncertain date, needs placement
 --color-warning-dim:   #f59e0b1a
 --color-danger:        #ef4444   Dropped status, delete actions, banned status
 --color-danger-dim:    #ef4444 1a

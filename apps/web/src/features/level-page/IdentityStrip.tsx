@@ -1,38 +1,25 @@
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
-import type { LevelMeta, ListReference } from './types'
+import type { LevelMeta } from './types'
 
-function GddlPill({ tierOrRank }: { tierOrRank: string }) {
+function GddlPill({ tier }: { tier: number }) {
   return (
     <span className="inline-flex h-[22px] items-center rounded bg-[#2d1b1b] px-2 text-[11px] font-medium text-[#ff8a8a]">
-      GDDL {tierOrRank}
-    </span>
-  )
-}
-
-function AredlPill({ tierOrRank }: { tierOrRank: string }) {
-  return (
-    <span className="inline-flex h-[22px] items-center rounded bg-[#1b1b2d] px-2 text-[11px] font-medium text-[#8a8aff]">
-      AREDL #{tierOrRank}
+      GDDL {tier}
     </span>
   )
 }
 
 interface IdentityStripProps {
   level: LevelMeta
-  listRefs: ListReference[]
   /** Mobile: full-width strip with strong scrim; desktop: card inset with lighter treatment */
   variant?: 'mobile' | 'desktop'
 }
 
 export function IdentityStrip({
   level,
-  listRefs,
   variant = 'mobile',
 }: IdentityStripProps) {
-  const gddlRef = listRefs.find((r) => r.listSource === 'GDDL')
-  const aredlRef = listRefs.find((r) => r.listSource === 'AREDL')
-
   const isMobile = variant === 'mobile'
 
   return (
@@ -84,10 +71,9 @@ export function IdentityStrip({
           <p className="mt-1 text-[13px] text-text-secondary md:text-sm">
             by {level.creator ?? 'Unknown'} · {level.inGameId}
           </p>
-          {(gddlRef || aredlRef) && (
+          {level.gddlTier != null && (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {gddlRef && <GddlPill tierOrRank={gddlRef.tierOrRank} />}
-              {aredlRef && <AredlPill tierOrRank={aredlRef.tierOrRank} />}
+              <GddlPill tier={level.gddlTier} />
             </div>
           )}
         </div>

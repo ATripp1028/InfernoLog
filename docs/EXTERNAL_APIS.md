@@ -94,51 +94,41 @@ Respect rate limits. Do not prefetch thumbnails in bulk or load them outside of 
 
 ---
 
-## Monthly Level Data Sync Job
+## RobTop Level-Cache Sync Jobs
 
-**Infrastructure:** AWS EventBridge Scheduler → Lambda  
-**Schedule:** First of every month, midnight UTC  
-**Purpose:** Detect nudge-worthy changes to cached level metadata
+**Infrastructure:** AWS EventBridge Scheduler → Lambda (two schedules)
+**Purpose:** Keep the shared `levels` cache current with RobTop's servers, and detect levels pruned from those servers.
 
-### What It Does
+Both schedules run one shared fetch/compare/write **core** (`apps/api/src/services/levelSync.ts`, `syncLevelBatch`). There is **no** staging, no pending fields, and no notification: a detected diff is written to the shared cache **silently**. Per-user progress data (including `progress_updates.in_game_difficulty_snapshot`) is never touched — this is a `levels` cache change only.
 
-For each level in the `levels` table with `is_rated = true`, the job re-fetches from RobTop's servers (`fetchRobtopLevel`) and compares the returned values against stored values.
+### The Two Schedules
 
-**Nudge-worthy changes (trigger notification):**
+| Job               | Cadence                            | Query (levels passed to the shared core)                                                                                           |
+| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted = false` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
+| **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted = false` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
 
-- Level name
-- Creator
-- Song name
-- Song author
+The queries are complementary: the weekly job covers never-rated levels (a rating can appear at any time) and rated levels whose rating status changed within the last 14 days (the volatile window, most likely to be revised soon). The monthly job covers everything else that's rated and not delisted — including rated levels whose `rating_status_since` was never stamped (e.g. cached via import/resolve rather than a sync). No level is processed by both jobs in the same window.
 
-**Not nudge-worthy (ignored):**
+### Shared Core Behavior (per level)
 
-- Description
-- Any other metadata
+The core calls `fetchRobtopLevel`, then:
 
-### On Change Detection
+**Not found** (RobTop `-1`/empty → `null`, the same contract the `/resolve` endpoint uses):
 
-1. Set `levels.has_pending_update = true`
-2. Store new values in `levels.pending_name`, `levels.pending_creator`, etc.
-3. Create a `level_update_notifications` row for every user who has a completion for that level
-4. Update `levels.last_checked_at`
+- Set `delisted = true`, `delisted_at = now()` (and `last_checked_at`).
+- Freeze all metadata (`name`, `creator`, `in_game_difficulty`, `song_name`, `song_author`, `is_rated`) at last-known values.
+- Run no diff logic. Delisted rows are excluded from both jobs thereafter.
 
-### User Experience
+**Found** — diff against the cached row, writing only what changed:
 
-Users with a pending update see:
-
-- A one-time notification in their notification feed
-- A visual indicator on the affected entry in their log and ranking views
-
-From either surface, the user can view old vs. new values and choose to accept (updates the stored values, clears the indicator) or dismiss (clears the indicator without updating).
-
-### Accepting an Update
-
-When the user accepts an update, `levels.name` (and other changed fields) are updated to the pending values and `has_pending_update` is set to false. The `level_update_notifications` row for that user is marked as seen.
+- If `is_rated` or `in_game_difficulty` changed → write the new value(s) directly **and** stamp `rating_status_since = now()` (this is the only thing that drives the volatile window).
+- If `name`, `creator`, `song_name`, or `song_author` changed → write the new value(s) directly (no timestamp tracking).
+- `last_checked_at = now()` on every level processed, found or not.
 
 ### Infrastructure Note
 
-EventBridge Scheduler is serverless and costs essentially nothing at InfernoLog's scale. No always-on infrastructure is required for this job.
+EventBridge Scheduler is serverless and costs essentially nothing at InfernoLog's scale. The sync Lambdas pace their RobTop calls (~670ms/level) and run under a 15-minute timeout. No always-on infrastructure is required.
 
 ---
 

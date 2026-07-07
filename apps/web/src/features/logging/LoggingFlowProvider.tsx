@@ -111,14 +111,10 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
           : s.draft
       // Pre-fill GDDL tier from the suggested tier when starting a new
       // completion (not editing an existing one that already has a tier).
-      if (
-        resolved.suggestedGddlTier != null &&
-        !draft.gddlTier &&
-        !resolved.existingCompletion
-      ) {
+      if (resolved.suggestedGddlTier != null && !draft.userGddlTier) {
         draft = {
           ...draft,
-          gddlTier: String(Math.round(resolved.suggestedGddlTier)),
+          userGddlTier: String(Math.round(resolved.suggestedGddlTier)),
         }
       }
       return {

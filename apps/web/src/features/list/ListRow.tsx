@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import { formatDate } from '@/lib/dateFormat'
-import { COLUMNS, type ColumnId, type ColumnVisibility } from './columns'
+import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
 import { CopyableId } from './CopyableId'
@@ -20,6 +20,7 @@ interface RowProps {
   item: ListItem
   columns: ColumnVisibility
   columnOrder: ColumnId[]
+  allColumnDefs: ColumnDef[]
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   minWidth: number
@@ -69,6 +70,7 @@ export function ListRow({
   item,
   columns,
   columnOrder,
+  allColumnDefs,
   scale,
   datePref,
   minWidth,
@@ -77,8 +79,8 @@ export function ListRow({
   const dash = <span className="text-text-tertiary">—</span>
 
   const orderedCols = columnOrder
-    .map((id) => COLUMNS.find((c) => c.id === id)!)
-    .filter((col) => columns[col.id])
+    .map((id) => allColumnDefs.find((c) => c.id === id)!)
+    .filter((col) => col != null && columns[col.id])
 
   return (
     <div
@@ -278,6 +280,26 @@ export function ListRow({
                 <StatusIcons item={item} />
               </div>
             )
+          default: {
+            // `cat:${categoryId}` — individual weighted-rating category score.
+            if (col.id.startsWith('cat:')) {
+              const catId = col.id.slice(4)
+              const score =
+                entry?.ratingScores.find((r) => r.categoryId === catId)
+                  ?.score ?? null
+              return (
+                <Cell
+                  key={col.id}
+                  width={col.width}
+                  responsiveClass={col.responsiveClass}
+                  label={col.label.toLowerCase()}
+                >
+                  {score != null ? formatRating(score, scale) : dash}
+                </Cell>
+              )
+            }
+            return null
+          }
         }
       })}
     </div>

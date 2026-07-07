@@ -69,13 +69,6 @@ enum CollectionType {
   CUSTOM
 }
 
-enum ListSource {
-  GDDL
-  AREDL
-  NLW
-  OTHER
-}
-
 enum ReportStatus {
   PENDING
   DISMISSED
@@ -123,6 +116,13 @@ enum Device {
   mobile
 }
 
+// GD 2.1 measured percentage by distance to the endwall (speed-dependent).
+// GD 2.2 reworked to time-based: 100% = duration of the verification attempt.
+enum GdVersion {
+  TWO_ONE
+  TWO_TWO
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
@@ -161,6 +161,9 @@ model User {
   // Default FPS pre-filled into the Log Level form. Always >= 60 (the GD
   // floor); enforced at the application layer.
   defaultFps            Int                  @default(60)
+  // Default GD version for percentage interpretation (2.1 = distance-based,
+  // 2.2 = time-based). Pre-filled into the Log Level form.
+  defaultPercentageVersion GdVersion         @default(TWO_TWO)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
@@ -186,7 +189,6 @@ model User {
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
   listPresets           ListPreset[]
-  levelUpdateNotifs     LevelUpdateNotification[]
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
   reportsModerated      Report[]             @relation("AssignedModeratorRelation")
@@ -284,20 +286,30 @@ model Level {
   songLink              String?
   songSize              String?
 
+  // Community GDDL tier for this level (rounded integer). Updated opportunistically
+  // when level metadata is fetched and the requesting user has a GDDL API key.
+  // Null when no GDDL data has been fetched yet or the level is not on GDDL.
+  gddlTier              Int?
+
   // Data provenance
   dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
   // False for `manual` rows until a later RobTop sync backfills/verifies
   // (and may override) the manually-entered metadata.
   verified              Boolean              @default(false)
 
-  // Monthly sync job fields
-  // See EXTERNAL_APIS.md — EventBridge fires on the 1st of each month
+  // RobTop sync job fields
+  // See EXTERNAL_APIS.md — two EventBridge schedules (weekly "volatile" +
+  // monthly "standard") share one fetch/compare/write core that overwrites the
+  // cache directly on diff. No staging, no nudges.
   lastCheckedAt         DateTime?
-  hasPendingUpdate      Boolean              @default(false)
-  pendingName           String?
-  pendingCreator        String?
-  pendingSongName       String?
-  pendingSongAuthor     String?
+  // Stamped whenever `isRated` flips or `inGameDifficulty` changes value. Drives
+  // the 14-day "volatile" window the weekly job re-checks a rated level for.
+  ratingStatusSince     DateTime?
+  // Set when a sync finds the level is gone from GD's servers (RobTop "not
+  // found"). A delisted row is frozen at its last-known values and excluded
+  // from both sync jobs.
+  delisted              Boolean              @default(false)
+  delistedAt            DateTime?
 
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
@@ -305,7 +317,6 @@ model Level {
   // Relations
   levelProgress         LevelProgress[]
   collectionEntries     CollectionEntry[]
-  levelUpdateNotifs     LevelUpdateNotification[]
 
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
   // (GET /v1/levels/search). Queried via the `%` operator / similarity().
@@ -341,6 +352,9 @@ model LevelProgress {
   // — the user's "worst fail". Captured on the completion and drop screens.
   // Level-scoped (one value per user/level), updated on each such log.
   worstFail       Int?
+  // Calendar date of the worst fail session. Null when the user opts out
+  // ("I already logged my worst fail") or leaves it blank.
+  worstFailDate   DateTime? @db.Date
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
@@ -350,6 +364,11 @@ model LevelProgress {
   // per-completion). Survives edits or deletions of individual progress updates.
   // One value per user per level. See DATA_MODEL.md.
   levelNotes      String?
+
+  // The user's own opinion on the level's GDDL tier (independent of the
+  // community value stored on Level.gddlTier). Set during completion logging
+  // or via the edit form. Null when the user has not given an opinion.
+  userGddlTier    Int?
 
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -399,6 +418,9 @@ model ProgressUpdate {
   dateUncertain         Boolean         @default(false)
   onStream              Boolean         @default(false)
   fps                   Int?
+  // Which GD version's percentage system was used. Only meaningful for classic
+  // levels (percentage/runFrom/runTo). Null = not recorded (legacy entries).
+  percentageVersion     GdVersion?
   peakHeartRateBpm      Int?            // v2 — heart rate monitor data
 
   // Ratings
@@ -445,37 +467,9 @@ model ProgressUpdate {
 
   // Relations
   levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-  listReferences        ListReference[]
   ratingScores          RatingScore[]
 
   @@map("progress_updates")
-}
-
-// ─────────────────────────────────────────────
-// LIST REFERENCES
-// Tier/rank values from community lists.
-// Attached to a ProgressUpdate (typically the completion update).
-// Deleted when parent ProgressUpdate is deleted.
-// ─────────────────────────────────────────────
-
-model ListReference {
-  id                  String          @id @default(uuid())
-  progressUpdateId    String
-
-  listSource          ListSource
-  // Raw value — varies by list (numeric tier, numeric rank, named tier)
-  // e.g. "28" for GDDL, "Extreme" for AREDL, "Hard" for NLW
-  tierOrRank          String
-  // Whether this was the value at time of logging (true)
-  // or added retroactively (false)
-  atTimeOfLogging     Boolean         @default(true)
-
-  addedAt             DateTime        @default(now())
-
-  // Relations
-  progressUpdate      ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
-
-  @@map("list_references")
 }
 
 // ─────────────────────────────────────────────
@@ -629,28 +623,6 @@ model ApiKey {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("api_keys")
-}
-
-// ─────────────────────────────────────────────
-// LEVEL UPDATE NOTIFICATIONS
-// Created by monthly EventBridge sync job when level metadata changes.
-// Nudge-worthy changes: name, creator, song name, song author.
-// One row per user per level update event.
-// ─────────────────────────────────────────────
-
-model LevelUpdateNotification {
-  id        String    @id @default(uuid())
-  userId    String
-  levelId   String
-
-  seen      Boolean   @default(false)
-  createdAt DateTime  @default(now())
-
-  // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  level     Level     @relation(fields: [levelId], references: [inGameId])
-
-  @@map("level_update_notifications")
 }
 
 // ─────────────────────────────────────────────

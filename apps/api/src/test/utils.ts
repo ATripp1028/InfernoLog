@@ -66,7 +66,6 @@ export function getTestPrisma(): PrismaClient {
 
 // Tables touched by the logging flow, ordered so CASCADE handles the rest.
 const TABLES = [
-  'list_references',
   'rating_scores',
   'classic_ranking',
   'collection_entries',
@@ -117,7 +116,6 @@ export async function seedLevel(
     isDemon: boolean
     isRated: boolean
     levelType: 'CLASSIC' | 'PLATFORMER'
-    hasPendingUpdate: boolean
   }> = {}
 ) {
   return prisma.level.create({
@@ -133,7 +131,6 @@ export async function seedLevel(
       isDemon: overrides.isDemon ?? false,
       isRated: overrides.isRated ?? false,
       levelType: overrides.levelType ?? 'CLASSIC',
-      hasPendingUpdate: overrides.hasPendingUpdate ?? false,
     },
   })
 }

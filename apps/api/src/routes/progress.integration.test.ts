@@ -53,7 +53,6 @@ async function seedProgress(
       percentage?: number | null
       attempts?: number | null
       ratingScores?: Array<{ categoryId: string; score: number }>
-      listReferences?: Array<{ listSource: 'GDDL'; tierOrRank: string }>
     }>
   }
 ) {
@@ -71,14 +70,6 @@ async function seedProgress(
           percentage: u.percentage ?? null,
           attempts: u.attempts ?? null,
           ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
-          listReferences: u.listReferences
-            ? {
-                create: u.listReferences.map((r) => ({
-                  listSource: r.listSource,
-                  tierOrRank: r.tierOrRank,
-                })),
-              }
-            : undefined,
         })),
       },
     },
@@ -114,7 +105,6 @@ describe('GET /me/progress', () => {
           loggedAt: new Date('2025-12-01'),
           simpleRating: 70,
           attempts: 12000,
-          listReferences: [{ listSource: 'GDDL', tierOrRank: '28' }],
         },
       ],
     })
@@ -144,8 +134,6 @@ describe('GET /me/progress', () => {
     expect(completed.entry?.isCompletion).toBe(true)
     expect(completed.entry?.attempts).toBe(12000)
     expect(completed.entry?.overallRating).toBe(70) // SIMPLE → simpleRating
-    expect(completed.entry?.listReferences).toHaveLength(1)
-    expect(completed.entry?.listReferences[0]?.tierOrRank).toBe('28')
     // Completed classic level with no ClassicRanking row.
     expect(completed.needsPlacement).toBe(true)
 
@@ -253,12 +241,8 @@ describe('DELETE /me/progress/:levelId', () => {
         {
           isCompletion: true,
           simpleRating: 70,
-          listReferences: [{ listSource: 'GDDL', tierOrRank: '20' }],
         },
       ],
-    })
-    const pu = await prisma.progressUpdate.findFirstOrThrow({
-      where: { levelProgressId: lp.id },
     })
 
     const res = await del(user.id, '900')
@@ -272,9 +256,6 @@ describe('DELETE /me/progress/:levelId', () => {
     ).toBeNull()
     expect(
       await prisma.progressUpdate.count({ where: { levelProgressId: lp.id } })
-    ).toBe(0)
-    expect(
-      await prisma.listReference.count({ where: { progressUpdateId: pu.id } })
     ).toBe(0)
   })
 

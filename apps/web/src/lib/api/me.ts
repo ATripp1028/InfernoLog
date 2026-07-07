@@ -4,10 +4,10 @@ import { ApiError, apiFetch } from './client'
 
 export { ApiError }
 
-export type ListSource = 'GDDL' | 'AREDL' | 'NLW' | 'OTHER'
 export type RatingMode = 'SIMPLE' | 'WEIGHTED'
 export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
+export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
 
 export interface RatingCategory {
   id: string
@@ -27,6 +27,7 @@ export interface MeData {
   ratingMode: RatingMode
   ratingDisplayScale: RatingDisplayScale
   defaultFps: number
+  defaultPercentageVersion: GdVersion
   dateFormatPreference: DateFormatPreference
   showHighlightUrl: boolean
   includeEnjoyment: boolean
@@ -248,6 +249,7 @@ export interface UpdateMeInput {
   profilePublic?: boolean
   discordPublic?: boolean
   defaultFps?: number
+  defaultPercentageVersion?: GdVersion
   dateFormatPreference?: DateFormatPreference
   showHighlightUrl?: boolean
   ratingMode?: RatingMode

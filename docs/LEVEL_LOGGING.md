@@ -196,11 +196,6 @@ Non-completion entries, even if they carry enjoyment scores or ratings, are neve
 
 ---
 
-## Level Data Update Nudges
+## Level Data Sync
 
-The monthly sync job (see `EXTERNAL_APIS.md`) detects changes to cached level metadata. Users with a progress entry for an affected level receive:
-
-1. A one-time in-app notification
-2. A visual indicator on the affected entry
-
-The user can view old vs. new values and accept or dismiss the update. Nudge-worthy changes: name, creator, song name, song author.
+The RobTop sync jobs (see `EXTERNAL_APIS.md`) keep the shared `levels` cache current with GD's servers on two cadences (weekly volatile + monthly standard). When a level's cached metadata (name, creator, difficulty, rating status, song) changes upstream, the sync overwrites the cache row **directly and silently** — there is no notification, no nudge, and no accept/dismiss step. A level RobTop no longer returns is flagged `delisted` and frozen at its last-known values. Per-user progress data (including each completion's difficulty snapshot) is never affected.

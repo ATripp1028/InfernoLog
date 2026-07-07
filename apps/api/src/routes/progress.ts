@@ -51,13 +51,11 @@ const levelListSelect = {
   coinsVerified: true,
   twoPlayer: true,
   gameVersion: true,
+  gddlTier: true,
 } satisfies Prisma.LevelSelect
 
 const listEntryInclude = {
   ratingScores: { select: { categoryId: true, score: true } },
-  listReferences: {
-    select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
-  },
 } satisfies Prisma.ProgressUpdateInclude
 
 const levelProgressListSelect = {
@@ -72,6 +70,7 @@ const levelProgressListSelect = {
   updatedAt: true,
   // Presence of a ranking row → !needsPlacement for completed classic levels.
   classicRanking: { select: { id: true } },
+  userGddlTier: true,
   level: { select: levelListSelect },
   // The representative update: completion first (isCompletion desc), else the
   // most recent. `take: 1` yields exactly one per level in a single query.
@@ -108,12 +107,13 @@ function serializeEntry(
     difficultyOpinion: update.difficultyOpinion,
     onStream: update.onStream,
     fps: update.fps,
+    percentageVersion: update.percentageVersion,
     videoUrl: update.videoUrl,
     highlightUrl: update.highlightUrl,
     notes: update.notes,
     device: update.device,
     loggedAt: update.loggedAt,
-    listReferences: update.listReferences,
+    ratingScores: update.ratingScores,
   }
 }
 
@@ -139,6 +139,7 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
       row.status === 'COMPLETED' &&
       level.levelType === 'CLASSIC' &&
       row.classicRanking === null,
+    userGddlTier: row.userGddlTier,
     level,
     entry: update ? serializeEntry(update, ratingConfig) : null,
   }
@@ -214,6 +215,8 @@ app.get('/me/progress/:levelId', async (c) => {
         droppedAt: true,
         attemptsAtDrop: true,
         worstFail: true,
+        worstFailDate: true,
+        userGddlTier: true,
         createdAt: true,
         updatedAt: true,
         classicRanking: {
@@ -238,6 +241,7 @@ app.get('/me/progress/:levelId', async (c) => {
             coinsVerified: true,
             twoPlayer: true,
             officialSongId: true,
+            gddlTier: true,
           },
         },
         progressUpdates: {
@@ -253,6 +257,7 @@ app.get('/me/progress/:levelId', async (c) => {
             dateUncertain: true,
             onStream: true,
             fps: true,
+            percentageVersion: true,
             enjoyment: true,
             simpleRating: true,
             difficultyOpinion: true,
@@ -265,13 +270,6 @@ app.get('/me/progress/:levelId', async (c) => {
             twoPlayerSolo: true,
             twoPlayerPartner: true,
             device: true,
-            listReferences: {
-              select: {
-                listSource: true,
-                tierOrRank: true,
-                atTimeOfLogging: true,
-              },
-            },
             ratingScores: {
               select: { categoryId: true, score: true },
             },
@@ -310,7 +308,18 @@ app.get('/me/progress/:levelId', async (c) => {
       loggedAt: u.loggedAt,
     }))
 
-    const runsGraph = computeRunsGraph(updatesForGraph, drops)
+    // For completed levels, pass the worst-fail milestone so it appears as a
+    // distinct bar in the timeline. Dropped levels use the drop-merge rule instead.
+    const worstFailForGraph =
+      lp.status === 'COMPLETED' && lp.worstFail != null
+        ? { percentage: lp.worstFail, date: lp.worstFailDate }
+        : null
+
+    const runsGraph = computeRunsGraph(
+      updatesForGraph,
+      drops,
+      worstFailForGraph
+    )
 
     // Derive rank position from rankingIndex: count how many of the user's
     // placed completions have a higher (easier) rankingIndex. 1-based.
@@ -339,6 +348,8 @@ app.get('/me/progress/:levelId', async (c) => {
         droppedAt: lp.droppedAt,
         attemptsAtDrop: lp.attemptsAtDrop,
         worstFail: lp.worstFail,
+        worstFailDate: lp.worstFailDate,
+        userGddlTier: lp.userGddlTier,
         createdAt: lp.createdAt,
         updatedAt: lp.updatedAt,
         // Ranking placement (null if unplaced or not completed)
@@ -363,6 +374,7 @@ app.get('/me/progress/:levelId', async (c) => {
           dateUncertain: u.dateUncertain,
           onStream: u.onStream,
           fps: u.fps,
+          percentageVersion: u.percentageVersion,
           enjoyment: u.enjoyment,
           simpleRating: u.simpleRating,
           difficultyOpinion: u.difficultyOpinion,
@@ -371,7 +383,6 @@ app.get('/me/progress/:levelId', async (c) => {
           videoUrl: u.videoUrl,
           highlightUrl: u.highlightUrl,
           loggedAt: u.loggedAt,
-          listReferences: u.listReferences,
           ratingScores: u.ratingScores,
           coinsCollected: u.coinsCollected,
           twoPlayerSolo: u.twoPlayerSolo,

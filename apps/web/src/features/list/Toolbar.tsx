@@ -1,15 +1,10 @@
-import {
-  ArrowUpDown,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react'
+import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { SortChips } from './SortChips'
 import { ColumnsMenu } from './ColumnsMenu'
 import { PresetSelector } from './PresetSelector'
-import type { ColumnVisibility } from './columns'
-import type { SortSpec } from './types'
+import type { ColumnDef, ColumnVisibility } from './columns'
+import type { SortKey, SortSpec } from './types'
 import type { ListPreset } from '@/lib/api/presets'
 
 interface ToolbarProps {
@@ -19,6 +14,8 @@ interface ToolbarProps {
   onSorts: (s: SortSpec[]) => void
   columns: ColumnVisibility
   onColumns: (c: ColumnVisibility) => void
+  allColumnDefs: ColumnDef[]
+  categorySortOptions: { key: SortKey; label: string }[]
   activeFilterCount: number
   onOpenFilters: () => void
   onOpenControls: () => void
@@ -44,6 +41,8 @@ export function Toolbar({
   onSorts,
   columns,
   onColumns,
+  allColumnDefs,
+  categorySortOptions,
   activeFilterCount,
   onOpenFilters,
   onOpenControls,
@@ -91,7 +90,11 @@ export function Toolbar({
       </div>
 
       <div className="hidden md:block">
-        <SortChips sorts={sorts} onChange={onSorts} />
+        <SortChips
+          sorts={sorts}
+          onChange={onSorts}
+          extraSortOptions={categorySortOptions}
+        />
       </div>
 
       <div className="ml-auto flex items-center gap-2">
@@ -106,7 +109,11 @@ export function Toolbar({
         </button>
 
         <div className="hidden md:block">
-          <ColumnsMenu columns={columns} onChange={onColumns} />
+          <ColumnsMenu
+            columns={columns}
+            onChange={onColumns}
+            allColumnDefs={allColumnDefs}
+          />
         </div>
 
         <button

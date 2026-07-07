@@ -31,9 +31,12 @@ import {
   sortItems,
 } from '../features/list/filtering'
 import {
+  COLUMNS,
   defaultColumnVisibility,
   defaultColumnOrder,
+  getCategoryColumnDefs,
   type ColumnId,
+  type ColumnDef,
   type ColumnVisibility,
 } from '../features/list/columns'
 import { defaultDir } from '../features/list/sortMeta'
@@ -41,6 +44,7 @@ import {
   ATTEMPTS_DOMAIN,
   DATE_MIN_MS,
   defaultFilterState,
+  normalizeFilterState,
   type FilterState,
   type ListItem,
   type SortKey,
@@ -50,6 +54,7 @@ import {
   viewConfigsEqual,
   defaultViewConfig,
   DEFAULT_SORTS,
+  cleanupPresetForCategories,
 } from '../features/list/presets'
 import type { PresetColorId } from '../features/list/presets'
 import { getPresetCookie, setPresetCookie } from '../lib/presetCookie'
@@ -96,12 +101,19 @@ export function List() {
     const preset = presetsQuery.data.find((p) => p.id === saved)
     if (!preset) return // preset was deleted — stay on default
 
+    const activeIds = new Set(
+      (me.data?.ratingMode === 'WEIGHTED'
+        ? (me.data?.ratingCategories ?? [])
+        : []
+      ).map((c) => c.id)
+    )
+    const cleaned = cleanupPresetForCategories(preset, activeIds)
     setSelectedPresetId(preset.id)
-    setSorts(preset.sorts)
-    setFilters(preset.filters)
-    setColumns(preset.columns)
-    setColumnOrder(preset.columnOrder)
-  }, [me.data?.id, presetsQuery.data])
+    setSorts(cleaned.sorts)
+    setFilters(cleaned.filters)
+    setColumns(cleaned.columns)
+    setColumnOrder(cleaned.columnOrder)
+  }, [me.data, presetsQuery.data])
 
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
@@ -130,13 +142,82 @@ export function List() {
     }
   }, [editLevelQuery.isError])
 
+  const items = useMemo(() => progress.data ?? [], [progress.data])
+  const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data])
+
+  // Category columns are only available in WEIGHTED mode.
+  const activeCategories = useMemo(
+    () =>
+      me.data?.ratingMode === 'WEIGHTED'
+        ? (me.data.ratingCategories ?? [])
+        : [],
+    [me.data]
+  )
+
+  const allColumnDefs: ColumnDef[] = useMemo(
+    () => [...COLUMNS, ...getCategoryColumnDefs(activeCategories)],
+    [activeCategories]
+  )
+
+  const categorySortOptions = useMemo(
+    () =>
+      [...activeCategories]
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((cat) => ({
+          key: `cat:${cat.id}` as `cat:${string}`,
+          label: cat.name,
+        })),
+    [activeCategories]
+  )
+
+  // When categories change, sync column state: add new cat columns to
+  // columnOrder and strip deleted cat references from all view state.
+  const prevCatSigRef = useRef<string | null>(null)
+  useEffect(() => {
+    const sig = activeCategories
+      .map((c) => c.id)
+      .sort()
+      .join(',')
+    if (sig === prevCatSigRef.current) return
+    prevCatSigRef.current = sig
+
+    const activeIds = new Set(activeCategories.map((c) => c.id))
+    const activeCatKeys = new Set([...activeIds].map((id) => `cat:${id}`))
+    const isActiveCatKey = (k: string) =>
+      !k.startsWith('cat:') || activeCatKeys.has(k)
+
+    setColumnOrder((prev) => {
+      const filtered = prev.filter(isActiveCatKey)
+      const newCats = ([...activeCatKeys] as ColumnId[]).filter(
+        (k) => !filtered.includes(k)
+      )
+      return newCats.length ? [...filtered, ...newCats] : filtered
+    })
+    setColumns((prev) =>
+      Object.fromEntries(
+        Object.entries(prev).filter(([k]) => isActiveCatKey(k))
+      )
+    )
+    setSorts((prev) => prev.filter((s) => isActiveCatKey(s.key)))
+    setFilters((prev) => ({
+      ...prev,
+      categoryRatings: Object.fromEntries(
+        Object.entries(prev.categoryRatings ?? {}).filter(([k]) =>
+          activeIds.has(k)
+        )
+      ),
+    }))
+    // activeCategories reference changes only when category content changes (TanStack Query stable refs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeCategories])
+
   // The docked panel is 320px wide; the content column adds ~48px padding at md+.
   // Dock only if the table's min width still fits in what's left.
   const PANEL_WIDTH = 320
   const CONTENT_PADDING = 48
   const minTableWidth = useMemo(
-    () => tableMinWidth(columns, columnOrder),
-    [columns, columnOrder]
+    () => tableMinWidth(columns, columnOrder, allColumnDefs),
+    [columns, columnOrder, allColumnDefs]
   )
   const canDock =
     isWide && containerWidth - PANEL_WIDTH - CONTENT_PADDING >= minTableWidth
@@ -148,9 +229,6 @@ export function List() {
     root.style.setProperty('--fab-shift', dockedOpen ? '320px' : '0px')
     return () => root.style.setProperty('--fab-shift', '0px')
   }, [dockedOpen])
-
-  const items = useMemo(() => progress.data ?? [], [progress.data])
-  const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data])
 
   const { earliestDate, maxAttempts } = useMemo(() => {
     let earliest = DATE_MIN_MS
@@ -175,8 +253,9 @@ export function List() {
   }, [items])
 
   const visible = useMemo(
-    () => sortItems(applyFilters(items, filters, search), sorts),
-    [items, filters, search, sorts]
+    () =>
+      sortItems(applyFilters(items, filters, search), sorts, activeCategories),
+    [items, filters, search, sorts, activeCategories]
   )
 
   const availableLengths = useMemo(() => {
@@ -210,18 +289,27 @@ export function List() {
   )
 
   const isPresetModified = useMemo(() => {
+    const activeIds = new Set(activeCategories.map((c) => c.id))
+    // Normalize a config the same way applyPresetConfig does: add missing active
+    // cat keys to columnOrder, and fill in any filter fields added after the
+    // preset was saved.
+    function normalize(config: {
+      sorts: SortSpec[]
+      filters: FilterState
+      columns: ColumnVisibility
+      columnOrder: ColumnId[]
+    }) {
+      const cleaned = cleanupPresetForCategories(config, activeIds)
+      return { ...cleaned, filters: normalizeFilterState(cleaned.filters) }
+    }
+
     if (selectedPresetId === null) {
-      return !viewConfigsEqual(currentConfig, defaultViewConfig())
+      return !viewConfigsEqual(currentConfig, normalize(defaultViewConfig()))
     }
     const preset = presets.find((p) => p.id === selectedPresetId)
     if (!preset) return false
-    return !viewConfigsEqual(currentConfig, {
-      sorts: preset.sorts,
-      filters: preset.filters,
-      columns: preset.columns,
-      columnOrder: preset.columnOrder,
-    })
-  }, [selectedPresetId, currentConfig, presets])
+    return !viewConfigsEqual(currentConfig, normalize(preset))
+  }, [selectedPresetId, currentConfig, presets, activeCategories])
 
   if (me.isPending || !me.data || progress.isPending) {
     return <PageLoading />
@@ -235,10 +323,18 @@ export function List() {
     columns: ColumnVisibility
     columnOrder: ColumnId[]
   }) {
+    // Ensure active cat keys are always in columnOrder regardless of whether the
+    // preset or default config was saved before those categories existed.
+    const activeCatKeys = activeCategories.map((c) => `cat:${c.id}` as ColumnId)
+    const order = config.columnOrder
+    const fullOrder = [
+      ...order,
+      ...activeCatKeys.filter((k) => !order.includes(k)),
+    ]
     setSorts(config.sorts)
     setFilters(config.filters)
     setColumns(config.columns)
-    setColumnOrder(config.columnOrder)
+    setColumnOrder(fullOrder)
   }
 
   function handleSelectPreset(id: string | null) {
@@ -248,7 +344,10 @@ export function List() {
       applyPresetConfig(defaultViewConfig())
     } else {
       const preset = presets.find((p) => p.id === id)
-      if (preset) applyPresetConfig(preset)
+      if (preset) {
+        const activeIds = new Set(activeCategories.map((c) => c.id))
+        applyPresetConfig(cleanupPresetForCategories(preset, activeIds))
+      }
     }
   }
 
@@ -384,6 +483,9 @@ export function List() {
       availableDifficulties={availableDifficulties}
       earliestDate={earliestDate}
       maxAttempts={maxAttempts}
+      {...(activeCategories.length > 0 && {
+        ratingCategories: activeCategories,
+      })}
       onClose={() => setFilterOpen(false)}
     />
   )
@@ -399,6 +501,8 @@ export function List() {
             onSorts={setSorts}
             columns={columns}
             onColumns={setColumns}
+            allColumnDefs={allColumnDefs}
+            categorySortOptions={categorySortOptions}
             activeFilterCount={activeFilterCount}
             onOpenFilters={() => setFilterOpen((o) => !o)}
             onOpenControls={() => setControlsOpen(true)}
@@ -426,6 +530,7 @@ export function List() {
                 items={visible}
                 columns={columns}
                 columnOrder={columnOrder}
+                allColumnDefs={allColumnDefs}
                 onReorderColumns={setColumnOrder}
                 sorts={sorts}
                 onToggleSort={toggleSort}
@@ -476,6 +581,8 @@ export function List() {
             onSorts={setSorts}
             columns={columns}
             onColumns={setColumns}
+            allColumnDefs={allColumnDefs}
+            categorySortOptions={categorySortOptions}
           />
         </SheetContent>
       </Sheet>
@@ -499,6 +606,7 @@ export function List() {
           data={editLevelQuery.data}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
+          progressUpdateId={null}
         />
       )}
 

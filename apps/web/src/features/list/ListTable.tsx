@@ -2,12 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import {
-  COLUMNS,
-  type ColumnDef,
-  type ColumnId,
-  type ColumnVisibility,
-} from './columns'
+import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
@@ -16,6 +11,7 @@ interface ListTableProps {
   items: ListItem[]
   columns: ColumnVisibility
   columnOrder: ColumnId[]
+  allColumnDefs: ColumnDef[]
   onReorderColumns: (order: ColumnId[]) => void
   sorts: SortSpec[]
   onToggleSort: (key: SortKey) => void
@@ -40,11 +36,14 @@ function rowMinWidth(orderedCols: ColumnDef[]): number {
 // open as an overlay instead.
 export function tableMinWidth(
   columns: ColumnVisibility,
-  columnOrder: ColumnId[]
+  columnOrder: ColumnId[],
+  allColumnDefs: ColumnDef[]
 ): number {
   const orderedCols = columnOrder
-    .map((id) => COLUMNS.find((c) => c.id === id)!)
-    .filter((col) => columns[col.id])
+    .map((id) => allColumnDefs.find((c) => c.id === id))
+    .filter(
+      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
+    )
   return rowMinWidth(orderedCols)
 }
 
@@ -100,7 +99,7 @@ function ColumnHeaders({
 
   return (
     <div
-      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-10 text-[11px] font-medium text-text-secondary"
+      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-20 text-[11px] font-medium text-text-secondary"
       style={{ minWidth }}
     >
       <div
@@ -179,6 +178,7 @@ export function ListTable({
   items,
   columns,
   columnOrder,
+  allColumnDefs,
   onReorderColumns,
   sorts,
   onToggleSort,
@@ -190,8 +190,10 @@ export function ListTable({
   onAddToCollectionItem,
 }: ListTableProps) {
   const orderedCols = columnOrder
-    .map((id) => COLUMNS.find((c) => c.id === id)!)
-    .filter((col) => columns[col.id])
+    .map((id) => allColumnDefs.find((c) => c.id === id))
+    .filter(
+      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
+    )
 
   const minWidth = rowMinWidth(orderedCols)
 
@@ -208,7 +210,13 @@ export function ListTable({
     }
   }, [])
   return (
-    <div className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block">
+    <div
+      className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block"
+      style={{
+        maskImage:
+          'linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%)',
+      }}
+    >
       <ColumnHeaders
         orderedCols={orderedCols}
         sorts={sorts}
@@ -247,6 +255,7 @@ export function ListTable({
                 item={item}
                 columns={columns}
                 columnOrder={columnOrder}
+                allColumnDefs={allColumnDefs}
                 scale={scale}
                 datePref={datePref}
                 minWidth={minWidth}
@@ -276,6 +285,7 @@ export function ListTable({
           </RowContextMenu>
         )
       })}
+      <div aria-hidden className="h-20 shrink-0" />
     </div>
   )
 }

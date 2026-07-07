@@ -12,27 +12,15 @@ import type {
 } from './types'
 import {
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
   ENJOYMENT_DOMAIN,
   RATING_DOMAIN,
   TIER_DOMAIN,
 } from './types'
 
-const DAY_MS = 86_400_000
-
-// The date domain's max is "now" (changes constantly), so detect activity with a
-// one-day tolerance at both ends rather than exact domain equality.
-function isDateActive(range: Range): boolean {
-  return range[0] > DATE_MIN_MS + DAY_MS || range[1] < Date.now() - DAY_MS
-}
-
 // ── Row value extractors ─────────────────────────────────────────────────────
 
 export function gddlTier(item: ListItem): number | null {
-  const ref = item.entry?.listReferences.find((r) => r.listSource === 'GDDL')
-  if (!ref) return null
-  const n = Number.parseInt(ref.tierOrRank, 10)
-  return Number.isFinite(n) ? n : null
+  return item.userGddlTier ?? null
 }
 
 function dateMs(item: ListItem): number | null {
@@ -140,7 +128,13 @@ export function applyFilters(
   const enjoyActive = isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)
   const tierActive = isRangeActive(filters.tier, TIER_DOMAIN)
   const attemptsActive = isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)
-  const dateActive = isDateActive(filters.dateBeaten)
+  const { from: dateFrom, to: dateTo } = filters.dateBeaten
+  const dateActive = dateFrom != null || dateTo != null
+
+  // Pre-compute active category rating filters.
+  const activeCatFilters = Object.entries(filters.categoryRatings ?? {}).filter(
+    ([, range]) => isRangeActive(range, RATING_DOMAIN)
+  )
 
   return items.filter((item) => {
     if (q) {
@@ -196,14 +190,6 @@ export function applyFilters(
       if (!d || !filters.devices.includes(d as 'pc' | 'mobile')) return false
     }
 
-    if (filters.listSources.length) {
-      const refs = item.entry?.listReferences ?? []
-      const hasAny = filters.listSources.some((src) =>
-        refs.some((r) => r.listSource === src)
-      )
-      if (!hasAny) return false
-    }
-
     if (!matchesRatedStatus(item, filters.ratedStatus)) return false
 
     if (filters.flags.length && !filters.flags.every((f) => flagValue(item, f)))
@@ -233,7 +219,16 @@ export function applyFilters(
 
     if (dateActive) {
       const d = dateMs(item)
-      if (d == null || !inRange(d, filters.dateBeaten)) return false
+      if (d == null) return false
+      if (dateFrom != null && d < dateFrom) return false
+      if (dateTo != null && d > dateTo) return false
+    }
+
+    for (const [catId, range] of activeCatFilters) {
+      const score = item.entry?.ratingScores.find(
+        (r) => r.categoryId === catId
+      )?.score
+      if (score == null || !inRange(score, range)) return false
     }
 
     return true
@@ -244,7 +239,6 @@ export function applyFilters(
 export function countActiveFilters(filters: FilterState): number {
   let n = 0
   if (filters.statuses.length) n++
-  if (filters.listSources.length) n++
   if (filters.levelTypes.length) n++
   if (filters.devices.length) n++
   if (filters.ratedStatus !== 'ALL') n++
@@ -256,7 +250,10 @@ export function countActiveFilters(filters: FilterState): number {
   if (isRangeActive(filters.enjoyment, ENJOYMENT_DOMAIN)) n++
   if (isRangeActive(filters.tier, TIER_DOMAIN)) n++
   if (isRangeActive(filters.attempts, ATTEMPTS_DOMAIN)) n++
-  if (isDateActive(filters.dateBeaten)) n++
+  if (filters.dateBeaten.from != null || filters.dateBeaten.to != null) n++
+  for (const range of Object.values(filters.categoryRatings ?? {})) {
+    if (isRangeActive(range, RATING_DOMAIN)) n++
+  }
   return n
 }
 
@@ -308,6 +305,17 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
       return item.level.creator?.toLowerCase() ?? null
     case 'difficulty':
       return difficultyRank(item.level.inGameDifficulty)
+    default: {
+      // `cat:${categoryId}` — return the individual category score.
+      if (key.startsWith('cat:')) {
+        const catId = key.slice(4)
+        return (
+          item.entry?.ratingScores.find((r) => r.categoryId === catId)?.score ??
+          null
+        )
+      }
+      return null
+    }
   }
 }
 
@@ -326,16 +334,45 @@ function compareValues(
   return dir === 'asc' ? cmp : -cmp
 }
 
+// Minimal category info needed for tie-breaking; avoids importing API types.
+export interface RatingCategoryTiebreaker {
+  id: string
+  sortOrder: number
+}
+
 // Stable multi-key sort: specs are applied in priority order.
-export function sortItems(items: ListItem[], sorts: SortSpec[]): ListItem[] {
+// When sorting by 'rating' with ratingCategories provided, ties in the weighted
+// average are broken by category score in priority order (lowest sortOrder first).
+export function sortItems(
+  items: ListItem[],
+  sorts: SortSpec[],
+  ratingCategories?: RatingCategoryTiebreaker[]
+): ListItem[] {
   if (!sorts.length) return items
+  // Pre-sort categories by priority (lowest sortOrder = highest priority).
+  const tiebreakerCats = ratingCategories
+    ? [...ratingCategories].sort((a, b) => a.sortOrder - b.sortOrder)
+    : []
   return [...items].sort((x, y) => {
     for (const spec of sorts) {
-      const cmp = compareValues(
+      let cmp = compareValues(
         sortValue(x, spec.key),
         sortValue(y, spec.key),
         spec.dir
       )
+      // Break weighted-rating ties by category priority order.
+      if (cmp === 0 && spec.key === 'rating' && tiebreakerCats.length > 0) {
+        for (const cat of tiebreakerCats) {
+          const aScore =
+            x.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
+            null
+          const bScore =
+            y.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
+            null
+          cmp = compareValues(aScore, bScore, spec.dir)
+          if (cmp !== 0) break
+        }
+      }
       if (cmp !== 0) return cmp
     }
     return 0

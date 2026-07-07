@@ -60,7 +60,6 @@ type LevelPageBody = {
       runFrom: number | null
       runTo: number | null
       attempts: number | null
-      listReferences: Array<{ listSource: string; tierOrRank: string }>
       ratingScores: Array<{ categoryId: string; score: number }>
     }>
     runsGraph: Array<{
@@ -99,7 +98,6 @@ async function seedProgress(
       date?: Date | null
       loggedAt?: Date
       simpleRating?: number | null
-      listReferences?: Array<{ listSource: 'GDDL'; tierOrRank: string }>
       ratingScores?: Array<{ categoryId: string; score: number }>
       videoUrl?: string | null
       highlightUrl?: string | null
@@ -127,14 +125,6 @@ async function seedProgress(
           simpleRating: u.simpleRating ?? null,
           videoUrl: u.videoUrl ?? null,
           highlightUrl: u.highlightUrl ?? null,
-          listReferences: u.listReferences
-            ? {
-                create: u.listReferences.map((r) => ({
-                  listSource: r.listSource,
-                  tierOrRank: r.tierOrRank,
-                })),
-              }
-            : undefined,
           ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
         })),
       },
@@ -212,29 +202,6 @@ describe('GET /me/progress/:levelId — owner', () => {
       creator: 'Noob',
       inGameDifficulty: 'Extreme Demon',
     })
-  })
-
-  it('returns list_references and rating_scores on each update', async () => {
-    const user = await seedUser(prisma)
-    await seedLevel(prisma, { inGameId: '1003' })
-    await seedProgress(prisma, {
-      userId: user.id,
-      levelId: '1003',
-      status: 'COMPLETED',
-      updates: [
-        {
-          isCompletion: true,
-          listReferences: [{ listSource: 'GDDL', tierOrRank: '35' }],
-        },
-      ],
-    })
-
-    const res = await getLevelPage(user.id, '1003')
-    expect(res.status).toBe(200)
-    const body = (await res.json()) as LevelPageBody
-    const completion = body.data.progressUpdates.find((u) => u.isCompletion)
-    expect(completion?.listReferences).toHaveLength(1)
-    expect(completion?.listReferences[0]?.tierOrRank).toBe('35')
   })
 
   it('returns level_notes', async () => {

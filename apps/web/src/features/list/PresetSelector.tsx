@@ -24,6 +24,7 @@ import {
 } from './presets'
 import type { ListPreset } from '@/lib/api/presets'
 import { useMe, type RatingDisplayScale } from '@/lib/api/me'
+import { getCategoryColumnDefs } from './columns'
 
 // ─────────────────────────────────────────────
 // Hover card (portal-rendered, so it can overflow the Popover boundary)
@@ -39,17 +40,24 @@ function computeCardStyle(rect: DOMRect): React.CSSProperties {
   return { position: 'fixed', top, left, width: CARD_WIDTH, zIndex: 9999 }
 }
 
-function PresetHoverCard({
-  preset,
-}: {
-  preset: ListPreset
-}) {
+function PresetHoverCard({ preset }: { preset: ListPreset }) {
   const me = useMe()
   const scale: RatingDisplayScale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
+  const categories =
+    me.data?.ratingMode === 'WEIGHTED' ? (me.data.ratingCategories ?? []) : []
+  const catSortOptions = categories.map((cat) => ({
+    key: `cat:${cat.id}` as `cat:${string}`,
+    label: cat.name,
+  }))
+  const allColumnDefs = getCategoryColumnDefs(categories)
   const color = getPresetColor(preset.color)
-  const sortSummary = summarizeSorts(preset.sorts)
-  const filterLines = summarizeFilters(preset.filters, scale)
-  const colSummary = summarizeColumns(preset.columns, preset.columnOrder)
+  const sortSummary = summarizeSorts(preset.sorts, catSortOptions)
+  const filterLines = summarizeFilters(preset.filters, scale, categories)
+  const colSummary = summarizeColumns(
+    preset.columns,
+    preset.columnOrder,
+    allColumnDefs
+  )
 
   return (
     <div className="space-y-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">
@@ -100,7 +108,9 @@ function DefaultHoverCard() {
 function HoverRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex gap-2 text-xs">
-      <span className="w-12 shrink-0 text-right text-text-tertiary">{label}</span>
+      <span className="w-12 shrink-0 text-right text-text-tertiary">
+        {label}
+      </span>
       <span className="min-w-0 truncate text-text-secondary">{value}</span>
     </div>
   )
@@ -141,7 +151,9 @@ export function PresetSelector({
   // Hover card state
   const [hoveredId, setHoveredId] = useState<string | 'default' | null>(null)
   const [hoverRect, setHoverRect] = useState<DOMRect | null>(null)
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined
+  )
 
   // Track when a deletion is in-flight so we can auto-close when it finishes.
   const pendingDeleteRef = useRef<string | null>(null)
@@ -189,7 +201,9 @@ export function PresetSelector({
 
   const selectedPreset = presets.find((p) => p.id === selectedPresetId)
   const triggerLabel = selectedPreset?.name ?? 'Default'
-  const triggerColor = selectedPreset ? getPresetColor(selectedPreset.color) : null
+  const triggerColor = selectedPreset
+    ? getPresetColor(selectedPreset.color)
+    : null
 
   function handleSelect(id: string | null) {
     onSelect(id)
@@ -245,7 +259,9 @@ export function PresetSelector({
             ) : (
               <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
             )}
-            <span className="max-w-[90px] truncate text-[12px] text-text-secondary">{triggerLabel}</span>
+            <span className="max-w-[90px] truncate text-[12px] text-text-secondary">
+              {triggerLabel}
+            </span>
             {isModified && (
               <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
             )}
@@ -267,9 +283,14 @@ export function PresetSelector({
             )}
           >
             <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-border)]" />
-            <span className="min-w-0 flex-1 truncate text-text-primary">Default</span>
+            <span className="min-w-0 flex-1 truncate text-text-primary">
+              Default
+            </span>
             {selectedPresetId === null && (
-              <Check size={12} className="shrink-0 text-[var(--color-primary)]" />
+              <Check
+                size={12}
+                className="shrink-0 text-[var(--color-primary)]"
+              />
             )}
           </button>
 
@@ -340,7 +361,10 @@ export function PresetSelector({
                       {preset.name}
                     </span>
                     {isSelected && !isDeleting && (
-                      <Check size={12} className="shrink-0 text-[var(--color-primary)]" />
+                      <Check
+                        size={12}
+                        className="shrink-0 text-[var(--color-primary)]"
+                      />
                     )}
                     {/* Edit + delete icons — revealed on row hover */}
                     <span className="invisible flex shrink-0 items-center gap-0.5 group-hover:visible">
@@ -398,7 +422,10 @@ export function PresetSelector({
           {isModified && (
             <button
               type="button"
-              onClick={() => { setOpen(false); onDiscard() }}
+              onClick={() => {
+                setOpen(false)
+                onDiscard()
+              }}
               className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
             >
               <Undo2 size={12} />
@@ -421,12 +448,29 @@ export function PresetSelector({
         </button>
       )}
 
+      {/* Inline overwrite button — only when a named preset is active */}
+      {isModified && selectedPresetId !== null && (
+        <button
+          type="button"
+          onClick={() => onOverwrite(selectedPresetId)}
+          title={`Overwrite "${selectedPreset?.name}" with current view`}
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+        >
+          <RotateCcw size={12} />
+          Overwrite
+        </button>
+      )}
+
       {/* Inline discard button that appears when the view has drifted from the preset */}
       {isModified && (
         <button
           type="button"
           onClick={onDiscard}
-          title={selectedPresetId ? `Discard changes and return to "${selectedPreset?.name}"` : 'Discard changes and return to default'}
+          title={
+            selectedPresetId
+              ? `Discard changes and return to "${selectedPreset?.name}"`
+              : 'Discard changes and return to default'
+          }
           className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-text-secondary hover:bg-[var(--color-bg-subtle)]"
         >
           <Undo2 size={12} />

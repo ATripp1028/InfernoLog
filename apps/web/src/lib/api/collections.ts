@@ -234,8 +234,9 @@ export interface ReorderEntryVars {
 export function useReorderCollectionEntry() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
-  const applyDetail = useApplyDetail()
   return useMutation({
+    mutationKey: ['collectionReorder'],
+    scope: { id: 'collectionReorder' },
     mutationFn: async (vars: ReorderEntryVars): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const body: Record<string, string> = {}
@@ -276,6 +277,5 @@ export function useReorderCollectionEntry() {
         qc.setQueryData(collectionQueryKey(vars.collectionId), ctx.previous)
       }
     },
-    onSuccess: applyDetail,
   })
 }

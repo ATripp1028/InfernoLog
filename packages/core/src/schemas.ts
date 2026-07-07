@@ -2,7 +2,6 @@ import { z } from 'zod'
 import {
   CollectionType,
   LevelType,
-  ListSource,
   RatingMode,
   Role,
   RatingDisplayScale,
@@ -11,6 +10,7 @@ import {
   EntryVisibility,
   LevelProgressStatus,
   Device,
+  GdVersion,
 } from './enums'
 
 export const LevelSchema = z.object({
@@ -87,13 +87,6 @@ export const ProgressUpdateInputSchema = z.object({
   highlightUrl: z.string().url().nullable(),
 })
 
-export const ListReferenceInputSchema = z.object({
-  progressUpdateId: z.string().uuid(),
-  listSource: z.nativeEnum(ListSource),
-  tierOrRank: z.string(),
-  atTimeOfLogging: z.boolean().default(true),
-})
-
 export const PublicUserProfileSchema = z.object({
   id: z.string().uuid(),
   username: z.string(),
@@ -150,6 +143,7 @@ export const UpdateMeSchema = z
     profilePublic: z.boolean().optional(),
     discordPublic: z.boolean().optional(),
     defaultFps: z.number().int().min(MIN_FPS).optional(),
+    defaultPercentageVersion: z.nativeEnum(GdVersion).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
@@ -265,6 +259,9 @@ const sessionDetailFields = {
   dateUncertain: z.boolean().default(false),
   attempts: z.number().int().nonnegative().nullable().optional(),
   fps: z.number().int().positive().nullable().optional(),
+  // Which GD version's percentage system was used. Only meaningful for classic
+  // levels (percentage/runFrom/runTo). Null = not recorded.
+  percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().default(false),
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
@@ -279,14 +276,6 @@ export const RatingScoreInputSchema = z.object({
   score: z.number().int().min(0).max(100),
 })
 
-// A community-list tier/rank attached to a completion. Pointercrate is cut —
-// only GDDL / AREDL / NLW / OTHER are valid sources.
-export const CompletionListReferenceSchema = z.object({
-  listSource: z.nativeEnum(ListSource),
-  tierOrRank: z.string().min(1),
-  atTimeOfLogging: z.boolean().default(true),
-})
-
 // COMPLETION — 100% is implied, so no percentage/run-range. In-game difficulty
 // is read from the cached level, never accepted from the client.
 export const CompletionInputSchema = z.object({
@@ -294,6 +283,9 @@ export const CompletionInputSchema = z.object({
   ...sessionDetailFields,
   // Best run from 0% reached before beating the level (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  // Calendar date of the worst fail session. Omitted when the user checks
+  // "I already logged my worst fail" (so the server keeps the existing value).
+  worstFailDate: z.coerce.date().nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // Non-demon difficulty opinion as a star count (1–9), only meaningful when
@@ -304,7 +296,7 @@ export const CompletionInputSchema = z.object({
   // whichever the client sends and never pre-compute the weighted average.
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
-  listReferences: z.array(CompletionListReferenceSchema).optional(),
+  userGddlTier: z.number().int().nullable().optional(),
   // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
@@ -354,6 +346,8 @@ export const DropInputSchema = z.object({
   attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  // Calendar date of the worst fail session.
+  worstFailDate: z.coerce.date().nullable().optional(),
   droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
@@ -362,15 +356,19 @@ export const DropInputSchema = z.object({
 // for a given level, plus LevelProgress-level metadata. All fields optional;
 // only present keys are written. Sent as PATCH /v1/me/progress/:levelId.
 export const EditProgressInputSchema = z.object({
+  // When provided, targets this specific ProgressUpdate instead of the most recent
+  progressUpdateId: z.string().uuid().optional(),
   // LevelProgress fields
   levelNotes: z.string().max(5000).nullable().optional(),
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
+  worstFailDate: z.coerce.date().nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).optional(),
-  // Most recent ProgressUpdate fields
+  // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().optional(),
   attempts: z.number().int().nonnegative().nullable().optional(),
   fps: z.number().int().positive().nullable().optional(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
@@ -384,6 +382,7 @@ export const EditProgressInputSchema = z.object({
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
+  userGddlTier: z.number().int().nullable().optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -431,6 +430,7 @@ export const ExistingCompletionSchema = z.object({
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   worstFail: z.number().int().nullable(),
+  worstFailDate: z.coerce.date().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   difficultyOpinionStars: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(),
@@ -445,13 +445,8 @@ export const ExistingCompletionSchema = z.object({
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
-  listReferences: z.array(
-    z.object({
-      listSource: z.nativeEnum(ListSource),
-      tierOrRank: z.string(),
-      atTimeOfLogging: z.boolean(),
-    })
-  ),
+  userGddlTier: z.number().int().nullable(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable(),
 })
 
 export const ResolveLevelResponseSchema = z.object({
@@ -497,6 +492,7 @@ export const LevelListSummarySchema = z.object({
   coinsVerified: z.boolean().nullable(),
   twoPlayer: z.boolean().nullable(),
   gameVersion: z.string().nullable(),
+  gddlTier: z.number().int().nullable(),
 })
 
 // The representative progress update folded into a list row: the completion
@@ -518,17 +514,16 @@ export const LevelProgressListEntrySchema = z.object({
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   onStream: z.boolean(),
   fps: z.number().int().nullable(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable(),
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
   notes: z.string().nullable(),
   device: z.nativeEnum(Device).nullable(),
   loggedAt: z.coerce.date(),
-  listReferences: z.array(
-    z.object({
-      listSource: z.nativeEnum(ListSource),
-      tierOrRank: z.string(),
-      atTimeOfLogging: z.boolean(),
-    })
+  // Per-category scores used for tie-breaking weighted-average sorts and for
+  // individual category columns. Only meaningful in WEIGHTED mode.
+  ratingScores: z.array(
+    z.object({ categoryId: z.string(), score: z.number().int() })
   ),
 })
 
@@ -545,6 +540,8 @@ export const LevelProgressListItemSchema = z.object({
   droppedReason: z.string().nullable(),
   // Derived: a completed CLASSIC level with no ClassicRanking row yet.
   needsPlacement: z.boolean(),
+  // The user's own GDDL tier opinion (set during completion logging or edit).
+  userGddlTier: z.number().int().nullable(),
   level: LevelListSummarySchema,
   // Null only for the rare status row with zero progress updates.
   entry: LevelProgressListEntrySchema.nullable(),
@@ -558,15 +555,12 @@ export const LevelProgressListResponseSchema = z.object({
 // CLASSIC RANKING — the personal difficulty-ordering page.
 // ─────────────────────────────────────────────
 
-// The single list-reference badge shown on a ranking row / unplaced card.
-// Display priority is GDDL → AREDL; NLW and OTHER are still captured as data on
-// the completion but never surface as the badge (AREDL's exact rank beats NLW's
-// named tier, and GDDL tracks every demon). Null when the completion carries
-// neither a GDDL nor an AREDL reference. See RANKING_SYSTEM.md.
+// The GDDL tier badge shown on a ranking row / unplaced card.
+// Sourced from LevelProgress.userGddlTier (the user's own opinion).
+// Null when the user has not given a GDDL tier opinion for this level.
 export const RankingBadgeSchema = z
   .object({
-    listSource: z.nativeEnum(ListSource),
-    tierOrRank: z.string(),
+    gddlTier: z.number().int(),
   })
   .nullable()
 
@@ -580,8 +574,6 @@ export const ClassicRankingEntrySchema = z.object({
   // and reorder only ever send neighbour IDs, never a raw index.
   rankingIndex: z.number(),
   level: LevelListSummarySchema,
-  // Level.hasPendingUpdate — drives the pending-data dot on the row.
-  hasPendingUpdate: z.boolean(),
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
@@ -590,7 +582,6 @@ export const ClassicRankingEntrySchema = z.object({
 export const UnplacedRankingEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
-  hasPendingUpdate: z.boolean(),
   attempts: z.number().int().nullable(),
   badge: RankingBadgeSchema,
 })
@@ -686,7 +677,6 @@ export const CollectionEntrySchema = z.object({
   rankingIndex: z.number(),
   addedAt: z.coerce.date(),
   level: LevelListSummarySchema,
-  hasPendingUpdate: z.boolean(),
   badge: RankingBadgeSchema,
   // Whether the viewer's account has a completion for this level. Drives the
   // greyed "already completed" treatment in Want to Beat contexts.
@@ -804,6 +794,8 @@ export const ImportCompletionRowSchema = z.object({
   attempts: z.number().int().nonnegative().nullable().optional(),
   // Worst fail / last logged percentage (0-100).
   percentage: z.number().min(0).max(100).nullable().optional(),
+  // ISO 8601 date string — date of the worst fail session.
+  worstFailDate: z.string().nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
   onStream: z.boolean().nullable().optional(),
@@ -831,8 +823,7 @@ export const ImportCompletionRowSchema = z.object({
   levelNotes: z.string().max(2000).nullable().optional(),
   // Ignored on import — server populates from the levels cache.
   inGameDifficulty: z.string().nullable().optional(),
-  gddlTier: z.number().nullable().optional(),
-  nlwTier: z.string().nullable().optional(),
+  userGddlTier: z.number().int().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
@@ -1024,6 +1015,7 @@ export const ExportCompletionSchema = z.object({
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   percentage: z.number().int().nullable(),
+  worstFailDate: z.string().nullable(),
   runFrom: z.number().int().nullable(),
   runTo: z.number().int().nullable(),
   onStream: z.boolean(),
@@ -1039,8 +1031,7 @@ export const ExportCompletionSchema = z.object({
   visibility: z.string(),
   notes: z.string().nullable(),
   levelNotes: z.string().nullable(),
-  gddlTier: z.string().nullable(),
-  nlwTier: z.string().nullable(),
+  userGddlTier: z.number().int().nullable(),
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
 })

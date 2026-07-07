@@ -67,9 +67,6 @@ const toNum = (v: DecimalLike | number | null): number | null =>
 
 const progressUpdateInclude = {
   ratingScores: { select: { categoryId: true, score: true } },
-  listReferences: {
-    select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
-  },
 } satisfies Prisma.ProgressUpdateInclude
 
 // Loads the full resulting record so handlers can return it without a
@@ -123,6 +120,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
+      percentageVersion: input.percentageVersion ?? null,
       onStream: input.onStream,
       videoUrl: input.videoUrl ?? null,
       highlightUrl: input.highlightUrl ?? null,
@@ -160,9 +158,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       await tx.ratingScore.deleteMany({
         where: { progressUpdateId: existing.id },
       })
-      await tx.listReference.deleteMany({
-        where: { progressUpdateId: existing.id },
-      })
       progressUpdateId = existing.id
     } else {
       const created = await tx.progressUpdate.create({
@@ -181,24 +176,21 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         })),
       })
     }
-    if (input.listReferences?.length) {
-      await tx.listReference.createMany({
-        data: input.listReferences.map((l) => ({
-          progressUpdateId,
-          listSource: l.listSource,
-          tierOrRank: l.tierOrRank,
-          atTimeOfLogging: l.atTimeOfLogging,
-        })),
-      })
-    }
-
     // Mark the level_progress completed and apply the per-entry privacy.
+    // worstFail/worstFailDate are only written when explicitly provided —
+    // undefined means the user checked "I already logged my worst fail".
     await tx.levelProgress.update({
       where: { id: lp.id },
       data: {
         status: 'COMPLETED',
         visibility: input.visibility,
-        worstFail: input.worstFail ?? null,
+        userGddlTier: input.userGddlTier ?? null,
+        ...(input.worstFail !== undefined
+          ? { worstFail: input.worstFail }
+          : {}),
+        ...(input.worstFailDate !== undefined
+          ? { worstFailDate: input.worstFailDate }
+          : {}),
       },
     })
 
@@ -235,6 +227,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
+      percentageVersion: input.percentageVersion ?? null,
       onStream: input.onStream,
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
@@ -261,8 +254,10 @@ export async function applyProgress(userId: string, input: ProgressInput) {
 }
 
 // ─────────────────────────────────────────────
-// EDIT — partial update on the most recent ProgressUpdate and/or LevelProgress
-// metadata. Only present keys are written. Returns null if no entry exists.
+// EDIT — partial update on a specific (or the most recent) ProgressUpdate and/or
+// LevelProgress metadata. Only present keys are written. Returns null if no entry
+// exists. When input.progressUpdateId is provided, that specific update is targeted;
+// otherwise falls back to completion-first, then loggedAt desc.
 // ─────────────────────────────────────────────
 
 export async function applyEdit(
@@ -273,21 +268,35 @@ export async function applyEdit(
   return prisma.$transaction(async (tx) => {
     const lp = await tx.levelProgress.findUnique({
       where: { userId_levelId: { userId, levelId } },
-      select: {
-        id: true,
-        progressUpdates: {
-          orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }] as const,
-          take: 1,
-          select: { id: true },
-        },
-      },
+      select: { id: true },
     })
     if (!lp) return null
+
+    let targetUpdateId: string | undefined
+    if (input.progressUpdateId) {
+      const update = await tx.progressUpdate.findFirst({
+        where: { id: input.progressUpdateId, levelProgressId: lp.id },
+        select: { id: true },
+      })
+      if (!update) return null
+      targetUpdateId = update.id
+    } else {
+      const mostRecent = await tx.progressUpdate.findFirst({
+        where: { levelProgressId: lp.id },
+        orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }],
+        select: { id: true },
+      })
+      targetUpdateId = mostRecent?.id
+    }
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
+    if (input.worstFailDate !== undefined)
+      lpData.worstFailDate = input.worstFailDate
     if (input.visibility !== undefined) lpData.visibility = input.visibility
+    if (input.userGddlTier !== undefined)
+      lpData.userGddlTier = input.userGddlTier
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
@@ -295,6 +304,8 @@ export async function applyEdit(
       puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
     if (input.fps !== undefined) puData.fps = input.fps
+    if (input.percentageVersion !== undefined)
+      puData.percentageVersion = input.percentageVersion
     if (input.onStream !== undefined) puData.onStream = input.onStream
     if (input.difficultyOpinion !== undefined)
       puData.difficultyOpinion = input.difficultyOpinion
@@ -319,29 +330,28 @@ export async function applyEdit(
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })
     }
 
-    const latestUpdateId = lp.progressUpdates[0]?.id
-    if (latestUpdateId) {
+    if (targetUpdateId) {
       if (Object.keys(puData).length > 0) {
         await tx.progressUpdate.update({
-          where: { id: latestUpdateId },
+          where: { id: targetUpdateId },
           data: puData,
         })
       }
       if (input.ratingScores !== undefined) {
         await tx.ratingScore.deleteMany({
-          where: { progressUpdateId: latestUpdateId },
+          where: { progressUpdateId: targetUpdateId },
         })
         if (input.ratingScores.length > 0) {
           await tx.ratingScore.createMany({
             data: input.ratingScores.map((r) => ({
-              progressUpdateId: latestUpdateId,
+              progressUpdateId: targetUpdateId!,
               categoryId: r.categoryId,
               score: r.score,
             })),
           })
         }
       }
-      return loadFullEntry(tx, lp.id, latestUpdateId)
+      return loadFullEntry(tx, lp.id, targetUpdateId)
     }
 
     // Drop-only entry (no ProgressUpdate): return just the LevelProgress.
@@ -373,8 +383,13 @@ export async function applyDrop(userId: string, input: DropInput) {
         droppedAt: input.droppedAt ?? null,
         droppedReason: input.droppedReason ?? null,
         attemptsAtDrop: input.attemptsAtDrop ?? null,
-        worstFail: input.worstFail ?? null,
         visibility: input.visibility,
+        ...(input.worstFail !== undefined
+          ? { worstFail: input.worstFail }
+          : {}),
+        ...(input.worstFailDate !== undefined
+          ? { worstFailDate: input.worstFailDate }
+          : {}),
       },
     })
     return { levelProgress: updated, progressUpdate: null }

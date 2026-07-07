@@ -8,7 +8,7 @@ import { formatDate } from '@/lib/dateFormat'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
-import { buildCompletionInput, isExtremeContext } from '../payload'
+import { buildCompletionInput } from '../payload'
 import { formatNumber, formatRating } from '../format'
 
 const OPINION_LABELS: Record<string, string> = {
@@ -56,14 +56,8 @@ export function CompletionReviewStep() {
   ].filter(Boolean)
 
   const gddlBits = [
-    draft.gddlTier.trim() ? `Tier ${draft.gddlTier.trim()}` : null,
+    draft.userGddlTier.trim() ? `Tier ${draft.userGddlTier.trim()}` : null,
   ].filter(Boolean)
-
-  // NLW / AREDL only apply to extreme demons — mirror the list-references step.
-  const showExtremeLists = isExtremeContext(
-    level.inGameDifficulty,
-    draft.difficultyOpinion
-  )
 
   async function submit() {
     if (!level || !me.data) return
@@ -121,12 +115,6 @@ export function CompletionReviewStep() {
           )}
           {gddlBits.length > 0 && (
             <Row label="GDDL" value={gddlBits.join(' · ')} />
-          )}
-          {showExtremeLists && draft.nlwTier.trim() && (
-            <Row label="NLW" value={`Tier ${draft.nlwTier.trim()}`} />
-          )}
-          {showExtremeLists && draft.aredlTier.trim() && (
-            <Row label="AREDL" value={`#${draft.aredlTier.trim()}`} />
           )}
           {sessionBits.length > 0 && (
             <Row label="Session" value={sessionBits.join(' · ')} />

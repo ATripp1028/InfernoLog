@@ -3,6 +3,7 @@ import type {
   DifficultyOpinion,
   EntryVisibility,
   ExistingCompletion,
+  GdVersion,
   Level,
 } from '@/lib/api/logging'
 
@@ -34,6 +35,8 @@ export interface FlowDraft {
   dateUncertain: boolean
   attempts: string
   worstFail: string
+  worstFailDate: string
+  worstFailAlreadyLogged: boolean
   difficultyOpinion: DifficultyOpinion | null
   // Non-demon difficulty opinion as a star count (1–9), only when the opinion
   // is NOT_DEMON_WORTHY.
@@ -42,12 +45,11 @@ export interface FlowDraft {
   enjoyment: number | null
   simpleRating: number | null
   ratingScores: RatingScoresDraft
-  // List references
-  gddlTier: string
-  nlwTier: string
-  aredlTier: string
+  // User's GDDL tier opinion
+  userGddlTier: string
   // Session
   fps: string
+  percentageVersion: GdVersion | null
   onStream: boolean
   visibility: EntryVisibility
   videoUrl: string
@@ -85,15 +87,16 @@ export function emptyDraft(): FlowDraft {
     dateUncertain: false,
     attempts: '',
     worstFail: '',
+    worstFailDate: '',
+    worstFailAlreadyLogged: false,
     difficultyOpinion: null,
     difficultyOpinionStars: null,
     enjoyment: null,
     simpleRating: null,
     ratingScores: {},
-    gddlTier: '',
-    nlwTier: '',
-    aredlTier: '',
+    userGddlTier: '',
     fps: '',
+    percentageVersion: null,
     onStream: false,
     visibility: 'PUBLIC',
     videoUrl: '',
@@ -129,6 +132,8 @@ export function draftFromExistingCompletion(
   draft.dateUncertain = existing.dateUncertain
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
   draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
+  draft.worstFailDate = isoToDateInput(existing.worstFailDate) ?? ''
+  draft.worstFailAlreadyLogged = false
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.difficultyOpinionStars = existing.difficultyOpinionStars
   draft.enjoyment = existing.enjoyment
@@ -137,16 +142,14 @@ export function draftFromExistingCompletion(
     existing.ratingScores.map((s) => [s.categoryId, s.score])
   )
   draft.fps = existing.fps != null ? String(existing.fps) : ''
+  draft.percentageVersion = existing.percentageVersion ?? null
   draft.onStream = existing.onStream
   draft.visibility = existing.visibility
   draft.videoUrl = existing.videoUrl ?? ''
   draft.highlightUrl = existing.highlightUrl ?? ''
   draft.notes = existing.notes ?? ''
-  for (const ref of existing.listReferences) {
-    if (ref.listSource === 'GDDL') draft.gddlTier = ref.tierOrRank
-    if (ref.listSource === 'NLW') draft.nlwTier = ref.tierOrRank
-    if (ref.listSource === 'AREDL') draft.aredlTier = ref.tierOrRank
-  }
+  draft.userGddlTier =
+    existing.userGddlTier != null ? String(existing.userGddlTier) : ''
   draft.coinsCollected = existing.coinsCollected ?? 0
   draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
   draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''

@@ -1,6 +1,10 @@
 import { useState, useRef } from 'react'
 import { X, Calendar } from 'lucide-react'
-import type { DateFormatPreference, RatingDisplayScale } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingCategory,
+  RatingDisplayScale,
+} from '@/lib/api/me'
 import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
 import { cn } from '@/lib/utils'
@@ -18,11 +22,10 @@ import {
   ATTEMPTS_DOMAIN,
   RATING_DOMAIN,
   TIER_DOMAIN,
-  dateDomain,
   defaultFilterState,
+  type DateBounds,
   type FilterState,
   type DeviceFilter,
-  type ListSourceFilter,
   type LevelTypeFilter,
   type ProgressStatus,
   type Range,
@@ -44,8 +47,12 @@ interface FilterPanelProps {
   // Data-driven slider bounds.
   earliestDate: number
   maxAttempts: number
+  // Rating categories for per-category range filters (WEIGHTED mode only).
+  ratingCategories?: RatingCategory[]
   onClose?: () => void
 }
+
+const today = Date.now()
 
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
@@ -56,7 +63,6 @@ const PROGRESS: { value: ProgressStatus; label: string }[] = [
   { value: 'IN_PROGRESS', label: 'In Progress' },
   { value: 'DROPPED', label: 'Dropped' },
 ]
-const SOURCES: ListSourceFilter[] = ['GDDL', 'AREDL', 'NLW']
 const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
@@ -218,148 +224,145 @@ function RangeRow({
   )
 }
 
-function DateRangeRow({
-  min,
-  max,
-  step,
+function DatePickerField({
+  label,
   value,
   onChange,
   datePref,
+  min,
+  max,
+  placeholder,
 }: {
-  min: number
-  max: number
-  step: number
-  value: Range
-  onChange: (v: Range) => void
+  label: string
+  value: number | null
+  onChange: (ms: number | null) => void
   datePref: DateFormatPreference
+  min?: number
+  max?: number
+  placeholder: string
 }) {
-  const [minDraft, setMinDraft] = useState<string | null>(null)
-  const [maxDraft, setMaxDraft] = useState<string | null>(null)
-  const minCalRef = useRef<HTMLInputElement>(null)
-  const maxCalRef = useRef<HTMLInputElement>(null)
-
-  // Clamp the stored value[0] to the slider min so the display is correct
-  // even when the filter state was initialized before data loaded.
-  const effectiveMin = Math.max(min, value[0])
+  const [draft, setDraft] = useState<string | null>(null)
+  const calRef = useRef<HTMLInputElement>(null)
 
   function fmt(ms: number): string {
     return formatDate(new Date(ms), datePref)
   }
 
-  function commitMin(text: string) {
-    setMinDraft(null)
+  function commit(text: string) {
+    setDraft(null)
+    if (!text.trim()) {
+      onChange(null)
+      return
+    }
     const n = parseFilterDate(text, datePref)
     if (n == null) return
-    onChange([Math.min(Math.max(n, min), value[1]), value[1]])
+    let clamped = n
+    if (min != null) clamped = Math.max(clamped, min)
+    if (max != null) clamped = Math.min(clamped, max)
+    onChange(clamped)
   }
 
-  function commitMax(text: string) {
-    setMaxDraft(null)
-    const n = parseFilterDate(text, datePref)
-    if (n == null) return
-    onChange([value[0], Math.max(Math.min(n, max), value[0])])
-  }
-
-  function handleCalMin(isoVal: string) {
+  function handleCal(isoVal: string) {
     if (!isoVal) return
     const [y, m, d] = isoVal.split('-').map(Number)
     const ms = new Date(y!, m! - 1, d!).getTime()
-    if (!isNaN(ms)) onChange([Math.min(Math.max(ms, min), value[1]), value[1]])
-  }
-
-  function handleCalMax(isoVal: string) {
-    if (!isoVal) return
-    const [y, m, d] = isoVal.split('-').map(Number)
-    const ms = new Date(y!, m! - 1, d!).getTime()
-    if (!isNaN(ms)) onChange([value[0], Math.max(Math.min(ms, max), value[0])])
+    if (!isNaN(ms)) onChange(ms)
   }
 
   function showPicker(ref: React.RefObject<HTMLInputElement | null>) {
     try {
-      // showPicker() requires a user gesture; supported in modern browsers.
       ;(
         ref.current as HTMLInputElement & { showPicker?: () => void }
       )?.showPicker?.()
     } catch {
-      // showPicker() may throw if the element lacks a user gesture or visibility
+      // showPicker() may throw without a user gesture or in hidden elements
     }
   }
 
   return (
-    <div className="flex flex-col gap-2 px-4 py-1.5">
-      <p className="text-xs font-medium text-text-secondary">Date range</p>
-      <RangeSlider
-        min={min}
-        max={max}
-        step={step}
-        value={[effectiveMin, value[1]]}
-        onValueChange={(v) => onChange([v[0]!, v[1]!])}
-      />
-      <div className="flex items-center gap-1.5">
-        {/* Min date */}
-        <div className="relative flex flex-1 items-center">
-          <input
-            className={cn(inputCls, 'pr-5')}
-            value={minDraft ?? fmt(effectiveMin)}
-            onChange={(e) => setMinDraft(e.target.value)}
-            onBlur={(e) => commitMin(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitMin(e.currentTarget.value)
-            }}
-          />
+    <div className="flex flex-1 flex-col gap-0.5">
+      <p className="text-[10px] text-text-tertiary">{label}</p>
+      <div className="relative flex items-center">
+        <input
+          className={cn(inputCls, 'pr-9')}
+          value={draft ?? (value != null ? fmt(value) : '')}
+          placeholder={placeholder}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={(e) => commit(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') commit(e.currentTarget.value)
+          }}
+        />
+        <button
+          type="button"
+          className={cn(
+            'absolute cursor-pointer text-text-tertiary transition-colors hover:text-text-primary',
+            value != null ? 'right-5' : 'right-1.5'
+          )}
+          onClick={() => showPicker(calRef)}
+          aria-label="Open calendar"
+        >
+          <Calendar size={11} />
+        </button>
+        {value != null && (
           <button
             type="button"
-            className="absolute right-1.5 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
-            onClick={() => showPicker(minCalRef)}
-            aria-label="Open calendar"
-          >
-            <Calendar size={11} />
-          </button>
-          <input
-            ref={minCalRef}
-            type="date"
-            tabIndex={-1}
-            className="pointer-events-none absolute h-px w-px opacity-0"
-            value={toIso(effectiveMin)}
-            min={toIso(min)}
-            max={toIso(value[1])}
-            onChange={(e) => handleCalMin(e.target.value)}
-          />
-        </div>
-
-        <span className="shrink-0 text-[11px] text-text-tertiary">–</span>
-
-        {/* Max date */}
-        <div className="relative flex flex-1 items-center">
-          <input
-            className={cn(inputCls, 'pr-5')}
-            value={maxDraft ?? fmt(value[1])}
-            onChange={(e) => setMaxDraft(e.target.value)}
-            onBlur={(e) => commitMax(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitMax(e.currentTarget.value)
+            className="absolute right-1 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
+            onClick={() => {
+              setDraft(null)
+              onChange(null)
             }}
-          />
-          <button
-            type="button"
-            className="absolute right-1.5 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
-            onClick={() => showPicker(maxCalRef)}
-            aria-label="Open calendar"
+            aria-label={`Clear ${label}`}
           >
-            <Calendar size={11} />
+            <X size={10} />
           </button>
-          <input
-            ref={maxCalRef}
-            type="date"
-            tabIndex={-1}
-            className="pointer-events-none absolute h-px w-px opacity-0"
-            value={toIso(value[1])}
-            min={toIso(value[0])}
-            max={toIso(max)}
-            onChange={(e) => handleCalMax(e.target.value)}
-          />
-        </div>
+        )}
+        <input
+          ref={calRef}
+          type="date"
+          tabIndex={-1}
+          className="pointer-events-none absolute h-px w-px opacity-0"
+          value={value != null ? toIso(value) : ''}
+          {...(min != null && { min: toIso(min) })}
+          {...(max != null && { max: toIso(max) })}
+          onChange={(e) => handleCal(e.target.value)}
+        />
       </div>
+    </div>
+  )
+}
+
+function DatePickersRow({
+  value,
+  onChange,
+  datePref,
+  minDate,
+}: {
+  value: DateBounds
+  onChange: (v: DateBounds) => void
+  datePref: DateFormatPreference
+  minDate: number
+}) {
+  return (
+    <div className="flex gap-2 px-4 py-1.5">
+      <DatePickerField
+        label="From"
+        value={value.from}
+        onChange={(from) => onChange({ ...value, from })}
+        datePref={datePref}
+        min={minDate}
+        max={value.to ?? today}
+        placeholder="Any"
+      />
+      <DatePickerField
+        label="To"
+        value={value.to}
+        onChange={(to) => onChange({ ...value, to })}
+        datePref={datePref}
+        min={value.from ?? minDate}
+        max={today}
+        placeholder="Today"
+      />
     </div>
   )
 }
@@ -376,12 +379,12 @@ export function FilterPanel({
   availableDifficulties,
   earliestDate,
   maxAttempts,
+  ratingCategories,
   onClose,
 }: FilterPanelProps) {
   const set = (patch: Partial<FilterState>) =>
     onChange({ ...filters, ...patch })
   const max = displayMax(scale)
-  const today = dateDomain()[1]
 
   function parseRating(text: string): number | null {
     const v = parseFloat(text)
@@ -458,26 +461,34 @@ export function FilterPanel({
             format={(v) => formatRating(v, scale)}
             parseInput={parseRating}
           />
+          {ratingCategories &&
+            [...ratingCategories]
+              .sort((a, b) => a.sortOrder - b.sortOrder)
+              .map((cat) => (
+                <RangeRow
+                  key={cat.id}
+                  label={cat.name}
+                  min={RATING_DOMAIN[0]}
+                  max={RATING_DOMAIN[1]}
+                  step={1}
+                  value={
+                    (filters.categoryRatings ?? {})[cat.id] ?? RATING_DOMAIN
+                  }
+                  onChange={(range) =>
+                    set({
+                      categoryRatings: {
+                        ...(filters.categoryRatings ?? {}),
+                        [cat.id]: range,
+                      },
+                    })
+                  }
+                  format={(v) => formatRating(v, scale)}
+                  parseInput={parseRating}
+                />
+              ))}
           <p className="px-4 pt-1 text-[10px] text-text-tertiary">
             Scale 0–{max}
           </p>
-        </FilterSection>
-
-        <FilterSection title="List Source">
-          <div className="flex flex-wrap gap-1.5 px-4">
-            {SOURCES.map((s) => (
-              <Chip
-                key={s}
-                className="cursor-pointer"
-                selected={filters.listSources.includes(s)}
-                onClick={() =>
-                  set({ listSources: toggle(filters.listSources, s) })
-                }
-              >
-                {s}
-              </Chip>
-            ))}
-          </div>
         </FilterSection>
 
         <FilterSection title="GDDL Tier">
@@ -505,13 +516,11 @@ export function FilterPanel({
         </FilterSection>
 
         <FilterSection title="Date Beaten">
-          <DateRangeRow
-            min={earliestDate}
-            max={today}
-            step={86_400_000}
+          <DatePickersRow
             value={filters.dateBeaten}
             onChange={(dateBeaten) => set({ dateBeaten })}
             datePref={dateFormatPreference}
+            minDate={earliestDate}
           />
         </FilterSection>
 

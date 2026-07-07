@@ -9,7 +9,7 @@ import { randomUUID } from 'node:crypto'
 import prisma from '../utils/prisma'
 import { SQSClient, SendMessageBatchCommand } from '@aws-sdk/client-sqs'
 import type { Prisma } from '@prisma/client'
-import { DifficultyOpinion, ListSource } from '@infernolog/core'
+import { DifficultyOpinion } from '@infernolog/core'
 import type {
   ImportCompletionRow,
   ImportDroppedRow,
@@ -306,11 +306,13 @@ type LpStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 interface LpFields {
   status?: LpStatus
   worstFail?: number
+  worstFailDate?: Date | null
   droppedAt?: Date | null
   droppedReason?: string | null
   attemptsAtDrop?: number | null
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string
+  userGddlTier?: number | null
 }
 
 interface LpPlan {
@@ -325,15 +327,10 @@ interface LpPlan {
 interface BatchWrites {
   newLevelProgress: Prisma.LevelProgressCreateManyInput[]
   newProgressUpdates: Prisma.ProgressUpdateCreateManyInput[]
-  newListReferences: Prisma.ListReferenceCreateManyInput[]
   progressUpdateUpdates: {
     id: string
     data: Prisma.ProgressUpdateUncheckedUpdateInput
   }[]
-  // Overwrite path: clear only the specific list-reference sources the
-  // spreadsheet is about to replace — never other sources, and never the
-  // completion's rating scores (those are InfernoLog-only data).
-  clearRefs: { progressUpdateId: string; listSource: ListSource }[]
 }
 
 interface PlanCtx {
@@ -352,9 +349,7 @@ function newBatchWrites(): BatchWrites {
   return {
     newLevelProgress: [],
     newProgressUpdates: [],
-    newListReferences: [],
     progressUpdateUpdates: [],
-    clearRefs: [],
   }
 }
 
@@ -420,18 +415,10 @@ function planCompletion(
 
   // GDDL tier: explicit row value wins; else the autofilled value. Both are
   // rounded to a whole number — GDDL tiers are never stored as decimals.
-  // (autoGddlTier is already rounded by fetchGddlTier; the spreadsheet value
-  // may carry decimals, so round it here.)
-  const refs: { listSource: ListSource; tierOrRank: string }[] = []
-  if (row.gddlTier != null)
-    refs.push({
-      listSource: ListSource.GDDL,
-      tierOrRank: String(roundGddlTier(row.gddlTier)),
-    })
-  else if (autoGddlTier != null)
-    refs.push({ listSource: ListSource.GDDL, tierOrRank: String(autoGddlTier) })
-  if (row.nlwTier != null)
-    refs.push({ listSource: ListSource.NLW, tierOrRank: row.nlwTier })
+  const userGddlTier: number | null =
+    row.userGddlTier != null
+      ? roundGddlTier(row.userGddlTier)
+      : (autoGddlTier ?? null)
 
   // User-coin collection only applies to levels that actually have coins;
   // ignore the spreadsheet's coin columns otherwise (matches the logging flow).
@@ -473,28 +460,18 @@ function planCompletion(
       ctx.writes.progressUpdateUpdates.push({ id: puId, data: merge })
     }
 
-    // Replace only the list-reference sources the spreadsheet carries.
-    for (const r of refs) {
-      ctx.writes.clearRefs.push({
-        progressUpdateId: puId,
-        listSource: r.listSource,
-      })
-      ctx.writes.newListReferences.push({
-        progressUpdateId: puId,
-        listSource: r.listSource,
-        tierOrRank: r.tierOrRank,
-        atTimeOfLogging: true,
-      })
-    }
-
-    // LevelProgress-level fields: worstFail, per-entry privacy, and the overall
-    // level note — each only when the sheet provides it (status stays COMPLETED).
+    // LevelProgress-level fields: worstFail, per-entry privacy, the overall
+    // level note, and user GDDL tier — each only when the sheet provides it.
     const lpMerge: LpFields = {
       ...(row.percentage != null
         ? { worstFail: Math.round(row.percentage) }
         : {}),
+      ...(row.worstFailDate != null
+        ? { worstFailDate: new Date(row.worstFailDate) }
+        : {}),
       ...(row.visibility != null ? { visibility: row.visibility } : {}),
       ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
+      ...(userGddlTier != null ? { userGddlTier } : {}),
     }
     if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return 'updated'
@@ -533,17 +510,13 @@ function planCompletion(
     ...(row.percentage != null
       ? { worstFail: Math.round(row.percentage) }
       : {}),
+    ...(row.worstFailDate != null
+      ? { worstFailDate: new Date(row.worstFailDate) }
+      : {}),
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
+    ...(userGddlTier != null ? { userGddlTier } : {}),
   })
-  for (const r of refs) {
-    ctx.writes.newListReferences.push({
-      progressUpdateId: puId,
-      listSource: r.listSource,
-      tierOrRank: r.tierOrRank,
-      atTimeOfLogging: true,
-    })
-  }
 
   return 'committed'
 }
@@ -595,13 +568,6 @@ export async function commitImportBatch(
     ])
   )
 
-  // Check whether this user has a GDDL key registered (gates autofill).
-  const user = await prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { gddlApiKeyEncrypted: true },
-  })
-  const hasGddlKey = !!user.gddlApiKeyEncrypted
-
   // ── Pre-resolve name-only rows (outside the transaction) ──────────────
   // Resolving via RobTop involves network I/O that must not hold a DB
   // transaction open.
@@ -638,26 +604,24 @@ export async function commitImportBatch(
 
   // ── Pre-fetch GDDL tiers in parallel (outside the transaction) ────────
   const gddlTierCache = new Map<string, number | null>()
-  if (hasGddlKey) {
-    const completionRows = rows.filter(
-      (r) =>
-        r.type === 'completion' &&
-        !processed.has(r.rowIndex) &&
-        !r.data.gddlTier
-    )
-    const idsNeedingGddl = [
-      ...new Set(
-        completionRows
-          .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
-          .filter((id): id is string => !!id)
-      ),
-    ]
-    await Promise.all(
-      idsNeedingGddl.map(async (id) => {
-        gddlTierCache.set(id, await fetchGddlTier(id))
-      })
-    )
-  }
+  const completionRows = rows.filter(
+    (r) =>
+      r.type === 'completion' &&
+      !processed.has(r.rowIndex) &&
+      !r.data.userGddlTier
+  )
+  const idsNeedingGddl = [
+    ...new Set(
+      completionRows
+        .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
+        .filter((id): id is string => !!id)
+    ),
+  ]
+  await Promise.all(
+    idsNeedingGddl.map(async (id) => {
+      gddlTierCache.set(id, await fetchGddlTier(id))
+    })
+  )
 
   const allKnownIds = [
     ...new Set([
@@ -797,10 +761,9 @@ export async function commitImportBatch(
     let reason: string | undefined
     try {
       if (row.type === 'completion') {
-        const autoGddlTier =
-          hasGddlKey && !row.data.gddlTier
-            ? (gddlTierCache.get(effectiveLevelId) ?? null)
-            : null
+        const autoGddlTier = !row.data.userGddlTier
+          ? (gddlTierCache.get(effectiveLevelId) ?? null)
+          : null
         outcomeStatus = planCompletion(
           ctx,
           effectiveLevelId,
@@ -903,23 +866,14 @@ export async function commitImportBatch(
         await tx.levelProgress.createMany({ data: writes.newLevelProgress })
       }
 
-      // Overwrite path: merge the provided fields into the existing completion,
-      // then clear only the list-reference sources being replaced before the new
-      // references go in. Rating scores and other sources are left untouched.
+      // Overwrite path: merge the provided fields into the existing completion.
+      // Rating scores are InfernoLog-only data and are left untouched.
       for (const u of writes.progressUpdateUpdates) {
         await tx.progressUpdate.update({ where: { id: u.id }, data: u.data })
-      }
-      if (writes.clearRefs.length) {
-        await tx.listReference.deleteMany({
-          where: { OR: writes.clearRefs },
-        })
       }
 
       if (writes.newProgressUpdates.length) {
         await tx.progressUpdate.createMany({ data: writes.newProgressUpdates })
-      }
-      if (writes.newListReferences.length) {
-        await tx.listReference.createMany({ data: writes.newListReferences })
       }
 
       // Per-level LevelProgress updates (status / drop fields / worstFail) for

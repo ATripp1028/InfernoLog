@@ -128,6 +128,7 @@ export async function getClassicRanking(userId: string) {
         levelProgress: {
           select: {
             id: true,
+            userGddlTier: true,
             level: { select: levelSelect },
             progressUpdates: completionSelect,
           },
@@ -144,6 +145,7 @@ export async function getClassicRanking(userId: string) {
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,
+        userGddlTier: true,
         level: { select: levelSelect },
         progressUpdates: completionSelect,
       },
@@ -151,29 +153,24 @@ export async function getClassicRanking(userId: string) {
   ])
 
   const placed = placedRows.map((row, i) => {
-    const { hasPendingUpdate, ...level } = row.levelProgress.level
+    const level = row.levelProgress.level
     return {
       rank: i + 1,
       levelProgressId: row.levelProgress.id,
       rankingIndex: row.rankingIndex.toNumber(),
       level: mapLevel(level),
-      hasPendingUpdate,
       attempts: completionAttempts(row.levelProgress.progressUpdates),
-      badge: deriveBadge(
-        row.levelProgress.progressUpdates,
-        level.inGameDifficulty
-      ),
+      badge: deriveBadge(row.levelProgress.userGddlTier),
     }
   })
 
   const unplaced = unplacedRows.map((row) => {
-    const { hasPendingUpdate, ...level } = row.level
+    const level = row.level
     return {
       levelProgressId: row.id,
       level: mapLevel(level),
-      hasPendingUpdate,
       attempts: completionAttempts(row.progressUpdates),
-      badge: deriveBadge(row.progressUpdates, level.inGameDifficulty),
+      badge: deriveBadge(row.userGddlTier),
     }
   })
 

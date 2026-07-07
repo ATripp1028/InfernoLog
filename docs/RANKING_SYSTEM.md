@@ -90,7 +90,6 @@ Features:
 - Drag-and-drop reordering directly on page (dnd-kit)
 - Toggle to show/hide unrated levels (ranking numbers update for that view)
 - Unplaced completions (user chose "Place later") live in a separate **Unplaced** panel until manually placed — they are not shown inline as auto-placed entries
-- Visual indicator on entries with pending level data updates
 - Sortable by any logged metric independent of ranking order
 
 ---

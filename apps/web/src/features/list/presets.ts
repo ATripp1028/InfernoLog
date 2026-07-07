@@ -1,17 +1,17 @@
 import type { ColumnId, ColumnVisibility } from './columns'
 import { defaultColumnOrder, defaultColumnVisibility, COLUMNS } from './columns'
-import { SORT_LABEL } from './sortMeta'
+import { getSortLabel } from './sortMeta'
 import {
   defaultFilterState,
   type FilterState,
   type SortSpec,
+  type SortKey,
   RATING_DOMAIN,
   ENJOYMENT_DOMAIN,
   TIER_DOMAIN,
   ATTEMPTS_DOMAIN,
-  DATE_MIN_MS,
 } from './types'
-import type { RatingDisplayScale } from '@/lib/api/me'
+import type { RatingDisplayScale, RatingCategory } from '@/lib/api/me'
 import { formatRating } from '@/features/logging/format'
 
 // ─────────────────────────────────────────────
@@ -43,26 +43,28 @@ export interface PresetColor {
 }
 
 export const PRESET_COLORS: PresetColor[] = [
-  { id: 'red',     hex: '#EF4444', label: 'Red'     },
-  { id: 'orange',  hex: '#F97316', label: 'Orange'  },
-  { id: 'amber',   hex: '#F59E0B', label: 'Amber'   },
-  { id: 'yellow',  hex: '#EAB308', label: 'Yellow'  },
-  { id: 'lime',    hex: '#84CC16', label: 'Lime'    },
-  { id: 'green',   hex: '#22C55E', label: 'Green'   },
-  { id: 'teal',    hex: '#14B8A6', label: 'Teal'    },
-  { id: 'cyan',    hex: '#06B6D4', label: 'Cyan'    },
-  { id: 'sky',     hex: '#0EA5E9', label: 'Sky'     },
-  { id: 'blue',    hex: '#3B82F6', label: 'Blue'    },
-  { id: 'indigo',  hex: '#6366F1', label: 'Indigo'  },
-  { id: 'violet',  hex: '#8B5CF6', label: 'Violet'  },
-  { id: 'purple',  hex: '#A855F7', label: 'Purple'  },
+  { id: 'red', hex: '#EF4444', label: 'Red' },
+  { id: 'orange', hex: '#F97316', label: 'Orange' },
+  { id: 'amber', hex: '#F59E0B', label: 'Amber' },
+  { id: 'yellow', hex: '#EAB308', label: 'Yellow' },
+  { id: 'lime', hex: '#84CC16', label: 'Lime' },
+  { id: 'green', hex: '#22C55E', label: 'Green' },
+  { id: 'teal', hex: '#14B8A6', label: 'Teal' },
+  { id: 'cyan', hex: '#06B6D4', label: 'Cyan' },
+  { id: 'sky', hex: '#0EA5E9', label: 'Sky' },
+  { id: 'blue', hex: '#3B82F6', label: 'Blue' },
+  { id: 'indigo', hex: '#6366F1', label: 'Indigo' },
+  { id: 'violet', hex: '#8B5CF6', label: 'Violet' },
+  { id: 'purple', hex: '#A855F7', label: 'Purple' },
   { id: 'fuchsia', hex: '#D946EF', label: 'Fuchsia' },
-  { id: 'rose',    hex: '#F43F5E', label: 'Rose'    },
-  { id: 'slate',   hex: '#64748B', label: 'Slate'   },
+  { id: 'rose', hex: '#F43F5E', label: 'Rose' },
+  { id: 'slate', hex: '#64748B', label: 'Slate' },
 ]
 
 export function getPresetColor(id: PresetColorId): PresetColor {
-  return PRESET_COLORS.find((c) => c.id === id) ?? (PRESET_COLORS[9] as PresetColor) // fallback: blue
+  return (
+    PRESET_COLORS.find((c) => c.id === id) ?? (PRESET_COLORS[9] as PresetColor)
+  ) // fallback: blue
 }
 
 // WCAG-based relative luminance → pick #000 or #fff for maximum contrast.
@@ -98,11 +100,20 @@ function rangesEqual(a: [number, number], b: [number, number]): boolean {
 }
 
 function filtersEqual(a: FilterState, b: FilterState): boolean {
+  // Compare categoryRatings: treat missing keys as inactive (full domain).
+  const allCatIds = new Set([
+    ...Object.keys(a.categoryRatings ?? {}),
+    ...Object.keys(b.categoryRatings ?? {}),
+  ])
+  const catRatingsEqual = [...allCatIds].every((id) => {
+    const aRange = (a.categoryRatings ?? {})[id] ?? RATING_DOMAIN
+    const bRange = (b.categoryRatings ?? {})[id] ?? RATING_DOMAIN
+    return rangesEqual(aRange, bRange)
+  })
+
   return (
     JSON.stringify(a.statuses.slice().sort()) ===
       JSON.stringify(b.statuses.slice().sort()) &&
-    JSON.stringify(a.listSources.slice().sort()) ===
-      JSON.stringify(b.listSources.slice().sort()) &&
     JSON.stringify(a.levelTypes.slice().sort()) ===
       JSON.stringify(b.levelTypes.slice().sort()) &&
     a.ratedStatus === b.ratedStatus &&
@@ -118,10 +129,9 @@ function filtersEqual(a: FilterState, b: FilterState): boolean {
     rangesEqual(a.enjoyment, b.enjoyment) &&
     rangesEqual(a.tier, b.tier) &&
     rangesEqual(a.attempts, b.attempts) &&
-    // Compare dateBeaten[0] exactly, but treat dateBeaten[1] as equal if both
-    // are ≥ today (i.e. neither is actually constraining the upper bound).
-    a.dateBeaten[0] === b.dateBeaten[0] &&
-    a.dateBeaten[1] >= Date.now() - 86_400_000 === b.dateBeaten[1] >= Date.now() - 86_400_000
+    a.dateBeaten.from === b.dateBeaten.from &&
+    a.dateBeaten.to === b.dateBeaten.to &&
+    catRatingsEqual
   )
 }
 
@@ -130,8 +140,10 @@ function sortsEqual(a: SortSpec[], b: SortSpec[]): boolean {
   return a.every((s, i) => s.key === b[i]!.key && s.dir === b[i]!.dir)
 }
 
+// Compare all keys present in either record; missing keys default to false.
 function columnsEqual(a: ColumnVisibility, b: ColumnVisibility): boolean {
-  return COLUMNS.every((c) => a[c.id] === b[c.id])
+  const allKeys = new Set([...Object.keys(a), ...Object.keys(b)])
+  return [...allKeys].every((k) => (a[k] ?? false) === (b[k] ?? false))
 }
 
 function columnOrderEqual(a: ColumnId[], b: ColumnId[]): boolean {
@@ -169,30 +181,77 @@ export function isDefaultConfig(config: ViewConfig): boolean {
 }
 
 // ─────────────────────────────────────────────
+// PRESET CLEANUP
+// ─────────────────────────────────────────────
+
+// Strip references to deleted rating categories from a view config, and append
+// any active category columns that aren't present yet. Called when applying a
+// saved preset or when the user's category list changes.
+export function cleanupPresetForCategories(
+  config: ViewConfig,
+  activeCategoryIds: Set<string>
+): ViewConfig {
+  const isActiveCatKey = (k: string): boolean =>
+    !k.startsWith('cat:') || activeCategoryIds.has(k.slice(4))
+
+  const columns = Object.fromEntries(
+    Object.entries(config.columns).filter(([k]) => isActiveCatKey(k))
+  )
+  const filteredOrder = config.columnOrder.filter(isActiveCatKey)
+  // Append active cat keys missing from the order (e.g. categories added after
+  // the preset was saved, or a fresh default config that predates categories).
+  const activeCatKeys = [...activeCategoryIds].map(
+    (id) => `cat:${id}` as ColumnId
+  )
+  const newCatKeys = activeCatKeys.filter((k) => !filteredOrder.includes(k))
+  const columnOrder = newCatKeys.length
+    ? [...filteredOrder, ...newCatKeys]
+    : filteredOrder
+
+  const sorts = config.sorts.filter((s) => isActiveCatKey(s.key))
+  const categoryRatings = Object.fromEntries(
+    Object.entries(config.filters.categoryRatings ?? {}).filter(([k]) =>
+      activeCategoryIds.has(k)
+    )
+  )
+  return {
+    ...config,
+    sorts,
+    columns,
+    columnOrder,
+    filters: { ...config.filters, categoryRatings },
+  }
+}
+
+// ─────────────────────────────────────────────
 // SUMMARY HELPERS (for hover card)
 // ─────────────────────────────────────────────
 
-export function summarizeSorts(sorts: SortSpec[]): string {
+export function summarizeSorts(
+  sorts: SortSpec[],
+  dynamicOptions?: { key: SortKey; label: string }[]
+): string {
   if (sorts.length === 0) return 'None'
   return sorts
-    .map((s) => `${SORT_LABEL[s.key]} ${s.dir === 'asc' ? '↑' : '↓'}`)
+    .map(
+      (s) =>
+        `${getSortLabel(s.key, dynamicOptions ?? [])} ${s.dir === 'asc' ? '↑' : '↓'}`
+    )
     .join(', ')
 }
 
 export function summarizeFilters(
   filters: FilterState,
-  scale: RatingDisplayScale
+  scale: RatingDisplayScale,
+  categories?: RatingCategory[]
 ): string[] {
   const lines: string[] = []
   if (filters.statuses.length > 0)
     lines.push(`Status: ${filters.statuses.join(', ')}`)
-  if (filters.listSources.length > 0)
-    lines.push(`Lists: ${filters.listSources.join(', ')}`)
   if (filters.levelTypes.length > 0)
     lines.push(`Type: ${filters.levelTypes.join(', ')}`)
   if (filters.ratedStatus !== 'ALL') lines.push(`Rated: ${filters.ratedStatus}`)
-  if (filters.flags.length > 0)
-    lines.push(`Flags: ${filters.flags.join(', ')}`)
+  if (filters.flags.length > 0) lines.push(`Flags: ${filters.flags.join(', ')}`)
   if (filters.lengths.length > 0)
     lines.push(`Length: ${filters.lengths.join(', ')}`)
   if (filters.difficulties.length > 0)
@@ -211,37 +270,50 @@ export function summarizeFilters(
     lines.push(`Tier: ${filters.tier[0]}–${filters.tier[1]}`)
   if (!rangesEqual(filters.attempts, ATTEMPTS_DOMAIN))
     lines.push(`Attempts: ${filters.attempts[0]}–${filters.attempts[1]}`)
-  if (
-    filters.dateBeaten[0] !== DATE_MIN_MS ||
-    filters.dateBeaten[1] < Date.now() - 86_400_000
-  ) {
+  if (filters.dateBeaten.from != null || filters.dateBeaten.to != null) {
     const fmt = (ms: number) => new Date(ms).getFullYear().toString()
-    lines.push(`Date: ${fmt(filters.dateBeaten[0])}–${fmt(filters.dateBeaten[1])}`)
+    const fromStr =
+      filters.dateBeaten.from != null ? fmt(filters.dateBeaten.from) : 'Any'
+    const toStr =
+      filters.dateBeaten.to != null ? fmt(filters.dateBeaten.to) : 'Today'
+    lines.push(`Date: ${fromStr}–${toStr}`)
+  }
+  // Per-category rating filters.
+  for (const [catId, range] of Object.entries(filters.categoryRatings ?? {})) {
+    if (!rangesEqual(range, RATING_DOMAIN)) {
+      const catName =
+        categories?.find((c) => c.id === catId)?.name ?? 'Category'
+      lines.push(
+        `${catName}: ${formatRating(range[0], scale)}–${formatRating(range[1], scale)}`
+      )
+    }
   }
   return lines
 }
 
 export function summarizeColumns(
   cols: ColumnVisibility,
-  order: ColumnId[]
+  order: ColumnId[],
+  allColumnDefs?: { id: ColumnId; label: string; defaultVisible: boolean }[]
 ): string {
   const visibleCount = order.filter((id) => cols[id]).length
   const defaultCols = defaultColumnVisibility()
-  const added = order.filter((id) => cols[id] && !defaultCols[id])
-  const removed = order.filter((id) => !cols[id] && defaultCols[id])
+  const added = order.filter((id) => cols[id] && !(defaultCols[id] ?? false))
+  const removed = order.filter((id) => !cols[id] && (defaultCols[id] ?? false))
   const parts: string[] = []
+
+  const findLabel = (id: ColumnId): string => {
+    if (allColumnDefs) {
+      const def = allColumnDefs.find((c) => c.id === id)
+      if (def) return def.label
+    }
+    return COLUMNS.find((c) => c.id === id)?.label ?? id
+  }
+
   if (added.length > 0)
-    parts.push(
-      added
-        .map((id) => `+${COLUMNS.find((c) => c.id === id)?.label ?? id}`)
-        .join(', ')
-    )
+    parts.push(added.map((id) => `+${findLabel(id)}`).join(', '))
   if (removed.length > 0)
-    parts.push(
-      removed
-        .map((id) => `−${COLUMNS.find((c) => c.id === id)?.label ?? id}`)
-        .join(', ')
-    )
+    parts.push(removed.map((id) => `−${findLabel(id)}`).join(', '))
   if (parts.length === 0) return `Default (${visibleCount})`
   return `${parts.join(', ')} (${visibleCount} total)`
 }

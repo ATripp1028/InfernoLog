@@ -73,6 +73,7 @@ const levelSelect = {
   songSize: true,
   dataSource: true,
   verified: true,
+  gddlTier: true,
 } as const
 
 // Loads the authenticated user's existing completion for a level (if any),
@@ -89,10 +90,14 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     where: { levelProgressId: lp.id, isCompletion: true },
     include: {
       ratingScores: { select: { categoryId: true, score: true } },
-      listReferences: {
-        select: { listSource: true, tierOrRank: true, atTimeOfLogging: true },
+      levelProgress: {
+        select: {
+          visibility: true,
+          worstFail: true,
+          worstFailDate: true,
+          userGddlTier: true,
+        },
       },
-      levelProgress: { select: { visibility: true, worstFail: true } },
     },
   })
   if (!completion) return null
@@ -103,6 +108,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     dateUncertain: completion.dateUncertain,
     attempts: completion.attempts,
     worstFail: completion.levelProgress.worstFail,
+    worstFailDate: completion.levelProgress.worstFailDate,
     difficultyOpinion: completion.difficultyOpinion,
     difficultyOpinionStars: completion.difficultyOpinionStars,
     enjoyment: completion.enjoyment,
@@ -115,10 +121,11 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     visibility: completion.levelProgress.visibility,
     device: completion.device,
     ratingScores: completion.ratingScores,
-    listReferences: completion.listReferences,
+    userGddlTier: completion.levelProgress.userGddlTier,
     coinsCollected: completion.coinsCollected,
     twoPlayerSolo: completion.twoPlayerSolo,
     twoPlayerPartner: completion.twoPlayerPartner,
+    percentageVersion: completion.percentageVersion ?? null,
   }
 }
 

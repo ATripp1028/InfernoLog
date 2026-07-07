@@ -18,7 +18,12 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import { DevicePicker } from '@/features/logging/steps/CompletionSessionStep'
+import {
+  DevicePicker,
+  GdVersionPicker,
+  GdVersionInfoButton,
+  isPreTwoTwo,
+} from '@/features/logging/steps/CompletionSessionStep'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -35,7 +40,9 @@ interface EditForm {
   dateUncertain: boolean
   attempts: string
   worstFail: string
+  worstFailDate: string
   fps: string
+  percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   onStream: boolean
   difficultyOpinion: DifficultyOpinion | null
   difficultyOpinionStars: number | null
@@ -51,20 +58,34 @@ interface EditForm {
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string
   device: Device | null
+  userGddlTier: string
 }
 
 function initForm(
   data: LevelPageData,
   scale: RatingDisplayScale,
-  categories: RatingCategory[]
+  categories: RatingCategory[],
+  progressUpdateId: string | null,
+  defaultPercentageVersion: 'TWO_ONE' | 'TWO_TWO' = 'TWO_TWO'
 ): EditForm {
-  const latest = data.progressUpdates[0]
+  const latest =
+    (progressUpdateId
+      ? data.progressUpdates.find(
+          (u) => u.progressUpdateId === progressUpdateId
+        )
+      : undefined) ?? data.progressUpdates[0]
   return {
     date: latest?.date ? (latest.date as string).slice(0, 10) : '',
     dateUncertain: latest?.dateUncertain ?? false,
     attempts: latest?.attempts != null ? String(latest.attempts) : '',
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
+    worstFailDate: data.worstFailDate
+      ? (data.worstFailDate as string).slice(0, 10)
+      : '',
     fps: latest?.fps != null ? String(latest.fps) : '',
+    percentageVersion:
+      (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ??
+      defaultPercentageVersion,
     onStream: latest?.onStream ?? false,
     difficultyOpinion:
       (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
@@ -90,6 +111,12 @@ function initForm(
     twoPlayerSolo: latest?.twoPlayerSolo ?? null,
     twoPlayerPartner: latest?.twoPlayerPartner ?? '',
     device: (latest?.device as Device | null | undefined) ?? null,
+    userGddlTier:
+      data.userGddlTier != null
+        ? String(data.userGddlTier)
+        : data.level.gddlTier != null
+          ? String(data.level.gddlTier)
+          : '',
   }
 }
 
@@ -99,6 +126,7 @@ interface EditProgressModalProps {
   data: LevelPageData
   levelId: string
   scale: RatingDisplayScale
+  progressUpdateId: string | null
 }
 
 export function EditProgressModal({
@@ -107,21 +135,51 @@ export function EditProgressModal({
   data,
   levelId,
   scale,
+  progressUpdateId,
 }: EditProgressModalProps) {
-  const [form, setForm] = useState<EditForm>(() => initForm(data, scale, []))
+  const [form, setForm] = useState<EditForm>(() =>
+    initForm(data, scale, [], progressUpdateId)
+  )
   const editProgress = useEditProgress(levelId)
   const me = useMe()
 
   useEffect(() => {
-    if (open && me.data)
-      setForm(initForm(data, scale, me.data.ratingCategories))
-  }, [open, data, scale, me.data])
+    if (open && me.data) {
+      const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+      const effectiveDefault =
+        completionUpdate?.date != null &&
+        isPreTwoTwo(String(completionUpdate.date))
+          ? 'TWO_ONE'
+          : me.data.defaultPercentageVersion
+      setForm(
+        initForm(
+          data,
+          scale,
+          me.data.ratingCategories,
+          progressUpdateId,
+          effectiveDefault
+        )
+      )
+    }
+  }, [open, data, scale, me.data, progressUpdateId])
 
   if (!me.data) return null
 
-  const latestUpdate = data.progressUpdates[0]
+  const latestUpdate =
+    (progressUpdateId
+      ? data.progressUpdates.find(
+          (u) => u.progressUpdateId === progressUpdateId
+        )
+      : undefined) ?? data.progressUpdates[0]
   const isCompletion = latestUpdate?.isCompletion ?? false
   const showHighlightUrl = me.data.showHighlightUrl
+  const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+  const showVersionPicker =
+    data.level.levelType === 'CLASSIC' &&
+    !(
+      completionUpdate?.date != null &&
+      isPreTwoTwo(String(completionUpdate.date))
+    )
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
   const isTen = scale === 'ZERO_TO_TEN'
@@ -140,11 +198,14 @@ export function EditProgressModal({
 
   function handleSave() {
     const payload: Record<string, unknown> = {
+      ...(progressUpdateId ? { progressUpdateId } : {}),
       date: form.date || null,
       dateUncertain: form.dateUncertain,
       attempts: form.attempts !== '' ? parseInt(form.attempts, 10) : null,
       worstFail: form.worstFail !== '' ? parseInt(form.worstFail, 10) : null,
+      worstFailDate: form.worstFailDate || null,
       fps: form.fps !== '' ? parseInt(form.fps, 10) : null,
+      percentageVersion: form.percentageVersion,
       onStream: form.onStream,
       notes: form.notes || null,
       levelNotes: form.levelNotes || null,
@@ -173,6 +234,8 @@ export function EditProgressModal({
       }
       payload.videoUrl = form.videoUrl || null
       payload.highlightUrl = form.highlightUrl || null
+      payload.userGddlTier =
+        form.userGddlTier !== '' ? parseInt(form.userGddlTier, 10) : null
       if ((data.level.coins ?? 0) > 0) {
         payload.coinsCollected = form.coinsCollected
       }
@@ -282,6 +345,33 @@ export function EditProgressModal({
                     />
                   </div>
                 </div>
+
+                <div>
+                  <FieldLabel htmlFor="ep-worstfaildate">
+                    Worst fail date
+                  </FieldLabel>
+                  <Input
+                    id="ep-worstfaildate"
+                    type="date"
+                    value={form.worstFailDate}
+                    onChange={(e) => patch({ worstFailDate: e.target.value })}
+                  />
+                </div>
+
+                {showVersionPicker && (
+                  <div>
+                    <div className="mb-1.5 flex items-center gap-1.5">
+                      <Label className="text-sm text-text-secondary">
+                        % version
+                      </Label>
+                      <GdVersionInfoButton />
+                    </div>
+                    <GdVersionPicker
+                      value={form.percentageVersion}
+                      onChange={(v) => patch({ percentageVersion: v })}
+                    />
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -454,31 +544,29 @@ export function EditProgressModal({
                 </Section>
               )}
 
-              {/* ── GDDL tier (read-only, managed by GDDL) ───── */}
-              {isCompletion &&
-                (() => {
-                  const gddlRef = latestUpdate?.listReferences.find(
-                    (r) => r.listSource === 'GDDL'
-                  )
-                  if (!gddlRef) return null
-                  return (
-                    <Section label="List references">
-                      <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-text-primary">
-                            GDDL tier
-                          </p>
-                          <p className="text-xs text-text-tertiary">
-                            Managed via the GDDL platform.
-                          </p>
-                        </div>
-                        <span className="text-sm font-semibold text-text-primary">
-                          {gddlRef.tierOrRank}
-                        </span>
-                      </div>
-                    </Section>
-                  )
-                })()}
+              {/* ── GDDL tier (completion only) ───────────────── */}
+              {isCompletion && (
+                <Section label="GDDL">
+                  <div>
+                    <FieldLabel htmlFor="ep-gddl-tier">
+                      Your tier opinion
+                    </FieldLabel>
+                    <Input
+                      id="ep-gddl-tier"
+                      inputMode="numeric"
+                      placeholder={
+                        data.level.gddlTier != null
+                          ? `Community: ${data.level.gddlTier}`
+                          : '—'
+                      }
+                      value={form.userGddlTier}
+                      onChange={(e) =>
+                        patch({ userGddlTier: digitsOnly(e.target.value) })
+                      }
+                    />
+                  </div>
+                </Section>
+              )}
 
               {/* ── Notes ────────────────────────────────────── */}
               <Section label="Notes">

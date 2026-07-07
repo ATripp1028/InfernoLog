@@ -36,8 +36,10 @@ async function exportCompletions(userId: string, skip: number, take: number) {
     select: {
       levelId: true,
       worstFail: true,
+      worstFailDate: true,
       visibility: true,
       levelNotes: true,
+      userGddlTier: true,
       level: { select: { name: true, creator: true } },
       progressUpdates: {
         where: { isCompletion: true },
@@ -62,7 +64,6 @@ async function exportCompletions(userId: string, skip: number, take: number) {
           notes: true,
           videoUrl: true,
           highlightUrl: true,
-          listReferences: { select: { listSource: true, tierOrRank: true } },
         },
       },
     },
@@ -71,10 +72,6 @@ async function exportCompletions(userId: string, skip: number, take: number) {
   return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
     if (!pu) return []
-    const gddl =
-      pu.listReferences.find((r) => r.listSource === 'GDDL')?.tierOrRank ?? null
-    const nlw =
-      pu.listReferences.find((r) => r.listSource === 'NLW')?.tierOrRank ?? null
     return [
       {
         levelId: lp.levelId,
@@ -85,6 +82,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         dateUncertain: pu.dateUncertain,
         attempts: pu.attempts,
         percentage: lp.worstFail,
+        worstFailDate: iso(lp.worstFailDate),
         runFrom: pu.runFrom,
         runTo: pu.runTo,
         onStream: pu.onStream,
@@ -100,8 +98,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         visibility: lp.visibility,
         notes: pu.notes,
         levelNotes: lp.levelNotes,
-        gddlTier: gddl,
-        nlwTier: nlw,
+        userGddlTier: lp.userGddlTier,
         videoUrl: pu.videoUrl,
         highlightUrl: pu.highlightUrl,
       },
