@@ -12,104 +12,91 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 > **Note:** The Log page (a dedicated feed/history view) has been shelved pending user feedback. The underlying data model and logging flow are unchanged — only the page that surfaces logged events as a browsable feed is deferred. The nav link is inactive in the current build.
 
-- Level progress model — every interaction with a level is a progress update. Completion = `is_completion = true`
-- All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, simple or weighted rating, in-game difficulty snapshot, notes, completion video URL, highlight video URL
-- Non-completion entries hidden by default, revealed by toggle
-- One completion per user per level (rebeat handling v3)
-- In-progress levels (currently attempting) — up to 10 simultaneous, per-entry privacy
-- Dropped level logging — status flag on level_progress, drop reason, date, full progress history preserved
-- Beating a dropped level archives the drop entry naturally (completion logged on same level_progress)
+- [x] Level progress model — every interaction with a level is a progress update. Completion = `is_completion = true`
+- [x] All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, simple or weighted rating, in-game difficulty snapshot, notes, completion video URL, highlight video URL
+- [x] Non-completion entries hidden by default, revealed by toggle
+- [x] One completion per user per level (rebeat handling v3)
+- [x] In-progress levels (currently attempting) — per-entry privacy
+- [x] Dropped level logging — status flag on level_progress, drop reason, date, full progress history preserved
+- [x] Beating a dropped level archives the drop entry naturally (completion logged on same level_progress)
 
 ### Attempt Count Convention
 
-Attempts represent cumulative attempts across all uploads and copies of the level. Honor system. Documented in UI tooltip.
+- [x] Attempts represent cumulative attempts across all uploads and copies of the level. Honor system. Documented in UI tooltip.
 
 ### Autofill
 
-- GD servers (RobTop) autofill on level ID entry (rated + unrated)
-- GDDL tier suggestion for rated levels
-- Manual entry fallback when any API unavailable
-- Level thumbnails via levelthumbs (best-effort, silent fallback)
+- [x] GD servers (RobTop) autofill on level ID entry (rated + unrated)
+- [x] GDDL tier suggestion for rated levels
+- [x] Manual entry fallback when any API unavailable
+- [x] Level thumbnails via levelthumbs (best-effort, silent fallback)
 
 ### Ranking
 
-- Personal classic difficulty ranking (fractional indexing)
-- Manual placement only — no auto-placement (every completion starts unplaced)
-- Post-submit "Place in ranking now?" prompt (drag-and-drop ghost card, list reference sets starting scroll position)
-- Unplaced side panel for completions the user chose to place later
-- Ranking page with unrated toggle
-- Top 5 tracking snapshot
+- [x] Personal classic difficulty ranking (fractional indexing)
+- [x] Manual placement only — no auto-placement (every completion starts unplaced)
+- [x] Post-submit "Place in ranking now?" prompt (drag-and-drop ghost card, list reference sets starting scroll position)
+- [x] Unplaced side panel for completions the user chose to place later
+- [x] Ranking page with unrated toggle
 
 ### List Integrations (v1)
 
-- GDDL (autofill + optional record submission)
-- AREDL (autofill if API confirmed; extreme demons only)
-- NLW (manual entry only)
-- Multi-list references per progress update
-- GDDL record acceptance indicator (manual, v1 only)
+- [x] GDDL (autofill + optional record submission)
 
 ### Rating System
 
-- Simple mode (single 0-10 score) — default
-- Weighted mode (configurable categories, computed at query time)
-- Default weighted categories: Gameplay, Decoration, Song
-- Enjoyment as standalone field, opt-in to weighted average
-- Mode switching preserves all data
+- [x] Simple mode (single 0-10 score) — default
+- [x] Weighted mode (configurable categories, computed at query time)
+- [x] Default weighted categories: Gameplay, Decoration, Song
+- [x] Enjoyment as standalone field, opt-in to weighted average
+- [x] Mode switching preserves all data
 
 ### Unrated Levels
 
-- Full support with same fields as rated
-- GDDL autofill skipped
-- Appear in ranking with blank official tier
-- Toggle to hide unrated from ranking view
+- [x] Full support with same fields as rated
+- [x] GDDL autofill skipped
+- [x] Appear in ranking with blank official tier
+- [x] Toggle to hide unrated from ranking view
 
 ### Auth & Accounts
 
-- Google OAuth via AWS Cognito
-- Account linking (connect both to one account)
-- Username with 30-day cooldown, old username held
-- Public/private profile toggle
-- Discord visibility toggle
-- Per-entry visibility (public/private per level_progress)
+- [x] Google OAuth via AWS Cognito
+- [x] Account linking (connect both to one account)
+- [x] Username with 30-day cooldown, old username held
+- [x] Public/private profile toggle
+- [x] Discord visibility toggle
+- [x] Per-entry visibility (public/private per level_progress)
 
 ### Import & Export
 
-- Spreadsheet import (separate tabs for completions and dropped)
-- Template = blank export file (round-trip safe)
-- Date format selector + validation report before commit
-- Export: full log or filtered view, all list references always included
-
-### Moderation (Basic)
-
-- In-app report submission with rate limiting
-- Moderation dashboard (reports queue, appeals queue)
-- Report auto-exclusion for reported moderator
-- Warn, suspend, ban with audit log
-- One appeal per ban
-- account_status, role fields on users table from day one
+- [x] Spreadsheet import (separate tabs for completions and dropped)
+- [x] Template = blank export file (round-trip safe)
+- [x] Date format selector + validation report before commit
+- [x] Export: full log or filtered view
 
 ### Infrastructure
 
-- Monorepo: pnpm workspaces + Turborepo
-- apps/web (React + Vite), apps/api (SST Lambda), packages/core (shared Zod schemas + types)
-- PostgreSQL via Neon
-- AWS S3 + CloudFront (frontend)
-- AWS Route 53 + ACM
-- AWS Cognito
-- AWS EventBridge Scheduler (RobTop level-cache sync: weekly + monthly)
-- AWS CloudWatch + Sentry
-- GitHub Actions CI/CD (path-based independent deploys)
-- Manual database migrations
+- [x] Monorepo: pnpm workspaces + Turborepo
+- [x] apps/web (React + Vite), apps/api (SST Lambda), packages/core (shared Zod schemas + types)
+- [x] PostgreSQL via Neon
+- [x] AWS S3 + CloudFront (frontend)
+- [x] AWS Route 53 + ACM
+- [x] AWS Cognito
+- [x] AWS EventBridge Scheduler (RobTop level-cache sync: weekly + monthly)
+- [x] AWS CloudWatch + Sentry
+- [x] GitHub Actions CI/CD (path-based independent deploys)
+- [x] Manual database migrations
 
 ### React Libraries (v1)
 
-- TanStack Query, TanStack Table
-- Tailwind CSS + shadcn/ui
-- dnd-kit
-- Recharts (basic stats)
-- React Hook Form + Zod
-- date-fns
-- SheetJS (import + export)
+- [x] TanStack Query, TanStack Table
+- [x] Tailwind CSS + shadcn/ui
+- [x] dnd-kit
+- [x] Recharts (basic stats)
+- [x] React Hook Form + Zod
+- [x] date-fns
+- [x] SheetJS (import + export)
+
 
 ---
 
@@ -119,35 +106,34 @@ Goal: Deepen the core logging experience. No new platform features.
 
 ### Platformer Support
 
-- Separate platformer log and ranking
-- Completion time field (replaces percentage for platformer)
-- Platformer-specific list integrations (Pemonlist, others TBD)
-- Platformer attempt count convention TBD
-- Schema accommodated from v1 via `level_type` enum
+- [ ] Separate platformer log and ranking
+- [ ] Completion time field (replaces percentage for platformer)
+- [ ] Platformer-specific list integrations (Pemonlist, others TBD)
+- [ ] Platformer attempt count convention TBD
+- [ ] Schema accommodated from v1 via `level_type` enum
 
 ### Expanded List Integrations
 
-- AREDL API integration (if feasible)
-- NLW read-only scrape (if feasible)
-- Record acceptance tracking for AREDL (not just GDDL)
-- GDDL favorites sync (push InfernoLog favorites to GDDL)
+- [ ] AREDL API integration
+- [ ] Record acceptance tracking for AREDL (not just GDDL)
+- [ ] GDDL favorites sync (push InfernoLog favorites to GDDL)
 
 ### Additional Logging Fields
 
-- Peak heart rate BPM (integer, nullable)
-- NONG fields on levels: `is_nong`, `nong_song_title`, `nong_artist`, `nong_source_url`
+- [ ] Peak heart rate BPM (integer, nullable)
+- [ ] NONG fields on levels: `is_nong`, `nong_song_title`, `nong_artist`, `nong_source_url`
 
 ### Features
 
-- Custom named lists beyond favorites/least favorites
-- Level Picker — Personal Mode (Want to Beat collection, dynamic question ordering, 5-level threshold)
-- Non-completion entries in ranking (toggle, off by default)
-- Visx added for Time Machine groundwork
+- [ ] Custom named lists beyond favorites/least favorites
+- [ ] Level Picker — Personal Mode (Want to Beat collection, dynamic question ordering, 5-level threshold)
+- [ ] Non-completion entries in ranking (toggle, off by default)
+- [ ] Visx added for Time Machine groundwork
 
 ### Infrastructure
 
-- Public API (`/v1/` routes, OpenAPI spec generated from Zod schemas)
-- Geode mod groundwork (API surface sufficient for mod integration)
+- [ ] Public API (`/v1/` routes, OpenAPI spec generated from Zod schemas)
+- [ ] Geode mod groundwork (API surface sufficient for mod integration)
 
 ---
 
@@ -157,17 +143,17 @@ Goal: Make the app actively useful rather than a passive record.
 
 ### Features
 
-- Time Machine — multi-line graph (Visx), draggable range slider, retroactive placement, top N configurable, mirror portal icon
-- Skill tags — sourced from GDDL/AREDL APIs, per-level (global), displayed on completion entries and filterable
-- Stats page — comprehensive personal statistics (completion rate over time, attempts per tier, list progress percentages, skill type breakdown, etc.)
-- Rating reference notes (user-defined descriptions per whole-number score per category)
-- Level Picker — Discovery Mode delayed until after v4 initial release
+- [ ] Time Machine — multi-line graph (Visx), draggable range slider, retroactive placement, top N configurable, mirror portal icon
+- [ ] Skill tags — sourced from GDDL/AREDL APIs, per-level (global), displayed on completion entries and filterable
+- [ ] Stats page — comprehensive personal statistics (completion rate over time, attempts per tier, list progress percentages, skill type breakdown, etc.)
+- [ ] Rating reference notes (user-defined descriptions per whole-number score per category)
+- [ ] Level Picker — Discovery Mode delayed until after v4 initial release
 
 ### Infrastructure
 
-- `/v2/` API routes if breaking changes accumulated
-- API keys — up to 5 named scoped keys per user, key management UI, settings page integration
-- Geode mod (C++ via Geode framework, uses public API)
+- [ ] `/v2/` API routes if breaking changes accumulated
+- [ ] API keys — up to 5 named scoped keys per user, key management UI, settings page integration
+- [ ] Geode mod (C++ via Geode framework, uses public API)
 
 ---
 
@@ -177,18 +163,27 @@ Goal: Open InfernoLog to the public as a community platform.
 
 ### Features
 
-- Public profiles (`/[username]`)
-- View other users' completions, rankings, lists
-- Independent skill tag voting system (community votes on level skillsets)
-- Level Picker Discovery Mode (post-launch, after database population)
-- Verification system (Pointercrate stats viewer profile or similar criteria)
-- Admin verification management UI
-- Full moderation infrastructure (already partially built in v1)
+- [ ] Public profiles (`/[username]`)
+- [ ] View other users' completions, rankings, lists
+- [ ] Independent skill tag voting system (community votes on level skillsets)
+- [ ] Level Picker Discovery Mode (post-launch, after database population)
+- [ ] Verification system (Pointercrate stats viewer profile or similar criteria)
+- [ ] Admin verification management UI
+- [ ] Full moderation infrastructure
+
+### Moderation (Basic)
+
+- [ ] In-app report submission with rate limiting
+- [ ] Moderation dashboard (reports queue, appeals queue)
+- [ ] Report auto-exclusion for reported moderator
+- [ ] Warn, suspend, ban with audit log
+- [ ] One appeal per ban
+- [ ] account_status, role fields on users table from day one
 
 ### Infrastructure
 
-- `/v3/` API routes
-- Community data aggregates (average enjoyment, ratings per level — completion entries only)
+- [ ] `/v3/` API routes
+- [ ] Community data aggregates (average enjoyment, ratings per level — completion entries only)
 
 ---
 

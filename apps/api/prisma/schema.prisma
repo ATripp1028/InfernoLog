@@ -539,7 +539,6 @@ model RatingScore {
 //   Gap < 0.0001 → rebalancing job renormalizes to integers
 //
 // Only LevelProgress entries with status = COMPLETED appear here.
-// Must have at least one ListReference to appear in the Time Machine.
 // ─────────────────────────────────────────────
 
 model ClassicRanking {
