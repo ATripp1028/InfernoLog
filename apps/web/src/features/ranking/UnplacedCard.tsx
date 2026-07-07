@@ -107,7 +107,7 @@ export function SortableUnplacedCard({
       highlight={highlight}
       isDragging={isDragging}
       domId={`rk-${item.levelProgressId}`}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
+      style={{ transform: CSS.Transform.toString(transform), transition: isDragging ? undefined : transition }}
       handle={<DragHandle listeners={listeners} attributes={attributes} />}
     />
   )
