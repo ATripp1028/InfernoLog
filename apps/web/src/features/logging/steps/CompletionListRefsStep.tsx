@@ -24,7 +24,9 @@ export function CompletionListRefsStep() {
         </p>
 
         <div>
-          <FieldLabel htmlFor="user-gddl-tier">GDDL tier (your opinion)</FieldLabel>
+          <FieldLabel htmlFor="user-gddl-tier">
+            GDDL tier (your opinion)
+          </FieldLabel>
           <Input
             id="user-gddl-tier"
             value={draft.userGddlTier}

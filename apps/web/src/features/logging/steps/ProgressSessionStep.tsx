@@ -36,7 +36,12 @@ export function ProgressSessionStep() {
     if (!level) return
     try {
       await logProgress.mutateAsync(
-        buildProgressInput(level, draft, me.data?.defaultFps, me.data?.defaultPercentageVersion)
+        buildProgressInput(
+          level,
+          draft,
+          me.data?.defaultFps,
+          me.data?.defaultPercentageVersion
+        )
       )
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
       close()

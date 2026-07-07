@@ -268,7 +268,9 @@ export function RankingBoard({
   const layout = (
     <div className="flex h-full gap-4">
       <div className="min-w-0 flex-1 overflow-y-auto">{PlacedColumn}</div>
-      <div className="h-full w-[280px] shrink-0 lg:w-[300px]">{UnplacedColumn}</div>
+      <div className="h-full w-[280px] shrink-0 lg:w-[300px]">
+        {UnplacedColumn}
+      </div>
     </div>
   )
 

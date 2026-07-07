@@ -148,7 +148,8 @@ export function draftFromExistingCompletion(
   draft.videoUrl = existing.videoUrl ?? ''
   draft.highlightUrl = existing.highlightUrl ?? ''
   draft.notes = existing.notes ?? ''
-  draft.userGddlTier = existing.userGddlTier != null ? String(existing.userGddlTier) : ''
+  draft.userGddlTier =
+    existing.userGddlTier != null ? String(existing.userGddlTier) : ''
   draft.coinsCollected = existing.coinsCollected ?? 0
   draft.twoPlayerSolo = existing.twoPlayerSolo ?? null
   draft.twoPlayerPartner = existing.twoPlayerPartner ?? ''

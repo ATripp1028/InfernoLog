@@ -103,9 +103,9 @@ Both schedules run one shared fetch/compare/write **core** (`apps/api/src/servic
 
 ### The Two Schedules
 
-| Job | Cadence | Query (levels passed to the shared core) |
-| --- | --- | --- |
-| **Volatile sync** | Weekly (Mondays, midnight UTC) | `delisted = false` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`) |
+| Job               | Cadence                            | Query (levels passed to the shared core)                                                                                           |
+| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted = false` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
 | **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted = false` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
 
 The queries are complementary: the weekly job covers never-rated levels (a rating can appear at any time) and rated levels whose rating status changed within the last 14 days (the volatile window, most likely to be revised soon). The monthly job covers everything else that's rated and not delisted — including rated levels whose `rating_status_since` was never stamped (e.g. cached via import/resolve rather than a sync). No level is processed by both jobs in the same window.

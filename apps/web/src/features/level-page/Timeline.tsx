@@ -166,9 +166,7 @@ function CompletionEntry({
       )}
 
       {/* Meta chips row */}
-      {(update.highlightUrl ||
-        update.videoUrl ||
-        update.onStream) && (
+      {(update.highlightUrl || update.videoUrl || update.onStream) && (
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
           {update.highlightUrl && (
             <a

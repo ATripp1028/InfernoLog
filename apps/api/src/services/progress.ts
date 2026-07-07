@@ -185,7 +185,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         status: 'COMPLETED',
         visibility: input.visibility,
         userGddlTier: input.userGddlTier ?? null,
-        ...(input.worstFail !== undefined ? { worstFail: input.worstFail } : {}),
+        ...(input.worstFail !== undefined
+          ? { worstFail: input.worstFail }
+          : {}),
         ...(input.worstFailDate !== undefined
           ? { worstFailDate: input.worstFailDate }
           : {}),
@@ -290,9 +292,11 @@ export async function applyEdit(
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
-    if (input.worstFailDate !== undefined) lpData.worstFailDate = input.worstFailDate
+    if (input.worstFailDate !== undefined)
+      lpData.worstFailDate = input.worstFailDate
     if (input.visibility !== undefined) lpData.visibility = input.visibility
-    if (input.userGddlTier !== undefined) lpData.userGddlTier = input.userGddlTier
+    if (input.userGddlTier !== undefined)
+      lpData.userGddlTier = input.userGddlTier
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
@@ -300,7 +304,8 @@ export async function applyEdit(
       puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
     if (input.fps !== undefined) puData.fps = input.fps
-    if (input.percentageVersion !== undefined) puData.percentageVersion = input.percentageVersion
+    if (input.percentageVersion !== undefined)
+      puData.percentageVersion = input.percentageVersion
     if (input.onStream !== undefined) puData.onStream = input.onStream
     if (input.difficultyOpinion !== undefined)
       puData.difficultyOpinion = input.difficultyOpinion
@@ -379,7 +384,9 @@ export async function applyDrop(userId: string, input: DropInput) {
         droppedReason: input.droppedReason ?? null,
         attemptsAtDrop: input.attemptsAtDrop ?? null,
         visibility: input.visibility,
-        ...(input.worstFail !== undefined ? { worstFail: input.worstFail } : {}),
+        ...(input.worstFail !== undefined
+          ? { worstFail: input.worstFail }
+          : {}),
         ...(input.worstFailDate !== undefined
           ? { worstFailDate: input.worstFailDate }
           : {}),

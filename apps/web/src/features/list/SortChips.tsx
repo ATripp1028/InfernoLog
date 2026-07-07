@@ -84,7 +84,11 @@ function Chip({
   )
 }
 
-export function SortChips({ sorts, onChange, extraSortOptions = [] }: SortChipsProps) {
+export function SortChips({
+  sorts,
+  onChange,
+  extraSortOptions = [],
+}: SortChipsProps) {
   const sensors = useSortableSensors()
   const activeKeys = new Set(sorts.map((s) => s.key))
   const allOptions = [...SORT_OPTIONS, ...extraSortOptions]

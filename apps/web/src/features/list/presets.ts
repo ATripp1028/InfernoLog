@@ -1,6 +1,6 @@
 import type { ColumnId, ColumnVisibility } from './columns'
 import { defaultColumnOrder, defaultColumnVisibility, COLUMNS } from './columns'
-import { SORT_LABEL, getSortLabel } from './sortMeta'
+import { getSortLabel } from './sortMeta'
 import {
   defaultFilterState,
   type FilterState,
@@ -11,7 +11,6 @@ import {
   TIER_DOMAIN,
   ATTEMPTS_DOMAIN,
 } from './types'
-import { isRangeActive } from './filtering'
 import type { RatingDisplayScale, RatingCategory } from '@/lib/api/me'
 import { formatRating } from '@/features/logging/format'
 
@@ -44,26 +43,28 @@ export interface PresetColor {
 }
 
 export const PRESET_COLORS: PresetColor[] = [
-  { id: 'red',     hex: '#EF4444', label: 'Red'     },
-  { id: 'orange',  hex: '#F97316', label: 'Orange'  },
-  { id: 'amber',   hex: '#F59E0B', label: 'Amber'   },
-  { id: 'yellow',  hex: '#EAB308', label: 'Yellow'  },
-  { id: 'lime',    hex: '#84CC16', label: 'Lime'    },
-  { id: 'green',   hex: '#22C55E', label: 'Green'   },
-  { id: 'teal',    hex: '#14B8A6', label: 'Teal'    },
-  { id: 'cyan',    hex: '#06B6D4', label: 'Cyan'    },
-  { id: 'sky',     hex: '#0EA5E9', label: 'Sky'     },
-  { id: 'blue',    hex: '#3B82F6', label: 'Blue'    },
-  { id: 'indigo',  hex: '#6366F1', label: 'Indigo'  },
-  { id: 'violet',  hex: '#8B5CF6', label: 'Violet'  },
-  { id: 'purple',  hex: '#A855F7', label: 'Purple'  },
+  { id: 'red', hex: '#EF4444', label: 'Red' },
+  { id: 'orange', hex: '#F97316', label: 'Orange' },
+  { id: 'amber', hex: '#F59E0B', label: 'Amber' },
+  { id: 'yellow', hex: '#EAB308', label: 'Yellow' },
+  { id: 'lime', hex: '#84CC16', label: 'Lime' },
+  { id: 'green', hex: '#22C55E', label: 'Green' },
+  { id: 'teal', hex: '#14B8A6', label: 'Teal' },
+  { id: 'cyan', hex: '#06B6D4', label: 'Cyan' },
+  { id: 'sky', hex: '#0EA5E9', label: 'Sky' },
+  { id: 'blue', hex: '#3B82F6', label: 'Blue' },
+  { id: 'indigo', hex: '#6366F1', label: 'Indigo' },
+  { id: 'violet', hex: '#8B5CF6', label: 'Violet' },
+  { id: 'purple', hex: '#A855F7', label: 'Purple' },
   { id: 'fuchsia', hex: '#D946EF', label: 'Fuchsia' },
-  { id: 'rose',    hex: '#F43F5E', label: 'Rose'    },
-  { id: 'slate',   hex: '#64748B', label: 'Slate'   },
+  { id: 'rose', hex: '#F43F5E', label: 'Rose' },
+  { id: 'slate', hex: '#64748B', label: 'Slate' },
 ]
 
 export function getPresetColor(id: PresetColorId): PresetColor {
-  return PRESET_COLORS.find((c) => c.id === id) ?? (PRESET_COLORS[9] as PresetColor) // fallback: blue
+  return (
+    PRESET_COLORS.find((c) => c.id === id) ?? (PRESET_COLORS[9] as PresetColor)
+  ) // fallback: blue
 }
 
 // WCAG-based relative luminance → pick #000 or #fff for maximum contrast.
@@ -199,9 +200,13 @@ export function cleanupPresetForCategories(
   const filteredOrder = config.columnOrder.filter(isActiveCatKey)
   // Append active cat keys missing from the order (e.g. categories added after
   // the preset was saved, or a fresh default config that predates categories).
-  const activeCatKeys = [...activeCategoryIds].map((id) => `cat:${id}` as ColumnId)
+  const activeCatKeys = [...activeCategoryIds].map(
+    (id) => `cat:${id}` as ColumnId
+  )
   const newCatKeys = activeCatKeys.filter((k) => !filteredOrder.includes(k))
-  const columnOrder = newCatKeys.length ? [...filteredOrder, ...newCatKeys] : filteredOrder
+  const columnOrder = newCatKeys.length
+    ? [...filteredOrder, ...newCatKeys]
+    : filteredOrder
 
   const sorts = config.sorts.filter((s) => isActiveCatKey(s.key))
   const categoryRatings = Object.fromEntries(
@@ -246,8 +251,7 @@ export function summarizeFilters(
   if (filters.levelTypes.length > 0)
     lines.push(`Type: ${filters.levelTypes.join(', ')}`)
   if (filters.ratedStatus !== 'ALL') lines.push(`Rated: ${filters.ratedStatus}`)
-  if (filters.flags.length > 0)
-    lines.push(`Flags: ${filters.flags.join(', ')}`)
+  if (filters.flags.length > 0) lines.push(`Flags: ${filters.flags.join(', ')}`)
   if (filters.lengths.length > 0)
     lines.push(`Length: ${filters.lengths.join(', ')}`)
   if (filters.difficulties.length > 0)
@@ -268,8 +272,10 @@ export function summarizeFilters(
     lines.push(`Attempts: ${filters.attempts[0]}–${filters.attempts[1]}`)
   if (filters.dateBeaten.from != null || filters.dateBeaten.to != null) {
     const fmt = (ms: number) => new Date(ms).getFullYear().toString()
-    const fromStr = filters.dateBeaten.from != null ? fmt(filters.dateBeaten.from) : 'Any'
-    const toStr = filters.dateBeaten.to != null ? fmt(filters.dateBeaten.to) : 'Today'
+    const fromStr =
+      filters.dateBeaten.from != null ? fmt(filters.dateBeaten.from) : 'Any'
+    const toStr =
+      filters.dateBeaten.to != null ? fmt(filters.dateBeaten.to) : 'Today'
     lines.push(`Date: ${fromStr}–${toStr}`)
   }
   // Per-category rating filters.

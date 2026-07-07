@@ -70,7 +70,11 @@ async function syncOneLevel(
   if (!robtop) {
     await prisma.level.update({
       where: { inGameId: levelId },
-      data: { delisted: true, delistedAt: new Date(), lastCheckedAt: new Date() },
+      data: {
+        delisted: true,
+        delistedAt: new Date(),
+        lastCheckedAt: new Date(),
+      },
     })
     result.delisted++
     logger.info({ levelId }, 'levelSync: level delisted (no RobTop result)')
@@ -171,10 +175,7 @@ export async function runStandardSync(): Promise<SyncBatchResult> {
     where: {
       isRated: true,
       delisted: false,
-      OR: [
-        { ratingStatusSince: null },
-        { ratingStatusSince: { lt: cutoff } },
-      ],
+      OR: [{ ratingStatusSince: null }, { ratingStatusSince: { lt: cutoff } }],
     },
     select: { inGameId: true },
   })

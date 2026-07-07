@@ -18,7 +18,12 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import { DevicePicker, GdVersionPicker, GdVersionInfoButton, isPreTwoTwo } from '@/features/logging/steps/CompletionSessionStep'
+import {
+  DevicePicker,
+  GdVersionPicker,
+  GdVersionInfoButton,
+  isPreTwoTwo,
+} from '@/features/logging/steps/CompletionSessionStep'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -65,16 +70,22 @@ function initForm(
 ): EditForm {
   const latest =
     (progressUpdateId
-      ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
+      ? data.progressUpdates.find(
+          (u) => u.progressUpdateId === progressUpdateId
+        )
       : undefined) ?? data.progressUpdates[0]
   return {
     date: latest?.date ? (latest.date as string).slice(0, 10) : '',
     dateUncertain: latest?.dateUncertain ?? false,
     attempts: latest?.attempts != null ? String(latest.attempts) : '',
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
-    worstFailDate: data.worstFailDate ? (data.worstFailDate as string).slice(0, 10) : '',
+    worstFailDate: data.worstFailDate
+      ? (data.worstFailDate as string).slice(0, 10)
+      : '',
     fps: latest?.fps != null ? String(latest.fps) : '',
-    percentageVersion: (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ?? defaultPercentageVersion,
+    percentageVersion:
+      (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ??
+      defaultPercentageVersion,
     onStream: latest?.onStream ?? false,
     difficultyOpinion:
       (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
@@ -126,7 +137,9 @@ export function EditProgressModal({
   scale,
   progressUpdateId,
 }: EditProgressModalProps) {
-  const [form, setForm] = useState<EditForm>(() => initForm(data, scale, [], progressUpdateId))
+  const [form, setForm] = useState<EditForm>(() =>
+    initForm(data, scale, [], progressUpdateId)
+  )
   const editProgress = useEditProgress(levelId)
   const me = useMe()
 
@@ -134,10 +147,19 @@ export function EditProgressModal({
     if (open && me.data) {
       const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
       const effectiveDefault =
-        completionUpdate?.date != null && isPreTwoTwo(String(completionUpdate.date))
+        completionUpdate?.date != null &&
+        isPreTwoTwo(String(completionUpdate.date))
           ? 'TWO_ONE'
           : me.data.defaultPercentageVersion
-      setForm(initForm(data, scale, me.data.ratingCategories, progressUpdateId, effectiveDefault))
+      setForm(
+        initForm(
+          data,
+          scale,
+          me.data.ratingCategories,
+          progressUpdateId,
+          effectiveDefault
+        )
+      )
     }
   }, [open, data, scale, me.data, progressUpdateId])
 
@@ -145,14 +167,19 @@ export function EditProgressModal({
 
   const latestUpdate =
     (progressUpdateId
-      ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
+      ? data.progressUpdates.find(
+          (u) => u.progressUpdateId === progressUpdateId
+        )
       : undefined) ?? data.progressUpdates[0]
   const isCompletion = latestUpdate?.isCompletion ?? false
   const showHighlightUrl = me.data.showHighlightUrl
   const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
   const showVersionPicker =
     data.level.levelType === 'CLASSIC' &&
-    !(completionUpdate?.date != null && isPreTwoTwo(String(completionUpdate.date)))
+    !(
+      completionUpdate?.date != null &&
+      isPreTwoTwo(String(completionUpdate.date))
+    )
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
   const isTen = scale === 'ZERO_TO_TEN'
@@ -334,7 +361,9 @@ export function EditProgressModal({
                 {showVersionPicker && (
                   <div>
                     <div className="mb-1.5 flex items-center gap-1.5">
-                      <Label className="text-sm text-text-secondary">% version</Label>
+                      <Label className="text-sm text-text-secondary">
+                        % version
+                      </Label>
                       <GdVersionInfoButton />
                     </div>
                     <GdVersionPicker

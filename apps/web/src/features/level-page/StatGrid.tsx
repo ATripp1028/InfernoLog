@@ -187,7 +187,9 @@ export function StatGrid({
         label="FPS"
         value={completion?.fps != null ? formatNumber(completion.fps) : '—'}
       />
-      {userGddlTier != null && <StatBox label="GDDL TIER" value={String(userGddlTier)} />}
+      {userGddlTier != null && (
+        <StatBox label="GDDL TIER" value={String(userGddlTier)} />
+      )}
     </div>
   )
 }

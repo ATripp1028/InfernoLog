@@ -1,9 +1,4 @@
-import {
-  ArrowUpDown,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react'
+import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { SortChips } from './SortChips'
 import { ColumnsMenu } from './ColumnsMenu'

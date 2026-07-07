@@ -1,7 +1,11 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMe } from '@/lib/api/me'
@@ -237,15 +241,16 @@ export function GdVersionInfoButton() {
       <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
         <p className="font-medium text-text-primary">2.1 vs 2.2 percentages</p>
         <p className="text-text-secondary">
-          <span className="font-medium text-text-primary">2.1</span> measured progress by{' '}
-          <span className="italic">distance</span> to the endwall — the counter moved faster
-          through high-speed sections and slower through low-speed ones.
+          <span className="font-medium text-text-primary">2.1</span> measured
+          progress by <span className="italic">distance</span> to the endwall —
+          the counter moved faster through high-speed sections and slower
+          through low-speed ones.
         </p>
         <p className="text-text-secondary">
           <span className="font-medium text-text-primary">2.2</span> uses{' '}
-          <span className="italic">time</span> instead — 100% equals the duration of the
-          verification attempt. The same position can show a noticeably different number
-          between the two versions.
+          <span className="italic">time</span> instead — 100% equals the
+          duration of the verification attempt. The same position can show a
+          noticeably different number between the two versions.
         </p>
       </PopoverContent>
     </Popover>

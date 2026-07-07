@@ -32,7 +32,15 @@ app.post('/me/gddl-records/:levelId', async (c) => {
         progressUpdates: {
           where: { isCompletion: true },
           take: 1,
-          select: { id: true, videoUrl: true, attempts: true, fps: true, enjoyment: true, twoPlayerSolo: true, device: true },
+          select: {
+            id: true,
+            videoUrl: true,
+            attempts: true,
+            fps: true,
+            enjoyment: true,
+            twoPlayerSolo: true,
+            device: true,
+          },
         },
       },
     })

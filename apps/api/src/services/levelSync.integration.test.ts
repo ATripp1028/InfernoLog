@@ -24,8 +24,12 @@ vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }))
 vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
 
 // Import after vi.mock so levelSync picks up the mocked modules.
-const { syncLevelBatch, runVolatileSync, runStandardSync, VOLATILE_WINDOW_DAYS } =
-  await import('./levelSync')
+const {
+  syncLevelBatch,
+  runVolatileSync,
+  runStandardSync,
+  VOLATILE_WINDOW_DAYS,
+} = await import('./levelSync')
 const { fetchRobtopLevel } = await import('../utils/robtop')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -118,10 +122,14 @@ describe('syncLevelBatch — found, no diff', () => {
     await seedCachedLevel()
     robtopMock.mockResolvedValue(makeRobtop())
 
-    const before = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const before = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     const result = await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     expect(after.lastCheckedAt).not.toBeNull()
     expect(after.name).toBe('Cached Name')
     expect(after.creator).toBe('Cached Creator')
@@ -131,7 +139,13 @@ describe('syncLevelBatch — found, no diff', () => {
     expect(after.updatedAt.getTime()).toBeGreaterThanOrEqual(
       before.updatedAt.getTime()
     )
-    expect(result).toMatchObject({ processed: 1, updated: 0, ratingChanged: 0, delisted: 0, errors: 0 })
+    expect(result).toMatchObject({
+      processed: 1,
+      updated: 0,
+      ratingChanged: 0,
+      delisted: 0,
+      errors: 0,
+    })
   })
 })
 
@@ -149,7 +163,9 @@ describe('syncLevelBatch — found, metadata diff', () => {
 
     const result = await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     expect(after.name).toBe('New Name')
     expect(after.creator).toBe('New Creator')
     expect(after.songName).toBe('New Song')
@@ -163,12 +179,20 @@ describe('syncLevelBatch — found, metadata diff', () => {
 
 describe('syncLevelBatch — found, rating diff', () => {
   it('stamps rating_status_since when is_rated flips', async () => {
-    await seedCachedLevel({ isRated: false, inGameDifficulty: 'Unrated', ratingStatusSince: null })
-    robtopMock.mockResolvedValue(makeRobtop({ isRated: true, inGameDifficulty: 'Insane Demon' }))
+    await seedCachedLevel({
+      isRated: false,
+      inGameDifficulty: 'Unrated',
+      ratingStatusSince: null,
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ isRated: true, inGameDifficulty: 'Insane Demon' })
+    )
 
     const result = await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     expect(after.isRated).toBe(true)
     expect(after.inGameDifficulty).toBe('Insane Demon')
     expect(after.ratingStatusSince).not.toBeNull()
@@ -176,15 +200,24 @@ describe('syncLevelBatch — found, rating diff', () => {
   })
 
   it('stamps rating_status_since when in_game_difficulty changes', async () => {
-    await seedCachedLevel({ inGameDifficulty: 'Hard Demon', ratingStatusSince: daysAgo(200) })
-    robtopMock.mockResolvedValue(makeRobtop({ inGameDifficulty: 'Extreme Demon' }))
+    await seedCachedLevel({
+      inGameDifficulty: 'Hard Demon',
+      ratingStatusSince: daysAgo(200),
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ inGameDifficulty: 'Extreme Demon' })
+    )
 
     await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     expect(after.inGameDifficulty).toBe('Extreme Demon')
     // Re-stamped to ~now (well after the seeded 200-days-ago value).
-    expect(after.ratingStatusSince!.getTime()).toBeGreaterThan(daysAgo(1).getTime())
+    expect(after.ratingStatusSince!.getTime()).toBeGreaterThan(
+      daysAgo(1).getTime()
+    )
   })
 })
 
@@ -195,7 +228,9 @@ describe('syncLevelBatch — not found (delisting)', () => {
 
     const result = await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({ where: { inGameId: '100' } })
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
     expect(after.delisted).toBe(true)
     expect(after.delistedAt).not.toBeNull()
     // Metadata frozen at last-known values.
@@ -206,8 +241,15 @@ describe('syncLevelBatch — not found (delisting)', () => {
     expect(after.songAuthor).toBe('Cached Author')
     expect(after.isRated).toBe(true)
     // rating_status_since is not re-stamped by the delisting path.
-    expect(after.ratingStatusSince!.getTime()).toBeLessThan(daysAgo(1).getTime())
-    expect(result).toMatchObject({ processed: 1, updated: 0, ratingChanged: 0, delisted: 1 })
+    expect(after.ratingStatusSince!.getTime()).toBeLessThan(
+      daysAgo(1).getTime()
+    )
+    expect(result).toMatchObject({
+      processed: 1,
+      updated: 0,
+      ratingChanged: 0,
+      delisted: 1,
+    })
   })
 })
 
@@ -222,7 +264,9 @@ describe('syncLevelBatch — resilience', () => {
     const result = await syncLevelBatch(['100', '200'], 0)
 
     expect(result.errors).toBe(1)
-    const second = await prisma.level.findUniqueOrThrow({ where: { inGameId: '200' } })
+    const second = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '200' },
+    })
     expect(second.name).toBe('Second')
   })
 })
@@ -231,10 +275,27 @@ describe('syncLevelBatch — resilience', () => {
 
 describe('runVolatileSync — selection', () => {
   it('includes never-rated and recently-rated levels, excludes old-rated and delisted', async () => {
-    await seedCachedLevel({ inGameId: 'never', isRated: false, ratingStatusSince: null })
-    await seedCachedLevel({ inGameId: 'recent', isRated: true, ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1) })
-    await seedCachedLevel({ inGameId: 'old', isRated: true, ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30) })
-    await seedCachedLevel({ inGameId: 'gone', isRated: false, delisted: true, delistedAt: new Date() })
+    await seedCachedLevel({
+      inGameId: 'never',
+      isRated: false,
+      ratingStatusSince: null,
+    })
+    await seedCachedLevel({
+      inGameId: 'recent',
+      isRated: true,
+      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1),
+    })
+    await seedCachedLevel({
+      inGameId: 'old',
+      isRated: true,
+      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30),
+    })
+    await seedCachedLevel({
+      inGameId: 'gone',
+      isRated: false,
+      delisted: true,
+      delistedAt: new Date(),
+    })
     robtopMock.mockResolvedValue(makeRobtop())
 
     const result = await runVolatileSync()
@@ -247,11 +308,33 @@ describe('runVolatileSync — selection', () => {
 
 describe('runStandardSync — selection', () => {
   it('includes rated levels outside the volatile window (old or null-stamped), excludes recent/unrated/delisted', async () => {
-    await seedCachedLevel({ inGameId: 'old', isRated: true, ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30) })
-    await seedCachedLevel({ inGameId: 'nullstamp', isRated: true, ratingStatusSince: null })
-    await seedCachedLevel({ inGameId: 'recent', isRated: true, ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1) })
-    await seedCachedLevel({ inGameId: 'unrated', isRated: false, ratingStatusSince: null })
-    await seedCachedLevel({ inGameId: 'gone', isRated: true, ratingStatusSince: daysAgo(100), delisted: true, delistedAt: new Date() })
+    await seedCachedLevel({
+      inGameId: 'old',
+      isRated: true,
+      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30),
+    })
+    await seedCachedLevel({
+      inGameId: 'nullstamp',
+      isRated: true,
+      ratingStatusSince: null,
+    })
+    await seedCachedLevel({
+      inGameId: 'recent',
+      isRated: true,
+      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1),
+    })
+    await seedCachedLevel({
+      inGameId: 'unrated',
+      isRated: false,
+      ratingStatusSince: null,
+    })
+    await seedCachedLevel({
+      inGameId: 'gone',
+      isRated: true,
+      ratingStatusSince: daysAgo(100),
+      delisted: true,
+      delistedAt: new Date(),
+    })
     robtopMock.mockResolvedValue(makeRobtop())
 
     const result = await runStandardSync()
@@ -263,7 +346,11 @@ describe('runStandardSync — selection', () => {
 
   it('does not reprocess anything the volatile job covers in the same window', async () => {
     // A recently-rated level is in volatile's set...
-    await seedCachedLevel({ inGameId: 'recent', isRated: true, ratingStatusSince: daysAgo(1) })
+    await seedCachedLevel({
+      inGameId: 'recent',
+      isRated: true,
+      ratingStatusSince: daysAgo(1),
+    })
     robtopMock.mockResolvedValue(makeRobtop())
 
     await runVolatileSync()

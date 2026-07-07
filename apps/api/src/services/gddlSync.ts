@@ -160,7 +160,11 @@ async function createCompletion(
 
   await tx.levelProgress.update({
     where: { id: lp.id },
-    data: { status: 'COMPLETED', visibility: 'PUBLIC', userGddlTier: roundGddlTier(sub.Rating) },
+    data: {
+      status: 'COMPLETED',
+      visibility: 'PUBLIC',
+      userGddlTier: roundGddlTier(sub.Rating),
+    },
   })
 
   // A beaten level leaves Want to Beat — same transaction as the completion.

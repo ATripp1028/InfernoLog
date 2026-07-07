@@ -18,7 +18,11 @@ import {
   StepFooter,
 } from '../components'
 import { clampPercent, digitsOnly } from '../format'
-import { GdVersionPicker, GdVersionInfoButton, isPreTwoTwo } from './CompletionSessionStep'
+import {
+  GdVersionPicker,
+  GdVersionInfoButton,
+  isPreTwoTwo,
+} from './CompletionSessionStep'
 
 // The five demon-tier opinions, each shown as a round face button. The sixth
 // opinion (NOT_DEMON_WORTHY) is kept as a labelled text button for clarity.
@@ -50,24 +54,26 @@ export function CompletionBasicsStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
 
-  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
+  const defaultPercentageVersion =
+    me.data?.defaultPercentageVersion ?? 'TWO_TWO'
   useEffect(() => {
     if (draft.percentageVersion === null) {
       patchDraft({ percentageVersion: defaultPercentageVersion })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPercentageVersion])
 
   useEffect(() => {
     if (draft.date && isPreTwoTwo(draft.date)) {
       patchDraft({ percentageVersion: 'TWO_ONE' })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.date])
 
   if (!level) return null
 
-  const showVersionPicker = level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
+  const showVersionPicker =
+    level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
 
   return (
     <>
@@ -153,9 +159,7 @@ export function CompletionBasicsStep() {
               type="date"
               disabled={draft.worstFailAlreadyLogged}
               value={draft.worstFailDate}
-              onChange={(e) =>
-                patchDraft({ worstFailDate: e.target.value })
-              }
+              onChange={(e) => patchDraft({ worstFailDate: e.target.value })}
             />
             {draft.worstFailAlreadyLogged ? (
               <FieldHint>Keeping your previously logged worst fail.</FieldHint>

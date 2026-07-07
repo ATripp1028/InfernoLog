@@ -151,17 +151,21 @@ export const COLUMNS: ColumnDef[] = [
 // Generate ColumnDef entries for the user's weighted-rating categories.
 // Categories are ordered by sortOrder ascending (priority order).
 // These columns are opt-in (defaultVisible: false) and only relevant in WEIGHTED mode.
-export function getCategoryColumnDefs(categories: RatingCategory[]): ColumnDef[] {
+export function getCategoryColumnDefs(
+  categories: RatingCategory[]
+): ColumnDef[] {
   return [...categories]
     .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((cat): ColumnDef => ({
-      id: `cat:${cat.id}`,
-      label: cat.name,
-      width: 70,
-      sortKey: `cat:${cat.id}`,
-      responsiveClass: 'flex',
-      defaultVisible: false,
-    }))
+    .map(
+      (cat): ColumnDef => ({
+        id: `cat:${cat.id}`,
+        label: cat.name,
+        width: 70,
+        sortKey: `cat:${cat.id}`,
+        responsiveClass: 'flex',
+        defaultVisible: false,
+      })
+    )
 }
 
 // ColumnVisibility is a string-keyed boolean map. Missing keys default to false
@@ -170,9 +174,7 @@ export function getCategoryColumnDefs(categories: RatingCategory[]): ColumnDef[]
 export type ColumnVisibility = Record<string, boolean>
 
 export function defaultColumnVisibility(): ColumnVisibility {
-  return Object.fromEntries(
-    COLUMNS.map((c) => [c.id, c.defaultVisible])
-  )
+  return Object.fromEntries(COLUMNS.map((c) => [c.id, c.defaultVisible]))
 }
 
 export function defaultColumnOrder(): ColumnId[] {

@@ -90,7 +90,14 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     where: { levelProgressId: lp.id, isCompletion: true },
     include: {
       ratingScores: { select: { categoryId: true, score: true } },
-      levelProgress: { select: { visibility: true, worstFail: true, worstFailDate: true, userGddlTier: true } },
+      levelProgress: {
+        select: {
+          visibility: true,
+          worstFail: true,
+          worstFailDate: true,
+          userGddlTier: true,
+        },
+      },
     },
   })
   if (!completion) return null

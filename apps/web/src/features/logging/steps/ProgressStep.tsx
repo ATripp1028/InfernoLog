@@ -13,7 +13,11 @@ import {
   StepFooter,
 } from '../components'
 import { digitsOnly } from '../format'
-import { GdVersionPicker, GdVersionInfoButton, isPreTwoTwo } from './CompletionSessionStep'
+import {
+  GdVersionPicker,
+  GdVersionInfoButton,
+  isPreTwoTwo,
+} from './CompletionSessionStep'
 
 const MODE_OPTIONS = [
   { value: 'from_zero', label: 'From 0%' },
@@ -24,25 +28,27 @@ export function ProgressStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
 
-  const defaultPercentageVersion = me.data?.defaultPercentageVersion ?? 'TWO_TWO'
+  const defaultPercentageVersion =
+    me.data?.defaultPercentageVersion ?? 'TWO_TWO'
   useEffect(() => {
     if (draft.percentageVersion === null) {
       patchDraft({ percentageVersion: defaultPercentageVersion })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultPercentageVersion])
 
   useEffect(() => {
     if (draft.date && isPreTwoTwo(draft.date)) {
       patchDraft({ percentageVersion: 'TWO_ONE' })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.date])
 
   if (!level) return null
 
   const fromRun = draft.progressMode === 'from_run'
-  const showVersionPicker = level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
+  const showVersionPicker =
+    level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
   const canContinue = fromRun
     ? draft.runFrom.trim() !== '' && draft.runTo.trim() !== ''
     : draft.percentage.trim() !== ''

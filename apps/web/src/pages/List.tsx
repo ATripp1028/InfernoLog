@@ -103,7 +103,7 @@ export function List() {
 
     const activeIds = new Set(
       (me.data?.ratingMode === 'WEIGHTED'
-        ? me.data?.ratingCategories ?? []
+        ? (me.data?.ratingCategories ?? [])
         : []
       ).map((c) => c.id)
     )
@@ -113,7 +113,7 @@ export function List() {
     setFilters(cleaned.filters)
     setColumns(cleaned.columns)
     setColumnOrder(cleaned.columnOrder)
-  }, [me.data?.id, presetsQuery.data])
+  }, [me.data, presetsQuery.data])
 
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
   const isWide = useMediaQuery('(min-width: 768px)')
@@ -151,7 +151,7 @@ export function List() {
       me.data?.ratingMode === 'WEIGHTED'
         ? (me.data.ratingCategories ?? [])
         : [],
-    [me.data?.ratingMode, me.data?.ratingCategories]
+    [me.data]
   )
 
   const allColumnDefs: ColumnDef[] = useMemo(
@@ -174,7 +174,10 @@ export function List() {
   // columnOrder and strip deleted cat references from all view state.
   const prevCatSigRef = useRef<string | null>(null)
   useEffect(() => {
-    const sig = activeCategories.map((c) => c.id).sort().join(',')
+    const sig = activeCategories
+      .map((c) => c.id)
+      .sort()
+      .join(',')
     if (sig === prevCatSigRef.current) return
     prevCatSigRef.current = sig
 
@@ -191,7 +194,9 @@ export function List() {
       return newCats.length ? [...filtered, ...newCats] : filtered
     })
     setColumns((prev) =>
-      Object.fromEntries(Object.entries(prev).filter(([k]) => isActiveCatKey(k)))
+      Object.fromEntries(
+        Object.entries(prev).filter(([k]) => isActiveCatKey(k))
+      )
     )
     setSorts((prev) => prev.filter((s) => isActiveCatKey(s.key)))
     setFilters((prev) => ({
@@ -202,8 +207,8 @@ export function List() {
         )
       ),
     }))
-  // activeCategories reference changes only when category content changes (TanStack Query stable refs)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // activeCategories reference changes only when category content changes (TanStack Query stable refs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategories])
 
   // The docked panel is 320px wide; the content column adds ~48px padding at md+.
@@ -322,7 +327,10 @@ export function List() {
     // preset or default config was saved before those categories existed.
     const activeCatKeys = activeCategories.map((c) => `cat:${c.id}` as ColumnId)
     const order = config.columnOrder
-    const fullOrder = [...order, ...activeCatKeys.filter((k) => !order.includes(k))]
+    const fullOrder = [
+      ...order,
+      ...activeCatKeys.filter((k) => !order.includes(k)),
+    ]
     setSorts(config.sorts)
     setFilters(config.filters)
     setColumns(config.columns)
@@ -475,7 +483,9 @@ export function List() {
       availableDifficulties={availableDifficulties}
       earliestDate={earliestDate}
       maxAttempts={maxAttempts}
-      {...(activeCategories.length > 0 && { ratingCategories: activeCategories })}
+      {...(activeCategories.length > 0 && {
+        ratingCategories: activeCategories,
+      })}
       onClose={() => setFilterOpen(false)}
     />
   )

@@ -1,6 +1,10 @@
 import { useState, useRef } from 'react'
 import { X, Calendar } from 'lucide-react'
-import type { DateFormatPreference, RatingCategory, RatingDisplayScale } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingCategory,
+  RatingDisplayScale,
+} from '@/lib/api/me'
 import { Chip } from '@/components/ui/chip'
 import { RangeSlider } from '@/components/ui/range-slider'
 import { cn } from '@/lib/utils'
@@ -47,6 +51,8 @@ interface FilterPanelProps {
   ratingCategories?: RatingCategory[]
   onClose?: () => void
 }
+
+const today = Date.now()
 
 function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
@@ -244,7 +250,10 @@ function DatePickerField({
 
   function commit(text: string) {
     setDraft(null)
-    if (!text.trim()) { onChange(null); return }
+    if (!text.trim()) {
+      onChange(null)
+      return
+    }
     const n = parseFilterDate(text, datePref)
     if (n == null) return
     let clamped = n
@@ -262,7 +271,9 @@ function DatePickerField({
 
   function showPicker(ref: React.RefObject<HTMLInputElement | null>) {
     try {
-      ;(ref.current as HTMLInputElement & { showPicker?: () => void })?.showPicker?.()
+      ;(
+        ref.current as HTMLInputElement & { showPicker?: () => void }
+      )?.showPicker?.()
     } catch {
       // showPicker() may throw without a user gesture or in hidden elements
     }
@@ -297,7 +308,10 @@ function DatePickerField({
           <button
             type="button"
             className="absolute right-1 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
-            onClick={() => { setDraft(null); onChange(null) }}
+            onClick={() => {
+              setDraft(null)
+              onChange(null)
+            }}
             aria-label={`Clear ${label}`}
           >
             <X size={10} />
@@ -329,7 +343,6 @@ function DatePickersRow({
   datePref: DateFormatPreference
   minDate: number
 }) {
-  const today = Date.now()
   return (
     <div className="flex gap-2 px-4 py-1.5">
       <DatePickerField

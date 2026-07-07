@@ -121,9 +121,18 @@ async function loadCompletionsByLevel(userId: string, levelIds: string[]) {
   if (levelIds.length === 0) return new Map<string, CompletionInfo>()
   const lps = await prisma.levelProgress.findMany({
     where: { userId, levelId: { in: levelIds } },
-    select: { levelId: true, userGddlTier: true, progressUpdates: completionSelect },
+    select: {
+      levelId: true,
+      userGddlTier: true,
+      progressUpdates: completionSelect,
+    },
   })
-  return new Map(lps.map((lp) => [lp.levelId, { userGddlTier: lp.userGddlTier, updates: lp.progressUpdates }]))
+  return new Map(
+    lps.map((lp) => [
+      lp.levelId,
+      { userGddlTier: lp.userGddlTier, updates: lp.progressUpdates },
+    ])
+  )
 }
 
 export async function getCollectionDetail(

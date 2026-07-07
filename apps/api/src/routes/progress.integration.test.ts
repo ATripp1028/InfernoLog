@@ -255,9 +255,6 @@ describe('DELETE /me/progress/:levelId', () => {
         },
       ],
     })
-    const pu = await prisma.progressUpdate.findFirstOrThrow({
-      where: { levelProgressId: lp.id },
-    })
 
     const res = await del(user.id, '900')
     // Returns 200 with GDDL caveat (not 204) so the client can surface the message.

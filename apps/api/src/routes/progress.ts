@@ -270,7 +270,7 @@ app.get('/me/progress/:levelId', async (c) => {
             twoPlayerSolo: true,
             twoPlayerPartner: true,
             device: true,
-              ratingScores: {
+            ratingScores: {
               select: { categoryId: true, score: true },
             },
           },
@@ -315,7 +315,11 @@ app.get('/me/progress/:levelId', async (c) => {
         ? { percentage: lp.worstFail, date: lp.worstFailDate }
         : null
 
-    const runsGraph = computeRunsGraph(updatesForGraph, drops, worstFailForGraph)
+    const runsGraph = computeRunsGraph(
+      updatesForGraph,
+      drops,
+      worstFailForGraph
+    )
 
     // Derive rank position from rankingIndex: count how many of the user's
     // placed completions have a higher (easier) rankingIndex. 1-based.

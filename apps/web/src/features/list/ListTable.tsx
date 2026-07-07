@@ -2,11 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import {
-  type ColumnDef,
-  type ColumnId,
-  type ColumnVisibility,
-} from './columns'
+import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
@@ -45,7 +41,9 @@ export function tableMinWidth(
 ): number {
   const orderedCols = columnOrder
     .map((id) => allColumnDefs.find((c) => c.id === id))
-    .filter((col): col is ColumnDef => col != null && (columns[col.id] ?? false))
+    .filter(
+      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
+    )
   return rowMinWidth(orderedCols)
 }
 
@@ -193,7 +191,9 @@ export function ListTable({
 }: ListTableProps) {
   const orderedCols = columnOrder
     .map((id) => allColumnDefs.find((c) => c.id === id))
-    .filter((col): col is ColumnDef => col != null && (columns[col.id] ?? false))
+    .filter(
+      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
+    )
 
   const minWidth = rowMinWidth(orderedCols)
 
@@ -212,7 +212,10 @@ export function ListTable({
   return (
     <div
       className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block"
-      style={{ maskImage: 'linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%)' }}
+      style={{
+        maskImage:
+          'linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%)',
+      }}
     >
       <ColumnHeaders
         orderedCols={orderedCols}

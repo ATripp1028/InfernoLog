@@ -48,7 +48,8 @@ export function buildCompletionInput(
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
     fps: intOrNull(draft.fps, me.defaultFps ?? null),
-    percentageVersion: draft.percentageVersion ?? me.defaultPercentageVersion ?? 'TWO_TWO',
+    percentageVersion:
+      draft.percentageVersion ?? me.defaultPercentageVersion ?? 'TWO_TWO',
     onStream: draft.onStream,
     highlightUrl: draft.highlightUrl.trim() || null,
     notes: draft.notes.trim() || null,
@@ -85,7 +86,8 @@ export function buildProgressInput(
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     fps: intOrNull(draft.fps, defaultFps ?? null),
-    percentageVersion: draft.percentageVersion ?? defaultPercentageVersion ?? 'TWO_TWO',
+    percentageVersion:
+      draft.percentageVersion ?? defaultPercentageVersion ?? 'TWO_TWO',
     onStream: draft.onStream,
     notes: draft.notes.trim() || null,
     visibility: draft.visibility,

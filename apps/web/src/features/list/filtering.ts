@@ -310,8 +310,8 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
       if (key.startsWith('cat:')) {
         const catId = key.slice(4)
         return (
-          item.entry?.ratingScores.find((r) => r.categoryId === catId)
-            ?.score ?? null
+          item.entry?.ratingScores.find((r) => r.categoryId === catId)?.score ??
+          null
         )
       }
       return null
@@ -364,11 +364,11 @@ export function sortItems(
       if (cmp === 0 && spec.key === 'rating' && tiebreakerCats.length > 0) {
         for (const cat of tiebreakerCats) {
           const aScore =
-            x.entry?.ratingScores.find((r) => r.categoryId === cat.id)
-              ?.score ?? null
+            x.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
+            null
           const bScore =
-            y.entry?.ratingScores.find((r) => r.categoryId === cat.id)
-              ?.score ?? null
+            y.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
+            null
           cmp = compareValues(aScore, bScore, spec.dir)
           if (cmp !== 0) break
         }

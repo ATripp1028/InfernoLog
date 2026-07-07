@@ -127,10 +127,10 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `peak_music_bpm`      | INTEGER   | Nullable. Music BPM metadata (v2)                                                                                                                                                              |
 | `data_source`         | ENUM      | `robtop_autofill`, `manual`. Provenance of the cached metadata (legacy rows may read `gdbrowser_autofill`)                                                                                     |
 | `verified`            | BOOLEAN   | Default false for `manual` rows. A later sync can backfill and verify/override manually-entered metadata (including `in_game_difficulty`)                                                      |
-| `last_checked_at`     | TIMESTAMP | Updated by the RobTop sync jobs on every level processed (found or not). See `EXTERNAL_APIS.md`                                                                                                 |
-| `rating_status_since` | TIMESTAMP | Nullable. Stamped whenever `is_rated` flips or `in_game_difficulty` changes value. Drives the weekly "volatile" sync's 14-day window                                                            |
-| `delisted`            | BOOLEAN   | Default false. Set true when a sync finds the level gone from RobTop's servers; a delisted row is frozen at last-known values and excluded from both sync jobs                                  |
-| `delisted_at`         | TIMESTAMP | Nullable. When the level was first detected as delisted                                                                                                                                         |
+| `last_checked_at`     | TIMESTAMP | Updated by the RobTop sync jobs on every level processed (found or not). See `EXTERNAL_APIS.md`                                                                                                |
+| `rating_status_since` | TIMESTAMP | Nullable. Stamped whenever `is_rated` flips or `in_game_difficulty` changes value. Drives the weekly "volatile" sync's 14-day window                                                           |
+| `delisted`            | BOOLEAN   | Default false. Set true when a sync finds the level gone from RobTop's servers; a delisted row is frozen at last-known values and excluded from both sync jobs                                 |
+| `delisted_at`         | TIMESTAMP | Nullable. When the level was first detected as delisted                                                                                                                                        |
 | `created_at`          | TIMESTAMP |                                                                                                                                                                                                |
 
 ### `level_progress`
