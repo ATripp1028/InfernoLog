@@ -125,6 +125,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     coinsCollected: completion.coinsCollected,
     twoPlayerSolo: completion.twoPlayerSolo,
     twoPlayerPartner: completion.twoPlayerPartner,
+    percentageVersion: completion.percentageVersion ?? null,
   }
 }
 

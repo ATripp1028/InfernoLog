@@ -446,6 +446,7 @@ export const ExistingCompletionSchema = z.object({
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
   userGddlTier: z.number().int().nullable(),
+  percentageVersion: z.nativeEnum(GdVersion).nullable(),
 })
 
 export const ResolveLevelResponseSchema = z.object({
