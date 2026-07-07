@@ -357,7 +357,7 @@ export const DropInputSchema = z.object({
 // only present keys are written. Sent as PATCH /v1/me/progress/:levelId.
 export const EditProgressInputSchema = z.object({
   // When provided, targets this specific ProgressUpdate instead of the most recent
-  progressUpdateId: z.string().optional(),
+  progressUpdateId: z.string().uuid().optional(),
   // LevelProgress fields
   levelNotes: z.string().max(5000).nullable().optional(),
   worstFail: z.number().int().min(0).max(100).nullable().optional(),

@@ -121,7 +121,11 @@ function ReorderSyncWatcher() {
     }
     if (!collectionWasActive.current) return
     collectionWasActive.current = false
-    if (!collectionHadError.current) toast.success('Collection order saved')
+    if (collectionHadError.current) {
+      toast.error('Could not save collection order')
+    } else {
+      toast.success('Collection order saved')
+    }
     collectionHadError.current = false
     void qc.invalidateQueries({ queryKey: collectionsQueryKey })
   }, [pendingCollections, qc])
