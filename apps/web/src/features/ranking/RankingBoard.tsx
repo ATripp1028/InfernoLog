@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMutationState } from '@tanstack/react-query'
 import {
   DndContext,
   DragOverlay,
@@ -64,6 +65,10 @@ export function RankingBoard({
   const reorder = useReorderRanking()
   const unplace = useUnplaceRanking()
 
+  const pendingRankingCount = useMutationState({
+    filters: { mutationKey: ['rankingReorder'], status: 'pending' },
+  }).length
+
   // Common level data for any id, in either container.
   const itemsById = useMemo(() => {
     const m = new Map<string, RankingItem>()
@@ -82,11 +87,12 @@ export function RankingBoard({
 
   useEffect(() => {
     if (activeId) return // don't clobber the in-flight drag
+    if (pendingRankingCount > 0) return // don't overwrite optimistic state
     setContainers({
       placed: data.placed.map((e) => e.levelProgressId),
       unplaced: data.unplaced.map((e) => e.levelProgressId),
     })
-  }, [data, activeId])
+  }, [data, activeId, pendingRankingCount])
 
   const findContainer = (id: string): ContainerId | null => {
     if (id === 'placed' || id === 'unplaced') return id
