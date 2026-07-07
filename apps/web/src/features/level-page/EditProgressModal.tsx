@@ -53,6 +53,7 @@ interface EditForm {
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string
   device: Device | null
+  userGddlTier: string
 }
 
 function initForm(
@@ -99,6 +100,12 @@ function initForm(
     twoPlayerSolo: latest?.twoPlayerSolo ?? null,
     twoPlayerPartner: latest?.twoPlayerPartner ?? '',
     device: (latest?.device as Device | null | undefined) ?? null,
+    userGddlTier:
+      data.userGddlTier != null
+        ? String(data.userGddlTier)
+        : data.level.gddlTier != null
+          ? String(data.level.gddlTier)
+          : '',
   }
 }
 
@@ -200,6 +207,8 @@ export function EditProgressModal({
       }
       payload.videoUrl = form.videoUrl || null
       payload.highlightUrl = form.highlightUrl || null
+      payload.userGddlTier =
+        form.userGddlTier !== '' ? parseInt(form.userGddlTier, 10) : null
       if ((data.level.coins ?? 0) > 0) {
         payload.coinsCollected = form.coinsCollected
       }
@@ -506,21 +515,26 @@ export function EditProgressModal({
                 </Section>
               )}
 
-              {/* ── GDDL tier (read-only, managed by GDDL) ───── */}
-              {isCompletion && data.userGddlTier != null && (
-                <Section label="List references">
-                  <div className="flex items-center justify-between rounded-card border border-border-subtle bg-bg-elevated/40 px-4 py-3">
-                    <div>
-                      <p className="text-sm font-medium text-text-primary">
-                        GDDL tier
-                      </p>
-                      <p className="text-xs text-text-tertiary">
-                        Managed via the GDDL platform.
-                      </p>
-                    </div>
-                    <span className="text-sm font-semibold text-text-primary">
-                      {data.userGddlTier}
-                    </span>
+              {/* ── GDDL tier (completion only) ───────────────── */}
+              {isCompletion && (
+                <Section label="GDDL">
+                  <div>
+                    <FieldLabel htmlFor="ep-gddl-tier">
+                      Your tier opinion
+                    </FieldLabel>
+                    <Input
+                      id="ep-gddl-tier"
+                      inputMode="numeric"
+                      placeholder={
+                        data.level.gddlTier != null
+                          ? `Community: ${data.level.gddlTier}`
+                          : '—'
+                      }
+                      value={form.userGddlTier}
+                      onChange={(e) =>
+                        patch({ userGddlTier: digitsOnly(e.target.value) })
+                      }
+                    />
                   </div>
                 </Section>
               )}

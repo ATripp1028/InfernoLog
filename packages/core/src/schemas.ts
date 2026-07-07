@@ -382,6 +382,7 @@ export const EditProgressInputSchema = z.object({
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
+  userGddlTier: z.number().int().nullable().optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered

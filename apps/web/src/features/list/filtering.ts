@@ -20,7 +20,7 @@ import {
 // ── Row value extractors ─────────────────────────────────────────────────────
 
 export function gddlTier(item: ListItem): number | null {
-  return item.level.gddlTier ?? null
+  return item.userGddlTier ?? null
 }
 
 function dateMs(item: ListItem): number | null {

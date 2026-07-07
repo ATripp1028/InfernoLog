@@ -292,6 +292,7 @@ export async function applyEdit(
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
     if (input.worstFailDate !== undefined) lpData.worstFailDate = input.worstFailDate
     if (input.visibility !== undefined) lpData.visibility = input.visibility
+    if (input.userGddlTier !== undefined) lpData.userGddlTier = input.userGddlTier
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
