@@ -305,6 +305,26 @@ export default $config({
     authedRoute('PUT /v1/me/rating-config')
     authedRoute('GET /v1/me/rating-categories')
 
+    // Needs cognito-idp:AdminDeleteUser (like signin/reject above) to remove
+    // the Cognito identity alongside the InfernoLog account, so authedRoute's
+    // permission-less shape doesn't fit here.
+    api.route(
+      'DELETE /v1/me',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        permissions: [
+          {
+            actions: ['cognito-idp:AdminDeleteUser'],
+            resources: [userPool.arn],
+          },
+        ],
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
     // The List page — the user's full level-progress list.
     authedRoute('GET /v1/me/progress')
     // Edit the most recent progress update + level metadata for an entry.

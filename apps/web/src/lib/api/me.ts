@@ -403,6 +403,26 @@ export function useUpdateRatingConfig() {
   })
 }
 
+// ─────────────────────────────────────────────
+// Account deletion
+// ─────────────────────────────────────────────
+
+export const DELETE_ACCOUNT_CONFIRMATION = 'Delete this account'
+
+export function useDeleteAccount() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me', {
+        token,
+        method: 'DELETE',
+        body: { confirmation: DELETE_ACCOUNT_CONFIRMATION },
+      })
+    },
+  })
+}
+
 // Username availability check (debounced calls in the editor)
 export async function checkUsernameAvailable(
   username: string,

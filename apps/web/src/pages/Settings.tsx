@@ -10,6 +10,7 @@ import { PrivacySection } from '@/features/settings/sections/PrivacySection'
 import { LoggingSection } from '@/features/settings/sections/LoggingSection'
 import { RatingSection } from '@/features/settings/sections/RatingSection'
 import { DesignSection } from '@/features/settings/sections/DesignSection'
+import { DangerZoneSection } from '@/features/settings/sections/DangerZoneSection'
 import { useSettingsSaveNotifier } from '@/features/settings/hooks/useSettingsSaveNotifier'
 import { ImportStatusPanel } from '@/features/import/ImportStatusPanel'
 import {
@@ -76,6 +77,7 @@ export function Settings() {
       <LoggingSection me={me.data} />
       <RatingSection me={me.data} />
       <DesignSection />
+      <DangerZoneSection />
 
       <Sheet open={importStatusOpen} onOpenChange={setImportStatusOpen}>
         <SheetContent

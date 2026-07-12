@@ -4,8 +4,14 @@ import prisma from '../utils/prisma'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
+import {
+  CognitoIdentityProviderClient,
+  AdminDeleteUserCommand,
+  UserNotFoundException,
+} from '@aws-sdk/client-cognito-identity-provider'
 import { logger } from '../utils/logger'
 import { mintConnectDiscordState } from './auth'
+import { getVerifiedClaims } from '../middleware/auth'
 import type { HonoVariables } from '../types/hono'
 // NOTE: @infernolog/core uses zod 3 while this app uses zod 4. We import the
 // schemas at runtime (the API surface matches) but redefine the username
@@ -26,8 +32,17 @@ import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
+const cognito = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION ?? 'us-east-1',
+})
+
 const USERNAME_COOLDOWN_DAYS = 30
 const USERNAME_COOLDOWN_MS = USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+
+const DELETE_ACCOUNT_CONFIRMATION = 'Delete this account'
+const DeleteAccountSchema = z.object({
+  confirmation: z.literal(DELETE_ACCOUNT_CONFIRMATION),
+})
 
 // Strip keys whose value is `undefined`. tsconfig has exactOptionalPropertyTypes,
 // so Prisma's update inputs do not accept explicit `undefined` for optional fields.
@@ -289,6 +304,76 @@ app.patch('/me/username', async (c) => {
       return c.json({ error: 'Username is already taken' }, 409)
     }
     console.error('PATCH /me/username error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// DELETE /v1/me — permanently deletes the account and all associated data.
+// Requires the confirmation phrase in the body as a defense-in-depth check
+// behind the frontend's typed-confirmation modal (belt and suspenders — an
+// authorized bearer token alone is not treated as sufficient intent for an
+// irreversible delete).
+//
+// Report/BanAppeal/ModerationAction rows referencing this user are deleted
+// explicitly first because their FKs are ON DELETE RESTRICT (an intentional
+// audit-trail protection against ordinary moderation cleanup — see
+// schema.prisma). No moderation feature reads these tables yet, so a full
+// account purge including them is safe for now; revisit if a real audit
+// trail requirement lands before that FK behavior changes. GddlSyncJob is
+// deleted explicitly too since it has no declared FK/cascade to `users` at
+// all. Everything else (LevelProgress, ProgressUpdate, ClassicRanking,
+// Collection, ApiKey, RatingCategory, ListPreset, ImportJob, ...) cascades
+// from the `users` delete.
+app.delete('/me', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => null)
+    const parsed = DeleteAccountSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: 'Confirmation text does not match' }, 400)
+    }
+
+    await prisma.$transaction([
+      prisma.report.deleteMany({
+        where: { OR: [{ reporterId: userId }, { reportedUserId: userId }] },
+      }),
+      prisma.banAppeal.deleteMany({ where: { userId } }),
+      prisma.moderationAction.deleteMany({
+        where: { OR: [{ moderatorId: userId }, { targetUserId: userId }] },
+      }),
+      prisma.gddlSyncJob.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ])
+
+    // Best-effort — the InfernoLog account is already gone at this point
+    // regardless of whether this succeeds. A leftover Cognito identity just
+    // means the user gets a fresh account if they sign back in.
+    const claims = getVerifiedClaims(c)
+    if (claims) {
+      try {
+        await cognito.send(
+          new AdminDeleteUserCommand({
+            UserPoolId: process.env.COGNITO_USER_POOL_ID,
+            Username: claims.sub,
+          })
+        )
+      } catch (err) {
+        if (!(err instanceof UserNotFoundException)) {
+          logger.error(
+            { userId, err },
+            'Failed to delete Cognito identity after account deletion'
+          )
+          Sentry.captureException(err)
+        }
+      }
+    }
+
+    logger.info({ userId }, 'Account deleted')
+    return c.json({ data: { deleted: true } })
+  } catch (error) {
+    console.error('DELETE /me error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }
