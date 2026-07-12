@@ -28,6 +28,7 @@ import {
   type ParseResult,
   type ParseFlag,
   type ParsedCompletionRow,
+  type ParsedProgressRow,
   type ParsedDroppedRow,
 } from './parseSpreadsheet'
 import { downloadTemplate } from './generateTemplate'
@@ -39,6 +40,7 @@ type WizardStep = 'upload' | 'review' | 'conflict' | 'committing' | 'success'
 
 interface AllFlags {
   completions: ParseFlag[]
+  progress: ParseFlag[]
   dropped: ParseFlag[]
   ranking: ParseFlag[]
   lists: ParseFlag[]
@@ -161,6 +163,7 @@ function UploadStep({
         const result = parseSpreadsheet(buffer, dateFormat)
 
         const allCompletionFlags = result.completions.flatMap((r) => r.flags)
+        const allProgressFlags = result.progress.flatMap((r) => r.flags)
         const allDroppedFlags = result.dropped.flatMap((r) => r.flags)
         const allRankingFlags = result.ranking.flatMap((r) => r.flags)
         const allListFlags = result.lists.flatMap((r) => r.flags)
@@ -168,6 +171,7 @@ function UploadStep({
 
         onParsed(result, {
           completions: allCompletionFlags,
+          progress: allProgressFlags,
           dropped: allDroppedFlags,
           ranking: allRankingFlags,
           lists: allListFlags,
@@ -287,6 +291,7 @@ function ReviewStep({
 }: ReviewStepProps) {
   const allFlags = [
     ...flags.completions,
+    ...flags.progress,
     ...flags.dropped,
     ...flags.ranking,
     ...flags.lists,
@@ -295,6 +300,7 @@ function ReviewStep({
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
   const errorFlagsByTab = {
     completions: flags.completions.filter((f) => f.severity === 'error'),
+    progress: flags.progress.filter((f) => f.severity === 'error'),
     dropped: flags.dropped.filter((f) => f.severity === 'error'),
     ranking: flags.ranking.filter((f) => f.severity === 'error'),
     lists: flags.lists.filter((f) => f.severity === 'error'),
@@ -305,6 +311,9 @@ function ReviewStep({
   const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
   const nameOnlyByTab = {
     completions: flags.completions.filter(
+      (f) => f.severity === 'warning' && isNameOnly(f)
+    ),
+    progress: flags.progress.filter(
       (f) => f.severity === 'warning' && isNameOnly(f)
     ),
     dropped: flags.dropped.filter(
@@ -320,6 +329,9 @@ function ReviewStep({
   }
   const dataWarnByTab = {
     completions: flags.completions.filter(
+      (f) => f.severity === 'warning' && !isNameOnly(f)
+    ),
+    progress: flags.progress.filter(
       (f) => f.severity === 'warning' && !isNameOnly(f)
     ),
     dropped: flags.dropped.filter(
@@ -345,6 +357,11 @@ function ReviewStep({
       !r.flags.some((f) => f.severity === 'error') &&
       (r.data.levelId || r.data.levelName)
   )
+  const validProgress = parseResult.progress.filter(
+    (r) =>
+      !r.flags.some((f) => f.severity === 'error') &&
+      (r.data.levelId || r.data.levelName)
+  )
   const validDropped = parseResult.dropped.filter(
     (r) =>
       !r.flags.some((f) => f.severity === 'error') &&
@@ -366,7 +383,8 @@ function ReviewStep({
       (r.levelId || r.levelName) &&
       Object.keys(r.scores).length > 0
   ).length
-  const totalValid = validCompletions.length + validDropped.length
+  const totalValid =
+    validCompletions.length + validProgress.length + validDropped.length
   const totalSkipped = errorFlags.length + flags.duplicates.length
 
   return (
@@ -401,7 +419,9 @@ function ReviewStep({
           )}
         </p>
         <div className="mt-1 text-xs text-muted-foreground">
-          {validCompletions.length} completions · {validDropped.length} dropped
+          {validCompletions.length} completions ·{' '}
+          {validProgress.length > 0 && `${validProgress.length} progress logs · `}
+          {validDropped.length} dropped
           {totalRanked > 0 && ` · ${totalRanked} ranked`}
           {totalListed > 0 && ` · ${totalListed} list entries`}
           {totalRated > 0 && ` · ${totalRated} rated`}
@@ -438,6 +458,14 @@ function ReviewStep({
                 Completions tab
               </p>
               <FlagList flags={errorFlagsByTab.completions} />
+            </>
+          )}
+          {errorFlagsByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={errorFlagsByTab.progress} />
             </>
           )}
           {errorFlagsByTab.dropped.length > 0 && (
@@ -488,6 +516,14 @@ function ReviewStep({
               <FlagList flags={dataWarnByTab.completions} />
             </>
           )}
+          {dataWarnByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={dataWarnByTab.progress} />
+            </>
+          )}
           {dataWarnByTab.dropped.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">
@@ -534,6 +570,14 @@ function ReviewStep({
                 Completions tab
               </p>
               <FlagList flags={nameOnlyByTab.completions} />
+            </>
+          )}
+          {nameOnlyByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={nameOnlyByTab.progress} />
             </>
           )}
           {nameOnlyByTab.dropped.length > 0 && (
@@ -847,6 +891,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [allFlags, setAllFlags] = useState<AllFlags>({
     completions: [],
+    progress: [],
     dropped: [],
     ranking: [],
     lists: [],
@@ -886,6 +931,11 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
           !r.flags.some((f) => f.severity === 'error') &&
           (r.data.levelId || r.data.levelName)
       ),
+      progress: result.progress.filter(
+        (r) =>
+          !r.flags.some((f) => f.severity === 'error') &&
+          (r.data.levelId || r.data.levelName)
+      ),
       dropped: result.dropped.filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
@@ -912,6 +962,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const startImportJob = useCallback(
     async (
       completions: ParsedCompletionRow[],
+      progressRows: ParsedProgressRow[],
       dropped: ParsedDroppedRow[],
       res: Record<string, ConflictResolution>,
       globalResolution?: ConflictResolution
@@ -940,6 +991,13 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
           (r): ImportCommitRow => ({
             type: 'dropped',
             rowIndex: r.rowIndex + 100000, // offset to avoid collision with completion indices
+            data: r.data,
+          })
+        ),
+        ...progressRows.map(
+          (r): ImportCommitRow => ({
+            type: 'progress',
+            rowIndex: r.rowIndex + 200000, // offset to avoid collision with completion/dropped indices
             data: r.data,
           })
         ),
@@ -1015,12 +1073,12 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const handleSkipFlagged = useCallback(async () => {
     if (!parseResult) return
 
-    const { completions, dropped } = validRows(parseResult)
+    const { completions, progress: progressRows, dropped } = validRows(parseResult)
 
     if (conflictMode === 'overwrite') {
       // Skip conflict check entirely; all completions get overwrite resolution.
       setStep('committing')
-      await startImportJob(completions, dropped, {}, 'overwrite')
+      await startImportJob(completions, progressRows, dropped, {}, 'overwrite')
       return
     }
 
@@ -1046,7 +1104,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         setResolutions({})
         setStep('conflict')
       } else {
-        await startImportJob(completions, dropped, {})
+        await startImportJob(completions, progressRows, dropped, {})
       }
     } catch (err) {
       setCommitError(
@@ -1060,9 +1118,9 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
 
   const handleCommitAfterConflict = useCallback(async () => {
     if (!parseResult) return
-    const { completions, dropped } = validRows(parseResult)
+    const { completions, progress: progressRows, dropped } = validRows(parseResult)
     setStep('committing')
-    await startImportJob(completions, dropped, resolutions)
+    await startImportJob(completions, progressRows, dropped, resolutions)
   }, [parseResult, validRows, resolutions, startImportJob])
 
   // ── Render ─────────────────────────────────────────────────────────────

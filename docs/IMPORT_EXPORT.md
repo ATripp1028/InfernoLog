@@ -15,12 +15,12 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 | Tab           | Contents                                                                           |
 | ------------- | ---------------------------------------------------------------------------------- |
 | `Completions` | All completion progress updates (is_completion = true)                             |
-| `Progress`    | All non-completion progress updates (optional, included on export if user chooses) |
+| `Progress`    | All non-completion progress updates — session logs short of the completion         |
 | `Dropped`     | All dropped level entries                                                          |
 | `WantToBeat`  | Want-to-beat list                                                                  |
 | `Lists`       | Custom lists and favorites                                                         |
 
-Import processes `Completions` and `Dropped` tabs. Other tabs are supported in later versions.
+Import processes `Completions`, `Progress`, and `Dropped` tabs. Other tabs are supported in later versions.
 
 ---
 
@@ -169,6 +169,41 @@ Only rows whose data is genuinely unused are reported as _skipped_ — a modifie
 
 ---
 
+## Progress Tab Format
+
+Non-completion session logs — the history short of (or alongside) the eventual completion. Unlike every other tab, **multiple rows per level are expected**: one row per logged session.
+
+| Column               | Required | Notes                                                                     |
+| --------------------- | -------- | -------------------------------------------------------------------------- |
+| `progress_id`         | No       | Round-trip identity for this exact entry, auto-filled on export. Leave blank when adding a new session log by hand. |
+| `level_id`            | Yes\*    | In-game level ID                                                          |
+| `level_name`          | No\*     | If blank, autofilled from the GD servers                                 |
+| `creator`             | No       | Narrows name resolution when the name matches many levels                |
+| `date`                | No       | In selected date format                                                  |
+| `date_uncertain`      | No       | TRUE/FALSE                                                               |
+| `attempts`            | No       | Cumulative attempt count as of this session                              |
+| `percentage`          | No       | Percentage reached this session (a trailing `%` is accepted)             |
+| `run_from`            | No       | Integer 0-100 (trailing `%` accepted) — use instead of `percentage` for a run-range session |
+| `run_to`              | No       | Integer 0-100 (trailing `%` accepted)                                    |
+| `on_stream`           | No       | TRUE/FALSE                                                               |
+| `fps`                 | No       | Integer                                                                  |
+| `device`              | No       | pc or mobile                                                             |
+| `enjoyment`           | No       | 0-10                                                                     |
+| `notes`               | No       | Text about this session                                                  |
+| `highlight_url`       | No       | URL                                                                      |
+| `visibility`          | No       | public or private (defaults to public)                                  |
+
+\* one of `level_id` / `level_name` required per row.
+
+### Semantics
+
+- **Additive, not one-per-level.** Every row becomes its own progress entry — this tab has no "existing entry per level" concept the way Completions/Dropped do.
+- **Round-trips by `progress_id`.** A row whose `progress_id` matches one of your existing entries (for that same level) updates it in place (merge — only the fields the row provides are written). A blank or non-matching `progress_id` always creates a new entry, so re-importing an unmodified export doesn't duplicate your session history, while hand-added rows (no `progress_id`) always land as new logs.
+- **Never changes a level's completed/dropped status.** Status is established by the Completions/Dropped tabs; historical progress rows are pure session data, so reimporting them can't accidentally un-drop or un-complete a level.
+- A level referenced only in this tab (no completion, no drop) is created as `IN_PROGRESS` — this is the only tab that can produce that state on import.
+
+---
+
 ## Dropped Tab Format
 
 | Column               | Required | Notes                                                     |
@@ -259,9 +294,9 @@ Semantics:
 
 Export produces the **same workbook shape as the import template** (all tabs above + a Field Descriptions tab), so an export is itself a valid import file — export → reimport round-trips.
 
-- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `dropped`, `ranking`, `lists`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
+- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `progress`, `dropped`, `ranking`, `lists`/`collections`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
 - **Formatting is client-side**: dates in the user's `date_format_preference`, ratings on the 0–10 scale (internal `0-100 ÷ 10`, which round-trips through the importer's ≤10 rule), coin bitmask → `coin_1/2/3`, enum casing lowered.
-- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, progress history beyond the single completion, drop metadata on dropped-then-beaten levels, system timestamps, and AREDL references.
+- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, drop metadata on a level later completed (`dropped_at`/`reason`/`attempts_at_drop` survive in the account but aren't re-exported once the level shows up in Completions instead), system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
 
 ---
 

@@ -8,7 +8,7 @@
 // which isn't being mutated concurrently mid-export.
 //
 // What it intentionally does NOT include (out of the import model / user-only):
-// rating category weights + mode, progress history beyond the completion,
+// rating category weights + mode, drop metadata on a level later completed,
 // AREDL references, and system timestamps. See docs/IMPORT_EXPORT.md.
 
 import prisma from '../utils/prisma'
@@ -19,6 +19,10 @@ export const EXPORT_MAX_LIMIT = 1000
 
 const iso = (d: Date | null): string | null =>
   d ? d.toISOString().slice(0, 10) : null
+
+type DecimalLike = { toNumber(): number }
+const toNum = (v: DecimalLike | number | null): number | null =>
+  v === null ? null : typeof v === 'number' ? v : v.toNumber()
 
 // Reserved collection types → the import keyword; custom collections export by name.
 const LIST_KEYWORD: Record<string, string> = {
@@ -104,6 +108,62 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       },
     ]
   })
+}
+
+// Non-completion progress updates — session logs (percentage or run range)
+// short of the eventual completion. Not filtered by LevelProgress.status: a
+// level that's still IN_PROGRESS, was later DROPPED, or was later COMPLETED
+// can all carry these. Multiple rows per level are expected (unlike
+// completions/drops, which are one-per-level).
+async function exportProgress(userId: string, skip: number, take: number) {
+  const updates = await prisma.progressUpdate.findMany({
+    where: { isCompletion: false, levelProgress: { userId } },
+    orderBy: { loggedAt: 'asc' },
+    skip,
+    take,
+    select: {
+      id: true,
+      date: true,
+      dateUncertain: true,
+      attempts: true,
+      percentage: true,
+      runFrom: true,
+      runTo: true,
+      onStream: true,
+      fps: true,
+      enjoyment: true,
+      device: true,
+      notes: true,
+      highlightUrl: true,
+      levelProgress: {
+        select: {
+          levelId: true,
+          visibility: true,
+          level: { select: { name: true, creator: true } },
+        },
+      },
+    },
+  })
+
+  return updates.map((u) => ({
+    progressId: u.id,
+    levelId: u.levelProgress.levelId,
+    levelName: u.levelProgress.level.name,
+    creator: u.levelProgress.level.creator,
+    date: iso(u.date),
+    dateUncertain: u.dateUncertain,
+    attempts: u.attempts,
+    percentage: toNum(u.percentage),
+    runFrom: u.runFrom,
+    runTo: u.runTo,
+    onStream: u.onStream,
+    fps: u.fps,
+    device: u.device,
+    enjoyment: u.enjoyment,
+    notes: u.notes,
+    highlightUrl: u.highlightUrl,
+    visibility: u.levelProgress.visibility,
+  }))
 }
 
 async function exportDropped(userId: string, skip: number, take: number) {
@@ -275,6 +335,7 @@ export async function exportSection(
 
   const fetchers = {
     completions: exportCompletions,
+    progress: exportProgress,
     dropped: exportDropped,
     ranking: exportRanking,
     collections: exportCollections,

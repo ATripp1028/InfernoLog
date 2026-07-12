@@ -36,6 +36,29 @@ export const COMPLETION_HEADERS = [
   'visibility',
 ]
 
+// Progress tab: non-completion session logs. `progress_id` round-trips an
+// exact entry on reimport (auto-filled on export) — leave blank when adding a
+// new session log by hand.
+export const PROGRESS_HEADERS = [
+  'progress_id',
+  'level_id',
+  'level_name',
+  'creator',
+  'date',
+  'date_uncertain',
+  'attempts',
+  'percentage',
+  'run_from',
+  'run_to',
+  'on_stream',
+  'fps',
+  'device',
+  'enjoyment',
+  'notes',
+  'highlight_url',
+  'visibility',
+]
+
 export const DROPPED_HEADERS = [
   'level_id',
   'level_name',
@@ -78,6 +101,26 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   notes: 'EXAMPLE ROW — delete before importing',
   level_notes: '',
   video_url: '',
+  highlight_url: '',
+  visibility: 'public',
+}
+
+const PROGRESS_EXAMPLE: Record<string, string | number | boolean> = {
+  progress_id: '',
+  level_id: '10565740',
+  level_name: 'Bloodbath',
+  creator: 'Riot',
+  date: '11/02/2024',
+  date_uncertain: false,
+  attempts: 1200,
+  percentage: 62,
+  run_from: '',
+  run_to: '',
+  on_stream: false,
+  fps: 360,
+  device: 'pc',
+  enjoyment: '',
+  notes: 'EXAMPLE ROW — delete before importing',
   highlight_url: '',
   visibility: 'public',
 }
@@ -169,6 +212,25 @@ export const FIELD_DESCRIPTIONS = [
   ['Completions', 'highlight_url', 'no', 'Full URL'],
   ['Completions', 'visibility', 'no', 'public or private (per-entry privacy). Defaults to public.'],
   ['', '', '', ''],
+  ['Progress', 'progress_id', 'no', 'Identity for round-tripping this exact entry (auto-filled on export). Leave blank when adding a new session log by hand.'],
+  ['Progress', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
+  ['Progress', 'level_name', 'no*', 'Level name. Required when level_id is blank — matched against the GD servers.'],
+  ['Progress', 'creator', 'no', 'Creator name — narrows name resolution when level_name matches multiple levels.'],
+  ['Progress', 'date', 'no', 'In your selected date format. Unreadable dates are dropped, not the row.'],
+  ['Progress', 'date_uncertain', 'no', 'TRUE or FALSE'],
+  ['Progress', 'attempts', 'no', 'Integer — cumulative attempt count at the time of this session'],
+  ['Progress', 'percentage', 'no', 'Percentage reached this session (0-100). A trailing "%" is fine. Leave blank if logging a run range instead.'],
+  ['Progress', 'run_from', 'no', 'Start of this session’s run segment (0-100). A trailing "%" is fine.'],
+  ['Progress', 'run_to', 'no', 'End of this session’s run segment (0-100). A trailing "%" is fine.'],
+  ['Progress', 'on_stream', 'no', 'TRUE or FALSE'],
+  ['Progress', 'fps', 'no', 'Integer (e.g. 360)'],
+  ['Progress', 'device', 'no', 'pc or mobile'],
+  ['Progress', 'enjoyment', 'no', '0-10 (decimals OK, e.g. 9.5)'],
+  ['Progress', 'notes', 'no', 'Free text about this session (max 2000 chars)'],
+  ['Progress', 'highlight_url', 'no', 'Full URL'],
+  ['Progress', 'visibility', 'no', 'public or private (per-entry privacy). Defaults to public.'],
+  ['Progress', '(note)', '', 'Multiple rows per level are expected — one per logged session. This tab never affects a level’s completed/dropped status.'],
+  ['', '', '', ''],
   ['Dropped', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
   ['Dropped', 'level_name', 'no*', 'Level name. Required when level_id is blank — matched against the GD servers.'],
   ['Dropped', 'creator', 'no', 'Creator name — narrows name resolution when level_name matches multiple levels.'],
@@ -214,6 +276,14 @@ export function downloadTemplate(): void {
   ]
   const completionSheet = XLSX.utils.aoa_to_sheet(completionData)
   XLSX.utils.book_append_sheet(wb, completionSheet, 'Completions')
+
+  // Progress tab: header row + example row
+  const progressData = [
+    PROGRESS_HEADERS,
+    PROGRESS_HEADERS.map((h) => PROGRESS_EXAMPLE[h] ?? ''),
+  ]
+  const progressSheet = XLSX.utils.aoa_to_sheet(progressData)
+  XLSX.utils.book_append_sheet(wb, progressSheet, 'Progress')
 
   // Dropped tab: header row + example row
   const droppedData = [

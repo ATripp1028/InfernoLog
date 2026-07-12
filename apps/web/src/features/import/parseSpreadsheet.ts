@@ -8,6 +8,7 @@
 import * as XLSX from 'xlsx'
 import type {
   ImportCompletionRow,
+  ImportProgressRow,
   ImportDroppedRow,
   DifficultyOpinion,
   Device,
@@ -174,6 +175,12 @@ export interface ParsedDroppedRow {
   flags: ParseFlag[]
 }
 
+export interface ParsedProgressRow {
+  rowIndex: number
+  data: ImportProgressRow
+  flags: ParseFlag[]
+}
+
 export interface ParsedRankingRow {
   rowIndex: number
   levelId: string | null
@@ -207,6 +214,8 @@ export interface ParsedRatingRow {
 
 export interface ParseResult {
   completions: ParsedCompletionRow[]
+  /** Progress tab entries — non-completion session logs, unordered. */
+  progress: ParsedProgressRow[]
   dropped: ParsedDroppedRow[]
   /** Ranking tab entries, ordered hardest → easiest (see parseSpreadsheet). */
   ranking: ParsedRankingRow[]
@@ -374,11 +383,113 @@ function parseCompletionRow(
     visibility,
     levelNotes: toStr(getField(raw, 'level_notes')),
     inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
-    gddlTier: toNum(getField(raw, 'gddl_tier')),
-    nlwTier: toStr(getField(raw, 'nlw_tier')),
+    userGddlTier: toNum(getField(raw, 'gddl_tier')),
     notes: toStr(getField(raw, 'notes')),
     videoUrl: toStr(getField(raw, 'video_url')),
     highlightUrl: toStr(getField(raw, 'highlight_url')),
+  }
+
+  return { rowIndex, data, flags }
+}
+
+// ── Progress tab ───────────────────────────────────────────────────────────
+
+function parseProgressRow(
+  raw: Record<string, unknown>,
+  rowIndex: number,
+  dateFormat: DateFormat
+): ParsedProgressRow {
+  const flags: ParseFlag[] = []
+
+  const levelId = toStr(getField(raw, 'level_id'))
+  const levelName = toStr(getField(raw, 'level_name'))
+  const label = rowLabelFor(levelName, levelId, rowIndex)
+  const pushFlag = (field: string, message: string, severity: 'error' | 'warning') =>
+    flags.push({ rowIndex, rowLabel: label, field, message, severity })
+
+  let validLevelId: string | null = null
+  if (levelId && /^\d+$/.test(levelId)) {
+    validLevelId = levelId
+  } else if (levelId) {
+    if (levelName)
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric — resolving by name instead`, 'warning')
+    else
+      pushFlag('level_id', `level_id "${levelId}" isn't numeric and no level_name given — row cannot be imported`, 'error')
+  } else if (levelName) {
+    pushFlag('level_id', 'No level_id — will be resolved from level_name during import', 'warning')
+  } else {
+    pushFlag('level_id', 'Missing level_id and level_name — row cannot be imported', 'error')
+  }
+
+  const rawDate = getField(raw, 'date')
+  const dateResult = parseDate(rawDate, dateFormat)
+  if (!dateResult.ok) pushFlag('date', `${dateResult.reason} — value dropped`, 'warning')
+
+  const rawAttempts = getField(raw, 'attempts')
+  const attempts = toNum(rawAttempts)
+  if (rawAttempts != null && rawAttempts !== '' && attempts === null)
+    pushFlag('attempts', `attempts "${rawAttempts}" isn't a valid number — value dropped`, 'warning')
+
+  const rawPercentage = getField(raw, 'percentage')
+  const percentage = toPercent(rawPercentage)
+  if (rawPercentage != null && rawPercentage !== '' && percentage === null)
+    pushFlag('percentage', `percentage "${rawPercentage}" isn't a valid number — value dropped`, 'warning')
+  else if (percentage != null && (percentage < 0 || percentage > 100))
+    pushFlag('percentage', `percentage ${percentage} is outside 0-100 — value dropped`, 'warning')
+
+  const rawRunFrom = getField(raw, 'run_from')
+  const rawRunTo = getField(raw, 'run_to')
+  const runFrom = toPercent(rawRunFrom)
+  const runTo = toPercent(rawRunTo)
+  if (rawRunFrom != null && rawRunFrom !== '' && runFrom === null)
+    pushFlag('run_from', `run_from "${rawRunFrom}" isn't a valid number — value dropped`, 'warning')
+  else if (runFrom != null && (runFrom < 0 || runFrom > 100))
+    pushFlag('run_from', `run_from ${runFrom} is outside 0-100 — value dropped`, 'warning')
+  if (rawRunTo != null && rawRunTo !== '' && runTo === null)
+    pushFlag('run_to', `run_to "${rawRunTo}" isn't a valid number — value dropped`, 'warning')
+  else if (runTo != null && (runTo < 0 || runTo > 100))
+    pushFlag('run_to', `run_to ${runTo} is outside 0-100 — value dropped`, 'warning')
+
+  const enjoyment = toNum(getField(raw, 'enjoyment'))
+  if (enjoyment != null && (enjoyment < 0 || enjoyment > 10))
+    pushFlag('enjoyment', `enjoyment ${enjoyment} is outside 0-10 — value dropped`, 'warning')
+
+  const rawDevice = toStr(getField(raw, 'device'))
+  let device: Device | null = null
+  if (rawDevice) {
+    const d = rawDevice.toLowerCase()
+    if (d === 'pc' || d === 'mobile') device = d
+    else pushFlag('device', `unknown device "${rawDevice}" (use pc or mobile) — value dropped`, 'warning')
+  }
+
+  const rawVisibility = toStr(getField(raw, 'visibility'))
+  let visibility: EntryVisibility | null = null
+  if (rawVisibility) {
+    const v = rawVisibility.toLowerCase()
+    if (v === 'public') visibility = 'PUBLIC'
+    else if (v === 'private') visibility = 'PRIVATE'
+    else pushFlag('visibility', `unknown visibility "${rawVisibility}" (use public or private) — value dropped`, 'warning')
+  }
+
+  const data: ImportProgressRow = {
+    progressId: toStr(getField(raw, 'progress_id')),
+    levelId: validLevelId,
+    levelName,
+    creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
+    date: dateResult.ok && dateResult.iso ? dateResult.iso : null,
+    dateUncertain: toBool(getField(raw, 'date_uncertain')),
+    attempts: attempts != null && attempts >= 0 ? Math.round(attempts) : null,
+    percentage: percentage != null && percentage >= 0 && percentage <= 100 ? percentage : null,
+    runFrom: runFrom != null && runFrom >= 0 && runFrom <= 100 ? Math.round(runFrom) : null,
+    runTo: runTo != null && runTo >= 0 && runTo <= 100 ? Math.round(runTo) : null,
+    onStream: toBool(getField(raw, 'on_stream')),
+    fps: toNum(getField(raw, 'fps')) != null ? Math.round(toNum(getField(raw, 'fps'))!) : null,
+    device,
+    enjoyment: enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
+    notes: toStr(getField(raw, 'notes')),
+    highlightUrl: toStr(getField(raw, 'highlight_url')),
+    visibility,
+    inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
   }
 
   return { rowIndex, data, flags }
@@ -624,6 +735,7 @@ export function parseSpreadsheet(
     ]
 
   const completionSheet = findSheet('Completions')
+  const progressSheet = findSheet('Progress')
   const droppedSheet = findSheet('Dropped')
   const rankingSheet = findSheet('Ranking')
   const listsSheet = findSheet('Lists')
@@ -631,6 +743,9 @@ export function parseSpreadsheet(
 
   const rawCompletions: Record<string, unknown>[] = completionSheet
     ? XLSX.utils.sheet_to_json(completionSheet, { defval: null })
+    : []
+  const rawProgress: Record<string, unknown>[] = progressSheet
+    ? XLSX.utils.sheet_to_json(progressSheet, { defval: null })
     : []
   const rawDropped: Record<string, unknown>[] = droppedSheet
     ? XLSX.utils.sheet_to_json(droppedSheet, { defval: null })
@@ -644,6 +759,9 @@ export function parseSpreadsheet(
 
   const completions = rawCompletions.map((r, i) =>
     parseCompletionRow(r as Record<string, unknown>, i, dateFormat)
+  )
+  const progress = rawProgress.map((r, i) =>
+    parseProgressRow(r as Record<string, unknown>, i, dateFormat)
   )
   const dropped = rawDropped.map((r, i) =>
     parseDroppedRow(r as Record<string, unknown>, i, dateFormat)
@@ -709,6 +827,7 @@ export function parseSpreadsheet(
 
   return {
     completions,
+    progress,
     dropped,
     ranking,
     lists,

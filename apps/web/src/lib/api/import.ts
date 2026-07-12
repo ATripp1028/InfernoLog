@@ -59,11 +59,37 @@ export interface ImportCompletionRow {
   visibility?: EntryVisibility | null
   levelNotes?: string | null
   inGameDifficulty?: string | null
-  gddlTier?: number | null
+  userGddlTier?: number | null
   nlwTier?: string | null
   notes?: string | null
   videoUrl?: string | null
   highlightUrl?: string | null
+}
+
+// A non-completion progress log — one logged session for a level, distinct
+// from its (optional) completion. Multiple rows can exist per level.
+// `progressId` is the round-trip identity (populated on export): present +
+// matching an existing entry → updates it in place; otherwise a new entry is
+// created.
+export interface ImportProgressRow {
+  progressId?: string | null
+  levelId?: string | null
+  levelName?: string | null
+  creator?: string | null
+  date?: string | null
+  dateUncertain?: boolean | null
+  attempts?: number | null
+  percentage?: number | null
+  runFrom?: number | null
+  runTo?: number | null
+  onStream?: boolean | null
+  fps?: number | null
+  device?: Device | null
+  enjoyment?: number | null
+  notes?: string | null
+  highlightUrl?: string | null
+  visibility?: EntryVisibility | null
+  inGameDifficulty?: string | null
 }
 
 export interface ImportDroppedRow {
@@ -94,7 +120,16 @@ export interface ImportCommitDroppedRow {
   data: ImportDroppedRow
 }
 
-export type ImportCommitRow = ImportCommitCompletionRow | ImportCommitDroppedRow
+export interface ImportCommitProgressRow {
+  type: 'progress'
+  rowIndex: number
+  data: ImportProgressRow
+}
+
+export type ImportCommitRow =
+  | ImportCommitCompletionRow
+  | ImportCommitDroppedRow
+  | ImportCommitProgressRow
 
 export interface ImportCommitOutcome {
   rowIndex: number
@@ -217,14 +252,34 @@ export interface ExportCompletion {
   visibility: string
   notes: string | null
   levelNotes: string | null
-  gddlTier: string | null
-  nlwTier: string | null
+  userGddlTier: number | null
   videoUrl: string | null
   highlightUrl: string | null
 }
 
+export interface ExportProgress {
+  progressId: string
+  levelId: string
+  levelName: string | null
+  creator: string | null
+  date: string | null
+  dateUncertain: boolean
+  attempts: number | null
+  percentage: number | null
+  runFrom: number | null
+  runTo: number | null
+  onStream: boolean
+  fps: number | null
+  device: string | null
+  enjoyment: number | null
+  notes: string | null
+  highlightUrl: string | null
+  visibility: string
+}
+
 export interface ExportResponse {
   completions: ExportCompletion[]
+  progress: ExportProgress[]
   dropped: {
     levelId: string
     levelName: string | null
@@ -304,17 +359,26 @@ export function useImportApi() {
       }
       return items
     }
-    const [completions, dropped, ranking, collections, ratings, categories] =
-      await Promise.all([
-        fetchAll('completions'),
-        fetchAll('dropped'),
-        fetchAll('ranking'),
-        fetchAll('collections'),
-        fetchAll('ratings'),
-        fetchAll('categories'),
-      ])
+    const [
+      completions,
+      progress,
+      dropped,
+      ranking,
+      collections,
+      ratings,
+      categories,
+    ] = await Promise.all([
+      fetchAll('completions'),
+      fetchAll('progress'),
+      fetchAll('dropped'),
+      fetchAll('ranking'),
+      fetchAll('collections'),
+      fetchAll('ratings'),
+      fetchAll('categories'),
+    ])
     return {
       completions: completions as ExportResponse['completions'],
+      progress: progress as ExportResponse['progress'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
       collections: collections as ExportResponse['collections'],

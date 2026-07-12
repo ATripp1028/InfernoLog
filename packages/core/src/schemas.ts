@@ -832,6 +832,34 @@ export const ImportCompletionRowSchema = z.object({
   highlightUrl: z.string().url().nullable().optional(),
 })
 
+// A non-completion progress update — one logged session for a level that
+// isn't (yet) the completion. Multiple rows can exist per level, unlike
+// Completions/Dropped which are one-per-level. `progressId` is the round-trip
+// identity (the ProgressUpdate.id, populated on export): present + matching →
+// updates that entry in place; absent or unmatched → a new entry is created.
+export const ImportProgressRowSchema = z.object({
+  progressId: z.string().uuid().nullable().optional(),
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  date: z.string().nullable().optional(),
+  dateUncertain: z.boolean().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  percentage: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  onStream: z.boolean().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  device: z.nativeEnum(Device).nullable().optional(),
+  // 0-10 display scale (server converts to 0-100 on write).
+  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+  visibility: z.nativeEnum(EntryVisibility).nullable().optional(),
+  // Only used to disambiguate name resolution when levelId is absent.
+  inGameDifficulty: z.string().nullable().optional(),
+})
+
 export const ImportDroppedRowSchema = z.object({
   // levelId is optional — if omitted, the server resolves from levelName + creator.
   levelId: LevelIdSchema.nullable().optional(),
@@ -889,6 +917,11 @@ export const ImportCommitRowSchema = z.discriminatedUnion('type', [
     type: z.literal('dropped'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportDroppedRowSchema,
+  }),
+  z.object({
+    type: z.literal('progress'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportProgressRowSchema,
   }),
 ])
 
@@ -1084,6 +1117,26 @@ export const ExportCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
 })
 
+export const ExportProgressSchema = z.object({
+  progressId: z.string(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  date: z.string().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  percentage: z.number().nullable(), // 0-100, may carry decimals
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  onStream: z.boolean(),
+  fps: z.number().int().nullable(),
+  device: z.string().nullable(),
+  enjoyment: z.number().int().nullable(), // 0-100 internal
+  notes: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+  visibility: z.string(),
+})
+
 export const ExportDroppedSchema = z.object({
   levelId: z.string(),
   levelName: z.string().nullable(),
@@ -1119,6 +1172,7 @@ export const ExportRatingSchema = z.object({
 
 export const ExportResponseSchema = z.object({
   completions: z.array(ExportCompletionSchema),
+  progress: z.array(ExportProgressSchema),
   dropped: z.array(ExportDroppedSchema),
   ranking: z.array(ExportRankingSchema),
   // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
@@ -1132,6 +1186,7 @@ export const ExportResponseSchema = z.object({
 // client stitches the sections back into an ExportResponse.
 export const EXPORT_SECTIONS = [
   'completions',
+  'progress',
   'dropped',
   'ranking',
   'collections',
@@ -1146,6 +1201,7 @@ export const ExportPageResponseSchema = z.object({
 })
 
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
+export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
@@ -1171,6 +1227,7 @@ export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
 export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
 export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
 export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
+export type ExportProgress = z.infer<typeof ExportProgressSchema>
 export type ExportDropped = z.infer<typeof ExportDroppedSchema>
 export type ExportRanking = z.infer<typeof ExportRankingSchema>
 export type ExportCollection = z.infer<typeof ExportCollectionSchema>

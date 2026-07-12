@@ -9,6 +9,7 @@ import type { ExportResponse } from '@/lib/api/import'
 import type { DateFormat } from './parseSpreadsheet'
 import {
   COMPLETION_HEADERS,
+  PROGRESS_HEADERS,
   DROPPED_HEADERS,
   RANKING_HEADERS,
   LIST_HEADERS,
@@ -71,13 +72,40 @@ function completionRecord(
     two_player_solo: c.twoPlayerSolo ?? '',
     two_player_partner: c.twoPlayerPartner ?? '',
     in_game_difficulty: c.inGameDifficulty ?? '',
-    gddl_tier: c.gddlTier ?? '',
-    nlw_tier: c.nlwTier ?? '',
+    gddl_tier: c.userGddlTier ?? '',
+    // nlw_tier has no backing data yet (no NLW integration) — always blank on
+    // export. See docs/IMPORT_EXPORT.md.
+    nlw_tier: '',
     notes: c.notes ?? '',
     level_notes: c.levelNotes ?? '',
     video_url: c.videoUrl ?? '',
     highlight_url: c.highlightUrl ?? '',
     visibility: c.visibility ? c.visibility.toLowerCase() : '',
+  }
+}
+
+function progressRecord(
+  p: ExportResponse['progress'][number],
+  fmt: DateFormat
+): Record<string, Cell> {
+  return {
+    progress_id: p.progressId,
+    level_id: p.levelId,
+    level_name: p.levelName ?? '',
+    creator: p.creator ?? '',
+    date: formatDate(p.date, fmt),
+    date_uncertain: p.dateUncertain,
+    attempts: p.attempts ?? '',
+    percentage: p.percentage ?? '',
+    run_from: p.runFrom ?? '',
+    run_to: p.runTo ?? '',
+    on_stream: p.onStream,
+    fps: p.fps ?? '',
+    device: p.device ?? '',
+    enjoyment: toTenScale(p.enjoyment),
+    notes: p.notes ?? '',
+    highlight_url: p.highlightUrl ?? '',
+    visibility: p.visibility ? p.visibility.toLowerCase() : '',
   }
 }
 
@@ -117,6 +145,14 @@ export function downloadExport(
     wb,
     XLSX.utils.aoa_to_sheet(rows(COMPLETION_HEADERS, completionRecords)),
     'Completions'
+  )
+
+  // Progress (non-completion session logs)
+  const progressRecords = data.progress.map((p) => progressRecord(p, dateFormat))
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(rows(PROGRESS_HEADERS, progressRecords)),
+    'Progress'
   )
 
   // Dropped
