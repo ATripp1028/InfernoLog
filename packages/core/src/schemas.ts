@@ -162,6 +162,9 @@ export const UpdateMeSchema = z
         { message: 'Must be a number between 0 and 1' }
       )
       .optional(),
+    // Not a column — the handler strips this and stamps legalAcceptedAt when true.
+    acceptLegal: z.literal(true).optional(),
+    onboardingCompleted: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
 
@@ -1000,6 +1003,51 @@ export const ImportRatingsResponseSchema = z.object({
   skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
 })
 
+// ── Background import job (start + status) ─────────────────────────────────
+//
+// POST /v1/me/import/start persists the whole validated dataset in one shot
+// (row batches + the optional ranking/collections/ratings tabs) and returns
+// immediately; a worker Lambda processes it in the background. GET
+// /v1/me/import/status is polled for live progress and, once complete, the
+// same outcome/flagged-row data the old synchronous response returned.
+
+export const ImportStartRequestSchema = z.object({
+  rows: z.array(ImportCommitRowSchema).min(1).max(20000),
+  ranking: z.array(ImportRankingEntrySchema).optional(),
+  collections: z.array(ImportCollectionEntrySchema).optional(),
+  ratings: z.array(ImportRatingEntrySchema).optional(),
+})
+
+export const ImportStartResponseSchema = z.object({
+  jobId: z.string().uuid(),
+})
+
+export const ImportFlaggedRowSchema = z.object({
+  id: z.string(),
+  rowIndex: z.number().int(),
+  levelName: z.string().nullable(),
+  identifier: z.string().nullable(),
+  issueMessage: z.string(),
+  resolved: z.boolean(),
+})
+
+export const ImportStatusResponseSchema = z.object({
+  status: z.enum(['running', 'completed', 'failed']),
+  totalRows: z.number().int(),
+  processedRows: z.number().int(),
+  error: z.string().nullable(),
+  outcomeCounts: z.object({
+    committed: z.number().int(),
+    updated: z.number().int(),
+    skipped: z.number().int(),
+    failed: z.number().int(),
+  }),
+  flaggedRows: z.array(ImportFlaggedRowSchema),
+  rankingResult: ImportRankingResponseSchema.nullable(),
+  collectionsResult: ImportCollectionsResponseSchema.nullable(),
+  ratingsResult: ImportRatingsResponseSchema.nullable(),
+})
+
 // ── Export ─────────────────────────────────────────────────────────────────
 //
 // GET /v1/me/export returns the account's data in a faithful domain form; the
@@ -1118,6 +1166,10 @@ export type ImportCollectionsResponse = z.infer<
 export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
 export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
 export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
+export type ImportStartRequest = z.infer<typeof ImportStartRequestSchema>
+export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
+export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
+export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
 export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
 export type ExportDropped = z.infer<typeof ExportDroppedSchema>
 export type ExportRanking = z.infer<typeof ExportRankingSchema>

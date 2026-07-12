@@ -41,6 +41,7 @@ export interface MeData {
   gddlUsername: string | null
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
+  legalAcceptedAt: string | null
   isVerified: boolean
   createdAt: string
 }
@@ -256,6 +257,8 @@ export interface UpdateMeInput {
   ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean
   enjoymentWeight?: number
+  acceptLegal?: true
+  onboardingCompleted?: boolean
 }
 
 // Rapid-fire mutations (toggles, selects, drag reorders) need three things to

@@ -1,28 +1,39 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 import { PageLoading } from '@/components/PageLoading'
 import { meQueryKey, useMe, type MeData } from '@/lib/api/me'
+import { useImportStatus } from '@/lib/api/import'
 import { AccountSection } from '@/features/settings/sections/AccountSection'
 import { PrivacySection } from '@/features/settings/sections/PrivacySection'
 import { LoggingSection } from '@/features/settings/sections/LoggingSection'
 import { RatingSection } from '@/features/settings/sections/RatingSection'
 import { DesignSection } from '@/features/settings/sections/DesignSection'
 import { useSettingsSaveNotifier } from '@/features/settings/hooks/useSettingsSaveNotifier'
+import { ImportStatusPanel } from '@/features/import/ImportStatusPanel'
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
 
 export function Settings() {
   // One "Saved" toast per burst of mutations — see the hook for details.
   useSettingsSaveNotifier()
 
   const me = useMe()
+  const importStatus = useImportStatus()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
     discordId?: string
     reason?: string
+    importStatus?: true
   }
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [importStatusOpen, setImportStatusOpen] = useState(false)
 
   useEffect(() => {
     if (!search.discord) return
@@ -40,6 +51,12 @@ export function Settings() {
     }
     void navigate({ to: '/settings', replace: true, search: {} })
   }, [search.discord, search.discordId, search.reason, navigate, queryClient])
+
+  useEffect(() => {
+    if (!search.importStatus) return
+    setImportStatusOpen(true)
+    void navigate({ to: '/settings', replace: true, search: {} })
+  }, [search.importStatus, navigate])
 
   if (!me.data) {
     return <PageLoading />
@@ -59,6 +76,33 @@ export function Settings() {
       <LoggingSection me={me.data} />
       <RatingSection me={me.data} />
       <DesignSection />
+
+      <Sheet open={importStatusOpen} onOpenChange={setImportStatusOpen}>
+        <SheetContent
+          side="right"
+          className="w-[480px] max-w-[95vw] overflow-y-auto p-6"
+          aria-describedby="import-status-desc"
+        >
+          <SheetTitle>Import status</SheetTitle>
+          <SheetDescription id="import-status-desc" className="sr-only">
+            Current spreadsheet import job progress and flagged rows.
+          </SheetDescription>
+          {importStatus.data ? (
+            <div className="mt-4 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                {importStatus.data.status === 'running'
+                  ? `Importing… ${importStatus.data.processedRows}/${importStatus.data.totalRows} rows`
+                  : `Import complete — ${importStatus.data.outcomeCounts.committed} imported, ${importStatus.data.outcomeCounts.updated} updated, ${importStatus.data.outcomeCounts.skipped} skipped, ${importStatus.data.outcomeCounts.failed} failed`}
+              </p>
+              <ImportStatusPanel status={importStatus.data} />
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-muted-foreground">
+              No import is currently in progress.
+            </p>
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

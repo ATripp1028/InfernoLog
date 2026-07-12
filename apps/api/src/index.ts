@@ -13,6 +13,7 @@ import presetsRoutes from './routes/presets'
 import gddlRecordsRoutes from './routes/gddlRecords'
 import importRoutes from './routes/import'
 import authRoutes from './routes/auth'
+import authOnboardingRoutes from './routes/authOnboarding'
 import type { HonoVariables } from './types/hono'
 import prisma from './utils/prisma'
 
@@ -37,6 +38,10 @@ app.get('/v1/users/check-username', async (c) => {
   })
   return c.json({ available: !existing })
 })
+
+// Claims-only routes (verified Cognito identity, no User row required) —
+// registered before authMiddleware so they never hit its Prisma-lookup-or-404.
+app.route('/v1', authOnboardingRoutes)
 
 // Authenticated routes
 app.use('/v1/*', authMiddleware)

@@ -24,7 +24,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { ImportWizard } from '@/features/import/ImportWizard'
-import { useImportApi } from '@/lib/api/import'
+import { useImportApi, useImportStatus } from '@/lib/api/import'
 import { downloadExport } from '@/features/import/generateExport'
 
 interface LoggingSectionProps {
@@ -42,10 +42,12 @@ const DATE_OPTIONS: { value: DateFormatPreference; label: string }[] = [
 // @infernolog/core's UpdateMeSchema.
 const MIN_FPS = 60
 
-export function LoggingSection({ me }: LoggingSectionProps) {
+// The four logging-preference rows (date format / % version / FPS / highlight
+// toggle) — extracted so the onboarding wizard's Logging step can reuse them
+// exactly, without Settings-only rows (Import/Export) that don't belong there
+// (Import is its own onboarding step; Export doesn't apply pre-onboarding).
+export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
-  const [importOpen, setImportOpen] = useState(false)
-  const { getExport } = useImportApi()
 
   const handleToggle = async (field: 'showHighlightUrl', next: boolean) => {
     try {
@@ -97,6 +99,88 @@ export function LoggingSection({ me }: LoggingSectionProps) {
     }
   }
 
+  return (
+    <>
+      <SettingRow
+        label="Date format"
+        description="Used when displaying dates throughout the app and as the default format when importing spreadsheets."
+        control={
+          <Select
+            value={me.dateFormatPreference}
+            onValueChange={(v) => void handleChange(v)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DATE_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      />
+      <SettingRow
+        label="Default % version"
+        description="Which GD version's percentage system to pre-select when logging. 2.1 uses distance to the endwall; 2.2 uses time relative to the verification attempt."
+        control={
+          <Select
+            value={me.defaultPercentageVersion}
+            onValueChange={(v) =>
+              void handlePercentageVersionChange(v as GdVersion)
+            }
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="TWO_TWO">2.2 (time-based)</SelectItem>
+              <SelectItem value="TWO_ONE">2.1 (distance-based)</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
+      <SettingRow
+        label="Default FPS"
+        description="Pre-filled into the Log Level form. Must be at least 60."
+        control={
+          <Input
+            type="number"
+            inputMode="numeric"
+            min={MIN_FPS}
+            step={1}
+            className="w-44"
+            aria-label="Default FPS"
+            value={fpsDraft}
+            onChange={(e) => setFpsDraft(e.target.value)}
+            onBlur={() => void commitFps()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') e.currentTarget.blur()
+            }}
+          />
+        }
+      />
+      <SettingRow
+        label="Show Highlight URL field"
+        description="Adds a Highlight URL field to the logging and edit workflows. Useful for content creators who maintain highlight reels."
+        control={
+          <Switch
+            checked={me.showHighlightUrl}
+            onCheckedChange={(v) => void handleToggle('showHighlightUrl', v)}
+          />
+        }
+      />
+    </>
+  )
+}
+
+export function LoggingSection({ me }: LoggingSectionProps) {
+  const [importOpen, setImportOpen] = useState(false)
+  const { getExport } = useImportApi()
+  const importStatus = useImportStatus()
+
   const handleExport = async () => {
     try {
       const exportData = await getExport()
@@ -105,6 +189,15 @@ export function LoggingSection({ me }: LoggingSectionProps) {
       toast.error(err instanceof Error ? err.message : 'Failed to export')
     }
   }
+
+  const job = importStatus.data
+  const hasUnresolvedFlag = job?.flaggedRows.some((r) => !r.resolved) ?? false
+  const importStatusLine =
+    job?.status === 'running'
+      ? `Importing… ${job.processedRows}/${job.totalRows} rows`
+      : job?.status === 'completed' && hasUnresolvedFlag
+        ? `${job.flaggedRows.filter((r) => !r.resolved).length} row${job.flaggedRows.filter((r) => !r.resolved).length !== 1 ? 's' : ''} need review`
+        : null
 
   return (
     <>
@@ -124,80 +217,20 @@ export function LoggingSection({ me }: LoggingSectionProps) {
       </Sheet>
 
       <SettingsSection title="Logging">
-        <SettingRow
-          label="Date format"
-          description="Used when displaying dates throughout the app and as the default format when importing spreadsheets."
-          control={
-            <Select
-              value={me.dateFormatPreference}
-              onValueChange={(v) => void handleChange(v)}
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DATE_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingRow
-          label="Default % version"
-          description="Which GD version's percentage system to pre-select when logging. 2.1 uses distance to the endwall; 2.2 uses time relative to the verification attempt."
-          control={
-            <Select
-              value={me.defaultPercentageVersion}
-              onValueChange={(v) =>
-                void handlePercentageVersionChange(v as GdVersion)
-              }
-            >
-              <SelectTrigger className="w-44">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="TWO_TWO">2.2 (time-based)</SelectItem>
-                <SelectItem value="TWO_ONE">2.1 (distance-based)</SelectItem>
-              </SelectContent>
-            </Select>
-          }
-        />
-        <SettingRow
-          label="Default FPS"
-          description="Pre-filled into the Log Level form. Must be at least 60."
-          control={
-            <Input
-              type="number"
-              inputMode="numeric"
-              min={MIN_FPS}
-              step={1}
-              className="w-44"
-              aria-label="Default FPS"
-              value={fpsDraft}
-              onChange={(e) => setFpsDraft(e.target.value)}
-              onBlur={() => void commitFps()}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-            />
-          }
-        />
-        <SettingRow
-          label="Show Highlight URL field"
-          description="Adds a Highlight URL field to the logging and edit workflows. Useful for content creators who maintain highlight reels."
-          control={
-            <Switch
-              checked={me.showHighlightUrl}
-              onCheckedChange={(v) => void handleToggle('showHighlightUrl', v)}
-            />
-          }
-        />
+        <LoggingPreferencesFields me={me} />
         <SettingRow
           label="Import from spreadsheet"
-          description="Bring your existing completion history into InfernoLog from an xlsx spreadsheet."
+          description={
+            <>
+              Bring your existing completion history into InfernoLog from an
+              xlsx spreadsheet.
+              {importStatusLine && (
+                <span className="mt-1 block font-medium text-amber-600 dark:text-amber-400">
+                  {importStatusLine}
+                </span>
+              )}
+            </>
+          }
           control={
             <Button
               variant="outline"

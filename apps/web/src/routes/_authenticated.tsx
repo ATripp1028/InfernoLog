@@ -9,6 +9,7 @@ import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 import { toast } from '@/components/ui/sonner'
 import { rankingQueryKey } from '@/lib/api/ranking'
 import { collectionsQueryKey } from '@/lib/api/collections'
+import { ImportStatusToast } from '@/features/import/ImportStatusToast'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -61,6 +62,7 @@ function AuthenticatedLayout() {
   return (
     <LoggingFlowProvider>
       <ReorderSyncWatcher />
+      <ImportStatusToast />
       <Shell>
         <Outlet />
       </Shell>

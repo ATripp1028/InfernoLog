@@ -15,10 +15,17 @@ const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000
 
 interface UsernameEditorProps {
   me: MeData
+  // Onboarding opens straight into the input (the seeded placeholder
+  // username needs changing immediately) instead of Settings' collapsed
+  // read-only view behind an Edit button.
+  startInEditing?: boolean
+  // Called after a successful save — lets the onboarding wizard advance to
+  // its next step. Settings' usage simply ignores it.
+  onSaved?: () => void
 }
 
-export function UsernameEditor({ me }: UsernameEditorProps) {
-  const [editing, setEditing] = useState(false)
+export function UsernameEditor({ me, startInEditing, onSaved }: UsernameEditorProps) {
+  const [editing, setEditing] = useState(startInEditing ?? false)
   const [value, setValue] = useState(me.username)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [availabilityError, setAvailabilityError] = useState<string | null>(
@@ -74,6 +81,7 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
     try {
       await update.mutateAsync(value)
       setEditing(false)
+      onSaved?.()
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         const body = err.body as { nextAllowedAt?: string } | null

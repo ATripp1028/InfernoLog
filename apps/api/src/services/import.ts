@@ -543,30 +543,21 @@ function planDrop(
 }
 
 // ── Main commit function ───────────────────────────────────────────────────
+//
+// Processes one batch of a background ImportJob's rows. Rows are pre-inserted
+// as ImportJobRow("pending") by POST /v1/me/import/start; this function is
+// called by the worker Lambda (importWorker.ts) with the next up-to-50
+// pending rows fetched from the DB, and writes each row's final outcome back
+// in place (update, not create) — there is no separate idempotency table
+// anymore, since only the worker (never the client) drives this.
 
-export async function commitImportBatch(
+export async function processImportJobBatch(
   userId: string,
   importJobId: string,
-  rows: ImportCommitRow[]
+  pendingRows: { id: string; rowIndex: number; rawData: ImportCommitRow }[]
 ): Promise<ImportCommitResponse> {
-  await prisma.importJob.upsert({
-    where: { id: importJobId },
-    create: { id: importJobId, userId },
-    update: {},
-  })
-
-  const existingRows = await prisma.importJobRow.findMany({
-    where: {
-      jobId: importJobId,
-      rowIndex: { in: rows.map((r) => r.rowIndex) },
-    },
-  })
-  const processed = new Map(
-    existingRows.map((r) => [
-      r.rowIndex,
-      { status: r.status, reason: r.reason },
-    ])
-  )
+  const rows = pendingRows.map((r) => r.rawData)
+  const rowDbId = new Map(pendingRows.map((r) => [r.rowIndex, r.id]))
 
   // ── Pre-resolve name-only rows (outside the transaction) ──────────────
   // Resolving via RobTop involves network I/O that must not hold a DB
@@ -575,9 +566,7 @@ export async function commitImportBatch(
   const resolvedRobtopData = new Map<string, RobtopLevel>() // levelId → full data
   const resolutionFailures = new Map<number, string>() // rowIndex → reason
 
-  const nameOnlyRows = rows.filter(
-    (r) => !processed.has(r.rowIndex) && !r.data.levelId && r.data.levelName
-  )
+  const nameOnlyRows = rows.filter((r) => !r.data.levelId && r.data.levelName)
   for (const row of nameOnlyRows) {
     // Both tabs carry in_game_difficulty purely to disambiguate name resolution.
     const result = await resolveByName(
@@ -605,10 +594,7 @@ export async function commitImportBatch(
   // ── Pre-fetch GDDL tiers in parallel (outside the transaction) ────────
   const gddlTierCache = new Map<string, number | null>()
   const completionRows = rows.filter(
-    (r) =>
-      r.type === 'completion' &&
-      !processed.has(r.rowIndex) &&
-      !r.data.userGddlTier
+    (r) => r.type === 'completion' && !r.data.userGddlTier
   )
   const idsNeedingGddl = [
     ...new Set(
@@ -675,11 +661,12 @@ export async function commitImportBatch(
   }
 
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
-  const outcomes: ImportCommitResponse['outcomes'] = []
-  const newOutcomes: {
+  const results: {
     rowIndex: number
-    status: string
+    status: 'committed' | 'updated' | 'skipped' | 'failed'
     reason: string | null
+    levelName: string | null
+    identifier: string | null
   }[] = []
   const writes = newBatchWrites()
   const lpPlans = new Map<string, LpPlan>()
@@ -702,8 +689,7 @@ export async function commitImportBatch(
   const lastCompletion = new Map<string, number>()
   const lastDrop = new Map<string, number>()
   for (const row of rows) {
-    if (processed.has(row.rowIndex) || resolutionFailures.has(row.rowIndex))
-      continue
+    if (resolutionFailures.has(row.rowIndex)) continue
     const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!id) continue
     if (row.type === 'completion') lastCompletion.set(id, row.rowIndex)
@@ -711,28 +697,15 @@ export async function commitImportBatch(
   }
 
   for (const row of rows) {
-    const prior = processed.get(row.rowIndex)
-    if (prior) {
-      outcomes.push({
-        rowIndex: row.rowIndex,
-        status: prior.status as 'committed' | 'updated' | 'skipped' | 'failed',
-        reason: prior.reason ?? undefined,
-      })
-      continue
-    }
-
     // Resolution failure for name-only rows.
     const failureReason = resolutionFailures.get(row.rowIndex)
     if (failureReason) {
-      outcomes.push({
+      results.push({
         rowIndex: row.rowIndex,
         status: 'failed',
         reason: failureReason,
-      })
-      newOutcomes.push({
-        rowIndex: row.rowIndex,
-        status: 'failed',
-        reason: failureReason,
+        levelName: row.data.levelName ?? null,
+        identifier: row.data.levelId ?? null,
       })
       continue
     }
@@ -740,8 +713,13 @@ export async function commitImportBatch(
     const effectiveLevelId = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!effectiveLevelId) {
       const reason = 'No level_id or level_name provided'
-      outcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason })
-      newOutcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason })
+      results.push({
+        rowIndex: row.rowIndex,
+        status: 'failed',
+        reason,
+        levelName: row.data.levelName ?? null,
+        identifier: null,
+      })
       continue
     }
 
@@ -752,8 +730,13 @@ export async function commitImportBatch(
     if (lastForLevel !== row.rowIndex) {
       const reason =
         'Superseded by a later row for the same level in this import'
-      outcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
-      newOutcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
+      results.push({
+        rowIndex: row.rowIndex,
+        status: 'skipped',
+        reason,
+        levelName: row.data.levelName ?? null,
+        identifier: effectiveLevelId,
+      })
       continue
     }
 
@@ -792,11 +775,12 @@ export async function commitImportBatch(
       reason = 'Existing completion kept — choose Overwrite to replace it'
     }
 
-    outcomes.push({ rowIndex: row.rowIndex, status: outcomeStatus!, reason })
-    newOutcomes.push({
+    results.push({
       rowIndex: row.rowIndex,
       status: outcomeStatus!,
       reason: reason ?? null,
+      levelName: row.data.levelName ?? null,
+      identifier: effectiveLevelId,
     })
   }
 
@@ -890,17 +874,28 @@ export async function commitImportBatch(
       // Auto-removal: a level with a fresh completion leaves Want to Beat.
       await removeFromWantToBeat(tx, userId, [...completedLevelIds])
 
-      if (newOutcomes.length) {
-        await tx.importJobRow.createMany({
-          data: newOutcomes.map((o) => ({
-            jobId: importJobId,
-            rowIndex: o.rowIndex,
-            status: o.status,
-            reason: o.reason ?? null,
-          })),
-          skipDuplicates: true,
+      // Rows are updated in place (not created) — they were already inserted
+      // as "pending" by POST /v1/me/import/start. issueMessage is only set for
+      // skipped/failed rows: that's the "flagged" set the review UI surfaces.
+      for (const r of results) {
+        const id = rowDbId.get(r.rowIndex)
+        if (!id) continue
+        await tx.importJobRow.update({
+          where: { id },
+          data: {
+            status: r.status,
+            issueMessage:
+              r.status === 'skipped' || r.status === 'failed' ? r.reason : null,
+            levelName: r.levelName,
+            identifier: r.identifier,
+          },
         })
       }
+
+      await tx.importJob.update({
+        where: { id: importJobId },
+        data: { processedRows: { increment: results.length } },
+      })
     },
     {
       // The transaction now issues only batched writes (a handful of createMany /
@@ -924,7 +919,49 @@ export async function commitImportBatch(
     }
   }
 
-  return { outcomes }
+  return {
+    outcomes: results.map((r) => ({
+      rowIndex: r.rowIndex,
+      status: r.status,
+      reason: r.reason ?? undefined,
+    })),
+  }
+}
+
+// Synchronous single-shot commit helper: creates the job, inserts its rows as
+// "pending", and processes them in one call via processImportJobBatch. This is
+// what the background worker's per-batch loop reduces to for a small,
+// single-batch import — used directly by tests (and any other in-process
+// caller) that want the full plan/write logic without going through
+// POST /v1/me/import/start + an async Lambda invoke.
+export async function commitImportBatch(
+  userId: string,
+  importJobId: string,
+  rows: ImportCommitRow[]
+): Promise<ImportCommitResponse> {
+  await prisma.importJob.deleteMany({ where: { userId } })
+  await prisma.importJob.create({
+    data: { id: importJobId, userId, status: 'running', totalRows: rows.length },
+  })
+
+  const pending = rows.map((r) => ({
+    id: randomUUID(),
+    rowIndex: r.rowIndex,
+    rawData: r,
+  }))
+  await prisma.importJobRow.createMany({
+    data: pending.map((p) => ({
+      id: p.id,
+      jobId: importJobId,
+      rowIndex: p.rowIndex,
+      rawData: p.rawData as unknown as Prisma.InputJsonValue,
+      status: 'pending',
+      levelName: p.rawData.data.levelName ?? null,
+      identifier: p.rawData.data.levelId ?? null,
+    })),
+  })
+
+  return processImportJobBatch(userId, importJobId, pending)
 }
 
 // ── Check function ─────────────────────────────────────────────────────────

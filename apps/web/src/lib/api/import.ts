@@ -1,9 +1,13 @@
-// Import API client — wraps POST /v1/me/import/check and POST /v1/me/import.
-// Types are mirrored from @infernolog/core (web pins zod@3, core is on zod@4).
+// Import API client — background job model: POST /v1/me/import/start
+// persists the dataset and kicks off a worker; GET /v1/me/import/status is
+// polled for live progress, flagged rows, and (once done) the outcome
+// summary. Types are mirrored from @infernolog/core (web pins zod@3, core is
+// on zod@4).
 
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
 import { useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -92,19 +96,10 @@ export interface ImportCommitDroppedRow {
 
 export type ImportCommitRow = ImportCommitCompletionRow | ImportCommitDroppedRow
 
-export interface ImportCommitRequest {
-  importJobId: string
-  rows: ImportCommitRow[]
-}
-
 export interface ImportCommitOutcome {
   rowIndex: number
   status: 'committed' | 'updated' | 'skipped' | 'failed'
   reason?: string
-}
-
-export interface ImportCommitResponse {
-  outcomes: ImportCommitOutcome[]
 }
 
 export interface ImportRankingEntry {
@@ -159,6 +154,43 @@ export interface ImportRatingsResponse {
   levels: number
   categoriesCreated: string[]
   skipped: { label: string; reason: string }[]
+}
+
+export interface ImportStartRequest {
+  rows: ImportCommitRow[]
+  ranking?: ImportRankingEntry[]
+  collections?: ImportCollectionEntry[]
+  ratings?: ImportRatingEntry[]
+}
+
+export interface ImportStartResponse {
+  jobId: string
+}
+
+export interface ImportFlaggedRow {
+  id: string
+  rowIndex: number
+  levelName: string | null
+  identifier: string | null
+  issueMessage: string
+  resolved: boolean
+}
+
+export interface ImportStatusResponse {
+  status: 'running' | 'completed' | 'failed'
+  totalRows: number
+  processedRows: number
+  error: string | null
+  outcomeCounts: {
+    committed: number
+    updated: number
+    skipped: number
+    failed: number
+  }
+  flaggedRows: ImportFlaggedRow[]
+  rankingResult: ImportRankingResponse | null
+  collectionsResult: ImportCollectionsResponse | null
+  ratingsResult: ImportRatingsResponse | null
 }
 
 export interface ExportCompletion {
@@ -237,48 +269,13 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  const commitBatch = useCallback(
-    async (req: ImportCommitRequest): Promise<ImportCommitResponse> => {
+  // Persists the full validated dataset (rows + optional ranking/collections/
+  // ratings tabs) and kicks off the background worker. The caller then reads
+  // progress via useImportStatus() rather than awaiting a result here.
+  const startImport = useCallback(
+    async (req: ImportStartRequest): Promise<ImportStartResponse> => {
       const token = await getIdToken()
-      return apiFetch<ImportCommitResponse>('/v1/me/import', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitRanking = useCallback(
-    async (req: ImportRankingRequest): Promise<ImportRankingResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportRankingResponse>('/v1/me/import/ranking', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitCollections = useCallback(
-    async (
-      req: ImportCollectionsRequest
-    ): Promise<ImportCollectionsResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportCollectionsResponse>('/v1/me/import/collections', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitRatings = useCallback(
-    async (req: ImportRatingsRequest): Promise<ImportRatingsResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportRatingsResponse>('/v1/me/import/ratings', {
+      return apiFetch<ImportStartResponse>('/v1/me/import/start', {
         method: 'POST',
         token,
         body: req,
@@ -328,10 +325,65 @@ export function useImportApi() {
 
   return {
     checkConflicts,
-    commitBatch,
-    commitRanking,
-    commitCollections,
-    commitRatings,
+    startImport,
     getExport,
   }
+}
+
+// ── Background job status (shared app-wide) ────────────────────────────────
+
+export const importStatusQueryKey = ['import-status'] as const
+
+// Always enabled (not keyed by a jobId prop) so it can be mounted app-wide —
+// on login/reload it discovers whether a job is still active, per the
+// persistent-status requirement (toast/Settings must reappear if so). Polls
+// every 2s while running; a `null` result means no current job.
+export function useImportStatus() {
+  const { isAuthenticated, getIdToken } = useAuth()
+  return useQuery({
+    queryKey: importStatusQueryKey,
+    enabled: isAuthenticated,
+    queryFn: async (): Promise<ImportStatusResponse | null> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: ImportStatusResponse | null }>(
+        '/v1/me/import/status',
+        { token, method: 'GET' }
+      )
+      return data
+    },
+    refetchInterval: (query) =>
+      query.state.data?.status === 'running' ? 2000 : false,
+    retry: false,
+  })
+}
+
+export function useResolveImportRow() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (rowId: string) => {
+      const token = await getIdToken()
+      await apiFetch(`/v1/me/import/rows/${rowId}/resolve`, {
+        token,
+        method: 'PATCH',
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importStatusQueryKey })
+    },
+  })
+}
+
+export function useResolveAllImportRows() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/import/resolve-all', { token, method: 'POST' })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importStatusQueryKey })
+    },
+  })
 }

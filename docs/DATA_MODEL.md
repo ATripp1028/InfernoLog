@@ -93,7 +93,9 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `previous_username`      | VARCHAR   | Held for 30 days, unavailable to others                                 |
 | `email`                  | VARCHAR   | From Cognito                                                            |
 | `discord_id`             | VARCHAR   | Nullable                                                                |
-| `google_id`              | VARCHAR   | Nullable                                                                |
+| `cognito_sub`            | VARCHAR   | Nullable. Cognito's `sub` claim — the federated-identity key, set once `signup/start` or the post-auth trigger's backfill runs |
+| `onboarding_completed`   | BOOLEAN   | Default false. Gates whether `_authenticated` routes to `/onboarding`  |
+| `legal_accepted_at`      | TIMESTAMP | Nullable. Stamped when the onboarding wizard's combined ToS/Privacy Policy checkbox is accepted |
 | `profile_public`         | BOOLEAN   | Default true                                                            |
 | `discord_public`         | BOOLEAN   | Default true                                                            |
 | `role`                   | ENUM      | `user`, `moderator`, `admin`                                            |
@@ -102,8 +104,10 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `is_verified`            | BOOLEAN   | Default false                                                           |
 | `gddl_api_key_encrypted` | VARCHAR   | Encrypted at rest, never exposed to frontend                            |
 | `rating_mode`            | ENUM      | `simple`, `weighted`. Default `simple`                                  |
+| `rating_display_scale`   | ENUM      | `zero_to_ten`, `zero_to_hundred`. Default `zero_to_ten`. Display-only — ratings/enjoyment are always stored as 0-100 integers regardless of this setting; the frontend converts at the display layer |
+| `default_percentage_version` | ENUM  | `two_one`, `two_two`. Default `two_two`. Which GD version's percentage system (2.1 distance-based / 2.2 time-based) to pre-select when logging |
 | `time_machine_top_n`     | INTEGER   | How many levels to track in Time Machine. Default 10                    |
-| `date_format_preference` | ENUM      | `mdy`, `dmy`, `ymd`. Used for display and import                        |
+| `date_format_preference` | ENUM      | `mdy`, `dmy`, `ymd`, `iso`. Used for display and import                 |
 | `default_fps`            | INTEGER   | Nullable. Pre-fills the FPS field in the logging flow's Session Details |
 | `created_at`             | TIMESTAMP |                                                                         |
 

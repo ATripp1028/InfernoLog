@@ -136,6 +136,10 @@ model User {
   discordId             String?              @unique
   cognitoSub            String?              @unique
   onboardingCompleted   Boolean              @default(false)
+  // Set when the user checks "I agree" on the combined ToS/Privacy Policy
+  // view during onboarding. Null means never accepted (pre-onboarding-rebuild
+  // accounts, or an in-progress signup).
+  legalAcceptedAt       DateTime?
 
   // Privacy
   profilePublic         Boolean              @default(true)
@@ -189,6 +193,7 @@ model User {
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
   listPresets           ListPreset[]
+  importJob             ImportJob?
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
   reportsModerated      Report[]             @relation("AssignedModeratorRelation")
@@ -706,28 +711,62 @@ model GddlSyncJob {
 
 // ─────────────────────────────────────────────
 // SPREADSHEET IMPORT
-// Tracks client-generated import jobs for idempotency. The client sends a
-// UUID per import job; the server records (jobId, rowIndex) pairs so that
-// a retried or double-clicked batch never double-writes data.
+// One active import job per user (userId is unique — starting a new import
+// deletes the previous job and all its rows, per product spec). The route
+// Lambda persists the full row set up front (rows start "pending") and
+// asynchronously invokes a worker Lambda with just the job id — the async
+// Lambda invoke payload limit (256KB) is far too small for a full spreadsheet,
+// so the dataset lives in Postgres, not in the invoke payload. The worker
+// processes rows in batches, checkpointing processedRows/status after each
+// batch so progress survives a closed tab, a reload, or the worker itself
+// needing to self-reinvoke near the Lambda time limit.
 // ─────────────────────────────────────────────
 
 model ImportJob {
-  id        String         @id // client-generated UUID
-  userId    String
-  createdAt DateTime       @default(now())
-  rows      ImportJobRow[]
+  id                 String         @id @default(uuid())
+  userId             String         @unique
+  status             String         @default("running") // "running" | "completed" | "failed"
+  totalRows          Int            @default(0)
+  processedRows      Int            @default(0)
+  // Counts worker self-reinvocations near the Lambda time limit; hard-fails
+  // the job past a cap so a permanently-broken row can't reinvoke forever.
+  reinvokeCount       Int            @default(0)
+  error              String?
+  // One-shot payloads for the post-row-commit passes (each optional — only
+  // present if that tab of the spreadsheet had rows), plus their results
+  // once the worker runs them.
+  rankingPayload     Json?
+  collectionsPayload Json?
+  ratingsPayload     Json?
+  rankingResult      Json?
+  collectionsResult  Json?
+  ratingsResult      Json?
+  createdAt          DateTime       @default(now())
+  finishedAt         DateTime?
+
+  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rows               ImportJobRow[]
 
   @@map("import_jobs")
 }
 
 model ImportJobRow {
-  id       String    @id @default(uuid())
-  jobId    String
-  rowIndex Int
-  status   String    // "committed" | "updated" | "skipped" | "failed"
-  reason   String?
+  id           String    @id @default(uuid())
+  jobId        String
+  rowIndex     Int
+  // Original parsed row payload (type/data/conflict resolution) — what the
+  // worker needs to actually process this row.
+  rawData      Json
+  status       String    // "pending" | "committed" | "updated" | "skipped" | "failed"
+  // Presence of issueMessage means this row is "flagged" for user review,
+  // regardless of whether it still succeeded (dropped-value warning) or was
+  // skipped/failed outright.
+  issueMessage String?
+  levelName    String?
+  identifier   String?
+  resolved     Boolean   @default(false)
 
-  job      ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job          ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, rowIndex])
   @@map("import_job_rows")

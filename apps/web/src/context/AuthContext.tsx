@@ -4,10 +4,20 @@ import { Hub } from 'aws-amplify/utils'
 import { queryClient } from '../lib/queryClient'
 import { persister } from '../lib/persister'
 
+// Sign In and Sign Up both go through the same Cognito Google OAuth flow —
+// Cognito has no built-in concept of the two being different requests. This
+// key records which button the user clicked so AuthCallback can branch:
+// Sign Up calls POST /v1/auth/signup/start to create the user row; Sign In
+// checks for an existing one and rejects (discarding the Cognito identity)
+// if none exists. See docs/AUTH.md.
+export const AUTH_INTENT_KEY = 'authIntent'
+export type AuthIntent = 'signin' | 'signup'
+
 interface AuthContextType {
   isAuthenticated: boolean
   isAuthInitializing: boolean
   signIn: () => void
+  signUp: () => void
   signOut: () => void
   getIdToken: () => Promise<string>
 }
@@ -55,7 +65,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return token
   }
 
-  const handleSignIn = () => signInWithRedirect({ provider: 'Google' })
+  const startOAuth = (intent: AuthIntent) => {
+    sessionStorage.setItem(AUTH_INTENT_KEY, intent)
+    return signInWithRedirect({ provider: 'Google' })
+  }
+  const handleSignIn = () => startOAuth('signin')
+  const handleSignUp = () => startOAuth('signup')
   const handleSignOut = () => signOut()
 
   return (
@@ -63,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated,
       isAuthInitializing,
       signIn: handleSignIn,
+      signUp: handleSignUp,
       signOut: handleSignOut,
       getIdToken,
     }}>

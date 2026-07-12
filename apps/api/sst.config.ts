@@ -199,8 +199,19 @@ export default $config({
       { auth: jwtAuth }
     )
 
+    api.route('GET /v1/users/check-username', {
+      handler: 'src/index.handler',
+      link: sharedLinks,
+      environment: sharedEnvironment,
+      ...sharedNodeOptions,
+    })
+
+    // Claims-only routes: need a verified Cognito identity but not an
+    // existing User row (createUserForSignup hasn't run yet, or never will
+    // for a rejected sign-in). Both still require the JWT authorizer — only
+    // the Prisma "does a user row exist" check is skipped.
     api.route(
-      'POST /v1/me/onboarding',
+      'POST /v1/auth/signup/start',
       {
         handler: 'src/index.handler',
         link: sharedLinks,
@@ -210,12 +221,22 @@ export default $config({
       { auth: jwtAuth }
     )
 
-    api.route('GET /v1/users/check-username', {
-      handler: 'src/index.handler',
-      link: sharedLinks,
-      environment: sharedEnvironment,
-      ...sharedNodeOptions,
-    })
+    api.route(
+      'POST /v1/auth/signin/reject',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        permissions: [
+          {
+            actions: ['cognito-idp:AdminDeleteUser'],
+            resources: [userPool.arn],
+          },
+        ],
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
 
     // Env vars used by the connect-Discord initiator + public callback.
     // The signed `state` parameter ties the two together — no Cognito JWT
@@ -451,41 +472,93 @@ export default $config({
       { batch: { size: 1 } }
     )
 
-    // Import endpoints get the queue URL + SendMessage permission.
-    // The commit route gets a longer Lambda timeout — large batches with
-    // many overwrite-path rows or name resolutions need more than the
-    // default ~20s. 28s stays just under API Gateway's hard 29s cap.
-    const importRoute = (
-      route: string,
-      timeout?: `${number} second` | `${number} seconds`
-    ) =>
-      api.route(
-        route,
-        {
-          handler: 'src/index.handler',
-          link: [...sharedLinks, levelSeedQueue],
-          environment: {
-            ...sharedEnvironment,
-            LEVEL_SEED_QUEUE_URL: levelSeedQueue.url,
-          },
-          permissions: [
-            {
-              actions: ['sqs:SendMessage'],
-              resources: [levelSeedQueue.arn],
-            },
-          ],
-          ...(timeout ? { timeout } : {}),
-          ...sharedNodeOptions,
-        },
-        { auth: jwtAuth }
-      )
+    // POST /v1/me/import/start persists the dataset and returns immediately —
+    // no SQS access needed here, the level-seed enqueue happens inside the
+    // worker. /check and /export are plain synchronous reads/pre-flight.
+    api.route(
+      'POST /v1/me/import/check',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
 
-    importRoute('POST /v1/me/import/check')
-    importRoute('POST /v1/me/import', '28 seconds')
-    importRoute('POST /v1/me/import/ranking', '28 seconds')
-    importRoute('POST /v1/me/import/collections', '28 seconds')
-    importRoute('POST /v1/me/import/ratings', '28 seconds')
-    importRoute('GET /v1/me/export', '28 seconds')
+    authedRoute('PATCH /v1/me/import/rows/{rowId}/resolve')
+    authedRoute('POST /v1/me/import/resolve-all')
+    authedRoute('GET /v1/me/import/status')
+
+    api.route(
+      'GET /v1/me/export',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '28 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+
+    // Worker Lambda — processes an import job's rows in the background so
+    // API Gateway's hard 29-second integration timeout never applies. It
+    // reuses the level-seed queue (stub levels it creates get the same async
+    // RobTop enrichment as the old synchronous commit path) and, near its own
+    // time limit, asynchronously invokes itself again with the same jobId —
+    // hence the self-invoke permission granted below, added after creation
+    // since a resource can't reference its own ARN within its own definition.
+    const importWorker = new sst.aws.Function('ImportWorker', {
+      handler: 'src/handlers/importWorker.handler',
+      link: [...sharedLinks, levelSeedQueue],
+      environment: {
+        ...sharedEnvironment,
+        LEVEL_SEED_QUEUE_URL: levelSeedQueue.url,
+      },
+      permissions: [
+        {
+          actions: ['sqs:SendMessage'],
+          resources: [levelSeedQueue.arn],
+        },
+      ],
+      timeout: '15 minutes',
+      ...sharedNodeOptions,
+    })
+
+    new aws.iam.RolePolicy('ImportWorkerSelfInvoke', {
+      role: importWorker.nodes.role.name,
+      policy: importWorker.arn.apply((arn) =>
+        JSON.stringify({
+          Version: '2012-10-17',
+          Statement: [
+            { Effect: 'Allow', Action: 'lambda:InvokeFunction', Resource: arn },
+          ],
+        })
+      ),
+    })
+
+    // POST /v1/me/import/start — creates the job + rows, invokes the worker
+    // async, returns 202 + jobId.
+    api.route(
+      'POST /v1/me/import/start',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: {
+          ...sharedEnvironment,
+          IMPORT_WORKER_ARN: importWorker.arn,
+        },
+        permissions: [
+          {
+            actions: ['lambda:InvokeFunction'],
+            resources: [importWorker.arn],
+          },
+        ],
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
 
     // ─────────────────────────────────────────────
     // ROBTOP LEVEL-CACHE SYNC — two EventBridge Scheduler cadences over one

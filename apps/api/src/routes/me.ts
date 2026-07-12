@@ -21,6 +21,7 @@ import {
 import { encryptSecret, decryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError, GddlError } from '../utils/gddl'
 import { syncGddlLists } from '../services/gddlListSync'
+import { DEFAULT_RATING_CATEGORIES } from '../services/user'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -55,13 +56,6 @@ const localUsernameSchema = z
     'This username is reserved'
   )
 
-const onboardingSchema = z.object({
-  username: localUsernameSchema,
-  dateFormatPreference: z.enum(['MDY', 'DMY', 'YMD', 'ISO']),
-  ratingMode: z.enum(['SIMPLE', 'WEIGHTED']),
-  ratingDisplayScale: z.enum(['ZERO_TO_TEN', 'ZERO_TO_HUNDRED']),
-})
-
 const meSelect = {
   id: true,
   username: true,
@@ -85,6 +79,7 @@ const meSelect = {
   // Public GDDL account name — safe to return.
   gddlUsername: true,
   onboardingCompleted: true,
+  legalAcceptedAt: true,
   isVerified: true,
   createdAt: true,
 } as const
@@ -171,23 +166,24 @@ app.patch('/me', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
-        // Weights sum to exactly 1.00 — the top (highest priority) gets the
-        // rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
-          data: [
-            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
-          ],
+          data: DEFAULT_RATING_CATEGORIES.map((cat) => ({ userId, ...cat })),
           skipDuplicates: true,
         })
         logger.info({ userId }, 'Seeded default rating categories')
       }
     }
 
+    // acceptLegal isn't a column — it just stamps legalAcceptedAt when true.
+    const { acceptLegal, ...rest } = parsed.data
+    const data = stripUndefined(rest)
+    if (acceptLegal) {
+      ;(data as { legalAcceptedAt?: Date }).legalAcceptedAt = new Date()
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: stripUndefined(parsed.data),
+      data,
       select: {
         ...meSelect,
         ratingCategories: {
@@ -478,78 +474,6 @@ app.post('/me/gddl-lists-sync', async (c) => {
     }
     logger.error({ userId, err }, 'gddl-lists-sync: failed')
     Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// POST /v1/me/onboarding
-app.post('/me/onboarding', async (c) => {
-  const userId = c.get('userId') as string
-
-  try {
-    const body = await c.req.json()
-    const parsed = onboardingSchema.safeParse(body)
-
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const { username, dateFormatPreference, ratingMode, ratingDisplayScale } =
-      parsed.data
-
-    const existing = await prisma.user.findFirst({
-      where: {
-        username: { equals: username, mode: 'insensitive' },
-        NOT: { id: userId },
-      },
-    })
-
-    if (existing) {
-      return c.json({ error: 'Username is already taken' }, 409)
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        username,
-        dateFormatPreference,
-        ratingMode,
-        ratingDisplayScale,
-        onboardingCompleted: true,
-      },
-      select: {
-        id: true,
-        username: true,
-        onboardingCompleted: true,
-      },
-    })
-
-    // Seed default rating categories if the user is starting in WEIGHTED mode.
-    if (ratingMode === 'WEIGHTED') {
-      const count = await prisma.ratingCategory.count({ where: { userId } })
-      if (count === 0) {
-        // skipDuplicates relies on the @@unique([userId, name]) constraint:
-        // if two requests race past the count check, the second insert is a
-        // silent no-op instead of producing duplicate seed categories.
-        // Weights sum to exactly 1.00 — the top (highest priority) gets the
-        // rounding remainder so users start in a valid state.
-        await prisma.ratingCategory.createMany({
-          data: [
-            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
-          ],
-          skipDuplicates: true,
-        })
-      }
-    }
-
-    logger.info({ userId }, 'Completed onboarding')
-
-    return c.json({ data: updated })
-  } catch (error) {
-    console.error('POST /me/onboarding error:', error)
-    Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 })

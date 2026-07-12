@@ -22,6 +22,10 @@ InfernoLog offers two rating modes. Users select their preferred mode in account
 
 All ratings apply to any progress update, not just completions — mirroring the GDDL's approach. Non-completion ratings are hidden unless the "show non-completions" toggle is active.
 
+### Display scale
+
+`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are *displayed and entered* (e.g. `4.7` vs `47`). Storage is unaffected either way — `progress_updates.simple_rating`, `rating_scores`, and `enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
+
 ---
 
 ## Simple Mode
