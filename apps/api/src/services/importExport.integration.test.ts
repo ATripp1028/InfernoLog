@@ -138,6 +138,10 @@ function completionRows(): ImportCommitRow[] {
         levelNotes: 'overall a great level',
         videoUrl: 'https://youtube.com/watch?v=abc',
         userGddlTier: 24,
+        // Historical: this level was dropped once, long before it was beaten.
+        droppedAt: '2024-06-01',
+        droppedReason: 'too hard at the time',
+        attemptsAtDrop: 500,
       },
     },
     {
@@ -244,6 +248,9 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       userGddlTier: c.userGddlTier,
       videoUrl: c.videoUrl,
       highlightUrl: c.highlightUrl,
+      droppedAt: c.droppedAt,
+      droppedReason: c.droppedReason,
+      attemptsAtDrop: c.attemptsAtDrop,
     },
   }))
   const drops: ImportCommitRow[] = exp.dropped.map((d, i) => ({
@@ -346,6 +353,10 @@ describe('import → export round-trip', () => {
     expect(bb.coinsCollected).toBe(5)
     expect(bb.visibility).toBe('PRIVATE')
     expect(bb.userGddlTier).toBe(24)
+    // Drop history survives past completion — same LevelProgress row.
+    expect(bb.droppedAt).toBe('2024-06-01')
+    expect(bb.droppedReason).toBe('too hard at the time')
+    expect(bb.attemptsAtDrop).toBe(500)
     expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
       Decoration: 90,

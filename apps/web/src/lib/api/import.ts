@@ -64,6 +64,12 @@ export interface ImportCompletionRow {
   notes?: string | null
   videoUrl?: string | null
   highlightUrl?: string | null
+  // Historical drop metadata — set when this level was dropped before being
+  // completed. Never changes status; purely carries the level's drop history
+  // alongside its completion.
+  droppedAt?: string | null
+  droppedReason?: string | null
+  attemptsAtDrop?: number | null
 }
 
 // A non-completion progress log — one logged session for a level, distinct
@@ -255,6 +261,9 @@ export interface ExportCompletion {
   userGddlTier: number | null
   videoUrl: string | null
   highlightUrl: string | null
+  droppedAt: string | null
+  droppedReason: string | null
+  attemptsAtDrop: number | null
 }
 
 export interface ExportProgress {

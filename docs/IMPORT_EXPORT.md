@@ -160,6 +160,11 @@ Only rows whose data is genuinely unused are reported as _skipped_ — a modifie
 | `video_url`                | No       | URL                                                                      |
 | `highlight_url`            | No       | URL                                                                      |
 | `visibility`               | No       | public or private (defaults to public)                                   |
+| `dropped_at`                | No       | Historical only — date this level was dropped, if it ever was, before being beaten |
+| `drop_reason`                | No       | Historical only — free text (max 2000 chars)                             |
+| `attempts_at_drop`           | No       | Historical only — integer attempt count at the time of that drop         |
+
+The last three columns are purely historical: a level can be dropped and later beaten, and completions and drops share one underlying record, so that drop history outlives the eventual completion. Writing them never changes whether the row counts as a completion — only a `Dropped`-tab row can put a level into the dropped state. Leave them blank if the level was never dropped.
 
 ### Column Tolerance
 
@@ -296,7 +301,8 @@ Export produces the **same workbook shape as the import template** (all tabs abo
 
 - **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `progress`, `dropped`, `ranking`, `lists`/`collections`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
 - **Formatting is client-side**: dates in the user's `date_format_preference`, ratings on the 0–10 scale (internal `0-100 ÷ 10`, which round-trips through the importer's ≤10 rule), coin bitmask → `coin_1/2/3`, enum casing lowered.
-- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, drop metadata on a level later completed (`dropped_at`/`reason`/`attempts_at_drop` survive in the account but aren't re-exported once the level shows up in Completions instead), system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
+- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
+- **Drop-then-completed history round-trips too**: if a level was dropped and later beaten, its `dropped_at`/`drop_reason`/`attempts_at_drop` are exported on its Completions-tab row (see that section) rather than lost once it moves out of the Dropped tab. The Level Page timeline and runs graph show this as two distinct bars/entries — the drop, then the completion — regardless of the level's current status.
 
 ---
 

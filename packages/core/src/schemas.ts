@@ -830,6 +830,14 @@ export const ImportCompletionRowSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
+  // Historical drop metadata — set when this level was dropped at some point
+  // before being completed. Purely additive: writing these never changes
+  // status (only a Dropped-tab row does that). Carried here because
+  // completions and drops share one LevelProgress row, so a level's drop
+  // history outlives its later completion.
+  droppedAt: z.string().nullable().optional(),
+  droppedReason: z.string().max(2000).nullable().optional(),
+  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
 })
 
 // A non-completion progress update — one logged session for a level that
@@ -1115,6 +1123,11 @@ export const ExportCompletionSchema = z.object({
   userGddlTier: z.number().int().nullable(),
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
+  // Historical drop metadata, present when this level was dropped before
+  // being completed. See ImportCompletionRowSchema.
+  droppedAt: z.string().nullable(),
+  droppedReason: z.string().nullable(),
+  attemptsAtDrop: z.number().int().nullable(),
 })
 
 export const ExportProgressSchema = z.object({

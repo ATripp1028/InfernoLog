@@ -355,6 +355,19 @@ function parseCompletionRow(
     else pushFlag('visibility', `unknown visibility "${rawVisibility}" (use public or private) — value dropped`, 'warning')
   }
 
+  // Historical drop metadata — only meaningful if this level was dropped
+  // before being beaten. Parsed the same way as the equivalent Dropped-tab
+  // columns; a bad value is dropped (warning), not the whole row.
+  const rawDroppedAt = getField(raw, 'dropped_at')
+  const droppedAtResult = parseDate(rawDroppedAt, dateFormat)
+  if (!droppedAtResult.ok)
+    pushFlag('dropped_at', `${droppedAtResult.reason} — value dropped`, 'warning')
+
+  const rawAttemptsAtDrop = getField(raw, 'attempts_at_drop')
+  const attemptsAtDrop = toNum(rawAttemptsAtDrop)
+  if (rawAttemptsAtDrop != null && rawAttemptsAtDrop !== '' && attemptsAtDrop === null)
+    pushFlag('attempts_at_drop', `attempts_at_drop "${rawAttemptsAtDrop}" isn't a valid number — value dropped`, 'warning')
+
   const data: ImportCompletionRow = {
     levelId: validLevelId,
     levelName,
@@ -387,6 +400,9 @@ function parseCompletionRow(
     notes: toStr(getField(raw, 'notes')),
     videoUrl: toStr(getField(raw, 'video_url')),
     highlightUrl: toStr(getField(raw, 'highlight_url')),
+    droppedAt: droppedAtResult.ok && droppedAtResult.iso ? droppedAtResult.iso : null,
+    droppedReason: toStr(getField(raw, 'drop_reason')),
+    attemptsAtDrop: attemptsAtDrop != null && attemptsAtDrop >= 0 ? Math.round(attemptsAtDrop) : null,
   }
 
   return { rowIndex, data, flags }

@@ -34,6 +34,11 @@ export const COMPLETION_HEADERS = [
   'video_url',
   'highlight_url',
   'visibility',
+  // Historical drop metadata — only meaningful if this level was dropped at
+  // some point before you beat it. Leave blank otherwise.
+  'dropped_at',
+  'drop_reason',
+  'attempts_at_drop',
 ]
 
 // Progress tab: non-completion session logs. `progress_id` round-trips an
@@ -103,6 +108,9 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   video_url: '',
   highlight_url: '',
   visibility: 'public',
+  dropped_at: '',
+  drop_reason: '',
+  attempts_at_drop: '',
 }
 
 const PROGRESS_EXAMPLE: Record<string, string | number | boolean> = {
@@ -211,6 +219,10 @@ export const FIELD_DESCRIPTIONS = [
   ['Completions', 'video_url', 'no', 'Full URL'],
   ['Completions', 'highlight_url', 'no', 'Full URL'],
   ['Completions', 'visibility', 'no', 'public or private (per-entry privacy). Defaults to public.'],
+  ['Completions', 'dropped_at', 'no', 'Date this level was dropped, if it ever was, before you beat it. In your selected date format.'],
+  ['Completions', 'drop_reason', 'no', 'Free text — why you dropped it, if it was ever dropped (max 2000 chars).'],
+  ['Completions', 'attempts_at_drop', 'no', 'Integer attempt count at the time of that drop.'],
+  ['Completions', '(note)', '', 'These three are historical only — they never change whether this level counts as completed. Leave blank if it was never dropped.'],
   ['', '', '', ''],
   ['Progress', 'progress_id', 'no', 'Identity for round-tripping this exact entry (auto-filled on export). Leave blank when adding a new session log by hand.'],
   ['Progress', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],

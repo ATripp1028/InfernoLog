@@ -8,8 +8,8 @@
 // which isn't being mutated concurrently mid-export.
 //
 // What it intentionally does NOT include (out of the import model / user-only):
-// rating category weights + mode, drop metadata on a level later completed,
-// AREDL references, and system timestamps. See docs/IMPORT_EXPORT.md.
+// rating category weights + mode, AREDL references, and system timestamps.
+// See docs/IMPORT_EXPORT.md.
 
 import prisma from '../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
@@ -44,6 +44,11 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       visibility: true,
       levelNotes: true,
       userGddlTier: true,
+      // Historical drop metadata — set when this level was dropped before
+      // being completed (applyCompletion/planCompletion never clear it).
+      droppedAt: true,
+      droppedReason: true,
+      attemptsAtDrop: true,
       level: { select: { name: true, creator: true } },
       progressUpdates: {
         where: { isCompletion: true },
@@ -105,6 +110,9 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         userGddlTier: lp.userGddlTier,
         videoUrl: pu.videoUrl,
         highlightUrl: pu.highlightUrl,
+        droppedAt: iso(lp.droppedAt),
+        droppedReason: lp.droppedReason,
+        attemptsAtDrop: lp.attemptsAtDrop,
       },
     ]
   })

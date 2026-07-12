@@ -21,12 +21,14 @@ function mergeEvents(data: LevelPageData): TimelineEvent[] {
     update: u,
   }))
 
-  // The drop event on level_progress (separate from individual updates)
+  // The drop event on level_progress (separate from individual updates).
+  // Not gated on current status: a level dropped and later completed (or
+  // resumed) keeps its drop history, and the timeline should still show it.
   const hasDropInfo =
     data.droppedAt != null ||
     data.droppedReason != null ||
     data.attemptsAtDrop != null
-  if (hasDropInfo && data.status === 'DROPPED') {
+  if (hasDropInfo) {
     events.push({
       kind: 'drop',
       droppedAt: data.droppedAt,

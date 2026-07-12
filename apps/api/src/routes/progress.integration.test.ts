@@ -229,6 +229,108 @@ describe('GET /me/progress', () => {
   })
 })
 
+describe('GET /me/progress/:levelId', () => {
+  it('shows drop history in runsGraph and top-level fields for a level that was dropped and later completed', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '400' })
+
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '400',
+        status: 'COMPLETED',
+        droppedAt: new Date('2024-06-01'),
+        droppedReason: 'too hard at the time',
+        attemptsAtDrop: 500,
+        worstFail: 45,
+        worstFailDate: new Date('2024-06-01'),
+        progressUpdates: {
+          create: [
+            {
+              isCompletion: false,
+              percentage: 30,
+              date: new Date('2024-05-01'),
+              loggedAt: new Date('2024-05-01'),
+            },
+            {
+              isCompletion: true,
+              date: new Date('2024-12-25'),
+              loggedAt: new Date('2024-12-25'),
+            },
+          ],
+        },
+      },
+    })
+
+    const res = await buildApp(progressApp, { userId: user.id }).request(
+      '/me/progress/400'
+    )
+    expect(res.status).toBe(200)
+    const { data } = (await res.json()) as {
+      data: {
+        status: string
+        droppedAt: string | null
+        droppedReason: string | null
+        attemptsAtDrop: number | null
+        runsGraph: Array<{
+          kind: string
+          to: number
+          droppedAfter: boolean
+        }>
+      }
+    }
+
+    // Drop metadata survives past completion — the API doesn't gate it on status.
+    expect(data.status).toBe('COMPLETED')
+    expect(data.droppedAt).toContain('2024-06-01')
+    expect(data.droppedReason).toBe('too hard at the time')
+    expect(data.attemptsAtDrop).toBe(500)
+
+    // Two distinct bars (the pre-drop update flagged as dropped, then the worst-fail
+    // milestone, then the completion) — not a duplicate synthetic bar for worstFail,
+    // which would happen if the drop event's own worstFail weren't nulled out for a
+    // COMPLETED level (see routes/progress.ts).
+    expect(data.runsGraph).toHaveLength(3)
+    expect(data.runsGraph[0]).toMatchObject({
+      kind: 'from_zero',
+      to: 30,
+      droppedAfter: true,
+    })
+    expect(data.runsGraph[1]).toMatchObject({ kind: 'worst_fail', to: 45 })
+    expect(data.runsGraph[2]).toMatchObject({
+      kind: 'completion',
+      to: 100,
+      droppedAfter: false,
+    })
+  })
+
+  it('omits drop history from runsGraph and top-level fields when the level was never dropped', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '401' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '401',
+        status: 'COMPLETED',
+        progressUpdates: { create: [{ isCompletion: true }] },
+      },
+    })
+
+    const res = await buildApp(progressApp, { userId: user.id }).request(
+      '/me/progress/401'
+    )
+    const { data } = (await res.json()) as {
+      data: {
+        droppedAt: string | null
+        runsGraph: Array<{ kind: string; droppedAfter: boolean }>
+      }
+    }
+    expect(data.droppedAt).toBeNull()
+    expect(data.runsGraph.every((e) => !e.droppedAfter)).toBe(true)
+    expect(data.runsGraph.map((e) => e.kind)).toEqual(['completion'])
+  })
+})
+
 describe('DELETE /me/progress/:levelId', () => {
   it('deletes the entry and cascades to updates + children', async () => {
     const user = await seedUser(prisma)

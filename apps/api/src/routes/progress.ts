@@ -283,18 +283,27 @@ app.get('/me/progress/:levelId', async (c) => {
 
     // Build runsGraph. In v1 there is at most one drop event on level_progress;
     // computeRunsGraph accepts an array for forward-compatibility.
-    // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on
-    // completed levels too, so they alone must not trigger a drop bar.
-    const drops =
-      lp.status === 'DROPPED'
-        ? [
-            {
-              droppedAt: lp.droppedAt,
-              attemptsAtDrop: lp.attemptsAtDrop,
-              worstFail: lp.worstFail,
-            },
-          ]
-        : []
+    // droppedAt/droppedReason/attemptsAtDrop are only ever written by the drop
+    // flow (applyDrop/planDrop) — completion never touches them — so their
+    // presence reliably means "this level was dropped at some point," even
+    // once status has moved on to COMPLETED or back to IN_PROGRESS. worstFail
+    // is excluded from that check since it's shared with completion logging.
+    const wasDropped =
+      lp.droppedAt != null ||
+      lp.droppedReason != null ||
+      lp.attemptsAtDrop != null
+    // For a COMPLETED level, worstFail is already surfaced as its own
+    // milestone bar below (worstFailForGraph) — omit it here so the
+    // drop-merge rule doesn't emit a duplicate synthetic bar for the same %.
+    const drops = wasDropped
+      ? [
+          {
+            droppedAt: lp.droppedAt,
+            attemptsAtDrop: lp.attemptsAtDrop,
+            worstFail: lp.status === 'COMPLETED' ? null : lp.worstFail,
+          },
+        ]
+      : []
 
     // runsGraph expects oldest-first; progressUpdates above is newest-first.
     const updatesForGraph = [...lp.progressUpdates].reverse().map((u) => ({

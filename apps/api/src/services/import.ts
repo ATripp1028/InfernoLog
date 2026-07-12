@@ -465,7 +465,10 @@ function planCompletion(
     }
 
     // LevelProgress-level fields: worstFail, per-entry privacy, the overall
-    // level note, and user GDDL tier — each only when the sheet provides it.
+    // level note, user GDDL tier, and historical drop metadata — each only
+    // when the sheet provides it. Drop fields never change `status` (that's
+    // planDrop's job) — they're purely historical, carried alongside a
+    // completion because both live on the same LevelProgress row.
     const lpMerge: LpFields = {
       ...(row.percentage != null
         ? { worstFail: Math.round(row.percentage) }
@@ -476,6 +479,11 @@ function planCompletion(
       ...(row.visibility != null ? { visibility: row.visibility } : {}),
       ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
       ...(userGddlTier != null ? { userGddlTier } : {}),
+      ...(row.droppedAt != null ? { droppedAt: new Date(row.droppedAt) } : {}),
+      ...(row.droppedReason != null ? { droppedReason: row.droppedReason } : {}),
+      ...(row.attemptsAtDrop != null
+        ? { attemptsAtDrop: row.attemptsAtDrop }
+        : {}),
     }
     if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return 'updated'
@@ -520,6 +528,11 @@ function planCompletion(
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     ...(userGddlTier != null ? { userGddlTier } : {}),
+    ...(row.droppedAt != null ? { droppedAt: new Date(row.droppedAt) } : {}),
+    ...(row.droppedReason != null ? { droppedReason: row.droppedReason } : {}),
+    ...(row.attemptsAtDrop != null
+      ? { attemptsAtDrop: row.attemptsAtDrop }
+      : {}),
   })
 
   return 'committed'
