@@ -1,11 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { PageLoading } from '@/components/PageLoading'
 import { Button } from '@/components/ui/button'
 import { useMe, useUpdateMe } from '@/lib/api/me'
 import { UsernameEditor } from '@/features/settings/components/UsernameEditor'
 import { LoggingPreferencesFields } from '@/features/settings/sections/LoggingSection'
-import { RatingSection } from '@/features/settings/sections/RatingSection'
+import {
+  RatingSection,
+  type RatingSectionHandle,
+} from '@/features/settings/sections/RatingSection'
 import { GddlApiKeyEditor } from '@/features/settings/components/GddlApiKeyEditor'
 import { SettingsSection } from '@/features/settings/components/SettingsSection'
 import { ImportWizard } from '@/features/import/ImportWizard'
@@ -37,6 +40,8 @@ export function OnboardingWizard() {
   const update = useUpdateMe()
   const navigate = useNavigate()
   const [step, setStep] = useState<Step | null>(null)
+  const ratingSectionRef = useRef<RatingSectionHandle>(null)
+  const [savingRating, setSavingRating] = useState(false)
 
   useEffect(() => {
     if (!me.data) return
@@ -68,6 +73,23 @@ export function OnboardingWizard() {
       void update
         .mutateAsync({ onboardingCompleted: true })
         .then(() => navigate({ to: '/list', replace: true }))
+    }
+  }
+
+  // The category editor has its own Save button in Settings, but here
+  // Continue submits the whole Rating step at once — save the categories
+  // (if weighted mode and dirty) first, and only advance if that succeeds.
+  // A false result means the category editor is in an invalid state (bad
+  // weight sum, empty/duplicate name); its own inline validation message is
+  // already visible, so just stay put rather than advancing silently.
+  const handleRatingContinue = async () => {
+    setSavingRating(true)
+    try {
+      const ok = await ratingSectionRef.current?.save()
+      if (ok === false) return
+      goNext()
+    } finally {
+      setSavingRating(false)
     }
   }
 
@@ -120,9 +142,14 @@ export function OnboardingWizard() {
         <StepShell
           title="Ratings"
           description="Choose how you want to rate completions. You can change this later in Settings."
-          onContinue={goNext}
+          onContinue={() => void handleRatingContinue()}
+          pending={savingRating}
         >
-          <RatingSection me={me.data} />
+          <RatingSection
+            ref={ratingSectionRef}
+            me={me.data}
+            hideCategoryActions
+          />
         </StepShell>
       )}
 
@@ -160,6 +187,7 @@ interface StepShellProps {
   description?: string
   onContinue: () => void
   continueLabel?: string
+  pending?: boolean
   children: React.ReactNode
 }
 
@@ -168,6 +196,7 @@ function StepShell({
   description,
   onContinue,
   continueLabel = 'Continue',
+  pending,
   children,
 }: StepShellProps) {
   return (
@@ -179,8 +208,8 @@ function StepShell({
         )}
       </div>
       {children}
-      <Button onClick={onContinue} className="w-full">
-        {continueLabel}
+      <Button onClick={onContinue} className="w-full" disabled={pending}>
+        {pending ? 'Saving…' : continueLabel}
       </Button>
     </div>
   )
