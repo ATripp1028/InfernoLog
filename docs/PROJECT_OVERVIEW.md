@@ -91,14 +91,14 @@ Change in packages/core/ → rebuild both, deploy both
 
 ## Core Concept: Level Progress
 
-The fundamental unit of InfernoLog is not a "completion" but a **level progress entry**. Every interaction a player has with a level — from their first 8% to their eventual completion — is part of one continuous progress record. A completion is simply a progress update marked as `is_completion = true`.
+The fundamental unit of InfernoLog is not a "completion" but a **level progress entry**. Every interaction a player has with a level — from their first 8% to their eventual completion — is part of one continuous progress record. A completion is simply a progress update marked `kind = completion`; a drop is one marked `kind = drop`.
 
 ```
 LevelProgress (one per user per level)
  └── ProgressUpdate[]
       ├── Any percentage from 0-100%
       ├── All logging fields available at any percentage
-      └── is_completion = true  →  appears in ranking + stats
+      └── kind = completion  →  appears in ranking + stats
 ```
 
 This models how GD players actually experience levels, and mirrors the GDDL's approach of allowing progress logging and ratings for uncompleted levels.

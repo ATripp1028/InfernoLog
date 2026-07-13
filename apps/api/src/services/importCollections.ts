@@ -219,7 +219,7 @@ export async function commitImportCollections(
               where: {
                 userId,
                 levelId: { in: g.entries.map((e) => e.levelId) },
-                progressUpdates: { some: { isCompletion: true } },
+                progressUpdates: { some: { kind: 'COMPLETION' } },
               },
               select: { levelId: true },
             })

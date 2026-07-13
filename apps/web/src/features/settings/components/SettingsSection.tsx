@@ -32,7 +32,7 @@ export function SettingsSection({
 
 interface SettingRowProps {
   label: string
-  description?: string
+  description?: ReactNode
   control: ReactNode
   error?: string | null
 }

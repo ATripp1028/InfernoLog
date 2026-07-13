@@ -4,7 +4,7 @@
 
 Each user maintains a personal difficulty ranking of their demon completions, independent of any official list tier or star rating. Classic and platformer rankings are completely separate. This document covers the classic ranking.
 
-Only progress updates with `is_completion = true` appear in the ranking by default. A v2 toggle allows non-completion entries to appear alongside completions.
+Only progress updates with `kind = completion` appear in the ranking by default. A v2 toggle allows non-completion entries to appear alongside completions.
 
 ---
 

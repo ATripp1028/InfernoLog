@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useState,
+} from 'react'
 import { DndContext, DragEndEvent, closestCenter } from '@dnd-kit/core'
 import {
   SortableContext,
@@ -42,11 +48,27 @@ type EditableItem =
 
 const ENJOYMENT_KEY = 'ENJOYMENT' as const
 
-interface RatingConfigEditorProps {
-  me: MeData
+export interface RatingConfigEditorHandle {
+  // Saves if dirty (no-op returning true otherwise). Returns false when
+  // there's nothing to save yet because the current state is invalid (bad
+  // weight sum, empty/duplicate name) — the validation message is already
+  // visible below the weight-sum card, so the caller just needs to know not
+  // to proceed.
+  save: () => Promise<boolean>
 }
 
-export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
+interface RatingConfigEditorProps {
+  me: MeData
+  // Onboarding submits the whole Rating step at once via its own Continue
+  // button (see RatingConfigEditorHandle) — Settings' standalone section has
+  // no such outer submit, so it keeps its own Save/Reset buttons.
+  hideActions?: boolean
+}
+
+export const RatingConfigEditor = forwardRef<
+  RatingConfigEditorHandle,
+  RatingConfigEditorProps
+>(function RatingConfigEditor({ me, hideActions }, ref) {
   const update = useUpdateRatingConfig()
 
   // The initial snapshot drives both the "what to render on first mount" and
@@ -65,7 +87,7 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     setItems(initial.items)
     setIncludeEnjoyment(initial.includeEnjoyment)
   }, [initial])
-  
+
   const sensors = useSortableSensors()
 
   const visibleItems = useMemo(
@@ -101,7 +123,8 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
 
   const canSave = dirty && sumValid && !hasEmptyName && !hasDuplicateName
 
-  const handleSave = async () => {
+  const handleSave = async (): Promise<boolean> => {
+    if (!canSave) return false
     const enjoymentIdx = items.findIndex((i) => i.kind === 'enjoyment')
     const enjoymentItem = items.find((i) => i.kind === 'enjoyment')
     try {
@@ -122,8 +145,10 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         // of list when the row isn't currently present.
         enjoymentSortOrder: enjoymentIdx >= 0 ? enjoymentIdx : items.length,
       })
+      return true
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
+      return false
     }
   }
 
@@ -131,6 +156,18 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
     setItems(initial.items)
     setIncludeEnjoyment(initial.includeEnjoyment)
   }
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: async () => {
+        if (!dirty) return true
+        return handleSave()
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dirty, canSave, items, includeEnjoyment]
+  )
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event
@@ -365,24 +402,26 @@ export function RatingConfigEditor({ me }: RatingConfigEditorProps) {
         </p>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button
-          onClick={() => void handleSave()}
-          disabled={!canSave || update.isPending}
-        >
-          {update.isPending ? 'Saving…' : 'Save changes'}
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={handleReset}
-          disabled={!dirty || update.isPending}
-        >
-          Reset
-        </Button>
-      </div>
+      {!hideActions && (
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => void handleSave()}
+            disabled={!canSave || update.isPending}
+          >
+            {update.isPending ? 'Saving…' : 'Save changes'}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleReset}
+            disabled={!dirty || update.isPending}
+          >
+            Reset
+          </Button>
+        </div>
+      )}
     </div>
   )
-}
+})
 
 interface CategoryRowProps {
   item: Extract<EditableItem, { kind: 'category' }>

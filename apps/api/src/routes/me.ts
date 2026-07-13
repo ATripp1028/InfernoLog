@@ -4,8 +4,14 @@ import prisma from '../utils/prisma'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
 import * as Sentry from '@sentry/node'
+import {
+  CognitoIdentityProviderClient,
+  AdminDeleteUserCommand,
+  UserNotFoundException,
+} from '@aws-sdk/client-cognito-identity-provider'
 import { logger } from '../utils/logger'
 import { mintConnectDiscordState } from './auth'
+import { getVerifiedClaims } from '../middleware/auth'
 import type { HonoVariables } from '../types/hono'
 // NOTE: @infernolog/core uses zod 3 while this app uses zod 4. We import the
 // schemas at runtime (the API surface matches) but redefine the username
@@ -21,12 +27,22 @@ import {
 import { encryptSecret, decryptSecret } from '../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError, GddlError } from '../utils/gddl'
 import { syncGddlLists } from '../services/gddlListSync'
+import { DEFAULT_RATING_CATEGORIES } from '../services/user'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
+const cognito = new CognitoIdentityProviderClient({
+  region: process.env.AWS_REGION ?? 'us-east-1',
+})
+
 const USERNAME_COOLDOWN_DAYS = 30
 const USERNAME_COOLDOWN_MS = USERNAME_COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+
+const DELETE_ACCOUNT_CONFIRMATION = 'Delete this account'
+const DeleteAccountSchema = z.object({
+  confirmation: z.literal(DELETE_ACCOUNT_CONFIRMATION),
+})
 
 // Strip keys whose value is `undefined`. tsconfig has exactOptionalPropertyTypes,
 // so Prisma's update inputs do not accept explicit `undefined` for optional fields.
@@ -55,13 +71,6 @@ const localUsernameSchema = z
     'This username is reserved'
   )
 
-const onboardingSchema = z.object({
-  username: localUsernameSchema,
-  dateFormatPreference: z.enum(['MDY', 'DMY', 'YMD', 'ISO']),
-  ratingMode: z.enum(['SIMPLE', 'WEIGHTED']),
-  ratingDisplayScale: z.enum(['ZERO_TO_TEN', 'ZERO_TO_HUNDRED']),
-})
-
 const meSelect = {
   id: true,
   username: true,
@@ -85,6 +94,7 @@ const meSelect = {
   // Public GDDL account name — safe to return.
   gddlUsername: true,
   onboardingCompleted: true,
+  legalAcceptedAt: true,
   isVerified: true,
   createdAt: true,
 } as const
@@ -171,23 +181,24 @@ app.patch('/me', async (c) => {
         // skipDuplicates relies on the @@unique([userId, name]) constraint:
         // if two requests race past the count check, the second insert is a
         // silent no-op instead of producing duplicate seed categories.
-        // Weights sum to exactly 1.00 — the top (highest priority) gets the
-        // rounding remainder so users start in a valid state.
         await prisma.ratingCategory.createMany({
-          data: [
-            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
-          ],
+          data: DEFAULT_RATING_CATEGORIES.map((cat) => ({ userId, ...cat })),
           skipDuplicates: true,
         })
         logger.info({ userId }, 'Seeded default rating categories')
       }
     }
 
+    // acceptLegal isn't a column — it just stamps legalAcceptedAt when true.
+    const { acceptLegal, ...rest } = parsed.data
+    const data = stripUndefined(rest)
+    if (acceptLegal) {
+      ;(data as { legalAcceptedAt?: Date }).legalAcceptedAt = new Date()
+    }
+
     const updated = await prisma.user.update({
       where: { id: userId },
-      data: stripUndefined(parsed.data),
+      data,
       select: {
         ...meSelect,
         ratingCategories: {
@@ -298,6 +309,76 @@ app.patch('/me/username', async (c) => {
   }
 })
 
+// DELETE /v1/me — permanently deletes the account and all associated data.
+// Requires the confirmation phrase in the body as a defense-in-depth check
+// behind the frontend's typed-confirmation modal (belt and suspenders — an
+// authorized bearer token alone is not treated as sufficient intent for an
+// irreversible delete).
+//
+// Report/BanAppeal/ModerationAction rows referencing this user are deleted
+// explicitly first because their FKs are ON DELETE RESTRICT (an intentional
+// audit-trail protection against ordinary moderation cleanup — see
+// schema.prisma). No moderation feature reads these tables yet, so a full
+// account purge including them is safe for now; revisit if a real audit
+// trail requirement lands before that FK behavior changes. GddlSyncJob is
+// deleted explicitly too since it has no declared FK/cascade to `users` at
+// all. Everything else (LevelProgress, ProgressUpdate, ClassicRanking,
+// Collection, ApiKey, RatingCategory, ListPreset, ImportJob, ...) cascades
+// from the `users` delete.
+app.delete('/me', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => null)
+    const parsed = DeleteAccountSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: 'Confirmation text does not match' }, 400)
+    }
+
+    await prisma.$transaction([
+      prisma.report.deleteMany({
+        where: { OR: [{ reporterId: userId }, { reportedUserId: userId }] },
+      }),
+      prisma.banAppeal.deleteMany({ where: { userId } }),
+      prisma.moderationAction.deleteMany({
+        where: { OR: [{ moderatorId: userId }, { targetUserId: userId }] },
+      }),
+      prisma.gddlSyncJob.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ])
+
+    // Best-effort — the InfernoLog account is already gone at this point
+    // regardless of whether this succeeds. A leftover Cognito identity just
+    // means the user gets a fresh account if they sign back in.
+    const claims = getVerifiedClaims(c)
+    if (claims) {
+      try {
+        await cognito.send(
+          new AdminDeleteUserCommand({
+            UserPoolId: process.env.COGNITO_USER_POOL_ID,
+            Username: claims.sub,
+          })
+        )
+      } catch (err) {
+        if (!(err instanceof UserNotFoundException)) {
+          logger.error(
+            { userId, err },
+            'Failed to delete Cognito identity after account deletion'
+          )
+          Sentry.captureException(err)
+        }
+      }
+    }
+
+    logger.info({ userId }, 'Account deleted')
+    return c.json({ data: { deleted: true } })
+  } catch (error) {
+    console.error('DELETE /me error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
 // PUT /v1/me/gddl-key — store (or replace) the user's GDDL API key.
 // The key is encrypted with AWS KMS before it touches the database and is
 // NEVER logged. We return only the derived `hasGddlApiKey` flag.
@@ -335,17 +416,39 @@ app.put('/me/gddl-key', async (c) => {
 
     const gddlApiKeyEncrypted = await encryptSecret(parsed.data.apiKey)
 
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: { gddlApiKeyEncrypted, gddlUsername: gddlName },
-      select: {
-        ...meSelect,
-        ratingCategories: {
-          select: { id: true, name: true, weight: true, sortOrder: true },
-          orderBy: { sortOrder: 'asc' },
+    let updated
+    try {
+      updated = await prisma.user.update({
+        where: { id: userId },
+        data: { gddlApiKeyEncrypted, gddlUsername: gddlName },
+        select: {
+          ...meSelect,
+          ratingCategories: {
+            select: { id: true, name: true, weight: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
-      },
-    })
+      })
+    } catch (err) {
+      // P2002: this GDDL account is already linked to a different user.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        logger.warn(
+          { userId, gddlName },
+          'GDDL account already linked to another user'
+        )
+        return c.json(
+          {
+            error:
+              'That GDDL account is already connected to a different InfernoLog user.',
+          },
+          409
+        )
+      }
+      throw err
+    }
 
     // Log the event but never the key (or its ciphertext).
     logger.info({ userId }, 'Stored GDDL API key')
@@ -482,78 +585,6 @@ app.post('/me/gddl-lists-sync', async (c) => {
   }
 })
 
-// POST /v1/me/onboarding
-app.post('/me/onboarding', async (c) => {
-  const userId = c.get('userId') as string
-
-  try {
-    const body = await c.req.json()
-    const parsed = onboardingSchema.safeParse(body)
-
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const { username, dateFormatPreference, ratingMode, ratingDisplayScale } =
-      parsed.data
-
-    const existing = await prisma.user.findFirst({
-      where: {
-        username: { equals: username, mode: 'insensitive' },
-        NOT: { id: userId },
-      },
-    })
-
-    if (existing) {
-      return c.json({ error: 'Username is already taken' }, 409)
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        username,
-        dateFormatPreference,
-        ratingMode,
-        ratingDisplayScale,
-        onboardingCompleted: true,
-      },
-      select: {
-        id: true,
-        username: true,
-        onboardingCompleted: true,
-      },
-    })
-
-    // Seed default rating categories if the user is starting in WEIGHTED mode.
-    if (ratingMode === 'WEIGHTED') {
-      const count = await prisma.ratingCategory.count({ where: { userId } })
-      if (count === 0) {
-        // skipDuplicates relies on the @@unique([userId, name]) constraint:
-        // if two requests race past the count check, the second insert is a
-        // silent no-op instead of producing duplicate seed categories.
-        // Weights sum to exactly 1.00 — the top (highest priority) gets the
-        // rounding remainder so users start in a valid state.
-        await prisma.ratingCategory.createMany({
-          data: [
-            { userId, name: 'Gameplay', weight: 0.34, sortOrder: 0 },
-            { userId, name: 'Decoration', weight: 0.33, sortOrder: 1 },
-            { userId, name: 'Song', weight: 0.33, sortOrder: 2 },
-          ],
-          skipDuplicates: true,
-        })
-      }
-    }
-
-    logger.info({ userId }, 'Completed onboarding')
-
-    return c.json({ data: updated })
-  } catch (error) {
-    console.error('POST /me/onboarding error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
 // POST /v1/me/connect-discord
 // Returns a Discord OAuth URL with a signed state encoding the signed-in
 // user's id. The browser navigates to that URL; Discord redirects back to the
@@ -603,15 +634,15 @@ app.get('/users/check-username', async (c) => {
   const username = c.req.query('username')
 
   if (!username) {
-    return c.json({ error: 'Username is required' }, 400)
+    return c.json({
+      available: false,
+      error: 'Username must be at least 2 characters',
+    })
   }
 
   const parsed = localUsernameSchema.safeParse(username)
   if (!parsed.success) {
-    return c.json({
-      available: false,
-      error: parsed.error.message,
-    })
+    return c.json({ available: false, error: parsed.error.message })
   }
 
   const existing = await prisma.user.findFirst({

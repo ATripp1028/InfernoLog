@@ -30,7 +30,7 @@ app.post('/me/gddl-records/:levelId', async (c) => {
       select: {
         userGddlTier: true,
         progressUpdates: {
-          where: { isCompletion: true },
+          where: { kind: 'COMPLETION' },
           take: 1,
           select: {
             id: true,

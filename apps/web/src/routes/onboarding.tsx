@@ -1,6 +1,6 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useEffect } from 'react'
-import { Onboarding } from '@/pages/Onboarding'
+import { OnboardingWizard } from '@/features/onboarding/OnboardingWizard'
 import { useAuth } from '@/context/AuthContext'
 
 export const Route = createFileRoute('/onboarding')({
@@ -17,5 +17,5 @@ function OnboardingRoute() {
     }
   }, [isAuthInitializing, isAuthenticated, navigate])
 
-  return <Onboarding />
+  return <OnboardingWizard />
 }

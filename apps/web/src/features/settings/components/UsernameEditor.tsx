@@ -15,11 +15,26 @@ const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000
 
 interface UsernameEditorProps {
   me: MeData
+  // Onboarding opens straight into the input (the seeded placeholder
+  // username needs changing immediately) instead of Settings' collapsed
+  // read-only view behind an Edit button.
+  startInEditing?: boolean
+  // Called after a successful save — lets the onboarding wizard advance to
+  // its next step. Settings' usage simply ignores it.
+  onSaved?: () => void
 }
 
-export function UsernameEditor({ me }: UsernameEditorProps) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(me.username)
+export function UsernameEditor({
+  me,
+  startInEditing,
+  onSaved,
+}: UsernameEditorProps) {
+  const [editing, setEditing] = useState(startInEditing ?? false)
+  // Onboarding starts the box empty rather than prefilled with the seeded
+  // placeholder (`<email-localpart>_<hex>`) — that placeholder embeds part
+  // of the user's email, which is a privacy leak if it's ever visible (e.g.
+  // on a stream) even for the moment before they type a real one.
+  const [value, setValue] = useState(startInEditing ? '' : me.username)
   const [validationError, setValidationError] = useState<string | null>(null)
   const [availabilityError, setAvailabilityError] = useState<string | null>(
     null
@@ -30,9 +45,14 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
   const lockedUntil = computeCooldownEnd(me.usernameChangedAt)
   const isLocked = lockedUntil !== null
 
+  // Only re-sync from the server value while not actively editing (Cancel
+  // and a successful Save already set `value` explicitly) — otherwise this
+  // would immediately overwrite onboarding's intentionally-empty start value
+  // with the placeholder username on mount.
   useEffect(() => {
+    if (editing) return
     setValue(me.username)
-  }, [me.username])
+  }, [me.username, editing])
 
   useEffect(() => {
     const controller = new AbortController()
@@ -44,18 +64,23 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
     }
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(async () => {
-    try {
-      const res = await checkUsernameAvailable(value, signal)
-      if (!res.available) {
-        setAvailabilityError(res.error ?? 'Username is already taken')
-      } else {
-        setAvailabilityError(null)
+      try {
+        const res = await checkUsernameAvailable(value, signal)
+        if (!res.available) {
+          setAvailabilityError(res.error ?? 'Username is already taken')
+        } else {
+          setAvailabilityError(null)
+        }
+      } catch (err) {
+        // A newer keystroke superseded this check (cleanup below calls
+        // controller.abort()) — that's the expected flow while typing, not a
+        // failure, so it shouldn't surface as an error. Aborted fetches throw
+        // a DOMException, which isn't an Error subclass, so check by name.
+        if ((err as { name?: string } | null)?.name === 'AbortError') return
+        const msg =
+          err instanceof Error ? err.message : 'Failed to check username'
+        setAvailabilityError(msg)
       }
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : 'Failed to check username'
-      setAvailabilityError(msg)
-    }
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -74,6 +99,7 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
     try {
       await update.mutateAsync(value)
       setEditing(false)
+      onSaved?.()
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
         const body = err.body as { nextAllowedAt?: string } | null
@@ -148,7 +174,10 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
           }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') void handleSave()
-            if (e.key === 'Escape') handleCancel()
+            // Cancelling would fall back to the read-only view, which shows
+            // the placeholder username in plain text — not offered during
+            // onboarding (see the Cancel button below).
+            if (e.key === 'Escape' && !startInEditing) handleCancel()
           }}
           className="max-w-xs"
           autoFocus
@@ -161,14 +190,16 @@ export function UsernameEditor({ me }: UsernameEditorProps) {
         >
           {update.isPending ? 'Saving…' : 'Save'}
         </Button>
-        <Button
-          onClick={handleCancel}
-          variant="ghost"
-          size="sm"
-          disabled={update.isPending}
-        >
-          Cancel
-        </Button>
+        {!startInEditing && (
+          <Button
+            onClick={handleCancel}
+            variant="ghost"
+            size="sm"
+            disabled={update.isPending}
+          >
+            Cancel
+          </Button>
+        )}
       </div>
       {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
       <p className="text-xs text-muted-foreground">

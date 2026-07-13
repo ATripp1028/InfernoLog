@@ -115,7 +115,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     })
 
     const updateFields = {
-      isCompletion: true,
+      kind: 'COMPLETION' as const,
       date: input.date ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
@@ -141,10 +141,10 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     }
 
     // Edit-not-replace: if a completion already exists, UPDATE it in place.
-    // The "one isCompletion=true per level_progress" invariant is preserved
+    // The "one kind=COMPLETION per level_progress" invariant is preserved
     // because we never create a second completion row.
     const existing = await tx.progressUpdate.findFirst({
-      where: { levelProgressId: lp.id, isCompletion: true },
+      where: { levelProgressId: lp.id, kind: 'COMPLETION' },
       select: { id: true },
     })
 
@@ -222,7 +222,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
     const status = lp.status === 'DROPPED' ? 'IN_PROGRESS' : lp.status
 
     const base = {
-      isCompletion: false,
+      kind: 'PROGRESS' as const,
       date: input.date ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
@@ -283,11 +283,15 @@ export async function applyEdit(
     } else {
       const mostRecent = await tx.progressUpdate.findFirst({
         where: { levelProgressId: lp.id },
-        orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }],
+        orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }],
         select: { id: true },
       })
       targetUpdateId = mostRecent?.id
     }
+    // Every level_progress row is created together with at least one
+    // progress_update (completion, progress, or drop) — see applyCompletion/
+    // applyProgress/applyDrop below — so targetUpdateId is always found here.
+    if (!targetUpdateId) return null
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
@@ -330,40 +334,34 @@ export async function applyEdit(
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })
     }
 
-    if (targetUpdateId) {
-      if (Object.keys(puData).length > 0) {
-        await tx.progressUpdate.update({
-          where: { id: targetUpdateId },
-          data: puData,
-        })
-      }
-      if (input.ratingScores !== undefined) {
-        await tx.ratingScore.deleteMany({
-          where: { progressUpdateId: targetUpdateId },
-        })
-        if (input.ratingScores.length > 0) {
-          await tx.ratingScore.createMany({
-            data: input.ratingScores.map((r) => ({
-              progressUpdateId: targetUpdateId!,
-              categoryId: r.categoryId,
-              score: r.score,
-            })),
-          })
-        }
-      }
-      return loadFullEntry(tx, lp.id, targetUpdateId)
+    if (Object.keys(puData).length > 0) {
+      await tx.progressUpdate.update({
+        where: { id: targetUpdateId },
+        data: puData,
+      })
     }
-
-    // Drop-only entry (no ProgressUpdate): return just the LevelProgress.
-    const updated = await tx.levelProgress.findUniqueOrThrow({
-      where: { id: lp.id },
-    })
-    return { levelProgress: updated, progressUpdate: null }
+    if (input.ratingScores !== undefined) {
+      await tx.ratingScore.deleteMany({
+        where: { progressUpdateId: targetUpdateId },
+      })
+      if (input.ratingScores.length > 0) {
+        await tx.ratingScore.createMany({
+          data: input.ratingScores.map((r) => ({
+            progressUpdateId: targetUpdateId!,
+            categoryId: r.categoryId,
+            score: r.score,
+          })),
+        })
+      }
+    }
+    return loadFullEntry(tx, lp.id, targetUpdateId)
   })
 }
 
 // ─────────────────────────────────────────────
-// DROP — status transition with optional metadata. No progress_update.
+// DROP — a status transition backed by its own progress_update (kind=DROP),
+// same as completion/progress. A level can be dropped more than once (drop →
+// resume → drop again); each drop is its own row, never overwritten.
 // Drop-from-scratch supported via findOrCreateLevelProgress(initial=DROPPED).
 // ─────────────────────────────────────────────
 
@@ -376,13 +374,22 @@ export async function applyDrop(userId: string, input: DropInput) {
       input.levelId,
       'DROPPED'
     )
-    const updated = await tx.levelProgress.update({
+
+    const created = await tx.progressUpdate.create({
+      data: {
+        levelProgressId: lp.id,
+        kind: 'DROP',
+        date: input.date ?? null,
+        attempts: input.attempts ?? null,
+        notes: input.notes ?? null,
+      },
+      select: { id: true },
+    })
+
+    await tx.levelProgress.update({
       where: { id: lp.id },
       data: {
         status: 'DROPPED',
-        droppedAt: input.droppedAt ?? null,
-        droppedReason: input.droppedReason ?? null,
-        attemptsAtDrop: input.attemptsAtDrop ?? null,
         visibility: input.visibility,
         ...(input.worstFail !== undefined
           ? { worstFail: input.worstFail }
@@ -392,6 +399,7 @@ export async function applyDrop(userId: string, input: DropInput) {
           : {}),
       },
     })
-    return { levelProgress: updated, progressUpdate: null }
+
+    return loadFullEntry(tx, lp.id, created.id)
   })
 }

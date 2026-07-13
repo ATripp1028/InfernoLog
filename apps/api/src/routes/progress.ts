@@ -63,19 +63,19 @@ const levelProgressListSelect = {
   status: true,
   visibility: true,
   worstFail: true,
-  attemptsAtDrop: true,
-  droppedAt: true,
-  droppedReason: true,
   createdAt: true,
   updatedAt: true,
   // Presence of a ranking row → !needsPlacement for completed classic levels.
   classicRanking: { select: { id: true } },
   userGddlTier: true,
   level: { select: levelListSelect },
-  // The representative update: completion first (isCompletion desc), else the
-  // most recent. `take: 1` yields exactly one per level in a single query.
+  // The representative update: completion first (kind desc — see
+  // ProgressUpdateKind's declaration order), else the most recent. For a
+  // DROPPED level that's the drop itself, now that drops are ordinary
+  // progress_update rows. `take: 1` yields exactly one per level in a single
+  // query.
   progressUpdates: {
-    orderBy: [{ isCompletion: 'desc' }, { loggedAt: 'desc' }] as const,
+    orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }] as const,
     take: 1,
     include: listEntryInclude,
   },
@@ -91,7 +91,7 @@ function serializeEntry(
 ) {
   return {
     progressUpdateId: update.id,
-    isCompletion: update.isCompletion,
+    kind: update.kind,
     date: update.date,
     dateUncertain: update.dateUncertain,
     attempts: update.attempts,
@@ -132,9 +132,6 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     worstFail: row.worstFail,
-    attemptsAtDrop: row.attemptsAtDrop,
-    droppedAt: row.droppedAt,
-    droppedReason: row.droppedReason,
     needsPlacement:
       row.status === 'COMPLETED' &&
       level.levelType === 'CLASSIC' &&
@@ -211,9 +208,6 @@ app.get('/me/progress/:levelId', async (c) => {
         status: true,
         visibility: true,
         levelNotes: true,
-        droppedReason: true,
-        droppedAt: true,
-        attemptsAtDrop: true,
         worstFail: true,
         worstFailDate: true,
         userGddlTier: true,
@@ -248,7 +242,7 @@ app.get('/me/progress/:levelId', async (c) => {
           orderBy: { loggedAt: 'desc' },
           select: {
             id: true,
-            isCompletion: true,
+            kind: true,
             percentage: true,
             runFrom: true,
             runTo: true,
@@ -281,32 +275,47 @@ app.get('/me/progress/:levelId', async (c) => {
     // No entry → 404 (whether the level doesn't exist or the user never logged it).
     if (!lp) return c.json({ error: 'Level progress not found' }, 404)
 
-    // Build runsGraph. In v1 there is at most one drop event on level_progress;
-    // computeRunsGraph accepts an array for forward-compatibility.
-    // Gate on status === 'DROPPED': worstFail and attemptsAtDrop can be set on
-    // completed levels too, so they alone must not trigger a drop bar.
-    const drops =
-      lp.status === 'DROPPED'
-        ? [
-            {
-              droppedAt: lp.droppedAt,
-              attemptsAtDrop: lp.attemptsAtDrop,
-              worstFail: lp.worstFail,
-            },
-          ]
-        : []
+    // Build runsGraph. Drops are now ordinary progress_update rows (kind=DROP)
+    // rather than level_progress-level fields, so every historical drop is
+    // always present in lp.progressUpdates — no existence check needed, and a
+    // level dropped more than once (drop → resume → drop again) keeps each
+    // drop's own date/attempts/notes instead of the latest overwriting the rest.
+    //
+    // worstFail is still a level_progress-level rolling value (the logging UI
+    // asks for it once and remembers it), so it can only ever describe the
+    // CURRENT drop — attach it to the chronologically latest DROP row only.
+    // For a COMPLETED level it's already surfaced as its own milestone bar
+    // below (worstFailForGraph), so exclude it here to avoid a duplicate
+    // synthetic bar for the same %.
+    const dropUpdates = lp.progressUpdates.filter((u) => u.kind === 'DROP')
+    const latestDropId = dropUpdates.reduce(
+      (latest: (typeof dropUpdates)[number] | null, u) =>
+        !latest || u.loggedAt > latest.loggedAt ? u : latest,
+      null
+    )?.id
+    const drops = dropUpdates.map((u) => ({
+      droppedAt: u.date,
+      worstFail:
+        lp.status !== 'COMPLETED' && u.id === latestDropId
+          ? lp.worstFail
+          : null,
+    }))
 
     // runsGraph expects oldest-first; progressUpdates above is newest-first.
-    const updatesForGraph = [...lp.progressUpdates].reverse().map((u) => ({
-      id: u.id,
-      isCompletion: u.isCompletion,
-      percentage: toNum(u.percentage),
-      runFrom: u.runFrom,
-      runTo: u.runTo,
-      date: u.date,
-      dateUncertain: u.dateUncertain,
-      loggedAt: u.loggedAt,
-    }))
+    // DROP-kind rows are excluded here — they're merged in via `drops` above.
+    const updatesForGraph = [...lp.progressUpdates]
+      .reverse()
+      .filter((u) => u.kind !== 'DROP')
+      .map((u) => ({
+        id: u.id,
+        isCompletion: u.kind === 'COMPLETION',
+        percentage: toNum(u.percentage),
+        runFrom: u.runFrom,
+        runTo: u.runTo,
+        date: u.date,
+        dateUncertain: u.dateUncertain,
+        loggedAt: u.loggedAt,
+      }))
 
     // For completed levels, pass the worst-fail milestone so it appears as a
     // distinct bar in the timeline. Dropped levels use the drop-merge rule instead.
@@ -336,7 +345,7 @@ app.get('/me/progress/:levelId', async (c) => {
 
     // Find the completion update (if any) for video/highlight URLs.
     const completionUpdate =
-      lp.progressUpdates.find((u) => u.isCompletion) ?? null
+      lp.progressUpdates.find((u) => u.kind === 'COMPLETION') ?? null
 
     return c.json({
       data: {
@@ -344,9 +353,6 @@ app.get('/me/progress/:levelId', async (c) => {
         status: lp.status,
         visibility: lp.visibility,
         levelNotes: lp.levelNotes,
-        droppedReason: lp.droppedReason,
-        droppedAt: lp.droppedAt,
-        attemptsAtDrop: lp.attemptsAtDrop,
         worstFail: lp.worstFail,
         worstFailDate: lp.worstFailDate,
         userGddlTier: lp.userGddlTier,
@@ -365,7 +371,7 @@ app.get('/me/progress/:levelId', async (c) => {
         level: lp.level,
         progressUpdates: lp.progressUpdates.map((u) => ({
           progressUpdateId: u.id,
-          isCompletion: u.isCompletion,
+          kind: u.kind,
           percentage: toNum(u.percentage),
           runFrom: u.runFrom,
           runTo: u.runTo,

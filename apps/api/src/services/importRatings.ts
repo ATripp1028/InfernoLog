@@ -29,11 +29,15 @@ export async function commitImportRatings(
   // Scores attach to completions — resolve each entry against the user's own
   // completed levels (the completion's ProgressUpdate id).
   const completed = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { isCompletion: true } } },
+    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     select: {
       levelId: true,
       level: { select: { name: true } },
-      progressUpdates: { where: { isCompletion: true }, select: { id: true }, take: 1 },
+      progressUpdates: {
+        where: { kind: 'COMPLETION' },
+        select: { id: true },
+        take: 1,
+      },
     },
   })
   const puByLevelId = new Map<string, string>()
@@ -54,7 +58,9 @@ export async function commitImportRatings(
     where: { userId },
     select: { id: true, name: true, sortOrder: true },
   })
-  const catIdByName = new Map(cats.map((c) => [c.name.trim().toLowerCase(), c.id]))
+  const catIdByName = new Map(
+    cats.map((c) => [c.name.trim().toLowerCase(), c.id])
+  )
   let maxSortOrder = cats.reduce((m, c) => Math.max(m, c.sortOrder), -1)
 
   // ── Resolve entries → (puId, categoryName, score) triples ────────────
@@ -69,19 +75,28 @@ export async function commitImportRatings(
   const newCategoryNames = new Map<string, string>()
 
   for (const entry of entries) {
-    const label = entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : 'row')
+    const label =
+      entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : 'row')
 
     let puId = entry.levelId ? puByLevelId.get(entry.levelId) : undefined
     if (!puId && entry.levelName) {
       const matches = puByName.get(entry.levelName.trim().toLowerCase())
       if (matches && matches.length === 1) puId = matches[0]
       else if (matches && matches.length > 1) {
-        skipped.push({ label, reason: 'Matches more than one of your completed levels — add a level_id' })
+        skipped.push({
+          label,
+          reason:
+            'Matches more than one of your completed levels — add a level_id',
+        })
         continue
       }
     }
     if (!puId) {
-      skipped.push({ label, reason: 'Not among your completed levels — scores attach to completions' })
+      skipped.push({
+        label,
+        reason:
+          'Not among your completed levels — scores attach to completions',
+      })
       continue
     }
 
@@ -89,7 +104,8 @@ export async function commitImportRatings(
       const name = rawName.trim()
       if (!name) continue
       const key = name.toLowerCase()
-      if (!catIdByName.has(key) && !newCategoryNames.has(key)) newCategoryNames.set(key, name)
+      if (!catIdByName.has(key) && !newCategoryNames.has(key))
+        newCategoryNames.set(key, name)
       pending.push({ puId, categoryName: key, score })
       scoredPuIds.add(puId)
     }
@@ -131,7 +147,10 @@ export async function commitImportRatings(
     }))
     await tx.ratingScore.deleteMany({
       where: {
-        OR: rows.map((r) => ({ progressUpdateId: r.progressUpdateId, categoryId: r.categoryId })),
+        OR: rows.map((r) => ({
+          progressUpdateId: r.progressUpdateId,
+          categoryId: r.categoryId,
+        })),
       },
     })
     await tx.ratingScore.createMany({ data: rows })

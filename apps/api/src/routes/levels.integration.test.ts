@@ -151,7 +151,7 @@ describe('GET /levels/:levelId/resolve', () => {
     await prisma.progressUpdate.create({
       data: {
         levelProgressId: lp.id,
-        isCompletion: true,
+        kind: 'COMPLETION',
         attempts: 5000,
         enjoyment: 80,
       },

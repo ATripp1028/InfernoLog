@@ -9,6 +9,7 @@ import {
   DifficultyOpinion,
   EntryVisibility,
   LevelProgressStatus,
+  ProgressUpdateKind,
   Device,
   GdVersion,
 } from './enums'
@@ -162,6 +163,9 @@ export const UpdateMeSchema = z
         { message: 'Must be a number between 0 and 1' }
       )
       .optional(),
+    // Not a column — the handler strips this and stamps legalAcceptedAt when true.
+    acceptLegal: z.literal(true).optional(),
+    onboardingCompleted: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')
 
@@ -338,17 +342,20 @@ export const ProgressInputSchema = z
     }
   })
 
-// DROP — a status transition with optional metadata. Drop-from-scratch is
-// allowed (no prior progress required).
+// DROP — backed by its own ProgressUpdate (kind=DROP), so it reuses the same
+// date/attempts/notes fields completion and progress logs use rather than
+// drop-specific synonyms. Drop-from-scratch is allowed (no prior progress
+// required), and a level can be dropped more than once (drop → resume →
+// drop again) — each drop is its own row, not an overwritten singleton.
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
-  droppedAt: z.coerce.date().nullable().optional(),
-  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  date: z.coerce.date().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   // Calendar date of the worst fail session.
   worstFailDate: z.coerce.date().nullable().optional(),
-  droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
@@ -496,11 +503,13 @@ export const LevelListSummarySchema = z.object({
 })
 
 // The representative progress update folded into a list row: the completion
-// update when the level is COMPLETED, otherwise the most recent update. Drives
-// the Date / Attempts / Rating / Enjoyment / Status columns and most filters.
+// update when the level is COMPLETED, otherwise the most recent update (which
+// is the drop itself for a DROPPED level, now that drops are ordinary
+// ProgressUpdate rows). Drives the Date / Attempts / Rating / Enjoyment /
+// Status columns and most filters.
 export const LevelProgressListEntrySchema = z.object({
   progressUpdateId: z.string().uuid(),
-  isCompletion: z.boolean(),
+  kind: z.nativeEnum(ProgressUpdateKind),
   date: z.coerce.date().nullable(),
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
@@ -533,11 +542,10 @@ export const LevelProgressListItemSchema = z.object({
   visibility: z.nativeEnum(EntryVisibility),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-  // Drop-specific, level-scoped fields.
+  // Rolling "best known" worst-fail — level-scoped (not per-event) because the
+  // logging UI asks for it once and remembers it ("already logged" checkbox)
+  // rather than re-asking on every completion/drop.
   worstFail: z.number().int().nullable(),
-  attemptsAtDrop: z.number().int().nullable(),
-  droppedAt: z.coerce.date().nullable(),
-  droppedReason: z.string().nullable(),
   // Derived: a completed CLASSIC level with no ClassicRanking row yet.
   needsPlacement: z.boolean(),
   // The user's own GDDL tier opinion (set during completion logging or edit).
@@ -829,7 +837,41 @@ export const ImportCompletionRowSchema = z.object({
   highlightUrl: z.string().url().nullable().optional(),
 })
 
+// A non-completion progress update — one logged session for a level that
+// isn't (yet) the completion. Multiple rows can exist per level, unlike
+// Completions/Dropped which are one-per-level. `progressId` is the round-trip
+// identity (the ProgressUpdate.id, populated on export): present + matching →
+// updates that entry in place; absent or unmatched → a new entry is created.
+export const ImportProgressRowSchema = z.object({
+  progressId: z.string().uuid().nullable().optional(),
+  levelId: LevelIdSchema.nullable().optional(),
+  levelName: z.string().nullable().optional(),
+  creator: z.string().nullable().optional(),
+  date: z.string().nullable().optional(),
+  dateUncertain: z.boolean().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  percentage: z.number().min(0).max(100).nullable().optional(),
+  runFrom: z.number().int().min(0).max(100).nullable().optional(),
+  runTo: z.number().int().min(0).max(100).nullable().optional(),
+  onStream: z.boolean().nullable().optional(),
+  fps: z.number().int().positive().nullable().optional(),
+  device: z.nativeEnum(Device).nullable().optional(),
+  // 0-10 display scale (server converts to 0-100 on write).
+  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+  highlightUrl: z.string().url().nullable().optional(),
+  visibility: z.nativeEnum(EntryVisibility).nullable().optional(),
+  // Only used to disambiguate name resolution when levelId is absent.
+  inGameDifficulty: z.string().nullable().optional(),
+})
+
+// Additive, like Progress — a level can be dropped more than once (drop →
+// resume → drop again), so this is not one-row-per-level. `dropId` is the
+// round-trip identity (the ProgressUpdate.id, populated on export): present +
+// matching → updates that entry in place; absent or unmatched → a new drop
+// entry is created.
 export const ImportDroppedRowSchema = z.object({
+  dropId: z.string().uuid().nullable().optional(),
   // levelId is optional — if omitted, the server resolves from levelName + creator.
   levelId: LevelIdSchema.nullable().optional(),
   levelName: z.string().nullable().optional(),
@@ -886,6 +928,11 @@ export const ImportCommitRowSchema = z.discriminatedUnion('type', [
     type: z.literal('dropped'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportDroppedRowSchema,
+  }),
+  z.object({
+    type: z.literal('progress'),
+    rowIndex: z.number().int().nonnegative(),
+    data: ImportProgressRowSchema,
   }),
 ])
 
@@ -1000,6 +1047,51 @@ export const ImportRatingsResponseSchema = z.object({
   skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
 })
 
+// ── Background import job (start + status) ─────────────────────────────────
+//
+// POST /v1/me/import/start persists the whole validated dataset in one shot
+// (row batches + the optional ranking/collections/ratings tabs) and returns
+// immediately; a worker Lambda processes it in the background. GET
+// /v1/me/import/status is polled for live progress and, once complete, the
+// same outcome/flagged-row data the old synchronous response returned.
+
+export const ImportStartRequestSchema = z.object({
+  rows: z.array(ImportCommitRowSchema).min(1).max(20000),
+  ranking: z.array(ImportRankingEntrySchema).optional(),
+  collections: z.array(ImportCollectionEntrySchema).optional(),
+  ratings: z.array(ImportRatingEntrySchema).optional(),
+})
+
+export const ImportStartResponseSchema = z.object({
+  jobId: z.string().uuid(),
+})
+
+export const ImportFlaggedRowSchema = z.object({
+  id: z.string(),
+  rowIndex: z.number().int(),
+  levelName: z.string().nullable(),
+  identifier: z.string().nullable(),
+  issueMessage: z.string(),
+  resolved: z.boolean(),
+})
+
+export const ImportStatusResponseSchema = z.object({
+  status: z.enum(['running', 'completed', 'failed']),
+  totalRows: z.number().int(),
+  processedRows: z.number().int(),
+  error: z.string().nullable(),
+  outcomeCounts: z.object({
+    committed: z.number().int(),
+    updated: z.number().int(),
+    skipped: z.number().int(),
+    failed: z.number().int(),
+  }),
+  flaggedRows: z.array(ImportFlaggedRowSchema),
+  rankingResult: ImportRankingResponseSchema.nullable(),
+  collectionsResult: ImportCollectionsResponseSchema.nullable(),
+  ratingsResult: ImportRatingsResponseSchema.nullable(),
+})
+
 // ── Export ─────────────────────────────────────────────────────────────────
 //
 // GET /v1/me/export returns the account's data in a faithful domain form; the
@@ -1036,7 +1128,28 @@ export const ExportCompletionSchema = z.object({
   highlightUrl: z.string().nullable(),
 })
 
+export const ExportProgressSchema = z.object({
+  progressId: z.string(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  date: z.string().nullable(),
+  dateUncertain: z.boolean(),
+  attempts: z.number().int().nullable(),
+  percentage: z.number().nullable(), // 0-100, may carry decimals
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  onStream: z.boolean(),
+  fps: z.number().int().nullable(),
+  device: z.string().nullable(),
+  enjoyment: z.number().int().nullable(), // 0-100 internal
+  notes: z.string().nullable(),
+  highlightUrl: z.string().nullable(),
+  visibility: z.string(),
+})
+
 export const ExportDroppedSchema = z.object({
+  dropId: z.string(),
   levelId: z.string(),
   levelName: z.string().nullable(),
   creator: z.string().nullable(),
@@ -1071,6 +1184,7 @@ export const ExportRatingSchema = z.object({
 
 export const ExportResponseSchema = z.object({
   completions: z.array(ExportCompletionSchema),
+  progress: z.array(ExportProgressSchema),
   dropped: z.array(ExportDroppedSchema),
   ranking: z.array(ExportRankingSchema),
   // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
@@ -1084,6 +1198,7 @@ export const ExportResponseSchema = z.object({
 // client stitches the sections back into an ExportResponse.
 export const EXPORT_SECTIONS = [
   'completions',
+  'progress',
   'dropped',
   'ranking',
   'collections',
@@ -1098,6 +1213,7 @@ export const ExportPageResponseSchema = z.object({
 })
 
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
+export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
@@ -1118,7 +1234,12 @@ export type ImportCollectionsResponse = z.infer<
 export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
 export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
 export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
+export type ImportStartRequest = z.infer<typeof ImportStartRequestSchema>
+export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
+export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
+export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
 export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
+export type ExportProgress = z.infer<typeof ExportProgressSchema>
 export type ExportDropped = z.infer<typeof ExportDroppedSchema>
 export type ExportRanking = z.infer<typeof ExportRankingSchema>
 export type ExportCollection = z.infer<typeof ExportCollectionSchema>

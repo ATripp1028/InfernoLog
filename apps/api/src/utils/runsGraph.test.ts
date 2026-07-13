@@ -27,7 +27,6 @@ function makeUpdate(
 function drop(overrides: Partial<DropForGraph> = {}): DropForGraph {
   return {
     droppedAt: null,
-    attemptsAtDrop: null,
     worstFail: null,
     ...overrides,
   }

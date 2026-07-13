@@ -41,6 +41,7 @@ export interface MeData {
   gddlUsername: string | null
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
+  legalAcceptedAt: string | null
   isVerified: boolean
   createdAt: string
 }
@@ -256,6 +257,8 @@ export interface UpdateMeInput {
   ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean
   enjoymentWeight?: number
+  acceptLegal?: true
+  onboardingCompleted?: boolean
 }
 
 // Rapid-fire mutations (toggles, selects, drag reorders) need three things to
@@ -400,6 +403,26 @@ export function useUpdateRatingConfig() {
   })
 }
 
+// ─────────────────────────────────────────────
+// Account deletion
+// ─────────────────────────────────────────────
+
+export const DELETE_ACCOUNT_CONFIRMATION = 'Delete this account'
+
+export function useDeleteAccount() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me', {
+        token,
+        method: 'DELETE',
+        body: { confirmation: DELETE_ACCOUNT_CONFIRMATION },
+      })
+    },
+  })
+}
+
 // Username availability check (debounced calls in the editor)
 export async function checkUsernameAvailable(
   username: string,
@@ -409,6 +432,5 @@ export async function checkUsernameAvailable(
     `${import.meta.env.VITE_API_URL}/v1/users/check-username?username=${encodeURIComponent(username)}`,
     { signal }
   )
-  if (!res.ok) return { available: false, error: 'Could not check username' }
   return (await res.json()) as { available: boolean; error?: string }
 }

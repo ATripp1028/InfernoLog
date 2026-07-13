@@ -176,11 +176,11 @@ export type ProgressInput = { levelId: string } & (
 
 export interface DropInput {
   levelId: string
-  droppedAt?: string | null
-  attemptsAtDrop?: number | null
+  date?: string | null
+  attempts?: number | null
   worstFail?: number | null
   worstFailDate?: string | null
-  droppedReason?: string | null
+  notes?: string | null
   visibility?: EntryVisibility
 }
 

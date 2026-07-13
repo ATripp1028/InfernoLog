@@ -3,9 +3,6 @@ export interface LevelPageData {
   status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
   visibility: 'PUBLIC' | 'PRIVATE'
   levelNotes: string | null
-  droppedReason: string | null
-  droppedAt: string | null
-  attemptsAtDrop: number | null
   worstFail: number | null
   worstFailDate: string | null
   userGddlTier: number | null
@@ -43,7 +40,7 @@ export interface LevelMeta {
 
 export interface ProgressUpdate {
   progressUpdateId: string
-  isCompletion: boolean
+  kind: 'PROGRESS' | 'DROP' | 'COMPLETION'
   percentage: number | null
   runFrom: number | null
   runTo: number | null

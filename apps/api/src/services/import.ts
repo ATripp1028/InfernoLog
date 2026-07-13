@@ -12,6 +12,7 @@ import type { Prisma } from '@prisma/client'
 import { DifficultyOpinion } from '@infernolog/core'
 import type {
   ImportCompletionRow,
+  ImportProgressRow,
   ImportDroppedRow,
   ImportCommitRow,
   ImportCommitResponse,
@@ -307,9 +308,6 @@ interface LpFields {
   status?: LpStatus
   worstFail?: number
   worstFailDate?: Date | null
-  droppedAt?: Date | null
-  droppedReason?: string | null
-  attemptsAtDrop?: number | null
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string
   userGddlTier?: number | null
@@ -343,6 +341,12 @@ interface PlanCtx {
   >
   levelDiff: Map<string, string | null>
   levelCoins: Map<string, number | null>
+  // progress_id → the existing ProgressUpdate it round-trips to (and the level
+  // it belongs to, so a mismatched/foreign id falls back to creating new).
+  existingProgress: Map<string, { id: string; levelId: string }>
+  // drop_id → the existing kind=DROP ProgressUpdate it round-trips to. Same
+  // shape/purpose as existingProgress, since drops are additive too.
+  existingDrops: Map<string, { id: string; levelId: string }>
 }
 
 function newBatchWrites(): BatchWrites {
@@ -483,7 +487,7 @@ function planCompletion(
   ctx.writes.newProgressUpdates.push({
     id: puId,
     levelProgressId: plan.id,
-    isCompletion: true,
+    kind: 'COMPLETION',
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
@@ -521,52 +525,133 @@ function planCompletion(
   return 'committed'
 }
 
+// A drop event, backed by its own progress_update (kind=DROP). Additive, like
+// Progress — a level can be dropped more than once (drop → resume → drop
+// again). Round-trip identity comes from `dropId` (the ProgressUpdate.id,
+// populated on export): a match (scoped to this exact level, to prevent
+// cross-account/cross-level tampering) updates that entry in place; anything
+// else creates a new one.
 function planDrop(
   ctx: PlanCtx,
   levelId: string,
   row: ImportDroppedRow
 ): 'committed' | 'updated' {
-  // A drop against a LevelProgress that already existed modifies it; otherwise
-  // it creates a new one.
-  const existed = ctx.dbState.has(levelId)
+  const matched = row.dropId ? ctx.existingDrops.get(row.dropId) : undefined
   const plan = getLpPlan(ctx, levelId)
+
+  if (matched && matched.levelId === levelId) {
+    const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
+    if (row.droppedAt != null) merge.date = new Date(row.droppedAt)
+    if (row.attemptsAtDrop != null) merge.attempts = row.attemptsAtDrop
+    if (row.reason != null) merge.notes = row.reason
+    if (Object.keys(merge).length > 0) {
+      ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
+    }
+    if (row.bestProgress != null) {
+      applyLp(plan, { worstFail: Math.round(row.bestProgress) })
+    }
+    if (!plan.completed) applyLp(plan, { status: 'DROPPED' })
+    return 'updated'
+  }
+
+  const puId = randomUUID()
+  ctx.writes.newProgressUpdates.push({
+    id: puId,
+    levelProgressId: plan.id,
+    kind: 'DROP',
+    date: row.droppedAt ? new Date(row.droppedAt) : null,
+    attempts: row.attemptsAtDrop ?? null,
+    notes: row.reason ?? null,
+    inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
+  })
   applyLp(plan, {
     status: plan.completed ? 'COMPLETED' : 'DROPPED',
-    droppedAt: row.droppedAt ? new Date(row.droppedAt) : null,
-    droppedReason: row.reason ?? null,
-    attemptsAtDrop: row.attemptsAtDrop ?? null,
     ...(row.bestProgress != null
       ? { worstFail: Math.round(row.bestProgress) }
       : {}),
   })
-  return existed ? 'updated' : 'committed'
+  return 'committed'
+}
+
+// A non-completion progress log. Unlike completions/drops, many rows can
+// legitimately target the same level (session history) — so there is no
+// "existing entry" to skip or overwrite by level. Round-trip identity instead
+// comes from `progressId` (the ProgressUpdate.id, populated on export): a
+// match (scoped to this exact level, to prevent cross-account/cross-level
+// tampering) updates that entry in place; anything else creates a new one.
+// Never touches LevelProgress.status — completions/drops establish status,
+// and historical progress rows must not flip a dropped level back to
+// in-progress on reimport.
+function planProgress(
+  ctx: PlanCtx,
+  levelId: string,
+  row: ImportProgressRow
+): 'committed' | 'updated' {
+  const matched = row.progressId
+    ? ctx.existingProgress.get(row.progressId)
+    : undefined
+  const plan = getLpPlan(ctx, levelId)
+
+  if (matched && matched.levelId === levelId) {
+    const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
+    if (row.date != null) merge.date = new Date(row.date)
+    if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
+    if (row.attempts != null) merge.attempts = row.attempts
+    if (row.percentage != null) merge.percentage = row.percentage
+    if (row.runFrom != null) merge.runFrom = row.runFrom
+    if (row.runTo != null) merge.runTo = row.runTo
+    if (row.fps != null) merge.fps = row.fps
+    if (row.onStream != null) merge.onStream = row.onStream
+    if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
+    if (row.notes != null) merge.notes = row.notes
+    if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
+    if (row.device != null) merge.device = row.device
+    if (Object.keys(merge).length > 0) {
+      ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
+    }
+    if (row.visibility != null) applyLp(plan, { visibility: row.visibility })
+    return 'updated'
+  }
+
+  const puId = randomUUID()
+  ctx.writes.newProgressUpdates.push({
+    id: puId,
+    levelProgressId: plan.id,
+    kind: 'PROGRESS',
+    date: row.date ? new Date(row.date) : null,
+    dateUncertain: row.dateUncertain ?? false,
+    attempts: row.attempts ?? null,
+    percentage: row.percentage ?? null,
+    runFrom: row.runFrom ?? null,
+    runTo: row.runTo ?? null,
+    fps: row.fps ?? null,
+    onStream: row.onStream ?? false,
+    highlightUrl: row.highlightUrl ?? null,
+    notes: row.notes ?? null,
+    enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+    device: row.device ?? null,
+    inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
+  })
+  if (row.visibility != null) applyLp(plan, { visibility: row.visibility })
+  return 'committed'
 }
 
 // ── Main commit function ───────────────────────────────────────────────────
+//
+// Processes one batch of a background ImportJob's rows. Rows are pre-inserted
+// as ImportJobRow("pending") by POST /v1/me/import/start; this function is
+// called by the worker Lambda (importWorker.ts) with the next up-to-50
+// pending rows fetched from the DB, and writes each row's final outcome back
+// in place (update, not create) — there is no separate idempotency table
+// anymore, since only the worker (never the client) drives this.
 
-export async function commitImportBatch(
+export async function processImportJobBatch(
   userId: string,
   importJobId: string,
-  rows: ImportCommitRow[]
+  pendingRows: { id: string; rowIndex: number; rawData: ImportCommitRow }[]
 ): Promise<ImportCommitResponse> {
-  await prisma.importJob.upsert({
-    where: { id: importJobId },
-    create: { id: importJobId, userId },
-    update: {},
-  })
-
-  const existingRows = await prisma.importJobRow.findMany({
-    where: {
-      jobId: importJobId,
-      rowIndex: { in: rows.map((r) => r.rowIndex) },
-    },
-  })
-  const processed = new Map(
-    existingRows.map((r) => [
-      r.rowIndex,
-      { status: r.status, reason: r.reason },
-    ])
-  )
+  const rows = pendingRows.map((r) => r.rawData)
+  const rowDbId = new Map(pendingRows.map((r) => [r.rowIndex, r.id]))
 
   // ── Pre-resolve name-only rows (outside the transaction) ──────────────
   // Resolving via RobTop involves network I/O that must not hold a DB
@@ -575,9 +660,7 @@ export async function commitImportBatch(
   const resolvedRobtopData = new Map<string, RobtopLevel>() // levelId → full data
   const resolutionFailures = new Map<number, string>() // rowIndex → reason
 
-  const nameOnlyRows = rows.filter(
-    (r) => !processed.has(r.rowIndex) && !r.data.levelId && r.data.levelName
-  )
+  const nameOnlyRows = rows.filter((r) => !r.data.levelId && r.data.levelName)
   for (const row of nameOnlyRows) {
     // Both tabs carry in_game_difficulty purely to disambiguate name resolution.
     const result = await resolveByName(
@@ -605,10 +688,7 @@ export async function commitImportBatch(
   // ── Pre-fetch GDDL tiers in parallel (outside the transaction) ────────
   const gddlTierCache = new Map<string, number | null>()
   const completionRows = rows.filter(
-    (r) =>
-      r.type === 'completion' &&
-      !processed.has(r.rowIndex) &&
-      !r.data.userGddlTier
+    (r) => r.type === 'completion' && !r.data.userGddlTier
   )
   const idsNeedingGddl = [
     ...new Set(
@@ -640,7 +720,7 @@ export async function commitImportBatch(
       levelId: true,
       status: true,
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         select: { id: true },
         take: 1,
       },
@@ -674,12 +754,61 @@ export async function commitImportBatch(
     levelCoins.set(id, rt.coins)
   }
 
+  // ── Pre-fetch existing progress entries referenced by progress_id ─────
+  // Scoped to this user via the levelProgress relation filter, so a foreign
+  // or stale id can never be used to update someone else's data.
+  const progressRows = rows.filter(
+    (r): r is Extract<ImportCommitRow, { type: 'progress' }> =>
+      r.type === 'progress'
+  )
+  const progressIds = [
+    ...new Set(
+      progressRows.flatMap((r) =>
+        r.data.progressId ? [r.data.progressId] : []
+      )
+    ),
+  ]
+  const existingProgress = new Map<string, { id: string; levelId: string }>()
+  if (progressIds.length) {
+    const found = await prisma.progressUpdate.findMany({
+      where: { id: { in: progressIds }, levelProgress: { userId } },
+      select: { id: true, levelProgress: { select: { levelId: true } } },
+    })
+    for (const f of found) {
+      existingProgress.set(f.id, { id: f.id, levelId: f.levelProgress.levelId })
+    }
+  }
+
+  // ── Pre-fetch existing drop entries referenced by drop_id ─────────────
+  // Same shape/purpose as the progress_id prefetch above — drops are
+  // additive too, so round-trip identity is per-entry, not per-level.
+  const droppedRows = rows.filter(
+    (r): r is Extract<ImportCommitRow, { type: 'dropped' }> =>
+      r.type === 'dropped'
+  )
+  const dropIds = [
+    ...new Set(
+      droppedRows.flatMap((r) => (r.data.dropId ? [r.data.dropId] : []))
+    ),
+  ]
+  const existingDrops = new Map<string, { id: string; levelId: string }>()
+  if (dropIds.length) {
+    const found = await prisma.progressUpdate.findMany({
+      where: { id: { in: dropIds }, kind: 'DROP', levelProgress: { userId } },
+      select: { id: true, levelProgress: { select: { levelId: true } } },
+    })
+    for (const f of found) {
+      existingDrops.set(f.id, { id: f.id, levelId: f.levelProgress.levelId })
+    }
+  }
+
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
-  const outcomes: ImportCommitResponse['outcomes'] = []
-  const newOutcomes: {
+  const results: {
     rowIndex: number
-    status: string
+    status: 'committed' | 'updated' | 'skipped' | 'failed'
     reason: string | null
+    levelName: string | null
+    identifier: string | null
   }[] = []
   const writes = newBatchWrites()
   const lpPlans = new Map<string, LpPlan>()
@@ -690,49 +819,50 @@ export async function commitImportBatch(
     dbState,
     levelDiff,
     levelCoins,
+    existingProgress,
+    existingDrops,
   }
 
   // Levels whose completion was written/updated this batch — they leave the
   // user's Want to Beat collection in the same transaction.
   const completedLevelIds = new Set<string>()
 
-  // A level can appear more than once per tab (flagged as a duplicate upstream).
-  // Keep only the last completion / last drop per level so we never plan two
-  // completions for one LevelProgress; earlier occurrences are recorded skipped.
+  // A level can appear more than once per tab (flagged as a duplicate upstream
+  // for Completions). Keep only the last completion per level so we never plan
+  // two completions for one LevelProgress; earlier occurrences are recorded
+  // skipped. Progress and Dropped rows are exempt — multiple rows per level are
+  // legitimate (session history / repeated drops) — except when two rows in
+  // this batch target the same progress_id/drop_id, where only the last one
+  // wins (same "later row supersedes" rule).
   const lastCompletion = new Map<string, number>()
-  const lastDrop = new Map<string, number>()
+  const lastProgressById = new Map<string, number>()
+  const lastDropById = new Map<string, number>()
   for (const row of rows) {
-    if (processed.has(row.rowIndex) || resolutionFailures.has(row.rowIndex))
+    if (resolutionFailures.has(row.rowIndex)) continue
+    if (row.type === 'progress') {
+      if (row.data.progressId)
+        lastProgressById.set(row.data.progressId, row.rowIndex)
       continue
+    }
+    if (row.type === 'dropped') {
+      if (row.data.dropId) lastDropById.set(row.data.dropId, row.rowIndex)
+      continue
+    }
     const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!id) continue
-    if (row.type === 'completion') lastCompletion.set(id, row.rowIndex)
-    else lastDrop.set(id, row.rowIndex)
+    lastCompletion.set(id, row.rowIndex)
   }
 
   for (const row of rows) {
-    const prior = processed.get(row.rowIndex)
-    if (prior) {
-      outcomes.push({
-        rowIndex: row.rowIndex,
-        status: prior.status as 'committed' | 'updated' | 'skipped' | 'failed',
-        reason: prior.reason ?? undefined,
-      })
-      continue
-    }
-
     // Resolution failure for name-only rows.
     const failureReason = resolutionFailures.get(row.rowIndex)
     if (failureReason) {
-      outcomes.push({
+      results.push({
         rowIndex: row.rowIndex,
         status: 'failed',
         reason: failureReason,
-      })
-      newOutcomes.push({
-        rowIndex: row.rowIndex,
-        status: 'failed',
-        reason: failureReason,
+        levelName: row.data.levelName ?? null,
+        identifier: row.data.levelId ?? null,
       })
       continue
     }
@@ -740,21 +870,60 @@ export async function commitImportBatch(
     const effectiveLevelId = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!effectiveLevelId) {
       const reason = 'No level_id or level_name provided'
-      outcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason })
-      newOutcomes.push({ rowIndex: row.rowIndex, status: 'failed', reason })
+      results.push({
+        rowIndex: row.rowIndex,
+        status: 'failed',
+        reason,
+        levelName: row.data.levelName ?? null,
+        identifier: null,
+      })
       continue
     }
 
-    const lastForLevel =
-      row.type === 'completion'
-        ? lastCompletion.get(effectiveLevelId)
-        : lastDrop.get(effectiveLevelId)
-    if (lastForLevel !== row.rowIndex) {
-      const reason =
-        'Superseded by a later row for the same level in this import'
-      outcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
-      newOutcomes.push({ rowIndex: row.rowIndex, status: 'skipped', reason })
-      continue
+    if (row.type === 'progress') {
+      if (row.data.progressId) {
+        const lastForId = lastProgressById.get(row.data.progressId)
+        if (lastForId !== row.rowIndex) {
+          results.push({
+            rowIndex: row.rowIndex,
+            status: 'skipped',
+            reason:
+              'Superseded by a later row targeting the same progress entry in this import',
+            levelName: row.data.levelName ?? null,
+            identifier: effectiveLevelId,
+          })
+          continue
+        }
+      }
+    } else if (row.type === 'dropped') {
+      if (row.data.dropId) {
+        const lastForId = lastDropById.get(row.data.dropId)
+        if (lastForId !== row.rowIndex) {
+          results.push({
+            rowIndex: row.rowIndex,
+            status: 'skipped',
+            reason:
+              'Superseded by a later row targeting the same drop entry in this import',
+            levelName: row.data.levelName ?? null,
+            identifier: effectiveLevelId,
+          })
+          continue
+        }
+      }
+    } else {
+      const lastForLevel = lastCompletion.get(effectiveLevelId)
+      if (lastForLevel !== row.rowIndex) {
+        const reason =
+          'Superseded by a later row for the same level in this import'
+        results.push({
+          rowIndex: row.rowIndex,
+          status: 'skipped',
+          reason,
+          levelName: row.data.levelName ?? null,
+          identifier: effectiveLevelId,
+        })
+        continue
+      }
     }
 
     let outcomeStatus: 'committed' | 'updated' | 'skipped' | 'failed'
@@ -774,8 +943,10 @@ export async function commitImportBatch(
         if (outcomeStatus === 'committed' || outcomeStatus === 'updated') {
           completedLevelIds.add(effectiveLevelId)
         }
-      } else {
+      } else if (row.type === 'dropped') {
         outcomeStatus = planDrop(ctx, effectiveLevelId, row.data)
+      } else {
+        outcomeStatus = planProgress(ctx, effectiveLevelId, row.data)
       }
     } catch (err) {
       outcomeStatus = 'failed'
@@ -792,11 +963,12 @@ export async function commitImportBatch(
       reason = 'Existing completion kept — choose Overwrite to replace it'
     }
 
-    outcomes.push({ rowIndex: row.rowIndex, status: outcomeStatus!, reason })
-    newOutcomes.push({
+    results.push({
       rowIndex: row.rowIndex,
       status: outcomeStatus!,
       reason: reason ?? null,
+      levelName: row.data.levelName ?? null,
+      identifier: effectiveLevelId,
     })
   }
 
@@ -890,17 +1062,28 @@ export async function commitImportBatch(
       // Auto-removal: a level with a fresh completion leaves Want to Beat.
       await removeFromWantToBeat(tx, userId, [...completedLevelIds])
 
-      if (newOutcomes.length) {
-        await tx.importJobRow.createMany({
-          data: newOutcomes.map((o) => ({
-            jobId: importJobId,
-            rowIndex: o.rowIndex,
-            status: o.status,
-            reason: o.reason ?? null,
-          })),
-          skipDuplicates: true,
+      // Rows are updated in place (not created) — they were already inserted
+      // as "pending" by POST /v1/me/import/start. issueMessage is only set for
+      // skipped/failed rows: that's the "flagged" set the review UI surfaces.
+      for (const r of results) {
+        const id = rowDbId.get(r.rowIndex)
+        if (!id) continue
+        await tx.importJobRow.update({
+          where: { id },
+          data: {
+            status: r.status,
+            issueMessage:
+              r.status === 'skipped' || r.status === 'failed' ? r.reason : null,
+            levelName: r.levelName,
+            identifier: r.identifier,
+          },
         })
       }
+
+      await tx.importJob.update({
+        where: { id: importJobId },
+        data: { processedRows: { increment: results.length } },
+      })
     },
     {
       // The transaction now issues only batched writes (a handful of createMany /
@@ -924,7 +1107,54 @@ export async function commitImportBatch(
     }
   }
 
-  return { outcomes }
+  return {
+    outcomes: results.map((r) => ({
+      rowIndex: r.rowIndex,
+      status: r.status,
+      reason: r.reason ?? undefined,
+    })),
+  }
+}
+
+// Synchronous single-shot commit helper: creates the job, inserts its rows as
+// "pending", and processes them in one call via processImportJobBatch. This is
+// what the background worker's per-batch loop reduces to for a small,
+// single-batch import — used directly by tests (and any other in-process
+// caller) that want the full plan/write logic without going through
+// POST /v1/me/import/start + an async Lambda invoke.
+export async function commitImportBatch(
+  userId: string,
+  importJobId: string,
+  rows: ImportCommitRow[]
+): Promise<ImportCommitResponse> {
+  await prisma.importJob.deleteMany({ where: { userId } })
+  await prisma.importJob.create({
+    data: {
+      id: importJobId,
+      userId,
+      status: 'running',
+      totalRows: rows.length,
+    },
+  })
+
+  const pending = rows.map((r) => ({
+    id: randomUUID(),
+    rowIndex: r.rowIndex,
+    rawData: r,
+  }))
+  await prisma.importJobRow.createMany({
+    data: pending.map((p) => ({
+      id: p.id,
+      jobId: importJobId,
+      rowIndex: p.rowIndex,
+      rawData: p.rawData as unknown as Prisma.InputJsonValue,
+      status: 'pending',
+      levelName: p.rawData.data.levelName ?? null,
+      identifier: p.rawData.data.levelId ?? null,
+    })),
+  })
+
+  return processImportJobBatch(userId, importJobId, pending)
 }
 
 // ── Check function ─────────────────────────────────────────────────────────
@@ -947,12 +1177,12 @@ export async function checkImportConflicts(
     where: {
       userId,
       levelId: { in: levelIds },
-      progressUpdates: { some: { isCompletion: true } },
+      progressUpdates: { some: { kind: 'COMPLETION' } },
     },
     include: {
       level: { select: { name: true } },
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         select: {
           date: true,
           attempts: true,

@@ -44,9 +44,6 @@ type LevelPageBody = {
     status: string
     visibility: string
     levelNotes: string | null
-    droppedReason: string | null
-    droppedAt: string | null
-    attemptsAtDrop: number | null
     worstFail: number | null
     rankingIndex: number | null
     rankPosition: number | null
@@ -55,7 +52,7 @@ type LevelPageBody = {
     level: Record<string, unknown>
     progressUpdates: Array<{
       progressUpdateId: string
-      isCompletion: boolean
+      kind: 'PROGRESS' | 'DROP' | 'COMPLETION'
       percentage: number | null
       runFrom: number | null
       runTo: number | null
@@ -87,11 +84,9 @@ async function seedProgress(
     status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
     visibility?: 'PUBLIC' | 'PRIVATE'
     levelNotes?: string | null
-    droppedAt?: Date | null
-    attemptsAtDrop?: number | null
     worstFail?: number | null
     updates?: Array<{
-      isCompletion?: boolean
+      kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
       percentage?: number | null
       runFrom?: number | null
       runTo?: number | null
@@ -111,12 +106,10 @@ async function seedProgress(
       status: args.status,
       visibility: args.visibility ?? 'PUBLIC',
       levelNotes: args.levelNotes ?? null,
-      droppedAt: args.droppedAt ?? null,
-      attemptsAtDrop: args.attemptsAtDrop ?? null,
       worstFail: args.worstFail ?? null,
       progressUpdates: {
         create: (args.updates ?? []).map((u) => ({
-          isCompletion: u.isCompletion ?? false,
+          kind: u.kind ?? 'PROGRESS',
           percentage: u.percentage ?? null,
           runFrom: u.runFrom ?? null,
           runTo: u.runTo ?? null,
@@ -160,7 +153,7 @@ describe('GET /me/progress/:levelId — owner', () => {
       updates: [
         { percentage: 60, loggedAt: new Date('2025-01-01') },
         {
-          isCompletion: true,
+          kind: 'COMPLETION',
           loggedAt: new Date('2025-06-01'),
           simpleRating: 80,
         },
@@ -173,9 +166,9 @@ describe('GET /me/progress/:levelId — owner', () => {
     expect(body.data.status).toBe('COMPLETED')
     expect(body.data.progressUpdates).toHaveLength(2)
     // Both updates present (non-completion not gated)
-    const isCompletions = body.data.progressUpdates.map((u) => u.isCompletion)
-    expect(isCompletions).toContain(true)
-    expect(isCompletions).toContain(false)
+    const kinds = body.data.progressUpdates.map((u) => u.kind)
+    expect(kinds).toContain('COMPLETION')
+    expect(kinds).toContain('PROGRESS')
   })
 
   it('returns level metadata', async () => {
@@ -251,7 +244,7 @@ describe('GET /me/progress/:levelId — owner', () => {
       userId: user.id,
       levelId: '1006',
       status: 'COMPLETED',
-      updates: [{ isCompletion: true }],
+      updates: [{ kind: 'COMPLETION' }],
     })
     await prisma.classicRanking.create({
       data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 3 },
@@ -272,7 +265,7 @@ describe('GET /me/progress/:levelId — owner', () => {
       userId: user.id,
       levelId: '1007',
       status: 'COMPLETED',
-      updates: [{ isCompletion: true }],
+      updates: [{ kind: 'COMPLETION' }],
     })
 
     const res = await getLevelPage(user.id, '1007')
@@ -291,7 +284,7 @@ describe('GET /me/progress/:levelId — owner', () => {
       status: 'COMPLETED',
       updates: [
         {
-          isCompletion: true,
+          kind: 'COMPLETION',
           videoUrl: 'https://youtube.com/watch?v=abc',
           highlightUrl: 'https://youtube.com/shorts/xyz',
         },
@@ -322,7 +315,7 @@ describe('GET /me/progress/:levelId — runsGraph', () => {
       updates: [
         { percentage: 50, loggedAt: new Date('2025-01-01') },
         { percentage: 70, loggedAt: new Date('2025-03-01') },
-        { isCompletion: true, loggedAt: new Date('2025-06-01') },
+        { kind: 'COMPLETION', loggedAt: new Date('2025-06-01') },
       ],
     })
 
@@ -342,9 +335,11 @@ describe('GET /me/progress/:levelId — runsGraph', () => {
       userId: user.id,
       levelId: '2002',
       status: 'DROPPED',
-      droppedAt: new Date('2025-06-01'),
       worstFail: null,
-      updates: [{ percentage: 65, loggedAt: new Date('2025-01-01') }],
+      updates: [
+        { percentage: 65, loggedAt: new Date('2025-01-01') },
+        { kind: 'DROP', loggedAt: new Date('2025-06-01') },
+      ],
     })
 
     const res = await getLevelPage(user.id, '2002')

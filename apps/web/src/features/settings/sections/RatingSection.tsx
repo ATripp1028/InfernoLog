@@ -1,5 +1,9 @@
+import { forwardRef, useImperativeHandle, useRef } from 'react'
 import { SettingStack, SettingsSection } from '../components/SettingsSection'
-import { RatingConfigEditor } from '../components/RatingConfigEditor'
+import {
+  RatingConfigEditor,
+  type RatingConfigEditorHandle,
+} from '../components/RatingConfigEditor'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
@@ -10,12 +14,39 @@ import {
   type MeData,
 } from '@/lib/api/me'
 
-interface RatingSectionProps {
-  me: MeData
+export interface RatingSectionHandle {
+  // Saves the category editor if it's mounted (weighted mode) and dirty; a
+  // no-op returning true in simple mode or when there's nothing to save.
+  // False means the category editor is in an invalid state (bad weight sum,
+  // empty/duplicate name) — its own validation message is already visible.
+  save: () => Promise<boolean>
 }
 
-export function RatingSection({ me }: RatingSectionProps) {
+interface RatingSectionProps {
+  me: MeData
+  // Onboarding submits this whole section via its own Continue button
+  // instead of the category editor's separate Save/Reset — see
+  // RatingSectionHandle.
+  hideCategoryActions?: boolean
+}
+
+export const RatingSection = forwardRef<
+  RatingSectionHandle,
+  RatingSectionProps
+>(function RatingSection({ me, hideCategoryActions = false }, ref) {
   const update = useUpdateMe()
+  const categoryEditorRef = useRef<RatingConfigEditorHandle>(null)
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: async () => {
+        if (me.ratingMode !== 'WEIGHTED') return true
+        return (await categoryEditorRef.current?.save()) ?? true
+      },
+    }),
+    [me.ratingMode]
+  )
 
   const handleModeChange = async (mode: RatingMode) => {
     if (mode === me.ratingMode) return
@@ -74,12 +105,16 @@ export function RatingSection({ me }: RatingSectionProps) {
           label="Categories"
           description="Each category contributes to the weighted average proportional to its weight. Active weights must sum to exactly 1.00. Drag to reorder — the item at the top is treated as highest-priority and receives any rounding remainder when you distribute weights equally."
         >
-          <RatingConfigEditor me={me} />
+          <RatingConfigEditor
+            ref={categoryEditorRef}
+            me={me}
+            hideActions={hideCategoryActions}
+          />
         </SettingStack>
       )}
     </SettingsSection>
   )
-}
+})
 
 interface SegmentedProps<T extends string> {
   options: { value: T; label: string }[]

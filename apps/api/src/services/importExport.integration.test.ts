@@ -69,6 +69,7 @@ async function fullExport(userId: string): Promise<ExportResponse> {
   const categories = await exportSection(userId, 'categories', 0, 1000)
   return {
     completions: (await all('completions')) as ExportResponse['completions'],
+    progress: (await all('progress')) as ExportResponse['progress'],
     dropped: (await all('dropped')) as ExportResponse['dropped'],
     ranking: (await all('ranking')) as ExportResponse['ranking'],
     collections: (await all('collections')) as ExportResponse['collections'],
@@ -113,7 +114,9 @@ async function seedLevels() {
   })
 }
 
-// A representative account: two completions (one richly populated), one drop.
+// A representative account: two completions (one richly populated), and two
+// drops — one against a level that was later beaten (its own independent
+// history, since drops no longer live on the completion row), one shelved.
 function completionRows(): ImportCommitRow[] {
   return [
     {
@@ -150,8 +153,20 @@ function completionRows(): ImportCommitRow[] {
       },
     },
     {
+      // No bestProgress here — the completion row's own percentage (99) is
+      // the level's worstFail; this drop shouldn't overwrite it.
       type: 'dropped',
       rowIndex: 100000,
+      data: {
+        levelId: '100',
+        droppedAt: '2024-06-01',
+        reason: 'too hard at the time',
+        attemptsAtDrop: 500,
+      },
+    },
+    {
+      type: 'dropped',
+      rowIndex: 100001,
       data: {
         levelId: '300',
         bestProgress: 40,
@@ -162,9 +177,42 @@ function completionRows(): ImportCommitRow[] {
   ]
 }
 
-// Import a full account for `userId` (completions/drops → ranking → lists → ratings).
+// Non-completion session logs: an early session on the level that was later
+// completed, and one on the level that was later dropped.
+function progressRows(): ImportCommitRow[] {
+  return [
+    {
+      type: 'progress',
+      rowIndex: 200000,
+      data: {
+        levelId: '100',
+        date: '2024-12-01',
+        attempts: 1000,
+        percentage: 40,
+        enjoyment: 6,
+        notes: 'early session',
+      },
+    },
+    {
+      type: 'progress',
+      rowIndex: 200001,
+      data: {
+        levelId: '300',
+        date: '2024-09-15',
+        runFrom: 10,
+        runTo: 35,
+        attempts: 500,
+      },
+    },
+  ]
+}
+
+// Import a full account for `userId` (completions/drops/progress → ranking → lists → ratings).
 async function importFullAccount(userId: string) {
-  await commitImportBatch(userId, randomUUID(), completionRows())
+  await commitImportBatch(userId, randomUUID(), [
+    ...completionRows(),
+    ...progressRows(),
+  ])
   await commitImportRanking(userId, [
     { levelId: '200' },
     { levelId: '100' },
@@ -216,6 +264,9 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
     type: 'dropped',
     rowIndex: 100000 + i,
     data: {
+      // Carried through like a real client would — under a fresh account this
+      // id belongs to no one, so it exercises the "unmatched → create" path.
+      dropId: d.dropId,
       levelId: d.levelId,
       bestProgress: d.bestProgress,
       attemptsAtDrop: d.attemptsAtDrop,
@@ -223,7 +274,30 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       reason: d.reason,
     },
   }))
-  return [...completions, ...drops]
+  const progress: ImportCommitRow[] = exp.progress.map((p, i) => ({
+    type: 'progress',
+    rowIndex: 200000 + i,
+    data: {
+      // Carried through like a real client would — under a fresh account this
+      // id belongs to no one, so it exercises the "unmatched → create" path.
+      progressId: p.progressId,
+      levelId: p.levelId,
+      date: p.date,
+      dateUncertain: p.dateUncertain,
+      attempts: p.attempts,
+      percentage: p.percentage,
+      runFrom: p.runFrom,
+      runTo: p.runTo,
+      onStream: p.onStream,
+      fps: p.fps,
+      device: p.device as Device | null,
+      enjoyment: p.enjoyment == null ? null : p.enjoyment / 10,
+      notes: p.notes,
+      highlightUrl: p.highlightUrl,
+      visibility: p.visibility as EntryVisibility,
+    },
+  }))
+  return [...completions, ...drops, ...progress]
 }
 
 // Order-independent projection for comparing two exports.
@@ -232,7 +306,46 @@ function normalize(exp: ExportResponse) {
     a.levelId.localeCompare(b.levelId)
   return {
     completions: [...exp.completions].sort(byLevel),
-    dropped: [...exp.dropped].sort(byLevel),
+    // progressId is minted fresh per account, so it's excluded from the
+    // equivalence check; sort by level then percentage for a stable order.
+    progress: [...exp.progress]
+      .map((p) => ({
+        levelId: p.levelId,
+        levelName: p.levelName,
+        creator: p.creator,
+        date: p.date,
+        dateUncertain: p.dateUncertain,
+        attempts: p.attempts,
+        percentage: p.percentage,
+        runFrom: p.runFrom,
+        runTo: p.runTo,
+        onStream: p.onStream,
+        fps: p.fps,
+        device: p.device,
+        enjoyment: p.enjoyment,
+        notes: p.notes,
+        highlightUrl: p.highlightUrl,
+        visibility: p.visibility,
+      }))
+      .sort(
+        (a, b) =>
+          a.levelId.localeCompare(b.levelId) ||
+          (a.percentage ?? -1) - (b.percentage ?? -1)
+      ),
+    // dropId is minted fresh per account, so it's excluded from the
+    // equivalence check, same as progress's progressId.
+    dropped: [...exp.dropped]
+      .map((d) => ({
+        levelId: d.levelId,
+        levelName: d.levelName,
+        creator: d.creator,
+        inGameDifficulty: d.inGameDifficulty,
+        bestProgress: d.bestProgress,
+        attemptsAtDrop: d.attemptsAtDrop,
+        droppedAt: d.droppedAt,
+        reason: d.reason,
+      }))
+      .sort(byLevel),
     ranking: exp.ranking.map((r) => r.levelId), // order matters
     collections: [...exp.collections].sort(
       (a, b) =>
@@ -252,7 +365,9 @@ describe('import → export round-trip', () => {
 
     // Sanity: the export reflects what was imported.
     expect(expA.completions).toHaveLength(2)
-    expect(expA.dropped.map((d) => d.levelId)).toEqual(['300'])
+    expect(expA.progress).toHaveLength(2)
+    expect(expA.progress.find((p) => p.levelId === '100')!.percentage).toBe(40)
+    expect(expA.dropped.map((d) => d.levelId).sort()).toEqual(['100', '300'])
     expect(expA.ranking.map((r) => r.rank)).toEqual([1, 2])
     expect(expA.ranking.map((r) => r.levelId)).toEqual(['200', '100']) // hardest first
     const bb = expA.completions.find((c) => c.levelId === '100')!
@@ -261,6 +376,11 @@ describe('import → export round-trip', () => {
     expect(bb.coinsCollected).toBe(5)
     expect(bb.visibility).toBe('PRIVATE')
     expect(bb.userGddlTier).toBe(24)
+    // Drop history survives past completion — its own independent entry.
+    const bbDrop = expA.dropped.find((d) => d.levelId === '100')!
+    expect(bbDrop.droppedAt).toBe('2024-06-01')
+    expect(bbDrop.reason).toBe('too hard at the time')
+    expect(bbDrop.attemptsAtDrop).toBe(500)
     expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
       Decoration: 90,
@@ -353,6 +473,99 @@ describe('commitImportBatch — overwrite merge', () => {
     expect(exp.completions.find((x) => x.levelId === '100')!.attempts).toBe(
       1000
     )
+  })
+})
+
+describe('commitImportBatch — progress rows', () => {
+  it('creates additive session logs without touching level status', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+
+    // Drop level 300 first, then import two progress rows against it.
+    await commitImportBatch(user.id, randomUUID(), [
+      { type: 'dropped', rowIndex: 100000, data: { levelId: '300' } },
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '300', attempts: 100, percentage: 20 },
+      },
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: { levelId: '300', attempts: 300, percentage: 45 },
+      },
+    ])
+
+    const exp = await fullExport(user.id)
+    // Two independent session logs — not deduped/merged like completions.
+    expect(exp.progress.filter((p) => p.levelId === '300')).toHaveLength(2)
+    // Historical progress rows must not un-drop the level.
+    expect(exp.dropped.map((d) => d.levelId)).toEqual(['300'])
+  })
+
+  it('creates an IN_PROGRESS-only level from a progress row alone', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '200', attempts: 50, percentage: 15 },
+      },
+    ])
+
+    const exp = await fullExport(user.id)
+    expect(exp.progress.map((p) => p.levelId)).toEqual(['200'])
+    expect(exp.completions).toHaveLength(0)
+    expect(exp.dropped).toHaveLength(0)
+  })
+
+  it('updates an existing entry in place when progress_id matches, and falls back to create otherwise', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', attempts: 100, percentage: 20, notes: 'v1' },
+      },
+    ])
+    const firstId = (await fullExport(user.id)).progress[0]!.progressId
+
+    // Re-import with the matching progress_id: merges in place (one entry).
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', progressId: firstId, attempts: 250 },
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('updated')
+    let exp = await fullExport(user.id)
+    expect(exp.progress).toHaveLength(1)
+    expect(exp.progress[0]!.attempts).toBe(250)
+    expect(exp.progress[0]!.percentage).toBe(20) // untouched — not in the merge row
+    expect(exp.progress[0]!.notes).toBe('v1') // untouched
+
+    // A progress_id that doesn't resolve to one of this user's entries for
+    // this level (foreign/stale/wrong-level) creates a new entry instead of
+    // silently failing or attaching to the wrong data.
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: {
+          levelId: '100',
+          progressId: randomUUID(),
+          attempts: 999,
+          percentage: 80,
+        },
+      },
+    ])
+    exp = await fullExport(user.id)
+    expect(exp.progress).toHaveLength(2)
   })
 })
 

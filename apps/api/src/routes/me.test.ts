@@ -62,6 +62,24 @@ vi.mock('@aws-sdk/client-lambda', () => {
   }
 })
 
+const { mockCognitoSend } = vi.hoisted(() => ({
+  mockCognitoSend: vi.fn(async () => ({})),
+}))
+
+vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
+  class UserNotFoundException extends Error {}
+  return {
+    CognitoIdentityProviderClient: class {
+      send = mockCognitoSend
+    },
+    AdminDeleteUserCommand: class {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      constructor(public input: any) {}
+    },
+    UserNotFoundException,
+  }
+})
+
 // Import after vi.mock so the route resolves the mocked modules.
 const { default: meApp } = await import('./me')
 
@@ -245,6 +263,79 @@ describe('PATCH /me/username', () => {
 
     expect(res.status).toBe(500)
     expect(body.error).toBe('Internal server error')
+  })
+})
+
+describe('DELETE /me', () => {
+  it('rejects when the confirmation text does not match', async () => {
+    const res = await buildApp().request('/me', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'delete my account' }),
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(400)
+    expect(body.error).toBe('Confirmation text does not match')
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('rejects when no body is sent', async () => {
+    const res = await buildApp().request('/me', { method: 'DELETE' })
+
+    expect(res.status).toBe(400)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('purges moderation/audit rows, the GDDL sync job, and the user in one transaction', async () => {
+    ;(
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce([])
+
+    const res = await buildApp().request('/me', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'Delete this account' }),
+    })
+    const body = (await res.json()) as { data: { deleted: boolean } }
+
+    expect(res.status).toBe(200)
+    expect(body.data.deleted).toBe(true)
+    expect(prisma.report.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ reporterId: USER_ID }, { reportedUserId: USER_ID }] },
+    })
+    expect(prisma.banAppeal.deleteMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID },
+    })
+    expect(prisma.moderationAction.deleteMany).toHaveBeenCalledWith({
+      where: { OR: [{ moderatorId: USER_ID }, { targetUserId: USER_ID }] },
+    })
+    expect(syncJobMock.deleteMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID },
+    })
+    expect(prisma.user.delete).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+    })
+    // No verified JWT claims in the test harness — Cognito deletion is
+    // skipped rather than attempted with undefined claims.
+    expect(mockCognitoSend).not.toHaveBeenCalled()
+  })
+
+  it('returns 500 and does not attempt Cognito deletion when the transaction fails', async () => {
+    ;(
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'Delete this account' }),
+    })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(500)
+    expect(body.error).toBe('Internal server error')
+    expect(mockCognitoSend).not.toHaveBeenCalled()
   })
 })
 

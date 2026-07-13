@@ -38,6 +38,17 @@ export enum LevelProgressStatus {
   COMPLETED = 'COMPLETED',
 }
 
+// What a ProgressUpdate row represents. Order matters: PROGRESS and DROP are
+// declared before COMPLETION so that `orderBy: { kind: 'desc' }` (Postgres
+// native enums sort by declaration order) puts a completion first regardless
+// of loggedAt — the "representative update" query's replacement for the old
+// `isCompletion desc` sort.
+export enum ProgressUpdateKind {
+  PROGRESS = 'PROGRESS',
+  DROP = 'DROP',
+  COMPLETION = 'COMPLETION',
+}
+
 // The user's subjective difficulty read on a completion. NOT_DEMON_WORTHY is a
 // disagreement flag only — the level stays a rated demon. Distinct from the
 // level's cached in-game difficulty. See DATA_MODEL.md / LOGGING_FLOW.md.

@@ -99,26 +99,22 @@ export function StatGrid({
   enjoymentWeight,
   ratingCategories,
 }: StatGridProps) {
-  const {
-    progressUpdates,
-    rankPosition,
-    worstFail,
-    droppedAt,
-    attemptsAtDrop,
-  } = data
+  const { progressUpdates, rankPosition, worstFail } = data
 
-  const completion = progressUpdates.find((u) => u.isCompletion)
+  const completion = progressUpdates.find((u) => u.kind === 'COMPLETION')
+  // For a DROPPED level this is the drop itself — drops are ordinary
+  // progress_updates now, so no special-casing is needed here.
   const latestUpdate = progressUpdates[0]
 
   // DATE: completion date → most recent update date → last-updated
-  const { text: dateText, uncertain } =
-    data.status === 'DROPPED' && droppedAt
-      ? { text: formatDate(droppedAt, datePref), uncertain: false }
-      : getDateDisplay(completion ?? latestUpdate, data.updatedAt, datePref)
+  const { text: dateText, uncertain } = getDateDisplay(
+    completion ?? latestUpdate,
+    data.updatedAt,
+    datePref
+  )
 
-  // ATTEMPTS: completion → drop attempts → latest update → null
-  const attempts =
-    completion?.attempts ?? attemptsAtDrop ?? latestUpdate?.attempts ?? null
+  // ATTEMPTS: completion → latest update (the drop, if dropped) → null
+  const attempts = completion?.attempts ?? latestUpdate?.attempts ?? null
 
   // RATING — computed overall rating (weighted avg or simple per user mode),
   // shown separately from enjoyment. GDDL tier has its own stat box.

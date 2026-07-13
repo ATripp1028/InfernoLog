@@ -1,9 +1,13 @@
-// Import API client — wraps POST /v1/me/import/check and POST /v1/me/import.
-// Types are mirrored from @infernolog/core (web pins zod@3, core is on zod@4).
+// Import API client — background job model: POST /v1/me/import/start
+// persists the dataset and kicks off a worker; GET /v1/me/import/status is
+// polled for live progress, flagged rows, and (once done) the outcome
+// summary. Types are mirrored from @infernolog/core (web pins zod@3, core is
+// on zod@4).
 
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
 import { useCallback } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -55,14 +59,43 @@ export interface ImportCompletionRow {
   visibility?: EntryVisibility | null
   levelNotes?: string | null
   inGameDifficulty?: string | null
-  gddlTier?: number | null
+  userGddlTier?: number | null
   nlwTier?: string | null
   notes?: string | null
   videoUrl?: string | null
   highlightUrl?: string | null
 }
 
+// A non-completion progress log — one logged session for a level, distinct
+// from its (optional) completion. Multiple rows can exist per level.
+// `progressId` is the round-trip identity (populated on export): present +
+// matching an existing entry → updates it in place; otherwise a new entry is
+// created.
+export interface ImportProgressRow {
+  progressId?: string | null
+  levelId?: string | null
+  levelName?: string | null
+  creator?: string | null
+  date?: string | null
+  dateUncertain?: boolean | null
+  attempts?: number | null
+  percentage?: number | null
+  runFrom?: number | null
+  runTo?: number | null
+  onStream?: boolean | null
+  fps?: number | null
+  device?: Device | null
+  enjoyment?: number | null
+  notes?: string | null
+  highlightUrl?: string | null
+  visibility?: EntryVisibility | null
+  inGameDifficulty?: string | null
+}
+
+// Additive, like ImportProgressRow — a level can be dropped more than once.
+// `dropId` round-trips an exact drop entry the same way `progressId` does.
 export interface ImportDroppedRow {
+  dropId?: string | null
   levelId?: string | null
   levelName?: string | null
   creator?: string | null
@@ -90,21 +123,21 @@ export interface ImportCommitDroppedRow {
   data: ImportDroppedRow
 }
 
-export type ImportCommitRow = ImportCommitCompletionRow | ImportCommitDroppedRow
-
-export interface ImportCommitRequest {
-  importJobId: string
-  rows: ImportCommitRow[]
+export interface ImportCommitProgressRow {
+  type: 'progress'
+  rowIndex: number
+  data: ImportProgressRow
 }
+
+export type ImportCommitRow =
+  | ImportCommitCompletionRow
+  | ImportCommitDroppedRow
+  | ImportCommitProgressRow
 
 export interface ImportCommitOutcome {
   rowIndex: number
   status: 'committed' | 'updated' | 'skipped' | 'failed'
   reason?: string
-}
-
-export interface ImportCommitResponse {
-  outcomes: ImportCommitOutcome[]
 }
 
 export interface ImportRankingEntry {
@@ -161,6 +194,43 @@ export interface ImportRatingsResponse {
   skipped: { label: string; reason: string }[]
 }
 
+export interface ImportStartRequest {
+  rows: ImportCommitRow[]
+  ranking?: ImportRankingEntry[]
+  collections?: ImportCollectionEntry[]
+  ratings?: ImportRatingEntry[]
+}
+
+export interface ImportStartResponse {
+  jobId: string
+}
+
+export interface ImportFlaggedRow {
+  id: string
+  rowIndex: number
+  levelName: string | null
+  identifier: string | null
+  issueMessage: string
+  resolved: boolean
+}
+
+export interface ImportStatusResponse {
+  status: 'running' | 'completed' | 'failed'
+  totalRows: number
+  processedRows: number
+  error: string | null
+  outcomeCounts: {
+    committed: number
+    updated: number
+    skipped: number
+    failed: number
+  }
+  flaggedRows: ImportFlaggedRow[]
+  rankingResult: ImportRankingResponse | null
+  collectionsResult: ImportCollectionsResponse | null
+  ratingsResult: ImportRatingsResponse | null
+}
+
 export interface ExportCompletion {
   levelId: string
   levelName: string | null
@@ -185,15 +255,36 @@ export interface ExportCompletion {
   visibility: string
   notes: string | null
   levelNotes: string | null
-  gddlTier: string | null
-  nlwTier: string | null
+  userGddlTier: number | null
   videoUrl: string | null
   highlightUrl: string | null
 }
 
+export interface ExportProgress {
+  progressId: string
+  levelId: string
+  levelName: string | null
+  creator: string | null
+  date: string | null
+  dateUncertain: boolean
+  attempts: number | null
+  percentage: number | null
+  runFrom: number | null
+  runTo: number | null
+  onStream: boolean
+  fps: number | null
+  device: string | null
+  enjoyment: number | null
+  notes: string | null
+  highlightUrl: string | null
+  visibility: string
+}
+
 export interface ExportResponse {
   completions: ExportCompletion[]
+  progress: ExportProgress[]
   dropped: {
+    dropId: string
     levelId: string
     levelName: string | null
     creator: string | null
@@ -237,48 +328,13 @@ export function useImportApi() {
     [getIdToken]
   )
 
-  const commitBatch = useCallback(
-    async (req: ImportCommitRequest): Promise<ImportCommitResponse> => {
+  // Persists the full validated dataset (rows + optional ranking/collections/
+  // ratings tabs) and kicks off the background worker. The caller then reads
+  // progress via useImportStatus() rather than awaiting a result here.
+  const startImport = useCallback(
+    async (req: ImportStartRequest): Promise<ImportStartResponse> => {
       const token = await getIdToken()
-      return apiFetch<ImportCommitResponse>('/v1/me/import', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitRanking = useCallback(
-    async (req: ImportRankingRequest): Promise<ImportRankingResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportRankingResponse>('/v1/me/import/ranking', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitCollections = useCallback(
-    async (
-      req: ImportCollectionsRequest
-    ): Promise<ImportCollectionsResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportCollectionsResponse>('/v1/me/import/collections', {
-        method: 'POST',
-        token,
-        body: req,
-      })
-    },
-    [getIdToken]
-  )
-
-  const commitRatings = useCallback(
-    async (req: ImportRatingsRequest): Promise<ImportRatingsResponse> => {
-      const token = await getIdToken()
-      return apiFetch<ImportRatingsResponse>('/v1/me/import/ratings', {
+      return apiFetch<ImportStartResponse>('/v1/me/import/start', {
         method: 'POST',
         token,
         body: req,
@@ -307,17 +363,26 @@ export function useImportApi() {
       }
       return items
     }
-    const [completions, dropped, ranking, collections, ratings, categories] =
-      await Promise.all([
-        fetchAll('completions'),
-        fetchAll('dropped'),
-        fetchAll('ranking'),
-        fetchAll('collections'),
-        fetchAll('ratings'),
-        fetchAll('categories'),
-      ])
+    const [
+      completions,
+      progress,
+      dropped,
+      ranking,
+      collections,
+      ratings,
+      categories,
+    ] = await Promise.all([
+      fetchAll('completions'),
+      fetchAll('progress'),
+      fetchAll('dropped'),
+      fetchAll('ranking'),
+      fetchAll('collections'),
+      fetchAll('ratings'),
+      fetchAll('categories'),
+    ])
     return {
       completions: completions as ExportResponse['completions'],
+      progress: progress as ExportResponse['progress'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
       collections: collections as ExportResponse['collections'],
@@ -328,10 +393,65 @@ export function useImportApi() {
 
   return {
     checkConflicts,
-    commitBatch,
-    commitRanking,
-    commitCollections,
-    commitRatings,
+    startImport,
     getExport,
   }
+}
+
+// ── Background job status (shared app-wide) ────────────────────────────────
+
+export const importStatusQueryKey = ['import-status'] as const
+
+// Always enabled (not keyed by a jobId prop) so it can be mounted app-wide —
+// on login/reload it discovers whether a job is still active, per the
+// persistent-status requirement (toast/Settings must reappear if so). Polls
+// every 2s while running; a `null` result means no current job.
+export function useImportStatus() {
+  const { isAuthenticated, getIdToken } = useAuth()
+  return useQuery({
+    queryKey: importStatusQueryKey,
+    enabled: isAuthenticated,
+    queryFn: async (): Promise<ImportStatusResponse | null> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: ImportStatusResponse | null }>(
+        '/v1/me/import/status',
+        { token, method: 'GET' }
+      )
+      return data
+    },
+    refetchInterval: (query) =>
+      query.state.data?.status === 'running' ? 2000 : false,
+    retry: false,
+  })
+}
+
+export function useResolveImportRow() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (rowId: string) => {
+      const token = await getIdToken()
+      await apiFetch(`/v1/me/import/rows/${rowId}/resolve`, {
+        token,
+        method: 'PATCH',
+      })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importStatusQueryKey })
+    },
+  })
+}
+
+export function useResolveAllImportRows() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async () => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/import/resolve-all', { token, method: 'POST' })
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: importStatusQueryKey })
+    },
+  })
 }

@@ -29,7 +29,7 @@ export const levelSelect = {
 
 // The completion update's fields a row needs: just attempts (shown next to the badge).
 export const completionSelect = {
-  where: { isCompletion: true },
+  where: { kind: 'COMPLETION' },
   take: 1,
   select: {
     attempts: true,

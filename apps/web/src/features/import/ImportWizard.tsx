@@ -4,7 +4,7 @@
 // Step 2: Conflict — review existing-vs-incoming completions; pick resolution.
 // Step 3: Commit — progress bar while batches are sent; success report.
 
-import { useState, useRef, useCallback, useId } from 'react'
+import { useState, useCallback, useId, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -14,45 +14,25 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { useImportApi } from '@/lib/api/import'
+import { useImportApi, useImportStatus } from '@/lib/api/import'
 import type {
   ImportConflict,
   ImportCommitRow,
-  ImportCommitOutcome,
-  ImportRankingResponse,
-  ImportCollectionsResponse,
-  ImportRatingsResponse,
   ConflictResolution,
+  ImportStatusResponse,
 } from '@/lib/api/import'
+import { ImportStatusPanel } from './ImportStatusPanel'
 import {
   parseSpreadsheet,
   type DateFormat,
   type ParseResult,
   type ParseFlag,
   type ParsedCompletionRow,
+  type ParsedProgressRow,
   type ParsedDroppedRow,
 } from './parseSpreadsheet'
 import { downloadTemplate } from './generateTemplate'
 import type { MeData } from '@/lib/api/me'
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function randomUUID(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID)
-    return crypto.randomUUID()
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
-  })
-}
-
-const BATCH_SIZE = 50
-
-function chunk<T>(arr: T[], size: number): T[][] {
-  const out: T[][] = []
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size))
-  return out
-}
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -60,6 +40,7 @@ type WizardStep = 'upload' | 'review' | 'conflict' | 'committing' | 'success'
 
 interface AllFlags {
   completions: ParseFlag[]
+  progress: ParseFlag[]
   dropped: ParseFlag[]
   ranking: ParseFlag[]
   lists: ParseFlag[]
@@ -78,11 +59,19 @@ const DATE_OPTIONS: { value: DateFormat; label: string }[] = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function StepIndicator({ step }: { step: WizardStep }) {
+function StepIndicator({
+  step,
+  skipConflictCheck,
+}: {
+  step: WizardStep
+  skipConflictCheck?: boolean
+}) {
   const steps: { id: WizardStep | 'done'; label: string }[] = [
     { id: 'upload', label: 'Upload' },
     { id: 'review', label: 'Review' },
-    { id: 'conflict', label: 'Conflicts' },
+    ...(skipConflictCheck
+      ? []
+      : [{ id: 'conflict' as const, label: 'Conflicts' }]),
     { id: 'committing', label: 'Import' },
     { id: 'success', label: 'Done' },
   ]
@@ -182,6 +171,7 @@ function UploadStep({
         const result = parseSpreadsheet(buffer, dateFormat)
 
         const allCompletionFlags = result.completions.flatMap((r) => r.flags)
+        const allProgressFlags = result.progress.flatMap((r) => r.flags)
         const allDroppedFlags = result.dropped.flatMap((r) => r.flags)
         const allRankingFlags = result.ranking.flatMap((r) => r.flags)
         const allListFlags = result.lists.flatMap((r) => r.flags)
@@ -189,6 +179,7 @@ function UploadStep({
 
         onParsed(result, {
           completions: allCompletionFlags,
+          progress: allProgressFlags,
           dropped: allDroppedFlags,
           ranking: allRankingFlags,
           lists: allListFlags,
@@ -296,6 +287,10 @@ interface ReviewStepProps {
   onConflictModeChange: (m: 'skip' | 'overwrite') => void
   onSkipFlagged: () => void
   onReUpload: () => void
+  // New accounts (onboarding) can't have existing completions to conflict
+  // with — hide the resolution picker entirely rather than showing a choice
+  // that can never do anything.
+  skipConflictCheck?: boolean
 }
 
 function ReviewStep({
@@ -305,9 +300,11 @@ function ReviewStep({
   onConflictModeChange,
   onSkipFlagged,
   onReUpload,
+  skipConflictCheck,
 }: ReviewStepProps) {
   const allFlags = [
     ...flags.completions,
+    ...flags.progress,
     ...flags.dropped,
     ...flags.ranking,
     ...flags.lists,
@@ -316,6 +313,7 @@ function ReviewStep({
   const errorFlags = allFlags.filter((f) => f.severity === 'error')
   const errorFlagsByTab = {
     completions: flags.completions.filter((f) => f.severity === 'error'),
+    progress: flags.progress.filter((f) => f.severity === 'error'),
     dropped: flags.dropped.filter((f) => f.severity === 'error'),
     ranking: flags.ranking.filter((f) => f.severity === 'error'),
     lists: flags.lists.filter((f) => f.severity === 'error'),
@@ -326,6 +324,9 @@ function ReviewStep({
   const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
   const nameOnlyByTab = {
     completions: flags.completions.filter(
+      (f) => f.severity === 'warning' && isNameOnly(f)
+    ),
+    progress: flags.progress.filter(
       (f) => f.severity === 'warning' && isNameOnly(f)
     ),
     dropped: flags.dropped.filter(
@@ -341,6 +342,9 @@ function ReviewStep({
   }
   const dataWarnByTab = {
     completions: flags.completions.filter(
+      (f) => f.severity === 'warning' && !isNameOnly(f)
+    ),
+    progress: flags.progress.filter(
       (f) => f.severity === 'warning' && !isNameOnly(f)
     ),
     dropped: flags.dropped.filter(
@@ -366,6 +370,11 @@ function ReviewStep({
       !r.flags.some((f) => f.severity === 'error') &&
       (r.data.levelId || r.data.levelName)
   )
+  const validProgress = parseResult.progress.filter(
+    (r) =>
+      !r.flags.some((f) => f.severity === 'error') &&
+      (r.data.levelId || r.data.levelName)
+  )
   const validDropped = parseResult.dropped.filter(
     (r) =>
       !r.flags.some((f) => f.severity === 'error') &&
@@ -387,7 +396,8 @@ function ReviewStep({
       (r.levelId || r.levelName) &&
       Object.keys(r.scores).length > 0
   ).length
-  const totalValid = validCompletions.length + validDropped.length
+  const totalValid =
+    validCompletions.length + validProgress.length + validDropped.length
   const totalSkipped = errorFlags.length + flags.duplicates.length
 
   return (
@@ -422,7 +432,10 @@ function ReviewStep({
           )}
         </p>
         <div className="mt-1 text-xs text-muted-foreground">
-          {validCompletions.length} completions · {validDropped.length} dropped
+          {validCompletions.length} completions ·{' '}
+          {validProgress.length > 0 &&
+            `${validProgress.length} progress logs · `}
+          {validDropped.length} dropped
           {totalRanked > 0 && ` · ${totalRanked} ranked`}
           {totalListed > 0 && ` · ${totalListed} list entries`}
           {totalRated > 0 && ` · ${totalRated} rated`}
@@ -439,8 +452,7 @@ function ReviewStep({
           <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
             {flags.duplicates.map((d) => (
               <li key={`${d.tab}-${d.levelId}`}>
-                Level {d.levelId} appears {d.rows.length}× in{' '}
-                {d.tab === 'completions' ? 'Completions' : 'Dropped'} (rows{' '}
+                Level {d.levelId} appears {d.rows.length}× in Completions (rows{' '}
                 {d.rows.map((r) => r + 2).join(', ')})
               </li>
             ))}
@@ -459,6 +471,14 @@ function ReviewStep({
                 Completions tab
               </p>
               <FlagList flags={errorFlagsByTab.completions} />
+            </>
+          )}
+          {errorFlagsByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={errorFlagsByTab.progress} />
             </>
           )}
           {errorFlagsByTab.dropped.length > 0 && (
@@ -509,6 +529,14 @@ function ReviewStep({
               <FlagList flags={dataWarnByTab.completions} />
             </>
           )}
+          {dataWarnByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={dataWarnByTab.progress} />
+            </>
+          )}
           {dataWarnByTab.dropped.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">
@@ -557,6 +585,14 @@ function ReviewStep({
               <FlagList flags={nameOnlyByTab.completions} />
             </>
           )}
+          {nameOnlyByTab.progress.length > 0 && (
+            <>
+              <p className="text-xs text-muted-foreground font-medium mt-2">
+                Progress tab
+              </p>
+              <FlagList flags={nameOnlyByTab.progress} />
+            </>
+          )}
           {nameOnlyByTab.dropped.length > 0 && (
             <>
               <p className="text-xs text-muted-foreground font-medium mt-2">
@@ -592,33 +628,37 @@ function ReviewStep({
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium mb-1.5">
-          Existing completions
-        </label>
-        <Select
-          value={conflictMode}
-          onValueChange={(v) => onConflictModeChange(v as 'skip' | 'overwrite')}
-        >
-          <SelectTrigger className="w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="skip">
-              Keep existing (review conflicts)
-            </SelectItem>
-            <SelectItem value="overwrite">
-              Overwrite with spreadsheet data
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        {conflictMode === 'overwrite' && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
-            All existing completions matched by this spreadsheet will be
-            replaced.
-          </p>
-        )}
-      </div>
+      {!skipConflictCheck && (
+        <div>
+          <label className="block text-sm font-medium mb-1.5">
+            Existing completions
+          </label>
+          <Select
+            value={conflictMode}
+            onValueChange={(v) =>
+              onConflictModeChange(v as 'skip' | 'overwrite')
+            }
+          >
+            <SelectTrigger className="w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="skip">
+                Keep existing (review conflicts)
+              </SelectItem>
+              <SelectItem value="overwrite">
+                Overwrite with spreadsheet data
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {conflictMode === 'overwrite' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+              All existing completions matched by this spreadsheet will be
+              replaced.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onReUpload}>
@@ -745,24 +785,17 @@ function ProgressBar({ value }: { value: number }) {
 // ── Success step ───────────────────────────────────────────────────────────
 
 interface SuccessStepProps {
-  outcomes: ImportCommitOutcome[]
-  rankingResult: ImportRankingResponse | null
-  listsResult: ImportCollectionsResponse | null
-  ratingsResult: ImportRatingsResponse | null
+  status: ImportStatusResponse
   onClose: () => void
 }
 
-function SuccessStep({
-  outcomes,
-  rankingResult,
-  listsResult,
-  ratingsResult,
-  onClose,
-}: SuccessStepProps) {
-  const committed = outcomes.filter((o) => o.status === 'committed')
-  const updated = outcomes.filter((o) => o.status === 'updated')
-  const skipped = outcomes.filter((o) => o.status === 'skipped')
-  const failed = outcomes.filter((o) => o.status === 'failed')
+function SuccessStep({ status, onClose }: SuccessStepProps) {
+  const { committed, updated, skipped, failed } = status.outcomeCounts
+  const {
+    rankingResult,
+    collectionsResult: listsResult,
+    ratingsResult,
+  } = status
 
   return (
     <div className="space-y-5">
@@ -770,10 +803,10 @@ function SuccessStep({
         <p className="text-3xl">🎉</p>
         <p className="text-lg font-semibold">Import complete</p>
         <p className="text-sm text-muted-foreground">
-          {committed.length} row{committed.length !== 1 ? 's' : ''} imported
-          {updated.length > 0 && `, ${updated.length} updated`}
-          {skipped.length > 0 && `, ${skipped.length} skipped`}
-          {failed.length > 0 && `, ${failed.length} failed`}
+          {committed} row{committed !== 1 ? 's' : ''} imported
+          {updated > 0 && `, ${updated} updated`}
+          {skipped > 0 && `, ${skipped} skipped`}
+          {failed > 0 && `, ${failed} failed`}
         </p>
         {rankingResult && (
           <p className="text-sm text-muted-foreground">
@@ -844,32 +877,9 @@ function SuccessStep({
         </div>
       )}
 
-      {(failed.length > 0 || skipped.length > 0) && (
-        <div className="rounded-lg border border-[var(--color-border)] divide-y divide-[var(--color-border)] max-h-56 overflow-y-auto text-xs">
-          {failed.map((o) => (
-            <div key={o.rowIndex} className="px-3 py-2 flex gap-2">
-              <span className="text-[var(--color-danger)] font-medium">
-                Failed
-              </span>
-              <span className="text-muted-foreground">
-                Row {o.rowIndex + 1}
-                {o.reason ? ` — ${o.reason}` : ''}
-              </span>
-            </div>
-          ))}
-          {skipped.map((o) => (
-            <div key={o.rowIndex} className="px-3 py-2 flex gap-2">
-              <span className="text-muted-foreground font-medium">Skipped</span>
-              <span className="text-muted-foreground">
-                Row {o.rowIndex + 1}
-                {o.reason ? ` — ${o.reason}` : ''}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+      <ImportStatusPanel status={status} />
 
-      {committed.length > 0 && failed.length === 0 && (
+      {committed > 0 && failed === 0 && (
         <p className="text-xs text-muted-foreground">
           Level metadata for new levels is being fetched in the background. Your
           log will update shortly.
@@ -888,16 +898,20 @@ function SuccessStep({
 interface ImportWizardProps {
   me: MeData
   onClose: () => void
+  // Onboarding: a brand-new account can't already have completions, so
+  // there's nothing to conflict with — skips the conflict-check round trip,
+  // the Conflicts step, and the "existing completions" resolution picker
+  // entirely rather than showing UI for a case that can never occur.
+  skipConflictCheck?: boolean
 }
 
-export function ImportWizard({ me, onClose }: ImportWizardProps) {
-  const {
-    checkConflicts,
-    commitBatch,
-    commitRanking,
-    commitCollections,
-    commitRatings,
-  } = useImportApi()
+export function ImportWizard({
+  me,
+  onClose,
+  skipConflictCheck = false,
+}: ImportWizardProps) {
+  const { checkConflicts, startImport } = useImportApi()
+  const importStatus = useImportStatus()
 
   const [step, setStep] = useState<WizardStep>('upload')
   const [dateFormat, setDateFormat] = useState<DateFormat>(
@@ -907,6 +921,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [allFlags, setAllFlags] = useState<AllFlags>({
     completions: [],
+    progress: [],
     dropped: [],
     ranking: [],
     lists: [],
@@ -917,23 +932,36 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const [resolutions, setResolutions] = useState<
     Record<string, ConflictResolution>
   >({})
-  const [progress, setProgress] = useState(0)
   const [progressLabel, setProgressLabel] = useState('')
-  const [outcomes, setOutcomes] = useState<ImportCommitOutcome[]>([])
-  const [rankingResult, setRankingResult] =
-    useState<ImportRankingResponse | null>(null)
-  const [listsResult, setListsResult] =
-    useState<ImportCollectionsResponse | null>(null)
-  const [ratingsResult, setRatingsResult] =
-    useState<ImportRatingsResponse | null>(null)
   const [commitError, setCommitError] = useState<string | null>(null)
 
-  const importJobId = useRef(randomUUID())
+  // Progress bar during `committing` is driven by the polled job status once
+  // the job exists; before that (conflict-check phase) progressLabel alone
+  // carries the message.
+  const total = importStatus.data?.totalRows ?? 0
+  const processed = importStatus.data?.processedRows ?? 0
+  const progress = total > 0 ? (processed / total) * 100 : 0
+
+  // Once the background job finishes (from any tab — this polls shared
+  // server state), move from the progress bar to the Done screen.
+  useEffect(() => {
+    if (step === 'committing' && importStatus.data?.status === 'completed') {
+      setStep('success')
+    }
+    if (step === 'committing' && importStatus.data?.status === 'failed') {
+      setCommitError(importStatus.data.error ?? 'Import failed')
+    }
+  }, [step, importStatus.data])
 
   // ── Valid rows (excludes error-flagged rows; name-only rows are included) ──
   const validRows = useCallback(
     (result: ParseResult) => ({
       completions: result.completions.filter(
+        (r) =>
+          !r.flags.some((f) => f.severity === 'error') &&
+          (r.data.levelId || r.data.levelName)
+      ),
+      progress: result.progress.filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
           (r.data.levelId || r.data.levelName)
@@ -957,23 +985,23 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
 
   // ── Commit loop ────────────────────────────────────────────────────────
 
-  const runCommit = useCallback(
+  // Persists the full dataset in one call and hands off to the background
+  // worker — progress from here on is read from useImportStatus(), which
+  // keeps working even if this drawer gets closed (see the `committing` step
+  // render below and the close button next to it).
+  const startImportJob = useCallback(
     async (
       completions: ParsedCompletionRow[],
+      progressRows: ParsedProgressRow[],
       dropped: ParsedDroppedRow[],
       res: Record<string, ConflictResolution>,
       globalResolution?: ConflictResolution
     ) => {
-      setProgressLabel('Importing…')
-      setProgress(0)
-      setOutcomes([])
-      setRankingResult(null)
-      setListsResult(null)
-      setRatingsResult(null)
+      setProgressLabel('Starting import…')
       setCommitError(null)
 
       // Build the flat row list with stable indices.
-      const allCommitRows: ImportCommitRow[] = [
+      const rows: ImportCommitRow[] = [
         ...completions.map((r): ImportCommitRow => {
           // Per-row resolution (from conflict step) takes precedence;
           // fall back to globalResolution (e.g. "overwrite all" mode).
@@ -996,160 +1024,78 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
             data: r.data,
           })
         ),
+        ...progressRows.map(
+          (r): ImportCommitRow => ({
+            type: 'progress',
+            rowIndex: r.rowIndex + 200000, // offset to avoid collision with completion/dropped indices
+            data: r.data,
+          })
+        ),
       ]
 
-      const total = allCommitRows.length
-      const batches = chunk(allCommitRows, BATCH_SIZE)
-      const allOutcomes: ImportCommitOutcome[] = []
-
-      for (let i = 0; i < batches.length; i++) {
-        const batch = batches[i] ?? []
-        if (!batch.length) continue
-        // Reflect the in-flight batch immediately rather than leaving the bar
-        // static until the (potentially slow) request resolves.
-        setProgress((i / batches.length) * 100)
-        setProgressLabel(
-          batches.length > 1
-            ? `Importing… batch ${i + 1} / ${batches.length}`
-            : 'Importing…'
-        )
-        try {
-          const result = await commitBatch({
-            importJobId: importJobId.current,
-            rows: batch,
-          })
-          allOutcomes.push(...result.outcomes)
-        } catch (err) {
-          // Mark the whole batch as failed rather than aborting.
-          allOutcomes.push(
-            ...batch.map((r) => ({
-              rowIndex: r.rowIndex,
-              status: 'failed' as const,
-              reason: err instanceof Error ? err.message : 'Network error',
-            }))
-          )
-        }
-        setProgress(((i + 1) / batches.length) * 100)
-        setProgressLabel(
-          `Importing… ${Math.min((i + 1) * BATCH_SIZE, total)} / ${total}`
-        )
-      }
-
-      setOutcomes(allOutcomes)
-
-      // Ranking runs last, once completions are committed: a dedicated call that
-      // replaces the classic ranking from the (already hardest→easiest ordered)
-      // Ranking tab. Only fires when the sheet actually carries a ranking.
       const rankingRows = (parseResult?.ranking ?? []).filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
           (r.levelId || r.levelName)
       )
-      if (rankingRows.length > 0) {
-        setProgressLabel('Applying ranking…')
-        try {
-          const res = await commitRanking({
-            entries: rankingRows.map((r) => ({
-              levelId: r.levelId,
-              levelName: r.levelName,
-            })),
-          })
-          setRankingResult(res)
-        } catch (err) {
-          setRankingResult({
-            placed: 0,
-            skipped: [
-              {
-                rank: 0,
-                label: 'Ranking',
-                reason:
-                  err instanceof Error
-                    ? err.message
-                    : 'Failed to apply ranking',
-              },
-            ],
-          })
-        }
-      }
-
-      // Lists: replace membership of the lists the sheet names (want-to-beat /
-      // favorites / least-favorites / custom). Lists the sheet omits are untouched.
       const listRows = (parseResult?.lists ?? []).filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
           r.list &&
           (r.levelId || r.levelName)
       )
-      if (listRows.length > 0) {
-        setProgressLabel('Applying lists…')
-        try {
-          const res = await commitCollections({
-            entries: listRows.map((r) => ({
-              list: r.list as string,
-              levelId: r.levelId,
-              levelName: r.levelName,
-              creator: r.creator,
-              inGameDifficulty: r.inGameDifficulty,
-              position: r.position,
-            })),
-          })
-          setListsResult(res)
-        } catch (err) {
-          setListsResult({
-            lists: [],
-            skipped: [
-              {
-                list: 'Lists',
-                label: 'Lists',
-                reason:
-                  err instanceof Error ? err.message : 'Failed to apply lists',
-              },
-            ],
-          })
-        }
-      }
-
-      // Ratings: write weighted category scores onto completions.
       const ratingRows = (parseResult?.ratings ?? []).filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
           (r.levelId || r.levelName) &&
           Object.keys(r.scores).length > 0
       )
-      if (ratingRows.length > 0) {
-        setProgressLabel('Applying ratings…')
-        try {
-          const res = await commitRatings({
-            entries: ratingRows.map((r) => ({
-              levelId: r.levelId,
-              levelName: r.levelName,
-              creator: r.creator,
-              inGameDifficulty: r.inGameDifficulty,
-              scores: r.scores,
-            })),
-          })
-          setRatingsResult(res)
-        } catch (err) {
-          setRatingsResult({
-            scored: 0,
-            levels: 0,
-            categoriesCreated: [],
-            skipped: [
-              {
-                label: 'Ratings',
-                reason:
-                  err instanceof Error
-                    ? err.message
-                    : 'Failed to apply ratings',
-              },
-            ],
-          })
-        }
-      }
 
-      setStep('success')
+      try {
+        await startImport({
+          rows,
+          ...(rankingRows.length > 0
+            ? {
+                ranking: rankingRows.map((r) => ({
+                  levelId: r.levelId,
+                  levelName: r.levelName,
+                })),
+              }
+            : {}),
+          ...(listRows.length > 0
+            ? {
+                collections: listRows.map((r) => ({
+                  list: r.list as string,
+                  levelId: r.levelId,
+                  levelName: r.levelName,
+                  creator: r.creator,
+                  inGameDifficulty: r.inGameDifficulty,
+                  position: r.position,
+                })),
+              }
+            : {}),
+          ...(ratingRows.length > 0
+            ? {
+                ratings: ratingRows.map((r) => ({
+                  levelId: r.levelId,
+                  levelName: r.levelName,
+                  creator: r.creator,
+                  inGameDifficulty: r.inGameDifficulty,
+                  scores: r.scores,
+                })),
+              }
+            : {}),
+        })
+        setProgressLabel('Importing…')
+        void importStatus.refetch()
+      } catch (err) {
+        setCommitError(
+          err instanceof Error ? err.message : 'Failed to start import'
+        )
+        setStep('review')
+      }
     },
-    [commitBatch, commitRanking, commitCollections, commitRatings, parseResult]
+    [startImport, parseResult, importStatus]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
@@ -1157,12 +1103,24 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
   const handleSkipFlagged = useCallback(async () => {
     if (!parseResult) return
 
-    const { completions, dropped } = validRows(parseResult)
+    const {
+      completions,
+      progress: progressRows,
+      dropped,
+    } = validRows(parseResult)
+
+    if (skipConflictCheck) {
+      // New account (onboarding) — there can be no existing completions to
+      // conflict with, so there's nothing to check.
+      setStep('committing')
+      await startImportJob(completions, progressRows, dropped, {})
+      return
+    }
 
     if (conflictMode === 'overwrite') {
       // Skip conflict check entirely; all completions get overwrite resolution.
       setStep('committing')
-      await runCommit(completions, dropped, {}, 'overwrite')
+      await startImportJob(completions, progressRows, dropped, {}, 'overwrite')
       return
     }
 
@@ -1188,7 +1146,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         setResolutions({})
         setStep('conflict')
       } else {
-        await runCommit(completions, dropped, {})
+        await startImportJob(completions, progressRows, dropped, {})
       }
     } catch (err) {
       setCommitError(
@@ -1196,16 +1154,27 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       )
       setStep('review')
     }
-  }, [parseResult, validRows, checkConflicts, runCommit, conflictMode])
+  }, [
+    parseResult,
+    validRows,
+    checkConflicts,
+    startImportJob,
+    conflictMode,
+    skipConflictCheck,
+  ])
 
   // ── Step: conflict → commit ────────────────────────────────────────────
 
   const handleCommitAfterConflict = useCallback(async () => {
     if (!parseResult) return
-    const { completions, dropped } = validRows(parseResult)
+    const {
+      completions,
+      progress: progressRows,
+      dropped,
+    } = validRows(parseResult)
     setStep('committing')
-    await runCommit(completions, dropped, resolutions)
-  }, [parseResult, validRows, resolutions, runCommit])
+    await startImportJob(completions, progressRows, dropped, resolutions)
+  }, [parseResult, validRows, resolutions, startImportJob])
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -1219,7 +1188,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         </p>
       </div>
 
-      <StepIndicator step={step} />
+      <StepIndicator step={step} skipConflictCheck={skipConflictCheck} />
 
       {step === 'upload' && (
         <UploadStep
@@ -1237,6 +1206,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
           onConflictModeChange={setConflictMode}
           onSkipFlagged={() => void handleSkipFlagged()}
           onReUpload={() => setStep('upload')}
+          skipConflictCheck={skipConflictCheck}
         />
       )}
 
@@ -1260,24 +1230,28 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         <div className="space-y-3 py-4">
           <ProgressBar value={progress} />
           <p className="text-sm text-muted-foreground text-center">
-            {progressLabel}
+            {importStatus.data?.status === 'running'
+              ? `Importing… ${importStatus.data.processedRows} / ${importStatus.data.totalRows} rows`
+              : progressLabel}
           </p>
           {commitError && (
             <p className="text-xs text-[var(--color-danger)] text-center">
               {commitError}
             </p>
           )}
+          {/* The job runs server-side once started — closing here doesn't
+              cancel it; progress remains visible via the persistent toast and
+              Settings. */}
+          <div className="pt-2 border-t border-[var(--color-border)]">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Close
+            </Button>
+          </div>
         </div>
       )}
 
-      {step === 'success' && (
-        <SuccessStep
-          outcomes={outcomes}
-          rankingResult={rankingResult}
-          listsResult={listsResult}
-          ratingsResult={ratingsResult}
-          onClose={onClose}
-        />
+      {step === 'success' && importStatus.data && (
+        <SuccessStep status={importStatus.data} onClose={onClose} />
       )}
 
       {step !== 'success' && step !== 'committing' && (

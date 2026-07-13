@@ -22,7 +22,6 @@ export type ProgressUpdateForGraph = {
 
 export type DropForGraph = {
   droppedAt: Date | null
-  attemptsAtDrop: number | null
   worstFail: number | null
 }
 
@@ -94,10 +93,11 @@ function entryFromUpdate(u: ProgressUpdateForGraph): RunsGraphEntry {
 /**
  * Compute the runs-graph array for the Level Page timeline.
  *
- * @param progressUpdates - All progress_updates for this level_progress (any order).
- * @param drops - Drop events in history. In v1 this is zero or one element
- *   (from level_progress drop fields), but the function handles multiple drops
- *   correctly for future schema extensions.
+ * @param progressUpdates - Non-DROP progress_updates for this level_progress
+ *   (any order) — kind=DROP rows are passed separately via `drops`.
+ * @param drops - Drop events in history (each a kind=DROP progress_update).
+ *   A level can be dropped more than once (drop → resume → drop again), so
+ *   this may hold multiple elements.
  * @param worstFail - Optional worst-fail milestone for completed levels. When
  *   `date` is set the bar is sorted chronologically; when `date` is null it is
  *   spliced immediately before the completion entry (or appended if none exists).

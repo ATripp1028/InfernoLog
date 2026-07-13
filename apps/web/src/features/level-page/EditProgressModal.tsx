@@ -145,7 +145,9 @@ export function EditProgressModal({
 
   useEffect(() => {
     if (open && me.data) {
-      const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+      const completionUpdate = data.progressUpdates.find(
+        (u) => u.kind === 'COMPLETION'
+      )
       const effectiveDefault =
         completionUpdate?.date != null &&
         isPreTwoTwo(String(completionUpdate.date))
@@ -171,9 +173,11 @@ export function EditProgressModal({
           (u) => u.progressUpdateId === progressUpdateId
         )
       : undefined) ?? data.progressUpdates[0]
-  const isCompletion = latestUpdate?.isCompletion ?? false
+  const isCompletion = latestUpdate?.kind === 'COMPLETION'
   const showHighlightUrl = me.data.showHighlightUrl
-  const completionUpdate = data.progressUpdates.find((u) => u.isCompletion)
+  const completionUpdate = data.progressUpdates.find(
+    (u) => u.kind === 'COMPLETION'
+  )
   const showVersionPicker =
     data.level.levelType === 'CLASSIC' &&
     !(

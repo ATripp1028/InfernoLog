@@ -119,10 +119,10 @@ export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
       }
   return {
     levelId: level.inGameId,
-    droppedAt: draft.date,
-    attemptsAtDrop: intOrNull(draft.attempts),
+    date: draft.date,
+    attempts: intOrNull(draft.attempts),
     ...worstFailFields,
-    droppedReason: draft.droppedReason.trim() || null,
+    notes: draft.droppedReason.trim() || null,
     visibility: draft.visibility,
   }
 }

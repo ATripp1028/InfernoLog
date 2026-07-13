@@ -100,7 +100,7 @@ describe('syncGddlSubmissions', () => {
     })
     expect(lp.status).toBe('COMPLETED')
     const pu = lp.progressUpdates[0]!
-    expect(pu.isCompletion).toBe(true)
+    expect(pu.kind).toBe('COMPLETION')
     expect(pu.enjoyment).toBe(70) // 7 × 10
     expect(pu.videoUrl).toBe('https://youtube.com/watch?v=abc')
     // GDDL's "Rating" is the level's tier — stored as userGddlTier on LevelProgress.
@@ -168,7 +168,7 @@ describe('syncGddlSubmissions', () => {
     const pu = await prisma.progressUpdate.create({
       data: {
         levelProgressId: lp.id,
-        isCompletion: true,
+        kind: 'COMPLETION',
         date: null,
         enjoyment: null,
         simpleRating: null,
@@ -205,7 +205,7 @@ describe('syncGddlSubmissions', () => {
     const pu = await prisma.progressUpdate.create({
       data: {
         levelProgressId: lp.id,
-        isCompletion: true,
+        kind: 'COMPLETION',
         date: new Date('2023-01-01'), // already set — must not be overwritten
         enjoyment: 50,
         videoUrl: 'https://original.video',
