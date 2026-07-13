@@ -33,7 +33,9 @@ export async function createUserForSignup(email: string, cognitoSub: string) {
       username: email.split('@')[0] + '_' + randomBytes(4).toString('hex'),
       cognitoSub,
       onboardingCompleted: false,
-      ratingCategories: { create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })) },
+      ratingCategories: {
+        create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })),
+      },
       collections: { create: DEFAULT_COLLECTIONS.map((c) => ({ ...c })) },
     },
   })

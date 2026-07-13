@@ -14,7 +14,14 @@ import { SettingsSection } from '@/features/settings/components/SettingsSection'
 import { ImportWizard } from '@/features/import/ImportWizard'
 import { LegalAcceptance } from './LegalAcceptance'
 
-const STEPS = ['legal', 'username', 'logging', 'rating', 'import', 'gddl'] as const
+const STEPS = [
+  'legal',
+  'username',
+  'logging',
+  'rating',
+  'import',
+  'gddl',
+] as const
 type Step = (typeof STEPS)[number]
 
 const STEP_LABELS: Record<Step, string> = {
@@ -110,7 +117,9 @@ export function OnboardingWizard() {
       {step === 'legal' && (
         <LegalAcceptance
           pending={update.isPending}
-          onContinue={() => void update.mutateAsync({ acceptLegal: true }).then(goNext)}
+          onContinue={() =>
+            void update.mutateAsync({ acceptLegal: true }).then(goNext)
+          }
         />
       )}
 

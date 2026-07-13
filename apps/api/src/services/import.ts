@@ -587,7 +587,9 @@ function planProgress(
   levelId: string,
   row: ImportProgressRow
 ): 'committed' | 'updated' {
-  const matched = row.progressId ? ctx.existingProgress.get(row.progressId) : undefined
+  const matched = row.progressId
+    ? ctx.existingProgress.get(row.progressId)
+    : undefined
   const plan = getLpPlan(ctx, levelId)
 
   if (matched && matched.levelId === levelId) {
@@ -761,7 +763,9 @@ export async function processImportJobBatch(
   )
   const progressIds = [
     ...new Set(
-      progressRows.flatMap((r) => (r.data.progressId ? [r.data.progressId] : []))
+      progressRows.flatMap((r) =>
+        r.data.progressId ? [r.data.progressId] : []
+      )
     ),
   ]
   const existingProgress = new Map<string, { id: string; levelId: string }>()
@@ -836,7 +840,8 @@ export async function processImportJobBatch(
   for (const row of rows) {
     if (resolutionFailures.has(row.rowIndex)) continue
     if (row.type === 'progress') {
-      if (row.data.progressId) lastProgressById.set(row.data.progressId, row.rowIndex)
+      if (row.data.progressId)
+        lastProgressById.set(row.data.progressId, row.rowIndex)
       continue
     }
     if (row.type === 'dropped') {
@@ -1124,7 +1129,12 @@ export async function commitImportBatch(
 ): Promise<ImportCommitResponse> {
   await prisma.importJob.deleteMany({ where: { userId } })
   await prisma.importJob.create({
-    data: { id: importJobId, userId, status: 'running', totalRows: rows.length },
+    data: {
+      id: importJobId,
+      userId,
+      status: 'running',
+      totalRows: rows.length,
+    },
   })
 
   const pending = rows.map((r) => ({

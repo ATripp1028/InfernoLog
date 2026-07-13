@@ -85,31 +85,31 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 
 ### `users`
 
-| Column                   | Type      | Notes                                                                   |
-| ------------------------ | --------- | ----------------------------------------------------------------------- |
-| `id`                     | UUID      | Internal primary key                                                    |
-| `username`               | VARCHAR   | Unique, public-facing                                                   |
-| `username_changed_at`    | TIMESTAMP | Enforces 30-day cooldown                                                |
-| `previous_username`      | VARCHAR   | Held for 30 days, unavailable to others                                 |
-| `email`                  | VARCHAR   | From Cognito                                                            |
-| `discord_id`             | VARCHAR   | Nullable                                                                |
-| `cognito_sub`            | VARCHAR   | Nullable. Cognito's `sub` claim — the federated-identity key, set once `signup/start` or the post-auth trigger's backfill runs |
-| `onboarding_completed`   | BOOLEAN   | Default false. Gates whether `_authenticated` routes to `/onboarding`  |
-| `legal_accepted_at`      | TIMESTAMP | Nullable. Stamped when the onboarding wizard's combined ToS/Privacy Policy checkbox is accepted |
-| `profile_public`         | BOOLEAN   | Default true                                                            |
-| `discord_public`         | BOOLEAN   | Default true                                                            |
-| `role`                   | ENUM      | `user`, `moderator`, `admin`                                            |
-| `account_status`         | ENUM      | `active`, `suspended`, `banned`                                         |
-| `suspension_until`       | TIMESTAMP | Nullable                                                                |
-| `is_verified`            | BOOLEAN   | Default false                                                           |
-| `gddl_api_key_encrypted` | VARCHAR   | Encrypted at rest, never exposed to frontend                            |
-| `rating_mode`            | ENUM      | `simple`, `weighted`. Default `simple`                                  |
-| `rating_display_scale`   | ENUM      | `zero_to_ten`, `zero_to_hundred`. Default `zero_to_ten`. Display-only — ratings/enjoyment are always stored as 0-100 integers regardless of this setting; the frontend converts at the display layer |
-| `default_percentage_version` | ENUM  | `two_one`, `two_two`. Default `two_two`. Which GD version's percentage system (2.1 distance-based / 2.2 time-based) to pre-select when logging |
-| `time_machine_top_n`     | INTEGER   | How many levels to track in Time Machine. Default 10                    |
-| `date_format_preference` | ENUM      | `mdy`, `dmy`, `ymd`, `iso`. Used for display and import                 |
-| `default_fps`            | INTEGER   | Nullable. Pre-fills the FPS field in the logging flow's Session Details |
-| `created_at`             | TIMESTAMP |                                                                         |
+| Column                       | Type      | Notes                                                                                                                                                                                                |
+| ---------------------------- | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                         | UUID      | Internal primary key                                                                                                                                                                                 |
+| `username`                   | VARCHAR   | Unique, public-facing                                                                                                                                                                                |
+| `username_changed_at`        | TIMESTAMP | Enforces 30-day cooldown                                                                                                                                                                             |
+| `previous_username`          | VARCHAR   | Held for 30 days, unavailable to others                                                                                                                                                              |
+| `email`                      | VARCHAR   | From Cognito                                                                                                                                                                                         |
+| `discord_id`                 | VARCHAR   | Nullable                                                                                                                                                                                             |
+| `cognito_sub`                | VARCHAR   | Nullable. Cognito's `sub` claim — the federated-identity key, set once `signup/start` or the post-auth trigger's backfill runs                                                                       |
+| `onboarding_completed`       | BOOLEAN   | Default false. Gates whether `_authenticated` routes to `/onboarding`                                                                                                                                |
+| `legal_accepted_at`          | TIMESTAMP | Nullable. Stamped when the onboarding wizard's combined ToS/Privacy Policy checkbox is accepted                                                                                                      |
+| `profile_public`             | BOOLEAN   | Default true                                                                                                                                                                                         |
+| `discord_public`             | BOOLEAN   | Default true                                                                                                                                                                                         |
+| `role`                       | ENUM      | `user`, `moderator`, `admin`                                                                                                                                                                         |
+| `account_status`             | ENUM      | `active`, `suspended`, `banned`                                                                                                                                                                      |
+| `suspension_until`           | TIMESTAMP | Nullable                                                                                                                                                                                             |
+| `is_verified`                | BOOLEAN   | Default false                                                                                                                                                                                        |
+| `gddl_api_key_encrypted`     | VARCHAR   | Encrypted at rest, never exposed to frontend                                                                                                                                                         |
+| `rating_mode`                | ENUM      | `simple`, `weighted`. Default `simple`                                                                                                                                                               |
+| `rating_display_scale`       | ENUM      | `zero_to_ten`, `zero_to_hundred`. Default `zero_to_ten`. Display-only — ratings/enjoyment are always stored as 0-100 integers regardless of this setting; the frontend converts at the display layer |
+| `default_percentage_version` | ENUM      | `two_one`, `two_two`. Default `two_two`. Which GD version's percentage system (2.1 distance-based / 2.2 time-based) to pre-select when logging                                                       |
+| `time_machine_top_n`         | INTEGER   | How many levels to track in Time Machine. Default 10                                                                                                                                                 |
+| `date_format_preference`     | ENUM      | `mdy`, `dmy`, `ymd`, `iso`. Used for display and import                                                                                                                                              |
+| `default_fps`                | INTEGER   | Nullable. Pre-fills the FPS field in the logging flow's Session Details                                                                                                                              |
+| `created_at`                 | TIMESTAMP |                                                                                                                                                                                                      |
 
 ### `levels`
 
@@ -141,19 +141,19 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 
 One row per user per level. Created when the user logs their first progress update. Not created by adding to the Want to Beat collection.
 
-| Column             | Type      | Notes                                                                                                                                                                                                                             |
-| ------------------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `id`               | UUID      |                                                                                                                                                                                                                                   |
-| `user_id`          | UUID      | FK → users                                                                                                                                                                                                                        |
-| `level_id`         | VARCHAR   | FK → levels.in_game_id                                                                                                                                                                                                            |
-| `status`           | ENUM      | `in_progress`, `dropped`, `completed`. Derived from the latest `progress_updates` event, but stored (not computed at query time) so it can be filtered/indexed                                                                    |
-| `visibility`       | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                                                            |
-| `level_notes`      | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates                                            |
-| `created_at`       | TIMESTAMP |                                                                                                                                                                                                                                   |
+| Column        | Type      | Notes                                                                                                                                                                                  |
+| ------------- | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`          | UUID      |                                                                                                                                                                                        |
+| `user_id`     | UUID      | FK → users                                                                                                                                                                             |
+| `level_id`    | VARCHAR   | FK → levels.in_game_id                                                                                                                                                                 |
+| `status`      | ENUM      | `in_progress`, `dropped`, `completed`. Derived from the latest `progress_updates` event, but stored (not computed at query time) so it can be filtered/indexed                         |
+| `visibility`  | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                 |
+| `level_notes` | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates |
+| `created_at`  | TIMESTAMP |                                                                                                                                                                                        |
 
 ### `progress_updates`
 
-Every logged event for a level: a session log, a completion, or a drop. All fields optional except `level_progress_id`, `kind`, and `logged_at`. A completion is a progress update with `kind = COMPLETION`; a drop is one with `kind = DROP`. Drop reuses `date`/`attempts`/`notes` rather than drop-specific columns — a drop's reason is just its `notes` under a different label, its date is just its `date`, and so on. This is the same reasoning that already applies to `percentage`/`run_from`/`run_to` being shared between progress and completion rows: the columns describe *an event*, and `kind` says which kind of event it is.
+Every logged event for a level: a session log, a completion, or a drop. All fields optional except `level_progress_id`, `kind`, and `logged_at`. A completion is a progress update with `kind = COMPLETION`; a drop is one with `kind = DROP`. Drop reuses `date`/`attempts`/`notes` rather than drop-specific columns — a drop's reason is just its `notes` under a different label, its date is just its `date`, and so on. This is the same reasoning that already applies to `percentage`/`run_from`/`run_to` being shared between progress and completion rows: the columns describe _an event_, and `kind` says which kind of event it is.
 
 | Column                        | Type      | Notes                                                                                                                                                                                                                                            |
 | ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

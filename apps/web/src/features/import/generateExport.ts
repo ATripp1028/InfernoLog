@@ -149,7 +149,9 @@ export function downloadExport(
   )
 
   // Progress (non-completion session logs)
-  const progressRecords = data.progress.map((p) => progressRecord(p, dateFormat))
+  const progressRecords = data.progress.map((p) =>
+    progressRecord(p, dateFormat)
+  )
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet(rows(PROGRESS_HEADERS, progressRecords)),

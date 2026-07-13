@@ -40,7 +40,9 @@ const REMAINING_TIME_SAFETY_MS = 60_000
 // external API that's down) can't reinvoke forever.
 const MAX_REINVOKES = 20
 
-const lambda = new LambdaClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
+const lambda = new LambdaClient({
+  region: process.env.AWS_REGION ?? 'us-east-1',
+})
 
 async function bumpReinvokeCount(jobId: string): Promise<number> {
   const updated = await prisma.importJob.update({

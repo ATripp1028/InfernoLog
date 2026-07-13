@@ -186,7 +186,9 @@ async function exportDropped(userId: string, skip: number, take: number) {
           levelId: true,
           status: true,
           worstFail: true,
-          level: { select: { name: true, creator: true, inGameDifficulty: true } },
+          level: {
+            select: { name: true, creator: true, inGameDifficulty: true },
+          },
           // The level's single most recent update — used below to tell
           // whether this is the level's CURRENT drop.
           progressUpdates: {

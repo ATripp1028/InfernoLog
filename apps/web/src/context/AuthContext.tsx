@@ -1,4 +1,11 @@
-import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  ReactNode,
+  useCallback,
+} from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import { queryClient } from '../lib/queryClient'
@@ -74,14 +81,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleSignOut = () => signOut()
 
   return (
-    <AuthContext.Provider value={{
-      isAuthenticated,
-      isAuthInitializing,
-      signIn: handleSignIn,
-      signUp: handleSignUp,
-      signOut: handleSignOut,
-      getIdToken,
-    }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        isAuthInitializing,
+        signIn: handleSignIn,
+        signUp: handleSignUp,
+        signOut: handleSignOut,
+        getIdToken,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )

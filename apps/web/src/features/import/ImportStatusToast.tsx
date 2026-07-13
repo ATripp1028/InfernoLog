@@ -17,7 +17,8 @@ export function ImportStatusToast() {
 
   useEffect(() => {
     const data = importStatus.data
-    const hasUnresolvedFlag = data?.flaggedRows.some((r) => !r.resolved) ?? false
+    const hasUnresolvedFlag =
+      data?.flaggedRows.some((r) => !r.resolved) ?? false
     const visible =
       data?.status === 'running' ||
       (data?.status === 'completed' && hasUnresolvedFlag)

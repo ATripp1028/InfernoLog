@@ -58,12 +58,18 @@ export function ImportStatusPanel({ status }: ImportStatusPanelProps) {
               >
                 <div className="min-w-0">
                   <div className="truncate font-medium text-foreground">
-                    {row.levelName ?? row.identifier ?? `Row ${row.rowIndex + 1}`}
+                    {row.levelName ??
+                      row.identifier ??
+                      `Row ${row.rowIndex + 1}`}
                   </div>
-                  <div className="text-muted-foreground">{row.issueMessage}</div>
+                  <div className="text-muted-foreground">
+                    {row.issueMessage}
+                  </div>
                 </div>
                 {row.resolved ? (
-                  <span className="shrink-0 text-muted-foreground">Resolved</span>
+                  <span className="shrink-0 text-muted-foreground">
+                    Resolved
+                  </span>
                 ) : (
                   <Button
                     size="sm"

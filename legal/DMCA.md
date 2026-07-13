@@ -49,4 +49,4 @@ Geometry Dash assets used throughout InfernoLog (difficulty faces, portals, UI i
 
 ---
 
-*Last updated: 07/07/2026*
+_Last updated: 07/07/2026_

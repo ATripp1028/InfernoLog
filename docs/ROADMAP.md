@@ -97,7 +97,6 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 - [x] date-fns
 - [x] SheetJS (import + export)
 
-
 ---
 
 ## v2 — Depth

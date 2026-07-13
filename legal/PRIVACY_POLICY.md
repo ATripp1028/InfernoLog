@@ -12,10 +12,10 @@ If you have found anything within the codebase, legal documents, or public state
 
 The Application collects information when you download and use it. This information may include information such as
 
-*   Your device's Internet Protocol address
-*   The pages of the Application that you visit, the time and date of your visit, the time spent on those pages
-*   The time spent on the Application
-*   your operating system you use
+- Your device's Internet Protocol address
+- The pages of the Application that you visit, the time and date of your visit, the time spent on those pages
+- The time spent on the Application
+- your operating system you use
 
 **Cookies and tracking technologies**
 
@@ -41,21 +41,21 @@ Only aggregated, anonymized data is periodically transmitted to external service
 
 The Service Provider or its third-party service providers may transfer personal data to countries outside your country of residence, including outside the European Economic Area (EEA). Where applicable law requires safeguards for international transfers, the Service Provider will use appropriate mechanisms.
 
-*   Standard Contractual Clauses (SCCs) approved by the European Commission
-*   Adequacy decisions or other legally recognized transfer mechanisms
-*   Your consent, where required and legally permitted
+- Standard Contractual Clauses (SCCs) approved by the European Commission
+- Adequacy decisions or other legally recognized transfer mechanisms
+- Your consent, where required and legally permitted
 
 Data protection laws in other countries may differ from those in your jurisdiction. Where required by law, the Service Provider will apply appropriate safeguards and obtain any consent required for the transfer.
 
 Please note that the Application utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by the Application:
 
-*   [Sentry](https://sentry.io/privacy/)
+- [Sentry](https://sentry.io/privacy/)
 
 The Service Provider may disclose User Provided and Automatically Collected Information:
 
-*   as required by law, such as to comply with a subpoena, or similar legal process;
-*   when they believe in good faith that disclosure is necessary to protect their rights, protect your safety or the safety of others, investigate fraud, or respond to a government request;
-*   with their trusted services providers who work on their behalf, do not have an independent use of the information the Service Provider discloses to them, and have agreed to adhere to the rules set forth in this privacy statement.
+- as required by law, such as to comply with a subpoena, or similar legal process;
+- when they believe in good faith that disclosure is necessary to protect their rights, protect your safety or the safety of others, investigate fraud, or respond to a government request;
+- with their trusted services providers who work on their behalf, do not have an independent use of the information the Service Provider discloses to them, and have agreed to adhere to the rules set forth in this privacy statement.
 
 **Opt-Out Rights**
 
@@ -67,10 +67,10 @@ To request deletion of your personal data, to withdraw consent, or to exercise a
 
 The Service Provider retains personal data based on its necessity for the stated purposes:
 
-*   User Provided Data: Retained for the duration of your use of the Application plus 12 months thereafter, unless longer retention is required by law
-*   Automatically Collected Data: Retained for up to 24 months from collection, unless longer retention is required for legal compliance
-*   Aggregated and Anonymized Data: Retained indefinitely as it no longer identifies you
-*   Data required for legal compliance: Retained as long as required by applicable law
+- User Provided Data: Retained for the duration of your use of the Application plus 12 months thereafter, unless longer retention is required by law
+- Automatically Collected Data: Retained for up to 24 months from collection, unless longer retention is required for legal compliance
+- Aggregated and Anonymized Data: Retained indefinitely as it no longer identifies you
+- Data required for legal compliance: Retained as long as required by applicable law
 
 You may request deletion of your personal data, subject to any legal obligation to retain it. If you want the Service Provider to delete User Provided Data submitted through the Application, please contact them at contact@infernolog.com. Please note that some User Provided Data may be required for the Application to function properly.
 
@@ -110,6 +110,6 @@ Where processing is based on consent, you provide that consent by affirmatively 
 
 If you have any questions regarding privacy while using the Application, or have questions about the practices, please contact the Service Provider via email at contact@infernolog.com.
 
-* * *
+---
 
 This privacy policy page was generated by [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/)

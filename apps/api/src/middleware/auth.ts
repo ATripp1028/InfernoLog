@@ -14,9 +14,7 @@ export type JwtClaims = {
 // the request — used by authMiddleware (which also requires a User row) and
 // directly by routes that only need a verified identity, not an existing
 // InfernoLog user (e.g. signup/start, signin/reject).
-export function getVerifiedClaims(c: {
-  env: unknown
-}): JwtClaims | null {
+export function getVerifiedClaims(c: { env: unknown }): JwtClaims | null {
   const requestContext = (
     c.env as
       | { requestContext?: { authorizer?: { jwt?: { claims?: JwtClaims } } } }

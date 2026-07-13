@@ -34,14 +34,21 @@ export function DeleteAccountDialog({
             Delete your account?
           </Dialog.Title>
           <Dialog.Description className="mt-1.5 text-sm text-text-secondary">
-            This permanently deletes your account and everything tied to
-            it — completions, rankings, categories, collections, and
-            preferences. This cannot be undone.
+            This permanently deletes your account and everything tied to it —
+            completions, rankings, categories, collections, and preferences.
+            This cannot be undone.
           </Dialog.Description>
 
           <div className="mt-4 space-y-1.5">
-            <label htmlFor="delete-account-confirm" className="text-xs text-text-secondary">
-              Type <span className="font-medium text-text-primary">{DELETE_ACCOUNT_CONFIRMATION}</span> to confirm
+            <label
+              htmlFor="delete-account-confirm"
+              className="text-xs text-text-secondary"
+            >
+              Type{' '}
+              <span className="font-medium text-text-primary">
+                {DELETE_ACCOUNT_CONFIRMATION}
+              </span>{' '}
+              to confirm
             </label>
             <Input
               id="delete-account-confirm"

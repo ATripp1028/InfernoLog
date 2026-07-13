@@ -30,8 +30,10 @@ interface RatingSectionProps {
   hideCategoryActions?: boolean
 }
 
-export const RatingSection = forwardRef<RatingSectionHandle, RatingSectionProps>(
-  function RatingSection({ me, hideCategoryActions = false }, ref) {
+export const RatingSection = forwardRef<
+  RatingSectionHandle,
+  RatingSectionProps
+>(function RatingSection({ me, hideCategoryActions = false }, ref) {
   const update = useUpdateMe()
   const categoryEditorRef = useRef<RatingConfigEditorHandle>(null)
 

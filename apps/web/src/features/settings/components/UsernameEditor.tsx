@@ -24,7 +24,11 @@ interface UsernameEditorProps {
   onSaved?: () => void
 }
 
-export function UsernameEditor({ me, startInEditing, onSaved }: UsernameEditorProps) {
+export function UsernameEditor({
+  me,
+  startInEditing,
+  onSaved,
+}: UsernameEditorProps) {
   const [editing, setEditing] = useState(startInEditing ?? false)
   // Onboarding starts the box empty rather than prefilled with the seeded
   // placeholder (`<email-localpart>_<hex>`) — that placeholder embeds part
@@ -60,23 +64,23 @@ export function UsernameEditor({ me, startInEditing, onSaved }: UsernameEditorPr
     }
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
     debounceTimer.current = setTimeout(async () => {
-    try {
-      const res = await checkUsernameAvailable(value, signal)
-      if (!res.available) {
-        setAvailabilityError(res.error ?? 'Username is already taken')
-      } else {
-        setAvailabilityError(null)
+      try {
+        const res = await checkUsernameAvailable(value, signal)
+        if (!res.available) {
+          setAvailabilityError(res.error ?? 'Username is already taken')
+        } else {
+          setAvailabilityError(null)
+        }
+      } catch (err) {
+        // A newer keystroke superseded this check (cleanup below calls
+        // controller.abort()) — that's the expected flow while typing, not a
+        // failure, so it shouldn't surface as an error. Aborted fetches throw
+        // a DOMException, which isn't an Error subclass, so check by name.
+        if ((err as { name?: string } | null)?.name === 'AbortError') return
+        const msg =
+          err instanceof Error ? err.message : 'Failed to check username'
+        setAvailabilityError(msg)
       }
-    } catch (err) {
-      // A newer keystroke superseded this check (cleanup below calls
-      // controller.abort()) — that's the expected flow while typing, not a
-      // failure, so it shouldn't surface as an error. Aborted fetches throw
-      // a DOMException, which isn't an Error subclass, so check by name.
-      if ((err as { name?: string } | null)?.name === 'AbortError') return
-      const msg =
-        err instanceof Error ? err.message : 'Failed to check username'
-      setAvailabilityError(msg)
-    }
     }, 300)
     return () => {
       if (debounceTimer.current) clearTimeout(debounceTimer.current)

@@ -1,4 +1,4 @@
-**Terms & Conditions**  
+**Terms & Conditions**
 
 These terms and conditions apply to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, the "Application"). The InfernoLog Team is hereby referred to as the "Service Provider".
 
@@ -26,20 +26,20 @@ By accessing and using this Application, you represent that you are legally perm
 
 If this Application allows users to post, share, or upload content, you agree not to post content that:
 
-*   Is illegal or violates third-party intellectual property rights (copyright, trademark, patents)
-*   Is abusive, threatening, harassing, defamatory, or hate speech
-*   Contains discrimination or incitement to violence or illegal activity
-*   Is spam, phishing, or contains malware
-*   Violates the privacy or personal data rights of others
-*   Is misleading, false, or deceptive
-*   Contains explicit violence or sexual content (unless age-gated appropriately)
+- Is illegal or violates third-party intellectual property rights (copyright, trademark, patents)
+- Is abusive, threatening, harassing, defamatory, or hate speech
+- Contains discrimination or incitement to violence or illegal activity
+- Is spam, phishing, or contains malware
+- Violates the privacy or personal data rights of others
+- Is misleading, false, or deceptive
+- Contains explicit violence or sexual content (unless age-gated appropriately)
 
 The Service Provider reserves the right to:
 
-*   Remove or disable access to content that violates these guidelines
-*   Suspend or terminate accounts of users who repeatedly violate these guidelines
-*   Cooperate with law enforcement if illegal content is reported
-*   Moderate, filter, or hide content that violates these Terms, applicable law, or the guidelines set out above
+- Remove or disable access to content that violates these guidelines
+- Suspend or terminate accounts of users who repeatedly violate these guidelines
+- Cooperate with law enforcement if illegal content is reported
+- Moderate, filter, or hide content that violates these Terms, applicable law, or the guidelines set out above
 
 Content submitted through the Application may be visible to other users or to the public, depending on how the Application functions.
 
@@ -59,7 +59,7 @@ The Application stores and processes personal data that you have provided to the
 
 Third Party Services
 
-*   [Sentry](https://sentry.io/terms/)
+- [Sentry](https://sentry.io/terms/)
 
 Please be aware that the Service Provider does not assume responsibility for certain aspects. Some functions of the Application require an active internet connection. The Service Provider cannot be held responsible if the Application does not function at full capacity due to lack of access to the internet or if you have exhausted your data allowance.
 
@@ -75,9 +75,9 @@ To the fullest extent permitted by law, the Service Provider shall not be liable
 
 However, the Service Provider retains full liability for:
 
-*   Death or personal injury caused by negligence
-*   Fraud or fraudulent misrepresentation
-*   Any other liability that cannot be excluded or limited under applicable law
+- Death or personal injury caused by negligence
+- Fraud or fraudulent misrepresentation
+- Any other liability that cannot be excluded or limited under applicable law
 
 To the fullest extent permitted by law, the total liability of the Service Provider for any claim shall not exceed the amount paid by you to the Service Provider for the Application in the 12 months preceding the claim, or the minimum amount that must be paid under applicable law, whichever is greater. If the Application is provided free of charge, this means the Service Provider's liability is limited to the minimum amount permitted by applicable law.
 
@@ -91,13 +91,13 @@ This indemnification does not apply to claims arising from the Service Provider'
 
 The Service Provider may wish to update the application at some point. The application is currently available as per the requirements for the operating system (and for any additional systems they decide to extend the availability of the application to) may change, and you will need to download the updates if you want to continue using the application. The Service Provider does not guarantee that it will always update the application so that it is relevant to you and/or compatible with the particular operating system version installed on your device. You should accept updates when offered; if you choose not to, the Service Provider may cease to support earlier versions and the Application may not function properly. The Service Provider may also wish to cease providing the application and may terminate its use at any time without providing termination notice to you. Unless they inform you otherwise, upon any termination, (a) the rights and licenses granted to you in these terms will end; (b) you must cease using the application, and (if necessary) delete it from your device.
 
-**Governing Law and Jurisdiction**  
+**Governing Law and Jurisdiction**
 
 These Terms and Conditions are governed by the laws of the jurisdiction in which the Service Provider is established, excluding conflict of law rules, except to the extent mandatory consumer protection laws provide otherwise.
 
 Any dispute arising out of or relating to these Terms will be brought before the courts that have jurisdiction under applicable law. Nothing in this clause limits any rights you may have to bring a claim in a court that is competent under mandatory law.
 
-**DSA Compliance (Digital Services Act)**  
+**DSA Compliance (Digital Services Act)**
 
 If the Application is an intermediary service as defined under the Digital Services Act (Regulation (EU) 2022/2065, "DSA"), the following provisions apply in addition to the terms above.
 
@@ -133,6 +133,6 @@ These terms and conditions are effective as of 2026-07-07
 
 If you have any questions or suggestions about the Terms and Conditions, please do not hesitate to contact the Service Provider at contact@infernolog.com.
 
-* * *
+---
 
 This Terms & Conditions page was generated by [App Privacy Policy Generator](https://app-privacy-policy-generator.nisrulz.com/)

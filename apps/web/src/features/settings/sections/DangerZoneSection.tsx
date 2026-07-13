@@ -42,15 +42,11 @@ export function DangerZoneSection() {
             Delete account
           </div>
           <p className="text-xs text-muted-foreground">
-            Permanently deletes your account and all of your data. This
-            cannot be undone.
+            Permanently deletes your account and all of your data. This cannot
+            be undone.
           </p>
         </div>
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => setOpen(true)}
-        >
+        <Button variant="destructive" size="sm" onClick={() => setOpen(true)}>
           Delete Account
         </Button>
       </div>

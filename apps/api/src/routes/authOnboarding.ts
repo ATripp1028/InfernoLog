@@ -82,7 +82,10 @@ app.post('/auth/signin/reject', async (c) => {
       if (!(err instanceof UserNotFoundException)) throw err
     }
 
-    logger.info({ sub: claims.sub }, 'Discarded Cognito identity (signin, no matching account)')
+    logger.info(
+      { sub: claims.sub },
+      'Discarded Cognito identity (signin, no matching account)'
+    )
     return c.json({ data: { discarded: true } }, 200)
   } catch (err) {
     logger.error({ err }, 'POST /auth/signin/reject error')

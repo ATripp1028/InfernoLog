@@ -634,7 +634,10 @@ app.get('/users/check-username', async (c) => {
   const username = c.req.query('username')
 
   if (!username) {
-    return c.json({ available: false, error: 'Username must be at least 2 characters' })
+    return c.json({
+      available: false,
+      error: 'Username must be at least 2 characters',
+    })
   }
 
   const parsed = localUsernameSchema.safeParse(username)

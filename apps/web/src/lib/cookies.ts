@@ -6,7 +6,9 @@ export function clearAllAppCookies(): void {
   const names = document.cookie
     .split('; ')
     .map((c) => c.split('=')[0])
-    .filter((name): name is string => !!name && name.startsWith(APP_COOKIE_PREFIX))
+    .filter(
+      (name): name is string => !!name && name.startsWith(APP_COOKIE_PREFIX)
+    )
 
   for (const name of names) {
     document.cookie = `${name}=; max-age=0; path=/; SameSite=Lax`

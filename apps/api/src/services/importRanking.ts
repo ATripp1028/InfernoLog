@@ -47,23 +47,39 @@ export async function commitImportRanking(
 
   entries.forEach((entry, i) => {
     const rank = i + 1
-    const label = entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : `rank ${rank}`)
+    const label =
+      entry.levelName ??
+      (entry.levelId ? `level ${entry.levelId}` : `rank ${rank}`)
 
     let lpId = entry.levelId ? byLevelId.get(entry.levelId) : undefined
     if (!lpId && entry.levelName) {
       const matches = byName.get(entry.levelName.trim().toLowerCase())
       if (matches && matches.length === 1) lpId = matches[0]
       else if (matches && matches.length > 1) {
-        skipped.push({ rank, label, reason: 'Matches more than one of your completed levels — add a level_id' })
+        skipped.push({
+          rank,
+          label,
+          reason:
+            'Matches more than one of your completed levels — add a level_id',
+        })
         return
       }
     }
     if (!lpId) {
-      skipped.push({ rank, label, reason: 'Not among your completed levels — rank only applies to completions' })
+      skipped.push({
+        rank,
+        label,
+        reason:
+          'Not among your completed levels — rank only applies to completions',
+      })
       return
     }
     if (seen.has(lpId)) {
-      skipped.push({ rank, label, reason: 'Duplicate — this level is already ranked higher up' })
+      skipped.push({
+        rank,
+        label,
+        reason: 'Duplicate — this level is already ranked higher up',
+      })
       return
     }
     seen.add(lpId)

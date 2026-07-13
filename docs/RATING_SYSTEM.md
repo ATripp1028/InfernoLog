@@ -24,7 +24,7 @@ All ratings apply to any progress update, not just completions — mirroring the
 
 ### Display scale
 
-`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are *displayed and entered* (e.g. `4.7` vs `47`). Storage is unaffected either way — `progress_updates.simple_rating`, `rating_scores`, and `enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
+`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are _displayed and entered_ (e.g. `4.7` vs `47`). Storage is unaffected either way — `progress_updates.simple_rating`, `rating_scores`, and `enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
 
 ---
 
@@ -101,13 +101,13 @@ If a user deletes a rating category, associated `rating_scores` rows are soft-de
 
 ## Display Rules
 
-| Context | Simple Mode | Weighted Mode |
-|---|---|---|
-| Completion entry card | Single score badge | Weighted average + breakdown on hover |
-| Log list view | Score column | Weighted average column |
-| Sorting | By simple_rating | By computed weighted avg |
-| No rating entered | Blank (not 0) | Blank (not 0) |
-| Non-completion entry | Hidden unless toggle on | Hidden unless toggle on |
+| Context               | Simple Mode             | Weighted Mode                         |
+| --------------------- | ----------------------- | ------------------------------------- |
+| Completion entry card | Single score badge      | Weighted average + breakdown on hover |
+| Log list view         | Score column            | Weighted average column               |
+| Sorting               | By simple_rating        | By computed weighted avg              |
+| No rating entered     | Blank (not 0)           | Blank (not 0)                         |
+| Non-completion entry  | Hidden unless toggle on | Hidden unless toggle on               |
 
 ---
 

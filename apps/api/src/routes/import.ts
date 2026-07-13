@@ -31,7 +31,9 @@ import {
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-const lambda = new LambdaClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
+const lambda = new LambdaClient({
+  region: process.env.AWS_REGION ?? 'us-east-1',
+})
 
 // POST /v1/me/import/check — returns which of the given level IDs the
 // authenticated user already has a completion for, with summary detail
@@ -211,7 +213,10 @@ app.patch('/me/import/rows/:rowId/resolve', async (c) => {
     }
     return c.json({ data: { resolved: true } }, 200)
   } catch (err) {
-    logger.error({ userId, rowId, err }, 'PATCH /me/import/rows/:rowId/resolve error')
+    logger.error(
+      { userId, rowId, err },
+      'PATCH /me/import/rows/:rowId/resolve error'
+    )
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }

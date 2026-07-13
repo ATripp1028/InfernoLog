@@ -12,13 +12,13 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 
 **SheetJS (xlsx)** is used for both import and export. The file contains multiple tabs:
 
-| Tab           | Contents                                                                           |
-| ------------- | ---------------------------------------------------------------------------------- |
-| `Completions` | All completion progress updates (kind = completion)                                |
+| Tab           | Contents                                                                             |
+| ------------- | ------------------------------------------------------------------------------------ |
+| `Completions` | All completion progress updates (kind = completion)                                  |
 | `Progress`    | All non-completion, non-drop progress updates — session logs short of the completion |
-| `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one           |
-| `WantToBeat`  | Want-to-beat list                                                                  |
-| `Lists`       | Custom lists and favorites                                                         |
+| `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one             |
+| `WantToBeat`  | Want-to-beat list                                                                    |
+| `Lists`       | Custom lists and favorites                                                           |
 
 Import processes `Completions`, `Progress`, and `Dropped` tabs. Other tabs are supported in later versions.
 
@@ -175,25 +175,25 @@ A level's drop history — if it was ever dropped, including before being beaten
 
 Non-completion session logs — the history short of (or alongside) the eventual completion. Unlike every other tab, **multiple rows per level are expected**: one row per logged session.
 
-| Column               | Required | Notes                                                                     |
-| --------------------- | -------- | -------------------------------------------------------------------------- |
-| `progress_id`         | No       | Round-trip identity for this exact entry, auto-filled on export. Leave blank when adding a new session log by hand. |
-| `level_id`            | Yes\*    | In-game level ID                                                          |
-| `level_name`          | No\*     | If blank, autofilled from the GD servers                                 |
-| `creator`             | No       | Narrows name resolution when the name matches many levels                |
-| `date`                | No       | In selected date format                                                  |
-| `date_uncertain`      | No       | TRUE/FALSE                                                               |
-| `attempts`            | No       | Cumulative attempt count as of this session                              |
-| `percentage`          | No       | Percentage reached this session (a trailing `%` is accepted)             |
-| `run_from`            | No       | Integer 0-100 (trailing `%` accepted) — use instead of `percentage` for a run-range session |
-| `run_to`              | No       | Integer 0-100 (trailing `%` accepted)                                    |
-| `on_stream`           | No       | TRUE/FALSE                                                               |
-| `fps`                 | No       | Integer                                                                  |
-| `device`              | No       | pc or mobile                                                             |
-| `enjoyment`           | No       | 0-10                                                                     |
-| `notes`               | No       | Text about this session                                                  |
-| `highlight_url`       | No       | URL                                                                      |
-| `visibility`          | No       | public or private (defaults to public)                                  |
+| Column           | Required | Notes                                                                                                               |
+| ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
+| `progress_id`    | No       | Round-trip identity for this exact entry, auto-filled on export. Leave blank when adding a new session log by hand. |
+| `level_id`       | Yes\*    | In-game level ID                                                                                                    |
+| `level_name`     | No\*     | If blank, autofilled from the GD servers                                                                            |
+| `creator`        | No       | Narrows name resolution when the name matches many levels                                                           |
+| `date`           | No       | In selected date format                                                                                             |
+| `date_uncertain` | No       | TRUE/FALSE                                                                                                          |
+| `attempts`       | No       | Cumulative attempt count as of this session                                                                         |
+| `percentage`     | No       | Percentage reached this session (a trailing `%` is accepted)                                                        |
+| `run_from`       | No       | Integer 0-100 (trailing `%` accepted) — use instead of `percentage` for a run-range session                         |
+| `run_to`         | No       | Integer 0-100 (trailing `%` accepted)                                                                               |
+| `on_stream`      | No       | TRUE/FALSE                                                                                                          |
+| `fps`            | No       | Integer                                                                                                             |
+| `device`         | No       | pc or mobile                                                                                                        |
+| `enjoyment`      | No       | 0-10                                                                                                                |
+| `notes`          | No       | Text about this session                                                                                             |
+| `highlight_url`  | No       | URL                                                                                                                 |
+| `visibility`     | No       | public or private (defaults to public)                                                                              |
 
 \* one of `level_id` / `level_name` required per row.
 
@@ -210,20 +210,20 @@ Non-completion session logs — the history short of (or alongside) the eventual
 
 Unlike Completions, **multiple rows per level are expected** — a level can be dropped, resumed, and dropped again, and each drop keeps its own independent history (same shape as the Progress tab).
 
-| Column               | Required | Notes                                                     |
-| -------------------- | -------- | --------------------------------------------------------- |
+| Column               | Required | Notes                                                                                                       |
+| -------------------- | -------- | ----------------------------------------------------------------------------------------------------------- |
 | `drop_id`            | No       | Round-trip identity for this exact drop, auto-filled on export. Leave blank when adding a new drop by hand. |
-| `level_id`           | No\*     | In-game level ID                                          |
-| `level_name`         | No\*     | If blank, resolved from the GD servers by name            |
-| `creator`            | No       | Narrows name resolution when the name matches many levels |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank          |
-| `best_progress`      | No       | Percentage (a trailing `%` is accepted)                   |
-| `run_from`           | No       | Trailing `%` accepted                                     |
-| `run_to`             | No       | Trailing `%` accepted                                     |
-| `attempts_at_drop`   | No       |                                                           |
-| `dropped_at`         | No       | Date                                                      |
-| `reason`             | No       | Text                                                      |
-| `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                   |
+| `level_id`           | No\*     | In-game level ID                                                                                            |
+| `level_name`         | No\*     | If blank, resolved from the GD servers by name                                                              |
+| `creator`            | No       | Narrows name resolution when the name matches many levels                                                   |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                                                            |
+| `best_progress`      | No       | Percentage (a trailing `%` is accepted)                                                                     |
+| `run_from`           | No       | Trailing `%` accepted                                                                                       |
+| `run_to`             | No       | Trailing `%` accepted                                                                                       |
+| `attempts_at_drop`   | No       |                                                                                                             |
+| `dropped_at`         | No       | Date                                                                                                        |
+| `reason`             | No       | Text                                                                                                        |
+| `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                                                                     |
 
 \* one of `level_id` / `level_name` required per row.
 

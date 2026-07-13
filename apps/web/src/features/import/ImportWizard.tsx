@@ -433,7 +433,8 @@ function ReviewStep({
         </p>
         <div className="mt-1 text-xs text-muted-foreground">
           {validCompletions.length} completions ·{' '}
-          {validProgress.length > 0 && `${validProgress.length} progress logs · `}
+          {validProgress.length > 0 &&
+            `${validProgress.length} progress logs · `}
           {validDropped.length} dropped
           {totalRanked > 0 && ` · ${totalRanked} ranked`}
           {totalListed > 0 && ` · ${totalListed} list entries`}
@@ -451,8 +452,8 @@ function ReviewStep({
           <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
             {flags.duplicates.map((d) => (
               <li key={`${d.tab}-${d.levelId}`}>
-                Level {d.levelId} appears {d.rows.length}× in Completions
-                (rows {d.rows.map((r) => r + 2).join(', ')})
+                Level {d.levelId} appears {d.rows.length}× in Completions (rows{' '}
+                {d.rows.map((r) => r + 2).join(', ')})
               </li>
             ))}
           </ul>
@@ -790,7 +791,11 @@ interface SuccessStepProps {
 
 function SuccessStep({ status, onClose }: SuccessStepProps) {
   const { committed, updated, skipped, failed } = status.outcomeCounts
-  const { rankingResult, collectionsResult: listsResult, ratingsResult } = status
+  const {
+    rankingResult,
+    collectionsResult: listsResult,
+    ratingsResult,
+  } = status
 
   return (
     <div className="space-y-5">
@@ -1098,7 +1103,11 @@ export function ImportWizard({
   const handleSkipFlagged = useCallback(async () => {
     if (!parseResult) return
 
-    const { completions, progress: progressRows, dropped } = validRows(parseResult)
+    const {
+      completions,
+      progress: progressRows,
+      dropped,
+    } = validRows(parseResult)
 
     if (skipConflictCheck) {
       // New account (onboarding) — there can be no existing completions to
@@ -1158,7 +1167,11 @@ export function ImportWizard({
 
   const handleCommitAfterConflict = useCallback(async () => {
     if (!parseResult) return
-    const { completions, progress: progressRows, dropped } = validRows(parseResult)
+    const {
+      completions,
+      progress: progressRows,
+      dropped,
+    } = validRows(parseResult)
     setStep('committing')
     await startImportJob(completions, progressRows, dropped, resolutions)
   }, [parseResult, validRows, resolutions, startImportJob])

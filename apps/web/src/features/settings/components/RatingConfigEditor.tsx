@@ -87,7 +87,7 @@ export const RatingConfigEditor = forwardRef<
     setItems(initial.items)
     setIncludeEnjoyment(initial.includeEnjoyment)
   }, [initial])
-  
+
   const sensors = useSortableSensors()
 
   const visibleItems = useMemo(

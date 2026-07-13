@@ -64,7 +64,7 @@ All fields are optional except the level ID. The user logs whatever is relevant 
 | Notes                | Text                               | Freeform. Venting encouraged, see Community Policy                                                                                                                       |
 | Completion video URL | URL                                |                                                                                                                                                                          |
 | Highlight video URL  | URL                                | Independent of On Stream                                                                                                                                                 |
-| Kind                  | progress / drop / completion       | Set by which FAB path was chosen — never a user-facing toggle mid-form                                                                                                   |
+| Kind                 | progress / drop / completion       | Set by which FAB path was chosen — never a user-facing toggle mid-form                                                                                                   |
 
 ### Attempt Count Convention
 
