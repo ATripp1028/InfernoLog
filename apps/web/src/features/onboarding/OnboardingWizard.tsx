@@ -162,7 +162,7 @@ export function OnboardingWizard() {
               Optional — you can do this anytime from Settings.
             </p>
           </div>
-          <ImportWizard me={me.data} onClose={goNext} />
+          <ImportWizard me={me.data} onClose={goNext} skipConflictCheck />
         </div>
       )}
 

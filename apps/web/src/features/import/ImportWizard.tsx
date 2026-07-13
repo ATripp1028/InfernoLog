@@ -59,11 +59,19 @@ const DATE_OPTIONS: { value: DateFormat; label: string }[] = [
 
 // ── Sub-components ─────────────────────────────────────────────────────────
 
-function StepIndicator({ step }: { step: WizardStep }) {
+function StepIndicator({
+  step,
+  skipConflictCheck,
+}: {
+  step: WizardStep
+  skipConflictCheck?: boolean
+}) {
   const steps: { id: WizardStep | 'done'; label: string }[] = [
     { id: 'upload', label: 'Upload' },
     { id: 'review', label: 'Review' },
-    { id: 'conflict', label: 'Conflicts' },
+    ...(skipConflictCheck
+      ? []
+      : [{ id: 'conflict' as const, label: 'Conflicts' }]),
     { id: 'committing', label: 'Import' },
     { id: 'success', label: 'Done' },
   ]
@@ -279,6 +287,10 @@ interface ReviewStepProps {
   onConflictModeChange: (m: 'skip' | 'overwrite') => void
   onSkipFlagged: () => void
   onReUpload: () => void
+  // New accounts (onboarding) can't have existing completions to conflict
+  // with — hide the resolution picker entirely rather than showing a choice
+  // that can never do anything.
+  skipConflictCheck?: boolean
 }
 
 function ReviewStep({
@@ -288,6 +300,7 @@ function ReviewStep({
   onConflictModeChange,
   onSkipFlagged,
   onReUpload,
+  skipConflictCheck,
 }: ReviewStepProps) {
   const allFlags = [
     ...flags.completions,
@@ -615,33 +628,37 @@ function ReviewStep({
         </div>
       )}
 
-      <div>
-        <label className="block text-sm font-medium mb-1.5">
-          Existing completions
-        </label>
-        <Select
-          value={conflictMode}
-          onValueChange={(v) => onConflictModeChange(v as 'skip' | 'overwrite')}
-        >
-          <SelectTrigger className="w-72">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="skip">
-              Keep existing (review conflicts)
-            </SelectItem>
-            <SelectItem value="overwrite">
-              Overwrite with spreadsheet data
-            </SelectItem>
-          </SelectContent>
-        </Select>
-        {conflictMode === 'overwrite' && (
-          <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
-            All existing completions matched by this spreadsheet will be
-            replaced.
-          </p>
-        )}
-      </div>
+      {!skipConflictCheck && (
+        <div>
+          <label className="block text-sm font-medium mb-1.5">
+            Existing completions
+          </label>
+          <Select
+            value={conflictMode}
+            onValueChange={(v) =>
+              onConflictModeChange(v as 'skip' | 'overwrite')
+            }
+          >
+            <SelectTrigger className="w-72">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="skip">
+                Keep existing (review conflicts)
+              </SelectItem>
+              <SelectItem value="overwrite">
+                Overwrite with spreadsheet data
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          {conflictMode === 'overwrite' && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
+              All existing completions matched by this spreadsheet will be
+              replaced.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onReUpload}>
@@ -877,9 +894,18 @@ function SuccessStep({ status, onClose }: SuccessStepProps) {
 interface ImportWizardProps {
   me: MeData
   onClose: () => void
+  // Onboarding: a brand-new account can't already have completions, so
+  // there's nothing to conflict with — skips the conflict-check round trip,
+  // the Conflicts step, and the "existing completions" resolution picker
+  // entirely rather than showing UI for a case that can never occur.
+  skipConflictCheck?: boolean
 }
 
-export function ImportWizard({ me, onClose }: ImportWizardProps) {
+export function ImportWizard({
+  me,
+  onClose,
+  skipConflictCheck = false,
+}: ImportWizardProps) {
   const { checkConflicts, startImport } = useImportApi()
   const importStatus = useImportStatus()
 
@@ -1075,6 +1101,14 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
 
     const { completions, progress: progressRows, dropped } = validRows(parseResult)
 
+    if (skipConflictCheck) {
+      // New account (onboarding) — there can be no existing completions to
+      // conflict with, so there's nothing to check.
+      setStep('committing')
+      await startImportJob(completions, progressRows, dropped, {})
+      return
+    }
+
     if (conflictMode === 'overwrite') {
       // Skip conflict check entirely; all completions get overwrite resolution.
       setStep('committing')
@@ -1112,7 +1146,14 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
       )
       setStep('review')
     }
-  }, [parseResult, validRows, checkConflicts, startImportJob, conflictMode])
+  }, [
+    parseResult,
+    validRows,
+    checkConflicts,
+    startImportJob,
+    conflictMode,
+    skipConflictCheck,
+  ])
 
   // ── Step: conflict → commit ────────────────────────────────────────────
 
@@ -1135,7 +1176,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
         </p>
       </div>
 
-      <StepIndicator step={step} />
+      <StepIndicator step={step} skipConflictCheck={skipConflictCheck} />
 
       {step === 'upload' && (
         <UploadStep
@@ -1153,6 +1194,7 @@ export function ImportWizard({ me, onClose }: ImportWizardProps) {
           onConflictModeChange={setConflictMode}
           onSkipFlagged={() => void handleSkipFlagged()}
           onReUpload={() => setStep('upload')}
+          skipConflictCheck={skipConflictCheck}
         />
       )}
 
