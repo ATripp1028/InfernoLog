@@ -26,14 +26,21 @@ const cognito = new CognitoIdentityProviderClient({
 
 // POST /v1/auth/signup/start — creates the InfernoLog `users` row for a
 // confirmed (age-gated) sign-up. Idempotent: a double-submit for the same
-// Cognito identity returns the already-created row rather than erroring.
+// Cognito identity returns the already-created row rather than erroring —
+// which also covers a Google account that already has an InfernoLog account
+// going through Sign Up by mistake. Either way, the frontend needs
+// onboardingCompleted in the response to know whether to route into the
+// wizard or straight into the app.
 app.post('/auth/signup/start', async (c) => {
   const claims = getVerifiedClaims(c)
   if (!claims?.email) return c.json({ error: 'Unauthorized' }, 401)
 
   try {
     const user = await createUserForSignup(claims.email, claims.sub)
-    return c.json({ data: { id: user.id } }, 200)
+    return c.json(
+      { data: { id: user.id, onboardingCompleted: user.onboardingCompleted } },
+      200
+    )
   } catch (err) {
     logger.error({ err }, 'POST /auth/signup/start error')
     Sentry.captureException(err)

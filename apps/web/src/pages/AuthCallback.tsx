@@ -34,8 +34,15 @@ export function AuthCallback() {
         const token = await getIdToken()
 
         if (intent === 'signup') {
-          await signupStart(token)
-          navigate({ to: '/onboarding', replace: true })
+          const { onboardingCompleted } = await signupStart(token)
+          // This Google account may already have an InfernoLog account
+          // (signed up by mistake instead of using Sign In) — in that case
+          // signupStart returned the existing, already-onboarded row rather
+          // than creating anything, so just log them in normally.
+          navigate({
+            to: onboardingCompleted ? '/list' : '/onboarding',
+            replace: true,
+          })
           return
         }
 

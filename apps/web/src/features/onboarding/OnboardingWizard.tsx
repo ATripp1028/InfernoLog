@@ -39,14 +39,24 @@ export function OnboardingWizard() {
   const [step, setStep] = useState<Step | null>(null)
 
   useEffect(() => {
-    if (step !== null || !me.data) return
+    if (!me.data) return
+    // Defensive: an already-onboarded user shouldn't render the wizard at
+    // all (e.g. a Google account with an existing InfernoLog account went
+    // through Sign Up by mistake instead of Sign In, or a direct nav here).
+    if (me.data.onboardingCompleted) {
+      navigate({ to: '/list', replace: true })
+      return
+    }
+    if (step !== null) return
     if (!me.data.legalAcceptedAt) setStep('legal')
     else if (isPlaceholderUsername(me.data.username, me.data.email))
       setStep('username')
     else setStep('logging')
-  }, [me.data, step])
+  }, [me.data, step, navigate])
 
-  if (!me.data || step === null) return <PageLoading />
+  if (!me.data || me.data.onboardingCompleted || step === null) {
+    return <PageLoading />
+  }
 
   const index = STEPS.indexOf(step)
 
