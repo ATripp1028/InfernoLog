@@ -321,18 +321,34 @@ function DropEntry({
     : shortDate(event.loggedAt)
 
   return (
-    <div className="relative ml-8 flex h-[46px] items-center rounded-card border border-[rgba(239,68,68,0.3)] bg-[#141414] px-3.5">
-      <div className="flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden">
-        <span className="inline-flex h-[22px] items-center rounded bg-[rgba(239,68,68,0.1)] px-2 text-[11px] font-medium text-[#ff8a8a]">
-          ⚑ Dropped
-        </span>
-        <span className="shrink-0 text-xs text-text-secondary">{dateText}</span>
-        {event.droppedReason && (
-          <span className="truncate text-xs text-text-tertiary">
-            "{event.droppedReason}"
+    <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(239,68,68,0.3)] bg-bg-surface">
+      <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
+        <div className="flex items-center gap-2.5">
+          <span className="inline-flex h-[22px] items-center rounded bg-[rgba(239,68,68,0.1)] px-2 text-[11px] font-medium text-[#ff8a8a]">
+            ⚑ Dropped
           </span>
-        )}
+          <span className="text-xs text-text-secondary">{dateText}</span>
+          {event.attemptsAtDrop != null && (
+            <span className="text-xs text-text-tertiary">
+              {formatNumber(event.attemptsAtDrop)} attempts
+            </span>
+          )}
+        </div>
       </div>
+
+      {event.droppedReason && (
+        <>
+          <div className="mx-3.5 mt-3 h-px bg-[#242424]" />
+          <div className="px-3.5 pb-3 pt-2.5">
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#666]">
+              Reason for dropping
+            </p>
+            <p className="text-[13px] leading-snug text-[#c8c8c8]">
+              {event.droppedReason}
+            </p>
+          </div>
+        </>
+      )}
     </div>
   )
 }
