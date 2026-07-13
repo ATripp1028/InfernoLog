@@ -432,6 +432,5 @@ export async function checkUsernameAvailable(
     `${import.meta.env.VITE_API_URL}/v1/users/check-username?username=${encodeURIComponent(username)}`,
     { signal }
   )
-  if (!res.ok) return { available: false, error: 'Could not check username' }
   return (await res.json()) as { available: boolean; error?: string }
 }

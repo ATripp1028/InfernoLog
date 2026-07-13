@@ -612,15 +612,12 @@ app.get('/users/check-username', async (c) => {
   const username = c.req.query('username')
 
   if (!username) {
-    return c.json({ error: 'Username is required' }, 400)
+    return c.json({ available: false, error: 'Username must be at least 2 characters' })
   }
 
   const parsed = localUsernameSchema.safeParse(username)
   if (!parsed.success) {
-    return c.json({
-      available: false,
-      error: parsed.error.message,
-    })
+    return c.json({ available: false, error: parsed.error.message })
   }
 
   const existing = await prisma.user.findFirst({
