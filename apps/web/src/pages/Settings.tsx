@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
@@ -36,8 +36,19 @@ export function Settings() {
   const queryClient = useQueryClient()
   const [importStatusOpen, setImportStatusOpen] = useState(false)
 
+  // Tracks which discord=... result we've already toasted for, so StrictMode's
+  // double-invocation of this effect (or any other re-run before the
+  // search-clearing navigate() below takes effect) doesn't show the toast twice.
+  const handledDiscordResultRef = useRef<string | null>(null)
+
   useEffect(() => {
-    if (!search.discord) return
+    if (!search.discord) {
+      handledDiscordResultRef.current = null
+      return
+    }
+    const resultKey = `${search.discord}:${search.discordId ?? ''}:${search.reason ?? ''}`
+    if (handledDiscordResultRef.current === resultKey) return
+    handledDiscordResultRef.current = resultKey
     if (search.discord === 'connected') {
       toast.success('Discord account connected')
       if (search.discordId) {
