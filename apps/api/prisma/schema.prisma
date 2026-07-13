@@ -57,6 +57,17 @@ enum LevelProgressStatus {
   COMPLETED
 }
 
+// What a ProgressUpdate row represents. Order matters: PROGRESS and DROP are
+// declared before COMPLETION so `orderBy: { kind: 'desc' }` (Postgres native
+// enums sort by declaration order) puts a completion first regardless of
+// loggedAt — the "representative update" query's replacement for the old
+// `isCompletion desc` sort.
+enum ProgressUpdateKind {
+  PROGRESS
+  DROP
+  COMPLETION
+}
+
 enum EntryVisibility {
   PUBLIC
   PRIVATE
@@ -343,16 +354,6 @@ model LevelProgress {
 
   status          LevelProgressStatus  @default(IN_PROGRESS)
 
-  // Drop-specific fields
-  droppedReason   String?
-  // A calendar date (the day the user dropped the level), not a timestamp —
-  // matches ProgressUpdate.date. Populated from a `yyyy-MM-dd` input.
-  droppedAt       DateTime? @db.Date
-  // Optional attempt count captured on the drop screen. Aligns with the
-  // import format's `attempts_at_drop`. Puts the eventual completion's
-  // attempt count in perspective if the level is later beaten.
-  attemptsAtDrop  Int?
-
   // Best run from 0% (percentage) reached before beating or dropping the level
   // — the user's "worst fail". Captured on the completion and drop screens.
   // Level-scoped (one value per user/level), updated on each such log.
@@ -390,19 +391,21 @@ model LevelProgress {
 
 // ─────────────────────────────────────────────
 // PROGRESS UPDATES
-// Every logged data point for a level.
-// A completion is a ProgressUpdate with isCompletion = true.
-// All fields optional except levelProgressId and loggedAt.
-// Non-completion entries hidden throughout UI unless toggle enabled.
+// Every logged event for a level: a session log, a completion, or a drop.
+// A completion is a ProgressUpdate with kind = COMPLETION; a drop is one with
+// kind = DROP (reusing date/attempts/notes rather than drop-specific fields —
+// see DATA_MODEL.md). All fields optional except levelProgressId, kind, and
+// loggedAt. Non-completion entries hidden throughout UI unless toggle enabled.
 // ─────────────────────────────────────────────
 
 model ProgressUpdate {
   id                    String          @id @default(uuid())
   levelProgressId       String
 
-  // Completion flag — user explicitly marks this as their beat.
-  // Only one per LevelProgress may be true (enforced at application level).
-  isCompletion          Boolean         @default(false)
+  // What this row represents. Only one COMPLETION per LevelProgress may exist
+  // (enforced at application level); DROP may repeat (drop → resume → drop
+  // again each get their own row).
+  kind                  ProgressUpdateKind @default(PROGRESS)
 
   // Progress data
   // percentage: classic levels only (0-100). Null for platformer.

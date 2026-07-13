@@ -4,53 +4,9 @@ import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/me'
 import type { LevelPageData, ProgressUpdate } from './types'
 
-// Timeline event discriminated union — merges progress updates + the drop event
-type UpdateEvent = { kind: 'update'; update: ProgressUpdate }
-type DropEvent = {
-  kind: 'drop'
-  droppedAt: string | null
-  droppedReason: string | null
-  attemptsAtDrop: number | null
-  loggedAt: string
-}
-type TimelineEvent = UpdateEvent | DropEvent
-
-function mergeEvents(data: LevelPageData): TimelineEvent[] {
-  const events: TimelineEvent[] = data.progressUpdates.map((u) => ({
-    kind: 'update',
-    update: u,
-  }))
-
-  // The drop event on level_progress (separate from individual updates).
-  // Not gated on current status: a level dropped and later completed (or
-  // resumed) keeps its drop history, and the timeline should still show it.
-  const hasDropInfo =
-    data.droppedAt != null ||
-    data.droppedReason != null ||
-    data.attemptsAtDrop != null
-  if (hasDropInfo) {
-    events.push({
-      kind: 'drop',
-      droppedAt: data.droppedAt,
-      droppedReason: data.droppedReason,
-      attemptsAtDrop: data.attemptsAtDrop,
-      loggedAt: data.droppedAt ?? data.updatedAt,
-    })
-  }
-
-  // Ensure newest-first order
-  events.sort((a, b) => {
-    const dateA = a.kind === 'update' ? a.update.loggedAt : a.loggedAt
-    const dateB = b.kind === 'update' ? b.update.loggedAt : b.loggedAt
-    return new Date(dateB).getTime() - new Date(dateA).getTime()
-  })
-
-  return events
-}
-
 // Percentage / run label for a progress update
 function rangeLabel(update: ProgressUpdate): string {
-  if (update.isCompletion) return '100%'
+  if (update.kind === 'COMPLETION') return '100%'
   if (update.runFrom != null && update.runTo != null) {
     return `run ${update.runFrom} → ${update.runTo}%`
   }
@@ -67,17 +23,6 @@ function formatEntryDate(
   if (!dateStr)
     return { text: formatDate(loggedAt, datePref), uncertain: false }
   return { text: formatDate(dateStr, datePref), uncertain }
-}
-
-// Compact "Jun 2026" or "Jun 21 2026" helper — returns medium-length date label
-function shortDate(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  return d.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }
 
 // ─── Timeline dot ────────────────────────────────────────────────
@@ -308,17 +253,27 @@ function ProgressEntry({
   )
 }
 
-// ─── Drop event row ───────────────────────────────────────────────
+// ─── Drop entry card ────────────────────────────────────────────────
+// A drop is an ordinary progress_update (kind=DROP), so it's edited the same
+// way as a completion or progress entry — reason/date/attempts are just
+// notes/date/attempts under a different label.
 function DropEntry({
-  event,
+  update,
   datePref,
+  isOwner,
+  onEdit,
 }: {
-  event: DropEvent
+  update: ProgressUpdate
   datePref: DateFormatPreference
+  isOwner: boolean
+  onEdit: () => void
 }) {
-  const dateText = event.droppedAt
-    ? formatDate(event.droppedAt, datePref)
-    : shortDate(event.loggedAt)
+  const { text: dateText } = formatEntryDate(
+    update.date,
+    update.loggedAt,
+    update.dateUncertain,
+    datePref
+  )
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(239,68,68,0.3)] bg-bg-surface">
@@ -328,15 +283,25 @@ function DropEntry({
             ⚑ Dropped
           </span>
           <span className="text-xs text-text-secondary">{dateText}</span>
-          {event.attemptsAtDrop != null && (
+          {update.attempts != null && (
             <span className="text-xs text-text-tertiary">
-              {formatNumber(event.attemptsAtDrop)} attempts
+              {formatNumber(update.attempts)} attempts
             </span>
           )}
         </div>
+        {isOwner && (
+          <button
+            type="button"
+            onClick={onEdit}
+            className="flex h-7 items-center gap-1 rounded-btn border border-border bg-white/5 px-2.5 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
+          >
+            <Pencil size={11} />
+            Edit
+          </button>
+        )}
       </div>
 
-      {event.droppedReason && (
+      {update.notes && (
         <>
           <div className="mx-3.5 mt-3 h-px bg-[#242424]" />
           <div className="px-3.5 pb-3 pt-2.5">
@@ -344,7 +309,7 @@ function DropEntry({
               Reason for dropping
             </p>
             <p className="text-[13px] leading-snug text-[#c8c8c8]">
-              {event.droppedReason}
+              {update.notes}
             </p>
           </div>
         </>
@@ -362,9 +327,11 @@ interface TimelineProps {
 }
 
 export function Timeline({ data, datePref, isOwner, onEdit }: TimelineProps) {
-  const events = mergeEvents(data)
+  // Already newest-first from the API — completions, progress logs, and
+  // drops are all ordinary progress_updates sharing one timeline.
+  const updates = data.progressUpdates
 
-  if (events.length === 0) {
+  if (updates.length === 0) {
     return (
       <p className="py-6 text-center text-sm text-text-tertiary">
         No progress entries yet.
@@ -380,27 +347,17 @@ export function Timeline({ data, datePref, isOwner, onEdit }: TimelineProps) {
         aria-hidden
       />
 
-      {events.map((event, i) => {
-        if (event.kind === 'update') {
-          return event.update.isCompletion ? (
-            <CompletionEntry
-              key={event.update.progressUpdateId}
-              update={event.update}
-              datePref={datePref}
-              isOwner={isOwner}
-              onEdit={() => onEdit(event.update.progressUpdateId)}
-            />
-          ) : (
-            <ProgressEntry
-              key={event.update.progressUpdateId}
-              update={event.update}
-              datePref={datePref}
-              isOwner={isOwner}
-              onEdit={() => onEdit(event.update.progressUpdateId)}
-            />
-          )
+      {updates.map((update) => {
+        const props = {
+          key: update.progressUpdateId,
+          update,
+          datePref,
+          isOwner,
+          onEdit: () => onEdit(update.progressUpdateId),
         }
-        return <DropEntry key={`drop-${i}`} event={event} datePref={datePref} />
+        if (update.kind === 'COMPLETION') return <CompletionEntry {...props} />
+        if (update.kind === 'DROP') return <DropEntry {...props} />
+        return <ProgressEntry {...props} />
       })}
     </div>
   )

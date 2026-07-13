@@ -87,7 +87,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
   if (!lp) return null
 
   const completion = await prisma.progressUpdate.findFirst({
-    where: { levelProgressId: lp.id, isCompletion: true },
+    where: { levelProgressId: lp.id, kind: 'COMPLETION' },
     include: {
       ratingScores: { select: { categoryId: true, score: true } },
       levelProgress: {

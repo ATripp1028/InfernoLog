@@ -114,7 +114,9 @@ async function seedLevels() {
   })
 }
 
-// A representative account: two completions (one richly populated), one drop.
+// A representative account: two completions (one richly populated), and two
+// drops — one against a level that was later beaten (its own independent
+// history, since drops no longer live on the completion row), one shelved.
 function completionRows(): ImportCommitRow[] {
   return [
     {
@@ -138,10 +140,6 @@ function completionRows(): ImportCommitRow[] {
         levelNotes: 'overall a great level',
         videoUrl: 'https://youtube.com/watch?v=abc',
         userGddlTier: 24,
-        // Historical: this level was dropped once, long before it was beaten.
-        droppedAt: '2024-06-01',
-        droppedReason: 'too hard at the time',
-        attemptsAtDrop: 500,
       },
     },
     {
@@ -155,8 +153,20 @@ function completionRows(): ImportCommitRow[] {
       },
     },
     {
+      // No bestProgress here — the completion row's own percentage (99) is
+      // the level's worstFail; this drop shouldn't overwrite it.
       type: 'dropped',
       rowIndex: 100000,
+      data: {
+        levelId: '100',
+        droppedAt: '2024-06-01',
+        reason: 'too hard at the time',
+        attemptsAtDrop: 500,
+      },
+    },
+    {
+      type: 'dropped',
+      rowIndex: 100001,
       data: {
         levelId: '300',
         bestProgress: 40,
@@ -248,15 +258,15 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       userGddlTier: c.userGddlTier,
       videoUrl: c.videoUrl,
       highlightUrl: c.highlightUrl,
-      droppedAt: c.droppedAt,
-      droppedReason: c.droppedReason,
-      attemptsAtDrop: c.attemptsAtDrop,
     },
   }))
   const drops: ImportCommitRow[] = exp.dropped.map((d, i) => ({
     type: 'dropped',
     rowIndex: 100000 + i,
     data: {
+      // Carried through like a real client would — under a fresh account this
+      // id belongs to no one, so it exercises the "unmatched → create" path.
+      dropId: d.dropId,
       levelId: d.levelId,
       bestProgress: d.bestProgress,
       attemptsAtDrop: d.attemptsAtDrop,
@@ -322,7 +332,20 @@ function normalize(exp: ExportResponse) {
           a.levelId.localeCompare(b.levelId) ||
           (a.percentage ?? -1) - (b.percentage ?? -1)
       ),
-    dropped: [...exp.dropped].sort(byLevel),
+    // dropId is minted fresh per account, so it's excluded from the
+    // equivalence check, same as progress's progressId.
+    dropped: [...exp.dropped]
+      .map((d) => ({
+        levelId: d.levelId,
+        levelName: d.levelName,
+        creator: d.creator,
+        inGameDifficulty: d.inGameDifficulty,
+        bestProgress: d.bestProgress,
+        attemptsAtDrop: d.attemptsAtDrop,
+        droppedAt: d.droppedAt,
+        reason: d.reason,
+      }))
+      .sort(byLevel),
     ranking: exp.ranking.map((r) => r.levelId), // order matters
     collections: [...exp.collections].sort(
       (a, b) =>
@@ -344,7 +367,7 @@ describe('import → export round-trip', () => {
     expect(expA.completions).toHaveLength(2)
     expect(expA.progress).toHaveLength(2)
     expect(expA.progress.find((p) => p.levelId === '100')!.percentage).toBe(40)
-    expect(expA.dropped.map((d) => d.levelId)).toEqual(['300'])
+    expect(expA.dropped.map((d) => d.levelId).sort()).toEqual(['100', '300'])
     expect(expA.ranking.map((r) => r.rank)).toEqual([1, 2])
     expect(expA.ranking.map((r) => r.levelId)).toEqual(['200', '100']) // hardest first
     const bb = expA.completions.find((c) => c.levelId === '100')!
@@ -353,10 +376,11 @@ describe('import → export round-trip', () => {
     expect(bb.coinsCollected).toBe(5)
     expect(bb.visibility).toBe('PRIVATE')
     expect(bb.userGddlTier).toBe(24)
-    // Drop history survives past completion — same LevelProgress row.
-    expect(bb.droppedAt).toBe('2024-06-01')
-    expect(bb.droppedReason).toBe('too hard at the time')
-    expect(bb.attemptsAtDrop).toBe(500)
+    // Drop history survives past completion — its own independent entry.
+    const bbDrop = expA.dropped.find((d) => d.levelId === '100')!
+    expect(bbDrop.droppedAt).toBe('2024-06-01')
+    expect(bbDrop.reason).toBe('too hard at the time')
+    expect(bbDrop.attemptsAtDrop).toBe(500)
     expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
       Decoration: 90,

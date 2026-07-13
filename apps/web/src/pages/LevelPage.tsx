@@ -192,7 +192,7 @@ export function LevelPage() {
   const isOwner = data.levelProgressId != null
   const levelName = data.level.name ?? `Level #${levelId}`
 
-  const completion = data.progressUpdates.find((u) => u.isCompletion)
+  const completion = data.progressUpdates.find((u) => u.kind === 'COMPLETION')
 
   const hasVideo = !!data.completionVideoUrl
   const hasGraph = data.runsGraph.length > 0

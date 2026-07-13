@@ -46,7 +46,7 @@ async function seedProgress(
     levelId: string
     status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
     updates?: Array<{
-      isCompletion?: boolean
+      kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
       loggedAt?: Date
       simpleRating?: number | null
       enjoyment?: number | null
@@ -63,7 +63,7 @@ async function seedProgress(
       status: args.status,
       progressUpdates: {
         create: (args.updates ?? []).map((u) => ({
-          isCompletion: u.isCompletion ?? false,
+          kind: u.kind ?? 'PROGRESS',
           loggedAt: u.loggedAt,
           simpleRating: u.simpleRating ?? null,
           enjoyment: u.enjoyment ?? null,
@@ -101,7 +101,7 @@ describe('GET /me/progress', () => {
       updates: [
         { loggedAt: new Date('2026-01-01'), percentage: 80 },
         {
-          isCompletion: true,
+          kind: 'COMPLETION',
           loggedAt: new Date('2025-12-01'),
           simpleRating: 70,
           attempts: 12000,
@@ -131,7 +131,7 @@ describe('GET /me/progress', () => {
 
     const completed = byLevel['100']!
     expect(completed.status).toBe('COMPLETED')
-    expect(completed.entry?.isCompletion).toBe(true)
+    expect(completed.entry?.kind).toBe('COMPLETION')
     expect(completed.entry?.attempts).toBe(12000)
     expect(completed.entry?.overallRating).toBe(70) // SIMPLE → simpleRating
     // Completed classic level with no ClassicRanking row.
@@ -139,7 +139,7 @@ describe('GET /me/progress', () => {
 
     const inProgress = byLevel['200']!
     expect(inProgress.status).toBe('IN_PROGRESS')
-    expect(inProgress.entry?.isCompletion).toBe(false)
+    expect(inProgress.entry?.kind).toBe('PROGRESS')
     expect(inProgress.entry?.percentage).toBe(65) // latest update
     expect(inProgress.needsPlacement).toBe(false)
 
@@ -155,7 +155,7 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '101',
       status: 'COMPLETED',
-      updates: [{ isCompletion: true, simpleRating: 50 }],
+      updates: [{ kind: 'COMPLETION', simpleRating: 50 }],
     })
     await prisma.classicRanking.create({
       data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
@@ -189,7 +189,7 @@ describe('GET /me/progress', () => {
       status: 'COMPLETED',
       updates: [
         {
-          isCompletion: true,
+          kind: 'COMPLETION',
           // simpleRating should be ignored in WEIGHTED mode.
           simpleRating: 10,
           ratingScores: [
@@ -239,21 +239,25 @@ describe('GET /me/progress/:levelId', () => {
         userId: user.id,
         levelId: '400',
         status: 'COMPLETED',
-        droppedAt: new Date('2024-06-01'),
-        droppedReason: 'too hard at the time',
-        attemptsAtDrop: 500,
         worstFail: 45,
         worstFailDate: new Date('2024-06-01'),
         progressUpdates: {
           create: [
             {
-              isCompletion: false,
+              kind: 'PROGRESS',
               percentage: 30,
               date: new Date('2024-05-01'),
               loggedAt: new Date('2024-05-01'),
             },
             {
-              isCompletion: true,
+              kind: 'DROP',
+              date: new Date('2024-06-01'),
+              notes: 'too hard at the time',
+              attempts: 500,
+              loggedAt: new Date('2024-06-01'),
+            },
+            {
+              kind: 'COMPLETION',
               date: new Date('2024-12-25'),
               loggedAt: new Date('2024-12-25'),
             },
@@ -269,9 +273,12 @@ describe('GET /me/progress/:levelId', () => {
     const { data } = (await res.json()) as {
       data: {
         status: string
-        droppedAt: string | null
-        droppedReason: string | null
-        attemptsAtDrop: number | null
+        progressUpdates: Array<{
+          kind: string
+          date: string | null
+          notes: string | null
+          attempts: number | null
+        }>
         runsGraph: Array<{
           kind: string
           to: number
@@ -282,9 +289,10 @@ describe('GET /me/progress/:levelId', () => {
 
     // Drop metadata survives past completion — the API doesn't gate it on status.
     expect(data.status).toBe('COMPLETED')
-    expect(data.droppedAt).toContain('2024-06-01')
-    expect(data.droppedReason).toBe('too hard at the time')
-    expect(data.attemptsAtDrop).toBe(500)
+    const drop = data.progressUpdates.find((u) => u.kind === 'DROP')
+    expect(drop?.date).toContain('2024-06-01')
+    expect(drop?.notes).toBe('too hard at the time')
+    expect(drop?.attempts).toBe(500)
 
     // Two distinct bars (the pre-drop update flagged as dropped, then the worst-fail
     // milestone, then the completion) — not a duplicate synthetic bar for worstFail,
@@ -312,7 +320,7 @@ describe('GET /me/progress/:levelId', () => {
         userId: user.id,
         levelId: '401',
         status: 'COMPLETED',
-        progressUpdates: { create: [{ isCompletion: true }] },
+        progressUpdates: { create: [{ kind: 'COMPLETION' }] },
       },
     })
 
@@ -321,11 +329,11 @@ describe('GET /me/progress/:levelId', () => {
     )
     const { data } = (await res.json()) as {
       data: {
-        droppedAt: string | null
+        progressUpdates: Array<{ kind: string }>
         runsGraph: Array<{ kind: string; droppedAfter: boolean }>
       }
     }
-    expect(data.droppedAt).toBeNull()
+    expect(data.progressUpdates.some((u) => u.kind === 'DROP')).toBe(false)
     expect(data.runsGraph.every((e) => !e.droppedAfter)).toBe(true)
     expect(data.runsGraph.map((e) => e.kind)).toEqual(['completion'])
   })
@@ -341,7 +349,7 @@ describe('DELETE /me/progress/:levelId', () => {
       status: 'COMPLETED',
       updates: [
         {
-          isCompletion: true,
+          kind: 'COMPLETION',
           simpleRating: 70,
         },
       ],

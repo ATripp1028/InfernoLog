@@ -81,9 +81,6 @@ function completionRecord(
     video_url: c.videoUrl ?? '',
     highlight_url: c.highlightUrl ?? '',
     visibility: c.visibility ? c.visibility.toLowerCase() : '',
-    dropped_at: formatDate(c.droppedAt, fmt),
-    drop_reason: c.droppedReason ?? '',
-    attempts_at_drop: c.attemptsAtDrop ?? '',
   }
 }
 
@@ -116,6 +113,7 @@ function droppedRecord(
   d: ExportResponse['dropped'][number]
 ): Record<string, Cell> {
   return {
+    drop_id: d.dropId,
     level_id: d.levelId,
     level_name: d.levelName ?? '',
     creator: d.creator ?? '',

@@ -5,7 +5,7 @@
 - **Level identity** is the in-game Level ID. Every GD API uses it as source of truth. Reuploads share the same in-game data and are treated as the same level.
 - **Level metadata is a shared cached entity.** Autofill results are cached in the `levels` table and reused across all users who log the same level.
 - **Snapshots over live data.** List tier/rank values are recorded at time of logging and never automatically updated.
-- **Progress over completions.** The fundamental unit is a `ProgressUpdate`. A completion is a `ProgressUpdate` with `is_completion = true`. No artificial separation between "attempting" and "completed."
+- **Progress over completions.** The fundamental unit is a `ProgressUpdate`. A completion is a `ProgressUpdate` with `kind = COMPLETION`; a drop is one with `kind = DROP` (reusing `date`/`attempts`/`notes` rather than drop-specific fields). No artificial separation between "attempting," "completed," and "dropped" — they're all just events on one timeline.
 - **Raw scores always stored.** Weighted rating averages are computed at query time from stored per-category scores.
 - **Platformer and classic levels are parallel, independent systems.** Accommodated from day one via `level_type` enum.
 
@@ -56,25 +56,25 @@
               │     └────────┬────────┘     │
               │              │              │ picks back up
               │   marks      │ logs 100%    │
-              │   dropped    │ + is_completion
-              │              ▼              │
-              │     ┌─────────────────┐     │
-              │     │    completed    │     │
-              │     │ (is_completion  │     │
-              │     │   = true)       │     │
-              │     └─────────────────┘     │
-              │                             │
-              ▼                             │
-     ┌─────────────────┐                   │
-     │     dropped     ├───────────────────┘
-     │  (status flag)  │
+              │   dropped    │ + progress_update
+              │   (progress_ ▼  kind=COMPLETION
+              │   update     ┌─────────────────┐
+              │   kind=DROP) │    completed    │
+              │              └─────────────────┘
+              │
+              ▼
+     ┌─────────────────┐
+     │     dropped     ├───────────────────┐
+     │ (status flag +  │                   │
+     │ progress_update │◄──────────────────┘
+     │  kind=DROP)      picks back up
      └─────────────────┘
 ```
 
 **Entry points & transitions:**
 
-- A `level_progress` row is created on the user's **first action** for that level. That first action can be a progress log (→ `in_progress`), a completion (→ `completed`), or a **drop** (→ `dropped` directly — "drop-from-scratch"; the row need not pass through `in_progress` first).
-- `in_progress → dropped` when the user drops the level. `dropped → in_progress` happens **automatically** when the user logs new progress on a dropped level (logging progress implies active play).
+- A `level_progress` row is created on the user's **first action** for that level. That first action can be a progress log (→ `in_progress`), a completion (→ `completed`), or a **drop** (→ `dropped` directly — "drop-from-scratch"; the row need not pass through `in_progress` first). Every one of these actions creates a `progress_update` row (`kind = PROGRESS | COMPLETION | DROP`) — there is no action that creates a `level_progress` row without one.
+- `in_progress → dropped` when the user drops the level (creating a `kind = DROP` update). `dropped → in_progress` happens **automatically** when the user logs new progress on a dropped level (logging progress implies active play). A level can be dropped more than once (drop → resume → drop again) — each drop is its own `progress_update` row, so the full history survives even though `level_progress.status` only reflects the current state.
 - `completed` is left untouched by further progress logs in v1 (rebeat is a future feature).
 
 See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-from-scratch decisions.
@@ -146,24 +146,21 @@ One row per user per level. Created when the user logs their first progress upda
 | `id`               | UUID      |                                                                                                                                                                                                                                   |
 | `user_id`          | UUID      | FK → users                                                                                                                                                                                                                        |
 | `level_id`         | VARCHAR   | FK → levels.in_game_id                                                                                                                                                                                                            |
-| `status`           | ENUM      | `in_progress`, `dropped`, `completed`                                                                                                                                                                                             |
-| `dropped_reason`   | TEXT      | Nullable. Why dropped                                                                                                                                                                                                             |
-| `dropped_at`       | DATE      | Nullable                                                                                                                                                                                                                          |
-| `attempts_at_drop` | INTEGER   | Nullable. Optional attempt count captured on the drop screen. Puts the eventual completion's attempt count in perspective if the level is later beaten. (Aligned with the Dropped tab's `attempts_at_drop` in `IMPORT_EXPORT.md`) |
+| `status`           | ENUM      | `in_progress`, `dropped`, `completed`. Derived from the latest `progress_updates` event, but stored (not computed at query time) so it can be filtered/indexed                                                                    |
 | `visibility`       | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                                                            |
 | `level_notes`      | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates                                            |
 | `created_at`       | TIMESTAMP |                                                                                                                                                                                                                                   |
 
 ### `progress_updates`
 
-Every logged data point for a level. All fields optional except `level_progress_id` and `logged_at`. A completion is a progress update with `is_completion = true`.
+Every logged event for a level: a session log, a completion, or a drop. All fields optional except `level_progress_id`, `kind`, and `logged_at`. A completion is a progress update with `kind = COMPLETION`; a drop is one with `kind = DROP`. Drop reuses `date`/`attempts`/`notes` rather than drop-specific columns — a drop's reason is just its `notes` under a different label, its date is just its `date`, and so on. This is the same reasoning that already applies to `percentage`/`run_from`/`run_to` being shared between progress and completion rows: the columns describe *an event*, and `kind` says which kind of event it is.
 
 | Column                        | Type      | Notes                                                                                                                                                                                                                                            |
 | ----------------------------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `id`                          | UUID      |                                                                                                                                                                                                                                                  |
 | `level_progress_id`           | UUID      | FK → level_progress                                                                                                                                                                                                                              |
-| `is_completion`               | BOOLEAN   | Default false. User explicitly marks this as their completion                                                                                                                                                                                    |
-| `percentage`                  | DECIMAL   | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied)                                                                                                                                                |
+| `kind`                        | ENUM      | `progress`, `drop`, `completion`. Default `progress`. Declared in that order so a `kind DESC` sort puts a completion first regardless of `logged_at` — the query every "representative update" lookup uses                                       |
+| `percentage`                  | DECIMAL   | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied) and drops                                                                                                                                      |
 | `run_from`                    | INTEGER   | Nullable. Start of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                              |
 | `run_to`                      | INTEGER   | Nullable. End of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                                |
 | `completion_time`             | INTERVAL  | Nullable. Platformer levels only (v2)                                                                                                                                                                                                            |
@@ -184,10 +181,10 @@ Every logged data point for a level. All fields optional except `level_progress_
 
 **Rules:**
 
-- Only one `progress_update` per `level_progress` may have `is_completion = true`
+- Only one `progress_update` per `level_progress` may have `kind = COMPLETION`. `kind = DROP` may repeat — a level can be dropped, resumed, and dropped again, and each drop keeps its own row (not overwritten)
 - `percentage` only applies to classic levels. Omitted for platformer
 - `completion_time` only applies to platformer levels (v2)
-- Non-completion entries are hidden throughout the UI unless the "show non-completions" toggle is active
+- Non-completion, non-drop entries are hidden throughout the UI unless the "show non-completions" toggle is active
 - Rebeat handling (multiple completions per level) is a v3 feature
 - **Two difficulty concepts, never conflated.** The level's _actual rating_ (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A `not_demon_worthy` opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when the GD servers report the level isn't a demon at all
 
@@ -338,12 +335,12 @@ Ordering uses each entry's effective date: the explicitly logged `date`, falling
 
 ### Drop-merge rule
 
-A drop is a `level_progress` status transition, not a `progress_update` with a run range, so it has no bar of its own by default. To represent "the level was dropped after this run," the rule marks an existing bar or emits a synthetic one:
+A drop is a `progress_update` (`kind = DROP`), but unlike a completion or progress log it doesn't get a bar of its own by default — it has no run range to draw. To represent "the level was dropped after this run," the rule marks an existing bar or emits a synthetic one:
 
-- **If** the drop recorded `attempts_at_drop` AND a `worst_fail` percentage that **differs** from the most recent prior progress entry's `to` value: emit a **synthetic bar** at `[0, worstFail]` with `kind=from_zero` and `droppedAfter=true`. The `progressUpdateId` on the synthetic bar is `null`.
-- **Otherwise** (drop has no `worst_fail`, OR `worst_fail` equals the prior entry's `to`): set `droppedAfter=true` on that most recent prior progress entry. No synthetic bar is emitted. This is the common case.
+- **If** the drop's level has a `worst_fail` percentage that **differs** from the most recent prior progress entry's `to` value: emit a **synthetic bar** at `[0, worstFail]` with `kind=from_zero` and `droppedAfter=true`. The `progressUpdateId` on the synthetic bar is `null`.
+- **Otherwise** (no `worst_fail`, or it equals the prior entry's `to`): set `droppedAfter=true` on that most recent prior progress entry. No synthetic bar is emitted. This is the common case.
 
-The frontend colors any bar with `droppedAfter=true` red. A level may have multiple drops across its history (drop → pick back up → drop again). The rule applies per drop event against the progress entries that preceded that specific drop chronologically; `computeRunsGraph` handles this generally.
+The frontend colors any bar with `droppedAfter=true` red. A level may have multiple drops across its history (drop → pick back up → drop again) — each is its own `progress_update` row, so the full date/attempts/notes history survives regardless of current status. `worst_fail` is a rolling `level_progress`-level value rather than per-drop (the logging UI asks for it once and remembers it, via the "already logged" checkbox), so it's only ever attributed to the CURRENT drop (the level's most recent update, while status is not `completed`) — older drops in the same history still get the plain `droppedAfter` flag, just without a synthetic worst-fail bar. `computeRunsGraph` handles this generally.
 
 ---
 

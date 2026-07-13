@@ -9,6 +9,7 @@ import {
   DifficultyOpinion,
   EntryVisibility,
   LevelProgressStatus,
+  ProgressUpdateKind,
   Device,
   GdVersion,
 } from './enums'
@@ -341,17 +342,20 @@ export const ProgressInputSchema = z
     }
   })
 
-// DROP — a status transition with optional metadata. Drop-from-scratch is
-// allowed (no prior progress required).
+// DROP — backed by its own ProgressUpdate (kind=DROP), so it reuses the same
+// date/attempts/notes fields completion and progress logs use rather than
+// drop-specific synonyms. Drop-from-scratch is allowed (no prior progress
+// required), and a level can be dropped more than once (drop → resume →
+// drop again) — each drop is its own row, not an overwritten singleton.
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
-  droppedAt: z.coerce.date().nullable().optional(),
-  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  date: z.coerce.date().nullable().optional(),
+  attempts: z.number().int().nonnegative().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   // Calendar date of the worst fail session.
   worstFailDate: z.coerce.date().nullable().optional(),
-  droppedReason: z.string().max(2000).nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
@@ -499,11 +503,13 @@ export const LevelListSummarySchema = z.object({
 })
 
 // The representative progress update folded into a list row: the completion
-// update when the level is COMPLETED, otherwise the most recent update. Drives
-// the Date / Attempts / Rating / Enjoyment / Status columns and most filters.
+// update when the level is COMPLETED, otherwise the most recent update (which
+// is the drop itself for a DROPPED level, now that drops are ordinary
+// ProgressUpdate rows). Drives the Date / Attempts / Rating / Enjoyment /
+// Status columns and most filters.
 export const LevelProgressListEntrySchema = z.object({
   progressUpdateId: z.string().uuid(),
-  isCompletion: z.boolean(),
+  kind: z.nativeEnum(ProgressUpdateKind),
   date: z.coerce.date().nullable(),
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
@@ -536,11 +542,10 @@ export const LevelProgressListItemSchema = z.object({
   visibility: z.nativeEnum(EntryVisibility),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-  // Drop-specific, level-scoped fields.
+  // Rolling "best known" worst-fail — level-scoped (not per-event) because the
+  // logging UI asks for it once and remembers it ("already logged" checkbox)
+  // rather than re-asking on every completion/drop.
   worstFail: z.number().int().nullable(),
-  attemptsAtDrop: z.number().int().nullable(),
-  droppedAt: z.coerce.date().nullable(),
-  droppedReason: z.string().nullable(),
   // Derived: a completed CLASSIC level with no ClassicRanking row yet.
   needsPlacement: z.boolean(),
   // The user's own GDDL tier opinion (set during completion logging or edit).
@@ -830,14 +835,6 @@ export const ImportCompletionRowSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
-  // Historical drop metadata — set when this level was dropped at some point
-  // before being completed. Purely additive: writing these never changes
-  // status (only a Dropped-tab row does that). Carried here because
-  // completions and drops share one LevelProgress row, so a level's drop
-  // history outlives its later completion.
-  droppedAt: z.string().nullable().optional(),
-  droppedReason: z.string().max(2000).nullable().optional(),
-  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
 })
 
 // A non-completion progress update — one logged session for a level that
@@ -868,7 +865,13 @@ export const ImportProgressRowSchema = z.object({
   inGameDifficulty: z.string().nullable().optional(),
 })
 
+// Additive, like Progress — a level can be dropped more than once (drop →
+// resume → drop again), so this is not one-row-per-level. `dropId` is the
+// round-trip identity (the ProgressUpdate.id, populated on export): present +
+// matching → updates that entry in place; absent or unmatched → a new drop
+// entry is created.
 export const ImportDroppedRowSchema = z.object({
+  dropId: z.string().uuid().nullable().optional(),
   // levelId is optional — if omitted, the server resolves from levelName + creator.
   levelId: LevelIdSchema.nullable().optional(),
   levelName: z.string().nullable().optional(),
@@ -1123,11 +1126,6 @@ export const ExportCompletionSchema = z.object({
   userGddlTier: z.number().int().nullable(),
   videoUrl: z.string().nullable(),
   highlightUrl: z.string().nullable(),
-  // Historical drop metadata, present when this level was dropped before
-  // being completed. See ImportCompletionRowSchema.
-  droppedAt: z.string().nullable(),
-  droppedReason: z.string().nullable(),
-  attemptsAtDrop: z.number().int().nullable(),
 })
 
 export const ExportProgressSchema = z.object({
@@ -1151,6 +1149,7 @@ export const ExportProgressSchema = z.object({
 })
 
 export const ExportDroppedSchema = z.object({
+  dropId: z.string(),
   levelId: z.string(),
   levelName: z.string().nullable(),
   creator: z.string().nullable(),

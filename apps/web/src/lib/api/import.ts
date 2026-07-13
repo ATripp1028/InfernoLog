@@ -64,12 +64,6 @@ export interface ImportCompletionRow {
   notes?: string | null
   videoUrl?: string | null
   highlightUrl?: string | null
-  // Historical drop metadata — set when this level was dropped before being
-  // completed. Never changes status; purely carries the level's drop history
-  // alongside its completion.
-  droppedAt?: string | null
-  droppedReason?: string | null
-  attemptsAtDrop?: number | null
 }
 
 // A non-completion progress log — one logged session for a level, distinct
@@ -98,7 +92,10 @@ export interface ImportProgressRow {
   inGameDifficulty?: string | null
 }
 
+// Additive, like ImportProgressRow — a level can be dropped more than once.
+// `dropId` round-trips an exact drop entry the same way `progressId` does.
 export interface ImportDroppedRow {
+  dropId?: string | null
   levelId?: string | null
   levelName?: string | null
   creator?: string | null
@@ -261,9 +258,6 @@ export interface ExportCompletion {
   userGddlTier: number | null
   videoUrl: string | null
   highlightUrl: string | null
-  droppedAt: string | null
-  droppedReason: string | null
-  attemptsAtDrop: number | null
 }
 
 export interface ExportProgress {
@@ -290,6 +284,7 @@ export interface ExportResponse {
   completions: ExportCompletion[]
   progress: ExportProgress[]
   dropped: {
+    dropId: string
     levelId: string
     levelName: string | null
     creator: string | null

@@ -2,15 +2,16 @@
 
 ## Core Concept: Progress Entries
 
-InfernoLog does not separate "completions" from "attempts." Every interaction with a level is a **progress update** on a **level progress entry**. A completion is simply a progress update the user explicitly marks as `is_completion = true`.
+InfernoLog does not separate "completions" from "attempts." Every interaction with a level is a **progress update** on a **level progress entry**. A completion is simply a progress update with `kind = completion`; a drop is one with `kind = drop`.
 
 ```
 LevelProgress (one per user per level)
  └── ProgressUpdate[]
-      ├── 8%  logged casually
-      ├── 44% with run range 44-87
-      ├── 76% on stream, notes about the attempt
-      └── 100% is_completion = true ← appears in ranking + stats
+      ├── 8%  logged casually                (kind = progress)
+      ├── 44% with run range 44-87           (kind = progress)
+      ├── 76% on stream, notes about the attempt (kind = progress)
+      ├── dropped, reason in notes           (kind = drop)
+      └── 100%                               (kind = completion) ← appears in ranking + stats
 ```
 
 This mirrors how the GDDL handles progress — players can log ratings and progress on levels they haven't beaten. Non-completion entries are hidden throughout the UI by default, revealed only when the user enables the "show non-completions" toggle (except for on the individual level page, where they are shown without the option to toggle them off).
@@ -63,7 +64,7 @@ All fields are optional except the level ID. The user logs whatever is relevant 
 | Notes                | Text                               | Freeform. Venting encouraged, see Community Policy                                                                                                                       |
 | Completion video URL | URL                                |                                                                                                                                                                          |
 | Highlight video URL  | URL                                | Independent of On Stream                                                                                                                                                 |
-| Is completion        | Boolean                            | User explicitly marks this as their beat                                                                                                                                 |
+| Kind                  | progress / drop / completion       | Set by which FAB path was chosen — never a user-facing toggle mid-form                                                                                                   |
 
 ### Attempt Count Convention
 
@@ -91,7 +92,7 @@ See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, 
 
 ## Completion-Specific Behavior
 
-When `is_completion = true`:
+When `kind = completion`:
 
 - The `level_progress.status` is updated to `completed`
 - The entry becomes eligible for the personal difficulty ranking (placed manually — see `RANKING_SYSTEM.md`)
@@ -105,7 +106,7 @@ When `is_completion = true`:
 
 ## Dropped Levels
 
-A dropped level is a `level_progress` entry with `status = dropped`. It is not a separate entity — the full progress history is preserved.
+A dropped level is a `level_progress` entry with `status = dropped`, and the drop itself is a `progress_update` with `kind = drop`. It is not a separate entity — the full progress history is preserved.
 
 ```
 level_progress.status transitions:
@@ -121,19 +122,15 @@ A level can be dropped without ever having been logged ("drop-from-scratch"): th
 `in_progress` row. Conversely, logging a progress update on a dropped level
 **automatically** flips it back to `in_progress` — see `LOGGING_FLOW_RECONCILIATION.md`.
 
-When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing `level_progress` entry. The drop history remains intact as part of the progress timeline.
+When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing `level_progress` entry. The drop history remains intact as its own `progress_update` row(s) — not merged into or overwritten by the completion.
 
-Additional drop-specific fields on `level_progress`:
-
-- `dropped_reason` — freeform text
-- `dropped_at` — date
-- `attempts_at_drop` — optional attempt count captured on the drop screen
+The drop screen collects date, attempts, and a reason — stored on the `kind = drop` row using the same `date`/`attempts`/`notes` columns every other progress update uses, not drop-specific fields. A level can be dropped more than once (drop → resume → drop again); each drop is its own row, so earlier drops' reasons and dates aren't lost when a later one is logged.
 
 ---
 
 ## In-Progress Levels
 
-In-progress levels are `level_progress` entries with `status = in_progress` and no `is_completion` update. They appear in a dedicated "Currently Attempting" section of the user's profile.
+In-progress levels are `level_progress` entries with `status = in_progress` and no `kind = completion` update. They appear in a dedicated "Currently Attempting" section of the user's profile.
 
 - Up to **10 simultaneous in-progress levels** (soft cap, subject to revision)
 - Progress is a manually updated snapshot — the user logs updates whenever they have something worth recording
@@ -192,7 +189,7 @@ Does NOT apply to:
     (level_progress.visibility) is still enforced independently.
 ```
 
-Non-completion entries, even if they carry enjoyment scores or ratings, are never surfaced in community averages (v4) unless `is_completion = true`. This mirrors GDDL's approach.
+Non-completion entries, even if they carry enjoyment scores or ratings, are never surfaced in community averages (v4) unless `kind = completion`. This mirrors GDDL's approach.
 
 ---
 

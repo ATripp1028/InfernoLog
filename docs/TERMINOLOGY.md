@@ -13,7 +13,7 @@ The parent record grouping all progress entries for a single level for a single 
 A single logged data point for a level at a specific point in time. Contains percentage, attempts, date, notes, ratings, and any other fields the user chooses to log. Multiple progress entries exist per Level Progress. The fundamental unit of logging in InfernoLog.
 
 **Completion**
-A progress entry explicitly marked as `is_completion = true`. The canonical beat of a level. Only completion entries appear in the List and Ranking by default. At most one per Level Progress in v1.
+A progress entry marked `kind = completion`. The canonical beat of a level. Only completion entries appear in the List and Ranking by default. At most one per Level Progress in v1.
 
 **In Progress**
 A level the user is actively attempting. A Level Progress with status `IN_PROGRESS` and no completion entry. Appears in the In Progress section of the app.
@@ -95,7 +95,7 @@ Floating Action Button. The primary logging trigger accessible from every page i
 The drag-and-drop interface that appears during the logging flow when a user wants to set their ranking position at the time of logging a completion.
 
 **Non-Completion Toggle**
-A UI toggle present on the List, Ranking, and Level Page that reveals progress entries where `is_completion = false`. Off by default.
+A UI toggle present on the List, Ranking, and Level Page that reveals progress entries where `kind != completion`. Off by default.
 
 **In-Game Face**
 A level's difficulty icon as it appears in Geometry Dash: the combination of its **Difficulty Face** and its **Background Glow**. Rendered by the `DifficultyFace` React component (`apps/web/src/components/DifficultyFace.tsx`). Use "in-game face" when referring to the composite icon (face + glow together).

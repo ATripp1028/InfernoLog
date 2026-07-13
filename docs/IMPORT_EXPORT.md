@@ -14,9 +14,9 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 
 | Tab           | Contents                                                                           |
 | ------------- | ---------------------------------------------------------------------------------- |
-| `Completions` | All completion progress updates (is_completion = true)                             |
-| `Progress`    | All non-completion progress updates — session logs short of the completion         |
-| `Dropped`     | All dropped level entries                                                          |
+| `Completions` | All completion progress updates (kind = completion)                                |
+| `Progress`    | All non-completion, non-drop progress updates — session logs short of the completion |
+| `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one           |
 | `WantToBeat`  | Want-to-beat list                                                                  |
 | `Lists`       | Custom lists and favorites                                                         |
 
@@ -120,7 +120,7 @@ row 512 · level_id — Missing level_id and level_name — row cannot be import
 After committing, each row reports one outcome:
 
 - **Imported** — a new entry was created.
-- **Updated** — an existing entry was modified (an overwrite/merge, or a drop against a level you already track).
+- **Updated** — an existing entry was modified (an overwrite/merge on Completions, or a matching `drop_id`/`progress_id` on Dropped/Progress).
 - **Skipped** — the row's data was not used at all: an existing completion you chose to keep (not overwrite), or a row superseded by a later row for the same level.
 - **Failed** — the row could not be processed (e.g. its level name couldn't be resolved).
 
@@ -160,11 +160,8 @@ Only rows whose data is genuinely unused are reported as _skipped_ — a modifie
 | `video_url`                | No       | URL                                                                      |
 | `highlight_url`            | No       | URL                                                                      |
 | `visibility`               | No       | public or private (defaults to public)                                   |
-| `dropped_at`                | No       | Historical only — date this level was dropped, if it ever was, before being beaten |
-| `drop_reason`                | No       | Historical only — free text (max 2000 chars)                             |
-| `attempts_at_drop`           | No       | Historical only — integer attempt count at the time of that drop         |
 
-The last three columns are purely historical: a level can be dropped and later beaten, and completions and drops share one underlying record, so that drop history outlives the eventual completion. Writing them never changes whether the row counts as a completion — only a `Dropped`-tab row can put a level into the dropped state. Leave them blank if the level was never dropped.
+A level's drop history — if it was ever dropped, including before being beaten — lives entirely on the `Dropped` tab, not here. Completions and drops are independent entries, so a dropped-then-completed level simply has rows on both tabs.
 
 ### Column Tolerance
 
@@ -202,7 +199,7 @@ Non-completion session logs — the history short of (or alongside) the eventual
 
 ### Semantics
 
-- **Additive, not one-per-level.** Every row becomes its own progress entry — this tab has no "existing entry per level" concept the way Completions/Dropped do.
+- **Additive, not one-per-level.** Every row becomes its own progress entry — this tab has no "existing entry per level" concept the way Completions does.
 - **Round-trips by `progress_id`.** A row whose `progress_id` matches one of your existing entries (for that same level) updates it in place (merge — only the fields the row provides are written). A blank or non-matching `progress_id` always creates a new entry, so re-importing an unmodified export doesn't duplicate your session history, while hand-added rows (no `progress_id`) always land as new logs.
 - **Never changes a level's completed/dropped status.** Status is established by the Completions/Dropped tabs; historical progress rows are pure session data, so reimporting them can't accidentally un-drop or un-complete a level.
 - A level referenced only in this tab (no completion, no drop) is created as `IN_PROGRESS` — this is the only tab that can produce that state on import.
@@ -211,8 +208,11 @@ Non-completion session logs — the history short of (or alongside) the eventual
 
 ## Dropped Tab Format
 
+Unlike Completions, **multiple rows per level are expected** — a level can be dropped, resumed, and dropped again, and each drop keeps its own independent history (same shape as the Progress tab).
+
 | Column               | Required | Notes                                                     |
 | -------------------- | -------- | --------------------------------------------------------- |
+| `drop_id`            | No       | Round-trip identity for this exact drop, auto-filled on export. Leave blank when adding a new drop by hand. |
 | `level_id`           | No\*     | In-game level ID                                          |
 | `level_name`         | No\*     | If blank, resolved from the GD servers by name            |
 | `creator`            | No       | Narrows name resolution when the name matches many levels |
@@ -224,6 +224,14 @@ Non-completion session logs — the history short of (or alongside) the eventual
 | `dropped_at`         | No       | Date                                                      |
 | `reason`             | No       | Text                                                      |
 | `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                   |
+
+\* one of `level_id` / `level_name` required per row.
+
+### Semantics
+
+- **Additive, not one-per-level.** Every row becomes its own drop entry — same as Progress, and unlike Completions.
+- **Round-trips by `drop_id`.** A row whose `drop_id` matches one of your existing drops (for that same level) updates it in place (merge — only the fields the row provides are written). A blank or non-matching `drop_id` always creates a new drop entry, so re-importing an unmodified export doesn't duplicate your drop history.
+- **Sets status to `dropped`**, unless the level is already completed (a drop logged against a completed level records history without un-completing it).
 
 ---
 
@@ -302,7 +310,7 @@ Export produces the **same workbook shape as the import template** (all tabs abo
 - **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `progress`, `dropped`, `ranking`, `lists`/`collections`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
 - **Formatting is client-side**: dates in the user's `date_format_preference`, ratings on the 0–10 scale (internal `0-100 ÷ 10`, which round-trips through the importer's ≤10 rule), coin bitmask → `coin_1/2/3`, enum casing lowered.
 - **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
-- **Drop-then-completed history round-trips too**: if a level was dropped and later beaten, its `dropped_at`/`drop_reason`/`attempts_at_drop` are exported on its Completions-tab row (see that section) rather than lost once it moves out of the Dropped tab. The Level Page timeline and runs graph show this as two distinct bars/entries — the drop, then the completion — regardless of the level's current status.
+- **Drop-then-completed history round-trips too**: a dropped-then-beaten level exports rows on **both** the Dropped and Completions tabs — the drop is its own independent entry (with its own `drop_id`), never merged into or overwritten by the later completion. A level dropped more than once (drop → resume → drop again) exports one Dropped-tab row per drop, each with its own date/attempts/reason. The Level Page timeline and runs graph show every drop as its own entry, regardless of the level's current status.
 
 ---
 

@@ -308,9 +308,6 @@ interface LpFields {
   status?: LpStatus
   worstFail?: number
   worstFailDate?: Date | null
-  droppedAt?: Date | null
-  droppedReason?: string | null
-  attemptsAtDrop?: number | null
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string
   userGddlTier?: number | null
@@ -347,6 +344,9 @@ interface PlanCtx {
   // progress_id → the existing ProgressUpdate it round-trips to (and the level
   // it belongs to, so a mismatched/foreign id falls back to creating new).
   existingProgress: Map<string, { id: string; levelId: string }>
+  // drop_id → the existing kind=DROP ProgressUpdate it round-trips to. Same
+  // shape/purpose as existingProgress, since drops are additive too.
+  existingDrops: Map<string, { id: string; levelId: string }>
 }
 
 function newBatchWrites(): BatchWrites {
@@ -465,10 +465,7 @@ function planCompletion(
     }
 
     // LevelProgress-level fields: worstFail, per-entry privacy, the overall
-    // level note, user GDDL tier, and historical drop metadata — each only
-    // when the sheet provides it. Drop fields never change `status` (that's
-    // planDrop's job) — they're purely historical, carried alongside a
-    // completion because both live on the same LevelProgress row.
+    // level note, and user GDDL tier — each only when the sheet provides it.
     const lpMerge: LpFields = {
       ...(row.percentage != null
         ? { worstFail: Math.round(row.percentage) }
@@ -479,11 +476,6 @@ function planCompletion(
       ...(row.visibility != null ? { visibility: row.visibility } : {}),
       ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
       ...(userGddlTier != null ? { userGddlTier } : {}),
-      ...(row.droppedAt != null ? { droppedAt: new Date(row.droppedAt) } : {}),
-      ...(row.droppedReason != null ? { droppedReason: row.droppedReason } : {}),
-      ...(row.attemptsAtDrop != null
-        ? { attemptsAtDrop: row.attemptsAtDrop }
-        : {}),
     }
     if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return 'updated'
@@ -495,7 +487,7 @@ function planCompletion(
   ctx.writes.newProgressUpdates.push({
     id: puId,
     levelProgressId: plan.id,
-    isCompletion: true,
+    kind: 'COMPLETION',
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
@@ -528,35 +520,57 @@ function planCompletion(
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     ...(userGddlTier != null ? { userGddlTier } : {}),
-    ...(row.droppedAt != null ? { droppedAt: new Date(row.droppedAt) } : {}),
-    ...(row.droppedReason != null ? { droppedReason: row.droppedReason } : {}),
-    ...(row.attemptsAtDrop != null
-      ? { attemptsAtDrop: row.attemptsAtDrop }
-      : {}),
   })
 
   return 'committed'
 }
 
+// A drop event, backed by its own progress_update (kind=DROP). Additive, like
+// Progress — a level can be dropped more than once (drop → resume → drop
+// again). Round-trip identity comes from `dropId` (the ProgressUpdate.id,
+// populated on export): a match (scoped to this exact level, to prevent
+// cross-account/cross-level tampering) updates that entry in place; anything
+// else creates a new one.
 function planDrop(
   ctx: PlanCtx,
   levelId: string,
   row: ImportDroppedRow
 ): 'committed' | 'updated' {
-  // A drop against a LevelProgress that already existed modifies it; otherwise
-  // it creates a new one.
-  const existed = ctx.dbState.has(levelId)
+  const matched = row.dropId ? ctx.existingDrops.get(row.dropId) : undefined
   const plan = getLpPlan(ctx, levelId)
+
+  if (matched && matched.levelId === levelId) {
+    const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
+    if (row.droppedAt != null) merge.date = new Date(row.droppedAt)
+    if (row.attemptsAtDrop != null) merge.attempts = row.attemptsAtDrop
+    if (row.reason != null) merge.notes = row.reason
+    if (Object.keys(merge).length > 0) {
+      ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
+    }
+    if (row.bestProgress != null) {
+      applyLp(plan, { worstFail: Math.round(row.bestProgress) })
+    }
+    if (!plan.completed) applyLp(plan, { status: 'DROPPED' })
+    return 'updated'
+  }
+
+  const puId = randomUUID()
+  ctx.writes.newProgressUpdates.push({
+    id: puId,
+    levelProgressId: plan.id,
+    kind: 'DROP',
+    date: row.droppedAt ? new Date(row.droppedAt) : null,
+    attempts: row.attemptsAtDrop ?? null,
+    notes: row.reason ?? null,
+    inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
+  })
   applyLp(plan, {
     status: plan.completed ? 'COMPLETED' : 'DROPPED',
-    droppedAt: row.droppedAt ? new Date(row.droppedAt) : null,
-    droppedReason: row.reason ?? null,
-    attemptsAtDrop: row.attemptsAtDrop ?? null,
     ...(row.bestProgress != null
       ? { worstFail: Math.round(row.bestProgress) }
       : {}),
   })
-  return existed ? 'updated' : 'committed'
+  return 'committed'
 }
 
 // A non-completion progress log. Unlike completions/drops, many rows can
@@ -601,7 +615,7 @@ function planProgress(
   ctx.writes.newProgressUpdates.push({
     id: puId,
     levelProgressId: plan.id,
-    isCompletion: false,
+    kind: 'PROGRESS',
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
@@ -704,7 +718,7 @@ export async function processImportJobBatch(
       levelId: true,
       status: true,
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         select: { id: true },
         take: 1,
       },
@@ -761,6 +775,29 @@ export async function processImportJobBatch(
     }
   }
 
+  // ── Pre-fetch existing drop entries referenced by drop_id ─────────────
+  // Same shape/purpose as the progress_id prefetch above — drops are
+  // additive too, so round-trip identity is per-entry, not per-level.
+  const droppedRows = rows.filter(
+    (r): r is Extract<ImportCommitRow, { type: 'dropped' }> =>
+      r.type === 'dropped'
+  )
+  const dropIds = [
+    ...new Set(
+      droppedRows.flatMap((r) => (r.data.dropId ? [r.data.dropId] : []))
+    ),
+  ]
+  const existingDrops = new Map<string, { id: string; levelId: string }>()
+  if (dropIds.length) {
+    const found = await prisma.progressUpdate.findMany({
+      where: { id: { in: dropIds }, kind: 'DROP', levelProgress: { userId } },
+      select: { id: true, levelProgress: { select: { levelId: true } } },
+    })
+    for (const f of found) {
+      existingDrops.set(f.id, { id: f.id, levelId: f.levelProgress.levelId })
+    }
+  }
+
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
   const results: {
     rowIndex: number
@@ -779,31 +816,36 @@ export async function processImportJobBatch(
     levelDiff,
     levelCoins,
     existingProgress,
+    existingDrops,
   }
 
   // Levels whose completion was written/updated this batch — they leave the
   // user's Want to Beat collection in the same transaction.
   const completedLevelIds = new Set<string>()
 
-  // A level can appear more than once per tab (flagged as a duplicate upstream).
-  // Keep only the last completion / last drop per level so we never plan two
-  // completions for one LevelProgress; earlier occurrences are recorded skipped.
-  // Progress rows are exempt — multiple rows per level are legitimate session
-  // history — except when two rows in this batch target the same progress_id,
-  // where only the last one wins (same "later row supersedes" rule).
+  // A level can appear more than once per tab (flagged as a duplicate upstream
+  // for Completions). Keep only the last completion per level so we never plan
+  // two completions for one LevelProgress; earlier occurrences are recorded
+  // skipped. Progress and Dropped rows are exempt — multiple rows per level are
+  // legitimate (session history / repeated drops) — except when two rows in
+  // this batch target the same progress_id/drop_id, where only the last one
+  // wins (same "later row supersedes" rule).
   const lastCompletion = new Map<string, number>()
-  const lastDrop = new Map<string, number>()
   const lastProgressById = new Map<string, number>()
+  const lastDropById = new Map<string, number>()
   for (const row of rows) {
     if (resolutionFailures.has(row.rowIndex)) continue
-    const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (row.type === 'progress') {
       if (row.data.progressId) lastProgressById.set(row.data.progressId, row.rowIndex)
       continue
     }
+    if (row.type === 'dropped') {
+      if (row.data.dropId) lastDropById.set(row.data.dropId, row.rowIndex)
+      continue
+    }
+    const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
     if (!id) continue
-    if (row.type === 'completion') lastCompletion.set(id, row.rowIndex)
-    else lastDrop.set(id, row.rowIndex)
+    lastCompletion.set(id, row.rowIndex)
   }
 
   for (const row of rows) {
@@ -848,11 +890,23 @@ export async function processImportJobBatch(
           continue
         }
       }
+    } else if (row.type === 'dropped') {
+      if (row.data.dropId) {
+        const lastForId = lastDropById.get(row.data.dropId)
+        if (lastForId !== row.rowIndex) {
+          results.push({
+            rowIndex: row.rowIndex,
+            status: 'skipped',
+            reason:
+              'Superseded by a later row targeting the same drop entry in this import',
+            levelName: row.data.levelName ?? null,
+            identifier: effectiveLevelId,
+          })
+          continue
+        }
+      }
     } else {
-      const lastForLevel =
-        row.type === 'completion'
-          ? lastCompletion.get(effectiveLevelId)
-          : lastDrop.get(effectiveLevelId)
+      const lastForLevel = lastCompletion.get(effectiveLevelId)
       if (lastForLevel !== row.rowIndex) {
         const reason =
           'Superseded by a later row for the same level in this import'
@@ -1113,12 +1167,12 @@ export async function checkImportConflicts(
     where: {
       userId,
       levelId: { in: levelIds },
-      progressUpdates: { some: { isCompletion: true } },
+      progressUpdates: { some: { kind: 'COMPLETION' } },
     },
     include: {
       level: { select: { name: true } },
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         select: {
           date: true,
           attempts: true,

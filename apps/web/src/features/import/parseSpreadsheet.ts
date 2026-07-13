@@ -226,7 +226,7 @@ export interface ParseResult {
   /** Category column names discovered in the Ratings tab, in sheet order. */
   ratingCategories: string[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
-  duplicateLevelIds: { tab: 'completions' | 'dropped'; levelId: string; rows: number[] }[]
+  duplicateLevelIds: { tab: 'completions'; levelId: string; rows: number[] }[]
 }
 
 // ── Completions tab ────────────────────────────────────────────────────────
@@ -355,19 +355,6 @@ function parseCompletionRow(
     else pushFlag('visibility', `unknown visibility "${rawVisibility}" (use public or private) — value dropped`, 'warning')
   }
 
-  // Historical drop metadata — only meaningful if this level was dropped
-  // before being beaten. Parsed the same way as the equivalent Dropped-tab
-  // columns; a bad value is dropped (warning), not the whole row.
-  const rawDroppedAt = getField(raw, 'dropped_at')
-  const droppedAtResult = parseDate(rawDroppedAt, dateFormat)
-  if (!droppedAtResult.ok)
-    pushFlag('dropped_at', `${droppedAtResult.reason} — value dropped`, 'warning')
-
-  const rawAttemptsAtDrop = getField(raw, 'attempts_at_drop')
-  const attemptsAtDrop = toNum(rawAttemptsAtDrop)
-  if (rawAttemptsAtDrop != null && rawAttemptsAtDrop !== '' && attemptsAtDrop === null)
-    pushFlag('attempts_at_drop', `attempts_at_drop "${rawAttemptsAtDrop}" isn't a valid number — value dropped`, 'warning')
-
   const data: ImportCompletionRow = {
     levelId: validLevelId,
     levelName,
@@ -400,9 +387,6 @@ function parseCompletionRow(
     notes: toStr(getField(raw, 'notes')),
     videoUrl: toStr(getField(raw, 'video_url')),
     highlightUrl: toStr(getField(raw, 'highlight_url')),
-    droppedAt: droppedAtResult.ok && droppedAtResult.iso ? droppedAtResult.iso : null,
-    droppedReason: toStr(getField(raw, 'drop_reason')),
-    attemptsAtDrop: attemptsAtDrop != null && attemptsAtDrop >= 0 ? Math.round(attemptsAtDrop) : null,
   }
 
   return { rowIndex, data, flags }
@@ -570,6 +554,7 @@ function parseDroppedRow(
     pushFlag('attempts_at_drop', `attempts_at_drop "${rawAttempts}" isn't a valid number — value dropped`, 'warning')
 
   const data: ImportDroppedRow = {
+    dropId: toStr(getField(raw, 'drop_id')),
     levelId: validLevelId,
     levelName,
     creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
@@ -816,7 +801,8 @@ export function parseSpreadsheet(
     ratings = rawRatings.map((r, i) => parseRatingRow(r, i, ratingCategories))
   }
 
-  // Detect intra-tab duplicate level IDs.
+  // Detect intra-tab duplicate level IDs. Dropped is additive (like Progress),
+  // so multiple rows per level there are expected, not flagged.
   const duplicateLevelIds: ParseResult['duplicateLevelIds'] = []
 
   const completionIdMap = new Map<string, number[]>()
@@ -828,17 +814,6 @@ export function parseSpreadsheet(
   }
   for (const [levelId, rows] of completionIdMap) {
     if (rows.length > 1) duplicateLevelIds.push({ tab: 'completions', levelId, rows })
-  }
-
-  const droppedIdMap = new Map<string, number[]>()
-  for (const row of dropped) {
-    if (!row.data.levelId) continue
-    const existing = droppedIdMap.get(row.data.levelId) ?? []
-    existing.push(row.rowIndex)
-    droppedIdMap.set(row.data.levelId, existing)
-  }
-  for (const [levelId, rows] of droppedIdMap) {
-    if (rows.length > 1) duplicateLevelIds.push({ tab: 'dropped', levelId, rows })
   }
 
   return {

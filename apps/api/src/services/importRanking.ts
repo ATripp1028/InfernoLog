@@ -28,7 +28,7 @@ export async function commitImportRanking(
   // Ranking only applies to completed levels, so resolve every entry against the
   // user's own completions rather than the GD servers.
   const completed = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { isCompletion: true } } },
+    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     select: { id: true, levelId: true, level: { select: { name: true } } },
   })
 

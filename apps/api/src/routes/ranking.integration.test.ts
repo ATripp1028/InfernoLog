@@ -68,7 +68,7 @@ type RankingBody = {
 
 // ─────────────────────────────────────────────
 // Seed helpers — a completion is a COMPLETED level_progress with one
-// isCompletion=true update; placing it adds a ClassicRanking row.
+// kind=COMPLETION update; placing it adds a ClassicRanking row.
 // ─────────────────────────────────────────────
 
 let levelSeq = 1000
@@ -88,7 +88,7 @@ async function seedCompletion(
   await prisma.progressUpdate.create({
     data: {
       levelProgressId: lp.id,
-      isCompletion: true,
+      kind: 'COMPLETION',
       ...(opts.attempts != null ? { attempts: opts.attempts } : {}),
     },
   })

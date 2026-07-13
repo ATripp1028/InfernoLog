@@ -72,7 +72,7 @@ describe('POST /me/completions', () => {
     expect(lp.progressUpdates).toHaveLength(1)
     const pu = lp.progressUpdates[0]
     if (!pu) throw new Error('expected a completion update')
-    expect(pu.isCompletion).toBe(true)
+    expect(pu.kind).toBe('COMPLETION')
     expect(pu.attempts).toBe(12000)
     expect(pu.difficultyOpinion).toBe('EXTREME')
     // In-game difficulty is snapshotted from the cached level, not the client.
@@ -103,7 +103,7 @@ describe('POST /me/completions', () => {
     const completions = await prisma.progressUpdate.findMany({
       where: {
         levelProgress: { userId: user.id, levelId: '101' },
-        isCompletion: true,
+        kind: 'COMPLETION',
       },
       include: { ratingScores: true },
     })
@@ -134,7 +134,7 @@ describe('POST /me/progress', () => {
     const pu = await prisma.progressUpdate.findFirstOrThrow({
       where: { levelProgress: { userId: user.id, levelId: '200' } },
     })
-    expect(pu.isCompletion).toBe(false)
+    expect(pu.kind).toBe('PROGRESS')
     expect(Number(pu.percentage)).toBe(0)
     expect(pu.runFrom).toBeNull()
   })
@@ -187,18 +187,23 @@ describe('POST /me/drops', () => {
 
     const res = await post(user.id, '/me/drops', {
       levelId: '300',
-      droppedAt: '2026-06-10',
-      attemptsAtDrop: 8000,
-      droppedReason: 'too hard for now',
+      date: '2026-06-10',
+      attempts: 8000,
+      notes: 'too hard for now',
     })
 
     expect(res.status).toBe(201)
     const lp = await prisma.levelProgress.findUniqueOrThrow({
       where: { userId_levelId: { userId: user.id, levelId: '300' } },
+      include: { progressUpdates: true },
     })
     expect(lp.status).toBe('DROPPED')
-    expect(lp.attemptsAtDrop).toBe(8000)
-    expect(lp.droppedReason).toBe('too hard for now')
+    expect(lp.progressUpdates).toHaveLength(1)
+    const drop = lp.progressUpdates[0]
+    if (!drop) throw new Error('expected a drop update')
+    expect(drop.kind).toBe('DROP')
+    expect(drop.attempts).toBe(8000)
+    expect(drop.notes).toBe('too hard for now')
   })
 })
 
@@ -212,7 +217,7 @@ describe('auth — user comes from the JWT, not the payload', () => {
       // Attempt to write to someone else's data via the payload.
       userId: otherUser.id,
       levelId: '400',
-      droppedAt: '2026-06-10',
+      date: '2026-06-10',
     })
 
     expect(res.status).toBe(201)

@@ -33,7 +33,7 @@ const LIST_KEYWORD: Record<string, string> = {
 
 async function exportCompletions(userId: string, skip: number, take: number) {
   const lps = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { isCompletion: true } } },
+    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     orderBy: { createdAt: 'asc' },
     skip,
     take,
@@ -44,14 +44,9 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       visibility: true,
       levelNotes: true,
       userGddlTier: true,
-      // Historical drop metadata — set when this level was dropped before
-      // being completed (applyCompletion/planCompletion never clear it).
-      droppedAt: true,
-      droppedReason: true,
-      attemptsAtDrop: true,
       level: { select: { name: true, creator: true } },
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         take: 1,
         select: {
           date: true,
@@ -110,9 +105,6 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         userGddlTier: lp.userGddlTier,
         videoUrl: pu.videoUrl,
         highlightUrl: pu.highlightUrl,
-        droppedAt: iso(lp.droppedAt),
-        droppedReason: lp.droppedReason,
-        attemptsAtDrop: lp.attemptsAtDrop,
       },
     ]
   })
@@ -125,7 +117,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
 // completions/drops, which are one-per-level).
 async function exportProgress(userId: string, skip: number, take: number) {
   const updates = await prisma.progressUpdate.findMany({
-    where: { isCompletion: false, levelProgress: { userId } },
+    where: { kind: 'PROGRESS', levelProgress: { userId } },
     orderBy: { loggedAt: 'asc' },
     skip,
     take,
@@ -174,31 +166,58 @@ async function exportProgress(userId: string, skip: number, take: number) {
   }))
 }
 
+// Drops are now ordinary progress_updates (kind=DROP), so — like Progress —
+// this is not filtered by the level's current status: a level dropped and
+// later resumed or completed keeps every drop's history. Multiple rows per
+// level are expected (drop → resume → drop again).
 async function exportDropped(userId: string, skip: number, take: number) {
-  const lps = await prisma.levelProgress.findMany({
-    where: { userId, status: 'DROPPED' },
-    orderBy: { createdAt: 'asc' },
+  const updates = await prisma.progressUpdate.findMany({
+    where: { kind: 'DROP', levelProgress: { userId } },
+    orderBy: { loggedAt: 'asc' },
     skip,
     take,
     select: {
-      levelId: true,
-      worstFail: true,
-      attemptsAtDrop: true,
-      droppedAt: true,
-      droppedReason: true,
-      level: { select: { name: true, creator: true, inGameDifficulty: true } },
+      id: true,
+      date: true,
+      attempts: true,
+      notes: true,
+      levelProgress: {
+        select: {
+          levelId: true,
+          status: true,
+          worstFail: true,
+          level: { select: { name: true, creator: true, inGameDifficulty: true } },
+          // The level's single most recent update — used below to tell
+          // whether this is the level's CURRENT drop.
+          progressUpdates: {
+            orderBy: { loggedAt: 'desc' },
+            take: 1,
+            select: { id: true },
+          },
+        },
+      },
     },
   })
-  return lps.map((lp) => ({
-    levelId: lp.levelId,
-    levelName: lp.level.name,
-    creator: lp.level.creator,
-    inGameDifficulty: lp.level.inGameDifficulty,
-    bestProgress: lp.worstFail,
-    attemptsAtDrop: lp.attemptsAtDrop,
-    droppedAt: iso(lp.droppedAt),
-    reason: lp.droppedReason,
-  }))
+
+  return updates.map((u) => {
+    const lp = u.levelProgress
+    // worstFail is a level-scoped rolling value, not per-drop (the logging UI
+    // asks for it once and remembers it), so it only describes the level's
+    // CURRENT drop — the most recent update, while still dropped.
+    const isCurrentDrop =
+      lp.status === 'DROPPED' && lp.progressUpdates[0]?.id === u.id
+    return {
+      dropId: u.id,
+      levelId: lp.levelId,
+      levelName: lp.level.name,
+      creator: lp.level.creator,
+      inGameDifficulty: lp.level.inGameDifficulty,
+      bestProgress: isCurrentDrop ? lp.worstFail : null,
+      attemptsAtDrop: u.attempts,
+      droppedAt: iso(u.date),
+      reason: u.notes,
+    }
+  })
 }
 
 async function exportRanking(userId: string, skip: number, take: number) {
@@ -279,7 +298,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
     where: {
       userId,
       progressUpdates: {
-        some: { isCompletion: true, ratingScores: { some: {} } },
+        some: { kind: 'COMPLETION', ratingScores: { some: {} } },
       },
     },
     orderBy: { createdAt: 'asc' },
@@ -289,7 +308,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
       levelId: true,
       level: { select: { name: true, creator: true } },
       progressUpdates: {
-        where: { isCompletion: true },
+        where: { kind: 'COMPLETION' },
         take: 1,
         select: {
           inGameDifficulty: true,

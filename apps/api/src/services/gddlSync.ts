@@ -151,7 +151,7 @@ async function createCompletion(
   await tx.progressUpdate.create({
     data: {
       levelProgressId: lp.id,
-      isCompletion: true,
+      kind: 'COMPLETION',
       inGameDifficulty,
       dateUncertain: fields.date !== undefined,
       ...fields,
@@ -254,7 +254,7 @@ export async function syncGddlSubmissions(
 
         const existingCompletion = lp
           ? await tx.progressUpdate.findFirst({
-              where: { levelProgressId: lp.id, isCompletion: true },
+              where: { levelProgressId: lp.id, kind: 'COMPLETION' },
               select: { id: true },
             })
           : null

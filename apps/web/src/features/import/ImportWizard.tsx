@@ -451,9 +451,8 @@ function ReviewStep({
           <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
             {flags.duplicates.map((d) => (
               <li key={`${d.tab}-${d.levelId}`}>
-                Level {d.levelId} appears {d.rows.length}× in{' '}
-                {d.tab === 'completions' ? 'Completions' : 'Dropped'} (rows{' '}
-                {d.rows.map((r) => r + 2).join(', ')})
+                Level {d.levelId} appears {d.rows.length}× in Completions
+                (rows {d.rows.map((r) => r + 2).join(', ')})
               </li>
             ))}
           </ul>

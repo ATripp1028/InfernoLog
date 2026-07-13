@@ -34,11 +34,6 @@ export const COMPLETION_HEADERS = [
   'video_url',
   'highlight_url',
   'visibility',
-  // Historical drop metadata — only meaningful if this level was dropped at
-  // some point before you beat it. Leave blank otherwise.
-  'dropped_at',
-  'drop_reason',
-  'attempts_at_drop',
 ]
 
 // Progress tab: non-completion session logs. `progress_id` round-trips an
@@ -64,7 +59,11 @@ export const PROGRESS_HEADERS = [
   'visibility',
 ]
 
+// Dropped tab: a level can be dropped more than once (drop → resume → drop
+// again). `drop_id` round-trips an exact drop entry on reimport (auto-filled
+// on export) — leave blank when adding a new drop by hand.
 export const DROPPED_HEADERS = [
+  'drop_id',
   'level_id',
   'level_name',
   'creator',
@@ -108,9 +107,6 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   video_url: '',
   highlight_url: '',
   visibility: 'public',
-  dropped_at: '',
-  drop_reason: '',
-  attempts_at_drop: '',
 }
 
 const PROGRESS_EXAMPLE: Record<string, string | number | boolean> = {
@@ -134,6 +130,7 @@ const PROGRESS_EXAMPLE: Record<string, string | number | boolean> = {
 }
 
 const DROPPED_EXAMPLE: Record<string, string | number> = {
+  drop_id: '',
   level_id: '26681070',
   level_name: 'Sonic Wave',
   creator: 'lSunix',
@@ -219,10 +216,6 @@ export const FIELD_DESCRIPTIONS = [
   ['Completions', 'video_url', 'no', 'Full URL'],
   ['Completions', 'highlight_url', 'no', 'Full URL'],
   ['Completions', 'visibility', 'no', 'public or private (per-entry privacy). Defaults to public.'],
-  ['Completions', 'dropped_at', 'no', 'Date this level was dropped, if it ever was, before you beat it. In your selected date format.'],
-  ['Completions', 'drop_reason', 'no', 'Free text — why you dropped it, if it was ever dropped (max 2000 chars).'],
-  ['Completions', 'attempts_at_drop', 'no', 'Integer attempt count at the time of that drop.'],
-  ['Completions', '(note)', '', 'These three are historical only — they never change whether this level counts as completed. Leave blank if it was never dropped.'],
   ['', '', '', ''],
   ['Progress', 'progress_id', 'no', 'Identity for round-tripping this exact entry (auto-filled on export). Leave blank when adding a new session log by hand.'],
   ['Progress', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
@@ -243,6 +236,7 @@ export const FIELD_DESCRIPTIONS = [
   ['Progress', 'visibility', 'no', 'public or private (per-entry privacy). Defaults to public.'],
   ['Progress', '(note)', '', 'Multiple rows per level are expected — one per logged session. This tab never affects a level’s completed/dropped status.'],
   ['', '', '', ''],
+  ['Dropped', 'drop_id', 'no', 'Identity for round-tripping this exact drop (auto-filled on export). Leave blank when adding a new drop by hand.'],
   ['Dropped', 'level_id', 'no*', 'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).'],
   ['Dropped', 'level_name', 'no*', 'Level name. Required when level_id is blank — matched against the GD servers.'],
   ['Dropped', 'creator', 'no', 'Creator name — narrows name resolution when level_name matches multiple levels.'],
@@ -254,6 +248,7 @@ export const FIELD_DESCRIPTIONS = [
   ['Dropped', 'dropped_at', 'no', 'Date in your selected format. Unreadable dates are dropped, not the row.'],
   ['Dropped', 'reason', 'no', 'Free text (max 2000 chars)'],
   ['Dropped', 'gddl_tier_at_drop', 'no', 'Whole-number tier at time of drop (decimals are rounded).'],
+  ['Dropped', '(note)', '', 'Multiple rows per level are expected — a level can be dropped, resumed, and dropped again. Each drop keeps its own history.'],
   ['', '', '', ''],
   ['Ranking', 'rank', 'no', 'Optional number (1 = hardest). If present it sorts the tab; if absent, the row order is the order (top row = hardest).'],
   ['Ranking', 'level_id', 'no*', 'Numeric in-game level ID of a level you have completed.'],

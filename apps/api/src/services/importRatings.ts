@@ -29,11 +29,11 @@ export async function commitImportRatings(
   // Scores attach to completions — resolve each entry against the user's own
   // completed levels (the completion's ProgressUpdate id).
   const completed = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { isCompletion: true } } },
+    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     select: {
       levelId: true,
       level: { select: { name: true } },
-      progressUpdates: { where: { isCompletion: true }, select: { id: true }, take: 1 },
+      progressUpdates: { where: { kind: 'COMPLETION' }, select: { id: true }, take: 1 },
     },
   })
   const puByLevelId = new Map<string, string>()

@@ -324,7 +324,7 @@ export async function addEntry(
         where: {
           userId,
           levelId,
-          progressUpdates: { some: { isCompletion: true } },
+          progressUpdates: { some: { kind: 'COMPLETION' } },
         },
         select: { id: true },
       })
