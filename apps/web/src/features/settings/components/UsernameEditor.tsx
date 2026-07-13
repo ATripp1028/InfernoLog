@@ -68,6 +68,11 @@ export function UsernameEditor({ me, startInEditing, onSaved }: UsernameEditorPr
         setAvailabilityError(null)
       }
     } catch (err) {
+      // A newer keystroke superseded this check (cleanup below calls
+      // controller.abort()) — that's the expected flow while typing, not a
+      // failure, so it shouldn't surface as an error. Aborted fetches throw
+      // a DOMException, which isn't an Error subclass, so check by name.
+      if ((err as { name?: string } | null)?.name === 'AbortError') return
       const msg =
         err instanceof Error ? err.message : 'Failed to check username'
       setAvailabilityError(msg)
