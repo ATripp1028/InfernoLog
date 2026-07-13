@@ -416,17 +416,39 @@ app.put('/me/gddl-key', async (c) => {
 
     const gddlApiKeyEncrypted = await encryptSecret(parsed.data.apiKey)
 
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data: { gddlApiKeyEncrypted, gddlUsername: gddlName },
-      select: {
-        ...meSelect,
-        ratingCategories: {
-          select: { id: true, name: true, weight: true, sortOrder: true },
-          orderBy: { sortOrder: 'asc' },
+    let updated
+    try {
+      updated = await prisma.user.update({
+        where: { id: userId },
+        data: { gddlApiKeyEncrypted, gddlUsername: gddlName },
+        select: {
+          ...meSelect,
+          ratingCategories: {
+            select: { id: true, name: true, weight: true, sortOrder: true },
+            orderBy: { sortOrder: 'asc' },
+          },
         },
-      },
-    })
+      })
+    } catch (err) {
+      // P2002: this GDDL account is already linked to a different user.
+      if (
+        err instanceof Prisma.PrismaClientKnownRequestError &&
+        err.code === 'P2002'
+      ) {
+        logger.warn(
+          { userId, gddlName },
+          'GDDL account already linked to another user'
+        )
+        return c.json(
+          {
+            error:
+              'That GDDL account is already connected to a different InfernoLog user.',
+          },
+          409
+        )
+      }
+      throw err
+    }
 
     // Log the event but never the key (or its ciphertext).
     logger.info({ userId }, 'Stored GDDL API key')

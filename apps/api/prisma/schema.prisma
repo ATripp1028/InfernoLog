@@ -169,7 +169,7 @@ model User {
   // gddlUsername is the GDDL account name confirmed when the key is verified;
   // it is public and shown in the connected-accounts UI.
   gddlApiKeyEncrypted   String?
-  gddlUsername          String?
+  gddlUsername          String?              @unique
 
   // Preferences
   ratingMode            RatingMode           @default(SIMPLE)
