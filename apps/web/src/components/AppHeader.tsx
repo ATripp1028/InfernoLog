@@ -5,6 +5,7 @@ import { AvatarMenu } from './AvatarMenu'
 import { Logo } from './Logo'
 import { DifficultyFace } from './DifficultyFace'
 import { useMyProgress, type LevelProgressListItem } from '@/lib/api/list'
+import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 
 // Mirrors NAME_COLOR in features/list/LevelCell.tsx: gold = completed, white =
@@ -170,29 +171,48 @@ function SearchResultRow({
       aria-selected={active}
       onMouseEnter={onMouseEnter}
       onClick={onSelect}
-      className={cn(
-        'flex h-14 w-full items-center gap-3 border-b border-border-subtle px-3 text-left transition-colors last:border-b-0',
-        active ? 'bg-bg-subtle' : 'bg-transparent'
-      )}
+      className="relative flex h-14 w-full cursor-pointer items-center gap-3 overflow-hidden border-b border-border-subtle px-3 text-left transition-colors last:border-b-0"
     >
-      <DifficultyFace
-        difficulty={level.inGameDifficulty}
-        featured={level.featured}
-        epicValue={level.epicValue}
-        rated={level.isRated}
-        size={80}
+      {/* Level thumbnail backdrop; hidden if it fails to load. */}
+      <img
+        src={levelThumbnailUrl(level.inGameId)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+        className="absolute inset-0 size-full object-cover"
       />
-      <span className="min-w-0 flex-1">
-        <span
-          className={cn(
-            'block truncate text-sm font-medium leading-tight',
-            NAME_COLOR[item.status]
-          )}
-        >
-          {level.name ?? `Level #${level.inGameId}`}
-        </span>
-        <span className="block truncate text-xs text-text-secondary">
-          by {level.creator ?? 'Unknown'}
+      {/* Scrim for legibility, plus the hover/active highlight. */}
+      <span className="absolute inset-0 bg-gradient-to-r from-bg-elevated/95 via-bg-elevated/85 to-bg-elevated/55" />
+      <span
+        className={cn(
+          'absolute inset-0 transition-colors',
+          active ? 'bg-white/10' : 'bg-white/0'
+        )}
+      />
+
+      <span className="relative flex min-w-0 flex-1 items-center gap-3">
+        <DifficultyFace
+          difficulty={level.inGameDifficulty}
+          featured={level.featured}
+          epicValue={level.epicValue}
+          rated={level.isRated}
+          size={80}
+        />
+        <span className="min-w-0 flex-1">
+          <span
+            className={cn(
+              'block truncate text-sm font-medium leading-tight',
+              NAME_COLOR[item.status]
+            )}
+          >
+            {level.name ?? `Level #${level.inGameId}`}
+          </span>
+          <span className="block truncate text-xs text-text-secondary">
+            by {level.creator ?? 'Unknown'}
+          </span>
         </span>
       </span>
     </button>
