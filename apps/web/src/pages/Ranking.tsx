@@ -16,8 +16,9 @@ export function Ranking() {
 
   const [search, setSearch] = useState('')
   const [unplacedSearch, setUnplacedSearch] = useState('')
-  // Default OFF per the design — unrated levels are hidden until toggled on.
-  const [showUnrated, setShowUnrated] = useState(false)
+  // Default ON — a user who went out of their way to log an unrated level
+  // almost certainly wants it visible; toggle off to hide them instead.
+  const [showUnrated, setShowUnrated] = useState(true)
 
   const data = ranking.data
 
