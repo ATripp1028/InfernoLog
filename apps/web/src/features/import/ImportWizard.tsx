@@ -161,6 +161,7 @@ function UploadStep({
   const fileId = useId()
   const [error, setError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -244,16 +245,36 @@ function UploadStep({
         </label>
         <label
           htmlFor={fileId}
+          onDragOver={(e) => {
+            e.preventDefault()
+            if (!parsing) setIsDragging(true)
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            setIsDragging(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            setIsDragging(false)
+            if (parsing) return
+            const f = e.dataTransfer.files?.[0]
+            if (f) void handleFile(f)
+          }}
           className={cn(
             'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed',
             'border-[var(--color-border)] bg-[var(--color-bg-surface)] p-10 cursor-pointer',
             'hover:border-[var(--color-primary)] hover:bg-accent transition-colors text-center',
+            isDragging && 'border-[var(--color-primary)] bg-accent',
             parsing && 'pointer-events-none opacity-60'
           )}
         >
           <span className="text-2xl">📂</span>
           <span className="text-sm text-foreground font-medium">
-            {parsing ? 'Parsing…' : 'Click to select or drag and drop'}
+            {parsing
+              ? 'Parsing…'
+              : isDragging
+                ? 'Drop to upload'
+                : 'Click to select or drag and drop'}
           </span>
           <span className="text-xs text-muted-foreground">
             .xlsx files only
