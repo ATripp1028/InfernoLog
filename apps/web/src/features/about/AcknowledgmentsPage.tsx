@@ -15,6 +15,28 @@ function Pending({ children }: { children: ReactNode }) {
   )
 }
 
+function SectionLink({
+  href,
+  children,
+}: {
+  href: string | undefined
+  children: ReactNode
+}) {
+  if (!href) {
+    return <></>
+  }
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="text-primary underline"
+    >
+      {children}
+    </a>
+  )
+}
+
 function Section({
   title,
   intro,
@@ -52,16 +74,7 @@ function Entry({
     <div>
       <h3 className="text-base font-medium text-foreground">{name}</h3>
       <p className="mt-1">{children}</p>
-      {link && (
-        <a
-          href={link.href}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-1 inline-block text-primary underline"
-        >
-          {link.label}
-        </a>
-      )}
+      <SectionLink href={link?.href}>{link?.label}</SectionLink>
     </div>
   )
 }
@@ -112,17 +125,10 @@ export function AcknowledgmentsPage() {
             in web-friendly formats. While InfernoLog ultimately uses the
             official API for level metadata, GDBrowser was the inspiration for
             the level schema and data structure. Credit:{' '}
-            <a
-              href="https://gdcolon.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline"
-            >
-              Colon
-            </a>
+            <SectionLink href="https://gdcolon.com/">GDColon</SectionLink>
             .
           </Entry>
-          <Entry name="GD Demon Ladder (GDDL)">
+          <Entry name="GD Demon Ladder (GDDL)" link={{ label: 'gdladder.com', href: 'https://gdladder.com/' }}>
             Tier data autofill and optional record submission for rated demons.
             Credit: <Pending>GDDL team / maintainers</Pending>. Link:{' '}
             <Pending>GDDL URL</Pending>.
@@ -160,14 +166,14 @@ export function AcknowledgmentsPage() {
           intro="These community spreadsheets directly informed InfernoLog's feature set. Seeing what the community was already tracking — and how much care went into those sheets — made it clear that a proper tool was worth building."
         >
           <ul className="list-disc space-y-1 pl-6">
-            <li>Zeronium's Extreme Log</li>
-            <li>Technical's Extremes Log</li>
-            <li>
-              <Pending>any other community spreadsheets worth acknowledging</Pending>
-            </li>
+            <li><SectionLink href="https://docs.google.com/spreadsheets/d/1aGWCWgeoKXnaDhhg9k_P0Nqi5sKqRG3qPMTc75CLAGQ/edit?gid=1596056310#gid=1596056310">Technical's Extremes Log</SectionLink> (Inspiration for InfernoLog's ranking system)</li>
+            <li><SectionLink href="https://docs.google.com/spreadsheets/d/14WoLCbAI0CJN0MrpPafY55rf8PVbq0zTiJ8_ne-293g/edit?gid=0#gid=0">Zeronium's Extreme Log</SectionLink> (Inspiration for data collected in logging)</li>
+            <li><SectionLink href="https://docs.google.com/spreadsheets/d/1svB6vUigPyPwoYJ-AgaaBJWid3uR9P5BQEztWPXKzdU/edit?gid=1874848974#gid=1874848974">Sdslayer's Extreme Log</SectionLink> (Inspired decision to allow enjoyment to be included in ratings)</li>
+            <li><SectionLink href="https://docs.google.com/spreadsheets/d/17u5h9qLrbxW0D8uqNQkPl4gKf0Iou3clFufzj8PtzP8/edit?gid=2091285025#gid=2091285025">Tride's Extreme Log</SectionLink> (Inspired decision to allow unrated levels)</li>
           </ul>
         </Section>
 
+        {/* No Beta Testers Yet, will readd if I get any.
         <Section
           title="Beta Testers"
           intro="These players tested InfernoLog before it was ready and helped make it better. Their feedback shaped everything from the logging flow to the ranking system."
@@ -177,8 +183,9 @@ export function AcknowledgmentsPage() {
               <Pending>beta tester handles — add as the beta progresses</Pending>
             </li>
           </ul>
-        </Section>
+        </Section> */}
 
+        {/* No artists yet, will readd if I get any.
         <Section
           title="Community Artists"
           intro="These people contributed visual assets to InfernoLog."
@@ -191,7 +198,7 @@ export function AcknowledgmentsPage() {
               </Pending>
             </li>
           </ul>
-        </Section>
+        </Section> */}
 
         <Section
           title="Open Source Libraries"
@@ -225,7 +232,15 @@ export function AcknowledgmentsPage() {
           </p>
           <p>
             The source code is available at{' '}
-            <Pending>GitHub repository link</Pending>. Contributions, bug
+            <a
+              href="https://github.com/infernolog/infernolog"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ textDecoration: 'underline' }}
+            >
+              GitHub
+            </a>
+            . Contributions, bug
             reports, and feature suggestions are welcome.
           </p>
         </Section>
