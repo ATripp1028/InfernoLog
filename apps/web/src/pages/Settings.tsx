@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 import { PageLoading } from '@/components/PageLoading'
@@ -89,6 +89,12 @@ export function Settings() {
       <RatingSection me={me.data} />
       <DesignSection />
       <DangerZoneSection />
+
+      <footer className="mt-8 border-t border-[var(--color-border)] pt-6 text-sm text-muted-foreground">
+        <Link to="/about" className="hover:text-foreground">
+          Acknowledgments &amp; credits
+        </Link>
+      </footer>
 
       <Sheet open={importStatusOpen} onOpenChange={setImportStatusOpen}>
         <SheetContent

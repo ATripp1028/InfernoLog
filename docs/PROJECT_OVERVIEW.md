@@ -25,6 +25,16 @@ infernolog/
  └── turbo.json          Turborepo pipeline configuration
 ```
 
+### Unauthenticated Landing Page
+
+`apps/web` serves an unauthenticated marketing landing page and a small set of public pages, all outside the authenticated app shell:
+
+- `/` — landing page (hero, feature sections, scroll-linked ember background). Authenticated users are redirected to their List.
+- `/terms`, `/privacy`, `/dmca` — legal documents, rendered from `/legal/*.md` through a shared `LegalDocPage`.
+- `/about` — acknowledgments / credits page (structure from `ACKNOWLEDGMENTS_TEMPLATE.md`), also linked from Settings.
+
+These routes are unauthenticated by design. The ember background system is landing-page-only — see `DESIGN_LANGUAGE.md`.
+
 ### Deployment Independence
 
 ```

@@ -15,6 +15,15 @@ All auth flows go through Cognito. The backend validates Cognito-issued JWTs on 
 3. After account creation, users can link the other provider (Google or Discord) from their settings page under a "Connected Accounts" panel
 4. Discord visibility is independently togglable (public by default)
 
+### Sign up vs. Sign in — two entry points
+
+The landing page (`/`) exposes **Sign up** and **Sign in** as two distinct entry points, not a single "Sign in with Google" button. Both ultimately use the same Cognito Google OAuth flow, but the paths differ:
+
+- **Sign up** → COPPA age gate (`/age-gate`) → Google OAuth → onboarding
+- **Sign in** → Google OAuth → straight to the user's List
+
+This split is a **COPPA compliance requirement, not a UX preference.** Cognito creates a federated identity on the OAuth callback regardless of path, so the age gate must run *before* OAuth for new accounts — otherwise a child's identity would already round-trip through Cognito before we could reject it. Existing users signing in skip the age gate entirely. The clicked intent is recorded client-side (`AUTH_INTENT_KEY` in `AuthContext`) so the OAuth callback can branch (`signup` creates the user row; `signin` rejects if no user exists). The age gate itself never sends anything to the server — see `apps/web/src/features/onboarding/AgeGate.tsx`.
+
 ---
 
 ## API Keys (Third-Party Access) *(v3)*
