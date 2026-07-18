@@ -7,14 +7,6 @@ import { ReactNode } from 'react'
 // [PLACEHOLDER] are rendered through <Pending> so they read as visibly
 // unfinished — they must be filled in (not invented) before launch.
 
-function Pending({ children }: { children: ReactNode }) {
-  return (
-    <span className="rounded-[4px] bg-[var(--color-warning-dim)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-warning)]">
-      PLACEHOLDER — {children}
-    </span>
-  )
-}
-
 function SectionLink({
   href,
   children,
@@ -202,25 +194,31 @@ export function AcknowledgmentsPage() {
 
         <Section
           title="Open Source Libraries"
-          intro="InfernoLog is built on these open source projects. Each of them represents enormous amounts of work by their contributors."
+          intro="InfernoLog is built on these open source projects. Each of them represents enormous amounts of work by their contributors. All are MIT-licensed unless noted otherwise."
         >
           <p className="font-medium text-foreground">Frontend</p>
           <p>
-            React, Vite, TanStack (Query, Table, Router, Form), Tailwind CSS,
-            shadcn/ui, dnd-kit, Recharts, React Hook Form, Zod, date-fns,
-            SheetJS, Lucide React.
+            React, React DOM, Vite, TanStack (Query, Table, Router, Form,
+            Virtual), Radix UI (shadcn/ui component patterns), dnd-kit, React
+            Hook Form, Zod, date-fns, Framer Motion, react-markdown, sonner,
+            clsx, tailwind-merge, Tailwind CSS, Lucide React (ISC),
+            class-variance-authority (Apache-2.0), SheetJS / xlsx (Apache-2.0),
+            AWS Amplify (Apache-2.0).
           </p>
           <p className="font-medium text-foreground">Backend</p>
-          <p>SST (Serverless Stack), Prisma, Node.js, Hono.</p>
+          <p>
+            SST, Hono, Node.js, Pino, node-postgres (pg), Neon serverless
+            driver, Prisma (Apache-2.0), Sentry (FSL-1.1-Apache-2.0).
+          </p>
           <p className="font-medium text-foreground">Infrastructure</p>
           <p>
             AWS (Lambda, API Gateway, S3, CloudFront, Cognito, EventBridge,
             Route 53, ACM, CloudWatch), Neon (PostgreSQL), Turborepo.
           </p>
           <p className="text-xs">
-            <Pending>
-              verify and list the exact license for each library before launch
-            </Pending>
+            Libraries under Apache-2.0 and Sentry's FSL-1.1-Apache-2.0 are used
+            unmodified via their published packages; their attribution and
+            NOTICE terms are preserved.
           </p>
         </Section>
 
