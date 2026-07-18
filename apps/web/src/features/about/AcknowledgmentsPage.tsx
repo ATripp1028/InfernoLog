@@ -130,8 +130,7 @@ export function AcknowledgmentsPage() {
           </Entry>
           <Entry name="GD Demon Ladder (GDDL)" link={{ label: 'gdladder.com', href: 'https://gdladder.com/' }}>
             Tier data autofill and optional record submission for rated demons.
-            Credit: <Pending>GDDL team / maintainers</Pending>. Link:{' '}
-            <Pending>GDDL URL</Pending>.
+            Credit: GDDL team / maintainers.
           </Entry>
           <Entry
             name="levelthumbs"
