@@ -90,8 +90,12 @@ export function AcknowledgmentsPage() {
         {/* Hero */}
         <blockquote className="mt-6 border-l-2 border-primary pl-4 text-base italic leading-relaxed text-muted-foreground">
           “When I started logging my demon completions in a spreadsheet, I
-          thought to myself, ‘man, there must be a better way to do this.’ I
-          wasn't satisfied with the existing solutions, so I made my own.”
+          thought to myself, ‘man, there must be a better way to do this.’ Later,
+          I would watch Technical's VOD for his Acheron completion and realized
+          how tedious recording so much data about each completion was after seeing him
+          manually drag Acheron to the correct spot in the ranking and input all the data
+          across all his sheets manually. That inspired me to create InfernoLog to give
+          the community a better way to log their demon completions.”
           <footer className="mt-2 text-sm not-italic text-foreground">
             — MrSp0rkMan (Alex)
           </footer>
@@ -116,12 +120,13 @@ export function AcknowledgmentsPage() {
             Reference for how the community organizes GD's in-game sprite assets
             in web-friendly formats. While InfernoLog ultimately uses the
             official API for level metadata, GDBrowser was the inspiration for
-            the level schema and data structure. Credit:{' '}
+            the level schema and data structure. <br/> 
+            Credit:{' '}
             <SectionLink href="https://gdcolon.com/">GDColon</SectionLink>
             .
           </Entry>
           <Entry name="GD Demon Ladder (GDDL)" link={{ label: 'gdladder.com', href: 'https://gdladder.com/' }}>
-            Tier data autofill and optional record submission for rated demons.
+            Tier data autofill and optional record submission for rated demons. <br/>
             Credit: GDDL team / maintainers.
           </Entry>
           <Entry
@@ -131,7 +136,8 @@ export function AcknowledgmentsPage() {
               href: 'https://levelthumbs.prevter.me',
             }}
           >
-            Level thumbnail hosting used throughout the app. Credit: Prevter.
+            Level thumbnail hosting used throughout the app. <br/>
+            Credit: Prevter. <br/>
             License: Apache 2.0.
           </Entry>
           {/* not implemented yet, will readd when I implement it
