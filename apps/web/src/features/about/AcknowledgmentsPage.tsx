@@ -142,6 +142,7 @@ export function AcknowledgmentsPage() {
             Level thumbnail hosting used throughout the app. Credit: Prevter.
             License: Apache 2.0.
           </Entry>
+          {/* not implemented yet, will readd when I implement it
           <Entry name="Song File Hub">
             NONG song database (v2). Credit: <Pending>Song File Hub team</Pending>
             . Link: songfilehub.com.
@@ -150,7 +151,7 @@ export function AcknowledgmentsPage() {
             Rank data for the All Rated Extreme Demons List. Credit:{' '}
             <Pending>AREDL maintainers</Pending>. Link:{' '}
             <Pending>AREDL URL</Pending>.
-          </Entry>
+          </Entry> */}
           <Entry name="RobTop Games">
             Geometry Dash game assets used throughout the UI, including
             difficulty faces, portal sprites, and currency icons. Credit: Robert
