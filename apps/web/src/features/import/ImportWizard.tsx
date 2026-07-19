@@ -4,7 +4,7 @@
 // Step 2: Conflict — review existing-vs-incoming completions; pick resolution.
 // Step 3: Commit — progress bar while batches are sent; success report.
 
-import { useState, useCallback, useId, useEffect } from 'react'
+import { useState, useCallback, useId, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -161,6 +161,27 @@ function UploadStep({
   const fileId = useId()
   const [error, setError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+  // dragenter/dragleave fire on every child the pointer crosses (per the
+  // HTML5 DnD spec), not just when the pointer enters/exits the label as a
+  // whole — count nesting depth instead of toggling on every event so the
+  // highlight doesn't flicker while dragging across the label's own children.
+  const dragDepth = useRef(0)
+
+  // The drop zone below handles its own dragover/drop, but a drop anywhere
+  // else on the page (e.g. a few pixels outside the dashed box) would
+  // otherwise fall through to the browser's default "navigate to file"
+  // behavior, discarding the whole app session. Swallow it at the window
+  // level for as long as this step is mounted.
+  useEffect(() => {
+    const preventDefault = (e: DragEvent) => e.preventDefault()
+    window.addEventListener('dragover', preventDefault)
+    window.addEventListener('drop', preventDefault)
+    return () => {
+      window.removeEventListener('dragover', preventDefault)
+      window.removeEventListener('drop', preventDefault)
+    }
+  }, [])
 
   const handleFile = useCallback(
     async (file: File) => {
@@ -244,16 +265,42 @@ function UploadStep({
         </label>
         <label
           htmlFor={fileId}
+          onDragEnter={(e) => {
+            e.preventDefault()
+            dragDepth.current += 1
+            if (!parsing) setIsDragging(true)
+          }}
+          onDragOver={(e) => {
+            e.preventDefault()
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault()
+            dragDepth.current = Math.max(0, dragDepth.current - 1)
+            if (dragDepth.current === 0) setIsDragging(false)
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            dragDepth.current = 0
+            setIsDragging(false)
+            if (parsing) return
+            const f = e.dataTransfer.files?.[0]
+            if (f) void handleFile(f)
+          }}
           className={cn(
             'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed',
             'border-[var(--color-border)] bg-[var(--color-bg-surface)] p-10 cursor-pointer',
             'hover:border-[var(--color-primary)] hover:bg-accent transition-colors text-center',
+            isDragging && 'border-[var(--color-primary)] bg-accent',
             parsing && 'pointer-events-none opacity-60'
           )}
         >
           <span className="text-2xl">📂</span>
           <span className="text-sm text-foreground font-medium">
-            {parsing ? 'Parsing…' : 'Click to select or drag and drop'}
+            {parsing
+              ? 'Parsing…'
+              : isDragging
+                ? 'Drop to upload'
+                : 'Click to select or drag and drop'}
           </span>
           <span className="text-xs text-muted-foreground">
             .xlsx files only

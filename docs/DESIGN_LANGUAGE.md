@@ -326,6 +326,28 @@ Drag-and-drop reordering in the Ranking should have a satisfying but snappy feel
 
 ---
 
+## Ember Background System
+
+The landing page (`/`) has a coded, parameterized ambient background — a canvas-based particle system, not a static asset. It is **landing-page-only** and must never be mounted on authenticated app pages. Implemented in `apps/web/src/features/landing/EmberBackground.tsx`.
+
+**Particle behavior:** "Embers" spawn near the bottom of the viewport, drift upward with slight horizontal wander, flicker in opacity, and despawn off the top edge, respawning at the bottom. A single fixed, viewport-sized canvas runs a single `requestAnimationFrame` loop and paints the page background color plus the embers behind transparent page content. Ember color is pulled from the inferno palette: `#e8390e`, `#ff9f1c`, `#ff6b35`, `#ff4d1f`.
+
+**Scroll-linked intensity:** scroll fraction (`scrollTop / (scrollHeight - clientHeight)`, clamped 0–1, read inside rAF from a passive scroll listener) drives three things as it goes 0 → 1:
+
+```
+Background color:  #0d0d0d (base) → #3a1508 (warm dark), per-channel linear RGB lerp
+Active ember count: ~20 → ~70 (desktop ceiling; mobile ceiling halved to ~35)
+Ember speed:        ~1x → ~2.2x base speed
+```
+
+The background interpolates toward a **warm dark** tone, **not** toward white/gray — this is a hard constraint. InfernoLog is dark-mode-only in v1 (see above); this system must read as "the fire is intensifying," never as a light-mode shift.
+
+**Accessibility & performance:** `prefers-reduced-motion` disables all scroll-linked changes and freezes a static low-count ember field (no animation loop). The particle ceiling is halved on mobile viewports (`< 768px`) to protect low-end devices. No reflow-triggering DOM writes per frame — a single canvas, single rAF loop.
+
+**Deferred (planned):** a commissioned log-and-fire footer illustration for the closing CTA / footer area. It is being commissioned separately and will be integrated later as a static/looping asset with its own scroll-linked scale. The ember system above is built independently of it and does not assume its presence.
+
+---
+
 ## Spacing & Layout
 
 ```

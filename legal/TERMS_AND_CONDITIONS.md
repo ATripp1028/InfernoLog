@@ -2,11 +2,11 @@
 
 These terms and conditions apply to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, the "Application"). The InfernoLog Team is hereby referred to as the "Service Provider".
 
-By downloading or using the Application, you agree to these Terms and Conditions. You should read them carefully before using the Application.
+By using the Application, you agree to these Terms and Conditions. You should read them carefully before using the Application.
 
 **License to use the Application**
 
-This Application is distributed as open source software under the applicable open source license. Your use, reproduction, and distribution of the Application are governed by the terms of that license.
+The Application's source code is distributed as open source software under the MIT License, available in the project's public repository. Your use, reproduction, and distribution of the source code are governed by the terms of that license. This license applies to the code itself — it does not grant rights to the hosted service, its data, or the trademarks and branding described below.
 
 **Intellectual Property**
 
@@ -18,7 +18,7 @@ The Service Provider may suspend your access to the Application or services if y
 
 The Service Provider may suspend or terminate your access immediately without notice if you violate applicable law, infringe intellectual property rights, or engage in activity that could cause harm to other users or the Service Provider.
 
-Upon termination, your right to use the Application will end and you must delete all copies from your devices.
+Upon termination, your right to use the Application will end and you must stop accessing it.
 
 By accessing and using this Application, you represent that you are legally permitted to use it in your jurisdiction. You must be at least 13 years of age to use the Application per the Children's Online Privacy Protection Act. ("COPPA").
 
@@ -55,11 +55,21 @@ Your content may include personal data. Processing of personal data related to U
 
 The Service Provider is dedicated to ensuring that the Application is as beneficial and efficient as possible. As such, they reserve the right to modify the Application or charge for their services at any time and for any reason. The Service Provider assures you that any charges for the Application or its services will be clearly communicated to you.
 
-The Application stores and processes personal data that you have provided to the Service Provider in order to provide the Service. It is your responsibility to maintain the security of your , or computer and access to the Application.
+The Application stores and processes personal data that you have provided to the Service Provider in order to provide the Service. It is your responsibility to maintain the security of your connected accounts (e.g. Google, Discord) and the device you use to access the Application.
 
 Third Party Services
 
-- [Sentry](https://sentry.io/terms/)
+Infrastructure providers used to operate the Application:
+
+- [Sentry](https://sentry.io/terms/) — error monitoring
+- [Amazon Web Services (AWS)](https://aws.amazon.com/agreement/) — hosting, authentication, and encryption key management
+- [Neon](https://neon.tech/terms-of-service) — database hosting
+
+Services you may choose to connect:
+
+- [Google](https://policies.google.com/terms) — used only if you sign in with a Google account
+- [Discord](https://discord.com/terms) — used only if you link a Discord account
+- [Geometry Dash Demon Ladder (GDDL)](https://gdladder.com) — used only if you connect your GDDL account to sync records
 
 Please be aware that the Service Provider does not assume responsibility for certain aspects. Some functions of the Application require an active internet connection. The Service Provider cannot be held responsible if the Application does not function at full capacity due to lack of access to the internet or if you have exhausted your data allowance.
 
@@ -89,29 +99,13 @@ To the fullest extent permitted by law, you agree to indemnify and hold harmless
 
 This indemnification does not apply to claims arising from the Service Provider's own negligence, breach of these Terms, or violation of applicable law. In jurisdictions where consumer indemnification is restricted by law, this clause shall be limited to the maximum extent permitted.
 
-The Service Provider may wish to update the application at some point. The application is currently available as per the requirements for the operating system (and for any additional systems they decide to extend the availability of the application to) may change, and you will need to download the updates if you want to continue using the application. The Service Provider does not guarantee that it will always update the application so that it is relevant to you and/or compatible with the particular operating system version installed on your device. You should accept updates when offered; if you choose not to, the Service Provider may cease to support earlier versions and the Application may not function properly. The Service Provider may also wish to cease providing the application and may terminate its use at any time without providing termination notice to you. Unless they inform you otherwise, upon any termination, (a) the rights and licenses granted to you in these terms will end; (b) you must cease using the application, and (if necessary) delete it from your device.
+The Service Provider may modify, update, or discontinue features of the Application at any time. As a web application, the Application is always served at its current version — there is nothing for you to download or install to stay up to date. The Service Provider may also cease providing the Application entirely and may terminate its availability at any time without prior notice. Unless the Service Provider informs you otherwise, upon any such termination: (a) the rights and licenses granted to you in these Terms will end; (b) you must stop using the Application.
 
 **Governing Law and Jurisdiction**
 
-These Terms and Conditions are governed by the laws of the jurisdiction in which the Service Provider is established, excluding conflict of law rules, except to the extent mandatory consumer protection laws provide otherwise.
+These Terms and Conditions are governed by the laws of the United States of America, excluding conflict of law rules, except to the extent mandatory consumer protection laws provide otherwise.
 
 Any dispute arising out of or relating to these Terms will be brought before the courts that have jurisdiction under applicable law. Nothing in this clause limits any rights you may have to bring a claim in a court that is competent under mandatory law.
-
-**DSA Compliance (Digital Services Act)**
-
-If the Application is an intermediary service as defined under the Digital Services Act (Regulation (EU) 2022/2065, "DSA"), the following provisions apply in addition to the terms above.
-
-Point of Contact: The Service Provider maintains a single point of contact for direct communication with EU authorities and recipients of the service, reachable at contact@infernolog.com. Where the Service Provider is established outside the European Union, a legal representative in the EU has been designated in accordance with Article 13 of the DSA.
-
-Content Moderation and Statement of Reasons: When the Service Provider restricts access to content, suspends or terminates an account, or otherwise limits the availability of the Application's features, a clear and specific statement of reasons will be provided to the affected user. The statement will include the nature of the restriction, the legal or contractual basis for the decision, and information on available redress mechanisms, in accordance with Article 17 of the DSA.
-
-Notice and Action: Users and third parties may submit notices of allegedly illegal content through the contact details provided in these Terms. The Service Provider will process notices promptly, diligently, and without automated decision-making where the circumstances require human review. Notices will be acknowledged electronically and a decision communicated without undue delay, in accordance with Article 16 of the DSA.
-
-Out-of-Court Dispute Settlement: Disputes regarding content moderation decisions, including decisions to restrict content or suspend accounts, may be submitted to an out-of-court dispute settlement body certified in accordance with Article 21 of the DSA. The Service Provider will engage with such bodies in good faith. Use of out-of-court dispute settlement does not affect your right to seek judicial remedy under applicable law.
-
-Transparency Reporting: The Service Provider publishes periodic transparency reports covering content moderation activities, including the volume of notices received, actions taken, and automated means used, in accordance with Article 24 of the DSA. Reports are made available upon request at contact@infernolog.com.
-
-These DSA provisions apply to the extent that the Application qualifies as an intermediary service under the DSA and does not replace or limit any rights or obligations under applicable consumer protection or data protection law.
 
 **Severability**
 

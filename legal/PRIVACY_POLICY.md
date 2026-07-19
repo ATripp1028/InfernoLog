@@ -4,9 +4,9 @@ This privacy policy applies to the InfernoLog app for web browsers, together wit
 
 **Privacy Stance**
 
-InfernoLog tries to the best of its ability to only collect user data required for app operation or upon user request. InfernoLog will never sell your data or use it to train LLMs for any reason.
+InfernoLog tries to the best of its ability to only collect user data required for app operation or upon user request. InfernoLog will never sell your data or use it to train LLMs or AI models of any kind for any reason.
 
-If you have found anything within the codebase, legal documents, or public statements that would contradict the above claim, report these findings to contact@infernolog.com.
+If you have found anything within the codebase, legal documents, or public statements from the InfernoLog team that would contradict the above claim, report these findings to contact@infernolog.com.
 
 **Information Collection and Use**
 
@@ -31,11 +31,16 @@ If you are a California resident, you have the right to know what personal infor
 
 The Service Provider may use the information you provide to send important information, required notices, and, where permitted by law, marketing communications.
 
-For a better experience while using the Application, the Service Provider may require you to provide certain personally identifiable information, including but not limited to Email address, Username, Discord ID, YouTube URLs, User Generated Text. The information the Service Provider requests will be retained and used as described in this privacy policy.
+For a better experience while using the Application, the Service Provider may require you to provide certain personally identifiable information, including but not limited to Email address, Username, Discord ID, YouTube URLs, User Generated Text, and, if you connect a third-party demon list account, that account's identifier (e.g. your GDDL username). The information the Service Provider requests will be retained and used as described in this privacy policy.
 
 **Third Party Access**
 
-Only aggregated, anonymized data is periodically transmitted to external services to aid the Service Provider in improving the Application and their service. The Service Provider may share your information with third parties in the ways that are described in this privacy statement.
+The Service Provider shares information with third parties in two ways:
+
+- **Infrastructure providers**, who process data solely on the Service Provider's behalf to operate the Application (hosting, authentication, database storage, error monitoring) and have no independent right to use it.
+- **Services you choose to connect**, where the Service Provider sends your identity or activity data only because you initiated the connection — for example, signing in with a Google account, linking a Discord account, or syncing with a third-party demon list using your own API key. This data is not aggregated or anonymized before being sent, since the connection itself depends on identifying you to that service.
+
+The Service Provider may share your information with third parties in the ways that are described in this privacy statement.
 
 **International Data Transfers**
 
@@ -49,7 +54,17 @@ Data protection laws in other countries may differ from those in your jurisdicti
 
 Please note that the Application utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by the Application:
 
-- [Sentry](https://sentry.io/privacy/)
+Infrastructure providers (process data on the Service Provider's behalf only):
+
+- [Sentry](https://sentry.io/privacy/) — error monitoring
+- [Amazon Web Services (AWS)](https://aws.amazon.com/privacy/) — hosting, authentication, and encryption key management
+- [Neon](https://neon.tech/privacy-policy) — database hosting
+
+Services you may choose to connect:
+
+- [Google](https://policies.google.com/privacy) — used only if you sign in with a Google account
+- [Discord](https://discord.com/privacy) — used only if you link a Discord account
+- [Geometry Dash Demon Ladder (GDDL)](https://gdladder.com) — used only if you connect your GDDL account to sync records
 
 The Service Provider may disclose User Provided and Automatically Collected Information:
 

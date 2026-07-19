@@ -74,7 +74,7 @@ Route: `/[username]/ranking/classic`
 
 ```
 ┌─────────────────────────────────────────────────┐
-│  Personal Ranking          [ Show unrated: OFF ]│
+│  Personal Ranking          [ Show unrated: ON  ]│
 │                            [ Show non-completions: OFF ] (v2)
 │                                                 │
 │  #1  ████ Tartarus          GDDL 35  ⚡         │
