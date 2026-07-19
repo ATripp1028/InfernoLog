@@ -22,17 +22,18 @@ The landing page (`/`) exposes **Sign up** and **Sign in** as two distinct entry
 - **Sign up** → COPPA age gate (`/age-gate`) → Google OAuth → onboarding
 - **Sign in** → Google OAuth → straight to the user's List
 
-This split is a **COPPA compliance requirement, not a UX preference.** Cognito creates a federated identity on the OAuth callback regardless of path, so the age gate must run *before* OAuth for new accounts — otherwise a child's identity would already round-trip through Cognito before we could reject it. Existing users signing in skip the age gate entirely. The clicked intent is recorded client-side (`AUTH_INTENT_KEY` in `AuthContext`) so the OAuth callback can branch (`signup` creates the user row; `signin` rejects if no user exists). The age gate itself never sends anything to the server — see `apps/web/src/features/onboarding/AgeGate.tsx`.
+This split is a **COPPA compliance requirement, not a UX preference.** Cognito creates a federated identity on the OAuth callback regardless of path, so the age gate must run _before_ OAuth for new accounts — otherwise a child's identity would already round-trip through Cognito before we could reject it. Existing users signing in skip the age gate entirely. The clicked intent is recorded client-side (`AUTH_INTENT_KEY` in `AuthContext`) so the OAuth callback can branch (`signup` creates the user row; `signin` rejects if no user exists). The age gate itself never sends anything to the server — see `apps/web/src/features/onboarding/AgeGate.tsx`.
 
 ---
 
-## API Keys (Third-Party Access) *(v3)*
+## API Keys (Third-Party Access) _(v3)_
 
 API keys are not built in v1 or v2. They are introduced in v3 to coincide with the Geode mod launch. The `api_keys` table schema is defined in `DATA_MODEL.md` for reference but should not be implemented until v3.
 
 API keys allow third-party tools (e.g. the Geode mod, community tools) to perform operations on behalf of a user.
 
 ### Rules
+
 - Maximum **5 API keys** per user
 - Keys do not expire but can be **revoked or rotated** at any time from the settings page
 - Each key has a **name** (e.g. "Geode Mod", "Community Dashboard") and a set of **scopes**
@@ -41,15 +42,15 @@ API keys allow third-party tools (e.g. the Geode mod, community tools) to perfor
 
 ### Scopes
 
-| Scope | Permission |
-|---|---|
-| `completions:read` | Read user's completions |
-| `completions:write` | Create and update completions |
-| `drops:read` | Read user's dropped levels |
-| `drops:write` | Create and update dropped levels |
-| `lists:read` | Read user's custom lists |
-| `lists:write` | Create and update custom lists |
-| `profile:read` | Read user's profile data |
+| Scope               | Permission                       |
+| ------------------- | -------------------------------- |
+| `completions:read`  | Read user's completions          |
+| `completions:write` | Create and update completions    |
+| `drops:read`        | Read user's dropped levels       |
+| `drops:write`       | Create and update dropped levels |
+| `lists:read`        | Read user's custom lists         |
+| `lists:write`       | Create and update custom lists   |
+| `profile:read`      | Read user's profile data         |
 
 ### Key Lifecycle
 
@@ -70,11 +71,11 @@ API keys allow third-party tools (e.g. the Geode mod, community tools) to perfor
 
 ## Roles & Permissions
 
-| Role | Capabilities |
-|---|---|
-| `user` | Standard access to own data and public profiles |
-| `moderator` | Access to moderation dashboard, reports queue, appeals queue |
-| `admin` | All moderator capabilities + verification management, moderator promotion/demotion |
+| Role        | Capabilities                                                                       |
+| ----------- | ---------------------------------------------------------------------------------- |
+| `user`      | Standard access to own data and public profiles                                    |
+| `moderator` | Access to moderation dashboard, reports queue, appeals queue                       |
+| `admin`     | All moderator capabilities + verification management, moderator promotion/demotion |
 
 Role is stored on the `users` table and checked server-side on all privileged routes. The `/admin` route on the frontend is gated behind a role check.
 

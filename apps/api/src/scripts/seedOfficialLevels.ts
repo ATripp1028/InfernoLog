@@ -31,7 +31,8 @@ async function main() {
     // Matches GET /levels/:levelId/resolve's suggestedGddlTier logic: only
     // meaningful for rated levels, and fetchGddlTier never throws (down/
     // timeout/not-found all resolve to null).
-    const gddlTier = level.stars > 0 ? await fetchGddlTier(level.inGameId) : null
+    const gddlTier =
+      level.stars > 0 ? await fetchGddlTier(level.inGameId) : null
 
     const fields = {
       levelType: 'CLASSIC' as const,

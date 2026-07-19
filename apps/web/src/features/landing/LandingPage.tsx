@@ -36,7 +36,9 @@ function CtaRow({ align = 'start' }: { align?: 'start' | 'center' }) {
   return (
     <div
       className={`flex w-full flex-col gap-4 pt-3 sm:w-auto sm:flex-row ${
-        align === 'center' ? 'items-stretch sm:items-center sm:justify-center' : 'items-stretch sm:items-start'
+        align === 'center'
+          ? 'items-stretch sm:items-center sm:justify-center'
+          : 'items-stretch sm:items-start'
       }`}
     >
       <button
@@ -83,12 +85,14 @@ export function LandingPage() {
         {/* Section 1 — Logging flow (copy left, image right) */}
         <section className="flex flex-col items-center gap-10 px-6 py-16 md:px-16 lg:flex-row lg:gap-16 lg:p-[100px]">
           <div className="flex flex-1 flex-col gap-4">
-            <LandingHeading>Log a completion the way it actually felt</LandingHeading>
+            <LandingHeading>
+              Log a completion the way it actually felt
+            </LandingHeading>
             <LandingBody>
-              Not a form. A moment. Enter a level, and InfernoLog pulls the name,
-              creator, song, and difficulty automatically — then gets out of your
-              way so you can rate it, score the enjoyment, and log how hard it
-              really was, your way.
+              Not a form. A moment. Enter a level, and InfernoLog pulls the
+              name, creator, song, and difficulty automatically — then gets out
+              of your way so you can rate it, score the enjoyment, and log how
+              hard it really was, your way.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[600px]">
@@ -105,9 +109,10 @@ export function LandingPage() {
           <div className="flex flex-1 flex-col gap-4">
             <LandingHeading>Every attempt is part of the record</LandingHeading>
             <LandingBody>
-              Your spreadsheet probably remembers the day you beat a level, but not the journey to get there. InfernoLog
-              remembers the whole climb — every logged percentage, every run,
-              every drop — so your history actually looks like what happened.
+              Your spreadsheet probably remembers the day you beat a level, but
+              not the journey to get there. InfernoLog remembers the whole climb
+              — every logged percentage, every run, every drop — so your history
+              actually looks like what happened.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[307px]">
@@ -144,10 +149,12 @@ export function LandingPage() {
         {/* Section 4 — The Ranking (full-width, centered copy above image) */}
         <section className="flex flex-col items-center gap-10 px-6 py-16 text-center md:px-16 lg:p-[100px]">
           <div className="flex max-w-[720px] flex-col gap-4">
-            <LandingHeading>Rank them the way you actually feel about them</LandingHeading>
+            <LandingHeading>
+              Rank them the way you actually feel about them
+            </LandingHeading>
             <LandingBody>
               Official lists disagree with you sometimes. That's fine — drag and
-              drop your own personal difficulty order, independent of any 
+              drop your own personal difficulty order, independent of any
               community list.
             </LandingBody>
           </div>
@@ -167,11 +174,14 @@ export function LandingPage() {
         {/* Section 5 — Import (copy left, image right) */}
         <section className="flex flex-col items-center gap-10 px-6 py-16 md:px-16 lg:flex-row lg:gap-16 lg:p-[100px]">
           <div className="flex flex-1 flex-col gap-4">
-            <LandingHeading>Bring your spreadsheet. Keep every row.</LandingHeading>
+            <LandingHeading>
+              Bring your spreadsheet. Keep every row.
+            </LandingHeading>
             <LandingBody>
               Years of history in a spreadsheet? Import it directly — InfernoLog
-              shows you exactly what's coming in and lets you decide what happens
-              to anything that conflicts, before a single row is committed.
+              shows you exactly what's coming in and lets you decide what
+              happens to anything that conflicts, before a single row is
+              committed.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[299px]">

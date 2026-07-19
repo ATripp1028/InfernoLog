@@ -69,9 +69,7 @@ export function EmberBackground() {
     function spawn(atBottom: boolean): Ember {
       return {
         x: Math.random() * width,
-        y: atBottom
-          ? height + Math.random() * 40
-          : Math.random() * height,
+        y: atBottom ? height + Math.random() * 40 : Math.random() * height,
         size: 1 + Math.random() * 2.5,
         drift: 8 + Math.random() * 22,
         driftPhase: Math.random() * Math.PI * 2,
@@ -95,8 +93,7 @@ export function EmberBackground() {
       canvas!.style.width = `${width}px`
       canvas!.style.height = `${height}px`
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ceiling =
-        width < MOBILE_BREAKPOINT ? COUNT_MAX_MOBILE : COUNT_MAX_DESKTOP
+      ceiling = width < MOBILE_BREAKPOINT ? COUNT_MAX_MOBILE : COUNT_MAX_DESKTOP
     }
 
     function paintBackground(fraction: number) {
@@ -145,7 +142,8 @@ export function EmberBackground() {
       requestAnimationFrame(() => {
         const doc = document.documentElement
         const max = doc.scrollHeight - doc.clientHeight
-        scrollFraction = max > 0 ? Math.min(1, Math.max(0, doc.scrollTop / max)) : 0
+        scrollFraction =
+          max > 0 ? Math.min(1, Math.max(0, doc.scrollTop / max)) : 0
         ticking = false
       })
     }

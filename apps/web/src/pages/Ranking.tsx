@@ -70,7 +70,6 @@ export function Ranking() {
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full flex-col gap-3 p-4 md:p-6">
-
         {isEmpty ? (
           <EmptyState />
         ) : (
