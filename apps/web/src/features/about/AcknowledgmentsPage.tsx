@@ -111,7 +111,13 @@ export function AcknowledgmentsPage() {
           >
             The official GD servers (boomlings.com) provide level metadata
             autofill — name, creator, song, difficulty, and more — for both
-            rated and unrated levels.
+            rated and unrated levels. Geometry Dash game assets used throughout the UI, including
+            difficulty faces, portal sprites, and currency icons. <br/>
+            Credit: Robert Topala (RobTop). 
+            <br/>
+            Game assets are the property of RobTop Games.
+            InfernoLog is an unofficial fan tool and is not affiliated with or
+            endorsed by RobTop Games.
           </Entry>
           <Entry
             name="GDBrowser"
@@ -150,13 +156,6 @@ export function AcknowledgmentsPage() {
             <Pending>AREDL maintainers</Pending>. Link:{' '}
             <Pending>AREDL URL</Pending>.
           </Entry> */}
-          <Entry name="RobTop Games">
-            Geometry Dash game assets used throughout the UI, including
-            difficulty faces, portal sprites, and currency icons. Credit: Robert
-            Topala (RobTop). Game assets are the property of RobTop Games.
-            InfernoLog is an unofficial fan tool and is not affiliated with or
-            endorsed by RobTop Games.
-          </Entry>
         </Section>
 
         <Section
@@ -236,14 +235,7 @@ export function AcknowledgmentsPage() {
           </p>
           <p>
             The source code is available at{' '}
-            <a
-              href="https://github.com/infernolog/infernolog"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ textDecoration: 'underline' }}
-            >
-              GitHub
-            </a>
+            <SectionLink href="https://github.com/ATripp1028/InfernoLog">GitHub</SectionLink>
             . Contributions, bug
             reports, and feature suggestions are welcome.
           </p>

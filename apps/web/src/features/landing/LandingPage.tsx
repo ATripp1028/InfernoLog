@@ -105,9 +105,9 @@ export function LandingPage() {
           <div className="flex flex-1 flex-col gap-4">
             <LandingHeading>Every attempt is part of the record</LandingHeading>
             <LandingBody>
-              Most trackers only remember the day you beat a level. InfernoLog
+              Your spreadsheet probably remembers the day you beat a level, but not the journey to get there. InfernoLog
               remembers the whole climb — every logged percentage, every run,
-              every rage-quit — so your history actually looks like what happened.
+              every drop — so your history actually looks like what happened.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[307px]">
@@ -147,8 +147,8 @@ export function LandingPage() {
             <LandingHeading>Rank them the way you actually feel about them</LandingHeading>
             <LandingBody>
               Official lists disagree with you sometimes. That's fine — drag and
-              drop your own personal difficulty order, independent of any tier
-              list.
+              drop your own personal difficulty order, independent of any 
+              community list.
             </LandingBody>
           </div>
           <picture className="w-full">
