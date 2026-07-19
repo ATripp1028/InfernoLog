@@ -86,9 +86,23 @@ const collisionDetection: CollisionDetection = (args) => {
 
   // Pointer is in the gap between rows, over no row at all — fall back to
   // nearest-row-centre so `over` still resolves to a real neighbour instead
-  // of the ambiguous column droppable.
+  // of the ambiguous column droppable. closestCenter has no distance cutoff of
+  // its own (it always returns every droppable sorted by distance), so cap it
+  // here: only accept the nearest row if it's within about one row's height —
+  // otherwise the pointer has left the board entirely and the drag should
+  // stay a no-op, same as the old rectIntersection-based fallback.
   const centerRows = excludingSelf(rowHits(closestCenter(args)))
-  if (centerRows.length > 0) return centerRows
+  const nearest = centerRows[0]
+  const nearestDistance =
+    typeof nearest?.data?.value === 'number' ? nearest.data.value : null
+  const maxGapDistance = args.collisionRect.height * 1.5
+  if (
+    nearest &&
+    nearestDistance !== null &&
+    nearestDistance <= maxGapDistance
+  ) {
+    return [nearest]
+  }
 
   const byPointer = pointerWithin(args)
   return byPointer.length > 0 ? byPointer : rectIntersection(args)

@@ -10,7 +10,8 @@ import { useEffect, useRef } from 'react'
 //   - active ember count grows (BASE → CEILING, halved on mobile)
 //   - ember speed grows (1x → 2.2x)
 // prefers-reduced-motion freezes a static low field and drops all
-// scroll-linked changes.
+// scroll-linked changes. The preference is watched live (not just read once
+// at mount) so toggling it in OS settings takes effect immediately.
 
 const EMBER_COLORS = ['#e8390e', '#ff9f1c', '#ff6b35', '#ff4d1f']
 
@@ -51,10 +52,6 @@ export function EmberBackground() {
     if (!canvas) return
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-
-    const reducedMotion = window.matchMedia(
-      '(prefers-reduced-motion: reduce)'
-    ).matches
 
     let width = 0
     let height = 0
@@ -124,64 +121,109 @@ export function EmberBackground() {
       ctx!.globalAlpha = 1
     }
 
-    if (reducedMotion) {
+    // ── Static mode ───────────────────────────────────────────────────────
+    let staticResizeHandler: (() => void) | null = null
+    function startStatic() {
       renderStatic()
-      const onResize = () => renderStatic()
-      window.addEventListener('resize', onResize)
-      return () => window.removeEventListener('resize', onResize)
+      staticResizeHandler = () => renderStatic()
+      window.addEventListener('resize', staticResizeHandler)
+    }
+    function stopStatic() {
+      if (staticResizeHandler) {
+        window.removeEventListener('resize', staticResizeHandler)
+        staticResizeHandler = null
+      }
     }
 
-    resize()
-
+    // ── Animated mode ─────────────────────────────────────────────────────
     let rafId = 0
     let ticking = false
-    const onScroll = () => {
-      if (ticking) return
-      ticking = true
-      // Read scroll position inside rAF, not in the passive handler.
-      requestAnimationFrame(() => {
-        const doc = document.documentElement
-        const max = doc.scrollHeight - doc.clientHeight
-        scrollFraction =
-          max > 0 ? Math.min(1, Math.max(0, doc.scrollTop / max)) : 0
-        ticking = false
-      })
-    }
-    const onResize = () => resize()
-    window.addEventListener('scroll', onScroll, { passive: true })
-    window.addEventListener('resize', onResize)
-    onScroll()
+    let scrollHandler: (() => void) | null = null
+    let animatedResizeHandler: (() => void) | null = null
 
-    function frame() {
-      const speed = lerp(SPEED_MIN, SPEED_MAX, scrollFraction)
-      const target = Math.round(lerp(COUNT_MIN, ceiling, scrollFraction))
+    function startAnimated() {
+      resize()
 
-      while (embers.length < target) embers.push(spawn(true))
-      if (embers.length > target) embers.length = target
-
-      paintBackground(scrollFraction)
-
-      for (const e of embers) {
-        e.y -= e.rise * speed
-        e.driftPhase += e.driftSpeed
-        e.flickerPhase += e.flickerSpeed
-        if (e.y < -10) {
-          e.y = height + Math.random() * 40
-          e.x = Math.random() * width
-        }
-        const flicker = 0.65 + 0.35 * Math.sin(e.flickerPhase)
-        drawEmber(e, e.baseOpacity * flicker)
+      scrollHandler = () => {
+        if (ticking) return
+        ticking = true
+        // Read scroll position inside rAF, not in the passive handler.
+        requestAnimationFrame(() => {
+          const doc = document.documentElement
+          const max = doc.scrollHeight - doc.clientHeight
+          scrollFraction =
+            max > 0 ? Math.min(1, Math.max(0, doc.scrollTop / max)) : 0
+          ticking = false
+        })
       }
-      ctx!.globalAlpha = 1
+      animatedResizeHandler = () => resize()
+      window.addEventListener('scroll', scrollHandler, { passive: true })
+      window.addEventListener('resize', animatedResizeHandler)
+      scrollHandler()
 
+      function frame() {
+        const speed = lerp(SPEED_MIN, SPEED_MAX, scrollFraction)
+        const target = Math.round(lerp(COUNT_MIN, ceiling, scrollFraction))
+
+        while (embers.length < target) embers.push(spawn(true))
+        if (embers.length > target) embers.length = target
+
+        paintBackground(scrollFraction)
+
+        for (const e of embers) {
+          e.y -= e.rise * speed
+          e.driftPhase += e.driftSpeed
+          e.flickerPhase += e.flickerSpeed
+          if (e.y < -10) {
+            e.y = height + Math.random() * 40
+            e.x = Math.random() * width
+          }
+          const flicker = 0.65 + 0.35 * Math.sin(e.flickerPhase)
+          drawEmber(e, e.baseOpacity * flicker)
+        }
+        ctx!.globalAlpha = 1
+
+        rafId = requestAnimationFrame(frame)
+      }
       rafId = requestAnimationFrame(frame)
     }
-    rafId = requestAnimationFrame(frame)
+
+    function stopAnimated() {
+      cancelAnimationFrame(rafId)
+      if (scrollHandler) {
+        window.removeEventListener('scroll', scrollHandler)
+        scrollHandler = null
+      }
+      if (animatedResizeHandler) {
+        window.removeEventListener('resize', animatedResizeHandler)
+        animatedResizeHandler = null
+      }
+    }
+
+    // ── Live prefers-reduced-motion switch ──────────────────────────────────
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
+
+    if (motionQuery.matches) {
+      startStatic()
+    } else {
+      startAnimated()
+    }
+
+    const onMotionPreferenceChange = () => {
+      if (motionQuery.matches) {
+        stopAnimated()
+        startStatic()
+      } else {
+        stopStatic()
+        startAnimated()
+      }
+    }
+    motionQuery.addEventListener('change', onMotionPreferenceChange)
 
     return () => {
-      cancelAnimationFrame(rafId)
-      window.removeEventListener('scroll', onScroll)
-      window.removeEventListener('resize', onResize)
+      motionQuery.removeEventListener('change', onMotionPreferenceChange)
+      stopAnimated()
+      stopStatic()
     }
   }, [])
 

@@ -28,11 +28,18 @@ async function main() {
     const songName = level.songName ?? song?.name ?? null
     const songAuthor = level.songAuthor ?? song?.author ?? null
 
+    const existing = await prisma.level.findUnique({
+      where: { inGameId: level.inGameId },
+      select: { inGameId: true, gddlTier: true },
+    })
+
     // Matches GET /levels/:levelId/resolve's suggestedGddlTier logic: only
-    // meaningful for rated levels, and fetchGddlTier never throws (down/
-    // timeout/not-found all resolve to null).
-    const gddlTier =
+    // meaningful for rated levels. fetchGddlTier never throws — down/timeout/
+    // not-found all resolve to null — so on failure keep whatever tier is
+    // already stored (if any) rather than clobbering a good value with null.
+    const fetchedGddlTier =
       level.stars > 0 ? await fetchGddlTier(level.inGameId) : null
+    const gddlTier = fetchedGddlTier ?? existing?.gddlTier ?? null
 
     const fields = {
       levelType: 'CLASSIC' as const,
@@ -55,11 +62,6 @@ async function main() {
       dataSource: 'official',
       verified: true,
     }
-
-    const existing = await prisma.level.findUnique({
-      where: { inGameId: level.inGameId },
-      select: { inGameId: true },
-    })
 
     await prisma.level.upsert({
       where: { inGameId: level.inGameId },

@@ -107,22 +107,6 @@ These Terms and Conditions are governed by the laws of the United States of Amer
 
 Any dispute arising out of or relating to these Terms will be brought before the courts that have jurisdiction under applicable law. Nothing in this clause limits any rights you may have to bring a claim in a court that is competent under mandatory law.
 
-**DSA Compliance (Digital Services Act)**
-
-If the Application is an intermediary service as defined under the Digital Services Act (Regulation (EU) 2022/2065, "DSA"), the following provisions apply in addition to the terms above.
-
-Point of Contact: The Service Provider maintains a single point of contact for direct communication with EU authorities and recipients of the service, reachable at contact@infernolog.com.
-
-Content Moderation and Statement of Reasons: When the Service Provider restricts access to content, suspends or terminates an account, or otherwise limits the availability of the Application's features, a clear and specific statement of reasons will be provided to the affected user. The statement will include the nature of the restriction, the legal or contractual basis for the decision, and information on available redress mechanisms, in accordance with Article 17 of the DSA.
-
-Notice and Action: Users and third parties may submit notices of allegedly illegal content through the contact details provided in these Terms. The Service Provider will process notices promptly, diligently, and without automated decision-making where the circumstances require human review. Notices will be acknowledged electronically and a decision communicated without undue delay, in accordance with Article 16 of the DSA.
-
-Out-of-Court Dispute Settlement: Disputes regarding content moderation decisions, including decisions to restrict content or suspend accounts, may be submitted to an out-of-court dispute settlement body certified in accordance with Article 21 of the DSA. The Service Provider will engage with such bodies in good faith. Use of out-of-court dispute settlement does not affect your right to seek judicial remedy under applicable law.
-
-Transparency Reporting: The Service Provider publishes periodic transparency reports covering content moderation activities, including the volume of notices received, actions taken, and automated means used, in accordance with Article 24 of the DSA. Reports are made available upon request at contact@infernolog.com.
-
-These DSA provisions apply to the extent that the Application qualifies as an intermediary service under the DSA and does not replace or limit any rights or obligations under applicable consumer protection or data protection law.
-
 **Severability**
 
 If any provision of these Terms and Conditions is held to be invalid, illegal, or unenforceable by a court of competent jurisdiction, such provision shall be modified to the minimum extent necessary to make it valid and enforceable, and the remaining provisions of these Terms shall remain in full force and effect.
