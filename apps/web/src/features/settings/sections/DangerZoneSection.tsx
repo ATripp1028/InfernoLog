@@ -22,7 +22,7 @@ export function DangerZoneSection() {
       // in memory or storage past this point.
       await signOut()
       setOpen(false)
-      void navigate({ to: '/login', replace: true })
+      void navigate({ to: '/', replace: true })
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to delete account'

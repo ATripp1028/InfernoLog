@@ -73,7 +73,7 @@ export function AuthCallback() {
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       if (payload.event === 'signInWithRedirect_failure') {
         console.error('Hub: sign in failed', payload.data)
-        navigate({ to: '/login', replace: true })
+        navigate({ to: '/', replace: true })
       }
     })
     return () => unsubscribe()
@@ -83,7 +83,7 @@ export function AuthCallback() {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 px-4 text-center">
         <p className="text-sm text-[var(--color-danger)]">{error}</p>
-        <Button variant="outline" onClick={() => navigate({ to: '/login' })}>
+        <Button variant="outline" onClick={() => navigate({ to: '/' })}>
           Back to sign in
         </Button>
       </div>
