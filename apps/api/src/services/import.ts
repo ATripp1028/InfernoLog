@@ -28,6 +28,7 @@ import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
 import { removeFromWantToBeat } from './collections'
 import { checkRatingConflicts } from './importRatings'
 import { checkCollectionsMerge } from './importCollections'
+import { checkRankingMerge } from './importRanking'
 
 type Tx = Prisma.TransactionClient
 
@@ -2025,6 +2026,7 @@ export async function checkImportConflicts(
     userId,
     req.collections ?? []
   )
+  const rankingMerge = await checkRankingMerge(userId, req.ranking ?? [])
 
   return {
     completionConflicts,
@@ -2034,6 +2036,6 @@ export async function checkImportConflicts(
     droppedDuplicates,
     ratingConflicts,
     collectionsMerge,
-    rankingMerge: null,
+    rankingMerge,
   }
 }

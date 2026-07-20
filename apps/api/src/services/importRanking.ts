@@ -12,21 +12,23 @@
 
 import { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import type { ImportRankingEntry } from '@infernolog/core'
+import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
+import { computeListMerge } from '../utils/listMerge'
 
 export interface ImportRankingResult {
   placed: number
   skipped: { rank: number; label: string; reason: string }[]
 }
 
-export async function commitImportRanking(
-  userId: string,
-  entries: ImportRankingEntry[]
-): Promise<ImportRankingResult> {
-  const skipped: ImportRankingResult['skipped'] = []
+interface RankingTargets {
+  byLevelId: Map<string, string> // levelId -> levelProgressId
+  byName: Map<string, string[]> // lowercased level name -> levelProgressId[]
+  levelIdByLpId: Map<string, string> // levelProgressId -> levelId, for merge display
+}
 
-  // Ranking only applies to completed levels, so resolve every entry against the
-  // user's own completions rather than the GD servers.
+// Shared by commitImportRanking and checkRankingMerge — the user's completed
+// levels, resolvable by levelId or (ambiguity-checked) by name.
+async function resolveRankingTargets(userId: string): Promise<RankingTargets> {
   const completed = await prisma.levelProgress.findMany({
     where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     select: { id: true, levelId: true, level: { select: { name: true } } },
@@ -34,7 +36,9 @@ export async function commitImportRanking(
 
   const byLevelId = new Map(completed.map((c) => [c.levelId, c.id]))
   const byName = new Map<string, string[]>()
+  const levelIdByLpId = new Map<string, string>()
   for (const c of completed) {
+    levelIdByLpId.set(c.id, c.levelId)
     const n = c.level.name?.trim().toLowerCase()
     if (!n) continue
     const list = byName.get(n)
@@ -42,7 +46,20 @@ export async function commitImportRanking(
     else byName.set(n, [c.id])
   }
 
-  const orderedLpIds: string[] = [] // hardest → easiest
+  return { byLevelId, byName, levelIdByLpId }
+}
+
+// Resolves entries to an ordered list of levelProgressIds, skipping any entry
+// that's ambiguous, unresolvable, or a duplicate of an already-ranked-higher
+// entry — the exact same rules commitImportRanking enforces, shared so
+// checkRankingMerge diffs against the same resolved order that would
+// actually be written.
+function resolveRankingOrder(
+  targets: RankingTargets,
+  entries: ImportRankingEntry[]
+): { orderedLpIds: string[]; skipped: ImportRankingResult['skipped'] } {
+  const skipped: ImportRankingResult['skipped'] = []
+  const orderedLpIds: string[] = []
   const seen = new Set<string>()
 
   entries.forEach((entry, i) => {
@@ -51,9 +68,9 @@ export async function commitImportRanking(
       entry.levelName ??
       (entry.levelId ? `level ${entry.levelId}` : `rank ${rank}`)
 
-    let lpId = entry.levelId ? byLevelId.get(entry.levelId) : undefined
+    let lpId = entry.levelId ? targets.byLevelId.get(entry.levelId) : undefined
     if (!lpId && entry.levelName) {
-      const matches = byName.get(entry.levelName.trim().toLowerCase())
+      const matches = targets.byName.get(entry.levelName.trim().toLowerCase())
       if (matches && matches.length === 1) lpId = matches[0]
       else if (matches && matches.length > 1) {
         skipped.push({
@@ -86,6 +103,15 @@ export async function commitImportRanking(
     orderedLpIds.push(lpId)
   })
 
+  return { orderedLpIds, skipped }
+}
+
+export async function commitImportRanking(
+  userId: string,
+  entries: ImportRankingEntry[]
+): Promise<ImportRankingResult> {
+  const targets = await resolveRankingTargets(userId)
+  const { orderedLpIds, skipped } = resolveRankingOrder(targets, entries)
   const n = orderedLpIds.length
 
   // Only replace when at least one entry resolved — otherwise a ranking tab full
@@ -105,4 +131,52 @@ export async function commitImportRanking(
   }
 
   return { placed: n, skipped }
+}
+
+// Pre-commit merge check: diffs the sheet's resolvable order (hardest →
+// easiest, same rules commitImportRanking applies) against the user's
+// existing ranking via the git-like list merge (see utils/listMerge.ts).
+// Returns null whenever there's nothing to reconcile — no ranking tab, no
+// entries resolved, no existing ranking to conflict with, or the two orders
+// already agree — mirroring checkCollectionsMerge's "only surface a genuine
+// conflict" contract.
+export async function checkRankingMerge(
+  userId: string,
+  entries: ImportRankingEntry[]
+): Promise<ImportListMerge | null> {
+  if (entries.length === 0) return null
+
+  const targets = await resolveRankingTargets(userId)
+  const { orderedLpIds } = resolveRankingOrder(targets, entries)
+  if (orderedLpIds.length === 0) return null
+  const importedLevelIds = orderedLpIds.map(
+    (lpId) => targets.levelIdByLpId.get(lpId)!
+  )
+
+  const existing = await prisma.classicRanking.findMany({
+    where: { userId },
+    orderBy: { rankingIndex: 'desc' }, // hardest first, matching the import convention
+    select: { levelProgress: { select: { levelId: true } } },
+  })
+  const existingLevelIds = existing.map((r) => r.levelProgress.levelId)
+
+  const merge = computeListMerge(existingLevelIds, importedLevelIds)
+  if (!merge.hasConflict) return null
+
+  const allLevelIds = new Set([...existingLevelIds, ...importedLevelIds])
+  const levels = await prisma.level.findMany({
+    where: { inGameId: { in: [...allLevelIds] } },
+    select: { inGameId: true, name: true },
+  })
+  const nameById = new Map(levels.map((l) => [l.inGameId, l.name]))
+  const toEntries = (ids: string[]) =>
+    ids.map((id) => ({ levelId: id, levelName: nameById.get(id) ?? null }))
+
+  return {
+    list: null,
+    mergedSeed: toEntries(merge.mergedSeed),
+    importedRemainder: toEntries(merge.importedRemainder),
+    existingRemainder: toEntries(merge.existingRemainder),
+    hasConflict: merge.hasConflict,
+  }
 }

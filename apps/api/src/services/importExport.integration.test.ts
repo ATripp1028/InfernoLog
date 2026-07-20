@@ -43,7 +43,9 @@ vi.mock('../utils/gddl', async (importOriginal) => {
 })
 
 const { commitImportBatch, checkImportConflicts } = await import('./import')
-const { commitImportRanking } = await import('./importRanking')
+const { commitImportRanking, checkRankingMerge } = await import(
+  './importRanking'
+)
 const { commitImportCollections, checkCollectionsMerge } = await import(
   './importCollections'
 )
@@ -981,6 +983,75 @@ describe('commitImportRanking', () => {
     expect(res.skipped).toHaveLength(1)
     exp = await fullExport(user.id)
     expect(exp.ranking.map((r) => r.levelId)).toEqual(['200', '100'])
+  })
+})
+
+describe('checkRankingMerge', () => {
+  async function completeAllThree(userId: string) {
+    await commitImportBatch(userId, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '100' } },
+      { type: 'completion', rowIndex: 1, data: { levelId: '200' } },
+      { type: 'completion', rowIndex: 2, data: { levelId: '300' } },
+    ])
+  }
+
+  it('reports nothing when there is no existing ranking', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await completeAllThree(user.id)
+    const merge = await checkRankingMerge(user.id, [
+      { levelId: '100' },
+      { levelId: '200' },
+    ])
+    expect(merge).toBeNull()
+  })
+
+  it('reports nothing when the sheet order matches the existing order', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await completeAllThree(user.id)
+    await commitImportRanking(user.id, [{ levelId: '100' }, { levelId: '200' }])
+    const merge = await checkRankingMerge(user.id, [
+      { levelId: '100' },
+      { levelId: '200' },
+    ])
+    expect(merge).toBeNull()
+  })
+
+  it('reports nothing for a pure append with no order conflict', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await completeAllThree(user.id)
+    await commitImportRanking(user.id, [{ levelId: '100' }, { levelId: '200' }])
+    const merge = await checkRankingMerge(user.id, [
+      { levelId: '100' },
+      { levelId: '200' },
+      { levelId: '300' },
+    ])
+    expect(merge).toBeNull()
+  })
+
+  it('reports a merge with the correct backbone/remainders on a genuine order conflict', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await completeAllThree(user.id)
+    await commitImportRanking(user.id, [
+      { levelId: '100' },
+      { levelId: '200' },
+      { levelId: '300' },
+    ])
+    // Imported reorders to [100, 300, 200] — 200-vs-300 disagree.
+    const merge = await checkRankingMerge(user.id, [
+      { levelId: '100' },
+      { levelId: '300' },
+      { levelId: '200' },
+    ])
+    expect(merge).not.toBeNull()
+    expect(merge!.list).toBeNull()
+    expect(merge!.hasConflict).toBe(true)
+    expect(merge!.mergedSeed.map((e) => e.levelId)).toEqual(['100', '200'])
+    expect(merge!.importedRemainder.map((e) => e.levelId)).toEqual(['300'])
+    expect(merge!.existingRemainder.map((e) => e.levelId)).toEqual(['300'])
   })
 })
 
