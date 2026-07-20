@@ -20,6 +20,16 @@ import { persister } from '../lib/persister'
 export const AUTH_INTENT_KEY = 'authIntent'
 export type AuthIntent = 'signin' | 'signup'
 
+// Signing out after a federated (signInWithRedirect) sign-in always sends the
+// browser through Cognito's hosted-UI logout endpoint, which then does a full
+// page redirect back to VITE_REDIRECT_SIGN_OUT (the app root) — that's a real
+// navigation, not a SPA route change, so it clobbers whatever route we'd
+// otherwise `navigate()` to. AuthCallback sets this flag right before calling
+// signOut() when a sign-in gets rejected for having no matching account; the
+// root route checks for it on load and forwards to /no-account-found instead
+// of showing the landing page.
+export const NO_ACCOUNT_FOUND_KEY = 'noAccountFound'
+
 interface AuthContextType {
   isAuthenticated: boolean
   isAuthInitializing: boolean

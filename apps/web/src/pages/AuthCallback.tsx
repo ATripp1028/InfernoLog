@@ -4,6 +4,7 @@ import { Hub } from 'aws-amplify/utils'
 import {
   useAuth,
   AUTH_INTENT_KEY,
+  NO_ACCOUNT_FOUND_KEY,
   type AuthIntent,
 } from '../context/AuthContext'
 import { signupStart, signinReject } from '../lib/api/authOnboarding'
@@ -56,8 +57,8 @@ export function AuthCallback() {
         } catch (err) {
           if (err instanceof ApiError && err.status === 404) {
             await signinReject(token)
+            sessionStorage.setItem(NO_ACCOUNT_FOUND_KEY, '1')
             signOut()
-            navigate({ to: '/no-account-found', replace: true })
             return
           }
           throw err
