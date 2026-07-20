@@ -1,10 +1,20 @@
-// Three-step spreadsheet import wizard.
+// Spreadsheet import wizard. WizardStep values are strictly ordered (see
+// StepIndicator's ORDER map) and only ever move forward automatically —
+// upload → review → checking-conflicts → conflict → committing → success.
+// checking-conflicts and conflict share a display slot ("Conflicts"), so
+// finding no conflicts shows as that step being skipped, never revisited.
+// The only backward moves are explicit user actions (e.g. "Back to review"
+// after an error, or "Fix and re-upload" from the review step).
 //
-// Step 1: Upload — file picker + date format selector + client validation.
-// Step 2: Conflict — review existing-vs-incoming completions; pick resolution.
-// Step 3: Commit — progress bar while batches are sent; success report.
+// Upload — file picker + date format selector + client validation.
+// Review — flags/counts from parsing; pick conflict-resolution mode.
+// Checking-conflicts — network round trip to detect existing completions.
+// Conflict — per-level resolution when the check above finds any.
+// Committing — progress bar while batches are sent.
+// Success — final report.
 
 import { useState, useCallback, useId, useEffect, useRef } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -36,7 +46,17 @@ import type { MeData } from '@/lib/api/me'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type WizardStep = 'upload' | 'review' | 'conflict' | 'committing' | 'success'
+// checking-conflicts is a distinct state from committing (see StepIndicator's
+// ORDER map) — it's the network round trip that decides whether the wizard
+// proceeds to the conflict step or straight to committing, so it must sit
+// between review and conflict, never share committing's step slot.
+type WizardStep =
+  | 'upload'
+  | 'review'
+  | 'checking-conflicts'
+  | 'conflict'
+  | 'committing'
+  | 'success'
 
 interface AllFlags {
   completions: ParseFlag[]
@@ -76,9 +96,14 @@ function StepIndicator({
     { id: 'success', label: 'Done' },
   ]
 
+  // checking-conflicts shares the "Conflicts" slot with conflict itself —
+  // it's the in-flight check that decides whether the conflict step is
+  // needed at all, so it must render as the same indicator position rather
+  // than briefly flashing "Import" as current before possibly stepping back.
   const ORDER: Record<WizardStep | 'done', number> = {
     upload: 0,
     review: 1,
+    'checking-conflicts': 2,
     conflict: 2,
     committing: 3,
     success: 4,
@@ -983,8 +1008,8 @@ export function ImportWizard({
   const [commitError, setCommitError] = useState<string | null>(null)
 
   // Progress bar during `committing` is driven by the polled job status once
-  // the job exists; before that (conflict-check phase) progressLabel alone
-  // carries the message.
+  // the job exists; before that (while startImport is still being called),
+  // progressLabel alone carries the message.
   const total = importStatus.data?.totalRows ?? 0
   const processed = importStatus.data?.processedRows ?? 0
   const progress = total > 0 ? (processed / total) * 100 : 0
@@ -1136,10 +1161,13 @@ export function ImportWizard({
         setProgressLabel('Importing…')
         void importStatus.refetch()
       } catch (err) {
+        // Stay on `committing` rather than snapping back to review — the
+        // step indicator must never revisit an earlier step automatically.
+        // The committing render shows this error with an explicit "Back to
+        // review" button so any backward move is a deliberate user action.
         setCommitError(
           err instanceof Error ? err.message : 'Failed to start import'
         )
-        setStep('review')
       }
     },
     [startImport, parseResult, importStatus]
@@ -1180,8 +1208,8 @@ export function ImportWizard({
       ]),
     ]
 
-    setStep('committing')
-    setProgressLabel('Checking for conflicts…')
+    setStep('checking-conflicts')
+    setCommitError(null)
 
     try {
       const checkResult =
@@ -1193,13 +1221,15 @@ export function ImportWizard({
         setResolutions({})
         setStep('conflict')
       } else {
+        setStep('committing')
         await startImportJob(completions, progressRows, dropped, {})
       }
     } catch (err) {
+      // Stay on `checking-conflicts` — see the comment in startImportJob's
+      // catch block for why this must not auto-navigate backward.
       setCommitError(
         err instanceof Error ? err.message : 'Failed to check conflicts'
       )
-      setStep('review')
     }
   }, [
     parseResult,
@@ -1257,6 +1287,32 @@ export function ImportWizard({
         />
       )}
 
+      {step === 'checking-conflicts' && (
+        <div className="space-y-3 py-4">
+          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="size-4 animate-spin" />
+            Checking for conflicts…
+          </div>
+          {commitError && (
+            <div className="space-y-2 text-center">
+              <p className="text-xs text-[var(--color-danger)]">
+                {commitError}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCommitError(null)
+                  setStep('review')
+                }}
+              >
+                Back to review
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       {step === 'conflict' && (
         <ConflictStep
           conflicts={conflicts}
@@ -1282,9 +1338,21 @@ export function ImportWizard({
               : progressLabel}
           </p>
           {commitError && (
-            <p className="text-xs text-[var(--color-danger)] text-center">
-              {commitError}
-            </p>
+            <div className="space-y-2 text-center">
+              <p className="text-xs text-[var(--color-danger)]">
+                {commitError}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setCommitError(null)
+                  setStep('review')
+                }}
+              >
+                Back to review
+              </Button>
+            </div>
           )}
           {/* The job runs server-side once started — closing here doesn't
               cancel it; progress remains visible via the persistent toast and
