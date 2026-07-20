@@ -26,6 +26,7 @@ import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
 import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
 import { removeFromWantToBeat } from './collections'
+import { checkRatingConflicts } from './importRatings'
 
 type Tx = Prisma.TransactionClient
 
@@ -2018,13 +2019,15 @@ export async function checkImportConflicts(
     }
   }
 
+  const ratingConflicts = await checkRatingConflicts(userId, req.ratings ?? [])
+
   return {
     completionConflicts,
     progressConflicts,
     progressDuplicates,
     droppedConflicts,
     droppedDuplicates,
-    ratingConflicts: [],
+    ratingConflicts,
     collectionsMerge: [],
     rankingMerge: null,
   }

@@ -11,7 +11,7 @@
 import { randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import type { ImportRatingEntry } from '@infernolog/core'
+import type { ImportRatingEntry, ImportRatingConflict } from '@infernolog/core'
 
 export interface ImportRatingsResult {
   scored: number
@@ -20,14 +20,18 @@ export interface ImportRatingsResult {
   skipped: { label: string; reason: string }[]
 }
 
-export async function commitImportRatings(
-  userId: string,
-  entries: ImportRatingEntry[]
-): Promise<ImportRatingsResult> {
-  const skipped: ImportRatingsResult['skipped'] = []
+interface RatingTargets {
+  puByLevelId: Map<string, string>
+  puByName: Map<string, string[]>
+  levelNameByLevelId: Map<string, string | null>
+  catIdByName: Map<string, string>
+  maxSortOrder: number
+}
 
-  // Scores attach to completions — resolve each entry against the user's own
-  // completed levels (the completion's ProgressUpdate id).
+// Shared by commitImportRatings and checkRatingConflicts — the user's
+// completed levels (as their completion's ProgressUpdate id, since scores
+// attach there) and their existing rating categories.
+async function resolveRatingTargets(userId: string): Promise<RatingTargets> {
   const completed = await prisma.levelProgress.findMany({
     where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
     select: {
@@ -42,10 +46,12 @@ export async function commitImportRatings(
   })
   const puByLevelId = new Map<string, string>()
   const puByName = new Map<string, string[]>()
+  const levelNameByLevelId = new Map<string, string | null>()
   for (const c of completed) {
     const puId = c.progressUpdates[0]?.id
     if (!puId) continue
     puByLevelId.set(c.levelId, puId)
+    levelNameByLevelId.set(c.levelId, c.level.name)
     const n = c.level.name?.trim().toLowerCase()
     if (!n) continue
     const list = puByName.get(n)
@@ -53,15 +59,40 @@ export async function commitImportRatings(
     else puByName.set(n, [puId])
   }
 
-  // Existing categories, matched case-insensitively by name.
   const cats = await prisma.ratingCategory.findMany({
     where: { userId },
     select: { id: true, name: true, sortOrder: true },
   })
-  const catIdByName = new Map(
-    cats.map((c) => [c.name.trim().toLowerCase(), c.id])
-  )
-  let maxSortOrder = cats.reduce((m, c) => Math.max(m, c.sortOrder), -1)
+  const catIdByName = new Map(cats.map((c) => [c.name.trim().toLowerCase(), c.id]))
+  const maxSortOrder = cats.reduce((m, c) => Math.max(m, c.sortOrder), -1)
+
+  return { puByLevelId, puByName, levelNameByLevelId, catIdByName, maxSortOrder }
+}
+
+// Resolves one entry to its target completion, by levelId first then by a
+// unique name match. Returns 'ambiguous' when the name matches more than one
+// completed level, null when nothing matches at all.
+function resolveRatingPuId(
+  targets: RatingTargets,
+  entry: ImportRatingEntry
+): string | 'ambiguous' | null {
+  let puId = entry.levelId ? targets.puByLevelId.get(entry.levelId) : undefined
+  if (!puId && entry.levelName) {
+    const matches = targets.puByName.get(entry.levelName.trim().toLowerCase())
+    if (matches && matches.length === 1) puId = matches[0]
+    else if (matches && matches.length > 1) return 'ambiguous'
+  }
+  return puId ?? null
+}
+
+export async function commitImportRatings(
+  userId: string,
+  entries: ImportRatingEntry[]
+): Promise<ImportRatingsResult> {
+  const skipped: ImportRatingsResult['skipped'] = []
+  const targets = await resolveRatingTargets(userId)
+  const catIdByName = targets.catIdByName
+  let maxSortOrder = targets.maxSortOrder
 
   // ── Resolve entries → (puId, categoryName, score) triples ────────────
   interface Score {
@@ -78,24 +109,18 @@ export async function commitImportRatings(
     const label =
       entry.levelName ?? (entry.levelId ? `level ${entry.levelId}` : 'row')
 
-    let puId = entry.levelId ? puByLevelId.get(entry.levelId) : undefined
-    if (!puId && entry.levelName) {
-      const matches = puByName.get(entry.levelName.trim().toLowerCase())
-      if (matches && matches.length === 1) puId = matches[0]
-      else if (matches && matches.length > 1) {
-        skipped.push({
-          label,
-          reason:
-            'Matches more than one of your completed levels — add a level_id',
-        })
-        continue
-      }
+    const puId = resolveRatingPuId(targets, entry)
+    if (puId === 'ambiguous') {
+      skipped.push({
+        label,
+        reason: 'Matches more than one of your completed levels — add a level_id',
+      })
+      continue
     }
     if (!puId) {
       skipped.push({
         label,
-        reason:
-          'Not among your completed levels — scores attach to completions',
+        reason: 'Not among your completed levels — scores attach to completions',
       })
       continue
     }
@@ -160,4 +185,76 @@ export async function commitImportRatings(
   })
 
   return result
+}
+
+// Pre-commit conflict check: an entry conflicts on a given category only when
+// a score already exists for that (completion, category) pair AND differs
+// from the incoming value. No existing score → not a conflict (plain
+// create). Existing-and-equal → not a conflict (silent no-op — the client
+// sends the same value again, which commitImportRatings just rewrites
+// harmlessly). Only entries with a known level_id are checked — a name-only
+// row resolves its level too late for this pre-commit pass, same convention
+// as Completions/Progress/Dropped.
+export async function checkRatingConflicts(
+  userId: string,
+  entries: ImportRatingEntry[]
+): Promise<ImportRatingConflict[]> {
+  const knownEntries = entries.filter((e) => e.levelId)
+  if (knownEntries.length === 0) return []
+
+  const targets = await resolveRatingTargets(userId)
+
+  const resolved: {
+    puId: string
+    levelId: string
+    levelName: string | null
+    scores: Record<string, number>
+  }[] = []
+  const puIds = new Set<string>()
+  for (const entry of knownEntries) {
+    const puId = resolveRatingPuId(targets, entry)
+    if (!puId || puId === 'ambiguous') continue
+    resolved.push({
+      puId,
+      levelId: entry.levelId!,
+      // The DB's canonical name, not the sheet's — more trustworthy for a
+      // conflict review UI, and always available since puId only resolves
+      // against the user's own completed levels.
+      levelName:
+        targets.levelNameByLevelId.get(entry.levelId!) ??
+        entry.levelName ??
+        null,
+      scores: entry.scores,
+    })
+    puIds.add(puId)
+  }
+  if (resolved.length === 0) return []
+
+  const existingScores = await prisma.ratingScore.findMany({
+    where: { progressUpdateId: { in: [...puIds] } },
+    select: { progressUpdateId: true, categoryId: true, score: true },
+  })
+  const existingByKey = new Map(
+    existingScores.map((s) => [`${s.progressUpdateId}::${s.categoryId}`, s.score])
+  )
+
+  const conflicts: ImportRatingConflict[] = []
+  for (const entry of resolved) {
+    for (const [rawName, importedScore] of Object.entries(entry.scores)) {
+      const name = rawName.trim()
+      if (!name) continue
+      const categoryId = targets.catIdByName.get(name.toLowerCase())
+      if (!categoryId) continue // new category — never a conflict
+      const existingScore = existingByKey.get(`${entry.puId}::${categoryId}`)
+      if (existingScore == null || existingScore === importedScore) continue
+      conflicts.push({
+        levelId: entry.levelId,
+        levelName: entry.levelName,
+        categoryName: name,
+        existingScore,
+        importedScore,
+      })
+    }
+  }
+  return conflicts
 }

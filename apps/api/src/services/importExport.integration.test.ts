@@ -925,6 +925,35 @@ describe('checkImportConflicts', () => {
     expect(result.droppedConflicts).toHaveLength(1)
     expect(result.droppedConflicts[0]!.matchedId).toBeTruthy()
   })
+
+  it('reports a rating conflict only when an existing score genuinely differs', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '100' } },
+    ])
+    await commitImportRatings(user.id, [
+      { levelId: '100', scores: { Gameplay: 80, Decoration: 90 } },
+    ])
+
+    const result = await checkImportConflicts(user.id, {
+      ratings: [
+        {
+          levelId: '100',
+          // Gameplay differs, Decoration agrees, Flow is a brand-new category.
+          scores: { Gameplay: 95, Decoration: 90, Flow: 70 },
+        },
+      ],
+    })
+    expect(result.ratingConflicts).toHaveLength(1)
+    expect(result.ratingConflicts[0]).toEqual({
+      levelId: '100',
+      levelName: 'Bloodbath',
+      categoryName: 'Gameplay',
+      existingScore: 80,
+      importedScore: 95,
+    })
+  })
 })
 
 describe('commitImportRanking', () => {

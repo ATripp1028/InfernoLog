@@ -13,10 +13,10 @@
 // Resolve-conflicts — canonical git-merge-style resolution (drop / overwrite
 //   / merge, per field or in bulk — see FieldConflictMerge) for whichever
 //   rows the check above found conflicting. Internally a linear sequence of
-//   sub-steps (Completions → Progress → Dropped, empty ones skipped) rather
-//   than free-roaming tabs — consistent with the wizard's own top-level
-//   "forward only" step model. Ratings/Collections/Ranking reuse the same
-//   primitives in a later phase.
+//   sub-steps (Completions → Progress → Dropped → Ratings, empty ones
+//   skipped) rather than free-roaming tabs — consistent with the wizard's
+//   own top-level "forward only" step model. Collections/Ranking reuse the
+//   list-merge primitive in a later phase.
 // Committing — progress bar while batches are sent.
 // Success — final report.
 
@@ -34,6 +34,7 @@ import { cn } from '@/lib/utils'
 import { useImportApi, useImportStatus } from '@/lib/api/import'
 import type {
   ImportRowConflict,
+  ImportRatingConflict,
   ImportCommitRow,
   ImportCheckResponse,
   ImportStatusResponse,
@@ -51,6 +52,7 @@ import {
   type ParsedCompletionRow,
   type ParsedProgressRow,
   type ParsedDroppedRow,
+  type ParsedRatingRow,
 } from './parseSpreadsheet'
 import { downloadTemplate } from './generateTemplate'
 import type { MeData } from '@/lib/api/me'
@@ -73,7 +75,12 @@ type WizardStep =
 // The resolve-conflicts step's internal sequence — a sub-step is skipped
 // when its conflict list is empty, same "skip what's empty" rule as the
 // top-level wizard steps.
-const CONFLICT_SUB_STEP_ORDER = ['completions', 'progress', 'dropped'] as const
+const CONFLICT_SUB_STEP_ORDER = [
+  'completions',
+  'progress',
+  'dropped',
+  'ratings',
+] as const
 type ConflictSubStep = (typeof CONFLICT_SUB_STEP_ORDER)[number]
 
 // checkConflicts is skipped entirely when there's nothing to check (e.g. an
@@ -102,6 +109,40 @@ function conflictsToGroups(conflicts: ImportRowConflict[]) {
       importedValue: f.importedValue,
     })),
   }))
+}
+
+// Ratings conflicts are keyed by (levelId, categoryName) rather than
+// rowIndex — a rating "row" in the sheet bundles every category for one
+// level into a single scores map, so a conflict on one category doesn't
+// correspond to a whole row the way it does for the other three tabs.
+function ratingConflictGroupId(conflict: ImportRatingConflict): string {
+  return `${conflict.levelId}::${conflict.categoryName}`
+}
+
+function ratingConflictsToGroups(conflicts: ImportRatingConflict[]) {
+  return conflicts.map((c) => ({
+    groupId: ratingConflictGroupId(c),
+    title: c.levelName ?? `Level ${c.levelId}`,
+    subtitle: c.categoryName,
+    fields: [
+      {
+        field: 'score',
+        existingValue: c.existingScore,
+        importedValue: c.importedScore,
+      },
+    ],
+  }))
+}
+
+// Shared between the /check request and the final /start payload — both need
+// the same "which rating rows are actually importable" filter.
+function getValidRatingRows(parseResult: ParseResult | null): ParsedRatingRow[] {
+  return (parseResult?.ratings ?? []).filter(
+    (r) =>
+      !r.flags.some((f) => f.severity === 'error') &&
+      (r.levelId || r.levelName) &&
+      Object.keys(r.scores).length > 0
+  )
 }
 
 interface AllFlags {
@@ -923,6 +964,9 @@ export function ImportWizard({
   const [droppedConflicts, setDroppedConflicts] = useState<
     ImportRowConflict[]
   >([])
+  const [ratingConflicts, setRatingConflicts] = useState<
+    ImportRatingConflict[]
+  >([])
   const [conflictSubStep, setConflictSubStep] =
     useState<ConflictSubStep>('completions')
   const [completionResolutions, setCompletionResolutions] = useState<
@@ -932,6 +976,9 @@ export function ImportWizard({
     Map<string, GroupResolution>
   >(new Map())
   const [droppedResolutions, setDroppedResolutions] = useState<
+    Map<string, GroupResolution>
+  >(new Map())
+  const [ratingResolutions, setRatingResolutions] = useState<
     Map<string, GroupResolution>
   >(new Map())
   const [progressLabel, setProgressLabel] = useState('')
@@ -998,7 +1045,8 @@ export function ImportWizard({
       dropped: ParsedDroppedRow[],
       completionResolutions: Map<string, GroupResolution>,
       progressResolutions: Map<string, GroupResolution>,
-      droppedResolutions: Map<string, GroupResolution>
+      droppedResolutions: Map<string, GroupResolution>,
+      ratingResolutions: Map<string, GroupResolution>
     ) => {
       setProgressLabel('Starting import…')
       setCommitError(null)
@@ -1085,12 +1133,30 @@ export function ImportWizard({
           r.list &&
           (r.levelId || r.levelName)
       )
-      const ratingRows = (parseResult?.ratings ?? []).filter(
-        (r) =>
-          !r.flags.some((f) => f.severity === 'error') &&
-          (r.levelId || r.levelName) &&
-          Object.keys(r.scores).length > 0
-      )
+      // Apply resolved rating conflicts before sending: 'drop' removes that
+      // one category from this level's scores (leaving the existing value
+      // untouched); a resolved 'score' override replaces it; everything else
+      // (no resolution — never conflicted, or resolution left at "imported")
+      // passes through as originally parsed. A row a drop leaves with no
+      // categories left is dropped entirely — nothing left to send.
+      const ratingRows = getValidRatingRows(parseResult)
+        .map((r) => {
+          if (!r.levelId || ratingResolutions.size === 0) return r
+          const scores = { ...r.scores }
+          for (const categoryName of Object.keys(r.scores)) {
+            const resolved = ratingResolutions.get(
+              `${r.levelId}::${categoryName}`
+            )
+            if (!resolved) continue
+            if (resolved.resolution === 'drop') {
+              delete scores[categoryName]
+            } else if (typeof resolved.values.score === 'number') {
+              scores[categoryName] = resolved.values.score
+            }
+          }
+          return { ...r, scores }
+        })
+        .filter((r) => Object.keys(r.scores).length > 0)
 
       try {
         await startImport({
@@ -1149,11 +1215,13 @@ export function ImportWizard({
   const firstConflictSubStep = (
     completion: ImportRowConflict[],
     progress: ImportRowConflict[],
-    dropped: ImportRowConflict[]
+    dropped: ImportRowConflict[],
+    ratings: ImportRatingConflict[]
   ): ConflictSubStep | null => {
     if (completion.length > 0) return 'completions'
     if (progress.length > 0) return 'progress'
     if (dropped.length > 0) return 'dropped'
+    if (ratings.length > 0) return 'ratings'
     return null
   }
 
@@ -1165,6 +1233,7 @@ export function ImportWizard({
       progress: progressRows,
       dropped,
     } = validRows(parseResult)
+    const ratingRows = getValidRatingRows(parseResult)
 
     if (skipConflictCheck) {
       // New account (onboarding) — there can be no existing completions to
@@ -1174,6 +1243,7 @@ export function ImportWizard({
         completions,
         progressRows,
         dropped,
+        new Map(),
         new Map(),
         new Map(),
         new Map()
@@ -1186,7 +1256,10 @@ export function ImportWizard({
 
     try {
       const hasRows =
-        completions.length > 0 || dropped.length > 0 || progressRows.length > 0
+        completions.length > 0 ||
+        dropped.length > 0 ||
+        progressRows.length > 0 ||
+        ratingRows.length > 0
       const checkResult = hasRows
         ? await checkConflicts({
             completions: completions.map((r) => ({
@@ -1201,17 +1274,26 @@ export function ImportWizard({
               rowIndex: r.rowIndex,
               data: r.data,
             })),
+            ratings: ratingRows.map((r) => ({
+              levelId: r.levelId,
+              levelName: r.levelName,
+              creator: r.creator,
+              inGameDifficulty: r.inGameDifficulty,
+              scores: r.scores,
+            })),
           })
         : EMPTY_CHECK_RESULT
 
       setCompletionConflicts(checkResult.completionConflicts)
       setProgressConflicts(checkResult.progressConflicts)
       setDroppedConflicts(checkResult.droppedConflicts)
+      setRatingConflicts(checkResult.ratingConflicts)
 
       const firstSubStep = firstConflictSubStep(
         checkResult.completionConflicts,
         checkResult.progressConflicts,
-        checkResult.droppedConflicts
+        checkResult.droppedConflicts,
+        checkResult.ratingConflicts
       )
 
       if (firstSubStep) {
@@ -1219,6 +1301,7 @@ export function ImportWizard({
         setCompletionResolutions(new Map())
         setProgressResolutions(new Map())
         setDroppedResolutions(new Map())
+        setRatingResolutions(new Map())
         setStep('resolve-conflicts')
       } else {
         setStep('committing')
@@ -1226,6 +1309,7 @@ export function ImportWizard({
           completions,
           progressRows,
           dropped,
+          new Map(),
           new Map(),
           new Map(),
           new Map()
@@ -1253,7 +1337,8 @@ export function ImportWizard({
     async (
       completionRes: Map<string, GroupResolution>,
       progressRes: Map<string, GroupResolution>,
-      droppedRes: Map<string, GroupResolution>
+      droppedRes: Map<string, GroupResolution>,
+      ratingRes: Map<string, GroupResolution>
     ) => {
       if (!parseResult) return
       const {
@@ -1268,7 +1353,8 @@ export function ImportWizard({
         dropped,
         completionRes,
         progressRes,
-        droppedRes
+        droppedRes,
+        ratingRes
       )
     },
     [parseResult, validRows, startImportJob]
@@ -1281,10 +1367,11 @@ export function ImportWizard({
         const step = CONFLICT_SUB_STEP_ORDER[i]!
         if (step === 'progress' && progressConflicts.length > 0) return step
         if (step === 'dropped' && droppedConflicts.length > 0) return step
+        if (step === 'ratings' && ratingConflicts.length > 0) return step
       }
       return null
     },
-    [progressConflicts, droppedConflicts]
+    [progressConflicts, droppedConflicts, ratingConflicts]
   )
 
   const handleCompletionConflictsResolved = useCallback(
@@ -1292,9 +1379,21 @@ export function ImportWizard({
       setCompletionResolutions(resolved)
       const next = nextConflictSubStep('completions')
       if (next) setConflictSubStep(next)
-      else void finishConflictResolution(resolved, progressResolutions, droppedResolutions)
+      else
+        void finishConflictResolution(
+          resolved,
+          progressResolutions,
+          droppedResolutions,
+          ratingResolutions
+        )
     },
-    [nextConflictSubStep, progressResolutions, droppedResolutions, finishConflictResolution]
+    [
+      nextConflictSubStep,
+      progressResolutions,
+      droppedResolutions,
+      ratingResolutions,
+      finishConflictResolution,
+    ]
   )
 
   const handleProgressConflictsResolved = useCallback(
@@ -1306,30 +1405,66 @@ export function ImportWizard({
         void finishConflictResolution(
           completionResolutions,
           resolved,
-          droppedResolutions
+          droppedResolutions,
+          ratingResolutions
         )
     },
-    [nextConflictSubStep, completionResolutions, droppedResolutions, finishConflictResolution]
+    [
+      nextConflictSubStep,
+      completionResolutions,
+      droppedResolutions,
+      ratingResolutions,
+      finishConflictResolution,
+    ]
   )
 
   const handleDroppedConflictsResolved = useCallback(
     (resolved: Map<string, GroupResolution>) => {
-      // 'dropped' is always last in CONFLICT_SUB_STEP_ORDER — nothing to
-      // advance to.
       setDroppedResolutions(resolved)
+      const next = nextConflictSubStep('dropped')
+      if (next) setConflictSubStep(next)
+      else
+        void finishConflictResolution(
+          completionResolutions,
+          progressResolutions,
+          resolved,
+          ratingResolutions
+        )
+    },
+    [
+      nextConflictSubStep,
+      completionResolutions,
+      progressResolutions,
+      ratingResolutions,
+      finishConflictResolution,
+    ]
+  )
+
+  const handleRatingConflictsResolved = useCallback(
+    (resolved: Map<string, GroupResolution>) => {
+      // 'ratings' is always last in CONFLICT_SUB_STEP_ORDER — nothing to
+      // advance to.
+      setRatingResolutions(resolved)
       void finishConflictResolution(
         completionResolutions,
         progressResolutions,
+        droppedResolutions,
         resolved
       )
     },
-    [completionResolutions, progressResolutions, finishConflictResolution]
+    [
+      completionResolutions,
+      progressResolutions,
+      droppedResolutions,
+      finishConflictResolution,
+    ]
   )
 
   const handleConflictsCancelled = useCallback(() => {
     setCompletionConflicts([])
     setProgressConflicts([])
     setDroppedConflicts([])
+    setRatingConflicts([])
     setStep('review')
   }, [])
 
@@ -1413,6 +1548,15 @@ export function ImportWizard({
           tab="dropped"
           groups={conflictsToGroups(droppedConflicts)}
           onResolved={handleDroppedConflictsResolved}
+          onCancel={handleConflictsCancelled}
+        />
+      )}
+
+      {step === 'resolve-conflicts' && conflictSubStep === 'ratings' && (
+        <FieldConflictMerge
+          tab="rating"
+          groups={ratingConflictsToGroups(ratingConflicts)}
+          onResolved={handleRatingConflictsResolved}
           onCancel={handleConflictsCancelled}
         />
       )}

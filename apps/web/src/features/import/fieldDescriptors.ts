@@ -104,8 +104,12 @@ export const DROPPED_FIELDS: FieldDescriptor[] = [
   { field: 'reason', label: 'Reason', format: 'text' },
 ]
 
+// 'percent' (0-100), not 'rating10' — unlike completion enjoyment/simpleRating
+// (0-10 on the wire), ImportRatingEntry.scores is already 0-100 on the wire,
+// and existing/importedScore in ImportRatingConflict match that convention
+// so a resolved value drops straight into the payload with no conversion.
 export const RATING_FIELDS: FieldDescriptor[] = [
-  { field: 'score', label: 'Score', format: 'rating10' },
+  { field: 'score', label: 'Score', format: 'percent' },
 ]
 
 function toDescriptorMap(
