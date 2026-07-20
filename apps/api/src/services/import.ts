@@ -27,6 +27,7 @@ import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
 import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
 import { removeFromWantToBeat } from './collections'
 import { checkRatingConflicts } from './importRatings'
+import { checkCollectionsMerge } from './importCollections'
 
 type Tx = Prisma.TransactionClient
 
@@ -2020,6 +2021,10 @@ export async function checkImportConflicts(
   }
 
   const ratingConflicts = await checkRatingConflicts(userId, req.ratings ?? [])
+  const collectionsMerge = await checkCollectionsMerge(
+    userId,
+    req.collections ?? []
+  )
 
   return {
     completionConflicts,
@@ -2028,7 +2033,7 @@ export async function checkImportConflicts(
     droppedConflicts,
     droppedDuplicates,
     ratingConflicts,
-    collectionsMerge: [],
+    collectionsMerge,
     rankingMerge: null,
   }
 }

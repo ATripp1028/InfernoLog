@@ -44,7 +44,9 @@ vi.mock('../utils/gddl', async (importOriginal) => {
 
 const { commitImportBatch, checkImportConflicts } = await import('./import')
 const { commitImportRanking } = await import('./importRanking')
-const { commitImportCollections } = await import('./importCollections')
+const { commitImportCollections, checkCollectionsMerge } = await import(
+  './importCollections'
+)
 const { commitImportRatings } = await import('./importRatings')
 const { exportSection } = await import('./exportData')
 
@@ -1015,6 +1017,70 @@ describe('commitImportCollections', () => {
     expect(
       exp.collections.filter((l) => l.list === 'My List').map((l) => l.levelId)
     ).toEqual(['300'])
+  })
+})
+
+describe('checkCollectionsMerge', () => {
+  it('reports nothing for a collection with no existing membership', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const merges = await checkCollectionsMerge(user.id, [
+      { list: 'favorites', levelId: '100' },
+    ])
+    expect(merges).toEqual([])
+  })
+
+  it('reports nothing when the sheet order matches the existing order', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportCollections(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '200', position: 2 },
+    ])
+    const merges = await checkCollectionsMerge(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '200', position: 2 },
+    ])
+    expect(merges).toEqual([])
+  })
+
+  it('reports nothing for a pure append with no order conflict', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportCollections(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '200', position: 2 },
+    ])
+    const merges = await checkCollectionsMerge(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '200', position: 2 },
+      { list: 'favorites', levelId: '300', position: 3 },
+    ])
+    expect(merges).toEqual([])
+  })
+
+  it('reports a merge with the correct backbone/remainders on a genuine order conflict', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportCollections(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '200', position: 2 },
+      { list: 'favorites', levelId: '300', position: 3 },
+    ])
+    // Imported reorders to [100, 300, 200] — 200-vs-300 disagree.
+    const merges = await checkCollectionsMerge(user.id, [
+      { list: 'favorites', levelId: '100', position: 1 },
+      { list: 'favorites', levelId: '300', position: 2 },
+      { list: 'favorites', levelId: '200', position: 3 },
+    ])
+    expect(merges).toHaveLength(1)
+    const merge = merges[0]!
+    expect(merge.list).toBe('Favorites')
+    expect(merge.hasConflict).toBe(true)
+    expect(merge.mergedSeed.map((e) => e.levelId)).toEqual(['100', '200'])
+    expect(merge.importedRemainder.map((e) => e.levelId)).toEqual(['300'])
+    expect(merge.existingRemainder.map((e) => e.levelId)).toEqual(['300'])
+    expect(merge.mergedSeed[0]).toEqual({ levelId: '100', levelName: 'Bloodbath' })
   })
 })
 

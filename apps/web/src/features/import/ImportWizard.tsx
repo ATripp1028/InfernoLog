@@ -1,26 +1,34 @@
 // Spreadsheet import wizard. WizardStep values are strictly ordered (see
 // StepIndicator's ORDER map) and only ever move forward automatically —
-// upload → review → checking-conflicts → resolve-conflicts → committing →
-// success. checking-conflicts and resolve-conflicts share a display slot
-// ("Conflicts"), so finding no conflicts shows as that step being skipped,
-// never revisited. The only backward moves are explicit user actions (e.g.
-// "Back to review" after an error, or "Fix and re-upload" from the review
-// step, or "Cancel" out of conflict resolution).
+// upload → review → checking-conflicts → resolve-conflicts → resolve-lists →
+// committing → success. checking-conflicts and resolve-conflicts share a
+// display slot ("Conflicts"), so finding no field conflicts shows as that
+// step being skipped, never revisited; resolve-lists has its own slot
+// ("Lists") since it's reachable either directly from checking-conflicts
+// (no field conflicts, but a list merge is needed) or after resolve-conflicts
+// finishes — either way it's a forward move. The only backward moves are
+// explicit user actions (e.g. "Back to review" after an error, "Fix and
+// re-upload" from the review step, or "Cancel" out of conflict/list
+// resolution).
 //
 // Upload — file picker + date format selector + client validation.
 // Review — flags/counts from parsing.
-// Checking-conflicts — network round trip for field-level conflict detection.
+// Checking-conflicts — one network round trip for every tab's conflict
+//   detection (field-level AND list-merge — see /me/import/check).
 // Resolve-conflicts — canonical git-merge-style resolution (drop / overwrite
 //   / merge, per field or in bulk — see FieldConflictMerge) for whichever
 //   rows the check above found conflicting. Internally a linear sequence of
 //   sub-steps (Completions → Progress → Dropped → Ratings, empty ones
 //   skipped) rather than free-roaming tabs — consistent with the wizard's
-//   own top-level "forward only" step model. Collections/Ranking reuse the
-//   list-merge primitive in a later phase.
+//   own top-level "forward only" step model.
+// Resolve-lists — three-column git-merge-style ordering resolution (see
+//   ListMergeBoard) for whichever collections (and, in a later phase,
+//   Ranking) the check found genuinely order-conflicting. Also a linear
+//   sequence of sub-steps, one per touched collection.
 // Committing — progress bar while batches are sent.
 // Success — final report.
 
-import { useState, useCallback, useId, useEffect, useRef } from 'react'
+import { useState, useCallback, useId, useEffect, useMemo, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -35,6 +43,7 @@ import { useImportApi, useImportStatus } from '@/lib/api/import'
 import type {
   ImportRowConflict,
   ImportRatingConflict,
+  ImportListMerge,
   ImportCommitRow,
   ImportCheckResponse,
   ImportStatusResponse,
@@ -44,6 +53,7 @@ import {
   FieldConflictMerge,
   type GroupResolution,
 } from './FieldConflictMerge'
+import { ListMergeBoard } from './listMerge/ListMergeBoard'
 import {
   parseSpreadsheet,
   type DateFormat,
@@ -60,15 +70,15 @@ import type { MeData } from '@/lib/api/me'
 // ── Types ──────────────────────────────────────────────────────────────────
 
 // checking-conflicts is a distinct state from committing (see StepIndicator's
-// ORDER map) — it's the network round trip that decides whether the wizard
-// proceeds to the resolve-conflicts step or straight to committing, so it
-// must sit between review and resolve-conflicts, never share committing's
-// step slot.
+// ORDER map) — it's the network round trip that decides where the wizard
+// goes next, so it must sit between review and resolve-conflicts/resolve-lists,
+// never share committing's step slot.
 type WizardStep =
   | 'upload'
   | 'review'
   | 'checking-conflicts'
   | 'resolve-conflicts'
+  | 'resolve-lists'
   | 'committing'
   | 'success'
 
@@ -82,6 +92,33 @@ const CONFLICT_SUB_STEP_ORDER = [
   'ratings',
 ] as const
 type ConflictSubStep = (typeof CONFLICT_SUB_STEP_ORDER)[number]
+
+// resolvedListOrders key for the single global ranking merge (once Phase 5
+// populates rankingMerge) — collections are keyed by their own display name,
+// which can never collide with this sentinel.
+const RANKING_MERGE_KEY = '__ranking__'
+
+// Mirrors apps/api/src/services/importCollections.ts's classifyCollection —
+// only the display-name half, since the wizard just needs to know which raw
+// sheet rows belong to the same target collection as an already-resolved
+// merge result (matched against ImportListMerge.list), not the full
+// key/type/create-on-demand logic the backend owns.
+function classifyCollectionName(raw: string): string {
+  const k = raw.toLowerCase().replace(/[\s_-]+/g, '')
+  if (k === 'wanttobeat') return 'Want to Beat'
+  if (['favorites', 'favourites', 'favorite', 'favourite'].includes(k))
+    return 'Favorites'
+  if (
+    [
+      'leastfavorites',
+      'leastfavourites',
+      'leastfavorite',
+      'leastfavourite',
+    ].includes(k)
+  )
+    return 'Least Favorites'
+  return raw.trim()
+}
 
 // checkConflicts is skipped entirely when there's nothing to check (e.g. an
 // import with no Completions/Progress/Dropped rows at all).
@@ -178,7 +215,10 @@ function StepIndicator({
     { id: 'review', label: 'Review' },
     ...(skipConflictCheck
       ? []
-      : [{ id: 'resolve-conflicts' as const, label: 'Conflicts' }]),
+      : [
+          { id: 'resolve-conflicts' as const, label: 'Conflicts' },
+          { id: 'resolve-lists' as const, label: 'Lists' },
+        ]),
     { id: 'committing', label: 'Import' },
     { id: 'success', label: 'Done' },
   ]
@@ -187,15 +227,19 @@ function StepIndicator({
   // itself — it's the in-flight check that decides whether the resolve step
   // is needed at all, so it must render as the same indicator position
   // rather than briefly flashing "Import" as current before possibly
-  // stepping back.
+  // stepping back. resolve-lists gets its own slot: it's reachable either
+  // directly from checking-conflicts (no field conflicts, but a list merge
+  // is needed) or after resolve-conflicts finishes — both are forward moves
+  // since its order (3) is greater than checking-conflicts/resolve-conflicts's (2).
   const ORDER: Record<WizardStep | 'done', number> = {
     upload: 0,
     review: 1,
     'checking-conflicts': 2,
     'resolve-conflicts': 2,
-    committing: 3,
-    success: 4,
-    done: 5,
+    'resolve-lists': 3,
+    committing: 4,
+    success: 5,
+    done: 6,
   }
 
   const current = ORDER[step]
@@ -981,8 +1025,31 @@ export function ImportWizard({
   const [ratingResolutions, setRatingResolutions] = useState<
     Map<string, GroupResolution>
   >(new Map())
+  const [collectionsMerge, setCollectionsMerge] = useState<ImportListMerge[]>(
+    []
+  )
+  const [rankingMerge, setRankingMerge] = useState<ImportListMerge | null>(
+    null
+  )
+  const [listMergeIndex, setListMergeIndex] = useState(0)
+  const [resolvedListOrders, setResolvedListOrders] = useState<
+    Map<string, string[]>
+  >(new Map())
   const [progressLabel, setProgressLabel] = useState('')
   const [commitError, setCommitError] = useState<string | null>(null)
+
+  // The resolve-lists step's linear sequence — one sub-step per touched
+  // collection (from the check response, already filtered to hasConflict
+  // ones only), plus Ranking last if present. Derived rather than stored:
+  // collectionsMerge/rankingMerge only change once, right after the check
+  // call, and stay fixed for the rest of the resolve-lists sub-flow.
+  const listMergeQueue = useMemo(
+    () => [
+      ...collectionsMerge.map((m) => ({ key: m.list!, merge: m })),
+      ...(rankingMerge ? [{ key: RANKING_MERGE_KEY, merge: rankingMerge }] : []),
+    ],
+    [collectionsMerge, rankingMerge]
+  )
 
   // Progress bar during `committing` is driven by the polled job status once
   // the job exists; before that (while startImport is still being called),
@@ -1046,7 +1113,12 @@ export function ImportWizard({
       completionResolutions: Map<string, GroupResolution>,
       progressResolutions: Map<string, GroupResolution>,
       droppedResolutions: Map<string, GroupResolution>,
-      ratingResolutions: Map<string, GroupResolution>
+      ratingResolutions: Map<string, GroupResolution>,
+      // Collection name (or RANKING_MERGE_KEY) → the user-merged final
+      // order, for whichever lists went through resolve-lists. A list not
+      // in this map never needed merging — its original sheet rows are
+      // sent unchanged.
+      listOrders: Map<string, string[]>
     ) => {
       setProgressLabel('Starting import…')
       setCommitError(null)
@@ -1122,17 +1194,59 @@ export function ImportWizard({
         }),
       ]
 
-      const rankingRows = (parseResult?.ranking ?? []).filter(
-        (r) =>
-          !r.flags.some((f) => f.severity === 'error') &&
-          (r.levelId || r.levelName)
+      // Ranking: the resolved merge order (if resolve-lists produced one)
+      // wins outright — it already represents the user's final say — else
+      // fall back to the sheet's own rows unchanged (no merge was needed).
+      const resolvedRankingOrder = listOrders.get(RANKING_MERGE_KEY)
+      const rankingEntries = resolvedRankingOrder
+        ? resolvedRankingOrder.map((levelId) => ({
+            levelId,
+            levelName: null as string | null,
+          }))
+        : (parseResult?.ranking ?? [])
+            .filter(
+              (r) =>
+                !r.flags.some((f) => f.severity === 'error') &&
+                (r.levelId || r.levelName)
+            )
+            .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
+
+      // Lists/Collections: same idea, but per-collection — a sheet can touch
+      // several collections and only some of them needed merging. Rows for a
+      // collection with a resolved order are dropped from the original sheet
+      // rows and replaced by the resolved order's synthesized rows.
+      const resolvedCollectionNames = new Set(
+        [...listOrders.keys()].filter((k) => k !== RANKING_MERGE_KEY)
       )
-      const listRows = (parseResult?.lists ?? []).filter(
-        (r) =>
-          !r.flags.some((f) => f.severity === 'error') &&
-          r.list &&
-          (r.levelId || r.levelName)
-      )
+      const untouchedListRows = (parseResult?.lists ?? [])
+        .filter(
+          (r) =>
+            !r.flags.some((f) => f.severity === 'error') &&
+            r.list &&
+            (r.levelId || r.levelName) &&
+            !resolvedCollectionNames.has(classifyCollectionName(r.list!))
+        )
+        .map((r) => ({
+          list: r.list as string,
+          levelId: r.levelId,
+          levelName: r.levelName,
+          creator: r.creator,
+          inGameDifficulty: r.inGameDifficulty,
+          position: r.position,
+        }))
+      const resolvedListEntries = [...listOrders.entries()]
+        .filter(([key]) => key !== RANKING_MERGE_KEY)
+        .flatMap(([listName, order]) =>
+          order.map((levelId, i) => ({
+            list: listName,
+            levelId,
+            levelName: null as string | null,
+            creator: null as string | null,
+            inGameDifficulty: null as string | null,
+            position: i,
+          }))
+        )
+      const listEntries = [...untouchedListRows, ...resolvedListEntries]
       // Apply resolved rating conflicts before sending: 'drop' removes that
       // one category from this level's scores (leaving the existing value
       // untouched); a resolved 'score' override replaces it; everything else
@@ -1161,26 +1275,8 @@ export function ImportWizard({
       try {
         await startImport({
           rows,
-          ...(rankingRows.length > 0
-            ? {
-                ranking: rankingRows.map((r) => ({
-                  levelId: r.levelId,
-                  levelName: r.levelName,
-                })),
-              }
-            : {}),
-          ...(listRows.length > 0
-            ? {
-                collections: listRows.map((r) => ({
-                  list: r.list as string,
-                  levelId: r.levelId,
-                  levelName: r.levelName,
-                  creator: r.creator,
-                  inGameDifficulty: r.inGameDifficulty,
-                  position: r.position,
-                })),
-              }
-            : {}),
+          ...(rankingEntries.length > 0 ? { ranking: rankingEntries } : {}),
+          ...(listEntries.length > 0 ? { collections: listEntries } : {}),
           ...(ratingRows.length > 0
             ? {
                 ratings: ratingRows.map((r) => ({
@@ -1234,6 +1330,17 @@ export function ImportWizard({
       dropped,
     } = validRows(parseResult)
     const ratingRows = getValidRatingRows(parseResult)
+    const rankingRows = (parseResult.ranking ?? []).filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.levelId || r.levelName)
+    )
+    const listRows = (parseResult.lists ?? []).filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        r.list &&
+        (r.levelId || r.levelName)
+    )
 
     if (skipConflictCheck) {
       // New account (onboarding) — there can be no existing completions to
@@ -1243,6 +1350,7 @@ export function ImportWizard({
         completions,
         progressRows,
         dropped,
+        new Map(),
         new Map(),
         new Map(),
         new Map(),
@@ -1259,7 +1367,9 @@ export function ImportWizard({
         completions.length > 0 ||
         dropped.length > 0 ||
         progressRows.length > 0 ||
-        ratingRows.length > 0
+        ratingRows.length > 0 ||
+        rankingRows.length > 0 ||
+        listRows.length > 0
       const checkResult = hasRows
         ? await checkConflicts({
             completions: completions.map((r) => ({
@@ -1281,6 +1391,18 @@ export function ImportWizard({
               inGameDifficulty: r.inGameDifficulty,
               scores: r.scores,
             })),
+            ranking: rankingRows.map((r) => ({
+              levelId: r.levelId,
+              levelName: r.levelName,
+            })),
+            collections: listRows.map((r) => ({
+              list: r.list as string,
+              levelId: r.levelId,
+              levelName: r.levelName,
+              creator: r.creator,
+              inGameDifficulty: r.inGameDifficulty,
+              position: r.position,
+            })),
           })
         : EMPTY_CHECK_RESULT
 
@@ -1288,6 +1410,8 @@ export function ImportWizard({
       setProgressConflicts(checkResult.progressConflicts)
       setDroppedConflicts(checkResult.droppedConflicts)
       setRatingConflicts(checkResult.ratingConflicts)
+      setCollectionsMerge(checkResult.collectionsMerge)
+      setRankingMerge(checkResult.rankingMerge)
 
       const firstSubStep = firstConflictSubStep(
         checkResult.completionConflicts,
@@ -1295,6 +1419,8 @@ export function ImportWizard({
         checkResult.droppedConflicts,
         checkResult.ratingConflicts
       )
+      const hasListMerges =
+        checkResult.collectionsMerge.length > 0 || checkResult.rankingMerge != null
 
       if (firstSubStep) {
         setConflictSubStep(firstSubStep)
@@ -1303,12 +1429,17 @@ export function ImportWizard({
         setDroppedResolutions(new Map())
         setRatingResolutions(new Map())
         setStep('resolve-conflicts')
+      } else if (hasListMerges) {
+        setListMergeIndex(0)
+        setResolvedListOrders(new Map())
+        setStep('resolve-lists')
       } else {
         setStep('committing')
         await startImportJob(
           completions,
           progressRows,
           dropped,
+          new Map(),
           new Map(),
           new Map(),
           new Map(),
@@ -1341,6 +1472,17 @@ export function ImportWizard({
       ratingRes: Map<string, GroupResolution>
     ) => {
       if (!parseResult) return
+      // A list merge still needs resolving — hand off to resolve-lists
+      // rather than committing yet. That step reads these four resolutions
+      // back from state once IT finishes (see finishListMergeResolution) —
+      // by then they've long since landed via the setState calls the
+      // sub-step handlers below already made before calling this function.
+      if (listMergeQueue.length > 0) {
+        setListMergeIndex(0)
+        setResolvedListOrders(new Map())
+        setStep('resolve-lists')
+        return
+      }
       const {
         completions,
         progress: progressRows,
@@ -1354,11 +1496,68 @@ export function ImportWizard({
         completionRes,
         progressRes,
         droppedRes,
-        ratingRes
+        ratingRes,
+        new Map()
       )
     },
-    [parseResult, validRows, startImportJob]
+    [parseResult, validRows, startImportJob, listMergeQueue]
   )
+
+  // ── Step: resolve-lists sub-steps → commit ─────────────────────────────
+
+  const finishListMergeResolution = useCallback(
+    async (listOrders: Map<string, string[]>) => {
+      if (!parseResult) return
+      const {
+        completions,
+        progress: progressRows,
+        dropped,
+      } = validRows(parseResult)
+      setStep('committing')
+      await startImportJob(
+        completions,
+        progressRows,
+        dropped,
+        completionResolutions,
+        progressResolutions,
+        droppedResolutions,
+        ratingResolutions,
+        listOrders
+      )
+    },
+    [
+      parseResult,
+      validRows,
+      startImportJob,
+      completionResolutions,
+      progressResolutions,
+      droppedResolutions,
+      ratingResolutions,
+    ]
+  )
+
+  const handleListMergeConfirmed = useCallback(
+    (finalOrder: string[]) => {
+      const current = listMergeQueue[listMergeIndex]
+      if (!current) return
+      const nextOrders = new Map(resolvedListOrders).set(current.key, finalOrder)
+      setResolvedListOrders(nextOrders)
+      if (listMergeIndex + 1 < listMergeQueue.length) {
+        setListMergeIndex((i) => i + 1)
+      } else {
+        void finishListMergeResolution(nextOrders)
+      }
+    },
+    [listMergeQueue, listMergeIndex, resolvedListOrders, finishListMergeResolution]
+  )
+
+  const handleListMergeCancelled = useCallback(() => {
+    setCollectionsMerge([])
+    setRankingMerge(null)
+    setListMergeIndex(0)
+    setResolvedListOrders(new Map())
+    setStep('review')
+  }, [])
 
   const nextConflictSubStep = useCallback(
     (from: ConflictSubStep): ConflictSubStep | null => {
@@ -1465,6 +1664,8 @@ export function ImportWizard({
     setProgressConflicts([])
     setDroppedConflicts([])
     setRatingConflicts([])
+    setCollectionsMerge([])
+    setRankingMerge(null)
     setStep('review')
   }, [])
 
@@ -1561,6 +1762,22 @@ export function ImportWizard({
         />
       )}
 
+      {step === 'resolve-lists' &&
+        listMergeQueue[listMergeIndex] &&
+        (() => {
+          const current = listMergeQueue[listMergeIndex]!
+          return (
+            <ListMergeBoard
+              title={current.key === RANKING_MERGE_KEY ? 'Ranking' : current.key}
+              mergedSeed={current.merge.mergedSeed}
+              importedRemainder={current.merge.importedRemainder}
+              existingRemainder={current.merge.existingRemainder}
+              onConfirm={handleListMergeConfirmed}
+              onCancel={handleListMergeCancelled}
+            />
+          )
+        })()}
+
       {step === 'committing' && (
         <div className="space-y-3 py-4">
           <ProgressBar value={progress} />
@@ -1601,12 +1818,14 @@ export function ImportWizard({
         <SuccessStep status={importStatus.data} onClose={onClose} />
       )}
 
-      {/* resolve-conflicts has its own Cancel (back to review) inside
-          FieldConflictMerge — showing this generic one too would put two
-          differently-behaving "Cancel" buttons next to each other. */}
+      {/* resolve-conflicts/resolve-lists each have their own Cancel (back to
+          review) inside FieldConflictMerge/ListMergeBoard — showing this
+          generic one too would put two differently-behaving "Cancel"
+          buttons next to each other. */}
       {step !== 'success' &&
         step !== 'committing' &&
-        step !== 'resolve-conflicts' && (
+        step !== 'resolve-conflicts' &&
+        step !== 'resolve-lists' && (
           <div className="pt-2 border-t border-[var(--color-border)]">
             <Button variant="ghost" size="sm" onClick={onClose}>
               Cancel
