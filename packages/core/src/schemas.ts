@@ -890,31 +890,28 @@ export const ImportDroppedRowSchema = z.object({
   inGameDifficulty: z.string().nullable().optional(),
 })
 
-// ── Check ──────────────────────────────────────────────────────────────────
-
-export const ImportCheckRequestSchema = z.object({
-  levelIds: z.array(LevelIdSchema).min(1).max(5000),
-})
-
-// Compact existing-completion summary — enough to render the conflict UI.
-export const ImportConflictSchema = z.object({
-  levelId: z.string(),
-  levelName: z.string().nullable(),
-  date: z.string().nullable(),
-  attempts: z.number().int().nullable(),
-  // 0-10 display scale (converted from internal 0-100 on the way out).
-  enjoyment: z.number().nullable(),
-  simpleRating: z.number().nullable(),
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
-})
-
-export const ImportCheckResponseSchema = z.object({
-  conflicts: z.array(ImportConflictSchema),
-})
-
 // ── Commit ─────────────────────────────────────────────────────────────────
-
-const ImportConflictResolution = z.enum(['skip', 'overwrite'])
+//
+// The check pass (defined further below, after the ranking/collections/
+// ratings entry schemas it references) resolves every conflict client-side —
+// by the time a row reaches /start, `data` already holds the final agreed
+// field values. `resolution` exists only so the server can pick the right
+// write branch and outcome-reporting text:
+//   'drop'      — discard the imported row entirely, keep existing as-is.
+//   'duplicate' — system-detected exact duplicate (progress/dropped only,
+//                 never user-facing) — functionally identical to 'drop'.
+//   'overwrite' — `data` is the full imported row, written unconditionally
+//                 (including nulls, to clear fields the sheet leaves blank).
+//   'merge'     — `data` is the user's field-by-field reconciliation result;
+//                 from the server's perspective this is IDENTICAL to
+//                 'overwrite' (write every field of `data` as final truth) —
+//                 the tag exists only to report "merged" vs "overwritten".
+export const ImportConflictActionSchema = z.enum([
+  'drop',
+  'duplicate',
+  'overwrite',
+  'merge',
+])
 
 export const ImportCommitRowSchema = z.discriminatedUnion('type', [
   z.object({
@@ -922,17 +919,21 @@ export const ImportCommitRowSchema = z.discriminatedUnion('type', [
     rowIndex: z.number().int().nonnegative(),
     data: ImportCompletionRowSchema,
     // Only required when a conflict exists for this level.
-    conflictResolution: ImportConflictResolution.optional(),
+    resolution: ImportConflictActionSchema.optional(),
   }),
   z.object({
     type: z.literal('dropped'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportDroppedRowSchema,
+    // Only required when the check pass matched this row against an
+    // existing drop by derived key (see checkImportConflicts).
+    resolution: ImportConflictActionSchema.optional(),
   }),
   z.object({
     type: z.literal('progress'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportProgressRowSchema,
+    resolution: ImportConflictActionSchema.optional(),
   }),
 ])
 
@@ -1045,6 +1046,115 @@ export const ImportRatingsResponseSchema = z.object({
   levels: z.number().int(), // number of levels that received scores
   categoriesCreated: z.array(z.string()),
   skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
+})
+
+// ── Conflict resolution (shared primitives) ─────────────────────────────────
+//
+// Powers the canonical git-merge-style resolution UI, reused across every tab
+// that can conflict: Completions/Progress/Dropped share ImportRowConflict
+// (a field-by-field diff); Ratings has its own single-field variant; Ranking
+// and Collections share ImportListMerge (an ordered-list merge).
+
+export const ImportFieldDiffSchema = z.object({
+  field: z.string(),
+  existingValue: z.unknown(),
+  importedValue: z.unknown(),
+})
+
+// matchedId is null for completions (already round-trip by levelId); for
+// progress/dropped it's the existing ProgressUpdate id the client folds back
+// onto data.progressId/data.dropId so the existing id-match commit path
+// picks it up unchanged.
+export const ImportRowConflictSchema = z.object({
+  rowIndex: z.number().int(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  matchedId: z.string().nullable(),
+  fields: z.array(ImportFieldDiffSchema).min(1),
+})
+
+// A system-detected exact duplicate (progress/dropped only) — no user
+// interaction needed; the client marks the row resolution: 'duplicate'.
+export const ImportDuplicateRowSchema = z.object({
+  rowIndex: z.number().int(),
+})
+
+export const ImportRatingConflictSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  categoryName: z.string(),
+  // Internal 0-100 scale, same convention as ImportRatingEntry.scores.
+  existingScore: z.number().int().min(0).max(100),
+  importedScore: z.number().int().min(0).max(100),
+})
+
+export const ImportListEntrySchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+})
+
+// A git-like merge of two orderings (see computeListMerge in
+// apps/api/src/utils/listMerge.ts for the exact algorithm). A pure insertion
+// — an entry unique to one side whose position relative to the shared
+// backbone is unambiguous — auto-resolves and never appears here; only a
+// genuine order disagreement (or a pure omission — an existing entry the
+// sheet doesn't mention at all) produces a non-empty remainder.
+export const ImportListMergeSchema = z.object({
+  list: z.string().nullable(), // collection name, or null for Ranking
+  // The backbone with every unambiguous imported-only insertion already
+  // spliced in. Pre-seeds the merge board's middle column. When hasConflict
+  // is false, this array alone is the final order — nothing to render.
+  mergedSeed: z.array(ImportListEntrySchema),
+  // Entries present in both orderings but excluded from the backbone because
+  // their relative position is disputed, in imported's order. Starts in the
+  // left column.
+  importedRemainder: z.array(ImportListEntrySchema),
+  // The same disputed entries (in existing's order) unioned with entries
+  // that exist only in the existing ordering. A levelId appearing in both
+  // importedRemainder and existingRemainder is ONE contested entry, not two
+  // — placing either instance resolves both. Starts in the right column.
+  existingRemainder: z.array(ImportListEntrySchema),
+  // True iff importedRemainder or existingRemainder is non-empty.
+  hasConflict: z.boolean(),
+})
+
+// ── Check (conflict detection) ──────────────────────────────────────────────
+//
+// One synchronous pre-commit pass over every tab's parsed rows. Resolution
+// happens entirely client-side from this response; /start then receives the
+// same rows with `resolution` (and, for lists, the user-merged order) baked
+// in — see ImportCommitRowSchema above.
+
+const ImportCheckRow = <T extends z.ZodTypeAny>(data: T) =>
+  z.object({ rowIndex: z.number().int().nonnegative(), data })
+
+export const ImportCheckRequestSchema = z.object({
+  completions: z
+    .array(ImportCheckRow(ImportCompletionRowSchema))
+    .max(20000)
+    .optional(),
+  progress: z
+    .array(ImportCheckRow(ImportProgressRowSchema))
+    .max(20000)
+    .optional(),
+  dropped: z
+    .array(ImportCheckRow(ImportDroppedRowSchema))
+    .max(20000)
+    .optional(),
+  ratings: z.array(ImportRatingEntrySchema).max(5000).optional(),
+  collections: z.array(ImportCollectionEntrySchema).max(5000).optional(),
+  ranking: z.array(ImportRankingEntrySchema).max(5000).optional(),
+})
+
+export const ImportCheckResponseSchema = z.object({
+  completionConflicts: z.array(ImportRowConflictSchema),
+  progressConflicts: z.array(ImportRowConflictSchema),
+  progressDuplicates: z.array(ImportDuplicateRowSchema),
+  droppedConflicts: z.array(ImportRowConflictSchema),
+  droppedDuplicates: z.array(ImportDuplicateRowSchema),
+  ratingConflicts: z.array(ImportRatingConflictSchema),
+  collectionsMerge: z.array(ImportListMergeSchema),
+  rankingMerge: ImportListMergeSchema.nullable(),
 })
 
 // ── Background import job (start + status) ─────────────────────────────────
@@ -1215,12 +1325,18 @@ export const ExportPageResponseSchema = z.object({
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
+export type ImportConflictAction = z.infer<typeof ImportConflictActionSchema>
+export type ImportFieldDiff = z.infer<typeof ImportFieldDiffSchema>
+export type ImportRowConflict = z.infer<typeof ImportRowConflictSchema>
+export type ImportDuplicateRow = z.infer<typeof ImportDuplicateRowSchema>
+export type ImportRatingConflict = z.infer<typeof ImportRatingConflictSchema>
+export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
+export type ImportListMerge = z.infer<typeof ImportListMergeSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
 export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
 export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
 export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
-export type ImportConflict = z.infer<typeof ImportConflictSchema>
 export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
 export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
 export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>

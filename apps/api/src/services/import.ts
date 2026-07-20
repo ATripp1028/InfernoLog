@@ -9,13 +9,17 @@ import { randomUUID } from 'node:crypto'
 import prisma from '../utils/prisma'
 import { SQSClient, SendMessageBatchCommand } from '@aws-sdk/client-sqs'
 import type { Prisma } from '@prisma/client'
-import { DifficultyOpinion } from '@infernolog/core'
 import type {
   ImportCompletionRow,
   ImportProgressRow,
   ImportDroppedRow,
   ImportCommitRow,
   ImportCommitResponse,
+  ImportConflictAction,
+  ImportFieldDiff,
+  ImportRowConflict,
+  ImportCheckRequest,
+  ImportCheckResponse,
 } from '@infernolog/core'
 import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
@@ -306,10 +310,12 @@ type LpStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 
 interface LpFields {
   status?: LpStatus
-  worstFail?: number
+  // Nullable (not just optional) so a full overwrite can explicitly clear a
+  // field the sheet leaves blank, rather than only ever being able to omit it.
+  worstFail?: number | null
   worstFailDate?: Date | null
   visibility?: 'PUBLIC' | 'PRIVATE'
-  levelNotes?: string
+  levelNotes?: string | null
   userGddlTier?: number | null
 }
 
@@ -406,88 +412,17 @@ function applyLp(plan: LpPlan, fields: LpFields): void {
   }
 }
 
-function planCompletion(
-  ctx: PlanCtx,
-  levelId: string,
+// The complete ProgressUpdate field set for a completion — used for a
+// brand-new row (create) and for a true 'overwrite' of an existing one. Every
+// field is written unconditionally, including nulls (a blank sheet cell
+// legitimately clears the existing value) — this is what makes 'overwrite' a
+// real replace rather than the merge it used to be mislabeled as.
+function buildCompletionProgressUpdateFields(
   row: ImportCompletionRow,
-  resolution: 'skip' | 'overwrite' | undefined,
-  autoGddlTier: number | null
-): 'committed' | 'updated' | 'skipped' {
-  const existingCompletionId = ctx.dbState.get(levelId)?.completionId ?? null
-
-  if (existingCompletionId && resolution !== 'overwrite') return 'skipped'
-
-  // GDDL tier: explicit row value wins; else the autofilled value. Both are
-  // rounded to a whole number — GDDL tiers are never stored as decimals.
-  const userGddlTier: number | null =
-    row.userGddlTier != null
-      ? roundGddlTier(row.userGddlTier)
-      : (autoGddlTier ?? null)
-
-  // User-coin collection only applies to levels that actually have coins;
-  // ignore the spreadsheet's coin columns otherwise (matches the logging flow).
-  const hasCoins = (ctx.levelCoins.get(levelId) ?? 0) > 0
-  const coinsCollected = hasCoins ? (row.coinsCollected ?? null) : null
-
-  const plan = getLpPlan(ctx, levelId)
-
-  if (existingCompletionId && resolution === 'overwrite') {
-    // Merge, don't replace: only overwrite fields the spreadsheet actually
-    // provides. Fields the sheet omits keep their InfernoLog values, and
-    // InfernoLog-only data (category rating scores, list-reference sources the
-    // sheet doesn't carry) is left untouched entirely.
-    const puId = existingCompletionId
-    const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
-    if (row.date != null) merge.date = new Date(row.date)
-    if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
-    if (row.attempts != null) merge.attempts = row.attempts
-    if (row.fps != null) merge.fps = row.fps
-    if (row.onStream != null) merge.onStream = row.onStream
-    if (row.videoUrl != null) merge.videoUrl = row.videoUrl
-    if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
-    if (row.notes != null) merge.notes = row.notes
-    if (row.runFrom != null) merge.runFrom = row.runFrom
-    if (row.runTo != null) merge.runTo = row.runTo
-    if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
-    if (row.simpleRating != null)
-      merge.simpleRating = Math.round(row.simpleRating * 10)
-    if (row.difficultyOpinion != null)
-      merge.difficultyOpinion = row.difficultyOpinion
-    if (row.difficultyOpinionStars != null)
-      merge.difficultyOpinionStars = row.difficultyOpinionStars
-    if (coinsCollected != null) merge.coinsCollected = coinsCollected
-    if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
-    if (row.twoPlayerPartner != null)
-      merge.twoPlayerPartner = row.twoPlayerPartner
-    if (row.device != null) merge.device = row.device
-    if (Object.keys(merge).length > 0) {
-      ctx.writes.progressUpdateUpdates.push({ id: puId, data: merge })
-    }
-
-    // LevelProgress-level fields: worstFail, per-entry privacy, the overall
-    // level note, and user GDDL tier — each only when the sheet provides it.
-    const lpMerge: LpFields = {
-      ...(row.percentage != null
-        ? { worstFail: Math.round(row.percentage) }
-        : {}),
-      ...(row.worstFailDate != null
-        ? { worstFailDate: new Date(row.worstFailDate) }
-        : {}),
-      ...(row.visibility != null ? { visibility: row.visibility } : {}),
-      ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
-      ...(userGddlTier != null ? { userGddlTier } : {}),
-    }
-    if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
-    return 'updated'
-  }
-
-  // New completion: write the full record, defaulting the booleans the sheet
-  // may omit and snapshotting the level's current in-game difficulty.
-  const puId = randomUUID()
-  ctx.writes.newProgressUpdates.push({
-    id: puId,
-    levelProgressId: plan.id,
-    kind: 'COMPLETION',
+  coinsCollected: number | null,
+  inGameDifficulty: string | null
+) {
+  return {
     date: row.date ? new Date(row.date) : null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
@@ -507,10 +442,69 @@ function planCompletion(
     twoPlayerSolo: row.twoPlayerSolo ?? null,
     twoPlayerPartner: row.twoPlayerPartner ?? null,
     device: row.device ?? null,
-    inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
-  })
-  applyLp(plan, {
-    status: 'COMPLETED',
+    inGameDifficulty,
+  }
+}
+
+// The complete LevelProgress field set touched by a completion, for the
+// unconditional (create / true-overwrite) write path. `visibility` defaults
+// explicitly to PUBLIC (rather than being omitted) because it's a
+// non-nullable column — an update that omitted it on a full overwrite would
+// silently leave the existing value in place instead of resetting it.
+function buildCompletionLpFields(
+  row: ImportCompletionRow,
+  userGddlTier: number | null
+): LpFields {
+  return {
+    worstFail: row.percentage != null ? Math.round(row.percentage) : null,
+    worstFailDate: row.worstFailDate != null ? new Date(row.worstFailDate) : null,
+    visibility: row.visibility ?? 'PUBLIC',
+    levelNotes: row.levelNotes ?? null,
+    userGddlTier,
+  }
+}
+
+// Partial field-by-field patch for 'merge' — only fields the sheet actually
+// provides are written; a blank field keeps its existing InfernoLog value
+// untouched. This is safe specifically because 'merge' rows arrive with
+// every genuinely conflicting field already resolved to its winning value by
+// the frontend (see FieldConflictMerge) — a field that's still blank here
+// was never in conflict, so there's nothing to reconcile.
+function buildCompletionMergePatch(
+  row: ImportCompletionRow,
+  coinsCollected: number | null
+): Prisma.ProgressUpdateUncheckedUpdateInput {
+  const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
+  if (row.date != null) merge.date = new Date(row.date)
+  if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
+  if (row.attempts != null) merge.attempts = row.attempts
+  if (row.fps != null) merge.fps = row.fps
+  if (row.onStream != null) merge.onStream = row.onStream
+  if (row.videoUrl != null) merge.videoUrl = row.videoUrl
+  if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
+  if (row.notes != null) merge.notes = row.notes
+  if (row.runFrom != null) merge.runFrom = row.runFrom
+  if (row.runTo != null) merge.runTo = row.runTo
+  if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
+  if (row.simpleRating != null)
+    merge.simpleRating = Math.round(row.simpleRating * 10)
+  if (row.difficultyOpinion != null)
+    merge.difficultyOpinion = row.difficultyOpinion
+  if (row.difficultyOpinionStars != null)
+    merge.difficultyOpinionStars = row.difficultyOpinionStars
+  if (coinsCollected != null) merge.coinsCollected = coinsCollected
+  if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
+  if (row.twoPlayerPartner != null)
+    merge.twoPlayerPartner = row.twoPlayerPartner
+  if (row.device != null) merge.device = row.device
+  return merge
+}
+
+function buildCompletionMergeLpFields(
+  row: ImportCompletionRow,
+  userGddlTier: number | null
+): LpFields {
+  return {
     ...(row.percentage != null
       ? { worstFail: Math.round(row.percentage) }
       : {}),
@@ -520,6 +514,101 @@ function planCompletion(
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     ...(userGddlTier != null ? { userGddlTier } : {}),
+  }
+}
+
+// Outcome-reporting text for a completion row's resolution.
+function completionOutcomeReason(
+  outcomeStatus: 'committed' | 'updated' | 'skipped',
+  resolution: ImportConflictAction | undefined
+): string | undefined {
+  if (outcomeStatus === 'skipped') {
+    if (resolution === 'drop') return 'Discarded during conflict review'
+    return 'No changes — matches existing completion'
+  }
+  if (outcomeStatus === 'updated') {
+    if (resolution === 'overwrite') return 'Overwritten'
+    if (resolution === 'merge') return 'Merged'
+  }
+  return undefined
+}
+
+function planCompletion(
+  ctx: PlanCtx,
+  levelId: string,
+  row: ImportCompletionRow,
+  resolution: ImportConflictAction | undefined,
+  autoGddlTier: number | null
+): 'committed' | 'updated' | 'skipped' {
+  const existingCompletionId = ctx.dbState.get(levelId)?.completionId ?? null
+
+  // 'drop'/'duplicate' — discarded, either by the user or (not reachable for
+  // completions today, but defensive) a system dedup. An existing completion
+  // with no resolution at all means the check pass found no field diff (the
+  // row is an unmodified re-import) — nothing to reconcile, treated the same
+  // as a deliberate drop.
+  if (
+    resolution === 'drop' ||
+    resolution === 'duplicate' ||
+    (existingCompletionId && !resolution)
+  ) {
+    return 'skipped'
+  }
+
+  // GDDL tier: explicit row value wins; else the autofilled value. Both are
+  // rounded to a whole number — GDDL tiers are never stored as decimals.
+  const userGddlTier: number | null =
+    row.userGddlTier != null
+      ? roundGddlTier(row.userGddlTier)
+      : (autoGddlTier ?? null)
+
+  // User-coin collection only applies to levels that actually have coins;
+  // ignore the spreadsheet's coin columns otherwise (matches the logging flow).
+  const hasCoins = (ctx.levelCoins.get(levelId) ?? 0) > 0
+  const coinsCollected = hasCoins ? (row.coinsCollected ?? null) : null
+
+  const plan = getLpPlan(ctx, levelId)
+
+  if (existingCompletionId && resolution === 'merge') {
+    const merge = buildCompletionMergePatch(row, coinsCollected)
+    if (Object.keys(merge).length > 0) {
+      ctx.writes.progressUpdateUpdates.push({
+        id: existingCompletionId,
+        data: merge,
+      })
+    }
+    const lpMerge = buildCompletionMergeLpFields(row, userGddlTier)
+    if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
+    return 'updated'
+  }
+
+  // Either a true 'overwrite' of an existing completion, or a brand-new one
+  // (no existing row at all) — both write every field of `row` unconditionally.
+  const fields = buildCompletionProgressUpdateFields(
+    row,
+    coinsCollected,
+    ctx.levelDiff.get(levelId) ?? null
+  )
+
+  if (existingCompletionId) {
+    ctx.writes.progressUpdateUpdates.push({
+      id: existingCompletionId,
+      data: fields,
+    })
+    applyLp(plan, buildCompletionLpFields(row, userGddlTier))
+    return 'updated'
+  }
+
+  const puId = randomUUID()
+  ctx.writes.newProgressUpdates.push({
+    id: puId,
+    levelProgressId: plan.id,
+    kind: 'COMPLETION',
+    ...fields,
+  })
+  applyLp(plan, {
+    status: 'COMPLETED',
+    ...buildCompletionLpFields(row, userGddlTier),
   })
 
   return 'committed'
@@ -937,12 +1026,13 @@ export async function processImportJobBatch(
           ctx,
           effectiveLevelId,
           row.data,
-          row.conflictResolution,
+          row.resolution,
           autoGddlTier
         )
         if (outcomeStatus === 'committed' || outcomeStatus === 'updated') {
           completedLevelIds.add(effectiveLevelId)
         }
+        reason = completionOutcomeReason(outcomeStatus, row.resolution)
       } else if (row.type === 'dropped') {
         outcomeStatus = planDrop(ctx, effectiveLevelId, row.data)
       } else {
@@ -955,12 +1045,6 @@ export async function processImportJobBatch(
         { importJobId, rowIndex: row.rowIndex, levelId: effectiveLevelId, err },
         'importBatch: row failed'
       )
-    }
-
-    // Explain the one non-superseded skip case (superseded rows set their own
-    // reason above): an existing completion the user chose not to overwrite.
-    if (outcomeStatus! === 'skipped' && !reason) {
-      reason = 'Existing completion kept — choose Overwrite to replace it'
     }
 
     results.push({
@@ -1159,56 +1243,237 @@ export async function commitImportBatch(
 
 // ── Check function ─────────────────────────────────────────────────────────
 
+// The subset of an existing completion's data that can conflict with an
+// imported completion row — one field per column `buildCompletionProgressUpdateFields`/
+// `buildCompletionLpFields` can write.
+interface ExistingCompletionSnapshot {
+  date: Date | null
+  dateUncertain: boolean
+  attempts: number | null
+  runFrom: number | null
+  runTo: number | null
+  fps: number | null
+  onStream: boolean
+  videoUrl: string | null
+  highlightUrl: string | null
+  notes: string | null
+  enjoyment: number | null // internal 0-100
+  simpleRating: number | null // internal 0-100
+  difficultyOpinion: string | null
+  difficultyOpinionStars: number | null
+  coinsCollected: number | null
+  twoPlayerSolo: boolean | null
+  twoPlayerPartner: string | null
+  device: string | null
+  worstFail: number | null
+  worstFailDate: Date | null
+  visibility: string
+  levelNotes: string | null
+  userGddlTier: number | null
+}
+
+const isoDate = (d: Date | null): string | null =>
+  d ? d.toISOString().slice(0, 10) : null
+
+// A field is a diff only when the sheet actually provides a value (null
+// means "left blank" — auto-resolves to the existing value, nothing to
+// reconcile) AND that value differs from what's already stored. Equal
+// values auto-resolve trivially too. This mirrors the transformations
+// buildCompletionProgressUpdateFields/buildCompletionLpFields apply on write,
+// so a diff here is exactly "this field would actually change."
+function diffCompletionFields(
+  existing: ExistingCompletionSnapshot,
+  row: ImportCompletionRow,
+  hasCoins: boolean
+): ImportFieldDiff[] {
+  const diffs: ImportFieldDiff[] = []
+  const push = (
+    field: string,
+    existingValue: unknown,
+    importedValue: unknown
+  ) => {
+    if (importedValue == null) return
+    if (importedValue === existingValue) return
+    diffs.push({ field, existingValue, importedValue })
+  }
+
+  push('date', isoDate(existing.date), row.date ?? null)
+  push('dateUncertain', existing.dateUncertain, row.dateUncertain ?? null)
+  push('attempts', existing.attempts, row.attempts ?? null)
+  push('runFrom', existing.runFrom, row.runFrom ?? null)
+  push('runTo', existing.runTo, row.runTo ?? null)
+  push('fps', existing.fps, row.fps ?? null)
+  push('onStream', existing.onStream, row.onStream ?? null)
+  push('videoUrl', existing.videoUrl, row.videoUrl ?? null)
+  push('highlightUrl', existing.highlightUrl, row.highlightUrl ?? null)
+  push('notes', existing.notes, row.notes ?? null)
+  // enjoyment/simpleRating are reported on the wire's 0-10 scale (matching
+  // ImportCompletionRow), not the internal 0-100 storage scale — a resolved
+  // 'existing' choice gets written straight back into `row.data` with no
+  // further conversion, so the diff value and the row's own field must
+  // already agree on scale.
+  push(
+    'enjoyment',
+    existing.enjoyment != null ? existing.enjoyment / 10 : null,
+    row.enjoyment ?? null
+  )
+  push(
+    'simpleRating',
+    existing.simpleRating != null ? existing.simpleRating / 10 : null,
+    row.simpleRating ?? null
+  )
+  push(
+    'difficultyOpinion',
+    existing.difficultyOpinion,
+    row.difficultyOpinion ?? null
+  )
+  push(
+    'difficultyOpinionStars',
+    existing.difficultyOpinionStars,
+    row.difficultyOpinionStars ?? null
+  )
+  push(
+    'coinsCollected',
+    existing.coinsCollected,
+    hasCoins ? (row.coinsCollected ?? null) : null
+  )
+  push('twoPlayerSolo', existing.twoPlayerSolo, row.twoPlayerSolo ?? null)
+  push(
+    'twoPlayerPartner',
+    existing.twoPlayerPartner,
+    row.twoPlayerPartner ?? null
+  )
+  push('device', existing.device, row.device ?? null)
+  push(
+    'worstFail',
+    existing.worstFail,
+    row.percentage != null ? Math.round(row.percentage) : null
+  )
+  push(
+    'worstFailDate',
+    isoDate(existing.worstFailDate),
+    row.worstFailDate ?? null
+  )
+  push('visibility', existing.visibility, row.visibility ?? null)
+  push('levelNotes', existing.levelNotes, row.levelNotes ?? null)
+  push(
+    'userGddlTier',
+    existing.userGddlTier,
+    row.userGddlTier != null ? roundGddlTier(row.userGddlTier) : null
+  )
+
+  return diffs
+}
+
+// One synchronous pre-commit pass over every tab's parsed rows. Progress/
+// Dropped/Ratings/Collections/Ranking slices are wired in by later phases of
+// the conflict-resolution rework — until then they always report empty.
 export async function checkImportConflicts(
   userId: string,
-  levelIds: string[]
-): Promise<{
-  conflicts: Array<{
-    levelId: string
-    levelName: string | null
-    date: string | null
-    attempts: number | null
-    enjoyment: number | null
-    simpleRating: number | null
-    difficultyOpinion: DifficultyOpinion | null
-  }>
-}> {
-  const rows = await prisma.levelProgress.findMany({
-    where: {
-      userId,
-      levelId: { in: levelIds },
-      progressUpdates: { some: { kind: 'COMPLETION' } },
-    },
-    include: {
-      level: { select: { name: true } },
-      progressUpdates: {
-        where: { kind: 'COMPLETION' },
-        select: {
-          date: true,
-          attempts: true,
-          enjoyment: true,
-          simpleRating: true,
-          difficultyOpinion: true,
+  req: ImportCheckRequest
+): Promise<ImportCheckResponse> {
+  const completionRows = req.completions ?? []
+  const levelIds = [
+    ...new Set(
+      completionRows.flatMap((r) => (r.data.levelId ? [r.data.levelId] : []))
+    ),
+  ]
+
+  const existingRows = levelIds.length
+    ? await prisma.levelProgress.findMany({
+        where: {
+          userId,
+          levelId: { in: levelIds },
+          progressUpdates: { some: { kind: 'COMPLETION' } },
         },
-        orderBy: { loggedAt: 'desc' },
-        take: 1,
-      },
-    },
-  })
+        include: {
+          level: { select: { name: true, coins: true } },
+          progressUpdates: {
+            where: { kind: 'COMPLETION' },
+            select: {
+              date: true,
+              dateUncertain: true,
+              attempts: true,
+              runFrom: true,
+              runTo: true,
+              fps: true,
+              onStream: true,
+              videoUrl: true,
+              highlightUrl: true,
+              notes: true,
+              enjoyment: true,
+              simpleRating: true,
+              difficultyOpinion: true,
+              difficultyOpinionStars: true,
+              coinsCollected: true,
+              twoPlayerSolo: true,
+              twoPlayerPartner: true,
+              device: true,
+            },
+            orderBy: { loggedAt: 'desc' },
+            take: 1,
+          },
+        },
+      })
+    : []
+  const existingByLevelId = new Map(existingRows.map((lp) => [lp.levelId, lp]))
 
-  const conflicts = rows.map((lp) => {
-    const pu = lp.progressUpdates[0]
-    return {
-      levelId: lp.levelId,
-      levelName: lp.level.name,
-      date: pu?.date ? (pu.date as Date).toISOString().slice(0, 10) : null,
-      attempts: pu?.attempts ?? null,
-      enjoyment: pu?.enjoyment != null ? pu.enjoyment / 10 : null,
-      simpleRating: pu?.simpleRating != null ? pu.simpleRating / 10 : null,
-      difficultyOpinion:
-        (pu?.difficultyOpinion as DifficultyOpinion | null) ?? null,
+  const completionConflicts: ImportRowConflict[] = []
+  for (const row of completionRows) {
+    if (!row.data.levelId) continue // name-only rows resolve too late to pre-check
+    const lp = existingByLevelId.get(row.data.levelId)
+    const pu = lp?.progressUpdates[0]
+    if (!lp || !pu) continue
+
+    const snapshot: ExistingCompletionSnapshot = {
+      date: pu.date,
+      dateUncertain: pu.dateUncertain,
+      attempts: pu.attempts,
+      runFrom: pu.runFrom,
+      runTo: pu.runTo,
+      fps: pu.fps,
+      onStream: pu.onStream,
+      videoUrl: pu.videoUrl,
+      highlightUrl: pu.highlightUrl,
+      notes: pu.notes,
+      enjoyment: pu.enjoyment,
+      simpleRating: pu.simpleRating,
+      difficultyOpinion: pu.difficultyOpinion,
+      difficultyOpinionStars: pu.difficultyOpinionStars,
+      coinsCollected: pu.coinsCollected,
+      twoPlayerSolo: pu.twoPlayerSolo,
+      twoPlayerPartner: pu.twoPlayerPartner,
+      device: pu.device,
+      worstFail: lp.worstFail,
+      worstFailDate: lp.worstFailDate,
+      visibility: lp.visibility,
+      levelNotes: lp.levelNotes,
+      userGddlTier: lp.userGddlTier,
     }
-  })
+    const fields = diffCompletionFields(
+      snapshot,
+      row.data,
+      (lp.level.coins ?? 0) > 0
+    )
+    if (fields.length === 0) continue
 
-  return { conflicts }
+    completionConflicts.push({
+      rowIndex: row.rowIndex,
+      levelId: row.data.levelId,
+      levelName: lp.level.name,
+      matchedId: null,
+      fields,
+    })
+  }
+
+  return {
+    completionConflicts,
+    progressConflicts: [],
+    progressDuplicates: [],
+    droppedConflicts: [],
+    droppedDuplicates: [],
+    ratingConflicts: [],
+    collectionsMerge: [],
+    rankingMerge: null,
+  }
 }

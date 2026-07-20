@@ -1,15 +1,19 @@
 // Spreadsheet import wizard. WizardStep values are strictly ordered (see
 // StepIndicator's ORDER map) and only ever move forward automatically —
-// upload → review → checking-conflicts → conflict → committing → success.
-// checking-conflicts and conflict share a display slot ("Conflicts"), so
-// finding no conflicts shows as that step being skipped, never revisited.
-// The only backward moves are explicit user actions (e.g. "Back to review"
-// after an error, or "Fix and re-upload" from the review step).
+// upload → review → checking-conflicts → resolve-conflicts → committing →
+// success. checking-conflicts and resolve-conflicts share a display slot
+// ("Conflicts"), so finding no conflicts shows as that step being skipped,
+// never revisited. The only backward moves are explicit user actions (e.g.
+// "Back to review" after an error, or "Fix and re-upload" from the review
+// step, or "Cancel" out of conflict resolution).
 //
 // Upload — file picker + date format selector + client validation.
-// Review — flags/counts from parsing; pick conflict-resolution mode.
-// Checking-conflicts — network round trip to detect existing completions.
-// Conflict — per-level resolution when the check above finds any.
+// Review — flags/counts from parsing.
+// Checking-conflicts — network round trip for field-level conflict detection.
+// Resolve-conflicts — canonical git-merge-style resolution (drop / overwrite
+//   / merge, per field or in bulk — see FieldConflictMerge) for whichever
+//   rows the check above found conflicting. Completions only for now;
+//   Progress/Dropped/Ratings reuse the same component in a later phase.
 // Committing — progress bar while batches are sent.
 // Success — final report.
 
@@ -26,12 +30,16 @@ import {
 import { cn } from '@/lib/utils'
 import { useImportApi, useImportStatus } from '@/lib/api/import'
 import type {
-  ImportConflict,
+  ImportRowConflict,
   ImportCommitRow,
-  ConflictResolution,
+  ImportCheckResponse,
   ImportStatusResponse,
 } from '@/lib/api/import'
 import { ImportStatusPanel } from './ImportStatusPanel'
+import {
+  FieldConflictMerge,
+  type GroupResolution,
+} from './FieldConflictMerge'
 import {
   parseSpreadsheet,
   type DateFormat,
@@ -48,15 +56,29 @@ import type { MeData } from '@/lib/api/me'
 
 // checking-conflicts is a distinct state from committing (see StepIndicator's
 // ORDER map) — it's the network round trip that decides whether the wizard
-// proceeds to the conflict step or straight to committing, so it must sit
-// between review and conflict, never share committing's step slot.
+// proceeds to the resolve-conflicts step or straight to committing, so it
+// must sit between review and resolve-conflicts, never share committing's
+// step slot.
 type WizardStep =
   | 'upload'
   | 'review'
   | 'checking-conflicts'
-  | 'conflict'
+  | 'resolve-conflicts'
   | 'committing'
   | 'success'
+
+// checkConflicts is skipped entirely when there's nothing to check (e.g. an
+// import with no Completions/Progress/Dropped rows at all).
+const EMPTY_CHECK_RESULT: ImportCheckResponse = {
+  completionConflicts: [],
+  progressConflicts: [],
+  progressDuplicates: [],
+  droppedConflicts: [],
+  droppedDuplicates: [],
+  ratingConflicts: [],
+  collectionsMerge: [],
+  rankingMerge: null,
+}
 
 interface AllFlags {
   completions: ParseFlag[]
@@ -91,20 +113,21 @@ function StepIndicator({
     { id: 'review', label: 'Review' },
     ...(skipConflictCheck
       ? []
-      : [{ id: 'conflict' as const, label: 'Conflicts' }]),
+      : [{ id: 'resolve-conflicts' as const, label: 'Conflicts' }]),
     { id: 'committing', label: 'Import' },
     { id: 'success', label: 'Done' },
   ]
 
-  // checking-conflicts shares the "Conflicts" slot with conflict itself —
-  // it's the in-flight check that decides whether the conflict step is
-  // needed at all, so it must render as the same indicator position rather
-  // than briefly flashing "Import" as current before possibly stepping back.
+  // checking-conflicts shares the "Conflicts" slot with resolve-conflicts
+  // itself — it's the in-flight check that decides whether the resolve step
+  // is needed at all, so it must render as the same indicator position
+  // rather than briefly flashing "Import" as current before possibly
+  // stepping back.
   const ORDER: Record<WizardStep | 'done', number> = {
     upload: 0,
     review: 1,
     'checking-conflicts': 2,
-    conflict: 2,
+    'resolve-conflicts': 2,
     committing: 3,
     success: 4,
     done: 5,
@@ -355,24 +378,15 @@ function UploadStep({
 interface ReviewStepProps {
   parseResult: ParseResult
   flags: AllFlags
-  conflictMode: 'skip' | 'overwrite'
-  onConflictModeChange: (m: 'skip' | 'overwrite') => void
   onSkipFlagged: () => void
   onReUpload: () => void
-  // New accounts (onboarding) can't have existing completions to conflict
-  // with — hide the resolution picker entirely rather than showing a choice
-  // that can never do anything.
-  skipConflictCheck?: boolean
 }
 
 function ReviewStep({
   parseResult,
   flags,
-  conflictMode,
-  onConflictModeChange,
   onSkipFlagged,
   onReUpload,
-  skipConflictCheck,
 }: ReviewStepProps) {
   const allFlags = [
     ...flags.completions,
@@ -700,38 +714,6 @@ function ReviewStep({
         </div>
       )}
 
-      {!skipConflictCheck && (
-        <div>
-          <label className="block text-sm font-medium mb-1.5">
-            Existing completions
-          </label>
-          <Select
-            value={conflictMode}
-            onValueChange={(v) =>
-              onConflictModeChange(v as 'skip' | 'overwrite')
-            }
-          >
-            <SelectTrigger className="w-72">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="skip">
-                Keep existing (review conflicts)
-              </SelectItem>
-              <SelectItem value="overwrite">
-                Overwrite with spreadsheet data
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          {conflictMode === 'overwrite' && (
-            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">
-              All existing completions matched by this spreadsheet will be
-              replaced.
-            </p>
-          )}
-        </div>
-      )}
-
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onReUpload}>
           Fix and re-upload
@@ -745,101 +727,10 @@ function ReviewStep({
   )
 }
 
-// ── Conflict step ──────────────────────────────────────────────────────────
-
-interface ConflictStepProps {
-  conflicts: ImportConflict[]
-  resolutions: Record<string, ConflictResolution>
-  onResolutionChange: (levelId: string, r: ConflictResolution) => void
-  onBulkResolution: (r: ConflictResolution) => void
-  onCommit: () => void
-}
-
-function ConflictStep({
-  conflicts,
-  resolutions,
-  onResolutionChange,
-  onBulkResolution,
-  onCommit,
-}: ConflictStepProps) {
-  const unresolvedCount = conflicts.filter(
-    (c) => !resolutions[c.levelId]
-  ).length
-
-  return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {conflicts.length} level{conflicts.length !== 1 ? 's' : ''} in your
-        spreadsheet already have a completion. Choose what to do with each.
-      </p>
-
-      <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-700 dark:text-amber-400">
-        <strong>Overwrite</strong> replaces the existing completion entirely
-        with the spreadsheet version, including clearing fields the sheet leaves
-        blank. This is not a merge.
-      </div>
-
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onBulkResolution('skip')}
-        >
-          Skip all
-        </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => onBulkResolution('overwrite')}
-        >
-          Overwrite all
-        </Button>
-      </div>
-
-      <div className="border border-[var(--color-border)] rounded-lg divide-y divide-[var(--color-border)] max-h-80 overflow-y-auto">
-        {conflicts.map((c) => (
-          <div
-            key={c.levelId}
-            className="px-4 py-3 flex items-center justify-between gap-4"
-          >
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium truncate">
-                {c.levelName ?? `Level ${c.levelId}`}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                ID {c.levelId}
-                {c.date ? ` · ${c.date}` : ''}
-                {c.attempts != null
-                  ? ` · ${c.attempts.toLocaleString()} attempts`
-                  : ''}
-              </p>
-            </div>
-            <Select
-              value={resolutions[c.levelId] ?? ''}
-              onValueChange={(v) =>
-                onResolutionChange(c.levelId, v as ConflictResolution)
-              }
-            >
-              <SelectTrigger className="w-36 shrink-0">
-                <SelectValue placeholder="Choose…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="skip">Skip</SelectItem>
-                <SelectItem value="overwrite">Overwrite</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
-      </div>
-
-      <Button onClick={onCommit} disabled={unresolvedCount > 0}>
-        {unresolvedCount > 0
-          ? `Resolve ${unresolvedCount} remaining conflict${unresolvedCount !== 1 ? 's' : ''}`
-          : 'Start import'}
-      </Button>
-    </div>
-  )
-}
+// The resolve-conflicts step is FieldConflictMerge itself, fed directly from
+// completionConflicts by the wizard root — no dedicated wrapper component
+// needed (unlike the old ConflictStep, there's no bespoke per-row UI left to
+// own here; see the wizard root's render for the props it's given).
 
 // ── Progress bar ───────────────────────────────────────────────────────────
 
@@ -972,8 +863,8 @@ interface ImportWizardProps {
   onClose: () => void
   // Onboarding: a brand-new account can't already have completions, so
   // there's nothing to conflict with — skips the conflict-check round trip,
-  // the Conflicts step, and the "existing completions" resolution picker
-  // entirely rather than showing UI for a case that can never occur.
+  // the Conflicts step, and the resolution UI entirely rather than showing
+  // UI for a case that can never occur.
   skipConflictCheck?: boolean
 }
 
@@ -989,7 +880,6 @@ export function ImportWizard({
   const [dateFormat, setDateFormat] = useState<DateFormat>(
     me.dateFormatPreference as DateFormat
   )
-  const [conflictMode, setConflictMode] = useState<'skip' | 'overwrite'>('skip')
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [allFlags, setAllFlags] = useState<AllFlags>({
     completions: [],
@@ -1000,10 +890,9 @@ export function ImportWizard({
     ratings: [],
     duplicates: [],
   })
-  const [conflicts, setConflicts] = useState<ImportConflict[]>([])
-  const [resolutions, setResolutions] = useState<
-    Record<string, ConflictResolution>
-  >({})
+  const [completionConflicts, setCompletionConflicts] = useState<
+    ImportRowConflict[]
+  >([])
   const [progressLabel, setProgressLabel] = useState('')
   const [commitError, setCommitError] = useState<string | null>(null)
 
@@ -1066,8 +955,7 @@ export function ImportWizard({
       completions: ParsedCompletionRow[],
       progressRows: ParsedProgressRow[],
       dropped: ParsedDroppedRow[],
-      res: Record<string, ConflictResolution>,
-      globalResolution?: ConflictResolution
+      completionResolutions: Map<string, GroupResolution>
     ) => {
       setProgressLabel('Starting import…')
       setCommitError(null)
@@ -1075,17 +963,17 @@ export function ImportWizard({
       // Build the flat row list with stable indices.
       const rows: ImportCommitRow[] = [
         ...completions.map((r): ImportCommitRow => {
-          // Per-row resolution (from conflict step) takes precedence;
-          // fall back to globalResolution (e.g. "overwrite all" mode).
-          const resolution =
-            (r.data.levelId ? res[r.data.levelId] : undefined) ??
-            globalResolution
-          return resolution
+          // Resolved during resolve-conflicts, keyed by rowIndex (levelId
+          // isn't unique enough on its own once name-only rows are involved).
+          const resolved = completionResolutions.get(String(r.rowIndex))
+          return resolved
             ? {
                 type: 'completion',
                 rowIndex: r.rowIndex,
-                data: r.data,
-                conflictResolution: resolution,
+                // `values` only carries fields whose winner wasn't "imported"
+                // — those already hold the correct value in r.data.
+                data: { ...r.data, ...resolved.values },
+                resolution: resolved.resolution,
               }
             : { type: 'completion', rowIndex: r.rowIndex, data: r.data }
         }),
@@ -1188,41 +1076,39 @@ export function ImportWizard({
       // New account (onboarding) — there can be no existing completions to
       // conflict with, so there's nothing to check.
       setStep('committing')
-      await startImportJob(completions, progressRows, dropped, {})
+      await startImportJob(completions, progressRows, dropped, new Map())
       return
     }
-
-    if (conflictMode === 'overwrite') {
-      // Skip conflict check entirely; all completions get overwrite resolution.
-      setStep('committing')
-      await startImportJob(completions, progressRows, dropped, {}, 'overwrite')
-      return
-    }
-
-    // Skip mode: check conflicts for rows with known level IDs first.
-    // Name-only rows can't be pre-checked until the server resolves their ID.
-    const allLevelIds = [
-      ...new Set([
-        ...completions.flatMap((r) => (r.data.levelId ? [r.data.levelId] : [])),
-        ...dropped.flatMap((r) => (r.data.levelId ? [r.data.levelId] : [])),
-      ]),
-    ]
 
     setStep('checking-conflicts')
     setCommitError(null)
 
     try {
-      const checkResult =
-        allLevelIds.length > 0
-          ? await checkConflicts(allLevelIds)
-          : { conflicts: [] }
-      if (checkResult.conflicts.length > 0) {
-        setConflicts(checkResult.conflicts)
-        setResolutions({})
-        setStep('conflict')
+      const hasRows =
+        completions.length > 0 || dropped.length > 0 || progressRows.length > 0
+      const checkResult = hasRows
+        ? await checkConflicts({
+            completions: completions.map((r) => ({
+              rowIndex: r.rowIndex,
+              data: r.data,
+            })),
+            dropped: dropped.map((r) => ({
+              rowIndex: r.rowIndex,
+              data: r.data,
+            })),
+            progress: progressRows.map((r) => ({
+              rowIndex: r.rowIndex,
+              data: r.data,
+            })),
+          })
+        : EMPTY_CHECK_RESULT
+
+      if (checkResult.completionConflicts.length > 0) {
+        setCompletionConflicts(checkResult.completionConflicts)
+        setStep('resolve-conflicts')
       } else {
         setStep('committing')
-        await startImportJob(completions, progressRows, dropped, {})
+        await startImportJob(completions, progressRows, dropped, new Map())
       }
     } catch (err) {
       // Stay on `checking-conflicts` — see the comment in startImportJob's
@@ -1231,27 +1117,28 @@ export function ImportWizard({
         err instanceof Error ? err.message : 'Failed to check conflicts'
       )
     }
-  }, [
-    parseResult,
-    validRows,
-    checkConflicts,
-    startImportJob,
-    conflictMode,
-    skipConflictCheck,
-  ])
+  }, [parseResult, validRows, checkConflicts, startImportJob, skipConflictCheck])
 
-  // ── Step: conflict → commit ────────────────────────────────────────────
+  // ── Step: resolve-conflicts → commit ───────────────────────────────────
 
-  const handleCommitAfterConflict = useCallback(async () => {
-    if (!parseResult) return
-    const {
-      completions,
-      progress: progressRows,
-      dropped,
-    } = validRows(parseResult)
-    setStep('committing')
-    await startImportJob(completions, progressRows, dropped, resolutions)
-  }, [parseResult, validRows, resolutions, startImportJob])
+  const handleConflictsResolved = useCallback(
+    async (resolved: Map<string, GroupResolution>) => {
+      if (!parseResult) return
+      const {
+        completions,
+        progress: progressRows,
+        dropped,
+      } = validRows(parseResult)
+      setStep('committing')
+      await startImportJob(completions, progressRows, dropped, resolved)
+    },
+    [parseResult, validRows, startImportJob]
+  )
+
+  const handleConflictsCancelled = useCallback(() => {
+    setCompletionConflicts([])
+    setStep('review')
+  }, [])
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -1279,11 +1166,8 @@ export function ImportWizard({
         <ReviewStep
           parseResult={parseResult}
           flags={allFlags}
-          conflictMode={conflictMode}
-          onConflictModeChange={setConflictMode}
           onSkipFlagged={() => void handleSkipFlagged()}
           onReUpload={() => setStep('upload')}
-          skipConflictCheck={skipConflictCheck}
         />
       )}
 
@@ -1313,19 +1197,21 @@ export function ImportWizard({
         </div>
       )}
 
-      {step === 'conflict' && (
-        <ConflictStep
-          conflicts={conflicts}
-          resolutions={resolutions}
-          onResolutionChange={(id, r) =>
-            setResolutions((prev) => ({ ...prev, [id]: r }))
-          }
-          onBulkResolution={(r) =>
-            setResolutions(
-              Object.fromEntries(conflicts.map((c) => [c.levelId, r]))
-            )
-          }
-          onCommit={() => void handleCommitAfterConflict()}
+      {step === 'resolve-conflicts' && (
+        <FieldConflictMerge
+          tab="completion"
+          groups={completionConflicts.map((c) => ({
+            groupId: String(c.rowIndex),
+            title: c.levelName ?? `Level ${c.levelId}`,
+            subtitle: `ID ${c.levelId}`,
+            fields: c.fields.map((f) => ({
+              field: f.field,
+              existingValue: f.existingValue,
+              importedValue: f.importedValue,
+            })),
+          }))}
+          onResolved={(resolved) => void handleConflictsResolved(resolved)}
+          onCancel={handleConflictsCancelled}
         />
       )}
 
@@ -1369,13 +1255,18 @@ export function ImportWizard({
         <SuccessStep status={importStatus.data} onClose={onClose} />
       )}
 
-      {step !== 'success' && step !== 'committing' && (
-        <div className="pt-2 border-t border-[var(--color-border)]">
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
-      )}
+      {/* resolve-conflicts has its own Cancel (back to review) inside
+          FieldConflictMerge — showing this generic one too would put two
+          differently-behaving "Cancel" buttons next to each other. */}
+      {step !== 'success' &&
+        step !== 'committing' &&
+        step !== 'resolve-conflicts' && (
+          <div className="pt-2 border-t border-[var(--color-border)]">
+            <Button variant="ghost" size="sm" onClick={onClose}>
+              Cancel
+            </Button>
+          </div>
+        )}
     </div>
   )
 }

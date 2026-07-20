@@ -22,20 +22,6 @@ export type DifficultyOpinion =
 export type Device = 'pc' | 'mobile'
 export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
 
-export interface ImportConflict {
-  levelId: string
-  levelName: string | null
-  date: string | null
-  attempts: number | null
-  enjoyment: number | null
-  simpleRating: number | null
-  difficultyOpinion: DifficultyOpinion | null
-}
-
-export interface ImportCheckResponse {
-  conflicts: ImportConflict[]
-}
-
 export interface ImportCompletionRow {
   levelId?: string | null
   levelName?: string | null
@@ -108,25 +94,34 @@ export interface ImportDroppedRow {
   inGameDifficulty?: string | null
 }
 
-export type ConflictResolution = 'skip' | 'overwrite'
+// 'drop'      — discard the imported row entirely, keep existing as-is.
+// 'duplicate' — system-detected exact duplicate (progress/dropped only,
+//               never user-facing) — functionally identical to 'drop'.
+// 'overwrite' — `data` is the full imported row, written unconditionally.
+// 'merge'     — `data` is the user's field-by-field reconciliation result;
+//               identical to 'overwrite' server-side, distinguished only for
+//               outcome-reporting text ("merged" vs "overwritten").
+export type ImportConflictAction = 'drop' | 'duplicate' | 'overwrite' | 'merge'
 
 export interface ImportCommitCompletionRow {
   type: 'completion'
   rowIndex: number
   data: ImportCompletionRow
-  conflictResolution?: ConflictResolution
+  resolution?: ImportConflictAction
 }
 
 export interface ImportCommitDroppedRow {
   type: 'dropped'
   rowIndex: number
   data: ImportDroppedRow
+  resolution?: ImportConflictAction
 }
 
 export interface ImportCommitProgressRow {
   type: 'progress'
   rowIndex: number
   data: ImportProgressRow
+  resolution?: ImportConflictAction
 }
 
 export type ImportCommitRow =
@@ -192,6 +187,78 @@ export interface ImportRatingsResponse {
   levels: number
   categoriesCreated: string[]
   skipped: { label: string; reason: string }[]
+}
+
+// ── Conflict resolution (shared primitives) ─────────────────────────────────
+//
+// Powers the canonical git-merge-style resolution UI, reused across every tab
+// that can conflict: Completions/Progress/Dropped share ImportRowConflict (a
+// field-by-field diff); Ratings has its own single-field variant; Ranking and
+// Collections share ImportListMerge (an ordered-list merge).
+
+export interface ImportFieldDiff {
+  field: string
+  existingValue: unknown
+  importedValue: unknown
+}
+
+export interface ImportRowConflict {
+  rowIndex: number
+  levelId: string
+  levelName: string | null
+  matchedId: string | null
+  fields: ImportFieldDiff[]
+}
+
+export interface ImportDuplicateRow {
+  rowIndex: number
+}
+
+export interface ImportRatingConflict {
+  levelId: string
+  levelName: string | null
+  categoryName: string
+  existingScore: number
+  importedScore: number
+}
+
+export interface ImportListEntry {
+  levelId: string
+  levelName: string | null
+}
+
+// A git-like merge of two orderings — see computeListMerge on the backend
+// for the exact algorithm. A pure insertion (an entry unique to one side
+// whose position relative to the shared backbone is unambiguous) auto-
+// resolves and never appears here; only a genuine order disagreement, or a
+// pure omission (an existing entry the sheet doesn't mention at all),
+// produces a non-empty remainder.
+export interface ImportListMerge {
+  list: string | null // collection name, or null for Ranking
+  mergedSeed: ImportListEntry[]
+  importedRemainder: ImportListEntry[]
+  existingRemainder: ImportListEntry[]
+  hasConflict: boolean
+}
+
+export interface ImportCheckRequest {
+  completions?: { rowIndex: number; data: ImportCompletionRow }[]
+  progress?: { rowIndex: number; data: ImportProgressRow }[]
+  dropped?: { rowIndex: number; data: ImportDroppedRow }[]
+  ratings?: ImportRatingEntry[]
+  collections?: ImportCollectionEntry[]
+  ranking?: ImportRankingEntry[]
+}
+
+export interface ImportCheckResponse {
+  completionConflicts: ImportRowConflict[]
+  progressConflicts: ImportRowConflict[]
+  progressDuplicates: ImportDuplicateRow[]
+  droppedConflicts: ImportRowConflict[]
+  droppedDuplicates: ImportDuplicateRow[]
+  ratingConflicts: ImportRatingConflict[]
+  collectionsMerge: ImportListMerge[]
+  rankingMerge: ImportListMerge | null
 }
 
 export interface ImportStartRequest {
@@ -317,12 +384,12 @@ export function useImportApi() {
   const { getIdToken } = useAuth()
 
   const checkConflicts = useCallback(
-    async (levelIds: string[]): Promise<ImportCheckResponse> => {
+    async (req: ImportCheckRequest): Promise<ImportCheckResponse> => {
       const token = await getIdToken()
       return apiFetch<ImportCheckResponse>('/v1/me/import/check', {
         method: 'POST',
         token,
-        body: { levelIds },
+        body: req,
       })
     },
     [getIdToken]

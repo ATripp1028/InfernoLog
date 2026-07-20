@@ -415,8 +415,8 @@ describe('import → export round-trip', () => {
   })
 })
 
-describe('commitImportBatch — overwrite merge', () => {
-  it('only overwrites provided fields and never wipes category ratings', async () => {
+describe('commitImportBatch — completion conflict resolution', () => {
+  it('merge only overwrites provided fields and never wipes category ratings', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [
@@ -430,28 +430,90 @@ describe('commitImportBatch — overwrite merge', () => {
       { levelId: '100', scores: { Gameplay: 80 } },
     ])
 
-    // Re-import with overwrite, providing only attempts.
+    // Re-import with merge, providing only attempts.
     await commitImportBatch(user.id, randomUUID(), [
       {
         type: 'completion',
         rowIndex: 0,
         data: { levelId: '100', attempts: 4200 },
-        conflictResolution: 'overwrite',
+        resolution: 'merge',
       },
     ])
 
     const exp = await fullExport(user.id)
     const c = exp.completions.find((x) => x.levelId === '100')!
     expect(c.attempts).toBe(4200) // overwritten
-    expect(c.enjoyment).toBe(70) // untouched (not in the overwrite row)
+    expect(c.enjoyment).toBe(70) // untouched (not in the merge row)
     expect(c.notes).toBe('first') // untouched
-    // Category rating survives the overwrite entirely.
+    // Category rating survives the merge entirely.
     expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
     })
   })
 
-  it('skips an existing completion when resolution is not overwrite', async () => {
+  it('overwrite replaces every field, clearing ones the sheet leaves blank', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+      },
+    ])
+    await commitImportRatings(user.id, [
+      { levelId: '100', scores: { Gameplay: 80 } },
+    ])
+
+    // Re-import with overwrite, providing only attempts — enjoyment/notes are
+    // blank on the sheet and must be cleared, not left as-is (this is what
+    // distinguishes a true overwrite from a merge).
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 4200 },
+        resolution: 'overwrite',
+      },
+    ])
+
+    const exp = await fullExport(user.id)
+    const c = exp.completions.find((x) => x.levelId === '100')!
+    expect(c.attempts).toBe(4200)
+    expect(c.enjoyment).toBeNull() // cleared
+    expect(c.notes).toBeNull() // cleared
+    // Rating scores live on a different table entirely — untouched regardless.
+    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+      Gameplay: 80,
+    })
+  })
+
+  it('drop discards the imported row and keeps the existing completion untouched', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000 },
+      },
+    ])
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 9999 },
+        resolution: 'drop',
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    const exp = await fullExport(user.id)
+    expect(exp.completions.find((x) => x.levelId === '100')!.attempts).toBe(
+      1000
+    )
+  })
+
+  it('skips an unmodified reimport that carries no resolution at all', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [

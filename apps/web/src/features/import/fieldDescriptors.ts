@@ -1,0 +1,117 @@
+// Per-tab field metadata for FieldConflictMerge — how to label and render
+// each conflictable field's value and its manual-entry control.
+
+export type FieldFormatType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'boolean'
+  | 'percent'
+  | 'rating10'
+  | 'enum'
+
+export interface FieldDescriptor {
+  field: string
+  label: string
+  format: FieldFormatType
+  options?: { value: string; label: string }[]
+}
+
+const DIFFICULTY_OPINION_OPTIONS = [
+  { value: 'NOT_DEMON_WORTHY', label: 'Not demon-worthy' },
+  { value: 'EASY', label: 'Easy' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'HARD', label: 'Hard' },
+  { value: 'INSANE', label: 'Insane' },
+  { value: 'EXTREME', label: 'Extreme' },
+]
+
+const DEVICE_OPTIONS = [
+  { value: 'pc', label: 'PC' },
+  { value: 'mobile', label: 'Mobile' },
+]
+
+const VISIBILITY_OPTIONS = [
+  { value: 'PUBLIC', label: 'Public' },
+  { value: 'PRIVATE', label: 'Private' },
+]
+
+export const COMPLETION_FIELDS: FieldDescriptor[] = [
+  { field: 'date', label: 'Date', format: 'date' },
+  { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
+  { field: 'attempts', label: 'Attempts', format: 'number' },
+  { field: 'runFrom', label: 'Run from', format: 'percent' },
+  { field: 'runTo', label: 'Run to', format: 'percent' },
+  { field: 'fps', label: 'FPS', format: 'number' },
+  { field: 'onStream', label: 'On stream', format: 'boolean' },
+  { field: 'videoUrl', label: 'Video URL', format: 'text' },
+  { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
+  { field: 'notes', label: 'Notes', format: 'text' },
+  { field: 'enjoyment', label: 'Enjoyment', format: 'rating10' },
+  { field: 'simpleRating', label: 'Simple rating', format: 'rating10' },
+  {
+    field: 'difficultyOpinion',
+    label: 'Difficulty opinion',
+    format: 'enum',
+    options: DIFFICULTY_OPINION_OPTIONS,
+  },
+  {
+    field: 'difficultyOpinionStars',
+    label: 'Difficulty stars',
+    format: 'number',
+  },
+  { field: 'coinsCollected', label: 'Coins collected (bitmask)', format: 'number' },
+  { field: 'twoPlayerSolo', label: 'Two-player solo', format: 'boolean' },
+  {
+    field: 'twoPlayerPartner',
+    label: 'Two-player partner',
+    format: 'text',
+  },
+  { field: 'device', label: 'Device', format: 'enum', options: DEVICE_OPTIONS },
+  { field: 'worstFail', label: 'Worst fail %', format: 'percent' },
+  { field: 'worstFailDate', label: 'Worst fail date', format: 'date' },
+  {
+    field: 'visibility',
+    label: 'Visibility',
+    format: 'enum',
+    options: VISIBILITY_OPTIONS,
+  },
+  { field: 'levelNotes', label: 'Level notes', format: 'text' },
+  { field: 'userGddlTier', label: 'GDDL tier', format: 'number' },
+]
+
+export const RATING_FIELDS: FieldDescriptor[] = [
+  { field: 'score', label: 'Score', format: 'rating10' },
+]
+
+function toDescriptorMap(
+  fields: FieldDescriptor[]
+): Map<string, FieldDescriptor> {
+  return new Map(fields.map((f) => [f.field, f]))
+}
+
+const COMPLETION_FIELD_MAP = toDescriptorMap(COMPLETION_FIELDS)
+const RATING_FIELD_MAP = toDescriptorMap(RATING_FIELDS)
+
+const FIELD_MAPS_BY_TAB: Record<string, Map<string, FieldDescriptor>> = {
+  completion: COMPLETION_FIELD_MAP,
+  rating: RATING_FIELD_MAP,
+}
+
+// Falls back to a title-cased version of the raw field key for any field the
+// descriptor table doesn't know about, so an unexpected diff still renders
+// something reasonable instead of crashing.
+export function describeField(
+  tab: keyof typeof FIELD_MAPS_BY_TAB,
+  field: string
+): FieldDescriptor {
+  const known = FIELD_MAPS_BY_TAB[tab]?.get(field)
+  if (known) return known
+  return {
+    field,
+    label: field
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/^./, (c) => c.toUpperCase()),
+    format: 'text',
+  }
+}
