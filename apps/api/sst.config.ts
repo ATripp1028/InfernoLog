@@ -114,8 +114,13 @@ export default $config({
         logoutUrls: [
           'http://localhost:5173',
           'https://infernolog.com',
+          'http://localhost:5173/no-account-found',
+          'https://infernolog.com/no-account-found',
           ...($app.stage !== 'production' && $app.stage !== 'alextripp'
-            ? [`https://d1r4gy6uhfg2w9.cloudfront.net`]
+            ? [
+                `https://d1r4gy6uhfg2w9.cloudfront.net`,
+                `https://d1r4gy6uhfg2w9.cloudfront.net/no-account-found`,
+              ]
             : []),
         ],
         defaultRedirectUri: 'http://localhost:5173/auth/callback',

@@ -10,7 +10,10 @@ Amplify.configure({
           domain: import.meta.env.VITE_COGNITO_DOMAIN,
           scopes: ['email', 'openid', 'profile'],
           redirectSignIn: [import.meta.env.VITE_REDIRECT_SIGN_IN],
-          redirectSignOut: [import.meta.env.VITE_REDIRECT_SIGN_OUT],
+          redirectSignOut: [
+            import.meta.env.VITE_REDIRECT_SIGN_OUT,
+            `${import.meta.env.VITE_REDIRECT_SIGN_OUT}/no-account-found`,
+          ],
           responseType: 'code',
         },
       },
