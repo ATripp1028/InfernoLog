@@ -55,7 +55,7 @@ interface FieldChoice {
 }
 
 interface FieldConflictMergeProps {
-  tab: 'completion' | 'rating'
+  tab: 'completion' | 'progress' | 'dropped' | 'rating'
   groups: ConflictGroup[]
   onResolved: (resolved: Map<string, GroupResolution>) => void
   onCancel: () => void

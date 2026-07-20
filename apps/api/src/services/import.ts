@@ -18,6 +18,7 @@ import type {
   ImportConflictAction,
   ImportFieldDiff,
   ImportRowConflict,
+  ImportDuplicateRow,
   ImportCheckRequest,
   ImportCheckResponse,
 } from '@infernolog/core'
@@ -353,6 +354,11 @@ interface PlanCtx {
   // drop_id → the existing kind=DROP ProgressUpdate it round-trips to. Same
   // shape/purpose as existingProgress, since drops are additive too.
   existingDrops: Map<string, { id: string; levelId: string }>
+  // Fallback dedup for id-less progress/dropped rows (name-only rows resolve
+  // too late to be pre-checked by /check) — levelId → that level's existing
+  // PROGRESS (resp. DROP) kind rows, for derived-key matching at commit time.
+  progressEventsByLevel: Map<string, ExistingEventSnapshot[]>
+  dropEventsByLevel: Map<string, ExistingEventSnapshot[]>
 }
 
 function newBatchWrites(): BatchWrites {
@@ -614,25 +620,278 @@ function planCompletion(
   return 'committed'
 }
 
+// ── Progress/Dropped shared helpers ─────────────────────────────────────────
+//
+// Progress and Dropped round-trip by an explicit progress_id/drop_id when
+// present (the branches below keyed off `matched` — unrelated to conflict
+// resolution, unchanged from before this rework). When absent, a row could
+// still describe an event that already exists (an unmodified export missing
+// its id column, or a hand-added duplicate) — silently creating a new entry
+// every time would duplicate history on every reimport. The derived key is
+// (date, percentage, runFrom, runTo): ALL must match exactly, including both
+// sides being null — a 43-100 run and a flat 35% reading on the same day are
+// different events, not the same one recorded two ways. This only runs as a
+// commit-time fallback for rows /check couldn't pre-resolve (name-only rows
+// resolve their level too late to be pre-checked) — see matchExistingEvent.
+
+const isoDate = (d: Date | null): string | null =>
+  d ? d.toISOString().slice(0, 10) : null
+
+type DecimalLike = { toNumber(): number }
+const toNum = (v: DecimalLike | number | null): number | null =>
+  v === null ? null : typeof v === 'number' ? v : v.toNumber()
+
+interface ExistingEventSnapshot {
+  id: string
+  levelId: string
+  date: Date | null
+  dateUncertain: boolean
+  attempts: number | null
+  percentage: number | null
+  runFrom: number | null
+  runTo: number | null
+  fps: number | null
+  onStream: boolean
+  highlightUrl: string | null
+  notes: string | null
+  enjoyment: number | null // internal 0-100
+  device: string | null
+}
+
+// Batch-fetches every existing PROGRESS (resp. DROP) row for the given
+// levels — both checkImportConflicts (pre-check) and processImportJobBatch
+// (commit-time fallback) need the same shape, just at different call sites.
+async function fetchExistingEvents(
+  userId: string,
+  kind: 'PROGRESS' | 'DROP',
+  levelIds: string[]
+): Promise<ExistingEventSnapshot[]> {
+  if (!levelIds.length) return []
+  const rows = await prisma.progressUpdate.findMany({
+    where: { kind, levelProgress: { userId, levelId: { in: levelIds } } },
+    select: {
+      id: true,
+      date: true,
+      dateUncertain: true,
+      attempts: true,
+      percentage: true,
+      runFrom: true,
+      runTo: true,
+      fps: true,
+      onStream: true,
+      highlightUrl: true,
+      notes: true,
+      enjoyment: true,
+      device: true,
+      levelProgress: { select: { levelId: true } },
+    },
+  })
+  return rows.map((r) => ({
+    id: r.id,
+    levelId: r.levelProgress.levelId,
+    date: r.date,
+    dateUncertain: r.dateUncertain,
+    attempts: r.attempts,
+    percentage: toNum(r.percentage),
+    runFrom: r.runFrom,
+    runTo: r.runTo,
+    fps: r.fps,
+    onStream: r.onStream,
+    highlightUrl: r.highlightUrl,
+    notes: r.notes,
+    enjoyment: r.enjoyment,
+    device: r.device,
+  }))
+}
+
+function groupByLevel(
+  events: ExistingEventSnapshot[]
+): Map<string, ExistingEventSnapshot[]> {
+  const byLevel = new Map<string, ExistingEventSnapshot[]>()
+  for (const e of events) {
+    const list = byLevel.get(e.levelId)
+    if (list) list.push(e)
+    else byLevel.set(e.levelId, [e])
+  }
+  return byLevel
+}
+
+// The derived key as a plain string, for both grouping (intra-batch
+// supersession) and matching (against existing DB rows). A row with none of
+// the four fields set carries no distinguishing session data — treated as
+// "no key" so a batch of otherwise-blank rows never falsely supersedes or
+// dedupes against each other.
+function deriveEventKey(fields: {
+  date: string | null
+  percentage: number | null
+  runFrom: number | null
+  runTo: number | null
+}): string | null {
+  if (
+    fields.date == null &&
+    fields.percentage == null &&
+    fields.runFrom == null &&
+    fields.runTo == null
+  ) {
+    return null
+  }
+  return `${fields.date ?? ''}|${fields.percentage ?? ''}|${fields.runFrom ?? ''}|${fields.runTo ?? ''}`
+}
+
+function diffProgressFields(
+  existing: ExistingEventSnapshot,
+  row: ImportProgressRow
+): ImportFieldDiff[] {
+  const diffs: ImportFieldDiff[] = []
+  const push = (
+    field: string,
+    existingValue: unknown,
+    importedValue: unknown
+  ) => {
+    if (importedValue == null) return
+    if (importedValue === existingValue) return
+    diffs.push({ field, existingValue, importedValue })
+  }
+  push('date', isoDate(existing.date), row.date ?? null)
+  push('dateUncertain', existing.dateUncertain, row.dateUncertain ?? null)
+  push('attempts', existing.attempts, row.attempts ?? null)
+  push('percentage', existing.percentage, row.percentage ?? null)
+  push('runFrom', existing.runFrom, row.runFrom ?? null)
+  push('runTo', existing.runTo, row.runTo ?? null)
+  push('fps', existing.fps, row.fps ?? null)
+  push('onStream', existing.onStream, row.onStream ?? null)
+  push('highlightUrl', existing.highlightUrl, row.highlightUrl ?? null)
+  push('notes', existing.notes, row.notes ?? null)
+  push(
+    'enjoyment',
+    existing.enjoyment != null ? existing.enjoyment / 10 : null,
+    row.enjoyment ?? null
+  )
+  push('device', existing.device, row.device ?? null)
+  return diffs
+}
+
+function diffDroppedFields(
+  existing: ExistingEventSnapshot,
+  row: ImportDroppedRow
+): ImportFieldDiff[] {
+  const diffs: ImportFieldDiff[] = []
+  const push = (
+    field: string,
+    existingValue: unknown,
+    importedValue: unknown
+  ) => {
+    if (importedValue == null) return
+    if (importedValue === existingValue) return
+    diffs.push({ field, existingValue, importedValue })
+  }
+  push('droppedAt', isoDate(existing.date), row.droppedAt ?? null)
+  push('bestProgress', existing.percentage, row.bestProgress ?? null)
+  push('runFrom', existing.runFrom, row.runFrom ?? null)
+  push('runTo', existing.runTo, row.runTo ?? null)
+  push('attemptsAtDrop', existing.attempts, row.attemptsAtDrop ?? null)
+  push('reason', existing.notes, row.reason ?? null)
+  return diffs
+}
+
+// Commit-time fallback dedup for a row with no explicit progress_id/drop_id.
+// 'exact' — every field agrees, a true no-op duplicate. 'partial' — the
+// derived key matched but something else differs (created anyway and
+// flagged for review — see planProgress/planDrop). null — no match at all.
+function matchExistingEvent(
+  eventsByLevel: Map<string, ExistingEventSnapshot[]>,
+  levelId: string,
+  key: string | null,
+  diff: (existing: ExistingEventSnapshot) => ImportFieldDiff[]
+): 'exact' | 'partial' | null {
+  if (key == null) return null
+  const candidates = eventsByLevel.get(levelId)
+  if (!candidates) return null
+  for (const existing of candidates) {
+    const existingKey = deriveEventKey({
+      date: isoDate(existing.date),
+      percentage: existing.percentage,
+      runFrom: existing.runFrom,
+      runTo: existing.runTo,
+    })
+    if (existingKey !== key) continue
+    return diff(existing).length === 0 ? 'exact' : 'partial'
+  }
+  return null
+}
+
+function eventOutcomeReason(
+  outcomeStatus: 'committed' | 'updated' | 'skipped',
+  resolution: ImportConflictAction | undefined
+): string | undefined {
+  if (outcomeStatus === 'skipped') {
+    if (resolution === 'drop') return 'Discarded during conflict review'
+    if (resolution === 'duplicate') return 'Duplicate of an existing entry'
+    return undefined
+  }
+  if (outcomeStatus === 'updated') {
+    if (resolution === 'overwrite') return 'Overwritten'
+    if (resolution === 'merge') return 'Merged'
+  }
+  return undefined
+}
+
+interface EventPlanResult {
+  status: 'committed' | 'updated' | 'skipped'
+  reason?: string | undefined
+  // A 'committed' row that's a possible (non-exact) duplicate the pre-check
+  // couldn't catch — created anyway (never silently dropped — an incoming
+  // row might genuinely be new data that happens to share a derived key) but
+  // surfaced via the flagged-row review mechanism.
+  flagged?: boolean
+}
+
 // A drop event, backed by its own progress_update (kind=DROP). Additive, like
 // Progress — a level can be dropped more than once (drop → resume → drop
-// again). Round-trip identity comes from `dropId` (the ProgressUpdate.id,
-// populated on export): a match (scoped to this exact level, to prevent
-// cross-account/cross-level tampering) updates that entry in place; anything
-// else creates a new one.
+// again). Round-trips by `dropId` when present (unrelated to conflict
+// resolution — the pre-existing, unchanged behavior); otherwise resolved via
+// `resolution` (arrived from conflict review, matchedId already folded into
+// `dropId` by the frontend) or the derived-key fallback dedup above.
 function planDrop(
   ctx: PlanCtx,
   levelId: string,
-  row: ImportDroppedRow
-): 'committed' | 'updated' {
+  row: ImportDroppedRow,
+  resolution: ImportConflictAction | undefined
+): EventPlanResult {
+  if (resolution === 'drop' || resolution === 'duplicate') {
+    return { status: 'skipped', reason: eventOutcomeReason('skipped', resolution) }
+  }
+
   const matched = row.dropId ? ctx.existingDrops.get(row.dropId) : undefined
   const plan = getLpPlan(ctx, levelId)
 
   if (matched && matched.levelId === levelId) {
+    if (resolution === 'overwrite') {
+      const fields = {
+        date: row.droppedAt ? new Date(row.droppedAt) : null,
+        attempts: row.attemptsAtDrop ?? null,
+        notes: row.reason ?? null,
+        percentage: row.bestProgress ?? null,
+        runFrom: row.runFrom ?? null,
+        runTo: row.runTo ?? null,
+      }
+      ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: fields })
+      if (row.bestProgress != null) {
+        applyLp(plan, { worstFail: Math.round(row.bestProgress) })
+      }
+      if (!plan.completed) applyLp(plan, { status: 'DROPPED' })
+      return { status: 'updated', reason: 'Overwritten' }
+    }
+
+    // resolution === 'merge', or absent (ordinary id round-trip) — only the
+    // fields the sheet provides are written, same shape either way.
     const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
     if (row.droppedAt != null) merge.date = new Date(row.droppedAt)
     if (row.attemptsAtDrop != null) merge.attempts = row.attemptsAtDrop
     if (row.reason != null) merge.notes = row.reason
+    if (row.bestProgress != null) merge.percentage = row.bestProgress
+    if (row.runFrom != null) merge.runFrom = row.runFrom
+    if (row.runTo != null) merge.runTo = row.runTo
     if (Object.keys(merge).length > 0) {
       ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
     }
@@ -640,7 +899,23 @@ function planDrop(
       applyLp(plan, { worstFail: Math.round(row.bestProgress) })
     }
     if (!plan.completed) applyLp(plan, { status: 'DROPPED' })
-    return 'updated'
+    return {
+      status: 'updated',
+      reason: resolution === 'merge' ? 'Merged' : undefined,
+    }
+  }
+
+  const key = deriveEventKey({
+    date: row.droppedAt ?? null,
+    percentage: row.bestProgress ?? null,
+    runFrom: row.runFrom ?? null,
+    runTo: row.runTo ?? null,
+  })
+  const dedup = matchExistingEvent(ctx.dropEventsByLevel, levelId, key, (e) =>
+    diffDroppedFields(e, row)
+  )
+  if (dedup === 'exact') {
+    return { status: 'skipped', reason: 'Duplicate of an existing entry' }
   }
 
   const puId = randomUUID()
@@ -651,6 +926,9 @@ function planDrop(
     date: row.droppedAt ? new Date(row.droppedAt) : null,
     attempts: row.attemptsAtDrop ?? null,
     notes: row.reason ?? null,
+    percentage: row.bestProgress ?? null,
+    runFrom: row.runFrom ?? null,
+    runTo: row.runTo ?? null,
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
   })
   applyLp(plan, {
@@ -659,29 +937,62 @@ function planDrop(
       ? { worstFail: Math.round(row.bestProgress) }
       : {}),
   })
-  return 'committed'
+  return dedup === 'partial'
+    ? {
+        status: 'committed',
+        reason:
+          'Possible duplicate — re-import with a drop_id column to resolve automatically',
+        flagged: true,
+      }
+    : { status: 'committed' }
 }
 
 // A non-completion progress log. Unlike completions/drops, many rows can
 // legitimately target the same level (session history) — so there is no
-// "existing entry" to skip or overwrite by level. Round-trip identity instead
-// comes from `progressId` (the ProgressUpdate.id, populated on export): a
-// match (scoped to this exact level, to prevent cross-account/cross-level
-// tampering) updates that entry in place; anything else creates a new one.
-// Never touches LevelProgress.status — completions/drops establish status,
-// and historical progress rows must not flip a dropped level back to
-// in-progress on reimport.
+// "existing entry" to skip or overwrite by level. Round-trips by
+// `progressId` when present (unrelated to conflict resolution — the
+// pre-existing, unchanged behavior); otherwise resolved via `resolution` or
+// the derived-key fallback dedup above. Never touches LevelProgress.status —
+// completions/drops establish status, and historical progress rows must not
+// flip a dropped level back to in-progress on reimport.
 function planProgress(
   ctx: PlanCtx,
   levelId: string,
-  row: ImportProgressRow
-): 'committed' | 'updated' {
+  row: ImportProgressRow,
+  resolution: ImportConflictAction | undefined
+): EventPlanResult {
+  if (resolution === 'drop' || resolution === 'duplicate') {
+    return { status: 'skipped', reason: eventOutcomeReason('skipped', resolution) }
+  }
+
   const matched = row.progressId
     ? ctx.existingProgress.get(row.progressId)
     : undefined
   const plan = getLpPlan(ctx, levelId)
 
   if (matched && matched.levelId === levelId) {
+    if (resolution === 'overwrite') {
+      const fields = {
+        date: row.date ? new Date(row.date) : null,
+        dateUncertain: row.dateUncertain ?? false,
+        attempts: row.attempts ?? null,
+        percentage: row.percentage ?? null,
+        runFrom: row.runFrom ?? null,
+        runTo: row.runTo ?? null,
+        fps: row.fps ?? null,
+        onStream: row.onStream ?? false,
+        highlightUrl: row.highlightUrl ?? null,
+        notes: row.notes ?? null,
+        enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+        device: row.device ?? null,
+      }
+      ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: fields })
+      if (row.visibility != null) applyLp(plan, { visibility: row.visibility })
+      return { status: 'updated', reason: 'Overwritten' }
+    }
+
+    // resolution === 'merge', or absent (ordinary id round-trip) — only the
+    // fields the sheet provides are written, same shape either way.
     const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
     if (row.date != null) merge.date = new Date(row.date)
     if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
@@ -699,7 +1010,26 @@ function planProgress(
       ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
     }
     if (row.visibility != null) applyLp(plan, { visibility: row.visibility })
-    return 'updated'
+    return {
+      status: 'updated',
+      reason: resolution === 'merge' ? 'Merged' : undefined,
+    }
+  }
+
+  const key = deriveEventKey({
+    date: row.date ?? null,
+    percentage: row.percentage ?? null,
+    runFrom: row.runFrom ?? null,
+    runTo: row.runTo ?? null,
+  })
+  const dedup = matchExistingEvent(
+    ctx.progressEventsByLevel,
+    levelId,
+    key,
+    (e) => diffProgressFields(e, row)
+  )
+  if (dedup === 'exact') {
+    return { status: 'skipped', reason: 'Duplicate of an existing entry' }
   }
 
   const puId = randomUUID()
@@ -722,7 +1052,14 @@ function planProgress(
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
   })
   if (row.visibility != null) applyLp(plan, { visibility: row.visibility })
-  return 'committed'
+  return dedup === 'partial'
+    ? {
+        status: 'committed',
+        reason:
+          'Possible duplicate — re-import with a progress_id column to resolve automatically',
+        flagged: true,
+      }
+    : { status: 'committed' }
 }
 
 // ── Main commit function ───────────────────────────────────────────────────
@@ -891,11 +1228,39 @@ export async function processImportJobBatch(
     }
   }
 
+  // ── Pre-fetch existing PROGRESS/DROP rows for the derived-key fallback ──
+  // Only needed for rows with no explicit progressId/dropId — mainly
+  // name-only rows, which resolve their level too late for /check to have
+  // caught a possible duplicate ahead of time.
+  const idlessProgressLevelIds = [
+    ...new Set(
+      progressRows
+        .filter((r) => !r.data.progressId)
+        .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
+        .filter((id): id is string => !!id)
+    ),
+  ]
+  const idlessDropLevelIds = [
+    ...new Set(
+      droppedRows
+        .filter((r) => !r.data.dropId)
+        .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
+        .filter((id): id is string => !!id)
+    ),
+  ]
+  const progressEventsByLevel = groupByLevel(
+    await fetchExistingEvents(userId, 'PROGRESS', idlessProgressLevelIds)
+  )
+  const dropEventsByLevel = groupByLevel(
+    await fetchExistingEvents(userId, 'DROP', idlessDropLevelIds)
+  )
+
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
   const results: {
     rowIndex: number
     status: 'committed' | 'updated' | 'skipped' | 'failed'
     reason: string | null
+    flagged: boolean
     levelName: string | null
     identifier: string | null
   }[] = []
@@ -910,6 +1275,8 @@ export async function processImportJobBatch(
     levelCoins,
     existingProgress,
     existingDrops,
+    progressEventsByLevel,
+    dropEventsByLevel,
   }
 
   // Levels whose completion was written/updated this batch — they leave the
@@ -921,20 +1288,44 @@ export async function processImportJobBatch(
   // two completions for one LevelProgress; earlier occurrences are recorded
   // skipped. Progress and Dropped rows are exempt — multiple rows per level are
   // legitimate (session history / repeated drops) — except when two rows in
-  // this batch target the same progress_id/drop_id, where only the last one
-  // wins (same "later row supersedes" rule).
+  // this batch target the same progress_id/drop_id (or, absent an id, the
+  // same derived key — see deriveEventKey), where only the last one wins
+  // (same "later row supersedes" rule either way).
   const lastCompletion = new Map<string, number>()
   const lastProgressById = new Map<string, number>()
   const lastDropById = new Map<string, number>()
+  const lastProgressByKey = new Map<string, number>()
+  const lastDropByKey = new Map<string, number>()
   for (const row of rows) {
     if (resolutionFailures.has(row.rowIndex)) continue
     if (row.type === 'progress') {
-      if (row.data.progressId)
+      if (row.data.progressId) {
         lastProgressById.set(row.data.progressId, row.rowIndex)
+      } else {
+        const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
+        const key = deriveEventKey({
+          date: row.data.date ?? null,
+          percentage: row.data.percentage ?? null,
+          runFrom: row.data.runFrom ?? null,
+          runTo: row.data.runTo ?? null,
+        })
+        if (id && key != null) lastProgressByKey.set(`${id}::${key}`, row.rowIndex)
+      }
       continue
     }
     if (row.type === 'dropped') {
-      if (row.data.dropId) lastDropById.set(row.data.dropId, row.rowIndex)
+      if (row.data.dropId) {
+        lastDropById.set(row.data.dropId, row.rowIndex)
+      } else {
+        const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
+        const key = deriveEventKey({
+          date: row.data.droppedAt ?? null,
+          percentage: row.data.bestProgress ?? null,
+          runFrom: row.data.runFrom ?? null,
+          runTo: row.data.runTo ?? null,
+        })
+        if (id && key != null) lastDropByKey.set(`${id}::${key}`, row.rowIndex)
+      }
       continue
     }
     const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
@@ -950,6 +1341,7 @@ export async function processImportJobBatch(
         rowIndex: row.rowIndex,
         status: 'failed',
         reason: failureReason,
+        flagged: false,
         levelName: row.data.levelName ?? null,
         identifier: row.data.levelId ?? null,
       })
@@ -963,6 +1355,7 @@ export async function processImportJobBatch(
         rowIndex: row.rowIndex,
         status: 'failed',
         reason,
+        flagged: false,
         levelName: row.data.levelName ?? null,
         identifier: null,
       })
@@ -978,6 +1371,30 @@ export async function processImportJobBatch(
             status: 'skipped',
             reason:
               'Superseded by a later row targeting the same progress entry in this import',
+            flagged: false,
+            levelName: row.data.levelName ?? null,
+            identifier: effectiveLevelId,
+          })
+          continue
+        }
+      } else {
+        const key = deriveEventKey({
+          date: row.data.date ?? null,
+          percentage: row.data.percentage ?? null,
+          runFrom: row.data.runFrom ?? null,
+          runTo: row.data.runTo ?? null,
+        })
+        const lastForKey =
+          key != null
+            ? lastProgressByKey.get(`${effectiveLevelId}::${key}`)
+            : undefined
+        if (lastForKey != null && lastForKey !== row.rowIndex) {
+          results.push({
+            rowIndex: row.rowIndex,
+            status: 'skipped',
+            reason:
+              'Superseded by a later row with the same date/percentage/run range in this import',
+            flagged: false,
             levelName: row.data.levelName ?? null,
             identifier: effectiveLevelId,
           })
@@ -993,6 +1410,30 @@ export async function processImportJobBatch(
             status: 'skipped',
             reason:
               'Superseded by a later row targeting the same drop entry in this import',
+            flagged: false,
+            levelName: row.data.levelName ?? null,
+            identifier: effectiveLevelId,
+          })
+          continue
+        }
+      } else {
+        const key = deriveEventKey({
+          date: row.data.droppedAt ?? null,
+          percentage: row.data.bestProgress ?? null,
+          runFrom: row.data.runFrom ?? null,
+          runTo: row.data.runTo ?? null,
+        })
+        const lastForKey =
+          key != null
+            ? lastDropByKey.get(`${effectiveLevelId}::${key}`)
+            : undefined
+        if (lastForKey != null && lastForKey !== row.rowIndex) {
+          results.push({
+            rowIndex: row.rowIndex,
+            status: 'skipped',
+            reason:
+              'Superseded by a later row with the same date/percentage/run range in this import',
+            flagged: false,
             levelName: row.data.levelName ?? null,
             identifier: effectiveLevelId,
           })
@@ -1008,6 +1449,7 @@ export async function processImportJobBatch(
           rowIndex: row.rowIndex,
           status: 'skipped',
           reason,
+          flagged: false,
           levelName: row.data.levelName ?? null,
           identifier: effectiveLevelId,
         })
@@ -1017,6 +1459,7 @@ export async function processImportJobBatch(
 
     let outcomeStatus: 'committed' | 'updated' | 'skipped' | 'failed'
     let reason: string | undefined
+    let flagged = false
     try {
       if (row.type === 'completion') {
         const autoGddlTier = !row.data.userGddlTier
@@ -1034,9 +1477,20 @@ export async function processImportJobBatch(
         }
         reason = completionOutcomeReason(outcomeStatus, row.resolution)
       } else if (row.type === 'dropped') {
-        outcomeStatus = planDrop(ctx, effectiveLevelId, row.data)
+        const result = planDrop(ctx, effectiveLevelId, row.data, row.resolution)
+        outcomeStatus = result.status
+        reason = result.reason
+        flagged = result.flagged ?? false
       } else {
-        outcomeStatus = planProgress(ctx, effectiveLevelId, row.data)
+        const result = planProgress(
+          ctx,
+          effectiveLevelId,
+          row.data,
+          row.resolution
+        )
+        outcomeStatus = result.status
+        reason = result.reason
+        flagged = result.flagged ?? false
       }
     } catch (err) {
       outcomeStatus = 'failed'
@@ -1051,6 +1505,7 @@ export async function processImportJobBatch(
       rowIndex: row.rowIndex,
       status: outcomeStatus!,
       reason: reason ?? null,
+      flagged,
       levelName: row.data.levelName ?? null,
       identifier: effectiveLevelId,
     })
@@ -1147,8 +1602,11 @@ export async function processImportJobBatch(
       await removeFromWantToBeat(tx, userId, [...completedLevelIds])
 
       // Rows are updated in place (not created) — they were already inserted
-      // as "pending" by POST /v1/me/import/start. issueMessage is only set for
-      // skipped/failed rows: that's the "flagged" set the review UI surfaces.
+      // as "pending" by POST /v1/me/import/start. issueMessage is set for
+      // skipped/failed rows (the ordinary "flagged" set the review UI
+      // surfaces) and for a `flagged` committed row — a possible progress/
+      // dropped duplicate /check couldn't catch ahead of time (name-only
+      // rows), created anyway but worth a second look.
       for (const r of results) {
         const id = rowDbId.get(r.rowIndex)
         if (!id) continue
@@ -1157,7 +1615,9 @@ export async function processImportJobBatch(
           data: {
             status: r.status,
             issueMessage:
-              r.status === 'skipped' || r.status === 'failed' ? r.reason : null,
+              r.status === 'skipped' || r.status === 'failed' || r.flagged
+                ? r.reason
+                : null,
             levelName: r.levelName,
             identifier: r.identifier,
           },
@@ -1271,9 +1731,6 @@ interface ExistingCompletionSnapshot {
   levelNotes: string | null
   userGddlTier: number | null
 }
-
-const isoDate = (d: Date | null): string | null =>
-  d ? d.toISOString().slice(0, 10) : null
 
 // A field is a diff only when the sheet actually provides a value (null
 // means "left blank" — auto-resolves to the existing value, nothing to
@@ -1466,12 +1923,107 @@ export async function checkImportConflicts(
     })
   }
 
+  // Progress/Dropped: only rows with a known levelId AND no explicit
+  // progress_id/drop_id can be pre-checked — an id round-trips unconditionally
+  // (unrelated, unchanged path), and a name-only row resolves its level too
+  // late for this pass (falls back to the commit-time dedup in planProgress/
+  // planDrop instead).
+  const progressRows = (req.progress ?? []).filter(
+    (r) => r.data.levelId && !r.data.progressId
+  )
+  const droppedRows = (req.dropped ?? []).filter(
+    (r) => r.data.levelId && !r.data.dropId
+  )
+  const progressLevelIds = [
+    ...new Set(progressRows.map((r) => r.data.levelId!)),
+  ]
+  const droppedLevelIds = [...new Set(droppedRows.map((r) => r.data.levelId!))]
+
+  const progressEventsByLevel = groupByLevel(
+    await fetchExistingEvents(userId, 'PROGRESS', progressLevelIds)
+  )
+  const dropEventsByLevel = groupByLevel(
+    await fetchExistingEvents(userId, 'DROP', droppedLevelIds)
+  )
+
+  const progressConflicts: ImportRowConflict[] = []
+  const progressDuplicates: ImportDuplicateRow[] = []
+  for (const row of progressRows) {
+    const levelId = row.data.levelId!
+    const key = deriveEventKey({
+      date: row.data.date ?? null,
+      percentage: row.data.percentage ?? null,
+      runFrom: row.data.runFrom ?? null,
+      runTo: row.data.runTo ?? null,
+    })
+    if (key == null) continue
+    const candidates = progressEventsByLevel.get(levelId) ?? []
+    for (const existing of candidates) {
+      const existingKey = deriveEventKey({
+        date: isoDate(existing.date),
+        percentage: existing.percentage,
+        runFrom: existing.runFrom,
+        runTo: existing.runTo,
+      })
+      if (existingKey !== key) continue
+      const fields = diffProgressFields(existing, row.data)
+      if (fields.length === 0) {
+        progressDuplicates.push({ rowIndex: row.rowIndex })
+      } else {
+        progressConflicts.push({
+          rowIndex: row.rowIndex,
+          levelId,
+          levelName: row.data.levelName ?? null,
+          matchedId: existing.id,
+          fields,
+        })
+      }
+      break
+    }
+  }
+
+  const droppedConflicts: ImportRowConflict[] = []
+  const droppedDuplicates: ImportDuplicateRow[] = []
+  for (const row of droppedRows) {
+    const levelId = row.data.levelId!
+    const key = deriveEventKey({
+      date: row.data.droppedAt ?? null,
+      percentage: row.data.bestProgress ?? null,
+      runFrom: row.data.runFrom ?? null,
+      runTo: row.data.runTo ?? null,
+    })
+    if (key == null) continue
+    const candidates = dropEventsByLevel.get(levelId) ?? []
+    for (const existing of candidates) {
+      const existingKey = deriveEventKey({
+        date: isoDate(existing.date),
+        percentage: existing.percentage,
+        runFrom: existing.runFrom,
+        runTo: existing.runTo,
+      })
+      if (existingKey !== key) continue
+      const fields = diffDroppedFields(existing, row.data)
+      if (fields.length === 0) {
+        droppedDuplicates.push({ rowIndex: row.rowIndex })
+      } else {
+        droppedConflicts.push({
+          rowIndex: row.rowIndex,
+          levelId,
+          levelName: row.data.levelName ?? null,
+          matchedId: existing.id,
+          fields,
+        })
+      }
+      break
+    }
+  }
+
   return {
     completionConflicts,
-    progressConflicts: [],
-    progressDuplicates: [],
-    droppedConflicts: [],
-    droppedDuplicates: [],
+    progressConflicts,
+    progressDuplicates,
+    droppedConflicts,
+    droppedDuplicates,
     ratingConflicts: [],
     collectionsMerge: [],
     rankingMerge: null,

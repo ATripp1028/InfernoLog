@@ -12,8 +12,11 @@
 // Checking-conflicts — network round trip for field-level conflict detection.
 // Resolve-conflicts — canonical git-merge-style resolution (drop / overwrite
 //   / merge, per field or in bulk — see FieldConflictMerge) for whichever
-//   rows the check above found conflicting. Completions only for now;
-//   Progress/Dropped/Ratings reuse the same component in a later phase.
+//   rows the check above found conflicting. Internally a linear sequence of
+//   sub-steps (Completions → Progress → Dropped, empty ones skipped) rather
+//   than free-roaming tabs — consistent with the wizard's own top-level
+//   "forward only" step model. Ratings/Collections/Ranking reuse the same
+//   primitives in a later phase.
 // Committing — progress bar while batches are sent.
 // Success — final report.
 
@@ -67,6 +70,12 @@ type WizardStep =
   | 'committing'
   | 'success'
 
+// The resolve-conflicts step's internal sequence — a sub-step is skipped
+// when its conflict list is empty, same "skip what's empty" rule as the
+// top-level wizard steps.
+const CONFLICT_SUB_STEP_ORDER = ['completions', 'progress', 'dropped'] as const
+type ConflictSubStep = (typeof CONFLICT_SUB_STEP_ORDER)[number]
+
 // checkConflicts is skipped entirely when there's nothing to check (e.g. an
 // import with no Completions/Progress/Dropped rows at all).
 const EMPTY_CHECK_RESULT: ImportCheckResponse = {
@@ -78,6 +87,21 @@ const EMPTY_CHECK_RESULT: ImportCheckResponse = {
   ratingConflicts: [],
   collectionsMerge: [],
   rankingMerge: null,
+}
+
+// Shared shape between Completions/Progress/Dropped conflicts — FieldConflictMerge
+// only needs the group scaffolding, not the levelId/matchedId bookkeeping.
+function conflictsToGroups(conflicts: ImportRowConflict[]) {
+  return conflicts.map((c) => ({
+    groupId: String(c.rowIndex),
+    title: c.levelName ?? `Level ${c.levelId}`,
+    subtitle: `ID ${c.levelId}`,
+    fields: c.fields.map((f) => ({
+      field: f.field,
+      existingValue: f.existingValue,
+      importedValue: f.importedValue,
+    })),
+  }))
 }
 
 interface AllFlags {
@@ -893,6 +917,23 @@ export function ImportWizard({
   const [completionConflicts, setCompletionConflicts] = useState<
     ImportRowConflict[]
   >([])
+  const [progressConflicts, setProgressConflicts] = useState<
+    ImportRowConflict[]
+  >([])
+  const [droppedConflicts, setDroppedConflicts] = useState<
+    ImportRowConflict[]
+  >([])
+  const [conflictSubStep, setConflictSubStep] =
+    useState<ConflictSubStep>('completions')
+  const [completionResolutions, setCompletionResolutions] = useState<
+    Map<string, GroupResolution>
+  >(new Map())
+  const [progressResolutions, setProgressResolutions] = useState<
+    Map<string, GroupResolution>
+  >(new Map())
+  const [droppedResolutions, setDroppedResolutions] = useState<
+    Map<string, GroupResolution>
+  >(new Map())
   const [progressLabel, setProgressLabel] = useState('')
   const [commitError, setCommitError] = useState<string | null>(null)
 
@@ -955,10 +996,22 @@ export function ImportWizard({
       completions: ParsedCompletionRow[],
       progressRows: ParsedProgressRow[],
       dropped: ParsedDroppedRow[],
-      completionResolutions: Map<string, GroupResolution>
+      completionResolutions: Map<string, GroupResolution>,
+      progressResolutions: Map<string, GroupResolution>,
+      droppedResolutions: Map<string, GroupResolution>
     ) => {
       setProgressLabel('Starting import…')
       setCommitError(null)
+
+      // A resolved progress/dropped conflict must fold the matched entry's id
+      // back onto progressId/dropId so the server's ordinary id round-trip
+      // path (not the derived-key fallback) picks up the resolution.
+      const progressMatchedIds = new Map(
+        progressConflicts.map((c) => [c.rowIndex, c.matchedId])
+      )
+      const droppedMatchedIds = new Map(
+        droppedConflicts.map((c) => [c.rowIndex, c.matchedId])
+      )
 
       // Build the flat row list with stable indices.
       const rows: ImportCommitRow[] = [
@@ -977,20 +1030,48 @@ export function ImportWizard({
               }
             : { type: 'completion', rowIndex: r.rowIndex, data: r.data }
         }),
-        ...dropped.map(
-          (r): ImportCommitRow => ({
+        ...dropped.map((r): ImportCommitRow => {
+          const resolved = droppedResolutions.get(String(r.rowIndex))
+          if (!resolved) {
+            return {
+              type: 'dropped',
+              rowIndex: r.rowIndex + 100000, // offset to avoid collision with completion indices
+              data: r.data,
+            }
+          }
+          const matchedId = droppedMatchedIds.get(r.rowIndex)
+          return {
             type: 'dropped',
-            rowIndex: r.rowIndex + 100000, // offset to avoid collision with completion indices
-            data: r.data,
-          })
-        ),
-        ...progressRows.map(
-          (r): ImportCommitRow => ({
+            rowIndex: r.rowIndex + 100000,
+            data: {
+              ...r.data,
+              ...resolved.values,
+              ...(matchedId ? { dropId: matchedId } : {}),
+            },
+            resolution: resolved.resolution,
+          }
+        }),
+        ...progressRows.map((r): ImportCommitRow => {
+          const resolved = progressResolutions.get(String(r.rowIndex))
+          if (!resolved) {
+            return {
+              type: 'progress',
+              rowIndex: r.rowIndex + 200000, // offset to avoid collision with completion/dropped indices
+              data: r.data,
+            }
+          }
+          const matchedId = progressMatchedIds.get(r.rowIndex)
+          return {
             type: 'progress',
-            rowIndex: r.rowIndex + 200000, // offset to avoid collision with completion/dropped indices
-            data: r.data,
-          })
-        ),
+            rowIndex: r.rowIndex + 200000,
+            data: {
+              ...r.data,
+              ...resolved.values,
+              ...(matchedId ? { progressId: matchedId } : {}),
+            },
+            resolution: resolved.resolution,
+          }
+        }),
       ]
 
       const rankingRows = (parseResult?.ranking ?? []).filter(
@@ -1058,10 +1139,23 @@ export function ImportWizard({
         )
       }
     },
-    [startImport, parseResult, importStatus]
+    [startImport, parseResult, importStatus, progressConflicts, droppedConflicts]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
+
+  // First non-empty sub-step in CONFLICT_SUB_STEP_ORDER, or null if every
+  // conflict list is empty (nothing to resolve at all).
+  const firstConflictSubStep = (
+    completion: ImportRowConflict[],
+    progress: ImportRowConflict[],
+    dropped: ImportRowConflict[]
+  ): ConflictSubStep | null => {
+    if (completion.length > 0) return 'completions'
+    if (progress.length > 0) return 'progress'
+    if (dropped.length > 0) return 'dropped'
+    return null
+  }
 
   const handleSkipFlagged = useCallback(async () => {
     if (!parseResult) return
@@ -1076,7 +1170,14 @@ export function ImportWizard({
       // New account (onboarding) — there can be no existing completions to
       // conflict with, so there's nothing to check.
       setStep('committing')
-      await startImportJob(completions, progressRows, dropped, new Map())
+      await startImportJob(
+        completions,
+        progressRows,
+        dropped,
+        new Map(),
+        new Map(),
+        new Map()
+      )
       return
     }
 
@@ -1103,12 +1204,32 @@ export function ImportWizard({
           })
         : EMPTY_CHECK_RESULT
 
-      if (checkResult.completionConflicts.length > 0) {
-        setCompletionConflicts(checkResult.completionConflicts)
+      setCompletionConflicts(checkResult.completionConflicts)
+      setProgressConflicts(checkResult.progressConflicts)
+      setDroppedConflicts(checkResult.droppedConflicts)
+
+      const firstSubStep = firstConflictSubStep(
+        checkResult.completionConflicts,
+        checkResult.progressConflicts,
+        checkResult.droppedConflicts
+      )
+
+      if (firstSubStep) {
+        setConflictSubStep(firstSubStep)
+        setCompletionResolutions(new Map())
+        setProgressResolutions(new Map())
+        setDroppedResolutions(new Map())
         setStep('resolve-conflicts')
       } else {
         setStep('committing')
-        await startImportJob(completions, progressRows, dropped, new Map())
+        await startImportJob(
+          completions,
+          progressRows,
+          dropped,
+          new Map(),
+          new Map(),
+          new Map()
+        )
       }
     } catch (err) {
       // Stay on `checking-conflicts` — see the comment in startImportJob's
@@ -1119,10 +1240,21 @@ export function ImportWizard({
     }
   }, [parseResult, validRows, checkConflicts, startImportJob, skipConflictCheck])
 
-  // ── Step: resolve-conflicts → commit ───────────────────────────────────
+  // ── Step: resolve-conflicts sub-steps → commit ─────────────────────────
+  //
+  // Each sub-step's onResolved stores its resolutions, then either advances
+  // to the next non-empty sub-step or — if it was the last one — commits
+  // with everything accumulated so far. Reads sibling resolutions from
+  // component state rather than a param: by the time the LAST sub-step's
+  // handler fires, every earlier sub-step has already gone through its own
+  // setState + re-render, so the values are current.
 
-  const handleConflictsResolved = useCallback(
-    async (resolved: Map<string, GroupResolution>) => {
+  const finishConflictResolution = useCallback(
+    async (
+      completionRes: Map<string, GroupResolution>,
+      progressRes: Map<string, GroupResolution>,
+      droppedRes: Map<string, GroupResolution>
+    ) => {
       if (!parseResult) return
       const {
         completions,
@@ -1130,13 +1262,74 @@ export function ImportWizard({
         dropped,
       } = validRows(parseResult)
       setStep('committing')
-      await startImportJob(completions, progressRows, dropped, resolved)
+      await startImportJob(
+        completions,
+        progressRows,
+        dropped,
+        completionRes,
+        progressRes,
+        droppedRes
+      )
     },
     [parseResult, validRows, startImportJob]
   )
 
+  const nextConflictSubStep = useCallback(
+    (from: ConflictSubStep): ConflictSubStep | null => {
+      const idx = CONFLICT_SUB_STEP_ORDER.indexOf(from)
+      for (let i = idx + 1; i < CONFLICT_SUB_STEP_ORDER.length; i++) {
+        const step = CONFLICT_SUB_STEP_ORDER[i]!
+        if (step === 'progress' && progressConflicts.length > 0) return step
+        if (step === 'dropped' && droppedConflicts.length > 0) return step
+      }
+      return null
+    },
+    [progressConflicts, droppedConflicts]
+  )
+
+  const handleCompletionConflictsResolved = useCallback(
+    (resolved: Map<string, GroupResolution>) => {
+      setCompletionResolutions(resolved)
+      const next = nextConflictSubStep('completions')
+      if (next) setConflictSubStep(next)
+      else void finishConflictResolution(resolved, progressResolutions, droppedResolutions)
+    },
+    [nextConflictSubStep, progressResolutions, droppedResolutions, finishConflictResolution]
+  )
+
+  const handleProgressConflictsResolved = useCallback(
+    (resolved: Map<string, GroupResolution>) => {
+      setProgressResolutions(resolved)
+      const next = nextConflictSubStep('progress')
+      if (next) setConflictSubStep(next)
+      else
+        void finishConflictResolution(
+          completionResolutions,
+          resolved,
+          droppedResolutions
+        )
+    },
+    [nextConflictSubStep, completionResolutions, droppedResolutions, finishConflictResolution]
+  )
+
+  const handleDroppedConflictsResolved = useCallback(
+    (resolved: Map<string, GroupResolution>) => {
+      // 'dropped' is always last in CONFLICT_SUB_STEP_ORDER — nothing to
+      // advance to.
+      setDroppedResolutions(resolved)
+      void finishConflictResolution(
+        completionResolutions,
+        progressResolutions,
+        resolved
+      )
+    },
+    [completionResolutions, progressResolutions, finishConflictResolution]
+  )
+
   const handleConflictsCancelled = useCallback(() => {
     setCompletionConflicts([])
+    setProgressConflicts([])
+    setDroppedConflicts([])
     setStep('review')
   }, [])
 
@@ -1197,20 +1390,29 @@ export function ImportWizard({
         </div>
       )}
 
-      {step === 'resolve-conflicts' && (
+      {step === 'resolve-conflicts' && conflictSubStep === 'completions' && (
         <FieldConflictMerge
           tab="completion"
-          groups={completionConflicts.map((c) => ({
-            groupId: String(c.rowIndex),
-            title: c.levelName ?? `Level ${c.levelId}`,
-            subtitle: `ID ${c.levelId}`,
-            fields: c.fields.map((f) => ({
-              field: f.field,
-              existingValue: f.existingValue,
-              importedValue: f.importedValue,
-            })),
-          }))}
-          onResolved={(resolved) => void handleConflictsResolved(resolved)}
+          groups={conflictsToGroups(completionConflicts)}
+          onResolved={handleCompletionConflictsResolved}
+          onCancel={handleConflictsCancelled}
+        />
+      )}
+
+      {step === 'resolve-conflicts' && conflictSubStep === 'progress' && (
+        <FieldConflictMerge
+          tab="progress"
+          groups={conflictsToGroups(progressConflicts)}
+          onResolved={handleProgressConflictsResolved}
+          onCancel={handleConflictsCancelled}
+        />
+      )}
+
+      {step === 'resolve-conflicts' && conflictSubStep === 'dropped' && (
+        <FieldConflictMerge
+          tab="dropped"
+          groups={conflictsToGroups(droppedConflicts)}
+          onResolved={handleDroppedConflictsResolved}
           onCancel={handleConflictsCancelled}
         />
       )}

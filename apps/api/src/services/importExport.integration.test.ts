@@ -42,7 +42,7 @@ vi.mock('../utils/gddl', async (importOriginal) => {
   return { ...actual, fetchGddlTier: vi.fn(async () => null) }
 })
 
-const { commitImportBatch } = await import('./import')
+const { commitImportBatch, checkImportConflicts } = await import('./import')
 const { commitImportRanking } = await import('./importRanking')
 const { commitImportCollections } = await import('./importCollections')
 const { commitImportRatings } = await import('./importRatings')
@@ -628,6 +628,302 @@ describe('commitImportBatch — progress rows', () => {
     ])
     exp = await fullExport(user.id)
     expect(exp.progress).toHaveLength(2)
+  })
+
+  it('silently skips an exact duplicate with no progress_id', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const row = {
+      type: 'progress' as const,
+      rowIndex: 200000,
+      data: { levelId: '100', date: '2024-12-01', percentage: 40, attempts: 300 },
+    }
+    await commitImportBatch(user.id, randomUUID(), [row])
+    const res = await commitImportBatch(user.id, randomUUID(), [row])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toMatch(/duplicate/i)
+    const exp = await fullExport(user.id)
+    expect(exp.progress.filter((p) => p.levelId === '100')).toHaveLength(1)
+  })
+
+  it('creates and flags a possible duplicate when the derived key matches but other fields differ', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+      },
+    ])
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'actually pretty close',
+        },
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('committed')
+    expect(res.outcomes[0]?.reason).toMatch(/possible duplicate/i)
+    const exp = await fullExport(user.id)
+    expect(exp.progress.filter((p) => p.levelId === '100')).toHaveLength(2)
+  })
+
+  it('treats a flat percentage and a run range on the same date as distinct events', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2024-12-01', percentage: 35 },
+      },
+    ])
+    // A run range is a different event from a flat percentage reading, even
+    // on the same day for the same level — not a duplicate.
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: { levelId: '100', date: '2024-12-01', runFrom: 43, runTo: 100 },
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('committed')
+    expect(res.outcomes[0]?.reason).toBeUndefined()
+    const exp = await fullExport(user.id)
+    expect(exp.progress.filter((p) => p.levelId === '100')).toHaveLength(2)
+  })
+
+  it('supersedes an earlier id-less row in the same batch sharing the same derived key', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'v1' },
+      },
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'v2' },
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toMatch(/superseded/i)
+    expect(res.outcomes[1]?.status).toBe('committed')
+    const exp = await fullExport(user.id)
+    const rows = exp.progress.filter((p) => p.levelId === '100')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.notes).toBe('v2')
+  })
+})
+
+describe('commitImportBatch — dropped rows', () => {
+  it('persists percentage/runFrom/runTo on the drop event itself, not just the level rollup', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'dropped',
+        rowIndex: 100000,
+        data: {
+          levelId: '300',
+          droppedAt: '2024-10-01',
+          bestProgress: 40,
+          runFrom: 10,
+          runTo: 40,
+          reason: 'shelved',
+        },
+      },
+    ])
+    const pu = await prisma.progressUpdate.findFirst({
+      where: {
+        kind: 'DROP',
+        levelProgress: { userId: user.id, levelId: '300' },
+      },
+    })
+    expect(pu?.percentage?.toNumber()).toBe(40)
+    expect(pu?.runFrom).toBe(10)
+    expect(pu?.runTo).toBe(40)
+  })
+
+  it('silently skips an exact duplicate with no drop_id', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const row = {
+      type: 'dropped' as const,
+      rowIndex: 100000,
+      data: {
+        levelId: '300',
+        droppedAt: '2024-10-01',
+        bestProgress: 40,
+        attemptsAtDrop: 500,
+        reason: 'shelved',
+      },
+    }
+    await commitImportBatch(user.id, randomUUID(), [row])
+    const res = await commitImportBatch(user.id, randomUUID(), [row])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toMatch(/duplicate/i)
+    const all = await prisma.progressUpdate.findMany({
+      where: {
+        kind: 'DROP',
+        levelProgress: { userId: user.id, levelId: '300' },
+      },
+    })
+    expect(all).toHaveLength(1)
+  })
+
+  it('creates and flags a possible duplicate when the derived key matches but other fields differ', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'dropped',
+        rowIndex: 100000,
+        data: {
+          levelId: '300',
+          droppedAt: '2024-10-01',
+          bestProgress: 40,
+          reason: 'shelved',
+        },
+      },
+    ])
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'dropped',
+        rowIndex: 100001,
+        data: {
+          levelId: '300',
+          droppedAt: '2024-10-01',
+          bestProgress: 40,
+          reason: 'too hard, revisit later',
+        },
+      },
+    ])
+    expect(res.outcomes[0]?.status).toBe('committed')
+    expect(res.outcomes[0]?.reason).toMatch(/possible duplicate/i)
+    const all = await prisma.progressUpdate.findMany({
+      where: {
+        kind: 'DROP',
+        levelProgress: { userId: user.id, levelId: '300' },
+      },
+    })
+    expect(all).toHaveLength(2)
+  })
+})
+
+describe('checkImportConflicts', () => {
+  it('reports a completion field diff only for genuinely differing non-null fields', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+      },
+    ])
+    const result = await checkImportConflicts(user.id, {
+      // attempts differs, enjoyment agrees, notes left blank (auto-resolves).
+      completions: [{ rowIndex: 0, data: { levelId: '100', attempts: 4200, enjoyment: 7 } }],
+    })
+    expect(result.completionConflicts).toHaveLength(1)
+    const conflict = result.completionConflicts[0]!
+    expect(conflict.fields.map((f) => f.field)).toEqual(['attempts'])
+    expect(conflict.fields[0]).toEqual({
+      field: 'attempts',
+      existingValue: 1000,
+      importedValue: 4200,
+    })
+  })
+
+  it('reports no conflict for an unmodified reimport', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '100', attempts: 1000 } },
+    ])
+    const result = await checkImportConflicts(user.id, {
+      completions: [{ rowIndex: 0, data: { levelId: '100', attempts: 1000 } }],
+    })
+    expect(result.completionConflicts).toHaveLength(0)
+  })
+
+  it('detects a progress conflict by derived key and reports an exact duplicate separately', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+      },
+    ])
+    const result = await checkImportConflicts(user.id, {
+      progress: [
+        {
+          rowIndex: 0,
+          data: {
+            levelId: '100',
+            date: '2024-12-01',
+            percentage: 40,
+            notes: 'closer this time',
+          },
+        },
+        {
+          rowIndex: 1,
+          data: {
+            levelId: '100',
+            date: '2024-12-01',
+            percentage: 40,
+            notes: 'first try',
+          },
+        },
+      ],
+    })
+    expect(result.progressConflicts).toHaveLength(1)
+    expect(result.progressConflicts[0]!.rowIndex).toBe(0)
+    expect(result.progressConflicts[0]!.matchedId).toBeTruthy()
+    expect(result.progressDuplicates).toEqual([{ rowIndex: 1 }])
+  })
+
+  it('detects a dropped conflict by derived key', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'dropped',
+        rowIndex: 0,
+        data: {
+          levelId: '300',
+          droppedAt: '2024-10-01',
+          bestProgress: 40,
+          reason: 'shelved',
+        },
+      },
+    ])
+    const result = await checkImportConflicts(user.id, {
+      dropped: [
+        {
+          rowIndex: 0,
+          data: {
+            levelId: '300',
+            droppedAt: '2024-10-01',
+            bestProgress: 40,
+            reason: 'too hard',
+          },
+        },
+      ],
+    })
+    expect(result.droppedConflicts).toHaveLength(1)
+    expect(result.droppedConflicts[0]!.matchedId).toBeTruthy()
   })
 })
 

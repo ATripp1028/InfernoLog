@@ -80,6 +80,30 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
   { field: 'userGddlTier', label: 'GDDL tier', format: 'number' },
 ]
 
+export const PROGRESS_FIELDS: FieldDescriptor[] = [
+  { field: 'date', label: 'Date', format: 'date' },
+  { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
+  { field: 'attempts', label: 'Attempts', format: 'number' },
+  { field: 'percentage', label: 'Percentage', format: 'percent' },
+  { field: 'runFrom', label: 'Run from', format: 'percent' },
+  { field: 'runTo', label: 'Run to', format: 'percent' },
+  { field: 'fps', label: 'FPS', format: 'number' },
+  { field: 'onStream', label: 'On stream', format: 'boolean' },
+  { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
+  { field: 'notes', label: 'Notes', format: 'text' },
+  { field: 'enjoyment', label: 'Enjoyment', format: 'rating10' },
+  { field: 'device', label: 'Device', format: 'enum', options: DEVICE_OPTIONS },
+]
+
+export const DROPPED_FIELDS: FieldDescriptor[] = [
+  { field: 'droppedAt', label: 'Dropped at', format: 'date' },
+  { field: 'bestProgress', label: 'Best progress %', format: 'percent' },
+  { field: 'runFrom', label: 'Run from', format: 'percent' },
+  { field: 'runTo', label: 'Run to', format: 'percent' },
+  { field: 'attemptsAtDrop', label: 'Attempts at drop', format: 'number' },
+  { field: 'reason', label: 'Reason', format: 'text' },
+]
+
 export const RATING_FIELDS: FieldDescriptor[] = [
   { field: 'score', label: 'Score', format: 'rating10' },
 ]
@@ -91,10 +115,14 @@ function toDescriptorMap(
 }
 
 const COMPLETION_FIELD_MAP = toDescriptorMap(COMPLETION_FIELDS)
+const PROGRESS_FIELD_MAP = toDescriptorMap(PROGRESS_FIELDS)
+const DROPPED_FIELD_MAP = toDescriptorMap(DROPPED_FIELDS)
 const RATING_FIELD_MAP = toDescriptorMap(RATING_FIELDS)
 
 const FIELD_MAPS_BY_TAB: Record<string, Map<string, FieldDescriptor>> = {
   completion: COMPLETION_FIELD_MAP,
+  progress: PROGRESS_FIELD_MAP,
+  dropped: DROPPED_FIELD_MAP,
   rating: RATING_FIELD_MAP,
 }
 
