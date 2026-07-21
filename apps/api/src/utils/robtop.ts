@@ -12,6 +12,7 @@
 // resources/server/level).
 
 import { logger } from './logger'
+import { acquireRobtopSlot } from './robtopRateLimit'
 
 const ROBTOP_API_BASE_URL =
   process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
@@ -356,6 +357,11 @@ export function parseGetGJLevels21(
 export async function fetchRobtopLevel(
   levelId: string
 ): Promise<RobtopLevel | null> {
+  if (!(await acquireRobtopSlot())) {
+    logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
+    return null
+  }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
@@ -410,6 +416,11 @@ export async function searchRobtopByName(
   name: string,
   options?: { diff?: string; demonFilter?: string }
 ): Promise<RobtopSearchResult[]> {
+  if (!(await acquireRobtopSlot())) {
+    logger.warn({ name }, 'searchRobtopByName: rate limiter timed out')
+    return []
+  }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 

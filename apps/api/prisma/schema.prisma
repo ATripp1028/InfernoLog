@@ -135,6 +135,25 @@ enum GdVersion {
 }
 
 // ─────────────────────────────────────────────
+// ROBTOP RATE LIMIT
+// ─────────────────────────────────────────────
+
+// Single shared token bucket, checked by every path that calls
+// fetchRobtopLevel (levelSeedWorker, the volatile/standard sync crons, the
+// GET /levels/:id/resolve endpoint, gddlListSync, gddlSync) so their combined
+// request rate — not just each path's own independent pacing — stays under
+// RobTop's tolerance. A DB row rather than in-memory state because Lambda
+// invocations don't share memory; see apps/api/src/utils/robtopRateLimit.ts.
+// Always exactly one row (id = "singleton").
+model RobtopRateLimit {
+  id           String   @id @default("singleton")
+  tokens       Float
+  lastRefillAt DateTime @default(now())
+
+  @@map("robtop_rate_limit")
+}
+
+// ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────
 
