@@ -1605,11 +1605,17 @@ export async function processImportJobBatch(
       await removeFromWantToBeat(tx, userId, [...completedLevelIds])
 
       // Rows are updated in place (not created) — they were already inserted
-      // as "pending" by POST /v1/me/import/start. issueMessage is set for
-      // skipped/failed rows (the ordinary "flagged" set the review UI
-      // surfaces) and for a `flagged` committed row — a possible progress/
-      // dropped duplicate /check couldn't catch ahead of time (name-only
-      // rows), created anyway but worth a second look.
+      // as "pending" by POST /v1/me/import/start. issueMessage — and with it,
+      // a spot in the "needs review" panel — is reserved for outcomes the
+      // user hasn't already decided on and couldn't have predicted: an actual
+      // failure, or a `flagged` committed row (a possible progress/dropped
+      // duplicate /check couldn't catch ahead of time for name-only rows,
+      // created anyway but worth a second look). A plain 'skipped' status
+      // covers a lot of routine, expected outcomes too — an explicit
+      // drop/duplicate resolution the user already chose during conflict
+      // review, an exact-duplicate re-import, intra-batch supersession — none
+      // of which need a second look, so 'skipped' alone no longer flags a row
+      // (it used to; that mislabeled routine no-ops as "needs review").
       for (const r of results) {
         const id = rowDbId.get(r.rowIndex)
         if (!id) continue
@@ -1618,9 +1624,7 @@ export async function processImportJobBatch(
           data: {
             status: r.status,
             issueMessage:
-              r.status === 'skipped' || r.status === 'failed' || r.flagged
-                ? r.reason
-                : null,
+              r.status === 'failed' || r.flagged ? r.reason : null,
             levelName: r.levelName,
             identifier: r.identifier,
           },
