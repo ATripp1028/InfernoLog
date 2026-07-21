@@ -63,7 +63,10 @@ function manualValueError(
 // Whether a manually-entered value for this field exceeds its max — used to
 // BLOCK resolving (not silently clamp) so a pasted/mistyped huge number gets
 // a visible error instead of vanishing into a smaller value.
-function manualValueExceedsMax(descriptor: FieldDescriptor, value: unknown): boolean {
+function manualValueExceedsMax(
+  descriptor: FieldDescriptor,
+  value: unknown
+): boolean {
   return manualValueError(descriptor, value) != null
 }
 
@@ -192,7 +195,10 @@ export function FieldConflictMerge({
   >({})
   const [droppedGroups, setDroppedGroups] = useState<Set<string>>(new Set())
 
-  const isFieldResolved = (groupField: ConflictGroupField, choice: FieldChoice | undefined) => {
+  const isFieldResolved = (
+    groupField: ConflictGroupField,
+    choice: FieldChoice | undefined
+  ) => {
     if (!choice) return false
     if (choice.kind === 'manual') {
       const descriptor = describeField(tab, groupField.field)
@@ -249,7 +255,9 @@ export function FieldConflictMerge({
     undropGroup(groupId)
     setChoices((prev) => ({
       ...prev,
-      [groupId]: Object.fromEntries(group.fields.map((f) => [f.field, { kind }])),
+      [groupId]: Object.fromEntries(
+        group.fields.map((f) => [f.field, { kind }])
+      ),
     }))
   }
 
@@ -303,10 +311,18 @@ export function FieldConflictMerge({
           <Button size="sm" variant="outline" onClick={dropAll}>
             Drop all
           </Button>
-          <Button size="sm" variant="outline" onClick={() => applyToAll('existing')}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyToAll('existing')}
+          >
             Keep existing for all
           </Button>
-          <Button size="sm" variant="outline" onClick={() => applyToAll('imported')}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyToAll('imported')}
+          >
             Use imported for all
           </Button>
         </div>

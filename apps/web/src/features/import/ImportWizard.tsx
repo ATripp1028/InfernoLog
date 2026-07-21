@@ -54,10 +54,7 @@ import type {
   ImportStatusResponse,
 } from '@/lib/api/import'
 import { ImportStatusPanel } from './ImportStatusPanel'
-import {
-  FieldConflictMerge,
-  type GroupResolution,
-} from './FieldConflictMerge'
+import { FieldConflictMerge, type GroupResolution } from './FieldConflictMerge'
 import { ListMergeBoard } from './listMerge/ListMergeBoard'
 import {
   parseSpreadsheet,
@@ -246,7 +243,9 @@ function overwriteListOrders(
 
 // Shared between the /check request and the final /start payload — both need
 // the same "which rating rows are actually importable" filter.
-function getValidRatingRows(parseResult: ParseResult | null): ParsedRatingRow[] {
+function getValidRatingRows(
+  parseResult: ParseResult | null
+): ParsedRatingRow[] {
   return (parseResult?.ratings ?? []).filter(
     (r) =>
       !r.flags.some((f) => f.severity === 'error') &&
@@ -956,14 +955,12 @@ function ReviewStep({
             onChange={(e) => onBlanketOverrideChange(e.target.checked)}
           />
           <span>
-            <span className="font-medium">
-              Imported data always wins
-            </span>
+            <span className="font-medium">Imported data always wins</span>
             <span className="block text-xs text-muted-foreground">
               Skip conflict review entirely — anything that conflicts with
-              what's already in InfernoLog is overwritten with the
-              spreadsheet's values, and list/ranking order disagreements use
-              the spreadsheet's order.
+              what's already in InfernoLog is overwritten with the spreadsheet's
+              values, and list/ranking order disagreements use the spreadsheet's
+              order.
             </span>
           </span>
         </label>
@@ -1152,9 +1149,9 @@ export function ImportWizard({
   const [progressConflicts, setProgressConflicts] = useState<
     ImportRowConflict[]
   >([])
-  const [droppedConflicts, setDroppedConflicts] = useState<
-    ImportRowConflict[]
-  >([])
+  const [droppedConflicts, setDroppedConflicts] = useState<ImportRowConflict[]>(
+    []
+  )
   const [ratingConflicts, setRatingConflicts] = useState<
     ImportRatingConflict[]
   >([])
@@ -1175,9 +1172,7 @@ export function ImportWizard({
   const [collectionsMerge, setCollectionsMerge] = useState<ImportListMerge[]>(
     []
   )
-  const [rankingMerge, setRankingMerge] = useState<ImportListMerge | null>(
-    null
-  )
+  const [rankingMerge, setRankingMerge] = useState<ImportListMerge | null>(null)
   const [listMergeIndex, setListMergeIndex] = useState(0)
   const [resolvedListOrders, setResolvedListOrders] = useState<
     Map<string, string[]>
@@ -1198,7 +1193,9 @@ export function ImportWizard({
   const listMergeQueue = useMemo(
     () => [
       ...collectionsMerge.map((m) => ({ key: m.list!, merge: m })),
-      ...(rankingMerge ? [{ key: RANKING_MERGE_KEY, merge: rankingMerge }] : []),
+      ...(rankingMerge
+        ? [{ key: RANKING_MERGE_KEY, merge: rankingMerge }]
+        : []),
     ],
     [collectionsMerge, rankingMerge]
   )
@@ -1585,7 +1582,9 @@ export function ImportWizard({
           progressRows,
           dropped,
           {
-            completion: overwriteRowResolutions(checkResult.completionConflicts),
+            completion: overwriteRowResolutions(
+              checkResult.completionConflicts
+            ),
             progress: overwriteRowResolutions(checkResult.progressConflicts),
             dropped: overwriteRowResolutions(checkResult.droppedConflicts),
             rating: overwriteRatingResolutions(checkResult.ratingConflicts),
@@ -1607,7 +1606,8 @@ export function ImportWizard({
         checkResult.ratingConflicts
       )
       const hasListMerges =
-        checkResult.collectionsMerge.length > 0 || checkResult.rankingMerge != null
+        checkResult.collectionsMerge.length > 0 ||
+        checkResult.rankingMerge != null
 
       if (firstSubStep) {
         setConflictSubStep(firstSubStep)
@@ -1740,7 +1740,10 @@ export function ImportWizard({
     (finalOrder: string[]) => {
       const current = listMergeQueue[listMergeIndex]
       if (!current) return
-      const nextOrders = new Map(resolvedListOrders).set(current.key, finalOrder)
+      const nextOrders = new Map(resolvedListOrders).set(
+        current.key,
+        finalOrder
+      )
       setResolvedListOrders(nextOrders)
       if (listMergeIndex + 1 < listMergeQueue.length) {
         setListMergeIndex((i) => i + 1)
@@ -1748,7 +1751,12 @@ export function ImportWizard({
         void finishListMergeResolution(nextOrders)
       }
     },
-    [listMergeQueue, listMergeIndex, resolvedListOrders, finishListMergeResolution]
+    [
+      listMergeQueue,
+      listMergeIndex,
+      resolvedListOrders,
+      finishListMergeResolution,
+    ]
   )
 
   const handleListMergeCancelled = useCallback(() => {
@@ -1972,7 +1980,9 @@ export function ImportWizard({
           return (
             <ListMergeBoard
               key={current.key}
-              title={current.key === RANKING_MERGE_KEY ? 'Ranking' : current.key}
+              title={
+                current.key === RANKING_MERGE_KEY ? 'Ranking' : current.key
+              }
               mergedSeed={current.merge.mergedSeed}
               importedRemainder={current.merge.importedRemainder}
               existingRemainder={current.merge.existingRemainder}

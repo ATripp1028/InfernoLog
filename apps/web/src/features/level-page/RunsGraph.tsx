@@ -117,7 +117,8 @@ export function RunsGraph({ entries }: RunsGraphProps) {
               // 0, and one reaching the right edge is understood to reach
               // 100 — labeling those values above the bar is redundant.
               const showPercentLabel = toPct !== 0 && toPct !== 100
-              const overlapsWorstFailLabel = isWorstFail && overlapIndices.has(i)
+              const overlapsWorstFailLabel =
+                isWorstFail && overlapIndices.has(i)
 
               return (
                 <div
@@ -145,14 +146,16 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                       {label}
                     </span>
 
-                    {isWorstFail && showPercentLabel && overlapsWorstFailLabel && (
-                      <span
-                        className="text-[10px] font-medium leading-none"
-                        style={{ color: lColor }}
-                      >
-                        {toPct}%
-                      </span>
-                    )}
+                    {isWorstFail &&
+                      showPercentLabel &&
+                      overlapsWorstFailLabel && (
+                        <span
+                          className="text-[10px] font-medium leading-none"
+                          style={{ color: lColor }}
+                        >
+                          {toPct}%
+                        </span>
+                      )}
 
                     {entry.droppedAfter && (
                       <span className="inline-flex h-[17px] items-center rounded bg-[rgba(226,74,74,0.14)] px-1.5 text-[9px] font-medium text-[#ff8a8a]">
@@ -190,7 +193,9 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                           left: `${toPct}%`,
                           transform: 'translateX(-50%)',
                           color: lColor,
-                          visibility: overlapsWorstFailLabel ? 'hidden' : 'visible',
+                          visibility: overlapsWorstFailLabel
+                            ? 'hidden'
+                            : 'visible',
                         }}
                       >
                         {toPct}%

@@ -81,7 +81,10 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         const robtop = await fetchRobtopLevelWithRetries(levelId)
         if (!robtop) {
           // RobTop didn't find it after retries — stub stands. Not a failure.
-          logger.info({ levelId }, 'levelSeedWorker: no RobTop result; stub retained')
+          logger.info(
+            { levelId },
+            'levelSeedWorker: no RobTop result; stub retained'
+          )
           continue
         }
 

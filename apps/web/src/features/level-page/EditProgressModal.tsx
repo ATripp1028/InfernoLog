@@ -210,7 +210,8 @@ export function EditProgressModal({
   const attemptsError = maxValueError(form.attempts, MAX_ATTEMPTS)
   const fpsError = maxValueError(form.fps, MAX_FPS)
   const gddlTierError = maxValueError(form.userGddlTier, MAX_GDDL_TIER)
-  const hasFieldError = attemptsError != null || fpsError != null || gddlTierError != null
+  const hasFieldError =
+    attemptsError != null || fpsError != null || gddlTierError != null
 
   function patch(updates: Partial<EditForm>) {
     setForm((prev) => ({ ...prev, ...updates }))

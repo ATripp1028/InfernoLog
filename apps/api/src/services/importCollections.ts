@@ -114,7 +114,9 @@ interface CollectionGroup {
 // want this collection to contain, in what order" answer; only what happens
 // with that answer differs (write it, or diff it against the existing
 // order).
-async function resolveCollectionEntries(entries: ImportCollectionEntry[]): Promise<{
+async function resolveCollectionEntries(
+  entries: ImportCollectionEntry[]
+): Promise<{
   groups: Map<string, CollectionGroup>
   skipped: ImportCollectionsResult['skipped']
 }> {
@@ -318,7 +320,9 @@ export async function checkCollectionsMerge(
   const existingByKey = new Map<string, string[]>()
   for (const c of existingCollections) {
     const key =
-      c.type === 'CUSTOM' ? `custom:${c.name.trim().toLowerCase()}` : `type:${c.type}`
+      c.type === 'CUSTOM'
+        ? `custom:${c.name.trim().toLowerCase()}`
+        : `type:${c.type}`
     existingByKey.set(
       key,
       c.entries.map((e) => e.levelId)

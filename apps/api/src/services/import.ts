@@ -474,7 +474,8 @@ function buildCompletionLpFields(
 ): LpFields {
   return {
     worstFail: row.percentage != null ? Math.round(row.percentage) : null,
-    worstFailDate: row.worstFailDate != null ? new Date(row.worstFailDate) : null,
+    worstFailDate:
+      row.worstFailDate != null ? new Date(row.worstFailDate) : null,
     visibility: row.visibility ?? fallbackVisibility,
     levelNotes: row.levelNotes ?? null,
     userGddlTier,
@@ -914,7 +915,10 @@ function planDrop(
   resolution: ImportConflictAction | undefined
 ): EventPlanResult {
   if (resolution === 'drop' || resolution === 'duplicate') {
-    return { status: 'skipped', reason: eventOutcomeReason('skipped', resolution) }
+    return {
+      status: 'skipped',
+      reason: eventOutcomeReason('skipped', resolution),
+    }
   }
 
   const matched = row.dropId ? ctx.existingDrops.get(row.dropId) : undefined
@@ -1011,7 +1015,10 @@ function planProgress(
   resolution: ImportConflictAction | undefined
 ): EventPlanResult {
   if (resolution === 'drop' || resolution === 'duplicate') {
-    return { status: 'skipped', reason: eventOutcomeReason('skipped', resolution) }
+    return {
+      status: 'skipped',
+      reason: eventOutcomeReason('skipped', resolution),
+    }
   }
 
   const matched = row.progressId
@@ -1032,7 +1039,8 @@ function planProgress(
         onStream: row.onStream ?? false,
         highlightUrl: row.highlightUrl ?? null,
         notes: row.notes ?? null,
-        enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+        enjoyment:
+          row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
         device: row.device ?? null,
       }
       ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: fields })
@@ -1363,7 +1371,8 @@ export async function processImportJobBatch(
           runFrom: row.data.runFrom ?? null,
           runTo: row.data.runTo ?? null,
         })
-        if (id && key != null) lastProgressByKey.set(`${id}::${key}`, row.rowIndex)
+        if (id && key != null)
+          lastProgressByKey.set(`${id}::${key}`, row.rowIndex)
       }
       continue
     }
@@ -1679,8 +1688,7 @@ export async function processImportJobBatch(
           where: { id },
           data: {
             status: r.status,
-            issueMessage:
-              r.status === 'failed' || r.flagged ? r.reason : null,
+            issueMessage: r.status === 'failed' || r.flagged ? r.reason : null,
             levelName: r.levelName,
             identifier: r.identifier,
           },

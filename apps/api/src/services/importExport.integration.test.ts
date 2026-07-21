@@ -43,12 +43,10 @@ vi.mock('../utils/gddl', async (importOriginal) => {
 })
 
 const { commitImportBatch, checkImportConflicts } = await import('./import')
-const { commitImportRanking, checkRankingMerge } = await import(
-  './importRanking'
-)
-const { commitImportCollections, checkCollectionsMerge } = await import(
-  './importCollections'
-)
+const { commitImportRanking, checkRankingMerge } =
+  await import('./importRanking')
+const { commitImportCollections, checkCollectionsMerge } =
+  await import('./importCollections')
 const { commitImportRatings } = await import('./importRatings')
 const { exportSection } = await import('./exportData')
 
@@ -640,7 +638,12 @@ describe('commitImportBatch — progress rows', () => {
     const row = {
       type: 'progress' as const,
       rowIndex: 200000,
-      data: { levelId: '100', date: '2024-12-01', percentage: 40, attempts: 300 },
+      data: {
+        levelId: '100',
+        date: '2024-12-01',
+        percentage: 40,
+        attempts: 300,
+      },
     }
     await commitImportBatch(user.id, randomUUID(), [row])
     const res = await commitImportBatch(user.id, randomUUID(), [row])
@@ -657,7 +660,12 @@ describe('commitImportBatch — progress rows', () => {
       {
         type: 'progress',
         rowIndex: 200000,
-        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'first try',
+        },
       },
     ])
     const res = await commitImportBatch(user.id, randomUUID(), [
@@ -736,12 +744,22 @@ describe('commitImportBatch — progress rows', () => {
       {
         type: 'progress',
         rowIndex: 200000,
-        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'v1' },
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'v1',
+        },
       },
       {
         type: 'progress',
         rowIndex: 200001,
-        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'v2' },
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'v2',
+        },
       },
     ])
     expect(res.outcomes[0]?.status).toBe('skipped')
@@ -890,7 +908,9 @@ describe('checkImportConflicts', () => {
     ])
     const result = await checkImportConflicts(user.id, {
       // attempts differs, enjoyment agrees, notes left blank (auto-resolves).
-      completions: [{ rowIndex: 0, data: { levelId: '100', attempts: 4200, enjoyment: 7 } }],
+      completions: [
+        { rowIndex: 0, data: { levelId: '100', attempts: 4200, enjoyment: 7 } },
+      ],
     })
     expect(result.completionConflicts).toHaveLength(1)
     const conflict = result.completionConflicts[0]!
@@ -906,7 +926,11 @@ describe('checkImportConflicts', () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [
-      { type: 'completion', rowIndex: 0, data: { levelId: '100', attempts: 1000 } },
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', attempts: 1000 },
+      },
     ])
     const result = await checkImportConflicts(user.id, {
       completions: [{ rowIndex: 0, data: { levelId: '100', attempts: 1000 } }],
@@ -921,7 +945,12 @@ describe('checkImportConflicts', () => {
       {
         type: 'progress',
         rowIndex: 0,
-        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'first try',
+        },
       },
     ])
     const result = await checkImportConflicts(user.id, {
@@ -959,7 +988,12 @@ describe('checkImportConflicts', () => {
       {
         type: 'progress',
         rowIndex: 0,
-        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+        data: {
+          levelId: '100',
+          date: '2024-12-01',
+          percentage: 40,
+          notes: 'first try',
+        },
       },
     ])
     // Same derived key as the existing entry, but carries a progress_id that
@@ -1237,7 +1271,10 @@ describe('checkCollectionsMerge', () => {
     expect(merge.mergedSeed.map((e) => e.levelId)).toEqual(['100', '200'])
     expect(merge.importedRemainder.map((e) => e.levelId)).toEqual(['300'])
     expect(merge.existingRemainder.map((e) => e.levelId)).toEqual(['300'])
-    expect(merge.mergedSeed[0]).toEqual({ levelId: '100', levelName: 'Bloodbath' })
+    expect(merge.mergedSeed[0]).toEqual({
+      levelId: '100',
+      levelName: 'Bloodbath',
+    })
   })
 })
 

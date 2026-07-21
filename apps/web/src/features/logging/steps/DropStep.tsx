@@ -14,7 +14,12 @@ import {
   StepFooter,
 } from '../components'
 import { buildDropInput } from '../payload'
-import { clampPercent, digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
+import {
+  clampPercent,
+  digitsOnly,
+  maxValueError,
+  MAX_ATTEMPTS,
+} from '../format'
 
 export function DropStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()

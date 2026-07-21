@@ -117,7 +117,8 @@ export function computeListMerge(
   flushRun()
 
   const existingRemainder = existingIds.filter((id) => !agreedSet.has(id))
-  const hasConflict = importedRemainder.length > 0 || existingRemainder.length > 0
+  const hasConflict =
+    importedRemainder.length > 0 || existingRemainder.length > 0
 
   return { mergedSeed, importedRemainder, existingRemainder, hasConflict }
 }

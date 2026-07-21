@@ -68,10 +68,18 @@ async function resolveRatingTargets(userId: string): Promise<RatingTargets> {
     else puByName.set(n, [puId])
   }
 
-  const catIdByName = new Map(cats.map((c) => [c.name.trim().toLowerCase(), c.id]))
+  const catIdByName = new Map(
+    cats.map((c) => [c.name.trim().toLowerCase(), c.id])
+  )
   const maxSortOrder = cats.reduce((m, c) => Math.max(m, c.sortOrder), -1)
 
-  return { puByLevelId, puByName, levelNameByLevelId, catIdByName, maxSortOrder }
+  return {
+    puByLevelId,
+    puByName,
+    levelNameByLevelId,
+    catIdByName,
+    maxSortOrder,
+  }
 }
 
 // Resolves one entry to its target completion, by levelId first then by a
@@ -118,14 +126,16 @@ export async function commitImportRatings(
     if (puId === 'ambiguous') {
       skipped.push({
         label,
-        reason: 'Matches more than one of your completed levels — add a level_id',
+        reason:
+          'Matches more than one of your completed levels — add a level_id',
       })
       continue
     }
     if (!puId) {
       skipped.push({
         label,
-        reason: 'Not among your completed levels — scores attach to completions',
+        reason:
+          'Not among your completed levels — scores attach to completions',
       })
       continue
     }
@@ -240,7 +250,10 @@ export async function checkRatingConflicts(
     select: { progressUpdateId: true, categoryId: true, score: true },
   })
   const existingByKey = new Map(
-    existingScores.map((s) => [`${s.progressUpdateId}::${s.categoryId}`, s.score])
+    existingScores.map((s) => [
+      `${s.progressUpdateId}::${s.categoryId}`,
+      s.score,
+    ])
   )
 
   const conflicts: ImportRatingConflict[] = []

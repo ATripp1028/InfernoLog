@@ -115,8 +115,14 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
 EntryCard.displayName = 'EntryCard'
 
 function SortableEntryCard({ entry }: { entry: ListMergeEntry }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: entry.levelId })
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: entry.levelId })
   return (
     <EntryCard
       ref={setNodeRef}
@@ -171,7 +177,8 @@ function Column({
         ref={setNodeRef}
         className={cn(
           'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-[var(--color-border)] p-2',
-          isOver && 'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
+          isOver &&
+            'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
         )}
       >
         {children}
@@ -209,7 +216,9 @@ export function ListMergeBoard({
   const contestedIds = useState(() => {
     const importedIds = new Set(importedRemainder.map((e) => e.levelId))
     return new Set(
-      existingRemainder.map((e) => e.levelId).filter((id) => importedIds.has(id))
+      existingRemainder
+        .map((e) => e.levelId)
+        .filter((id) => importedIds.has(id))
     )
   })[0]
 
@@ -318,8 +327,8 @@ export function ListMergeBoard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           <strong className="text-foreground">{title}</strong> — your
-          spreadsheet and existing data disagree on order. Drag entries into
-          the middle to decide the final order, or pick one side entirely.
+          spreadsheet and existing data disagree on order. Drag entries into the
+          middle to decide the final order, or pick one side entirely.
         </p>
         <div className="flex shrink-0 gap-2">
           <Button
@@ -355,19 +364,27 @@ export function ListMergeBoard({
             >
               {containers.left.map((id) => {
                 const entry = entriesById.get(id)
-                return entry ? <SortableEntryCard key={id} entry={entry} /> : null
+                return entry ? (
+                  <SortableEntryCard key={id} entry={entry} />
+                ) : null
               })}
             </SortableContext>
           </Column>
 
-          <Column id="middle" title="Merged order" count={containers.middle.length}>
+          <Column
+            id="middle"
+            title="Merged order"
+            count={containers.middle.length}
+          >
             <SortableContext
               items={containers.middle}
               strategy={verticalListSortingStrategy}
             >
               {containers.middle.map((id) => {
                 const entry = entriesById.get(id)
-                return entry ? <SortableEntryCard key={id} entry={entry} /> : null
+                return entry ? (
+                  <SortableEntryCard key={id} entry={entry} />
+                ) : null
               })}
             </SortableContext>
           </Column>
@@ -389,7 +406,9 @@ export function ListMergeBoard({
             >
               {containers.right.map((id) => {
                 const entry = entriesById.get(id)
-                return entry ? <SortableEntryCard key={id} entry={entry} /> : null
+                return entry ? (
+                  <SortableEntryCard key={id} entry={entry} />
+                ) : null
               })}
             </SortableContext>
           </Column>
@@ -408,8 +427,8 @@ export function ListMergeBoard({
             checked={acknowledgeVoid}
             onChange={(e) => setAcknowledgeVoid(e.target.checked)}
           />
-          I understand {unplacedCount} entr{unplacedCount === 1 ? 'y' : 'ies'} not
-          placed in the merged order will not be included.
+          I understand {unplacedCount} entr{unplacedCount === 1 ? 'y' : 'ies'}{' '}
+          not placed in the merged order will not be included.
         </label>
       )}
 

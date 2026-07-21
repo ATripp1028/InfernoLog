@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
-import { useAuth, AUTH_INTENT_KEY, type AuthIntent } from '../context/AuthContext'
+import {
+  useAuth,
+  AUTH_INTENT_KEY,
+  type AuthIntent,
+} from '../context/AuthContext'
 import { signupStart, signinReject } from '../lib/api/authOnboarding'
 import { apiFetch, ApiError } from '../lib/api/client'
 import type { MeData } from '../lib/api/me'
@@ -59,7 +63,9 @@ export function AuthCallback() {
             // app root — a real page navigation, not a SPA route change.
             await signOut({
               global: false,
-              oauth: { redirectUrl: `${window.location.origin}/no-account-found` },
+              oauth: {
+                redirectUrl: `${window.location.origin}/no-account-found`,
+              },
             })
             return
           }

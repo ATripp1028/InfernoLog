@@ -270,7 +270,13 @@ export const LevelIdSchema = z
 const sessionDetailFields = {
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().default(false),
-  attempts: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   // Which GD version's percentage system was used. Only meaningful for classic
   // levels (percentage/runFrom/runTo). Null = not recorded.
@@ -309,7 +315,13 @@ export const CompletionInputSchema = z.object({
   // whichever the client sends and never pre-compute the weighted average.
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
-  userGddlTier: z.number().int().min(0).max(MAX_GDDL_TIER).nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
   // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
@@ -359,7 +371,13 @@ export const ProgressInputSchema = z
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
   date: z.coerce.date().nullable().optional(),
-  attempts: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   notes: z.string().max(2000).nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
@@ -382,7 +400,13 @@ export const EditProgressInputSchema = z.object({
   // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().optional(),
-  attempts: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().optional(),
@@ -398,7 +422,13 @@ export const EditProgressInputSchema = z.object({
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
-  userGddlTier: z.number().int().min(0).max(MAX_GDDL_TIER).nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -808,7 +838,13 @@ export const ImportCompletionRowSchema = z.object({
   // ISO 8601 date string, already interpreted by the client.
   date: z.string().nullable().optional(),
   dateUncertain: z.boolean().nullable().optional(),
-  attempts: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   // Worst fail / last logged percentage (0-100).
   percentage: z.number().min(0).max(100).nullable().optional(),
   // ISO 8601 date string — date of the worst fail session.
@@ -840,7 +876,13 @@ export const ImportCompletionRowSchema = z.object({
   levelNotes: z.string().max(2000).nullable().optional(),
   // Ignored on import — server populates from the levels cache.
   inGameDifficulty: z.string().nullable().optional(),
-  userGddlTier: z.number().int().min(0).max(MAX_GDDL_TIER).nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
   notes: z.string().max(2000).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
@@ -858,7 +900,13 @@ export const ImportProgressRowSchema = z.object({
   creator: z.string().nullable().optional(),
   date: z.string().nullable().optional(),
   dateUncertain: z.boolean().nullable().optional(),
-  attempts: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   percentage: z.number().min(0).max(100).nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
@@ -890,7 +938,13 @@ export const ImportDroppedRowSchema = z.object({
   bestProgress: z.number().min(0).max(100).nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
-  attemptsAtDrop: z.number().int().nonnegative().max(MAX_ATTEMPTS).nullable().optional(),
+  attemptsAtDrop: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   // ISO 8601 date string.
   droppedAt: z.string().nullable().optional(),
   reason: z.string().max(2000).nullable().optional(),

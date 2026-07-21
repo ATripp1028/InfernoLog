@@ -216,14 +216,21 @@ function parsePairs(str: string, sep: string): Record<string, string> {
   return out
 }
 
-type CreatorMap = Record<string, { username: string | null; accountId: string | null }>
+type CreatorMap = Record<
+  string,
+  { username: string | null; accountId: string | null }
+>
 type SongMap = Record<string, Record<string, string>>
 
 function parseCreatorSection(section: string): CreatorMap {
   const map: CreatorMap = {}
   for (const entry of section.split('|')) {
     const [playerId, username, accountId] = entry.split(':')
-    if (playerId) map[playerId] = { username: username || null, accountId: accountId || null }
+    if (playerId)
+      map[playerId] = {
+        username: username || null,
+        accountId: accountId || null,
+      }
   }
   return map
 }
@@ -262,7 +269,9 @@ function buildRobtopLevel(
   const song = isCustom ? songs[customSongId] : undefined
   const officialSongIndex = int(L['12'])
   const official =
-    !isCustom && officialSongIndex !== null ? OFFICIAL_SONGS[officialSongIndex] : undefined
+    !isCustom && officialSongIndex !== null
+      ? OFFICIAL_SONGS[officialSongIndex]
+      : undefined
 
   const creator = creators[L['6'] ?? '']
 
@@ -344,7 +353,8 @@ export function parseGetGJLevels21(
 ): RobtopLevel | null {
   const all = parseAllFromGetGJLevels21(body)
   if (!all.length) return null
-  const found = (wantId ? all.find((x) => x.levelId === wantId) : undefined) ?? all[0]
+  const found =
+    (wantId ? all.find((x) => x.levelId === wantId) : undefined) ?? all[0]
   return found?.level ?? null
 }
 
@@ -434,7 +444,8 @@ export async function searchRobtopByName(
       count: '10',
     })
     if (options?.diff !== undefined) body.set('diff', options.diff)
-    if (options?.demonFilter !== undefined) body.set('demonFilter', options.demonFilter)
+    if (options?.demonFilter !== undefined)
+      body.set('demonFilter', options.demonFilter)
 
     const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
       method: 'POST',

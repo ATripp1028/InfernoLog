@@ -79,7 +79,9 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
     const parsed = Math.floor(Number(fpsDraft))
     if (!Number.isFinite(parsed) || parsed < MIN_FPS || parsed > MAX_FPS) {
       setFpsDraft(String(me.defaultFps))
-      toast.error(`FPS must be a whole number between ${MIN_FPS} and ${MAX_FPS}`)
+      toast.error(
+        `FPS must be a whole number between ${MIN_FPS} and ${MAX_FPS}`
+      )
       return
     }
     setFpsDraft(String(parsed))
