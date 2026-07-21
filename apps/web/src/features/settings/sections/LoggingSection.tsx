@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
 import { SettingsSection, SettingRow } from '../components/SettingsSection'
 import {
   Select,
@@ -11,18 +12,13 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
+import { cn } from '@/lib/utils'
 import {
   DateFormatPreference,
   type GdVersion,
   useUpdateMe,
   type MeData,
 } from '@/lib/api/me'
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from '@/components/ui/sheet'
 import { ImportWizard } from '@/features/import/ImportWizard'
 import { useImportApi, useImportStatus } from '@/lib/api/import'
 import { downloadExport } from '@/features/import/generateExport'
@@ -201,20 +197,34 @@ export function LoggingSection({ me }: LoggingSectionProps) {
 
   return (
     <>
-      <Sheet open={importOpen} onOpenChange={setImportOpen}>
-        <SheetContent
-          side="right"
-          className="w-[520px] max-w-[95vw] overflow-y-auto p-6"
-          aria-describedby="import-wizard-desc"
-        >
-          <SheetTitle className="sr-only">Import spreadsheet</SheetTitle>
-          <SheetDescription id="import-wizard-desc" className="sr-only">
-            Three-step wizard to import your Geometry Dash completion history
-            from a spreadsheet.
-          </SheetDescription>
-          <ImportWizard me={me} onClose={() => setImportOpen(false)} />
-        </SheetContent>
-      </Sheet>
+      <Dialog.Root open={importOpen} onOpenChange={setImportOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+          <Dialog.Content
+            aria-describedby="import-wizard-desc"
+            onPointerDown={(e) => {
+              if (e.target === e.currentTarget) setImportOpen(false)
+            }}
+            className="fixed inset-0 z-50 flex items-center justify-center focus:outline-none md:p-8"
+          >
+            <div
+              className={cn(
+                'flex h-full w-full flex-col overflow-y-auto bg-[var(--color-bg-surface)] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]',
+                'md:h-auto md:max-h-[calc(100vh-4rem)] md:w-[760px] md:max-w-[calc(100vw-2rem)] md:rounded-card md:border md:border-[var(--color-border-subtle)]'
+              )}
+            >
+              <Dialog.Title className="sr-only">
+                Import spreadsheet
+              </Dialog.Title>
+              <Dialog.Description id="import-wizard-desc" className="sr-only">
+                Three-step wizard to import your Geometry Dash completion
+                history from a spreadsheet.
+              </Dialog.Description>
+              <ImportWizard me={me} onClose={() => setImportOpen(false)} />
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <SettingsSection title="Logging">
         <LoggingPreferencesFields me={me} />

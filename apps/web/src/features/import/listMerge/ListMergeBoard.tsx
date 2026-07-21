@@ -125,14 +125,26 @@ function Column({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-2">
+    // Fixed width, not flex-1 — same treatment as RankingBoard's Unplaced
+    // column (see RankingBoard.tsx). Keeps every column wide enough for a
+    // level name at any modal size instead of the three splitting whatever
+    // width happens to be left over; the row scrolls horizontally instead
+    // of squeezing columns down when it doesn't all fit.
+    <div className="flex w-[230px] shrink-0 flex-col gap-2">
       <p className="text-xs font-medium text-muted-foreground">
         {title} {count > 0 && <span className="tabular-nums">({count})</span>}
       </p>
+      {/*
+        Fixed max-height + its own scrollbar — same treatment as
+        RankingBoard's Unplaced panel (see UnplacedPanel.tsx), so a long list
+        scrolls within its own column instead of growing the row (and with
+        it the whole modal) taller, which would otherwise push the title and
+        Confirm/Cancel footer out of view.
+      */}
       <div
         ref={setNodeRef}
         className={cn(
-          'min-h-[240px] flex-1 space-y-1.5 rounded-lg border border-[var(--color-border)] p-2',
+          'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-[var(--color-border)] p-2',
           isOver && 'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
         )}
       >
@@ -268,7 +280,7 @@ export function ListMergeBoard({
         onDragEnd={handleDragEnd}
         onDragCancel={() => setActiveId(null)}
       >
-        <div className="flex gap-3">
+        <div className="flex gap-3 overflow-x-auto pb-1">
           <Column id="left" title="Imported" count={containers.left.length}>
             <SortableContext
               items={containers.left}

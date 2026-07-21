@@ -1768,6 +1768,7 @@ export function ImportWizard({
           const current = listMergeQueue[listMergeIndex]!
           return (
             <ListMergeBoard
+              key={current.key}
               title={current.key === RANKING_MERGE_KEY ? 'Ranking' : current.key}
               mergedSeed={current.merge.mergedSeed}
               importedRemainder={current.merge.importedRemainder}
