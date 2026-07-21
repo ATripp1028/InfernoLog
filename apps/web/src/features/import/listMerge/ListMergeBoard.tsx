@@ -51,6 +51,11 @@ interface ListMergeBoardProps {
   mergedSeed: ListMergeEntry[]
   importedRemainder: ListMergeEntry[]
   existingRemainder: ListMergeEntry[]
+  // The two full original orderings, un-merged — back the "Use spreadsheet
+  // order" / "Use InfernoLog order" bulk actions, for when reconciling two
+  // orders by hand (remembering both at once) isn't worth the effort.
+  importedOrder: ListMergeEntry[]
+  existingOrder: ListMergeEntry[]
   onConfirm: (finalOrder: string[]) => void
   onCancel: () => void
 }
@@ -180,6 +185,8 @@ export function ListMergeBoard({
   mergedSeed,
   importedRemainder,
   existingRemainder,
+  importedOrder,
+  existingOrder,
   onConfirm,
   onCancel,
 }: ListMergeBoardProps) {
@@ -187,7 +194,13 @@ export function ListMergeBoard({
 
   const entriesById = useState(() => {
     const m = new Map<string, ListMergeEntry>()
-    for (const e of [...mergedSeed, ...importedRemainder, ...existingRemainder]) {
+    for (const e of [
+      ...mergedSeed,
+      ...importedRemainder,
+      ...existingRemainder,
+      ...importedOrder,
+      ...existingOrder,
+    ]) {
       m.set(e.levelId, e)
     }
     return m
@@ -277,6 +290,15 @@ export function ListMergeBoard({
     })
   }
 
+  // Bulk escape hatches: pick one side's order wholesale instead of
+  // reconciling by hand — the manual drag flow requires holding both orders
+  // in your head at once to notice where they actually disagree, which gets
+  // impractical past a handful of entries.
+  const applyWholeOrder = (order: ListMergeEntry[]) => {
+    setContainers({ left: [], middle: order.map((e) => e.levelId), right: [] })
+    setAcknowledgeVoid(false)
+  }
+
   const unplacedCount = containers.left.length + containers.right.length
   const canConfirm = unplacedCount === 0 || acknowledgeVoid
   const activeEntry = activeId ? entriesById.get(activeId) : null
@@ -287,11 +309,29 @@ export function ListMergeBoard({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        <strong className="text-foreground">{title}</strong> — your
-        spreadsheet and existing data disagree on order. Drag entries into
-        the middle to decide the final order.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">
+          <strong className="text-foreground">{title}</strong> — your
+          spreadsheet and existing data disagree on order. Drag entries into
+          the middle to decide the final order, or pick one side entirely.
+        </p>
+        <div className="flex shrink-0 gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyWholeOrder(importedOrder)}
+          >
+            Use spreadsheet order
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => applyWholeOrder(existingOrder)}
+          >
+            Use InfernoLog order
+          </Button>
+        </div>
+      </div>
 
       <DndContext
         sensors={sensors}

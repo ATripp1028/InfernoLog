@@ -176,6 +176,54 @@ function ratingConflictsToGroups(conflicts: ImportRatingConflict[]) {
   }))
 }
 
+// Blanket-override mode ("imported data always wins"): synthesizes the exact
+// same resolutions a user would produce by clicking "Use imported for all" on
+// every conflict step and "Use spreadsheet order" on every list merge board —
+// reusing the established resolution vocabulary instead of a separate commit
+// path, so the backend sees no difference between this and a manually
+// resolved import.
+function overwriteRowResolutions(
+  conflicts: ImportRowConflict[]
+): Map<string, GroupResolution> {
+  return new Map(
+    conflicts.map((c) => [
+      String(c.rowIndex),
+      { resolution: 'overwrite' as const, values: {} },
+    ])
+  )
+}
+
+function overwriteRatingResolutions(
+  conflicts: ImportRatingConflict[]
+): Map<string, GroupResolution> {
+  return new Map(
+    conflicts.map((c) => [
+      ratingConflictGroupId(c),
+      { resolution: 'overwrite' as const, values: {} },
+    ])
+  )
+}
+
+function overwriteListOrders(
+  collectionsMerge: ImportListMerge[],
+  rankingMerge: ImportListMerge | null
+): Map<string, string[]> {
+  const map = new Map<string, string[]>()
+  for (const m of collectionsMerge) {
+    map.set(
+      m.list!,
+      m.importedOrder.map((e) => e.levelId)
+    )
+  }
+  if (rankingMerge) {
+    map.set(
+      RANKING_MERGE_KEY,
+      rankingMerge.importedOrder.map((e) => e.levelId)
+    )
+  }
+  return map
+}
+
 // Shared between the /check request and the final /start payload — both need
 // the same "which rating rows are actually importable" filter.
 function getValidRatingRows(parseResult: ParseResult | null): ParsedRatingRow[] {
@@ -494,6 +542,12 @@ interface ReviewStepProps {
   flags: AllFlags
   onSkipFlagged: () => void
   onReUpload: () => void
+  // Onboarding: a brand-new account has nothing to conflict with, so the
+  // override checkbox would have nothing to do — hidden rather than shown
+  // disabled.
+  showOverrideOption: boolean
+  blanketOverride: boolean
+  onBlanketOverrideChange: (v: boolean) => void
 }
 
 function ReviewStep({
@@ -501,6 +555,9 @@ function ReviewStep({
   flags,
   onSkipFlagged,
   onReUpload,
+  showOverrideOption,
+  blanketOverride,
+  onBlanketOverrideChange,
 }: ReviewStepProps) {
   const allFlags = [
     ...flags.completions,
@@ -828,6 +885,28 @@ function ReviewStep({
         </div>
       )}
 
+      {showOverrideOption && (
+        <label className="flex items-start gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={blanketOverride}
+            onChange={(e) => onBlanketOverrideChange(e.target.checked)}
+          />
+          <span>
+            <span className="font-medium">
+              Imported data always wins
+            </span>
+            <span className="block text-xs text-muted-foreground">
+              Skip conflict review entirely — anything that conflicts with
+              what's already in InfernoLog is overwritten with the
+              spreadsheet's values, and list/ranking order disagreements use
+              the spreadsheet's order.
+            </span>
+          </span>
+        </label>
+      )}
+
       <div className="flex gap-3 pt-2">
         <Button variant="outline" onClick={onReUpload}>
           Fix and re-upload
@@ -1043,6 +1122,11 @@ export function ImportWizard({
   >(new Map())
   const [progressLabel, setProgressLabel] = useState('')
   const [commitError, setCommitError] = useState<string | null>(null)
+  // Review step's "imported data always wins" checkbox — when set, every
+  // conflict the check turns up is auto-resolved as an overwrite and every
+  // list merge auto-picks the spreadsheet's order, skipping resolve-conflicts
+  // / resolve-lists entirely rather than presenting them for manual review.
+  const [blanketOverride, setBlanketOverride] = useState(false)
 
   // The resolve-lists step's linear sequence — one sub-step per touched
   // collection (from the check response, already filtered to hasConflict
@@ -1124,7 +1208,15 @@ export function ImportWizard({
       // order, for whichever lists went through resolve-lists. A list not
       // in this map never needed merging — its original sheet rows are
       // sent unchanged.
-      listOrders: Map<string, string[]>
+      listOrders: Map<string, string[]>,
+      // Passed explicitly rather than closed over: a caller that commits
+      // straight from the check response (the blanket-override path) calls
+      // this in the same tick as setProgressConflicts/setDroppedConflicts,
+      // before React has re-rendered — reading component state here would
+      // see last render's (stale) value, the same class of bug the
+      // queryClient.setQueryData call above works around.
+      progressConflictsForCommit: ImportRowConflict[],
+      droppedConflictsForCommit: ImportRowConflict[]
     ) => {
       // Wipe any cached status from a previous job *before* the network call
       // — the `committing` step renders (and its completion-detection effect
@@ -1142,10 +1234,10 @@ export function ImportWizard({
       // back onto progressId/dropId so the server's ordinary id round-trip
       // path (not the derived-key fallback) picks up the resolution.
       const progressMatchedIds = new Map(
-        progressConflicts.map((c) => [c.rowIndex, c.matchedId])
+        progressConflictsForCommit.map((c) => [c.rowIndex, c.matchedId])
       )
       const droppedMatchedIds = new Map(
-        droppedConflicts.map((c) => [c.rowIndex, c.matchedId])
+        droppedConflictsForCommit.map((c) => [c.rowIndex, c.matchedId])
       )
 
       // Build the flat row list with stable indices.
@@ -1316,14 +1408,7 @@ export function ImportWizard({
         )
       }
     },
-    [
-      startImport,
-      parseResult,
-      importStatus,
-      progressConflicts,
-      droppedConflicts,
-      queryClient,
-    ]
+    [startImport, parseResult, importStatus, queryClient]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
@@ -1376,7 +1461,9 @@ export function ImportWizard({
         new Map(),
         new Map(),
         new Map(),
-        new Map()
+        new Map(),
+        [],
+        []
       )
       return
     }
@@ -1435,6 +1522,26 @@ export function ImportWizard({
       setCollectionsMerge(checkResult.collectionsMerge)
       setRankingMerge(checkResult.rankingMerge)
 
+      if (blanketOverride) {
+        setStep('committing')
+        await startImportJob(
+          completions,
+          progressRows,
+          dropped,
+          overwriteRowResolutions(checkResult.completionConflicts),
+          overwriteRowResolutions(checkResult.progressConflicts),
+          overwriteRowResolutions(checkResult.droppedConflicts),
+          overwriteRatingResolutions(checkResult.ratingConflicts),
+          overwriteListOrders(
+            checkResult.collectionsMerge,
+            checkResult.rankingMerge
+          ),
+          checkResult.progressConflicts,
+          checkResult.droppedConflicts
+        )
+        return
+      }
+
       const firstSubStep = firstConflictSubStep(
         checkResult.completionConflicts,
         checkResult.progressConflicts,
@@ -1465,7 +1572,9 @@ export function ImportWizard({
           new Map(),
           new Map(),
           new Map(),
-          new Map()
+          new Map(),
+          checkResult.progressConflicts,
+          checkResult.droppedConflicts
         )
       }
     } catch (err) {
@@ -1475,7 +1584,14 @@ export function ImportWizard({
         err instanceof Error ? err.message : 'Failed to check conflicts'
       )
     }
-  }, [parseResult, validRows, checkConflicts, startImportJob, skipConflictCheck])
+  }, [
+    parseResult,
+    validRows,
+    checkConflicts,
+    startImportJob,
+    skipConflictCheck,
+    blanketOverride,
+  ])
 
   // ── Step: resolve-conflicts sub-steps → commit ─────────────────────────
   //
@@ -1519,10 +1635,19 @@ export function ImportWizard({
         progressRes,
         droppedRes,
         ratingRes,
-        new Map()
+        new Map(),
+        progressConflicts,
+        droppedConflicts
       )
     },
-    [parseResult, validRows, startImportJob, listMergeQueue]
+    [
+      parseResult,
+      validRows,
+      startImportJob,
+      listMergeQueue,
+      progressConflicts,
+      droppedConflicts,
+    ]
   )
 
   // ── Step: resolve-lists sub-steps → commit ─────────────────────────────
@@ -1544,13 +1669,17 @@ export function ImportWizard({
         progressResolutions,
         droppedResolutions,
         ratingResolutions,
-        listOrders
+        listOrders,
+        progressConflicts,
+        droppedConflicts
       )
     },
     [
       parseResult,
       validRows,
       startImportJob,
+      progressConflicts,
+      droppedConflicts,
       completionResolutions,
       progressResolutions,
       droppedResolutions,
@@ -1719,6 +1848,9 @@ export function ImportWizard({
           flags={allFlags}
           onSkipFlagged={() => void handleSkipFlagged()}
           onReUpload={() => setStep('upload')}
+          showOverrideOption={!skipConflictCheck}
+          blanketOverride={blanketOverride}
+          onBlanketOverrideChange={setBlanketOverride}
         />
       )}
 
@@ -1795,6 +1927,8 @@ export function ImportWizard({
               mergedSeed={current.merge.mergedSeed}
               importedRemainder={current.merge.importedRemainder}
               existingRemainder={current.merge.existingRemainder}
+              importedOrder={current.merge.importedOrder}
+              existingOrder={current.merge.existingOrder}
               onConfirm={handleListMergeConfirmed}
               onCancel={handleListMergeCancelled}
             />

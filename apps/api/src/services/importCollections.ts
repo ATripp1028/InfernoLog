@@ -357,6 +357,8 @@ export async function checkCollectionsMerge(
       importedRemainder: toEntries(merge.importedRemainder),
       existingRemainder: toEntries(merge.existingRemainder),
       hasConflict: merge.hasConflict,
+      importedOrder: toEntries(importedIds),
+      existingOrder: toEntries(existingIds),
     })
   }
 

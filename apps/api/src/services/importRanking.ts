@@ -178,5 +178,7 @@ export async function checkRankingMerge(
     importedRemainder: toEntries(merge.importedRemainder),
     existingRemainder: toEntries(merge.existingRemainder),
     hasConflict: merge.hasConflict,
+    importedOrder: toEntries(importedLevelIds),
+    existingOrder: toEntries(existingLevelIds),
   }
 }

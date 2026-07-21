@@ -1116,6 +1116,12 @@ export const ImportListMergeSchema = z.object({
   existingRemainder: z.array(ImportListEntrySchema),
   // True iff importedRemainder or existingRemainder is non-empty.
   hasConflict: z.boolean(),
+  // The two full original orderings, un-merged — lets the merge board offer
+  // "just use the spreadsheet" / "just keep what's in InfernoLog" as one-click
+  // bulk resolutions instead of requiring every contested/omitted entry to be
+  // dragged into place by hand.
+  importedOrder: z.array(ImportListEntrySchema),
+  existingOrder: z.array(ImportListEntrySchema),
 })
 
 // ── Check (conflict detection) ──────────────────────────────────────────────

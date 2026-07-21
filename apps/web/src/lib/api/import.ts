@@ -239,6 +239,11 @@ export interface ImportListMerge {
   importedRemainder: ImportListEntry[]
   existingRemainder: ImportListEntry[]
   hasConflict: boolean
+  // The two full original orderings, un-merged — lets the merge board offer
+  // "just use the spreadsheet" / "just keep InfernoLog's order" as one-click
+  // bulk resolutions.
+  importedOrder: ImportListEntry[]
+  existingOrder: ImportListEntry[]
 }
 
 export interface ImportCheckRequest {
