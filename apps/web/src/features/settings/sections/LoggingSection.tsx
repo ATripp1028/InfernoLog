@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
+import { MIN_FPS, MAX_FPS } from '@infernolog/core'
 import { SettingsSection, SettingRow } from '../components/SettingsSection'
 import {
   Select,
@@ -33,10 +34,6 @@ const DATE_OPTIONS: { value: DateFormatPreference; label: string }[] = [
   { value: 'ISO', label: 'YYYY-MM-DD' },
   { value: 'YMD', label: 'YYYY/MM/DD' },
 ]
-
-// 60 is the Geometry Dash floor — must stay in sync with MIN_FPS in
-// @infernolog/core's UpdateMeSchema.
-const MIN_FPS = 60
 
 // The four logging-preference rows (date format / % version / FPS / highlight
 // toggle) — extracted so the onboarding wizard's Logging step can reuse them
@@ -80,9 +77,9 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
 
   const commitFps = async () => {
     const parsed = Math.floor(Number(fpsDraft))
-    if (!Number.isFinite(parsed) || parsed < MIN_FPS) {
+    if (!Number.isFinite(parsed) || parsed < MIN_FPS || parsed > MAX_FPS) {
       setFpsDraft(String(me.defaultFps))
-      toast.error(`FPS must be a whole number of at least ${MIN_FPS}`)
+      toast.error(`FPS must be a whole number between ${MIN_FPS} and ${MAX_FPS}`)
       return
     }
     setFpsDraft(String(parsed))
@@ -146,6 +143,7 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
             type="number"
             inputMode="numeric"
             min={MIN_FPS}
+            max={MAX_FPS}
             step={1}
             className="w-44"
             aria-label="Default FPS"

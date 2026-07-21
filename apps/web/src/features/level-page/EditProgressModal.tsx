@@ -7,10 +7,21 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
+import { FieldError } from '@/components/ui/field-error'
 import { StepperInput } from '@/components/ui/stepper-input'
 import { toast } from '@/components/ui/sonner'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
-import { displayMax, toDisplay, toInternal } from '@/features/logging/format'
+import {
+  displayMax,
+  toDisplay,
+  toInternal,
+  clampPercent,
+  digitsOnly,
+  maxValueError,
+  MAX_ATTEMPTS,
+  MAX_FPS,
+  MAX_GDDL_TIER,
+} from '@/features/logging/format'
 import {
   useMe,
   type RatingDisplayScale,
@@ -196,6 +207,11 @@ export function EditProgressModal({
     ? computeWeightedAvg(categories, filteredScores)
     : null
 
+  const attemptsError = maxValueError(form.attempts, MAX_ATTEMPTS)
+  const fpsError = maxValueError(form.fps, MAX_FPS)
+  const gddlTierError = maxValueError(form.userGddlTier, MAX_GDDL_TIER)
+  const hasFieldError = attemptsError != null || fpsError != null || gddlTierError != null
+
   function patch(updates: Partial<EditForm>) {
     setForm((prev) => ({ ...prev, ...updates }))
   }
@@ -335,6 +351,7 @@ export function EditProgressModal({
                         patch({ attempts: digitsOnly(e.target.value) })
                       }
                     />
+                    {attemptsError && <FieldError>{attemptsError}</FieldError>}
                   </div>
                   <div>
                     <FieldLabel htmlFor="ep-worstfail">Worst fail %</FieldLabel>
@@ -389,6 +406,7 @@ export function EditProgressModal({
                         patch({ fps: digitsOnly(e.target.value) })
                       }
                     />
+                    {fpsError && <FieldError>{fpsError}</FieldError>}
                   </div>
                   <div className="flex items-end pb-2.5">
                     <label className="flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
@@ -568,6 +586,7 @@ export function EditProgressModal({
                         patch({ userGddlTier: digitsOnly(e.target.value) })
                       }
                     />
+                    {gddlTierError && <FieldError>{gddlTierError}</FieldError>}
                   </div>
                 </Section>
               )}
@@ -627,7 +646,10 @@ export function EditProgressModal({
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={editProgress.isPending}>
+              <Button
+                onClick={handleSave}
+                disabled={editProgress.isPending || hasFieldError}
+              >
                 {editProgress.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
@@ -681,18 +703,6 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
       className="flex min-h-[80px] w-full rounded-md border border-input bg-bg-surface px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
     />
   )
-}
-
-// ─── Numeric helpers ───────────────────────────────────────────────
-
-function digitsOnly(value: string): string {
-  return value.replace(/\D/g, '')
-}
-
-function clampPercent(value: string): string {
-  const digits = digitsOnly(value)
-  if (digits === '') return ''
-  return String(Math.min(100, Number(digits)))
 }
 
 // ─── Difficulty opinion picker ─────────────────────────────────────

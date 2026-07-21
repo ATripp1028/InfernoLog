@@ -11,13 +11,19 @@ import type { DifficultyOpinion, Level } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  FieldError,
   FieldHint,
   FieldLabel,
   LevelHeader,
   StepBody,
   StepFooter,
 } from '../components'
-import { clampPercent, digitsOnly } from '../format'
+import {
+  clampPercent,
+  digitsOnly,
+  maxValueError,
+  MAX_ATTEMPTS,
+} from '../format'
 import {
   GdVersionPicker,
   GdVersionInfoButton,
@@ -74,6 +80,7 @@ export function CompletionBasicsStep() {
 
   const showVersionPicker =
     level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
+  const attemptsError = maxValueError(draft.attempts, MAX_ATTEMPTS)
 
   return (
     <>
@@ -123,7 +130,11 @@ export function CompletionBasicsStep() {
                 patchDraft({ attempts: digitsOnly(e.target.value) })
               }
             />
-            <FieldHint>Cumulative across all copies and reuploads.</FieldHint>
+            {attemptsError ? (
+              <FieldError>{attemptsError}</FieldError>
+            ) : (
+              <FieldHint>Cumulative across all copies and reuploads.</FieldHint>
+            )}
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -240,7 +251,12 @@ export function CompletionBasicsStep() {
         <Button variant="outline" onClick={() => setStep('find')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_rating')}>Continue</Button>
+        <Button
+          onClick={() => setStep('c_rating')}
+          disabled={attemptsError != null}
+        >
+          Continue
+        </Button>
       </StepFooter>
     </>
   )

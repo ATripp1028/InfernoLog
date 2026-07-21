@@ -14,6 +14,7 @@
 // imported value" and "a true overwrite" are the same outcome.
 
 import { useMemo, useState } from 'react'
+import { MAX_ATTEMPTS } from '@infernolog/core'
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
 import { Input } from '@/components/ui/input'
@@ -25,7 +26,30 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { FieldError } from '@/components/ui/field-error'
 import { describeField, type FieldFormatType } from './fieldDescriptors'
+
+// Upper bound for the generic 'number' field editor (attempts, FPS, GDDL
+// tier, etc) — without it a pasted/mistyped huge value overflows the
+// Postgres Int column the value is eventually written to. Reuses
+// MAX_ATTEMPTS (the largest of the bounded fields this editor covers) since
+// the editor doesn't know which specific field it's rendering.
+const MAX_NUMBER_FIELD = MAX_ATTEMPTS
+
+function numericMax(format: FieldFormatType): number | null {
+  if (format === 'percent') return 100
+  if (format === 'rating10') return 10
+  if (format === 'number') return MAX_NUMBER_FIELD
+  return null
+}
+
+// Whether a manually-entered value for this field's format exceeds its max —
+// used to BLOCK resolving (not silently clamp) so a pasted/mistyped huge
+// number gets a visible error instead of vanishing into a smaller value.
+function manualValueExceedsMax(format: FieldFormatType, value: unknown): boolean {
+  const max = numericMax(format)
+  return max != null && typeof value === 'number' && value > max
+}
 
 export interface ConflictGroupField {
   field: string
@@ -109,18 +133,30 @@ function ManualEntry({
     )
   }
   if (format === 'number' || format === 'percent' || format === 'rating10') {
+    const max = numericMax(format)
+    const error = manualValueExceedsMax(format, value)
+      ? `Must be ${max?.toLocaleString('en-US')} or less`
+      : null
     return (
-      <Input
-        type="number"
-        min={0}
-        max={format === 'percent' ? 100 : format === 'rating10' ? 10 : undefined}
-        step={format === 'rating10' ? 0.1 : 1}
-        value={value == null ? '' : String(value)}
-        onChange={(e) => {
-          const raw = e.target.value
-          onChange(raw === '' ? null : Number(raw))
-        }}
-      />
+      <div>
+        <Input
+          type="number"
+          min={0}
+          max={max ?? undefined}
+          step={format === 'rating10' ? 0.1 : 1}
+          value={value == null ? '' : String(value)}
+          onChange={(e) => {
+            const raw = e.target.value
+            if (raw === '') {
+              onChange(null)
+              return
+            }
+            const n = Number(raw)
+            onChange(Number.isFinite(n) ? n : null)
+          }}
+        />
+        {error && <FieldError>{error}</FieldError>}
+      </div>
     )
   }
   return (
@@ -143,9 +179,20 @@ export function FieldConflictMerge({
   >({})
   const [droppedGroups, setDroppedGroups] = useState<Set<string>>(new Set())
 
+  const isFieldResolved = (groupField: ConflictGroupField, choice: FieldChoice | undefined) => {
+    if (!choice) return false
+    if (choice.kind === 'manual') {
+      const format = describeField(tab, groupField.field).format
+      if (manualValueExceedsMax(format, choice.manualValue)) return false
+    }
+    return true
+  }
+
   const isGroupResolved = (group: ConflictGroup) =>
     droppedGroups.has(group.groupId) ||
-    group.fields.every((f) => choices[group.groupId]?.[f.field])
+    group.fields.every((f) =>
+      isFieldResolved(f, choices[group.groupId]?.[f.field])
+    )
 
   const resolvedGroupCount = useMemo(
     () => groups.filter(isGroupResolved).length,

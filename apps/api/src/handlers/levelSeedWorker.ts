@@ -1,7 +1,12 @@
 // SQS consumer — async metadata enrichment for stub levels created during
 // spreadsheet import. Reserved concurrency 1 (set in sst.config.ts) ensures
-// no two invocations run concurrently, making in-handler pacing (~1.5 req/s)
-// the true system-wide rate limit against RobTop.
+// no two invocations of THIS worker run concurrently, making in-handler
+// pacing (~1.5 req/s) a hard ceiling on what this path alone sends to
+// RobTop. It is NOT a system-wide limit — levelSync.ts's volatile/standard
+// sync crons, GET /levels/:id/resolve (live, per logging-flow request), and
+// gddlListSync.ts's ensureLevelCached each call fetchRobtopLevel too, paced
+// (or, for gddlListSync, not paced at all) independently of this worker and
+// of each other. Nothing enforces a shared ceiling across paths today.
 //
 // Each SQS message carries a small batch of level IDs (5-10). On success the
 // stub row is upgraded to data_source='robtop_autofill', verified=true.
@@ -28,6 +33,31 @@ interface SQSEvent {
 // ~670ms between RobTop calls keeps us just under 1.5 req/s.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const PACE_MS = 670
+
+// fetchRobtopLevel collapses "genuinely not found" and "transient network
+// failure" into the same null (see its GOLDEN RULE) — this worker can't tell
+// them apart, so a null gets a couple of re-attempts before the stub is left
+// standing. Without this, a single blip during a big import batch stranded
+// that level with no metadata until the next weekly volatile sync (which
+// doesn't run for up to a week, and only backfills a few fields even then)
+// rather than the few extra seconds retries cost here.
+const FETCH_ATTEMPTS = 3
+// Backs off rather than re-hitting at the same steady PACE_MS: a null is as
+// likely to mean "RobTop is currently struggling" as "blip on our end", and
+// retrying a struggling upstream at full pace compounds the problem instead
+// of easing off it. This worker's own request RATE is still capped either
+// way (every attempt, retry or not, sleeps before firing) — backoff only
+// changes how much extra it adds specifically while things are failing.
+const RETRY_BACKOFF_MS = [PACE_MS, PACE_MS * 3]
+
+async function fetchRobtopLevelWithRetries(levelId: string) {
+  for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? PACE_MS)
+    const robtop = await fetchRobtopLevel(levelId)
+    if (robtop) return robtop
+  }
+  return null
+}
 
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {
@@ -56,9 +86,9 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         })
         if (existing?.verified) continue
 
-        const robtop = await fetchRobtopLevel(levelId)
+        const robtop = await fetchRobtopLevelWithRetries(levelId)
         if (!robtop) {
-          // RobTop didn't find it — stub stands. Not a failure.
+          // RobTop didn't find it after retries — stub stands. Not a failure.
           logger.info({ levelId }, 'levelSeedWorker: no RobTop result; stub retained')
           continue
         }

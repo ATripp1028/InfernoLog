@@ -11,6 +11,8 @@
 // Docs: https://wyliemaster.github.io/gddocs (endpoints/levels/getGJLevels21,
 // resources/server/level).
 
+import { logger } from './logger'
+
 const ROBTOP_API_BASE_URL =
   process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
 
@@ -376,12 +378,24 @@ export async function fetchRobtopLevel(
       body,
       signal: controller.signal,
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      // A genuine failure (not "level doesn't exist" — that's a 200 with a
+      // "-1" body, handled below without logging). Worth surfacing: this is
+      // the branch a Cloudflare block, rate limit, or RobTop outage takes.
+      logger.warn(
+        { levelId, status: res.status },
+        'fetchRobtopLevel: non-OK response'
+      )
+      return null
+    }
 
     // Select the exact id — a numeric search can return name-matched levels too.
     return parseGetGJLevels21(await res.text(), levelId)
-  } catch {
-    // Network error, timeout/abort, or parse failure — fall back to manual.
+  } catch (err) {
+    // Network error, timeout/abort, or parse failure — fall back to manual,
+    // but log first so a persistent failure is diagnosable instead of just
+    // silently retried into oblivion.
+    logger.warn({ levelId, err }, 'fetchRobtopLevel: request failed')
     return null
   } finally {
     clearTimeout(timeout)

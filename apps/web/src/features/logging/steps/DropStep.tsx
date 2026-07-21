@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api/client'
 import { useLogDrop } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  FieldError,
   FieldHint,
   FieldLabel,
   LevelHeader,
@@ -13,12 +14,14 @@ import {
   StepFooter,
 } from '../components'
 import { buildDropInput } from '../payload'
-import { clampPercent, digitsOnly } from '../format'
+import { clampPercent, digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
 
 export function DropStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const logDrop = useLogDrop()
   if (!level) return null
+
+  const attemptsError = maxValueError(draft.attempts, MAX_ATTEMPTS)
 
   async function submit() {
     if (!level) return
@@ -64,9 +67,14 @@ export function DropStep() {
                 patchDraft({ attempts: digitsOnly(e.target.value) })
               }
             />
-            <FieldHint>
-              Puts your eventual completion&apos;s attempt count in perspective.
-            </FieldHint>
+            {attemptsError ? (
+              <FieldError>{attemptsError}</FieldError>
+            ) : (
+              <FieldHint>
+                Puts your eventual completion&apos;s attempt count in
+                perspective.
+              </FieldHint>
+            )}
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
@@ -150,7 +158,7 @@ export function DropStep() {
         <Button
           variant="destructive"
           onClick={submit}
-          disabled={logDrop.isPending}
+          disabled={logDrop.isPending || attemptsError != null}
         >
           {logDrop.isPending ? 'Dropping…' : 'Drop level'}
         </Button>

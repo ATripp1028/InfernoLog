@@ -6,13 +6,17 @@ import { Segmented } from '@/components/ui/segmented'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  FieldError,
   FieldHint,
   FieldLabel,
   LevelHeader,
   StepBody,
   StepFooter,
 } from '../components'
-import { digitsOnly } from '../format'
+import { digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
+
+// Run-from/run-to/best-progress are all percentages (server-bounded 0-100).
+const MAX_PERCENT = 100
 import {
   GdVersionPicker,
   GdVersionInfoButton,
@@ -49,9 +53,17 @@ export function ProgressStep() {
   const fromRun = draft.progressMode === 'from_run'
   const showVersionPicker =
     level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
+  const runFromError = maxValueError(draft.runFrom, MAX_PERCENT)
+  const runToError = maxValueError(draft.runTo, MAX_PERCENT)
+  const percentageError = maxValueError(draft.percentage, MAX_PERCENT)
+  const attemptsError = maxValueError(draft.attempts, MAX_ATTEMPTS)
   const canContinue = fromRun
-    ? draft.runFrom.trim() !== '' && draft.runTo.trim() !== ''
-    : draft.percentage.trim() !== ''
+    ? draft.runFrom.trim() !== '' &&
+      draft.runTo.trim() !== '' &&
+      !runFromError &&
+      !runToError &&
+      !attemptsError
+    : draft.percentage.trim() !== '' && !percentageError && !attemptsError
 
   return (
     <>
@@ -79,6 +91,7 @@ export function ProgressStep() {
                   patchDraft({ runFrom: digitsOnly(e.target.value) })
                 }
               />
+              {runFromError && <FieldError>{runFromError}</FieldError>}
             </div>
             <div>
               <FieldLabel htmlFor="p-to">Run to %</FieldLabel>
@@ -90,6 +103,7 @@ export function ProgressStep() {
                   patchDraft({ runTo: digitsOnly(e.target.value) })
                 }
               />
+              {runToError && <FieldError>{runToError}</FieldError>}
             </div>
           </div>
         ) : (
@@ -104,6 +118,7 @@ export function ProgressStep() {
                   patchDraft({ percentage: digitsOnly(e.target.value) })
                 }
               />
+              {percentageError && <FieldError>{percentageError}</FieldError>}
             </div>
             <div>
               <FieldLabel htmlFor="p-date">Date</FieldLabel>
@@ -139,6 +154,7 @@ export function ProgressStep() {
                 patchDraft({ attempts: digitsOnly(e.target.value) })
               }
             />
+            {attemptsError && <FieldError>{attemptsError}</FieldError>}
           </div>
         </div>
 
