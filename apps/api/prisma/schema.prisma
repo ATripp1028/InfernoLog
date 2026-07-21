@@ -502,7 +502,9 @@ model RatingCategory {
 
   // Relations
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  // Soft delete: scores preserved if category deleted, restored if recreated
+  // No onDelete action — RatingScore rows for a deleted category must be
+  // removed explicitly by the caller (see PUT /v1/me/rating-config) before
+  // deleting the category, or the categoryId FK on rating_scores rejects it.
   ratingScores      RatingScore[]
 
   // Each user's category names must be unique. Also makes the default-seed
