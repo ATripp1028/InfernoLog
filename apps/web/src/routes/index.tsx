@@ -1,8 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { LandingPage } from '@/features/landing/LandingPage'
 import { PageLoading } from '@/components/PageLoading'
 import { useAuth } from '@/context/AuthContext'
+import { useRouteGuard } from '@/lib/useRouteGuard'
 
 export const Route = createFileRoute('/')({
   component: IndexRoute,
@@ -12,15 +12,14 @@ export const Route = createFileRoute('/')({
 // sent straight to their List instead of seeing it.
 function IndexRoute() {
   const { isAuthenticated, isAuthInitializing } = useAuth()
-  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!isAuthInitializing && isAuthenticated) {
-      navigate({ to: '/list', replace: true })
-    }
-  }, [isAuthInitializing, isAuthenticated, navigate])
+  const blockedByAuth = useRouteGuard({
+    ready: !isAuthInitializing,
+    when: isAuthenticated,
+    to: '/list',
+  })
 
-  if (isAuthInitializing || isAuthenticated) {
+  if (blockedByAuth) {
     return <PageLoading />
   }
 

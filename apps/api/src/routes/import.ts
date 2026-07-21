@@ -48,7 +48,7 @@ app.post('/me/import/check', async (c) => {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const result = await checkImportConflicts(userId, parsed.data.levelIds)
+    const result = await checkImportConflicts(userId, parsed.data)
     return c.json(result, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import/check error')

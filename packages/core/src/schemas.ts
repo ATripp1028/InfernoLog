@@ -138,12 +138,21 @@ export const SetGddlApiKeySchema = z.object({
 // Minimum FPS InfernoLog accepts. 60 is the Geometry Dash floor; anything
 // lower isn't a real refresh rate users log against.
 export const MIN_FPS = 60
+// Upper bounds for otherwise-uncapped user-entered integer fields. Postgres
+// Int columns overflow at 2^31-1; these caps sit far below that (and below
+// the 1e21 threshold where JS starts stringifying numbers in scientific
+// notation, which a bare .int() check doesn't reject) while still being far
+// beyond any legitimate value, so a fat-fingered input fails cleanly with a
+// normal validation error instead of an Int overflow at the database.
+export const MAX_ATTEMPTS = 999_999_999
+export const MAX_FPS = 100_000
+export const MAX_GDDL_TIER = 10_000
 
 export const UpdateMeSchema = z
   .object({
     profilePublic: z.boolean().optional(),
     discordPublic: z.boolean().optional(),
-    defaultFps: z.number().int().min(MIN_FPS).optional(),
+    defaultFps: z.number().int().min(MIN_FPS).max(MAX_FPS).optional(),
     defaultPercentageVersion: z.nativeEnum(GdVersion).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
@@ -261,8 +270,14 @@ export const LevelIdSchema = z
 const sessionDetailFields = {
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().default(false),
-  attempts: z.number().int().nonnegative().nullable().optional(),
-  fps: z.number().int().positive().nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
+  fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   // Which GD version's percentage system was used. Only meaningful for classic
   // levels (percentage/runFrom/runTo). Null = not recorded.
   percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
@@ -300,7 +315,13 @@ export const CompletionInputSchema = z.object({
   // whichever the client sends and never pre-compute the weighted average.
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   ratingScores: z.array(RatingScoreInputSchema).optional(),
-  userGddlTier: z.number().int().nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
   // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
@@ -350,7 +371,13 @@ export const ProgressInputSchema = z
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
   date: z.coerce.date().nullable().optional(),
-  attempts: z.number().int().nonnegative().nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   notes: z.string().max(2000).nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
@@ -373,8 +400,14 @@ export const EditProgressInputSchema = z.object({
   // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().optional(),
-  attempts: z.number().int().nonnegative().nullable().optional(),
-  fps: z.number().int().positive().nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
+  fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().optional(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
@@ -389,7 +422,13 @@ export const EditProgressInputSchema = z.object({
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
-  userGddlTier: z.number().int().nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -799,7 +838,13 @@ export const ImportCompletionRowSchema = z.object({
   // ISO 8601 date string, already interpreted by the client.
   date: z.string().nullable().optional(),
   dateUncertain: z.boolean().nullable().optional(),
-  attempts: z.number().int().nonnegative().nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   // Worst fail / last logged percentage (0-100).
   percentage: z.number().min(0).max(100).nullable().optional(),
   // ISO 8601 date string — date of the worst fail session.
@@ -807,7 +852,7 @@ export const ImportCompletionRowSchema = z.object({
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
   onStream: z.boolean().nullable().optional(),
-  fps: z.number().int().positive().nullable().optional(),
+  fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   // 0-10 display scale (server converts to 0-100 on write).
   enjoyment: z.number().min(0).max(10).nullable().optional(),
   simpleRating: z.number().min(0).max(10).nullable().optional(),
@@ -831,7 +876,13 @@ export const ImportCompletionRowSchema = z.object({
   levelNotes: z.string().max(2000).nullable().optional(),
   // Ignored on import — server populates from the levels cache.
   inGameDifficulty: z.string().nullable().optional(),
-  userGddlTier: z.number().int().nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
   notes: z.string().max(2000).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
@@ -849,12 +900,18 @@ export const ImportProgressRowSchema = z.object({
   creator: z.string().nullable().optional(),
   date: z.string().nullable().optional(),
   dateUncertain: z.boolean().nullable().optional(),
-  attempts: z.number().int().nonnegative().nullable().optional(),
+  attempts: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   percentage: z.number().min(0).max(100).nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
   onStream: z.boolean().nullable().optional(),
-  fps: z.number().int().positive().nullable().optional(),
+  fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
   // 0-10 display scale (server converts to 0-100 on write).
   enjoyment: z.number().min(0).max(10).nullable().optional(),
@@ -881,7 +938,13 @@ export const ImportDroppedRowSchema = z.object({
   bestProgress: z.number().min(0).max(100).nullable().optional(),
   runFrom: z.number().int().min(0).max(100).nullable().optional(),
   runTo: z.number().int().min(0).max(100).nullable().optional(),
-  attemptsAtDrop: z.number().int().nonnegative().nullable().optional(),
+  attemptsAtDrop: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(MAX_ATTEMPTS)
+    .nullable()
+    .optional(),
   // ISO 8601 date string.
   droppedAt: z.string().nullable().optional(),
   reason: z.string().max(2000).nullable().optional(),
@@ -890,31 +953,28 @@ export const ImportDroppedRowSchema = z.object({
   inGameDifficulty: z.string().nullable().optional(),
 })
 
-// ── Check ──────────────────────────────────────────────────────────────────
-
-export const ImportCheckRequestSchema = z.object({
-  levelIds: z.array(LevelIdSchema).min(1).max(5000),
-})
-
-// Compact existing-completion summary — enough to render the conflict UI.
-export const ImportConflictSchema = z.object({
-  levelId: z.string(),
-  levelName: z.string().nullable(),
-  date: z.string().nullable(),
-  attempts: z.number().int().nullable(),
-  // 0-10 display scale (converted from internal 0-100 on the way out).
-  enjoyment: z.number().nullable(),
-  simpleRating: z.number().nullable(),
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
-})
-
-export const ImportCheckResponseSchema = z.object({
-  conflicts: z.array(ImportConflictSchema),
-})
-
 // ── Commit ─────────────────────────────────────────────────────────────────
-
-const ImportConflictResolution = z.enum(['skip', 'overwrite'])
+//
+// The check pass (defined further below, after the ranking/collections/
+// ratings entry schemas it references) resolves every conflict client-side —
+// by the time a row reaches /start, `data` already holds the final agreed
+// field values. `resolution` exists only so the server can pick the right
+// write branch and outcome-reporting text:
+//   'drop'      — discard the imported row entirely, keep existing as-is.
+//   'duplicate' — system-detected exact duplicate (progress/dropped only,
+//                 never user-facing) — functionally identical to 'drop'.
+//   'overwrite' — `data` is the full imported row, written unconditionally
+//                 (including nulls, to clear fields the sheet leaves blank).
+//   'merge'     — `data` is the user's field-by-field reconciliation result;
+//                 from the server's perspective this is IDENTICAL to
+//                 'overwrite' (write every field of `data` as final truth) —
+//                 the tag exists only to report "merged" vs "overwritten".
+export const ImportConflictActionSchema = z.enum([
+  'drop',
+  'duplicate',
+  'overwrite',
+  'merge',
+])
 
 export const ImportCommitRowSchema = z.discriminatedUnion('type', [
   z.object({
@@ -922,17 +982,21 @@ export const ImportCommitRowSchema = z.discriminatedUnion('type', [
     rowIndex: z.number().int().nonnegative(),
     data: ImportCompletionRowSchema,
     // Only required when a conflict exists for this level.
-    conflictResolution: ImportConflictResolution.optional(),
+    resolution: ImportConflictActionSchema.optional(),
   }),
   z.object({
     type: z.literal('dropped'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportDroppedRowSchema,
+    // Only required when the check pass matched this row against an
+    // existing drop by derived key (see checkImportConflicts).
+    resolution: ImportConflictActionSchema.optional(),
   }),
   z.object({
     type: z.literal('progress'),
     rowIndex: z.number().int().nonnegative(),
     data: ImportProgressRowSchema,
+    resolution: ImportConflictActionSchema.optional(),
   }),
 ])
 
@@ -1045,6 +1109,121 @@ export const ImportRatingsResponseSchema = z.object({
   levels: z.number().int(), // number of levels that received scores
   categoriesCreated: z.array(z.string()),
   skipped: z.array(z.object({ label: z.string(), reason: z.string() })),
+})
+
+// ── Conflict resolution (shared primitives) ─────────────────────────────────
+//
+// Powers the canonical git-merge-style resolution UI, reused across every tab
+// that can conflict: Completions/Progress/Dropped share ImportRowConflict
+// (a field-by-field diff); Ratings has its own single-field variant; Ranking
+// and Collections share ImportListMerge (an ordered-list merge).
+
+export const ImportFieldDiffSchema = z.object({
+  field: z.string(),
+  existingValue: z.unknown(),
+  importedValue: z.unknown(),
+})
+
+// matchedId is null for completions (already round-trip by levelId); for
+// progress/dropped it's the existing ProgressUpdate id the client folds back
+// onto data.progressId/data.dropId so the existing id-match commit path
+// picks it up unchanged.
+export const ImportRowConflictSchema = z.object({
+  rowIndex: z.number().int(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  matchedId: z.string().nullable(),
+  fields: z.array(ImportFieldDiffSchema).min(1),
+})
+
+// A system-detected exact duplicate (progress/dropped only) — no user
+// interaction needed; the client marks the row resolution: 'duplicate'.
+export const ImportDuplicateRowSchema = z.object({
+  rowIndex: z.number().int(),
+})
+
+export const ImportRatingConflictSchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  categoryName: z.string(),
+  // Internal 0-100 scale, same convention as ImportRatingEntry.scores.
+  existingScore: z.number().int().min(0).max(100),
+  importedScore: z.number().int().min(0).max(100),
+})
+
+export const ImportListEntrySchema = z.object({
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+})
+
+// A git-like merge of two orderings (see computeListMerge in
+// apps/api/src/utils/listMerge.ts for the exact algorithm). A pure insertion
+// — an entry unique to one side whose position relative to the shared
+// backbone is unambiguous — auto-resolves and never appears here; only a
+// genuine order disagreement (or a pure omission — an existing entry the
+// sheet doesn't mention at all) produces a non-empty remainder.
+export const ImportListMergeSchema = z.object({
+  list: z.string().nullable(), // collection name, or null for Ranking
+  // The backbone with every unambiguous imported-only insertion already
+  // spliced in. Pre-seeds the merge board's middle column. When hasConflict
+  // is false, this array alone is the final order — nothing to render.
+  mergedSeed: z.array(ImportListEntrySchema),
+  // Entries present in both orderings but excluded from the backbone because
+  // their relative position is disputed, in imported's order. Starts in the
+  // left column.
+  importedRemainder: z.array(ImportListEntrySchema),
+  // The same disputed entries (in existing's order) unioned with entries
+  // that exist only in the existing ordering. A levelId appearing in both
+  // importedRemainder and existingRemainder is ONE contested entry, not two
+  // — placing either instance resolves both. Starts in the right column.
+  existingRemainder: z.array(ImportListEntrySchema),
+  // True iff importedRemainder or existingRemainder is non-empty.
+  hasConflict: z.boolean(),
+  // The two full original orderings, un-merged — lets the merge board offer
+  // "just use the spreadsheet" / "just keep what's in InfernoLog" as one-click
+  // bulk resolutions instead of requiring every contested/omitted entry to be
+  // dragged into place by hand.
+  importedOrder: z.array(ImportListEntrySchema),
+  existingOrder: z.array(ImportListEntrySchema),
+})
+
+// ── Check (conflict detection) ──────────────────────────────────────────────
+//
+// One synchronous pre-commit pass over every tab's parsed rows. Resolution
+// happens entirely client-side from this response; /start then receives the
+// same rows with `resolution` (and, for lists, the user-merged order) baked
+// in — see ImportCommitRowSchema above.
+
+const ImportCheckRow = <T extends z.ZodTypeAny>(data: T) =>
+  z.object({ rowIndex: z.number().int().nonnegative(), data })
+
+export const ImportCheckRequestSchema = z.object({
+  completions: z
+    .array(ImportCheckRow(ImportCompletionRowSchema))
+    .max(20000)
+    .optional(),
+  progress: z
+    .array(ImportCheckRow(ImportProgressRowSchema))
+    .max(20000)
+    .optional(),
+  dropped: z
+    .array(ImportCheckRow(ImportDroppedRowSchema))
+    .max(20000)
+    .optional(),
+  ratings: z.array(ImportRatingEntrySchema).max(5000).optional(),
+  collections: z.array(ImportCollectionEntrySchema).max(5000).optional(),
+  ranking: z.array(ImportRankingEntrySchema).max(5000).optional(),
+})
+
+export const ImportCheckResponseSchema = z.object({
+  completionConflicts: z.array(ImportRowConflictSchema),
+  progressConflicts: z.array(ImportRowConflictSchema),
+  progressDuplicates: z.array(ImportDuplicateRowSchema),
+  droppedConflicts: z.array(ImportRowConflictSchema),
+  droppedDuplicates: z.array(ImportDuplicateRowSchema),
+  ratingConflicts: z.array(ImportRatingConflictSchema),
+  collectionsMerge: z.array(ImportListMergeSchema),
+  rankingMerge: ImportListMergeSchema.nullable(),
 })
 
 // ── Background import job (start + status) ─────────────────────────────────
@@ -1215,12 +1394,18 @@ export const ExportPageResponseSchema = z.object({
 export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
 export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
 export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
+export type ImportConflictAction = z.infer<typeof ImportConflictActionSchema>
+export type ImportFieldDiff = z.infer<typeof ImportFieldDiffSchema>
+export type ImportRowConflict = z.infer<typeof ImportRowConflictSchema>
+export type ImportDuplicateRow = z.infer<typeof ImportDuplicateRowSchema>
+export type ImportRatingConflict = z.infer<typeof ImportRatingConflictSchema>
+export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
+export type ImportListMerge = z.infer<typeof ImportListMergeSchema>
 export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
 export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
 export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
 export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
 export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
-export type ImportConflict = z.infer<typeof ImportConflictSchema>
 export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
 export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
 export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>

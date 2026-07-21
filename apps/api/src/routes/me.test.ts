@@ -313,6 +313,9 @@ describe('DELETE /me', () => {
     expect(syncJobMock.deleteMany).toHaveBeenCalledWith({
       where: { userId: USER_ID },
     })
+    expect(prisma.ratingScore.deleteMany).toHaveBeenCalledWith({
+      where: { progressUpdate: { levelProgress: { userId: USER_ID } } },
+    })
     expect(prisma.user.delete).toHaveBeenCalledWith({
       where: { id: USER_ID },
     })

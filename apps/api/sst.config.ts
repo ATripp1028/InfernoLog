@@ -114,8 +114,13 @@ export default $config({
         logoutUrls: [
           'http://localhost:5173',
           'https://infernolog.com',
+          'http://localhost:5173/no-account-found',
+          'https://infernolog.com/no-account-found',
           ...($app.stage !== 'production' && $app.stage !== 'alextripp'
-            ? [`https://d1r4gy6uhfg2w9.cloudfront.net`]
+            ? [
+                `https://d1r4gy6uhfg2w9.cloudfront.net`,
+                `https://d1r4gy6uhfg2w9.cloudfront.net/no-account-found`,
+              ]
             : []),
         ],
         defaultRedirectUri: 'http://localhost:5173/auth/callback',
@@ -331,6 +336,8 @@ export default $config({
     authedRoute('PATCH /v1/me/progress/{levelId}')
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
+    // Delete a single logged entry (completion/progress/drop) for a level.
+    authedRoute('DELETE /v1/me/progress/{levelId}/updates/{progressUpdateId}')
     // Level Page — the per-user view of a single level's full history.
     authedRoute('GET /v1/me/progress/{levelId}')
 
@@ -352,7 +359,22 @@ export default $config({
     authedRoute('GET /v1/levels/search')
     // API Gateway HTTP API path params use {brace} syntax; Hono's own routes
     // keep :levelId. The actual request path is forwarded to Hono unchanged.
-    authedRoute('GET /v1/levels/{levelId}/resolve')
+    // Explicit timeout (rather than authedRoute's default) because this route
+    // shares the global RobTop rate limiter (robtopRateLimit.ts) with the
+    // level-seed worker's import-enrichment bursts — a request landing during
+    // one of those bursts can wait longer for a free slot than the default
+    // budget comfortably covers.
+    api.route(
+      'GET /v1/levels/{levelId}/resolve',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '25 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
     authedRoute('POST /v1/levels')
     authedRoute('GET /v1/levels/{levelId}')
 
@@ -468,9 +490,16 @@ export default $config({
     // SPREADSHEET IMPORT — level-seed SQS queue + consumer.
     //
     // The import endpoint commits stub levels immediately and enqueues their
-    // IDs for async metadata enrichment via RobTop. Reserved concurrency 1
-    // on the consumer is the system-wide rate-limit guarantee (no two
-    // invocations run concurrently, so in-handler pacing = true rate).
+    // IDs for async metadata enrichment via RobTop. The system-wide rate
+    // limit is now enforced by the shared Postgres-backed token bucket
+    // (utils/robtopRateLimit.ts) rather than by serializing this consumer —
+    // that limiter is explicitly safe under concurrent callers (an atomic
+    // row UPDATE), so a modest concurrency here just lets more batches make
+    // progress in parallel while still bottlenecked by the same shared
+    // ceiling. Each batch can carry up to 8 level IDs (BATCH_SIZE in
+    // services/import.ts), each needing up to ~49s in the worst case (3
+    // retries, each up to a 10s rate-limiter wait + 5s fetch, plus backoff)
+    // — timeout sized well above that per-batch worst case.
     // ─────────────────────────────────────────────
     const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
 
@@ -487,7 +516,8 @@ export default $config({
         link: sharedLinks,
         environment: sharedEnvironment,
         ...sharedNodeOptions,
-        concurrency: 1,
+        timeout: '10 minutes',
+        concurrency: 5,
       },
       { batch: { size: 1 } }
     )
@@ -501,6 +531,13 @@ export default $config({
         handler: 'src/index.handler',
         link: sharedLinks,
         environment: sharedEnvironment,
+        // checkImportConflicts does several DB-heavy sub-checks (ratings,
+        // collections merge, ranking merge, progress/dropped dedup scans)
+        // plus a name-resolution fallback to RobTop for collections entries
+        // — bumped to match /me/export's timeout rather than relying on the
+        // default, which fit the route's original single-query shape but not
+        // this one.
+        timeout: '28 seconds',
         ...sharedNodeOptions,
       },
       { auth: jwtAuth }

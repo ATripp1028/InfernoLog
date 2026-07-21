@@ -359,6 +359,77 @@ export async function applyEdit(
 }
 
 // ─────────────────────────────────────────────
+// DELETE PROGRESS UPDATE — removes a single logged entry (completion,
+// progress log, or drop). RatingScore rows cascade via the schema's
+// onDelete: Cascade.
+//
+// If it's the ONLY progress_update on the level_progress, the whole
+// level_progress is deleted instead (a level_progress is always created
+// together with at least one progress_update — see findOrCreateLevelProgress
+// — so leaving one with zero updates would violate that invariant).
+//
+// Otherwise, status is recomputed by replaying the remaining updates in
+// loggedAt order using the same rules the three write paths already apply on
+// create (applyCompletion/applyProgress/applyDrop): a COMPLETION or DROP sets
+// status outright, a PROGRESS only flips DROPPED back to IN_PROGRESS. If that
+// walks status away from COMPLETED (i.e. the completion itself was deleted),
+// the now-invalid classic_ranking entry is removed too — only COMPLETED
+// entries may have one.
+// ─────────────────────────────────────────────
+
+export async function deleteProgressUpdate(
+  userId: string,
+  levelId: string,
+  progressUpdateId: string
+): Promise<{ deletedLevelProgress: boolean } | null> {
+  return prisma.$transaction(async (tx) => {
+    const lp = await tx.levelProgress.findUnique({
+      where: { userId_levelId: { userId, levelId } },
+      select: { id: true, status: true },
+    })
+    if (!lp) return null
+
+    const target = await tx.progressUpdate.findFirst({
+      where: { id: progressUpdateId, levelProgressId: lp.id },
+      select: { id: true },
+    })
+    if (!target) return null
+
+    const remaining = await tx.progressUpdate.findMany({
+      where: { levelProgressId: lp.id, id: { not: target.id } },
+      orderBy: { loggedAt: 'asc' },
+      select: { kind: true },
+    })
+
+    if (remaining.length === 0) {
+      await tx.levelProgress.delete({ where: { id: lp.id } })
+      return { deletedLevelProgress: true }
+    }
+
+    await tx.progressUpdate.delete({ where: { id: target.id } })
+
+    let newStatus: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED' = 'IN_PROGRESS'
+    for (const update of remaining) {
+      if (update.kind === 'COMPLETION') newStatus = 'COMPLETED'
+      else if (update.kind === 'DROP') newStatus = 'DROPPED'
+      else if (newStatus === 'DROPPED') newStatus = 'IN_PROGRESS'
+    }
+
+    if (newStatus !== lp.status) {
+      await tx.levelProgress.update({
+        where: { id: lp.id },
+        data: { status: newStatus },
+      })
+    }
+    if (lp.status === 'COMPLETED' && newStatus !== 'COMPLETED') {
+      await tx.classicRanking.deleteMany({ where: { levelProgressId: lp.id } })
+    }
+
+    return { deletedLevelProgress: false }
+  })
+}
+
+// ─────────────────────────────────────────────
 // DROP — a status transition backed by its own progress_update (kind=DROP),
 // same as completion/progress. A level can be dropped more than once (drop →
 // resume → drop again); each drop is its own row, never overwritten.

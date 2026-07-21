@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import {
   useAuth,
@@ -21,7 +22,7 @@ import { Button } from '@/components/ui/button'
 //     (no InfernoLog row is ever created for this path) and bounce out.
 export function AuthCallback() {
   const navigate = useNavigate()
-  const { isAuthenticated, getIdToken, signOut } = useAuth()
+  const { isAuthenticated, getIdToken } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const handledRef = useRef(false)
 
@@ -56,8 +57,16 @@ export function AuthCallback() {
         } catch (err) {
           if (err instanceof ApiError && err.status === 404) {
             await signinReject(token)
-            signOut()
-            navigate({ to: '/no-account-found', replace: true })
+            // Sends the browser through Cognito's hosted-UI logout endpoint,
+            // which lands directly on /no-account-found (registered as an
+            // allowed logout URL in apps/api/sst.config.ts) rather than the
+            // app root — a real page navigation, not a SPA route change.
+            await signOut({
+              global: false,
+              oauth: {
+                redirectUrl: `${window.location.origin}/no-account-found`,
+              },
+            })
             return
           }
           throw err
@@ -67,7 +76,7 @@ export function AuthCallback() {
         setError(err instanceof Error ? err.message : 'Something went wrong')
       }
     })()
-  }, [isAuthenticated, getIdToken, signOut, navigate])
+  }, [isAuthenticated, getIdToken, navigate])
 
   useEffect(() => {
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
@@ -92,7 +101,7 @@ export function AuthCallback() {
 
   return (
     <div className="flex h-screen items-center justify-center">
-      <p className="text-sm text-muted-foreground">Signing you in…</p>
+      <p className="text-sm text-muted-foreground">Searching for account…</p>
     </div>
   )
 }

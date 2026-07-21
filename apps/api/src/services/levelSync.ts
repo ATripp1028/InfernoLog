@@ -19,7 +19,10 @@ import * as Sentry from '@sentry/aws-serverless'
 // shortly after a level is rated). Older rated levels fall to the monthly job.
 export const VOLATILE_WINDOW_DAYS = 14
 
-// Paces RobTop calls to stay well under ~1.5 req/s, matching levelSeedWorker.
+// Local pacing on top of the shared rate limiter every fetchRobtopLevel call
+// goes through (utils/robtopRateLimit.ts) — belt and suspenders. `paceMs` is
+// also how tests skip the delay (pass 0) since fetchRobtopLevel is mocked in
+// those tests and the shared limiter is never in play there.
 const PACE_MS = 670
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

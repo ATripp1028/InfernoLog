@@ -1,10 +1,11 @@
-import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import { useMutationState, useQueryClient } from '@tanstack/react-query'
 import { Shell } from '@/components/Shell'
 import { PageLoading } from '@/components/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/lib/api/me'
+import { useRouteGuard } from '@/lib/useRouteGuard'
 import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 import { toast } from '@/components/ui/sonner'
 import { rankingQueryKey } from '@/lib/api/ranking'
@@ -17,27 +18,23 @@ export const Route = createFileRoute('/_authenticated')({
 
 function AuthenticatedLayout() {
   const { isAuthenticated, isAuthInitializing } = useAuth()
-  const navigate = useNavigate()
   const me = useMe()
 
-  useEffect(() => {
-    if (!isAuthInitializing && !isAuthenticated) {
-      navigate({ to: '/', replace: true })
-    }
-  }, [isAuthInitializing, isAuthenticated, navigate])
+  const blockedByAuth = useRouteGuard({
+    ready: !isAuthInitializing,
+    when: !isAuthenticated,
+    to: '/',
+  })
 
-  useEffect(() => {
-    if (
-      !isAuthInitializing &&
-      isAuthenticated &&
-      me.data &&
-      !me.data.onboardingCompleted
-    ) {
-      navigate({ to: '/onboarding', replace: true })
-    }
-  }, [isAuthInitializing, isAuthenticated, me.data, navigate])
+  // Only meaningful once me.data has loaded — me.isPending/me.error below are
+  // checked first and both imply `when` here can't have been decided yet.
+  const blockedByOnboarding = useRouteGuard({
+    ready: !isAuthInitializing && isAuthenticated && !!me.data,
+    when: !!me.data && !me.data.onboardingCompleted,
+    to: '/onboarding',
+  })
 
-  if (isAuthInitializing || !isAuthenticated) {
+  if (blockedByAuth) {
     return <PageLoading />
   }
 
@@ -55,7 +52,7 @@ function AuthenticatedLayout() {
     )
   }
 
-  if (!me.data?.onboardingCompleted) {
+  if (blockedByOnboarding) {
     return <PageLoading />
   }
 

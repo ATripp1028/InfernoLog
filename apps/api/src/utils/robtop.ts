@@ -11,6 +11,9 @@
 // Docs: https://wyliemaster.github.io/gddocs (endpoints/levels/getGJLevels21,
 // resources/server/level).
 
+import { logger } from './logger'
+import { acquireRobtopSlot } from './robtopRateLimit'
+
 const ROBTOP_API_BASE_URL =
   process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
 
@@ -213,14 +216,21 @@ function parsePairs(str: string, sep: string): Record<string, string> {
   return out
 }
 
-type CreatorMap = Record<string, { username: string | null; accountId: string | null }>
+type CreatorMap = Record<
+  string,
+  { username: string | null; accountId: string | null }
+>
 type SongMap = Record<string, Record<string, string>>
 
 function parseCreatorSection(section: string): CreatorMap {
   const map: CreatorMap = {}
   for (const entry of section.split('|')) {
     const [playerId, username, accountId] = entry.split(':')
-    if (playerId) map[playerId] = { username: username || null, accountId: accountId || null }
+    if (playerId)
+      map[playerId] = {
+        username: username || null,
+        accountId: accountId || null,
+      }
   }
   return map
 }
@@ -259,7 +269,9 @@ function buildRobtopLevel(
   const song = isCustom ? songs[customSongId] : undefined
   const officialSongIndex = int(L['12'])
   const official =
-    !isCustom && officialSongIndex !== null ? OFFICIAL_SONGS[officialSongIndex] : undefined
+    !isCustom && officialSongIndex !== null
+      ? OFFICIAL_SONGS[officialSongIndex]
+      : undefined
 
   const creator = creators[L['6'] ?? '']
 
@@ -341,7 +353,8 @@ export function parseGetGJLevels21(
 ): RobtopLevel | null {
   const all = parseAllFromGetGJLevels21(body)
   if (!all.length) return null
-  const found = (wantId ? all.find((x) => x.levelId === wantId) : undefined) ?? all[0]
+  const found =
+    (wantId ? all.find((x) => x.levelId === wantId) : undefined) ?? all[0]
   return found?.level ?? null
 }
 
@@ -354,6 +367,11 @@ export function parseGetGJLevels21(
 export async function fetchRobtopLevel(
   levelId: string
 ): Promise<RobtopLevel | null> {
+  if (!(await acquireRobtopSlot())) {
+    logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
+    return null
+  }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
@@ -376,12 +394,24 @@ export async function fetchRobtopLevel(
       body,
       signal: controller.signal,
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      // A genuine failure (not "level doesn't exist" — that's a 200 with a
+      // "-1" body, handled below without logging). Worth surfacing: this is
+      // the branch a Cloudflare block, rate limit, or RobTop outage takes.
+      logger.warn(
+        { levelId, status: res.status },
+        'fetchRobtopLevel: non-OK response'
+      )
+      return null
+    }
 
     // Select the exact id — a numeric search can return name-matched levels too.
     return parseGetGJLevels21(await res.text(), levelId)
-  } catch {
-    // Network error, timeout/abort, or parse failure — fall back to manual.
+  } catch (err) {
+    // Network error, timeout/abort, or parse failure — fall back to manual,
+    // but log first so a persistent failure is diagnosable instead of just
+    // silently retried into oblivion.
+    logger.warn({ levelId, err }, 'fetchRobtopLevel: request failed')
     return null
   } finally {
     clearTimeout(timeout)
@@ -396,6 +426,11 @@ export async function searchRobtopByName(
   name: string,
   options?: { diff?: string; demonFilter?: string }
 ): Promise<RobtopSearchResult[]> {
+  if (!(await acquireRobtopSlot())) {
+    logger.warn({ name }, 'searchRobtopByName: rate limiter timed out')
+    return []
+  }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
@@ -409,7 +444,8 @@ export async function searchRobtopByName(
       count: '10',
     })
     if (options?.diff !== undefined) body.set('diff', options.diff)
-    if (options?.demonFilter !== undefined) body.set('demonFilter', options.demonFilter)
+    if (options?.demonFilter !== undefined)
+      body.set('demonFilter', options.demonFilter)
 
     const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
       method: 'POST',

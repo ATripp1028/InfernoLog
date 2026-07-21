@@ -1,12 +1,14 @@
 // SQS consumer — async metadata enrichment for stub levels created during
-// spreadsheet import. Reserved concurrency 1 (set in sst.config.ts) ensures
-// no two invocations run concurrently, making in-handler pacing (~1.5 req/s)
-// the true system-wide rate limit against RobTop.
+// spreadsheet import. On success the stub row is upgraded to
+// data_source='robtop_autofill', verified=true. On failure (RobTop
+// unavailable or level not found) the stub stands — this is NOT an error;
+// the DLQ is just a safety net for infra failures.
 //
-// Each SQS message carries a small batch of level IDs (5-10). On success the
-// stub row is upgraded to data_source='robtop_autofill', verified=true.
-// On failure (RobTop unavailable or level not found) the stub stands — this
-// is NOT an error; the DLQ is just a safety net for infra failures.
+// Pacing against RobTop is handled by the shared rate limiter every caller
+// of fetchRobtopLevel goes through (see utils/robtopRateLimit.ts) — this
+// worker doesn't need (and no longer does) its own local sleep-based pacing
+// between levels; that would just be a second, redundant ceiling on top of
+// the real one.
 
 import prisma from '../utils/prisma'
 import { fetchRobtopLevel } from '../utils/robtop'
@@ -25,9 +27,32 @@ interface SQSEvent {
   Records: SQSRecord[]
 }
 
-// ~670ms between RobTop calls keeps us just under 1.5 req/s.
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
-const PACE_MS = 670
+
+// fetchRobtopLevel collapses "genuinely not found" and "transient network
+// failure" into the same null (see its GOLDEN RULE) — this worker can't tell
+// them apart, so a null gets a couple of re-attempts before the stub is left
+// standing. Without this, a single blip during a big import batch stranded
+// that level with no metadata until the next weekly volatile sync (which
+// doesn't run for up to a week, and only backfills a few fields even then)
+// rather than the few extra seconds retries cost here.
+//
+// The backoff between attempts here is a distinct concern from the shared
+// rate limiter: it's not about this worker's own request rate (the limiter
+// already owns that), it's about not immediately re-hitting the exact same
+// level that just failed, in case that specific failure needs a moment to
+// clear.
+const FETCH_ATTEMPTS = 3
+const RETRY_BACKOFF_MS = [1000, 3000]
+
+async function fetchRobtopLevelWithRetries(levelId: string) {
+  for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
+    if (attempt > 0) await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 1000)
+    const robtop = await fetchRobtopLevel(levelId)
+    if (robtop) return robtop
+  }
+  return null
+}
 
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {
@@ -42,11 +67,8 @@ export const handler = async (event: SQSEvent): Promise<void> => {
     const { levelIds } = message
     if (!Array.isArray(levelIds) || !levelIds.length) continue
 
-    for (let i = 0; i < levelIds.length; i++) {
-      const levelId = levelIds[i]
+    for (const levelId of levelIds) {
       if (!levelId) continue
-
-      if (i > 0) await sleep(PACE_MS)
 
       try {
         // Skip if already verified (another consumer beat us to it).
@@ -56,10 +78,13 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         })
         if (existing?.verified) continue
 
-        const robtop = await fetchRobtopLevel(levelId)
+        const robtop = await fetchRobtopLevelWithRetries(levelId)
         if (!robtop) {
-          // RobTop didn't find it — stub stands. Not a failure.
-          logger.info({ levelId }, 'levelSeedWorker: no RobTop result; stub retained')
+          // RobTop didn't find it after retries — stub stands. Not a failure.
+          logger.info(
+            { levelId },
+            'levelSeedWorker: no RobTop result; stub retained'
+          )
           continue
         }
 

@@ -1,7 +1,7 @@
 import { Link, useParams, useNavigate } from '@tanstack/react-router'
 import { AlertCircle, ArrowLeft, Lock } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
-import { useLevelPage } from '@/lib/api/levelPage'
+import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { ApiError } from '@/lib/api/client'
@@ -121,8 +121,12 @@ export function LevelPage() {
   const navigate = useNavigate()
   const me = useMe()
   const deleteProgress = useDeleteProgress()
+  const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
 
   const [pendingDelete, setPendingDelete] = useState(false)
+  const [pendingDeleteUpdateId, setPendingDeleteUpdateId] = useState<
+    string | null
+  >(null)
   const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [editProgressUpdateId, setEditProgressUpdateId] = useState<
@@ -146,6 +150,20 @@ export function LevelPage() {
       onError: () => {
         toast.error('Failed to delete level')
       },
+    })
+  }
+
+  function handleDeleteEntryConfirm() {
+    if (!pendingDeleteUpdateId) return
+    deleteProgressUpdate.mutate(pendingDeleteUpdateId, {
+      onSuccess: (result) => {
+        toast.success('Entry deleted')
+        if (result.deletedLevelProgress) void navigate({ to: '/list' })
+      },
+      onError: () => {
+        toast.error('Failed to delete entry')
+      },
+      onSettled: () => setPendingDeleteUpdateId(null),
     })
   }
 
@@ -266,6 +284,7 @@ export function LevelPage() {
                 setEditProgressUpdateId(id)
                 setEditOpen(true)
               }}
+              onDelete={(id) => setPendingDeleteUpdateId(id)}
             />
           </div>
         </div>
@@ -343,6 +362,7 @@ export function LevelPage() {
                       setEditProgressUpdateId(id)
                       setEditOpen(true)
                     }}
+                    onDelete={(id) => setPendingDeleteUpdateId(id)}
                   />
                 </div>
               </div>
@@ -411,6 +431,21 @@ export function LevelPage() {
         confirmLabel="Delete"
         destructive
         onConfirm={handleDeleteConfirm}
+      />
+
+      {/* Delete entry confirmation */}
+      <AlertDialog
+        open={pendingDeleteUpdateId != null}
+        onOpenChange={(o) => !o && setPendingDeleteUpdateId(null)}
+        title="Delete this entry?"
+        description={
+          totalEntries <= 1
+            ? `This is the only logged entry for "${levelName}" — deleting it removes the level from your list entirely. This can't be undone.`
+            : "This removes this logged entry permanently. This can't be undone."
+        }
+        confirmLabel="Delete"
+        destructive
+        onConfirm={handleDeleteEntryConfirm}
       />
 
       {/* GDDL submit confirmation */}

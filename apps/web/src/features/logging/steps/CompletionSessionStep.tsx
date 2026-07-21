@@ -17,6 +17,7 @@ export function isPreTwoTwo(dateStr: string | null | undefined): boolean {
   return dateStr.slice(0, 10) < GD_22_RELEASE_DATE
 }
 import {
+  FieldError,
   FieldHint,
   FieldLabel,
   LevelHeader,
@@ -24,7 +25,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { digitsOnly } from '../format'
+import { digitsOnly, maxValueError, MAX_FPS } from '../format'
 import type { Device, GdVersion } from '@/lib/api/logging'
 
 export function CompletionSessionStep() {
@@ -35,6 +36,7 @@ export function CompletionSessionStep() {
 
   const defaultFps = me.data?.defaultFps
   const showHighlightUrl = me.data?.showHighlightUrl ?? true
+  const fpsError = maxValueError(draft.fps, MAX_FPS)
 
   return (
     <>
@@ -55,8 +57,12 @@ export function CompletionSessionStep() {
               onChange={(e) => patchDraft({ fps: digitsOnly(e.target.value) })}
               placeholder={defaultFps ? String(defaultFps) : undefined}
             />
-            {defaultFps != null && (
-              <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
+            {fpsError ? (
+              <FieldError>{fpsError}</FieldError>
+            ) : (
+              defaultFps != null && (
+                <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
+              )
             )}
           </div>
           <div>
@@ -126,7 +132,12 @@ export function CompletionSessionStep() {
         <Button variant="outline" onClick={() => setStep('c_rating')}>
           Back
         </Button>
-        <Button onClick={() => setStep('c_listrefs')}>Continue</Button>
+        <Button
+          onClick={() => setStep('c_listrefs')}
+          disabled={fpsError != null}
+        >
+          Continue
+        </Button>
       </StepFooter>
     </>
   )

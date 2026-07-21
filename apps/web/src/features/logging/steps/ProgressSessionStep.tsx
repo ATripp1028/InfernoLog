@@ -9,6 +9,7 @@ import { useLogProgress } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  FieldError,
   FieldHint,
   FieldLabel,
   LevelHeader,
@@ -17,7 +18,14 @@ import {
   StepFooter,
 } from '../components'
 import { buildProgressInput } from '../payload'
-import { digitsOnly, displayMax, toDisplay, toInternal } from '../format'
+import {
+  digitsOnly,
+  maxValueError,
+  MAX_FPS,
+  displayMax,
+  toDisplay,
+  toInternal,
+} from '../format'
 import { DevicePicker } from './CompletionSessionStep'
 
 export function ProgressSessionStep() {
@@ -31,6 +39,7 @@ export function ProgressSessionStep() {
   const defaultFps = me.data?.defaultFps
   const max = displayMax(scale)
   const isTen = scale === 'ZERO_TO_TEN'
+  const fpsError = maxValueError(draft.fps, MAX_FPS)
 
   async function submit() {
     if (!level) return
@@ -102,8 +111,12 @@ export function ProgressSessionStep() {
               onChange={(e) => patchDraft({ fps: digitsOnly(e.target.value) })}
               placeholder={defaultFps ? String(defaultFps) : undefined}
             />
-            {defaultFps != null && (
-              <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
+            {fpsError ? (
+              <FieldError>{fpsError}</FieldError>
+            ) : (
+              defaultFps != null && (
+                <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
+              )
             )}
           </div>
           <div>
@@ -147,7 +160,10 @@ export function ProgressSessionStep() {
         <Button variant="outline" onClick={() => setStep('p_core')}>
           Back
         </Button>
-        <Button onClick={submit} disabled={logProgress.isPending}>
+        <Button
+          onClick={submit}
+          disabled={logProgress.isPending || fpsError != null}
+        >
           {logProgress.isPending ? 'Logging…' : 'Log progress'}
         </Button>
       </StepFooter>

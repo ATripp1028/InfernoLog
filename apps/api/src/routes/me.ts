@@ -322,7 +322,12 @@ app.patch('/me/username', async (c) => {
 // account purge including them is safe for now; revisit if a real audit
 // trail requirement lands before that FK behavior changes. GddlSyncJob is
 // deleted explicitly too since it has no declared FK/cascade to `users` at
-// all. Everything else (LevelProgress, ProgressUpdate, ClassicRanking,
+// all. RatingScore.categoryId -> RatingCategory has no onDelete action either,
+// so it must be cleared explicitly too: User cascades to both RatingCategory
+// and (via LevelProgress -> ProgressUpdate) RatingScore independently, and
+// Postgres validates the categoryId FK before the RatingScore side of that
+// cascade is guaranteed to have run, throwing P2003 otherwise. Everything
+// else (LevelProgress, ProgressUpdate, ClassicRanking,
 // Collection, ApiKey, RatingCategory, ListPreset, ImportJob, ...) cascades
 // from the `users` delete.
 app.delete('/me', async (c) => {
@@ -344,6 +349,9 @@ app.delete('/me', async (c) => {
         where: { OR: [{ moderatorId: userId }, { targetUserId: userId }] },
       }),
       prisma.gddlSyncJob.deleteMany({ where: { userId } }),
+      prisma.ratingScore.deleteMany({
+        where: { progressUpdate: { levelProgress: { userId } } },
+      }),
       prisma.user.delete({ where: { id: userId } }),
     ])
 
@@ -777,6 +785,9 @@ app.put('/me/rating-config', async (c) => {
     await prisma.$transaction([
       ...(toDelete.length > 0
         ? [
+            prisma.ratingScore.deleteMany({
+              where: { categoryId: { in: toDelete } },
+            }),
             prisma.ratingCategory.deleteMany({
               where: { userId, id: { in: toDelete } },
             }),

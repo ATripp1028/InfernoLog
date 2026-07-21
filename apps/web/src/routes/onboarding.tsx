@@ -1,7 +1,8 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useEffect } from 'react'
+import { createFileRoute } from '@tanstack/react-router'
 import { OnboardingWizard } from '@/features/onboarding/OnboardingWizard'
+import { PageLoading } from '@/components/PageLoading'
 import { useAuth } from '@/context/AuthContext'
+import { useRouteGuard } from '@/lib/useRouteGuard'
 
 export const Route = createFileRoute('/onboarding')({
   component: OnboardingRoute,
@@ -9,13 +10,16 @@ export const Route = createFileRoute('/onboarding')({
 
 function OnboardingRoute() {
   const { isAuthenticated, isAuthInitializing } = useAuth()
-  const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!isAuthInitializing && !isAuthenticated) {
-      navigate({ to: '/', replace: true })
-    }
-  }, [isAuthInitializing, isAuthenticated, navigate])
+  const blocked = useRouteGuard({
+    ready: !isAuthInitializing,
+    when: !isAuthenticated,
+    to: '/',
+  })
+
+  if (blocked) {
+    return <PageLoading />
+  }
 
   return <OnboardingWizard />
 }

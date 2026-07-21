@@ -15,8 +15,9 @@
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import type { ImportCollectionEntry } from '@infernolog/core'
+import type { ImportCollectionEntry, ImportListMerge } from '@infernolog/core'
 import { resolveNamesBatch, ensureStubLevels, enqueueSeedIds } from './import'
+import { computeListMerge } from '../utils/listMerge'
 import { logger } from '../utils/logger'
 
 type Tx = Prisma.TransactionClient
@@ -35,7 +36,7 @@ interface CollectionTarget {
 // Maps the sheet's `list` value to a target collection. Reserved keywords are
 // matched loosely (case / spacing / spelling); anything else is a custom
 // collection by name.
-function classifyCollection(raw: string): CollectionTarget {
+export function classifyCollection(raw: string): CollectionTarget {
   const k = raw.toLowerCase().replace(/[\s_-]+/g, '')
   if (k === 'wanttobeat')
     return {
@@ -95,22 +96,32 @@ export interface ImportCollectionsResult {
   skipped: { list: string; label: string; reason: string }[]
 }
 
-export async function commitImportCollections(
-  userId: string,
-  entries: ImportCollectionEntry[]
-): Promise<ImportCollectionsResult> {
-  const skipped: ImportCollectionsResult['skipped'] = []
+interface ResolvedCollectionEntry {
+  levelId: string
+  label: string
+  position: number | null
+}
 
-  interface ResolvedEntry {
-    levelId: string
-    label: string
-    position: number | null
-  }
-  const groups = new Map<
-    string,
-    { target: CollectionTarget; entries: ResolvedEntry[]; seen: Set<string> }
-  >()
-  const allLevelIds = new Set<string>()
+interface CollectionGroup {
+  target: CollectionTarget
+  entries: ResolvedCollectionEntry[]
+}
+
+// Resolves every sheet entry to a levelId and groups them by target
+// collection, ordered by explicit position (if every entry in the group has
+// one) or otherwise by sheet row order. Shared by commitImportCollections
+// and checkCollectionsMerge — both need the exact same "what does the sheet
+// want this collection to contain, in what order" answer; only what happens
+// with that answer differs (write it, or diff it against the existing
+// order).
+async function resolveCollectionEntries(
+  entries: ImportCollectionEntry[]
+): Promise<{
+  groups: Map<string, CollectionGroup>
+  skipped: ImportCollectionsResult['skipped']
+}> {
+  const skipped: ImportCollectionsResult['skipped'] = []
+  const groups = new Map<string, CollectionGroup & { seen: Set<string> }>()
 
   // Pre-resolve every name-only entry against the DB in bulk (RobTop only for
   // DB misses), so a large name-only tab isn't one query per row.
@@ -132,7 +143,6 @@ export async function commitImportCollections(
     nameOnly.forEach(({ index }, i) => resolvedByIndex.set(index, resolved[i]!))
   }
 
-  // ── Group resolved entries by target collection, preserving order ─────
   for (let index = 0; index < entries.length; index++) {
     const entry = entries[index]!
     const target = classifyCollection(entry.list)
@@ -185,7 +195,6 @@ export async function commitImportCollections(
     }
     g.seen.add(levelId)
     g.entries.push({ levelId, label, position: entry.position ?? null })
-    allLevelIds.add(levelId)
   }
 
   // Order within each collection: by explicit position if every entry has one,
@@ -196,6 +205,18 @@ export async function commitImportCollections(
     if (allHavePos)
       g.entries.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
   }
+
+  return { groups, skipped }
+}
+
+export async function commitImportCollections(
+  userId: string,
+  entries: ImportCollectionEntry[]
+): Promise<ImportCollectionsResult> {
+  const { groups, skipped } = await resolveCollectionEntries(entries)
+  const allLevelIds = new Set(
+    [...groups.values()].flatMap((g) => g.entries.map((e) => e.levelId))
+  )
 
   const result: ImportCollectionsResult = { lists: [], skipped }
   if (groups.size === 0) return result
@@ -270,4 +291,80 @@ export async function commitImportCollections(
   }
 
   return result
+}
+
+// Pre-commit merge check: for every collection the sheet touches that
+// already has existing membership, diffs the sheet's desired order against
+// the existing order via the git-like list merge (see utils/listMerge.ts).
+// A collection the sheet doesn't mention, or that doesn't exist yet / is
+// currently empty, has nothing to reconcile — commit proceeds with the
+// plain sheet order exactly as it does today, no entry is returned for it.
+export async function checkCollectionsMerge(
+  userId: string,
+  entries: ImportCollectionEntry[]
+): Promise<ImportListMerge[]> {
+  const { groups } = await resolveCollectionEntries(entries)
+  if (groups.size === 0) return []
+
+  const existingCollections = await prisma.collection.findMany({
+    where: { userId },
+    select: {
+      name: true,
+      type: true,
+      entries: {
+        orderBy: { rankingIndex: 'asc' },
+        select: { levelId: true },
+      },
+    },
+  })
+  const existingByKey = new Map<string, string[]>()
+  for (const c of existingCollections) {
+    const key =
+      c.type === 'CUSTOM'
+        ? `custom:${c.name.trim().toLowerCase()}`
+        : `type:${c.type}`
+    existingByKey.set(
+      key,
+      c.entries.map((e) => e.levelId)
+    )
+  }
+
+  // Every levelId that could appear in a merge entry, across both sides —
+  // fetched once for display names rather than per-collection.
+  const allLevelIds = new Set<string>()
+  for (const g of groups.values()) {
+    for (const e of g.entries) allLevelIds.add(e.levelId)
+    for (const id of existingByKey.get(g.target.key) ?? []) allLevelIds.add(id)
+  }
+  const levels = allLevelIds.size
+    ? await prisma.level.findMany({
+        where: { inGameId: { in: [...allLevelIds] } },
+        select: { inGameId: true, name: true },
+      })
+    : []
+  const nameById = new Map(levels.map((l) => [l.inGameId, l.name]))
+  const toEntries = (ids: string[]) =>
+    ids.map((id) => ({ levelId: id, levelName: nameById.get(id) ?? null }))
+
+  const merges: ImportListMerge[] = []
+  for (const g of groups.values()) {
+    const existingIds = existingByKey.get(g.target.key)
+    if (!existingIds || existingIds.length === 0) continue // nothing to reconcile
+
+    const importedIds = g.entries.map((e) => e.levelId)
+    const merge = computeListMerge(existingIds, importedIds)
+    if (!merge.hasConflict) continue
+
+    merges.push({
+      list: g.target.name,
+      mergedSeed: toEntries(merge.mergedSeed),
+      importedRemainder: toEntries(merge.importedRemainder),
+      existingRemainder: toEntries(merge.existingRemainder),
+      hasConflict: merge.hasConflict,
+      importedOrder: toEntries(importedIds),
+      existingOrder: toEntries(existingIds),
+    })
+  }
+
+  return merges
 }

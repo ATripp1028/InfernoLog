@@ -7,6 +7,8 @@ import { DifficultyFace } from '@/components/DifficultyFace'
 import type { Level } from '@/lib/api/logging'
 import { useLoggingFlow } from './LoggingFlowProvider'
 
+export { FieldError } from '@/components/ui/field-error'
+
 // Scrollable content region of a step. The panel is a flex column; this grows
 // to fill the space between the fixed header and the sticky footer.
 export function StepBody({
