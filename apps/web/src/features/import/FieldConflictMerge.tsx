@@ -27,28 +27,44 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { FieldError } from '@/components/ui/field-error'
-import { describeField, type FieldFormatType } from './fieldDescriptors'
+import { maxValueError } from '@/features/logging/format'
+import {
+  describeField,
+  type FieldDescriptor,
+  type FieldFormatType,
+} from './fieldDescriptors'
 
-// Upper bound for the generic 'number' field editor (attempts, FPS, GDDL
-// tier, etc) — without it a pasted/mistyped huge value overflows the
-// Postgres Int column the value is eventually written to. Reuses
-// MAX_ATTEMPTS (the largest of the bounded fields this editor covers) since
-// the editor doesn't know which specific field it's rendering.
+// Fallback upper bound for a 'number'-format field whose descriptor doesn't
+// specify a tighter one (see FieldDescriptor.max) — without it a
+// pasted/mistyped huge value overflows the Postgres Int column it's
+// eventually written to.
 const MAX_NUMBER_FIELD = MAX_ATTEMPTS
 
-function numericMax(format: FieldFormatType): number | null {
-  if (format === 'percent') return 100
-  if (format === 'rating10') return 10
-  if (format === 'number') return MAX_NUMBER_FIELD
+function numericMax(descriptor: FieldDescriptor): number | null {
+  if (descriptor.format === 'percent') return 100
+  if (descriptor.format === 'rating10') return 10
+  if (descriptor.format === 'number') return descriptor.max ?? MAX_NUMBER_FIELD
   return null
 }
 
-// Whether a manually-entered value for this field's format exceeds its max —
-// used to BLOCK resolving (not silently clamp) so a pasted/mistyped huge
-// number gets a visible error instead of vanishing into a smaller value.
-function manualValueExceedsMax(format: FieldFormatType, value: unknown): boolean {
-  const max = numericMax(format)
-  return max != null && typeof value === 'number' && value > max
+// Manual-entry validation error for this field, or null when the value is
+// valid — shares format.ts's numberExceedsMax/maxValueError (the logging
+// wizard's own numeric-field validator) rather than a second copy of the
+// same "exceeds max" rule and message.
+function manualValueError(
+  descriptor: FieldDescriptor,
+  value: unknown
+): string | null {
+  const max = numericMax(descriptor)
+  if (max == null || typeof value !== 'number') return null
+  return maxValueError(String(value), max)
+}
+
+// Whether a manually-entered value for this field exceeds its max — used to
+// BLOCK resolving (not silently clamp) so a pasted/mistyped huge number gets
+// a visible error instead of vanishing into a smaller value.
+function manualValueExceedsMax(descriptor: FieldDescriptor, value: unknown): boolean {
+  return manualValueError(descriptor, value) != null
 }
 
 export interface ConflictGroupField {
@@ -94,16 +110,15 @@ function formatDisplayValue(value: unknown, format: FieldFormatType): string {
 }
 
 function ManualEntry({
-  format,
-  options,
+  descriptor,
   value,
   onChange,
 }: {
-  format: FieldFormatType
-  options?: { value: string; label: string }[] | undefined
+  descriptor: FieldDescriptor
   value: unknown
   onChange: (v: unknown) => void
 }) {
+  const { format, options } = descriptor
   if (format === 'boolean') {
     return <Switch checked={value === true} onCheckedChange={onChange} />
   }
@@ -133,10 +148,8 @@ function ManualEntry({
     )
   }
   if (format === 'number' || format === 'percent' || format === 'rating10') {
-    const max = numericMax(format)
-    const error = manualValueExceedsMax(format, value)
-      ? `Must be ${max?.toLocaleString('en-US')} or less`
-      : null
+    const max = numericMax(descriptor)
+    const error = manualValueError(descriptor, value)
     return (
       <div>
         <Input
@@ -182,8 +195,8 @@ export function FieldConflictMerge({
   const isFieldResolved = (groupField: ConflictGroupField, choice: FieldChoice | undefined) => {
     if (!choice) return false
     if (choice.kind === 'manual') {
-      const format = describeField(tab, groupField.field).format
-      if (manualValueExceedsMax(format, choice.manualValue)) return false
+      const descriptor = describeField(tab, groupField.field)
+      if (manualValueExceedsMax(descriptor, choice.manualValue)) return false
     }
     return true
   }
@@ -393,8 +406,7 @@ export function FieldConflictMerge({
                         />
                         {choice?.kind === 'manual' && (
                           <ManualEntry
-                            format={descriptor.format}
-                            options={descriptor.options}
+                            descriptor={descriptor}
                             value={choice.manualValue}
                             onChange={(v) =>
                               setFieldChoice(group.groupId, f.field, {

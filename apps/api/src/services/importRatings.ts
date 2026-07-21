@@ -32,18 +32,27 @@ interface RatingTargets {
 // completed levels (as their completion's ProgressUpdate id, since scores
 // attach there) and their existing rating categories.
 async function resolveRatingTargets(userId: string): Promise<RatingTargets> {
-  const completed = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
-    select: {
-      levelId: true,
-      level: { select: { name: true } },
-      progressUpdates: {
-        where: { kind: 'COMPLETION' },
-        select: { id: true },
-        take: 1,
+  // Independent reads on unrelated tables (levelProgress/level for completed
+  // levels, ratingCategory for the user's categories) — nothing here depends
+  // on the other's result, so fetch both concurrently.
+  const [completed, cats] = await Promise.all([
+    prisma.levelProgress.findMany({
+      where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
+      select: {
+        levelId: true,
+        level: { select: { name: true } },
+        progressUpdates: {
+          where: { kind: 'COMPLETION' },
+          select: { id: true },
+          take: 1,
+        },
       },
-    },
-  })
+    }),
+    prisma.ratingCategory.findMany({
+      where: { userId },
+      select: { id: true, name: true, sortOrder: true },
+    }),
+  ])
   const puByLevelId = new Map<string, string>()
   const puByName = new Map<string, string[]>()
   const levelNameByLevelId = new Map<string, string | null>()
@@ -59,10 +68,6 @@ async function resolveRatingTargets(userId: string): Promise<RatingTargets> {
     else puByName.set(n, [puId])
   }
 
-  const cats = await prisma.ratingCategory.findMany({
-    where: { userId },
-    select: { id: true, name: true, sortOrder: true },
-  })
   const catIdByName = new Map(cats.map((c) => [c.name.trim().toLowerCase(), c.id]))
   const maxSortOrder = cats.reduce((m, c) => Math.max(m, c.sortOrder), -1)
 

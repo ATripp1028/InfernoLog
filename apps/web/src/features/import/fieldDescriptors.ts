@@ -1,6 +1,8 @@
 // Per-tab field metadata for FieldConflictMerge — how to label and render
 // each conflictable field's value and its manual-entry control.
 
+import { MAX_ATTEMPTS, MAX_FPS, MAX_GDDL_TIER } from '@infernolog/core'
+
 export type FieldFormatType =
   | 'text'
   | 'number'
@@ -15,6 +17,13 @@ export interface FieldDescriptor {
   label: string
   format: FieldFormatType
   options?: { value: string; label: string }[]
+  // Upper bound for a 'number'-format field's manual-entry control — the
+  // same bound the server's Zod schema enforces for this field, so a value
+  // that passes here also passes at commit time. Only 'number' fields ever
+  // set this; a field left undefined falls back to a generic, much looser
+  // bound (see FieldConflictMerge's MAX_NUMBER_FIELD) rather than blocking
+  // legitimate values for a field this table hasn't catalogued yet.
+  max?: number
 }
 
 const DIFFICULTY_OPINION_OPTIONS = [
@@ -39,10 +48,10 @@ const VISIBILITY_OPTIONS = [
 export const COMPLETION_FIELDS: FieldDescriptor[] = [
   { field: 'date', label: 'Date', format: 'date' },
   { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
-  { field: 'attempts', label: 'Attempts', format: 'number' },
+  { field: 'attempts', label: 'Attempts', format: 'number', max: MAX_ATTEMPTS },
   { field: 'runFrom', label: 'Run from', format: 'percent' },
   { field: 'runTo', label: 'Run to', format: 'percent' },
-  { field: 'fps', label: 'FPS', format: 'number' },
+  { field: 'fps', label: 'FPS', format: 'number', max: MAX_FPS },
   { field: 'onStream', label: 'On stream', format: 'boolean' },
   { field: 'videoUrl', label: 'Video URL', format: 'text' },
   { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
@@ -59,8 +68,14 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
     field: 'difficultyOpinionStars',
     label: 'Difficulty stars',
     format: 'number',
+    max: 9,
   },
-  { field: 'coinsCollected', label: 'Coins collected (bitmask)', format: 'number' },
+  {
+    field: 'coinsCollected',
+    label: 'Coins collected (bitmask)',
+    format: 'number',
+    max: 7,
+  },
   { field: 'twoPlayerSolo', label: 'Two-player solo', format: 'boolean' },
   {
     field: 'twoPlayerPartner',
@@ -77,17 +92,22 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
     options: VISIBILITY_OPTIONS,
   },
   { field: 'levelNotes', label: 'Level notes', format: 'text' },
-  { field: 'userGddlTier', label: 'GDDL tier', format: 'number' },
+  {
+    field: 'userGddlTier',
+    label: 'GDDL tier',
+    format: 'number',
+    max: MAX_GDDL_TIER,
+  },
 ]
 
 export const PROGRESS_FIELDS: FieldDescriptor[] = [
   { field: 'date', label: 'Date', format: 'date' },
   { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
-  { field: 'attempts', label: 'Attempts', format: 'number' },
+  { field: 'attempts', label: 'Attempts', format: 'number', max: MAX_ATTEMPTS },
   { field: 'percentage', label: 'Percentage', format: 'percent' },
   { field: 'runFrom', label: 'Run from', format: 'percent' },
   { field: 'runTo', label: 'Run to', format: 'percent' },
-  { field: 'fps', label: 'FPS', format: 'number' },
+  { field: 'fps', label: 'FPS', format: 'number', max: MAX_FPS },
   { field: 'onStream', label: 'On stream', format: 'boolean' },
   { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
   { field: 'notes', label: 'Notes', format: 'text' },
@@ -100,7 +120,12 @@ export const DROPPED_FIELDS: FieldDescriptor[] = [
   { field: 'bestProgress', label: 'Best progress %', format: 'percent' },
   { field: 'runFrom', label: 'Run from', format: 'percent' },
   { field: 'runTo', label: 'Run to', format: 'percent' },
-  { field: 'attemptsAtDrop', label: 'Attempts at drop', format: 'number' },
+  {
+    field: 'attemptsAtDrop',
+    label: 'Attempts at drop',
+    format: 'number',
+    max: MAX_ATTEMPTS,
+  },
   { field: 'reason', label: 'Reason', format: 'text' },
 ]
 

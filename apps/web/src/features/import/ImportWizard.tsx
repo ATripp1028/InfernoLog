@@ -98,6 +98,26 @@ const CONFLICT_SUB_STEP_ORDER = [
 ] as const
 type ConflictSubStep = (typeof CONFLICT_SUB_STEP_ORDER)[number]
 
+// The four per-tab resolution maps, keyed by tab rather than passed as
+// separate same-typed positional arguments — every one of these is a
+// Map<string, GroupResolution>, so positional params gave TypeScript nothing
+// to catch a caller accidentally swapping two of them (e.g. passing
+// `dropped` where `progress` belongs) — a keyed object makes a swap
+// self-evident at the call site instead of a silent data-corruption bug.
+interface RowResolutions {
+  completion: Map<string, GroupResolution>
+  progress: Map<string, GroupResolution>
+  dropped: Map<string, GroupResolution>
+  rating: Map<string, GroupResolution>
+}
+
+const EMPTY_ROW_RESOLUTIONS: RowResolutions = {
+  completion: new Map(),
+  progress: new Map(),
+  dropped: new Map(),
+  rating: new Map(),
+}
+
 // resolvedListOrders key for the single global ranking merge (once Phase 5
 // populates rankingMerge) — collections are keyed by their own display name,
 // which can never collide with this sentinel.
@@ -559,103 +579,145 @@ function ReviewStep({
   blanketOverride,
   onBlanketOverrideChange,
 }: ReviewStepProps) {
-  const allFlags = [
-    ...flags.completions,
-    ...flags.progress,
-    ...flags.dropped,
-    ...flags.ranking,
-    ...flags.lists,
-    ...flags.ratings,
-  ]
-  const errorFlags = allFlags.filter((f) => f.severity === 'error')
-  const errorFlagsByTab = {
-    completions: flags.completions.filter((f) => f.severity === 'error'),
-    progress: flags.progress.filter((f) => f.severity === 'error'),
-    dropped: flags.dropped.filter((f) => f.severity === 'error'),
-    ranking: flags.ranking.filter((f) => f.severity === 'error'),
-    lists: flags.lists.filter((f) => f.severity === 'error'),
-    ratings: flags.ratings.filter((f) => f.severity === 'error'),
-  }
-  // Two flavors of warning: a missing level_id we'll resolve by name (the row
-  // is fine), and a bad field value we've dropped (the rest of the row imports).
-  const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
-  const nameOnlyByTab = {
-    completions: flags.completions.filter(
-      (f) => f.severity === 'warning' && isNameOnly(f)
-    ),
-    progress: flags.progress.filter(
-      (f) => f.severity === 'warning' && isNameOnly(f)
-    ),
-    dropped: flags.dropped.filter(
-      (f) => f.severity === 'warning' && isNameOnly(f)
-    ),
-    ranking: flags.ranking.filter(
-      (f) => f.severity === 'warning' && isNameOnly(f)
-    ),
-    lists: flags.lists.filter((f) => f.severity === 'warning' && isNameOnly(f)),
-    ratings: flags.ratings.filter(
-      (f) => f.severity === 'warning' && isNameOnly(f)
-    ),
-  }
-  const dataWarnByTab = {
-    completions: flags.completions.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-    progress: flags.progress.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-    dropped: flags.dropped.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-    ranking: flags.ranking.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-    lists: flags.lists.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-    ratings: flags.ratings.filter(
-      (f) => f.severity === 'warning' && !isNameOnly(f)
-    ),
-  }
-  const sumTab = (o: Record<string, ParseFlag[]>) =>
-    Object.values(o).reduce((n, arr) => n + arr.length, 0)
-  const totalNameOnly = sumTab(nameOnlyByTab)
-  const totalDataWarn = sumTab(dataWarnByTab)
+  // Recomputed only when the parsed data or its flags actually change —
+  // otherwise unrelated re-renders (e.g. toggling the override checkbox
+  // below) would re-run every filter/reduce pass over the full row set for
+  // no reason.
+  const {
+    errorFlags,
+    errorFlagsByTab,
+    dataWarnByTab,
+    nameOnlyByTab,
+    totalNameOnly,
+    totalDataWarn,
+    validCompletions,
+    validProgress,
+    validDropped,
+    totalRanked,
+    totalListed,
+    totalRated,
+    totalValid,
+    totalSkipped,
+  } = useMemo(() => {
+    const allFlags = [
+      ...flags.completions,
+      ...flags.progress,
+      ...flags.dropped,
+      ...flags.ranking,
+      ...flags.lists,
+      ...flags.ratings,
+    ]
+    const errorFlags = allFlags.filter((f) => f.severity === 'error')
+    const errorFlagsByTab = {
+      completions: flags.completions.filter((f) => f.severity === 'error'),
+      progress: flags.progress.filter((f) => f.severity === 'error'),
+      dropped: flags.dropped.filter((f) => f.severity === 'error'),
+      ranking: flags.ranking.filter((f) => f.severity === 'error'),
+      lists: flags.lists.filter((f) => f.severity === 'error'),
+      ratings: flags.ratings.filter((f) => f.severity === 'error'),
+    }
+    // Two flavors of warning: a missing level_id we'll resolve by name (the
+    // row is fine), and a bad field value we've dropped (the rest of the row
+    // imports).
+    const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
+    const nameOnlyByTab = {
+      completions: flags.completions.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+      progress: flags.progress.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+      dropped: flags.dropped.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+      ranking: flags.ranking.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+      lists: flags.lists.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+      ratings: flags.ratings.filter(
+        (f) => f.severity === 'warning' && isNameOnly(f)
+      ),
+    }
+    const dataWarnByTab = {
+      completions: flags.completions.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+      progress: flags.progress.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+      dropped: flags.dropped.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+      ranking: flags.ranking.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+      lists: flags.lists.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+      ratings: flags.ratings.filter(
+        (f) => f.severity === 'warning' && !isNameOnly(f)
+      ),
+    }
+    const sumTab = (o: Record<string, ParseFlag[]>) =>
+      Object.values(o).reduce((n, arr) => n + arr.length, 0)
+    const totalNameOnly = sumTab(nameOnlyByTab)
+    const totalDataWarn = sumTab(dataWarnByTab)
 
-  const validCompletions = parseResult.completions.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') &&
-      (r.data.levelId || r.data.levelName)
-  )
-  const validProgress = parseResult.progress.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') &&
-      (r.data.levelId || r.data.levelName)
-  )
-  const validDropped = parseResult.dropped.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') &&
-      (r.data.levelId || r.data.levelName)
-  )
-  const totalRanked = parseResult.ranking.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
-  ).length
-  const totalListed = parseResult.lists.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') &&
-      r.list &&
-      (r.levelId || r.levelName)
-  ).length
-  const totalRated = parseResult.ratings.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') &&
-      (r.levelId || r.levelName) &&
-      Object.keys(r.scores).length > 0
-  ).length
-  const totalValid =
-    validCompletions.length + validProgress.length + validDropped.length
-  const totalSkipped = errorFlags.length + flags.duplicates.length
+    const validCompletions = parseResult.completions.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.data.levelId || r.data.levelName)
+    )
+    const validProgress = parseResult.progress.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.data.levelId || r.data.levelName)
+    )
+    const validDropped = parseResult.dropped.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.data.levelId || r.data.levelName)
+    )
+    const totalRanked = parseResult.ranking.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.levelId || r.levelName)
+    ).length
+    const totalListed = parseResult.lists.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        r.list &&
+        (r.levelId || r.levelName)
+    ).length
+    const totalRated = parseResult.ratings.filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.levelId || r.levelName) &&
+        Object.keys(r.scores).length > 0
+    ).length
+    const totalValid =
+      validCompletions.length + validProgress.length + validDropped.length
+    const totalSkipped = errorFlags.length + flags.duplicates.length
+
+    return {
+      errorFlags,
+      errorFlagsByTab,
+      dataWarnByTab,
+      nameOnlyByTab,
+      totalNameOnly,
+      totalDataWarn,
+      validCompletions,
+      validProgress,
+      validDropped,
+      totalRanked,
+      totalListed,
+      totalRated,
+      totalValid,
+      totalSkipped,
+    }
+  }, [parseResult, flags])
 
   return (
     <div className="space-y-5">
@@ -1200,10 +1262,7 @@ export function ImportWizard({
       completions: ParsedCompletionRow[],
       progressRows: ParsedProgressRow[],
       dropped: ParsedDroppedRow[],
-      completionResolutions: Map<string, GroupResolution>,
-      progressResolutions: Map<string, GroupResolution>,
-      droppedResolutions: Map<string, GroupResolution>,
-      ratingResolutions: Map<string, GroupResolution>,
+      resolutions: RowResolutions,
       // Collection name (or RANKING_MERGE_KEY) → the user-merged final
       // order, for whichever lists went through resolve-lists. A list not
       // in this map never needed merging — its original sheet rows are
@@ -1245,7 +1304,7 @@ export function ImportWizard({
         ...completions.map((r): ImportCommitRow => {
           // Resolved during resolve-conflicts, keyed by rowIndex (levelId
           // isn't unique enough on its own once name-only rows are involved).
-          const resolved = completionResolutions.get(String(r.rowIndex))
+          const resolved = resolutions.completion.get(String(r.rowIndex))
           return resolved
             ? {
                 type: 'completion',
@@ -1258,7 +1317,7 @@ export function ImportWizard({
             : { type: 'completion', rowIndex: r.rowIndex, data: r.data }
         }),
         ...dropped.map((r): ImportCommitRow => {
-          const resolved = droppedResolutions.get(String(r.rowIndex))
+          const resolved = resolutions.dropped.get(String(r.rowIndex))
           if (!resolved) {
             return {
               type: 'dropped',
@@ -1279,7 +1338,7 @@ export function ImportWizard({
           }
         }),
         ...progressRows.map((r): ImportCommitRow => {
-          const resolved = progressResolutions.get(String(r.rowIndex))
+          const resolved = resolutions.progress.get(String(r.rowIndex))
           if (!resolved) {
             return {
               type: 'progress',
@@ -1362,10 +1421,10 @@ export function ImportWizard({
       // categories left is dropped entirely — nothing left to send.
       const ratingRows = getValidRatingRows(parseResult)
         .map((r) => {
-          if (!r.levelId || ratingResolutions.size === 0) return r
+          if (!r.levelId || resolutions.rating.size === 0) return r
           const scores = { ...r.scores }
           for (const categoryName of Object.keys(r.scores)) {
-            const resolved = ratingResolutions.get(
+            const resolved = resolutions.rating.get(
               `${r.levelId}::${categoryName}`
             )
             if (!resolved) continue
@@ -1457,10 +1516,7 @@ export function ImportWizard({
         completions,
         progressRows,
         dropped,
-        new Map(),
-        new Map(),
-        new Map(),
-        new Map(),
+        EMPTY_ROW_RESOLUTIONS,
         new Map(),
         [],
         []
@@ -1528,10 +1584,12 @@ export function ImportWizard({
           completions,
           progressRows,
           dropped,
-          overwriteRowResolutions(checkResult.completionConflicts),
-          overwriteRowResolutions(checkResult.progressConflicts),
-          overwriteRowResolutions(checkResult.droppedConflicts),
-          overwriteRatingResolutions(checkResult.ratingConflicts),
+          {
+            completion: overwriteRowResolutions(checkResult.completionConflicts),
+            progress: overwriteRowResolutions(checkResult.progressConflicts),
+            dropped: overwriteRowResolutions(checkResult.droppedConflicts),
+            rating: overwriteRatingResolutions(checkResult.ratingConflicts),
+          },
           overwriteListOrders(
             checkResult.collectionsMerge,
             checkResult.rankingMerge
@@ -1568,10 +1626,7 @@ export function ImportWizard({
           completions,
           progressRows,
           dropped,
-          new Map(),
-          new Map(),
-          new Map(),
-          new Map(),
+          EMPTY_ROW_RESOLUTIONS,
           new Map(),
           checkResult.progressConflicts,
           checkResult.droppedConflicts
@@ -1603,12 +1658,7 @@ export function ImportWizard({
   // setState + re-render, so the values are current.
 
   const finishConflictResolution = useCallback(
-    async (
-      completionRes: Map<string, GroupResolution>,
-      progressRes: Map<string, GroupResolution>,
-      droppedRes: Map<string, GroupResolution>,
-      ratingRes: Map<string, GroupResolution>
-    ) => {
+    async (resolutions: RowResolutions) => {
       if (!parseResult) return
       // A list merge still needs resolving — hand off to resolve-lists
       // rather than committing yet. That step reads these four resolutions
@@ -1631,10 +1681,7 @@ export function ImportWizard({
         completions,
         progressRows,
         dropped,
-        completionRes,
-        progressRes,
-        droppedRes,
-        ratingRes,
+        resolutions,
         new Map(),
         progressConflicts,
         droppedConflicts
@@ -1665,10 +1712,12 @@ export function ImportWizard({
         completions,
         progressRows,
         dropped,
-        completionResolutions,
-        progressResolutions,
-        droppedResolutions,
-        ratingResolutions,
+        {
+          completion: completionResolutions,
+          progress: progressResolutions,
+          dropped: droppedResolutions,
+          rating: ratingResolutions,
+        },
         listOrders,
         progressConflicts,
         droppedConflicts
@@ -1730,12 +1779,12 @@ export function ImportWizard({
       const next = nextConflictSubStep('completions')
       if (next) setConflictSubStep(next)
       else
-        void finishConflictResolution(
-          resolved,
-          progressResolutions,
-          droppedResolutions,
-          ratingResolutions
-        )
+        void finishConflictResolution({
+          completion: resolved,
+          progress: progressResolutions,
+          dropped: droppedResolutions,
+          rating: ratingResolutions,
+        })
     },
     [
       nextConflictSubStep,
@@ -1752,12 +1801,12 @@ export function ImportWizard({
       const next = nextConflictSubStep('progress')
       if (next) setConflictSubStep(next)
       else
-        void finishConflictResolution(
-          completionResolutions,
-          resolved,
-          droppedResolutions,
-          ratingResolutions
-        )
+        void finishConflictResolution({
+          completion: completionResolutions,
+          progress: resolved,
+          dropped: droppedResolutions,
+          rating: ratingResolutions,
+        })
     },
     [
       nextConflictSubStep,
@@ -1774,12 +1823,12 @@ export function ImportWizard({
       const next = nextConflictSubStep('dropped')
       if (next) setConflictSubStep(next)
       else
-        void finishConflictResolution(
-          completionResolutions,
-          progressResolutions,
-          resolved,
-          ratingResolutions
-        )
+        void finishConflictResolution({
+          completion: completionResolutions,
+          progress: progressResolutions,
+          dropped: resolved,
+          rating: ratingResolutions,
+        })
     },
     [
       nextConflictSubStep,
@@ -1795,12 +1844,12 @@ export function ImportWizard({
       // 'ratings' is always last in CONFLICT_SUB_STEP_ORDER — nothing to
       // advance to.
       setRatingResolutions(resolved)
-      void finishConflictResolution(
-        completionResolutions,
-        progressResolutions,
-        droppedResolutions,
-        resolved
-      )
+      void finishConflictResolution({
+        completion: completionResolutions,
+        progress: progressResolutions,
+        dropped: droppedResolutions,
+        rating: resolved,
+      })
     },
     [
       completionResolutions,

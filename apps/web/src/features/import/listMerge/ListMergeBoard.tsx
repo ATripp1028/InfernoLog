@@ -17,7 +17,7 @@
 // either source column is voided (excluded from the final order), gated by
 // a required acknowledgement checkbox once anything would be lost.
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { forwardRef } from 'react'
 import {
   DndContext,
@@ -303,8 +303,14 @@ export function ListMergeBoard({
   const canConfirm = unplacedCount === 0 || acknowledgeVoid
   const activeEntry = activeId ? entriesById.get(activeId) : null
 
-  const contestedReferenceCards = existingRemainder.filter((e) =>
-    contestedIds.has(e.levelId)
+  // existingRemainder/contestedIds are both stable after mount (contestedIds
+  // is itself a lazy-initialized useState — see above), but handleDragOver
+  // calls setContainers on every cross-container pointer move, re-rendering
+  // this component constantly during a drag — memoized so that doesn't
+  // re-filter the full existing-list remainder on every pointer move.
+  const contestedReferenceCards = useMemo(
+    () => existingRemainder.filter((e) => contestedIds.has(e.levelId)),
+    [existingRemainder, contestedIds]
   )
 
   return (
