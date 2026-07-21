@@ -17,10 +17,11 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 | `Completions` | All completion progress updates (kind = completion)                                  |
 | `Progress`    | All non-completion, non-drop progress updates — session logs short of the completion |
 | `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one             |
-| `WantToBeat`  | Want-to-beat list                                                                    |
-| `Lists`       | Custom lists and favorites                                                           |
+| `Ranking`     | Your personal classic difficulty ranking, hardest → easiest                          |
+| `Lists`       | Collection membership — Want to Beat, Favorites, Least Favorites, and custom lists   |
+| `Ratings`     | Weighted per-category scores                                                         |
 
-Import processes `Completions`, `Progress`, and `Dropped` tabs. Other tabs are supported in later versions.
+Import processes every tab above. A blank/omitted tab is simply left untouched on import.
 
 ---
 
@@ -91,10 +92,23 @@ All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displa
 │     ├── Fix flagged rows and re-upload, OR     │
 │     └── Proceed importing valid rows only      │
 │                                                 │
-│  7. Import commits valid rows                  │
+│  7. Conflict check runs against existing data  │
+│     └── Field conflicts (Completions/Progress/ │
+│         Dropped/Ratings) and order conflicts   │
+│         (Ranking/Lists) are detected up front  │
+│                                                 │
+│  8. User resolves any conflicts found          │
+│     ├── Field conflicts: drop / overwrite /    │
+│     │   merge, per field or in bulk            │
+│     └── Order conflicts: three-column drag     │
+│         board, git-merge style                 │
+│                                                 │
+│  9. Import commits                             │
 │     └── Flagged rows skipped with report       │
 └─────────────────────────────────────────────────┘
 ```
+
+Steps 7-8 are skipped entirely — straight from review to commit — whenever the check finds nothing to reconcile, which is the common case for a first import or an unmodified reimport.
 
 ### Validation Report
 
@@ -120,11 +134,35 @@ row 512 · level_id — Missing level_id and level_name — row cannot be import
 After committing, each row reports one outcome:
 
 - **Imported** — a new entry was created.
-- **Updated** — an existing entry was modified (an overwrite/merge on Completions, or a matching `drop_id`/`progress_id` on Dropped/Progress).
-- **Skipped** — the row's data was not used at all: an existing completion you chose to keep (not overwrite), or a row superseded by a later row for the same level.
+- **Updated** — an existing entry was modified: a resolved Overwrite or Merge (see Conflict Resolution below), or an ordinary `drop_id`/`progress_id` round-trip on Dropped/Progress.
+- **Skipped** — the row's data was not used at all: a resolved Drop, an unmodified reimport with nothing to reconcile, an exact duplicate of an existing Progress/Dropped entry, or a row superseded by a later row for the same level/entry within this import.
 - **Failed** — the row could not be processed (e.g. its level name couldn't be resolved).
 
-Only rows whose data is genuinely unused are reported as _skipped_ — a modified row is always reported as _updated_, never skipped.
+Only rows whose data is genuinely unused are reported as _skipped_ — a modified row is always reported as _updated_, never skipped. One exception surfaces as **Imported** rather than a clean skip: a Progress/Dropped row whose derived key (see below) partially matches an existing entry, but that arrived too late to be checked ahead of time (a name-only row, resolved only at commit time) — it's still created as a new entry, just flagged for a second look rather than silently duplicated without comment.
+
+---
+
+## Conflict Resolution
+
+Five of the seven tabs can find their data already present in your account, under a different value or a different order. Two mechanisms cover every case, both modeled on git's own merge-conflict handling.
+
+### Field conflicts — Completions, Progress, Dropped, Ratings
+
+A field conflict is a single entry — a completion, a progress log, a drop, or one category's rating — where the sheet's value for a field disagrees with what's already stored. You resolve it with three choices, applied per field, per entry in bulk, or across every conflicting entry in the import at once:
+
+- **Drop** — discard the imported row/value entirely; the existing data is left exactly as it was.
+- **Overwrite** — the imported value replaces the existing one outright, including clearing a field the sheet leaves blank. This is a true replace, not a merge.
+- **Merge** — reconcile field-by-field: for each differing field, pick "Imported," "Existing," or type a replacement value by hand. A field the sheet leaves blank always keeps its existing value under Merge — blank never clears.
+
+A field that's blank on the sheet, or that already matches the existing value, never needs a decision — those auto-resolve silently, and only genuine disagreements are shown for review.
+
+For Progress and Dropped specifically, a row with no `progress_id`/`drop_id` is first matched against your existing entries by a derived key — the exact combination of date and percentage/run range (see each tab's Semantics below) — before field conflicts even come into play: an exact match on every field is a silent no-op, and only a match on the key with something else different becomes a field conflict.
+
+### Order conflicts — Ranking, Lists
+
+Ranking and each collection in the Lists tab are ordered lists, so a "conflict" here means the sheet and your account disagree about relative order, not a single value. The resolution mirrors a git merge: a three-column board shows the imported order on the left, your existing order on the right, and a middle column pre-filled with everything both orderings already agree on. You drag the disputed (and any newly-added) entries into the middle to decide the final order.
+
+Nothing is forced — if you leave entries unplaced in either source column, they're simply excluded from the final list once you confirm; a required checkbox makes sure that's deliberate. A pure insertion (an entry only one side has, whose position relative to the agreed order is unambiguous) never shows the board at all — it's spliced into the final order automatically, with no review needed. Only a genuine order disagreement, or an existing entry the sheet omits entirely, triggers manual review.
 
 ---
 
@@ -163,6 +201,11 @@ Only rows whose data is genuinely unused are reported as _skipped_ — a modifie
 
 A level's drop history — if it was ever dropped, including before being beaten — lives entirely on the `Dropped` tab, not here. Completions and drops are independent entries, so a dropped-then-completed level simply has rows on both tabs.
 
+### Semantics
+
+- **One completion per level**, round-tripping by `level_id` — there's no separate identity column the way Progress/Dropped have `progress_id`/`drop_id`.
+- **Conflict resolution**: a row for a level that already has a completion, where at least one field genuinely differs, goes through the canonical field-conflict flow (see Conflict Resolution above) — Drop, Overwrite, or Merge. An unmodified reimport, where every field already matches, needs no resolution and is silently skipped.
+
 ### Column Tolerance
 
 - Extra columns in the user's sheet are ignored
@@ -200,7 +243,8 @@ Non-completion session logs — the history short of (or alongside) the eventual
 ### Semantics
 
 - **Additive, not one-per-level.** Every row becomes its own progress entry — this tab has no "existing entry per level" concept the way Completions does.
-- **Round-trips by `progress_id`.** A row whose `progress_id` matches one of your existing entries (for that same level) updates it in place (merge — only the fields the row provides are written). A blank or non-matching `progress_id` always creates a new entry, so re-importing an unmodified export doesn't duplicate your session history, while hand-added rows (no `progress_id`) always land as new logs.
+- **Round-trips by `progress_id`.** A row whose `progress_id` matches one of your existing entries (for that same level) updates it in place (merge — only the fields the row provides are written).
+- **Deduplicates by date/percentage/run range when `progress_id` is blank.** The row is matched against your existing entries for that level by the exact combination of `date`, `percentage`, `run_from`, and `run_to` — all four must agree, including all being blank together. A flat percentage reading and a run-range reading logged on the same day count as different sessions, not the same one recorded two ways. An exact match (every other field agrees too) is a silent no-op, so re-importing an unmodified export doesn't duplicate your session history. A match on just that key with something else different (a different `enjoyment`, `fps`, note, etc.) is surfaced as a field conflict (see Conflict Resolution above). No match at all — including any genuinely new, hand-added row — creates a new entry.
 - **Never changes a level's completed/dropped status.** Status is established by the Completions/Dropped tabs; historical progress rows are pure session data, so reimporting them can't accidentally un-drop or un-complete a level.
 - A level referenced only in this tab (no completion, no drop) is created as `IN_PROGRESS` — this is the only tab that can produce that state on import.
 
@@ -230,7 +274,8 @@ Unlike Completions, **multiple rows per level are expected** — a level can be 
 ### Semantics
 
 - **Additive, not one-per-level.** Every row becomes its own drop entry — same as Progress, and unlike Completions.
-- **Round-trips by `drop_id`.** A row whose `drop_id` matches one of your existing drops (for that same level) updates it in place (merge — only the fields the row provides are written). A blank or non-matching `drop_id` always creates a new drop entry, so re-importing an unmodified export doesn't duplicate your drop history.
+- **Round-trips by `drop_id`.** A row whose `drop_id` matches one of your existing drops (for that same level) updates it in place (merge — only the fields the row provides are written).
+- **Deduplicates by date/progress/run range when `drop_id` is blank** — the same rule as Progress above, keyed on `dropped_at`/`best_progress`/`run_from`/`run_to` (all four must agree, including all blank). An exact match is a silent no-op; a match on just the key with something else different surfaces as a field conflict (see Conflict Resolution above); no match creates a new drop entry.
 - **Sets status to `dropped`**, unless the level is already completed (a drop logged against a completed level records history without un-completing it).
 
 ---
@@ -249,7 +294,7 @@ Your personal difficulty ranking of levels you've completed. The tab is delibera
 
 Semantics:
 
-- **Replace, not merge.** When the tab is present with at least one resolvable row, it becomes your entire ranking (the "sheet wins" rule). Omit the tab (or leave it empty) to keep the account's existing ranking untouched.
+- **Merges with your existing ranking via the canonical order-conflict flow** (see Conflict Resolution above) whenever the two disagree on relative order. If you have no existing ranking, or the sheet's order and your existing order already agree once pure insertions are accounted for, the sheet's order is used directly with no review needed — the practical result is the same "sheet wins" outcome as a blind replace, just with a review step whenever something's genuinely at stake. Omit the tab (or leave it empty) to keep the account's existing ranking untouched entirely.
 - Ranking applies only to **completions** — a listed level you haven't completed (or that only appears in the Dropped tab) is skipped with a note.
 - Committed as one dedicated call **after** the completion/drop batches, so every ranked level already exists in your log.
 - Internally the order maps to `ClassicRanking.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
@@ -273,7 +318,7 @@ Membership of your collections — Want to Beat / Favorites / Least Favorites an
 
 Semantics:
 
-- **Replace per collection.** Each collection named in the tab has its membership replaced with the tab's rows (in order); collections you don't mention are left alone. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels).
+- **Merges with each collection's existing membership via the canonical order-conflict flow** (see Conflict Resolution above), one collection at a time — only collections the sheet actually mentions are ever touched; collections you don't mention are left alone. If a mentioned collection doesn't exist yet, is currently empty, or the sheet's order already agrees with what's there, the sheet's rows are used directly with no review needed. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels).
 - A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
 - Committed as one dedicated call **after** the completion/drop batches (and ranking).
 
@@ -298,6 +343,7 @@ Semantics:
 - **Score scale**: a value ≤ 10 is read as 0–10 (×10), a value > 10 as 0–100; both are stored as a 0–100 integer. So `9.5` and `95` both become `95`.
 - **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 1.00 weight-sum invariant, and the **rating mode is left unchanged** (set weights / switch to weighted in Settings).
 - **Merge, not replace**: only the categories a row names are written; a completion's other category scores are left alone.
+- **Conflict resolution per score**: if a named category already has a score for that completion, an identical incoming value is a silent no-op; a genuinely different value is surfaced as a field conflict via the canonical flow (see Conflict Resolution above) — Drop keeps the existing score, Overwrite/Merge take the sheet's value.
 - A level must be **completed** to be rated (scores attach to a completion) — rows for uncompleted levels are skipped.
 - Committed as one dedicated call **after** the completion/drop batches.
 
