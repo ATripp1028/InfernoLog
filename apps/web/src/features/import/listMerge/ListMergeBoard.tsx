@@ -39,6 +39,7 @@ import { cn } from '@/lib/utils'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
+import { levelThumbnailUrl } from '@/lib/gdAssets'
 
 export interface ListMergeEntry {
   levelId: string
@@ -74,15 +75,35 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
       ref={ref}
       style={style}
       className={cn(
-        'flex items-center gap-2 rounded-md border px-2 py-2 text-sm',
+        'relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-2 text-sm',
         muted
           ? 'border-dashed border-[var(--color-border-subtle)] text-muted-foreground'
           : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]',
         isDragging && 'opacity-50'
       )}
     >
-      {handle}
-      <span className="min-w-0 flex-1 truncate">{entryLabel(entry)}</span>
+      {/* Decorative — the level name span already conveys identity; this is
+          purely so chips read apart from each other at a glance. Thumbnails
+           404 for some levels, so fail silently rather than showing a broken
+          image icon. */}
+      <img
+        src={levelThumbnailUrl(entry.levelId)}
+        alt=""
+        aria-hidden
+        loading="lazy"
+        onError={(e) => {
+          e.currentTarget.style.display = 'none'
+        }}
+        className={cn(
+          'pointer-events-none absolute inset-0 size-full object-cover',
+          muted ? 'opacity-20' : 'opacity-35'
+        )}
+      />
+      <div className="pointer-events-none absolute inset-0 bg-[var(--color-bg-surface)]/70" />
+      {handle && <span className="relative z-10">{handle}</span>}
+      <span className="relative z-10 min-w-0 flex-1 truncate">
+        {entryLabel(entry)}
+      </span>
     </div>
   )
 )
