@@ -1,4 +1,4 @@
-import { ExternalLink, Film, Pencil } from 'lucide-react'
+import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
 import { formatDate } from '@/lib/dateFormat'
 import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/me'
@@ -58,11 +58,13 @@ function CompletionEntry({
   datePref,
   isOwner,
   onEdit,
+  onDelete,
 }: {
   update: ProgressUpdate
   datePref: DateFormatPreference
   isOwner: boolean
   onEdit: () => void
+  onDelete: () => void
 }) {
   const { text: dateText, uncertain } = formatEntryDate(
     update.date,
@@ -87,14 +89,24 @@ function CompletionEntry({
           </span>
         </div>
         {isOwner && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex h-7 items-center gap-1 rounded-btn border border-border bg-white/5 px-2.5 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
-          >
-            <Pencil size={11} />
-            Edit
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex h-7 items-center gap-1 rounded-btn border border-border bg-white/5 px-2.5 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
+            >
+              <Pencil size={11} />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Delete entry"
+              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-[var(--color-danger)]"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -154,11 +166,13 @@ function ProgressEntry({
   datePref,
   isOwner,
   onEdit,
+  onDelete,
 }: {
   update: ProgressUpdate
   datePref: DateFormatPreference
   isOwner: boolean
   onEdit: () => void
+  onDelete: () => void
 }) {
   const { text: dateText } = formatEntryDate(
     update.date,
@@ -193,14 +207,24 @@ function ProgressEntry({
           )}
         </div>
         {isOwner && (
-          <button
-            type="button"
-            onClick={onEdit}
-            aria-label="Edit entry"
-            className="shrink-0 text-sm text-text-tertiary transition-colors hover:text-text-secondary"
-          >
-            ✎
-          </button>
+          <div className="flex shrink-0 items-center gap-2.5">
+            <button
+              type="button"
+              onClick={onEdit}
+              aria-label="Edit entry"
+              className="text-sm text-text-tertiary transition-colors hover:text-text-secondary"
+            >
+              ✎
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Delete entry"
+              className="text-text-tertiary transition-colors hover:text-[var(--color-danger)]"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -262,11 +286,13 @@ function DropEntry({
   datePref,
   isOwner,
   onEdit,
+  onDelete,
 }: {
   update: ProgressUpdate
   datePref: DateFormatPreference
   isOwner: boolean
   onEdit: () => void
+  onDelete: () => void
 }) {
   const { text: dateText } = formatEntryDate(
     update.date,
@@ -290,14 +316,24 @@ function DropEntry({
           )}
         </div>
         {isOwner && (
-          <button
-            type="button"
-            onClick={onEdit}
-            className="flex h-7 items-center gap-1 rounded-btn border border-border bg-white/5 px-2.5 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
-          >
-            <Pencil size={11} />
-            Edit
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex h-7 items-center gap-1 rounded-btn border border-border bg-white/5 px-2.5 text-xs text-text-secondary transition-colors hover:bg-bg-subtle"
+            >
+              <Pencil size={11} />
+              Edit
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label="Delete entry"
+              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-[var(--color-danger)]"
+            >
+              <Trash2 size={11} />
+            </button>
+          </div>
         )}
       </div>
 
@@ -324,9 +360,16 @@ interface TimelineProps {
   datePref: DateFormatPreference
   isOwner: boolean
   onEdit: (progressUpdateId: string) => void
+  onDelete: (progressUpdateId: string) => void
 }
 
-export function Timeline({ data, datePref, isOwner, onEdit }: TimelineProps) {
+export function Timeline({
+  data,
+  datePref,
+  isOwner,
+  onEdit,
+  onDelete,
+}: TimelineProps) {
   // Already newest-first from the API — completions, progress logs, and
   // drops are all ordinary progress_updates sharing one timeline.
   const updates = data.progressUpdates
@@ -354,6 +397,7 @@ export function Timeline({ data, datePref, isOwner, onEdit }: TimelineProps) {
           datePref,
           isOwner,
           onEdit: () => onEdit(update.progressUpdateId),
+          onDelete: () => onDelete(update.progressUpdateId),
         }
         if (update.kind === 'COMPLETION') return <CompletionEntry {...props} />
         if (update.kind === 'DROP') return <DropEntry {...props} />

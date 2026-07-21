@@ -336,6 +336,8 @@ export default $config({
     authedRoute('PATCH /v1/me/progress/{levelId}')
     // Delete an entire level entry from the list.
     authedRoute('DELETE /v1/me/progress/{levelId}')
+    // Delete a single logged entry (completion/progress/drop) for a level.
+    authedRoute('DELETE /v1/me/progress/{levelId}/updates/{progressUpdateId}')
     // Level Page — the per-user view of a single level's full history.
     authedRoute('GET /v1/me/progress/{levelId}')
 

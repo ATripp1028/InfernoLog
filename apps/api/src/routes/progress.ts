@@ -19,7 +19,7 @@ import type { OverallRatingConfig } from '../utils/rating'
 import { computeRunsGraph } from '../utils/runsGraph'
 import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 import type { HonoVariables } from '../types/hono'
-import { applyEdit } from '../services/progress'
+import { applyEdit, deleteProgressUpdate } from '../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -433,6 +433,27 @@ app.delete('/me/progress/:levelId', async (c) => {
 
     await prisma.levelProgress.delete({ where: { id: existing.id } })
     return c.json({ gddlCaveat: GDDL_DELETE_CAVEAT })
+  } catch (error) {
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// ─────────────────────────────────────────────
+// DELETE /v1/me/progress/:levelId/updates/:progressUpdateId — remove a
+// single logged entry (completion, progress log, or drop) rather than the
+// whole level entry. Deleting the last remaining update for a level deletes
+// the entire level_progress instead (see deleteProgressUpdate).
+// ─────────────────────────────────────────────
+
+app.delete('/me/progress/:levelId/updates/:progressUpdateId', async (c) => {
+  const userId = c.get('userId') as string
+  const { levelId, progressUpdateId } = c.req.param()
+
+  try {
+    const result = await deleteProgressUpdate(userId, levelId, progressUpdateId)
+    if (!result) return c.json({ error: 'Entry not found' }, 404)
+    return c.json({ data: result })
   } catch (error) {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)

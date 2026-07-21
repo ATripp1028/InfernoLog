@@ -38,6 +38,13 @@ function del(userId: string, levelId: string) {
   })
 }
 
+function delUpdate(userId: string, levelId: string, progressUpdateId: string) {
+  return buildApp(progressApp, { userId }).request(
+    `/me/progress/${levelId}/updates/${progressUpdateId}`,
+    { method: 'DELETE' }
+  )
+}
+
 // Helper: create a level_progress row with progress updates inline.
 async function seedProgress(
   db: PrismaClient,
@@ -387,6 +394,141 @@ describe('DELETE /me/progress/:levelId', () => {
       await prisma.levelProgress.findUnique({
         where: { userId_levelId: { userId: other.id, levelId: '901' } },
       })
+    ).not.toBeNull()
+  })
+})
+
+describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
+  it('deletes a non-last update and cascades its rating scores, leaving the level entry intact', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '910' })
+    const cat = await seedRatingCategory(prisma, user.id)
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '910',
+      status: 'COMPLETED',
+      updates: [
+        { kind: 'PROGRESS', loggedAt: new Date('2024-01-01'), percentage: 40 },
+        {
+          kind: 'COMPLETION',
+          loggedAt: new Date('2024-01-02'),
+          ratingScores: [{ categoryId: cat.id, score: 80 }],
+        },
+      ],
+    })
+    const progressUpdate = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id, kind: 'PROGRESS' },
+    })
+
+    const res = await delUpdate(user.id, '910', progressUpdate.id)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      data: { deletedLevelProgress: boolean }
+    }
+    expect(body.data.deletedLevelProgress).toBe(false)
+
+    expect(
+      await prisma.progressUpdate.findUnique({
+        where: { id: progressUpdate.id },
+      })
+    ).toBeNull()
+    // The completion (and the level entry) survive untouched.
+    const remaining = await prisma.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+    })
+    expect(remaining.status).toBe('COMPLETED')
+  })
+
+  it('deletes the whole level entry when it was the only logged update', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '911' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '911',
+      status: 'IN_PROGRESS',
+      updates: [{ kind: 'PROGRESS', percentage: 25 }],
+    })
+    const update = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+
+    const res = await delUpdate(user.id, '911', update.id)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as {
+      data: { deletedLevelProgress: boolean }
+    }
+    expect(body.data.deletedLevelProgress).toBe(true)
+
+    expect(
+      await prisma.levelProgress.findUnique({ where: { id: lp.id } })
+    ).toBeNull()
+  })
+
+  it('reverts status and removes the classic ranking when the completion is deleted', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '912' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '912',
+      status: 'COMPLETED',
+      updates: [
+        { kind: 'PROGRESS', loggedAt: new Date('2024-01-01'), percentage: 50 },
+        { kind: 'COMPLETION', loggedAt: new Date('2024-01-02') },
+      ],
+    })
+    await prisma.classicRanking.create({
+      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
+    })
+    const completion = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id, kind: 'COMPLETION' },
+    })
+
+    const res = await delUpdate(user.id, '912', completion.id)
+    expect(res.status).toBe(200)
+
+    const remaining = await prisma.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+    })
+    expect(remaining.status).toBe('IN_PROGRESS')
+    expect(
+      await prisma.classicRanking.findUnique({
+        where: { levelProgressId: lp.id },
+      })
+    ).toBeNull()
+  })
+
+  it('404s for a progressUpdateId that does not belong to the level', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '913' })
+    await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '913',
+      status: 'IN_PROGRESS',
+      updates: [{ percentage: 10 }],
+    })
+
+    const res = await delUpdate(user.id, '913', 'nonexistent-id')
+    expect(res.status).toBe(404)
+  })
+
+  it("404s for another user's entry", async () => {
+    const user = await seedUser(prisma)
+    const other = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '914' })
+    const lp = await seedProgress(prisma, {
+      userId: other.id,
+      levelId: '914',
+      status: 'IN_PROGRESS',
+      updates: [{ percentage: 10 }],
+    })
+    const update = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+
+    const res = await delUpdate(user.id, '914', update.id)
+    expect(res.status).toBe(404)
+    expect(
+      await prisma.progressUpdate.findUnique({ where: { id: update.id } })
     ).not.toBeNull()
   })
 })
