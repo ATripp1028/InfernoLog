@@ -14,7 +14,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
-import { createCollisionDetection } from '@/lib/dnd/collisionDetection'
+import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 import type { ClassicRankingResponse } from '@infernolog/core'
 import {
   usePlaceRanking,
@@ -40,10 +40,6 @@ interface RankingBoardProps {
 
 const sameOrder = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x, i) => x === b[i])
-
-// See collisionDetection.ts for why this needs to be more than
-// pointerWithin/rectIntersection alone.
-const collisionDetection = createCollisionDetection(['placed', 'unplaced'])
 
 export function RankingBoard({
   data,
@@ -77,6 +73,11 @@ export function RankingBoard({
   })
   const [activeId, setActiveId] = useState<string | null>(null)
   const startContainer = useRef<ContainerId | null>(null)
+
+  // See collisionDetection.ts for why this needs to be more than
+  // pointerWithin/rectIntersection alone.
+  const { collisionDetection, markCrossContainerMove } =
+    useMultiContainerCollisionDetection(['placed', 'unplaced'])
 
   useEffect(() => {
     if (activeId) return // don't clobber the in-flight drag
@@ -114,6 +115,7 @@ export function RankingBoard({
     const overC = findContainer(String(over.id))
     if (!activeC || !overC || activeC === overC) return
 
+    markCrossContainerMove()
     setContainers((prev) => {
       const activeItems = prev[activeC]
       const overItems = prev[overC]

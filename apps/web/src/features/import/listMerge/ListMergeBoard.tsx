@@ -38,7 +38,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { DragHandle } from '@/features/settings/components/DragHandle'
-import { createCollisionDetection } from '@/lib/dnd/collisionDetection'
+import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 
 export interface ListMergeEntry {
   levelId: string
@@ -55,8 +55,6 @@ interface ListMergeBoardProps {
 }
 
 type ContainerId = 'left' | 'middle' | 'right'
-
-const collisionDetection = createCollisionDetection(['left', 'middle', 'right'])
 
 function entryLabel(entry: ListMergeEntry): string {
   return entry.levelName ?? `Level ${entry.levelId}`
@@ -181,6 +179,11 @@ export function ListMergeBoard({
   const [activeId, setActiveId] = useState<string | null>(null)
   const [acknowledgeVoid, setAcknowledgeVoid] = useState(false)
 
+  // See collisionDetection.ts for why this needs to be more than
+  // pointerWithin/rectIntersection alone.
+  const { collisionDetection, markCrossContainerMove } =
+    useMultiContainerCollisionDetection(['left', 'middle', 'right'])
+
   const findContainer = (id: string): ContainerId | null => {
     if (id === 'left' || id === 'middle' || id === 'right') return id
     if (containers.left.includes(id)) return 'left'
@@ -200,6 +203,7 @@ export function ListMergeBoard({
     const overC = findContainer(String(over.id))
     if (!activeC || !overC || activeC === overC) return
 
+    markCrossContainerMove()
     setContainers((prev) => {
       const activeItems = prev[activeC]
       const overItems = prev[overC]
