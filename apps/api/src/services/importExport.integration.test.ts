@@ -678,6 +678,32 @@ describe('commitImportBatch — progress rows', () => {
     expect(exp.progress.filter((p) => p.levelId === '100')).toHaveLength(2)
   })
 
+  it('falls back to derived-key dedup when progress_id is present but foreign to this user, instead of skipping the fallback prefetch entirely', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const row = {
+      type: 'progress' as const,
+      rowIndex: 200000,
+      data: {
+        levelId: '100',
+        date: '2024-12-01',
+        percentage: 40,
+        attempts: 300,
+        // A progress_id that's syntactically valid but doesn't resolve for
+        // this user — the same shape as reimporting a spreadsheet whose
+        // progress_id column was copied from a different account, or is
+        // simply stale.
+        progressId: randomUUID(),
+      },
+    }
+    await commitImportBatch(user.id, randomUUID(), [row])
+    const res = await commitImportBatch(user.id, randomUUID(), [row])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toMatch(/duplicate/i)
+    const exp = await fullExport(user.id)
+    expect(exp.progress.filter((p) => p.levelId === '100')).toHaveLength(1)
+  })
+
   it('treats a flat percentage and a run range on the same date as distinct events', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
@@ -769,6 +795,34 @@ describe('commitImportBatch — dropped rows', () => {
         bestProgress: 40,
         attemptsAtDrop: 500,
         reason: 'shelved',
+      },
+    }
+    await commitImportBatch(user.id, randomUUID(), [row])
+    const res = await commitImportBatch(user.id, randomUUID(), [row])
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toMatch(/duplicate/i)
+    const all = await prisma.progressUpdate.findMany({
+      where: {
+        kind: 'DROP',
+        levelProgress: { userId: user.id, levelId: '300' },
+      },
+    })
+    expect(all).toHaveLength(1)
+  })
+
+  it('falls back to derived-key dedup when drop_id is present but foreign to this user, instead of skipping the fallback prefetch entirely', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    const row = {
+      type: 'dropped' as const,
+      rowIndex: 100000,
+      data: {
+        levelId: '300',
+        droppedAt: '2024-10-01',
+        bestProgress: 40,
+        attemptsAtDrop: 500,
+        reason: 'shelved',
+        dropId: randomUUID(),
       },
     }
     await commitImportBatch(user.id, randomUUID(), [row])
@@ -896,6 +950,38 @@ describe('checkImportConflicts', () => {
     expect(result.progressConflicts[0]!.rowIndex).toBe(0)
     expect(result.progressConflicts[0]!.matchedId).toBeTruthy()
     expect(result.progressDuplicates).toEqual([{ rowIndex: 1 }])
+  })
+
+  it('treats a progress_id that does not resolve for this user identically to no progress_id at all', async () => {
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2024-12-01', percentage: 40, notes: 'first try' },
+      },
+    ])
+    // Same derived key as the existing entry, but carries a progress_id that
+    // belongs to nobody (e.g. copied from a different account's export) —
+    // must still surface as an exact duplicate via the derived-key path,
+    // exactly as it would with no progress_id at all.
+    const result = await checkImportConflicts(user.id, {
+      progress: [
+        {
+          rowIndex: 0,
+          data: {
+            levelId: '100',
+            date: '2024-12-01',
+            percentage: 40,
+            notes: 'first try',
+            progressId: randomUUID(),
+          },
+        },
+      ],
+    })
+    expect(result.progressConflicts).toHaveLength(0)
+    expect(result.progressDuplicates).toEqual([{ rowIndex: 0 }])
   })
 
   it('detects a dropped conflict by derived key', async () => {

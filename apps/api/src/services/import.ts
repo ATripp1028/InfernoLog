@@ -1232,30 +1232,39 @@ export async function processImportJobBatch(
   }
 
   // ── Pre-fetch existing PROGRESS/DROP rows for the derived-key fallback ──
-  // Only needed for rows with no explicit progressId/dropId — mainly
-  // name-only rows, which resolve their level too late for /check to have
-  // caught a possible duplicate ahead of time.
-  const idlessProgressLevelIds = [
+  // Feeds planProgress/planDrop's fallback for any row that ends up NOT
+  // matching by explicit id — not just rows with no progressId/dropId at
+  // all (name-only rows, which resolve their level too late for /check to
+  // have caught a possible duplicate ahead of time), but also a row that
+  // DOES carry an id that fails to resolve for this user/level (foreign,
+  // stale, or copied from someone else's export). planProgress/planDrop's
+  // `matched` lookup falls through to the derived key in both cases, so
+  // scoping this prefetch to only the id-less rows starved that fallback of
+  // the very data it needed for the second case — the fallback would find no
+  // candidates at all (not "no match", but "nothing fetched to check
+  // against") and silently create a duplicate. Fetching for every level
+  // touched by a progress/dropped row in the batch, regardless of whether it
+  // carries an id, costs nothing extra (batches are capped at 50 rows) and
+  // closes that gap.
+  const progressLevelIdsForDedup = [
     ...new Set(
       progressRows
-        .filter((r) => !r.data.progressId)
         .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
         .filter((id): id is string => !!id)
     ),
   ]
-  const idlessDropLevelIds = [
+  const dropLevelIdsForDedup = [
     ...new Set(
       droppedRows
-        .filter((r) => !r.data.dropId)
         .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
         .filter((id): id is string => !!id)
     ),
   ]
   const progressEventsByLevel = groupByLevel(
-    await fetchExistingEvents(userId, 'PROGRESS', idlessProgressLevelIds)
+    await fetchExistingEvents(userId, 'PROGRESS', progressLevelIdsForDedup)
   )
   const dropEventsByLevel = groupByLevel(
-    await fetchExistingEvents(userId, 'DROP', idlessDropLevelIds)
+    await fetchExistingEvents(userId, 'DROP', dropLevelIdsForDedup)
   )
 
   // ── Plan all writes in memory (pure, no DB I/O) ───────────────────────
@@ -1930,16 +1939,64 @@ export async function checkImportConflicts(
     })
   }
 
-  // Progress/Dropped: only rows with a known levelId AND no explicit
-  // progress_id/drop_id can be pre-checked — an id round-trips unconditionally
-  // (unrelated, unchanged path), and a name-only row resolves its level too
-  // late for this pass (falls back to the commit-time dedup in planProgress/
-  // planDrop instead).
+  // Progress/Dropped: pre-checked via the derived-key path whenever the row
+  // won't have a working explicit round-trip at commit time — no
+  // progress_id/drop_id at all, OR one that doesn't resolve to an existing
+  // entry for THIS user and level (foreign — e.g. copied from a different
+  // account's export — or stale). An id that genuinely resolves round-trips
+  // unconditionally (unrelated, unchanged path) and is excluded here; a
+  // name-only row resolves its level too late for this pass either way
+  // (falls back to the commit-time dedup in planProgress/planDrop instead).
+  // Mirrors planProgress/planDrop's own `matched` check exactly, so a row
+  // never gets a "no conflict" pre-check result that then behaves
+  // differently at commit time.
+  const explicitProgressIds = [
+    ...new Set(
+      (req.progress ?? []).flatMap((r) =>
+        r.data.progressId ? [r.data.progressId] : []
+      )
+    ),
+  ]
+  const explicitDropIds = [
+    ...new Set(
+      (req.dropped ?? []).flatMap((r) => (r.data.dropId ? [r.data.dropId] : []))
+    ),
+  ]
+  const resolvableProgress = explicitProgressIds.length
+    ? new Map(
+        (
+          await prisma.progressUpdate.findMany({
+            where: { id: { in: explicitProgressIds }, levelProgress: { userId } },
+            select: { id: true, levelProgress: { select: { levelId: true } } },
+          })
+        ).map((r) => [r.id, r.levelProgress.levelId])
+      )
+    : new Map<string, string>()
+  const resolvableDrops = explicitDropIds.length
+    ? new Map(
+        (
+          await prisma.progressUpdate.findMany({
+            where: {
+              id: { in: explicitDropIds },
+              kind: 'DROP',
+              levelProgress: { userId },
+            },
+            select: { id: true, levelProgress: { select: { levelId: true } } },
+          })
+        ).map((r) => [r.id, r.levelProgress.levelId])
+      )
+    : new Map<string, string>()
+
   const progressRows = (req.progress ?? []).filter(
-    (r) => r.data.levelId && !r.data.progressId
+    (r) =>
+      r.data.levelId &&
+      (!r.data.progressId ||
+        resolvableProgress.get(r.data.progressId) !== r.data.levelId)
   )
   const droppedRows = (req.dropped ?? []).filter(
-    (r) => r.data.levelId && !r.data.dropId
+    (r) =>
+      r.data.levelId &&
+      (!r.data.dropId || resolvableDrops.get(r.data.dropId) !== r.data.levelId)
   )
   const progressLevelIds = [
     ...new Set(progressRows.map((r) => r.data.levelId!)),
