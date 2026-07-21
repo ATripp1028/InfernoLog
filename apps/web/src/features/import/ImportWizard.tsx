@@ -29,6 +29,7 @@
 // Success — final report.
 
 import { useState, useCallback, useId, useEffect, useMemo, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,7 +40,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { useImportApi, useImportStatus } from '@/lib/api/import'
+import {
+  useImportApi,
+  useImportStatus,
+  importStatusQueryKey,
+} from '@/lib/api/import'
 import type {
   ImportRowConflict,
   ImportRatingConflict,
@@ -984,6 +989,7 @@ export function ImportWizard({
 }: ImportWizardProps) {
   const { checkConflicts, startImport } = useImportApi()
   const importStatus = useImportStatus()
+  const queryClient = useQueryClient()
 
   const [step, setStep] = useState<WizardStep>('upload')
   const [dateFormat, setDateFormat] = useState<DateFormat>(
@@ -1120,6 +1126,15 @@ export function ImportWizard({
       // sent unchanged.
       listOrders: Map<string, string[]>
     ) => {
+      // Wipe any cached status from a previous job *before* the network call
+      // — the `committing` step renders (and its completion-detection effect
+      // runs) on this same tick, and if a prior import's cached status was
+      // still 'completed', that effect would read it as this job already
+      // being done and jump straight to the success screen, when the new job
+      // hasn't even reached the server yet. `refetch()` below then repopulates
+      // it with the real (freshly-created, 'running') status once /start
+      // returns.
+      queryClient.setQueryData(importStatusQueryKey, null)
       setProgressLabel('Starting import…')
       setCommitError(null)
 
@@ -1301,7 +1316,14 @@ export function ImportWizard({
         )
       }
     },
-    [startImport, parseResult, importStatus, progressConflicts, droppedConflicts]
+    [
+      startImport,
+      parseResult,
+      importStatus,
+      progressConflicts,
+      droppedConflicts,
+      queryClient,
+    ]
   )
 
   // ── Step: review → conflict check / commit ─────────────────────────────
