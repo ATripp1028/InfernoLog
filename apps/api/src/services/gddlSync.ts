@@ -9,6 +9,7 @@ import {
 import { fetchRobtopLevel } from '../utils/robtop'
 import { findOrCreateLevelProgress } from './progress'
 import { removeFromWantToBeat } from './collections'
+import { enqueueSeedIds } from './import'
 import { logger } from '../utils/logger'
 import type { Prisma } from '@prisma/client'
 
@@ -23,6 +24,17 @@ const GDDL_OFFICIAL_LEVEL_ID_MAP: Record<string, string> = {
   '3': '20', // Deadlocked
 }
 
+interface LevelLookupResult {
+  inGameDifficulty: string | null
+  // True when the cached row is an unseeded stub (verified: false) — either
+  // one this call just created, or one left behind by a prior import that
+  // never got enriched. Caller enqueues these for async RobTop retry so a
+  // repeat import doesn't leave stubs stranded forever (see the `existing`
+  // short-circuit below, which otherwise treats any row as "already handled"
+  // regardless of whether it was ever actually seeded).
+  needsSeed: boolean
+}
+
 // Ensures the level exists in the cache. On a cache miss, tries RobTop first,
 // then falls back to the GDDL metadata. Returns the level's inGameDifficulty.
 // Throws if no usable name can be found (caller skips the submission).
@@ -30,12 +42,17 @@ async function getOrCreateLevel(
   tx: Tx,
   levelId: string,
   submission: GddlSubmission
-): Promise<string | null> {
+): Promise<LevelLookupResult> {
   const existing = await tx.level.findUnique({
     where: { inGameId: levelId },
-    select: { inGameDifficulty: true },
+    select: { inGameDifficulty: true, verified: true },
   })
-  if (existing) return existing.inGameDifficulty
+  if (existing) {
+    return {
+      inGameDifficulty: existing.inGameDifficulty,
+      needsSeed: !existing.verified,
+    }
+  }
 
   // Cache miss — try RobTop first.
   const gd = await fetchRobtopLevel(levelId)
@@ -91,7 +108,7 @@ async function getOrCreateLevel(
       },
       select: { inGameDifficulty: true },
     })
-    return created.inGameDifficulty
+    return { inGameDifficulty: created.inGameDifficulty, needsSeed: false }
   }
 
   // RobTop unavailable — fall back to GDDL metadata.
@@ -106,7 +123,7 @@ async function getOrCreateLevel(
       verified: false,
     },
   })
-  return null
+  return { inGameDifficulty: null, needsSeed: true }
 }
 
 // Maps a GDDL DateAdded string to a JS Date (date-only, stored as @db.Date).
@@ -239,13 +256,19 @@ export async function syncGddlSubmissions(
 
   const userInfo = await fetchGddlUserInfo(gddlApiKey)
   const submissions = await fetchAllGddlSubmissions(gddlApiKey, userInfo.id)
+  const seedIds = new Set<string>()
 
   for (const sub of submissions) {
     const rawId = String(sub.Level.ID)
     const levelId = GDDL_OFFICIAL_LEVEL_ID_MAP[rawId] ?? rawId
     try {
       await prisma.$transaction(async (tx) => {
-        const inGameDifficulty = await getOrCreateLevel(tx, levelId, sub)
+        const { inGameDifficulty, needsSeed } = await getOrCreateLevel(
+          tx,
+          levelId,
+          sub
+        )
+        if (needsSeed) seedIds.add(levelId)
 
         const lp = await tx.levelProgress.findUnique({
           where: { userId_levelId: { userId, levelId } },
@@ -279,6 +302,17 @@ export async function syncGddlSubmissions(
       const reason = err instanceof Error ? err.message : 'Unknown error'
       logger.warn({ levelId }, `gddlSync: skipping submission — ${reason}`)
       result.errors.push({ levelId, reason })
+    }
+  }
+
+  if (seedIds.size) {
+    try {
+      await enqueueSeedIds([...seedIds])
+    } catch (err) {
+      logger.warn(
+        { seedIds: [...seedIds], err },
+        'gddlSync: failed to enqueue seed IDs'
+      )
     }
   }
 
