@@ -1,10 +1,11 @@
-import { useRef, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { List, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileFabContext } from '@/context/MobileFabContext'
+import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
 
 // Level-page-specific FAB for owned entries.
-// Desktop: anchored popover (small menu above the FAB).
+// Desktop: hover speed dial (DesktopHoverFab).
 // Mobile: bottom sheet above the bottom nav.
 //
 // Both patterns overlay the global FabMenu at higher z-index.
@@ -51,97 +52,53 @@ function buildActions(
   return actions
 }
 
-// ─── Desktop popover ───────────────────────────────────────────────
+// ─── Desktop speed dial ─────────────────────────────────────────────
+// "Edit" is the primary action (the FAB itself); the rest fan out above it
+// on hover. Delete is listed farthest from the FAB — the destructive action
+// should be the hardest to reach by accident.
 function DesktopFab({
   onEdit,
   onDelete,
   onGddlSubmit,
   onAddToCollection,
 }: FabProps) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (!open) return
-    function handlePointerDown(e: MouseEvent) {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false)
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false)
-    }
-    document.addEventListener('mousedown', handlePointerDown)
-    document.addEventListener('keydown', handleKey)
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown)
-      document.removeEventListener('keydown', handleKey)
-    }
-  }, [open])
-
-  const actions = buildActions(onGddlSubmit, onAddToCollection)
-
-  function handleAction(key: ActionKey) {
-    setOpen(false)
-    if (key === 'edit') onEdit()
-    if (key === 'delete') onDelete()
-    if (key === 'gddl-submit') onGddlSubmit?.()
-    if (key === 'add-collection') onAddToCollection?.()
+  const primary: HoverFabAction = {
+    key: 'edit',
+    label: 'Edit this entry',
+    icon: Pencil,
+    onClick: onEdit,
   }
 
-  return (
-    <div
-      ref={ref}
-      // z-30 sits above the global FabMenu (z-20)
-      className="fixed bottom-6 right-6 z-30 hidden md:block"
-    >
-      {open && (
-        <div
-          role="menu"
-          className="absolute bottom-16 right-0 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-        >
-          {actions.map((action) => {
-            const Icon = action.icon
-            return (
-              <button
-                key={action.key}
-                type="button"
-                role="menuitem"
-                disabled={action.disabled}
-                onClick={() => !action.disabled && handleAction(action.key)}
-                className={cn(
-                  'flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm transition-colors',
-                  action.disabled && 'cursor-not-allowed text-text-tertiary',
-                  !action.disabled &&
-                    action.danger &&
-                    'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]',
-                  !action.disabled &&
-                    !action.danger &&
-                    'text-text-primary hover:bg-bg-subtle'
-                )}
-              >
-                <Icon size={16} />
-                <span>{action.label}</span>
-                {action.disabled && (
-                  <span className="ml-auto text-[10px] text-text-tertiary">
-                    soon
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-      )}
+  const secondaryActions: HoverFabAction[] = [
+    { key: 'delete', label: 'Delete this level', icon: Trash2, danger: true, onClick: onDelete },
+    ...(onGddlSubmit
+      ? [
+          {
+            key: 'gddl-submit',
+            label: 'Submit to GDDL',
+            icon: Upload,
+            onClick: onGddlSubmit,
+          },
+        ]
+      : []),
+    {
+      key: 'add-collection',
+      label: 'Add to a Collection',
+      icon: List,
+      onClick: onAddToCollection ?? (() => {}),
+      disabled: !onAddToCollection,
+    },
+  ]
 
-      <button
-        type="button"
-        aria-label="Level actions"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
-      >
-        <Plus size={24} strokeWidth={2.5} />
-      </button>
-    </div>
+  return (
+    <DesktopHoverFab
+      primary={primary}
+      restIcon={Plus}
+      secondaryActions={secondaryActions}
+      groupAriaLabel="Level actions"
+      // z-30 sits above the global FabMenu (z-20)
+      className="fixed bottom-6 right-6 z-30"
+    />
   )
 }
 

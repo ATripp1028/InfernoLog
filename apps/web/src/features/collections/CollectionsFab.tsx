@@ -2,14 +2,15 @@
 // there — FabMenu bows out on /collections routes):
 //   • index  → create-direct: the FAB opens the create modal
 //   • detail → menu: Add levels / Edit / Delete (built-ins drop Edit/Delete)
-// Desktop renders the fixed bottom-right FAB + popover menu (mock 1211:2);
-// on mobile the shared bottom-bar FAB is overridden via MobileFabContext and
-// the menu renders as a bottom sheet (mock 1257:2).
+// Desktop renders a hover speed dial (DesktopHoverFab); on mobile the shared
+// bottom-bar FAB is overridden via MobileFabContext and the menu renders as
+// a bottom sheet (mock 1257:2).
 
-import { useEffect, useRef, useState } from 'react'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useMobileFabContext } from '@/context/MobileFabContext'
 import { cn } from '@/lib/utils'
+import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
 
 export interface CollectionFabAction {
   key: string
@@ -63,7 +64,6 @@ interface CollectionsFabProps {
 
 export function CollectionsFab({ actions }: CollectionsFabProps) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
   const { setOverrideToggle } = useMobileFabContext()
   const isMenu = actions.length > 1
 
@@ -77,20 +77,15 @@ export function CollectionsFab({ actions }: CollectionsFabProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setOverrideToggle, isMenu, actions.map((a) => a.key).join()])
 
+  // The mobile sheet has its own backdrop to close on outside-click; this
+  // just adds Escape support while it's open.
   useEffect(() => {
     if (!menuOpen) return
-    function onPointerDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setMenuOpen(false)
     }
-    document.addEventListener('mousedown', onPointerDown)
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
+    return () => document.removeEventListener('keydown', onKey)
   }, [menuOpen])
 
   function activate(action: CollectionFabAction) {
@@ -98,44 +93,35 @@ export function CollectionsFab({ actions }: CollectionsFabProps) {
     action.onSelect()
   }
 
+  // Every caller passes at least one action.
+  const primaryAction = actions[0]!
+  const primary: HoverFabAction = {
+    key: primaryAction.key,
+    label: primaryAction.label,
+    icon: primaryAction.icon,
+    onClick: primaryAction.onSelect,
+  }
+  // Rendered farthest-from-FAB first: delete (when present) ends up
+  // furthest away, edit nearest.
+  const secondaryActions: HoverFabAction[] = actions
+    .slice(1)
+    .reverse()
+    .map((action) => ({
+      key: action.key,
+      label: action.label,
+      icon: action.icon,
+      danger: action.danger,
+      onClick: action.onSelect,
+    }))
+
   return (
     <>
-      {/* Desktop FAB + popover menu */}
-      <div
-        ref={containerRef}
-        className="fixed bottom-6 right-6 z-20 hidden md:block"
-      >
-        {menuOpen && isMenu && (
-          <div
-            role="menu"
-            className="absolute bottom-16 right-0 w-60 overflow-hidden rounded-[10px] border border-border bg-bg-elevated p-2 shadow-[0_6px_20px_rgba(0,0,0,0.5)]"
-          >
-            {actions.map((action, i) => (
-              <div key={action.key}>
-                {i === 1 && <div className="my-1 h-px bg-border" />}
-                <MenuItem action={action} onClick={() => activate(action)} />
-              </div>
-            ))}
-          </div>
-        )}
-        <button
-          type="button"
-          aria-label={isMenu ? 'Collection actions' : actions[0]?.label}
-          aria-haspopup={isMenu ? 'menu' : undefined}
-          aria-expanded={isMenu ? menuOpen : undefined}
-          onClick={() => {
-            if (isMenu) setMenuOpen((v) => !v)
-            else actions[0]?.onSelect()
-          }}
-          className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
-        >
-          {menuOpen && isMenu ? (
-            <X size={24} strokeWidth={2.5} />
-          ) : (
-            <Plus size={24} strokeWidth={2.5} />
-          )}
-        </button>
-      </div>
+      <DesktopHoverFab
+        primary={primary}
+        secondaryActions={secondaryActions}
+        groupAriaLabel={isMenu ? 'Collection actions' : primary.label}
+        className="fixed bottom-6 right-6 z-20"
+      />
 
       {/* Mobile menu — bottom sheet above the nav bar */}
       {menuOpen && isMenu && (
