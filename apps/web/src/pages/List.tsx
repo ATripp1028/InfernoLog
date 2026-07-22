@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { AnimatePresence, motion } from 'framer-motion'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import {
@@ -486,7 +487,6 @@ export function List() {
       {...(activeCategories.length > 0 && {
         ratingCategories: activeCategories,
       })}
-      onClose={() => setFilterOpen(false)}
     />
   )
 
@@ -504,7 +504,8 @@ export function List() {
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
             activeFilterCount={activeFilterCount}
-            onOpenFilters={() => setFilterOpen((o) => !o)}
+            filterOpen={filterOpen}
+            onToggleFilters={() => setFilterOpen((o) => !o)}
             onOpenControls={() => setControlsOpen(true)}
             onReset={resetAll}
             canReset={canReset}
@@ -552,14 +553,24 @@ export function List() {
         </div>
 
         {/* Docked filter panel — only when the table's min width still fits
-            beside it; otherwise it falls through to the overlay sheet below. */}
-        {canDock && filterOpen && (
-          <aside className="w-[320px] shrink-0 border-l border-[var(--color-border-subtle)]">
-            <div className="sticky top-0 h-[calc(100dvh-64px)] overflow-hidden">
-              {filterPanel}
-            </div>
-          </aside>
-        )}
+            beside it; otherwise it falls through to the overlay sheet below.
+            Width (not x) animates so the table's push happens in step with
+            the panel appearing, rather than the layout jumping instantly. */}
+        <AnimatePresence>
+          {canDock && filterOpen && (
+            <motion.aside
+              initial={{ width: 0 }}
+              animate={{ width: 320 }}
+              exit={{ width: 0 }}
+              transition={{ duration: 0.28, ease: 'easeInOut' }}
+              className="shrink-0 overflow-hidden border-l border-[var(--color-border-subtle)]"
+            >
+              <div className="sticky top-0 h-[calc(100dvh-64px)] w-[320px] overflow-hidden">
+                {filterPanel}
+              </div>
+            </motion.aside>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* Overlay sheet — mobile, and any width too narrow to dock the panel. */}
