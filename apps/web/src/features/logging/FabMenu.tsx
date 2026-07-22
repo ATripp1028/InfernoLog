@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Plus, type LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import { LOGGING_ACTIONS, type LoggingAction } from './loggingActions'
@@ -8,50 +9,63 @@ import type { FlowPath } from './types'
 import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
-// Desktop FAB + popover menu.
+// How long the group stays expanded after the pointer leaves it. Gives the
+// cursor room to cross gaps between buttons (or overshoot briefly) without
+// the stack collapsing back into the FAB.
+const CLOSE_DELAY_MS = 350
+
+const PRIMARY_ACTION = LOGGING_ACTIONS.find((a) => a.highlight)!
+// Rendered nearest-to-FAB first, so the stack fans out upward in this order.
+const SECONDARY_ACTIONS = [...LOGGING_ACTIONS]
+  .filter((a) => a !== PRIMARY_ACTION)
+  .reverse()
+
+// Desktop FAB: a hover-activated speed dial. Hovering the group fans the
+// secondary actions out above the FAB; hovering any single button expands it
+// into an icon+label pill.
 export function FabMenu() {
   const { open } = useLoggingFlow()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
   const [wtbOpen, setWtbOpen] = useState(false)
   const [addColOpen, setAddColOpen] = useState(false)
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const containerRef = useRef<HTMLDivElement>(null)
   const location = useLocation()
   // The collections pages render their own context-scoped FAB.
   const suppressed = location.pathname.startsWith('/collections')
 
-  useEffect(() => {
-    if (!menuOpen) return
-    function onPointerDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setMenuOpen(false)
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenuOpen(false)
-    }
-    document.addEventListener('mousedown', onPointerDown)
-    document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown)
-      document.removeEventListener('keydown', onKey)
-    }
-  }, [menuOpen])
+  function cancelClose() {
+    clearTimeout(closeTimer.current)
+  }
+
+  function openGroup() {
+    cancelClose()
+    setExpanded(true)
+  }
+
+  function scheduleClose() {
+    cancelClose()
+    closeTimer.current = setTimeout(() => setExpanded(false), CLOSE_DELAY_MS)
+  }
 
   function start(path: FlowPath) {
-    setMenuOpen(false)
+    setExpanded(false)
     open(path)
   }
 
-  function getOnClick(action: LoggingAction): (() => void) | undefined {
+  function getOnClick(action: LoggingAction): () => void {
     if (action.path) return () => start(action.path!)
     if (action.key === 'want-to-beat')
       return () => {
-        setMenuOpen(false)
+        setExpanded(false)
         setWtbOpen(true)
       }
     if (action.key === 'add-to-list')
       return () => {
-        setMenuOpen(false)
+        setExpanded(false)
         setAddColOpen(true)
       }
+    return () => {}
   }
 
   return (
@@ -59,34 +73,50 @@ export function FabMenu() {
       {!suppressed && (
         <div
           ref={containerRef}
-          className="fixed bottom-6 z-20 hidden transition-[right] duration-200 md:block"
+          role="group"
+          aria-label="Log actions"
+          className="fixed bottom-6 z-20 hidden flex-col items-end gap-3 transition-[right] duration-200 md:flex"
           style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
+          onMouseEnter={openGroup}
+          onMouseLeave={scheduleClose}
+          onFocus={openGroup}
+          onBlur={(e) => {
+            if (!containerRef.current?.contains(e.relatedTarget as Node))
+              scheduleClose()
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setExpanded(false)
+          }}
         >
-          {menuOpen && (
-            <div
-              role="menu"
-              className="absolute bottom-16 right-0 w-64 overflow-hidden rounded-card border border-border bg-bg-elevated p-1.5 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-            >
-              {LOGGING_ACTIONS.map((action) => (
-                <MenuItem
+          <AnimatePresence>
+            {expanded &&
+              SECONDARY_ACTIONS.map((action, i) => (
+                <motion.div
                   key={action.key}
-                  action={action}
-                  onClick={getOnClick(action)}
-                />
+                  layout
+                  initial={{ opacity: 0, y: 16, scale: 0.85 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 16, scale: 0.85 }}
+                  transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}
+                >
+                  <FabActionButton
+                    icon={action.icon}
+                    label={action.label}
+                    disabled={action.disabled ?? false}
+                    onClick={getOnClick(action)}
+                  />
+                </motion.div>
               ))}
-            </div>
-          )}
+          </AnimatePresence>
 
-          <button
-            type="button"
-            aria-label="Add level"
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-            onClick={() => setMenuOpen((v) => !v)}
-            className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
-          >
-            <Plus size={24} strokeWidth={2.5} />
-          </button>
+          <FabActionButton
+            primary
+            icon={Plus}
+            hoverIcon={PRIMARY_ACTION.icon}
+            label={PRIMARY_ACTION.label}
+            ariaLabel="Add level"
+            onClick={getOnClick(PRIMARY_ACTION)}
+          />
         </div>
       )}
       <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
@@ -98,39 +128,77 @@ export function FabMenu() {
   )
 }
 
-function MenuItem({
-  action,
+function FabActionButton({
+  icon: Icon,
+  hoverIcon: HoverIcon,
+  label,
+  ariaLabel,
   onClick,
+  disabled,
+  primary,
 }: {
-  action: LoggingAction
-  onClick?: (() => void) | undefined
+  icon: LucideIcon
+  hoverIcon?: LucideIcon
+  label: string
+  ariaLabel?: string
+  onClick: () => void
+  disabled?: boolean
+  primary?: boolean
 }) {
-  const { label, icon: Icon, highlight, disabled } = action
+  const [hovered, setHovered] = useState(false)
+  const ShownIcon = hovered && HoverIcon ? HoverIcon : Icon
+
   return (
-    <button
+    <motion.button
       type="button"
-      role="menuitem"
-      onClick={onClick}
+      layout
+      aria-label={ariaLabel ?? label}
       disabled={disabled}
+      onClick={onClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
+      transition={{ layout: { duration: 0.18, ease: 'easeOut' } }}
       className={cn(
-        'flex h-10 w-full items-center gap-3 rounded-md px-3 text-left text-sm transition-colors',
-        disabled && 'cursor-not-allowed text-text-tertiary',
-        !disabled && highlight && 'bg-primary text-primary-foreground',
-        !disabled && !highlight && 'text-text-primary hover:bg-bg-subtle'
+        'flex items-center justify-center gap-2 overflow-hidden rounded-fab px-3.5 shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors',
+        primary
+          ? 'h-14 min-w-14 bg-primary text-text-primary hover:bg-primary-hover'
+          : 'h-11 min-w-11 bg-bg-elevated text-text-primary hover:bg-bg-subtle',
+        disabled && 'cursor-not-allowed opacity-50'
       )}
     >
-      <span
-        className={cn(
-          disabled
-            ? 'text-text-tertiary'
-            : highlight
-              ? 'text-primary-foreground'
-              : 'text-text-secondary'
-        )}
+      <motion.span
+        layout="position"
+        className="relative flex shrink-0 items-center justify-center"
       >
-        <Icon size={16} />
-      </span>
-      <span>{label}</span>
-    </button>
+        <AnimatePresence initial={false} mode="wait">
+          <motion.span
+            key={hovered && HoverIcon ? 'hover-icon' : 'icon'}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.12 }}
+            className="flex items-center justify-center"
+          >
+            <ShownIcon size={primary ? 24 : 18} strokeWidth={primary ? 2.5 : 2} />
+          </motion.span>
+        </AnimatePresence>
+      </motion.span>
+      <AnimatePresence initial={false}>
+        {hovered && (
+          <motion.span
+            key="label"
+            initial={{ opacity: 0, width: 0 }}
+            animate={{ opacity: 1, width: 'auto' }}
+            exit={{ opacity: 0, width: 0 }}
+            transition={{ duration: 0.16 }}
+            className="overflow-hidden whitespace-nowrap text-sm"
+          >
+            {label}
+          </motion.span>
+        )}
+      </AnimatePresence>
+    </motion.button>
   )
 }
