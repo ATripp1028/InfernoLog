@@ -202,6 +202,10 @@ model User {
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
   showHighlightUrl      Boolean              @default(true)
+  // Desktop FABs (logging, level-page, collections): whether hovering the
+  // group immediately shows every action's label, vs. only the one under
+  // the pointer. Defaults on so new users can learn the icons.
+  autoExpandFabLabels   Boolean              @default(true)
   includeEnjoyment      Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
   // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in

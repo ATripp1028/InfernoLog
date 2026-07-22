@@ -4,6 +4,7 @@ import { Plus } from 'lucide-react'
 import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import { LOGGING_ACTIONS, type LoggingAction } from './loggingActions'
+import { useMe } from '@/lib/api/me'
 import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
@@ -16,6 +17,7 @@ const SECONDARY_ACTIONS = [...LOGGING_ACTIONS]
 // Desktop FAB: a hover-activated speed dial (see DesktopHoverFab).
 export function FabMenu() {
   const { open } = useLoggingFlow()
+  const me = useMe()
   const [wtbOpen, setWtbOpen] = useState(false)
   const [addColOpen, setAddColOpen] = useState(false)
   const location = useLocation()
@@ -56,6 +58,7 @@ export function FabMenu() {
           groupAriaLabel="Log actions"
           className="fixed bottom-6 z-20 transition-[right] duration-200"
           style={{ right: 'calc(1.5rem + var(--fab-shift, 0px))' }}
+          autoExpandLabels={me.data?.autoExpandFabLabels ?? true}
         />
       )}
       <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />

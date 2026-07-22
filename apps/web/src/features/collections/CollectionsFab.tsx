@@ -12,6 +12,7 @@ import { useMobileFabContext } from '@/context/MobileFabContext'
 import { cn } from '@/lib/utils'
 import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { useMe } from '@/lib/api/me'
 
 export interface CollectionFabAction {
   key: string
@@ -65,6 +66,7 @@ interface CollectionsFabProps {
 
 export function CollectionsFab({ actions }: CollectionsFabProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const me = useMe()
   const { setOverrideToggle } = useMobileFabContext()
   const isMenu = actions.length > 1
 
@@ -122,6 +124,7 @@ export function CollectionsFab({ actions }: CollectionsFabProps) {
         secondaryActions={secondaryActions}
         groupAriaLabel={isMenu ? 'Collection actions' : primary.label}
         className="fixed bottom-6 right-6 z-20"
+        autoExpandLabels={me.data?.autoExpandFabLabels ?? true}
       />
 
       {/* Mobile menu — bottom sheet above the nav bar */}

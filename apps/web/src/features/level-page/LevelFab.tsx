@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useMobileFabContext } from '@/context/MobileFabContext'
 import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { useMe } from '@/lib/api/me'
 
 // Level-page-specific FAB for owned entries.
 // Desktop: hover speed dial (DesktopHoverFab).
@@ -63,6 +64,7 @@ function DesktopFab({
   onGddlSubmit,
   onAddToCollection,
 }: FabProps) {
+  const me = useMe()
   const primary: HoverFabAction = {
     key: 'edit',
     label: 'Edit this entry',
@@ -99,6 +101,7 @@ function DesktopFab({
       groupAriaLabel="Level actions"
       // z-30 sits above the global FabMenu (z-20)
       className="fixed bottom-6 right-6 z-30"
+      autoExpandLabels={me.data?.autoExpandFabLabels ?? true}
     />
   )
 }

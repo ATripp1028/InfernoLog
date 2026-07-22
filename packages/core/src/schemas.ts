@@ -158,6 +158,7 @@ export const UpdateMeSchema = z
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
     showHighlightUrl: z.boolean().optional(),
+    autoExpandFabLabels: z.boolean().optional(),
     includeEnjoyment: z.boolean().optional(),
     enjoymentWeight: z
       .string()

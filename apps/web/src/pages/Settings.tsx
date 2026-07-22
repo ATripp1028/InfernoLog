@@ -87,7 +87,7 @@ export function Settings() {
       <PrivacySection me={me.data} />
       <LoggingSection me={me.data} />
       <RatingSection me={me.data} />
-      <DesignSection />
+      <DesignSection me={me.data} />
       <DangerZoneSection />
 
       <footer className="mt-8 border-t border-[var(--color-border)] pt-6 text-sm text-muted-foreground">

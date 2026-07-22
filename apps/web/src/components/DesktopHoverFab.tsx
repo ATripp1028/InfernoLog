@@ -29,6 +29,10 @@ interface DesktopHoverFabProps {
   groupAriaLabel: string
   className?: string
   style?: CSSProperties
+  // When true (the default — an account preference, see Settings > Design),
+  // every button's label shows as soon as the group is hovered, rather than
+  // only the one under the pointer.
+  autoExpandLabels?: boolean
 }
 
 // A hover-activated speed dial: hovering the group fans secondary actions
@@ -41,6 +45,7 @@ export function DesktopHoverFab({
   groupAriaLabel,
   className,
   style,
+  autoExpandLabels = true,
 }: DesktopHoverFabProps) {
   const [expanded, setExpanded] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -91,12 +96,17 @@ export function DesktopHoverFab({
               exit={{ opacity: 0, y: 16, scale: 0.85 }}
               transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}
             >
-              <FabActionButton action={action} />
+              <FabActionButton action={action} forceExpanded={autoExpandLabels} />
             </motion.div>
           ))}
       </AnimatePresence>
 
-      <FabActionButton action={primary} restIcon={restIcon} primary />
+      <FabActionButton
+        action={primary}
+        restIcon={restIcon}
+        primary
+        forceExpanded={autoExpandLabels && expanded}
+      />
     </div>
   )
 }
@@ -105,13 +115,16 @@ function FabActionButton({
   action: { icon: Icon, label, onClick, disabled, danger },
   restIcon: RestIcon,
   primary,
+  forceExpanded,
 }: {
   action: HoverFabAction
   restIcon?: LucideIcon | undefined
   primary?: boolean
+  forceExpanded?: boolean
 }) {
   const [hovered, setHovered] = useState(false)
-  const ShownIcon = hovered || !RestIcon ? Icon : RestIcon
+  const showLabel = hovered || !!forceExpanded
+  const ShownIcon = showLabel || !RestIcon ? Icon : RestIcon
 
   return (
     <motion.button
@@ -142,7 +155,7 @@ function FabActionButton({
       >
         <AnimatePresence initial={false} mode="wait">
           <motion.span
-            key={hovered || !RestIcon ? 'icon' : 'rest-icon'}
+            key={showLabel || !RestIcon ? 'icon' : 'rest-icon'}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -154,7 +167,7 @@ function FabActionButton({
         </AnimatePresence>
       </motion.span>
       <AnimatePresence initial={false}>
-        {hovered && (
+        {showLabel && (
           <motion.span
             key="label"
             initial={{ opacity: 0, width: 0 }}
