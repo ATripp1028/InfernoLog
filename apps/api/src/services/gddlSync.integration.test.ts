@@ -32,9 +32,14 @@ vi.mock('../utils/robtop', () => ({
   fetchRobtopLevel: vi.fn(async () => null),
 }))
 
+vi.mock('./import', () => ({
+  enqueueSeedIds: vi.fn(async () => {}),
+}))
+
 // Import after vi.mock so that gddlSync picks up the mocked modules.
 const { syncGddlSubmissions } = await import('./gddlSync')
 const { fetchAllGddlSubmissions } = await import('../utils/gddl')
+const { enqueueSeedIds } = await import('./import')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -42,6 +47,7 @@ const prisma = getTestPrisma()
 const mockFetchAll = fetchAllGddlSubmissions as unknown as ReturnType<
   typeof vi.fn
 >
+const mockEnqueueSeedIds = enqueueSeedIds as unknown as ReturnType<typeof vi.fn>
 
 function makeSubmission(
   overrides: Partial<GddlSubmission> = {}
@@ -123,6 +129,41 @@ describe('syncGddlSubmissions', () => {
     expect(level?.name).toBe('DeathMoon')
     expect(level?.dataSource).toBe('manual')
     expect(level?.verified).toBe(false)
+
+    // The freshly-created stub is enqueued for async RobTop enrichment rather
+    // than being left stranded until the next weekly sync.
+    expect(mockEnqueueSeedIds).toHaveBeenCalledWith(['12345'])
+  })
+
+  it('re-enqueues a stub left behind by a prior import instead of treating it as already seeded', async () => {
+    const user = await seedUser(prisma)
+    // Simulates a level a previous GDDL import created when RobTop was
+    // unreachable — it exists in the DB but was never actually enriched.
+    await seedLevel(prisma, {
+      inGameId: '12345',
+      dataSource: 'manual',
+      verified: false,
+    })
+    mockFetchAll.mockResolvedValueOnce([makeSubmission()])
+
+    const result = await syncGddlSubmissions(user.id, 'api-key')
+
+    expect(result.created).toBe(1)
+    expect(result.errors).toHaveLength(0)
+    expect(mockEnqueueSeedIds).toHaveBeenCalledWith(['12345'])
+  })
+
+  it('does not enqueue an already-verified level', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, {
+      inGameId: '12345',
+      inGameDifficulty: 'Extreme Demon',
+    })
+    mockFetchAll.mockResolvedValueOnce([makeSubmission()])
+
+    await syncGddlSubmissions(user.id, 'api-key')
+
+    expect(mockEnqueueSeedIds).not.toHaveBeenCalled()
   })
 
   it('maps GDDL official level IDs to GD in-game IDs', async () => {

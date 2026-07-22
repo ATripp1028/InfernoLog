@@ -22,7 +22,7 @@ import {
   addGddlListEntry,
   removeGddlListEntry,
 } from '../utils/gddl'
-import { fetchRobtopLevel } from '../utils/robtop'
+import { fetchRobtopLevel, type RobtopLevel } from '../utils/robtop'
 import { bisectIndices } from '../utils/fractionalIndex'
 import { logger } from '../utils/logger'
 
@@ -42,66 +42,86 @@ export interface GddlListSyncResult {
   leastFavorites: ListSyncSummary
 }
 
+function robtopLevelData(gd: RobtopLevel) {
+  return {
+    levelType: gd.platformer ? ('PLATFORMER' as const) : ('CLASSIC' as const),
+    name: gd.name,
+    creator: gd.creator,
+    inGameDifficulty: gd.inGameDifficulty,
+    length: gd.length,
+    songName: gd.songName,
+    songAuthor: gd.songAuthor,
+    isRated: gd.isRated,
+    isDemon: gd.isDemon,
+    description: gd.description,
+    creatorPlayerId: gd.creatorPlayerId,
+    creatorAccountId: gd.creatorAccountId,
+    creatorPoints: gd.creatorPoints,
+    stars: gd.stars,
+    starsRequested: gd.starsRequested,
+    partialDiff: gd.partialDiff,
+    difficultyFace: gd.difficultyFace,
+    downloads: gd.downloads,
+    likes: gd.likes,
+    disliked: gd.disliked,
+    objectCount: gd.objectCount,
+    largeLevel: gd.largeLevel,
+    coins: gd.coins,
+    coinsVerified: gd.coinsVerified,
+    orbs: gd.orbs,
+    diamonds: gd.diamonds,
+    featured: gd.featured,
+    featureScore: gd.featureScore,
+    epicValue: gd.epicValue,
+    twoPlayer: gd.twoPlayer,
+    lowDetailMode: gd.lowDetailMode,
+    copiedFromId: gd.copiedFromId,
+    levelVersion: gd.levelVersion,
+    gameVersion: gd.gameVersion,
+    editorSeconds: gd.editorSeconds,
+    editorSecondsTotal: gd.editorSecondsTotal,
+    officialSongId: gd.officialSongId,
+    songId: gd.songId,
+    songLink: gd.songLink,
+    songSize: gd.songSize,
+    dataSource: 'robtop_autofill' as const,
+    verified: true,
+  }
+}
+
 // Ensures a level exists in the local Level cache. On a miss, attempts to seed
-// from RobTop. Returns true if the level is (now) cached, false if it could
-// not be found and was skipped.
+// from RobTop. If a cached row already exists but was never seeded (a stub
+// left behind by a prior import that couldn't reach RobTop at the time), retry
+// the RobTop fetch and upgrade it in place rather than treating "row exists"
+// as "already handled". Returns true if the level is (now) cached — even as
+// an unupgraded stub — false only if it could not be found at all and was
+// skipped.
 async function ensureLevelCached(levelId: string): Promise<boolean> {
   const existing = await prisma.level.findUnique({
     where: { inGameId: levelId },
-    select: { inGameId: true },
+    select: { inGameId: true, verified: true },
   })
-  if (existing) return true
+  if (existing?.verified) return true
 
   const gd = await fetchRobtopLevel(levelId)
+
+  if (existing) {
+    // Already cached as a stub — upgrade it if RobTop has data now, otherwise
+    // leave the stub standing (it's still usable, just unseeded).
+    if (gd) {
+      await prisma.level.update({
+        where: { inGameId: levelId },
+        data: robtopLevelData(gd),
+      })
+    }
+    return true
+  }
+
   if (!gd) return false
 
   try {
     await prisma.level.create({
-      data: {
-        inGameId: levelId,
-        levelType: gd.platformer ? 'PLATFORMER' : 'CLASSIC',
-        name: gd.name,
-        creator: gd.creator,
-        inGameDifficulty: gd.inGameDifficulty,
-        length: gd.length,
-        songName: gd.songName,
-        songAuthor: gd.songAuthor,
-        isRated: gd.isRated,
-        isDemon: gd.isDemon,
-        description: gd.description,
-        creatorPlayerId: gd.creatorPlayerId,
-        creatorAccountId: gd.creatorAccountId,
-        creatorPoints: gd.creatorPoints,
-        stars: gd.stars,
-        starsRequested: gd.starsRequested,
-        partialDiff: gd.partialDiff,
-        difficultyFace: gd.difficultyFace,
-        downloads: gd.downloads,
-        likes: gd.likes,
-        disliked: gd.disliked,
-        objectCount: gd.objectCount,
-        largeLevel: gd.largeLevel,
-        coins: gd.coins,
-        coinsVerified: gd.coinsVerified,
-        orbs: gd.orbs,
-        diamonds: gd.diamonds,
-        featured: gd.featured,
-        featureScore: gd.featureScore,
-        epicValue: gd.epicValue,
-        twoPlayer: gd.twoPlayer,
-        lowDetailMode: gd.lowDetailMode,
-        copiedFromId: gd.copiedFromId,
-        levelVersion: gd.levelVersion,
-        gameVersion: gd.gameVersion,
-        editorSeconds: gd.editorSeconds,
-        editorSecondsTotal: gd.editorSecondsTotal,
-        officialSongId: gd.officialSongId,
-        songId: gd.songId,
-        songLink: gd.songLink,
-        songSize: gd.songSize,
-        dataSource: 'robtop_autofill',
-        verified: true,
-      },
+      data: { inGameId: levelId, ...robtopLevelData(gd) },
     })
   } catch (err) {
     // P2002 = unique violation — another concurrent request already seeded it.
