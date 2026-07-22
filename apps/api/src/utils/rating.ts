@@ -53,5 +53,8 @@ export function computeOverallRating(
   }
 
   if (weightTotal === 0) return null
-  return Math.round(weightedSum / weightTotal)
+  // Round to 3 decimal places rather than to a whole number — the display
+  // layer strips trailing zeros, so extra precision only shows up when it's
+  // meaningful (e.g. narrowly-tied levels).
+  return Math.round((weightedSum / weightTotal) * 1000) / 1000
 }

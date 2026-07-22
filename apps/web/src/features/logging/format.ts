@@ -59,11 +59,13 @@ export function toInternal(display: number, scale: RatingDisplayScale): number {
   return Math.round(scale === 'ZERO_TO_TEN' ? display * 10 : display)
 }
 
-// Trim a trailing ".0" so a 0–10 score reads "8" not "8.0", but keeps "6.8".
+// Shows up to 3 decimal places (matching the weighted-average rating's
+// precision) but trims trailing zeros, so "8" stays "8", "6.80" reads "6.8",
+// and "6.345" is preserved.
 export function formatRating(
   internal: number,
   scale: RatingDisplayScale
 ): string {
   const v = toDisplay(internal, scale)
-  return Number.isInteger(v) ? String(v) : v.toFixed(1)
+  return v.toFixed(3).replace(/\.?0+$/, '')
 }

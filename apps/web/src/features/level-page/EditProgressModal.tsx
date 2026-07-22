@@ -18,6 +18,7 @@ import {
   clampPercent,
   digitsOnly,
   maxValueError,
+  formatRating,
   MAX_ATTEMPTS,
   MAX_FPS,
   MAX_GDDL_TIER,
@@ -197,7 +198,6 @@ export function EditProgressModal({
     )
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const categories = me.data.ratingCategories
-  const isTen = scale === 'ZERO_TO_TEN'
 
   // Weighted avg of currently-set category scores (display units)
   const filteredScores = Object.fromEntries(
@@ -510,9 +510,7 @@ export function EditProgressModal({
                           <p className="text-right text-xs text-text-tertiary">
                             Weighted avg:{' '}
                             <span className="font-medium text-text-secondary">
-                              {isTen
-                                ? weightedAvg.toFixed(1)
-                                : Math.round(weightedAvg)}
+                              {formatRating(weightedAvg, scale)}
                             </span>
                           </p>
                         )}

@@ -59,7 +59,9 @@ function computeOverallRating(
   }
 
   if (weightTotal === 0) return null
-  return Math.round(weightedSum / weightTotal)
+  // Kept in sync with apps/api/src/utils/rating.ts — round to 3 decimal
+  // places rather than to a whole number; formatRating strips trailing zeros.
+  return Math.round((weightedSum / weightTotal) * 1000) / 1000
 }
 
 interface StatBoxProps {
