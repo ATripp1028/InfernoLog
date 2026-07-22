@@ -11,6 +11,7 @@ import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useMobileFabContext } from '@/context/MobileFabContext'
 import { cn } from '@/lib/utils'
 import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
 
 export interface CollectionFabAction {
   key: string
@@ -124,32 +125,28 @@ export function CollectionsFab({ actions }: CollectionsFabProps) {
       />
 
       {/* Mobile menu — bottom sheet above the nav bar */}
-      {menuOpen && isMenu && (
-        <div className="md:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setMenuOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pb-1 pt-2">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {actions.map((action) => (
-                <li key={action.key}>
-                  <MenuItem
-                    action={action}
-                    onClick={() => activate(action)}
-                    tall
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
+      <div className="md:hidden">
+        <MobileActionSheet
+          open={menuOpen && isMenu}
+          onClose={() => setMenuOpen(false)}
+          ariaLabel="Collection actions"
+        >
+          {/* Desktop stacks these bottom-to-top with actions[0] as the FAB
+              itself, so top-to-bottom reads delete, edit, actions[0].
+              Mirror that order here. */}
+          <ul className="flex flex-col gap-1 px-2 py-2">
+            {[...actions].reverse().map((action) => (
+              <li key={action.key}>
+                <MenuItem
+                  action={action}
+                  onClick={() => activate(action)}
+                  tall
+                />
+              </li>
+            ))}
+          </ul>
+        </MobileActionSheet>
+      </div>
     </>
   )
 }

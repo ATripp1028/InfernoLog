@@ -3,6 +3,7 @@ import { List, Pencil, Plus, Trash2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileFabContext } from '@/context/MobileFabContext'
 import { DesktopHoverFab, type HoverFabAction } from '@/components/DesktopHoverFab'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
 
 // Level-page-specific FAB for owned entries.
 // Desktop: hover speed dial (DesktopHoverFab).
@@ -119,7 +120,10 @@ function MobileFab({
     return () => setOverrideToggle(null)
   }, [setOverrideToggle])
 
-  const actions = buildActions(onGddlSubmit, onAddToCollection)
+  // Desktop stacks these bottom-to-top with edit as the FAB itself, so
+  // top-to-bottom reads delete, gddl-submit, add-collection, edit. Mirror
+  // that order in the mobile sheet.
+  const actions = [...buildActions(onGddlSubmit, onAddToCollection)].reverse()
 
   function handleAction(key: ActionKey) {
     setOpen(false)
@@ -129,20 +133,13 @@ function MobileFab({
     if (key === 'add-collection') onAddToCollection?.()
   }
 
-  if (!open) return null
-
   return (
     <div className="md:hidden">
-      <button
-        type="button"
-        aria-label="Close menu"
-        onClick={() => setOpen(false)}
-        className="fixed inset-0 z-40 bg-black/40"
-      />
-      <div className="fixed inset-x-0 bottom-[72px] z-50 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-center pb-1 pt-2">
-          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-        </div>
+      <MobileActionSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        ariaLabel="Level actions"
+      >
         <ul className="flex flex-col gap-1 px-2 py-2">
           {actions.map((action) => {
             const Icon = action.icon
@@ -175,7 +172,7 @@ function MobileFab({
             )
           })}
         </ul>
-      </div>
+      </MobileActionSheet>
     </div>
   )
 }

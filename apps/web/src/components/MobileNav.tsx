@@ -14,6 +14,12 @@ import {
 import { useMobileFabContext } from '@/context/MobileFabContext'
 import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
+
+// Desktop stacks these bottom-to-top with the primary (completion) as the
+// FAB itself, so top-to-bottom reads add-to-list, want-to-beat, drop,
+// progress, completion. Mirror that order in the mobile sheet.
+const MOBILE_LOGGING_ACTIONS = [...LOGGING_ACTIONS].reverse()
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
@@ -36,66 +42,48 @@ export function MobileNav() {
 
   return (
     <div className="md:hidden">
-      {overflowOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOverflowOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pt-2 pb-1">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {overflow.map((item) => (
-                <li key={item.key}>
-                  <SheetItem
-                    item={item}
-                    onNavigate={() => setOverflowOpen(false)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+      <MobileActionSheet
+        open={overflowOpen}
+        onClose={() => setOverflowOpen(false)}
+        ariaLabel="More"
+      >
+        <ul className="flex flex-col gap-1 px-2 py-2">
+          {overflow.map((item) => (
+            <li key={item.key}>
+              <SheetItem
+                item={item}
+                onNavigate={() => setOverflowOpen(false)}
+              />
+            </li>
+          ))}
+        </ul>
+      </MobileActionSheet>
 
-      {fabMenuOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setFabMenuOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pt-2 pb-1">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {LOGGING_ACTIONS.map((action) => (
-                <li key={action.key}>
-                  <FabSheetItem
-                    action={action}
-                    onSelect={() => {
-                      setFabMenuOpen(false)
-                      if (action.path) {
-                        open(action.path)
-                      } else if (action.key === 'want-to-beat') {
-                        setWtbOpen(true)
-                      } else if (action.key === 'add-to-list') {
-                        setAddColOpen(true)
-                      }
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+      <MobileActionSheet
+        open={fabMenuOpen}
+        onClose={() => setFabMenuOpen(false)}
+        ariaLabel="Log actions"
+      >
+        <ul className="flex flex-col gap-1 px-2 py-2">
+          {MOBILE_LOGGING_ACTIONS.map((action) => (
+            <li key={action.key}>
+              <FabSheetItem
+                action={action}
+                onSelect={() => {
+                  setFabMenuOpen(false)
+                  if (action.path) {
+                    open(action.path)
+                  } else if (action.key === 'want-to-beat') {
+                    setWtbOpen(true)
+                  } else if (action.key === 'add-to-list') {
+                    setAddColOpen(true)
+                  }
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      </MobileActionSheet>
 
       <nav
         aria-label="Primary mobile"
