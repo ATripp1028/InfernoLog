@@ -45,10 +45,8 @@ import {
 } from '@/features/collections/identity'
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
-import {
-  CollectionsFab,
-  collectionDetailActions,
-} from '@/features/collections/CollectionsFab'
+import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
+import { useFabActions } from '@/context/FabActionsContext'
 
 export function CollectionDetail({ collectionId }: { collectionId: string }) {
   const collection = useCollection(collectionId)
@@ -89,6 +87,15 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
+
+  useFabActions(
+    collectionDetailActions({
+      isCustom: custom,
+      onAddLevels: () => setAddOpen(true),
+      onEdit: () => setEditOpen(true),
+      onDelete: () => setConfirmDelete(true),
+    })
+  )
 
   const sensors = useSortableSensors()
 
@@ -217,15 +224,6 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
           </DndContext>
         </section>
       )}
-
-      <CollectionsFab
-        actions={collectionDetailActions({
-          isCustom: custom,
-          onAddLevels: () => setAddOpen(true),
-          onEdit: () => setEditOpen(true),
-          onDelete: () => setConfirmDelete(true),
-        })}
-      />
 
       <AddLevelsDialog
         open={addOpen}

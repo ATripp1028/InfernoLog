@@ -11,13 +11,22 @@ import {
   CreateCollectionCard,
 } from '@/features/collections/CollectionCard'
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
-import { CollectionsFab } from '@/features/collections/CollectionsFab'
+import { useFabActions } from '@/context/FabActionsContext'
 import { Plus } from 'lucide-react'
 
 export function Collections() {
   const collections = useCollections()
   const createCollection = useCreateCollection()
   const [createOpen, setCreateOpen] = useState(false)
+
+  useFabActions([
+    {
+      key: 'create',
+      label: 'New collection',
+      icon: Plus,
+      onClick: () => setCreateOpen(true),
+    },
+  ])
 
   if (collections.isPending) return <PageLoading />
   if (collections.error) {
@@ -58,17 +67,6 @@ export function Collections() {
           <CreateCollectionCard onClick={() => setCreateOpen(true)} />
         </div>
       </section>
-
-      <CollectionsFab
-        actions={[
-          {
-            key: 'create',
-            label: 'New collection',
-            icon: Plus,
-            onSelect: () => setCreateOpen(true),
-          },
-        ]}
-      />
 
       <CollectionFormDialog
         open={createOpen}

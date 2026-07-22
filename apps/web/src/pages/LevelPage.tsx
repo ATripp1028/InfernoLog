@@ -1,5 +1,5 @@
 import { Link, useParams, useNavigate } from '@tanstack/react-router'
-import { AlertCircle, ArrowLeft, Lock } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Lock, List, Pencil, Trash2, Upload } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
@@ -13,7 +13,7 @@ import { StatGrid } from '@/features/level-page/StatGrid'
 import { LevelNotes } from '@/features/level-page/LevelNotes'
 import { Timeline } from '@/features/level-page/Timeline'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
-import { LevelFab } from '@/features/level-page/LevelFab'
+import { useFabActions } from '@/context/FabActionsContext'
 import { EditProgressModal } from '@/features/level-page/EditProgressModal'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { useState } from 'react'
@@ -178,6 +178,53 @@ export function LevelPage() {
     })
   }
 
+  // Computed with optional chaining (rather than the destructured `data`/
+  // `me.data` below) so this — and the useFabActions call — can run
+  // unconditionally, before the loading/error early returns.
+  const isOwner = query.data?.levelProgressId != null
+  const hasCompletion =
+    query.data?.progressUpdates.some((u) => u.kind === 'COMPLETION') ?? false
+  const canSubmitToGddl =
+    isOwner && hasCompletion && (me.data?.hasGddlApiKey ?? false)
+
+  // FAB — shown for owned entries; falls back to the default (logging)
+  // actions for everyone else. Delete is listed farthest from the FAB.
+  useFabActions(
+    isOwner
+      ? [
+          {
+            key: 'edit',
+            label: 'Edit this entry',
+            icon: Pencil,
+            onClick: handleEditLevel,
+          },
+          {
+            key: 'add-collection',
+            label: 'Add to a Collection',
+            icon: List,
+            onClick: () => setAddToCollectionOpen(true),
+          },
+          ...(canSubmitToGddl
+            ? [
+                {
+                  key: 'gddl-submit',
+                  label: 'Submit to GDDL',
+                  icon: Upload,
+                  onClick: () => setPendingGddlSubmit(true),
+                },
+              ]
+            : []),
+          {
+            key: 'delete',
+            label: 'Delete this level',
+            icon: Trash2,
+            danger: true,
+            onClick: () => setPendingDelete(true),
+          },
+        ]
+      : null
+  )
+
   // ── Loading / error states ──
   if (me.isPending || (query.isPending && !is403 && !is404)) {
     return <LevelPageSkeleton />
@@ -207,17 +254,11 @@ export function LevelPage() {
     enjoymentWeight,
     ratingCategories,
   } = me.data
-  const isOwner = data.levelProgressId != null
   const levelName = data.level.name ?? `Level #${levelId}`
-
-  const completion = data.progressUpdates.find((u) => u.kind === 'COMPLETION')
 
   const hasVideo = !!data.completionVideoUrl
   const hasGraph = data.runsGraph.length > 0
   const totalEntries = data.progressUpdates.length
-  const hasCompletion = completion != null
-  const canSubmitToGddl =
-    isOwner && hasCompletion && (me.data.hasGddlApiKey ?? false)
 
   return (
     <>
@@ -387,18 +428,6 @@ export function LevelPage() {
           </div>
         </div>
       </div>
-
-      {/* FAB — shown for all owned entries */}
-      {isOwner && (
-        <LevelFab
-          onEdit={handleEditLevel}
-          onDelete={() => setPendingDelete(true)}
-          onAddToCollection={() => setAddToCollectionOpen(true)}
-          {...(canSubmitToGddl
-            ? { onGddlSubmit: () => setPendingGddlSubmit(true) }
-            : {})}
-        />
-      )}
 
       {/* Edit modal */}
       {isOwner && (

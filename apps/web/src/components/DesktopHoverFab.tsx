@@ -2,30 +2,22 @@ import { useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { FabAction } from '@/context/FabActionsContext'
 
 // How long the group stays expanded after the pointer leaves it. Gives the
 // cursor room to cross gaps between buttons (or overshoot briefly) without
 // the stack collapsing back into the FAB.
 const CLOSE_DELAY_MS = 350
 
-export interface HoverFabAction {
-  key: string
-  label: string
-  icon: LucideIcon
-  onClick: () => void
-  disabled?: boolean | undefined
-  danger?: boolean | undefined
-}
-
 interface DesktopHoverFabProps {
-  primary: HoverFabAction
+  primary: FabAction
   // Icon shown before the FAB is hovered; crossfades to primary.icon on
   // hover. Omit when primary.icon already fits the action (e.g. Plus for an
   // "add" action) and no crossfade is needed.
   restIcon?: LucideIcon | undefined
   // Rendered above the FAB. List farthest-from-FAB first — put the most
   // consequential/least-common action first so it lands furthest away.
-  secondaryActions?: HoverFabAction[]
+  secondaryActions?: FabAction[]
   groupAriaLabel: string
   className?: string
   style?: CSSProperties
@@ -117,7 +109,7 @@ function FabActionButton({
   primary,
   forceExpanded,
 }: {
-  action: HoverFabAction
+  action: FabAction
   restIcon?: LucideIcon | undefined
   primary?: boolean
   forceExpanded?: boolean

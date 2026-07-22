@@ -1,34 +1,30 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { Menu, Plus } from 'lucide-react'
+import { Menu, type LucideIcon } from 'lucide-react'
 import {
   NAV_ITEMS,
   MOBILE_OVERFLOW_KEYS,
   type NavItem,
 } from '../utils/navConfig'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
-import {
-  LOGGING_ACTIONS,
-  type LoggingAction,
-} from '@/features/logging/loggingActions'
-import { useMobileFabContext } from '@/context/MobileFabContext'
-import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
-import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+import { useFabActionsOverride, type FabAction } from '@/context/FabActionsContext'
+import { useDefaultFabActions } from '@/features/logging/useDefaultFabActions'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
-
-// Desktop stacks these bottom-to-top with the primary (completion) as the
-// FAB itself, so top-to-bottom reads add-to-list, want-to-beat, drop,
-// progress, completion. Mirror that order in the mobile sheet.
-const MOBILE_LOGGING_ACTIONS = [...LOGGING_ACTIONS].reverse()
+import { cn } from '@/lib/utils'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
-  const [wtbOpen, setWtbOpen] = useState(false)
-  const [addColOpen, setAddColOpen] = useState(false)
   const location = useLocation()
-  const { open } = useLoggingFlow()
-  const { overrideToggle } = useMobileFabContext()
+  const override = useFabActionsOverride()
+  const { actions: defaultActions, dialogs } = useDefaultFabActions()
+
+  const actions = override ?? defaultActions
+  // Every actions array (default or registered via useFabActions) has at
+  // least one entry.
+  const primary = actions[0]!
+  // Bottom-to-top on desktop reads primary last; the mobile list mirrors
+  // that top-to-bottom, so the primary row goes last here too.
+  const orderedActions = actions.slice(1).reverse().concat(primary)
 
   const byKey = (key: string): NavItem => {
     const item = NAV_ITEMS.find((n) => n.key === key)
@@ -62,22 +58,16 @@ export function MobileNav() {
       <MobileActionSheet
         open={fabMenuOpen}
         onClose={() => setFabMenuOpen(false)}
-        ariaLabel="Log actions"
+        ariaLabel="Quick actions"
       >
         <ul className="flex flex-col gap-1 px-2 py-2">
-          {MOBILE_LOGGING_ACTIONS.map((action) => (
+          {orderedActions.map((action) => (
             <li key={action.key}>
               <FabSheetItem
                 action={action}
                 onSelect={() => {
                   setFabMenuOpen(false)
-                  if (action.path) {
-                    open(action.path)
-                  } else if (action.key === 'want-to-beat') {
-                    setWtbOpen(true)
-                  } else if (action.key === 'add-to-list') {
-                    setAddColOpen(true)
-                  }
+                  action.onClick()
                 }}
               />
             </li>
@@ -93,14 +83,11 @@ export function MobileNav() {
         <BarTab item={ranking} active={location.pathname === ranking.to} />
         <FabSlot
           active={fabMenuOpen}
+          label={primary.label}
+          icon={primary.icon}
           onClick={() => {
             setOverflowOpen(false)
-            if (overrideToggle) {
-              setFabMenuOpen(false)
-              overrideToggle()
-            } else {
-              setFabMenuOpen((v) => !v)
-            }
+            setFabMenuOpen((v) => !v)
           }}
         />
         <BarTab item={log} active={location.pathname === log.to} />
@@ -112,11 +99,7 @@ export function MobileNav() {
           }}
         />
       </nav>
-      <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
-      <AddToCollectionDialog
-        open={addColOpen}
-        onClose={() => setAddColOpen(false)}
-      />
+      {dialogs}
     </div>
   )
 }
@@ -178,21 +161,25 @@ function MoreTab({
 
 function FabSlot({
   active,
+  label,
+  icon: Icon,
   onClick,
 }: {
   active: boolean
+  label: string
+  icon: LucideIcon
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      aria-label="Log a level"
+      aria-label={label}
       aria-haspopup="menu"
       aria-expanded={active}
       onClick={onClick}
       className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
     >
-      <Plus size={24} strokeWidth={2.5} />
+      <Icon size={24} strokeWidth={2.5} />
     </button>
   )
 }
@@ -201,7 +188,7 @@ function FabSheetItem({
   action,
   onSelect,
 }: {
-  action: LoggingAction
+  action: FabAction
   onSelect: () => void
 }) {
   const Icon = action.icon
@@ -220,11 +207,12 @@ function FabSheetItem({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors ${
-        action.highlight
-          ? 'bg-primary text-primary-foreground'
+      className={cn(
+        'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
+        action.danger
+          ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
           : 'text-text-primary hover:bg-bg-subtle'
-      }`}
+      )}
     >
       <Icon size={20} />
       <span>{action.label}</span>
