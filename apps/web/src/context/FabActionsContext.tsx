@@ -2,11 +2,11 @@ import {
   createContext,
   useContext,
   useEffect,
-  useMemo,
   useState,
   type ReactNode,
 } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { useDefaultFabActions } from '@/features/logging/useDefaultFabActions'
 
 // The one action shape shared by every page's FAB: an icon, a name, and a
 // method to call when clicked. `actions[0]` is always the primary action —
@@ -23,30 +23,55 @@ export interface FabAction {
 }
 
 interface FabActionsContextValue {
-  actions: FabAction[] | null
-  setActions: (actions: FabAction[] | null) => void
+  // Whichever action set is currently active — a page's override (via
+  // useFabActions) or the default logging actions — already split into the
+  // FAB itself and the fan-out stack above it (farthest-from-FAB first).
+  primary: FabAction
+  secondaryActions: FabAction[]
+  setOverride: (actions: FabAction[] | null) => void
 }
 
-const FabActionsContext = createContext<FabActionsContextValue>({
-  actions: null,
-  setActions: () => {},
-})
+const FabActionsContext = createContext<FabActionsContextValue | null>(null)
 
+// Mounted once in Shell. Resolves whichever action set is active and renders
+// the default action set's dialogs (Want to Beat / Add to Collection)
+// exactly once — they stay mounted but closed whenever a page's override is
+// showing instead, same as the default actions that would open them.
 export function FabActionsProvider({ children }: { children: ReactNode }) {
-  const [actions, setActions] = useState<FabAction[] | null>(null)
-  const value = useMemo(() => ({ actions, setActions }), [actions])
+  const [override, setOverride] = useState<FabAction[] | null>(null)
+  const { actions: defaultActions, dialogs } = useDefaultFabActions()
+
+  const actions = override ?? defaultActions
+  // Every actions array (default or registered via useFabActions) has at
+  // least one entry.
+  const primary = actions[0]!
+  const secondaryActions = actions.slice(1).reverse()
+
   return (
-    <FabActionsContext.Provider value={value}>
+    <FabActionsContext.Provider
+      value={{ primary, secondaryActions, setOverride }}
+    >
       {children}
+      {dialogs}
     </FabActionsContext.Provider>
   )
 }
 
-// Read by the desktop `Fab` and `MobileNav` to get whichever action set is
-// currently active. `null` means no page has overridden it — render the
-// default (logging) actions instead.
-export function useFabActionsOverride() {
-  return useContext(FabActionsContext).actions
+function useFabActionsContext() {
+  const ctx = useContext(FabActionsContext)
+  if (!ctx) {
+    throw new Error(
+      'useFabActions/useResolvedFabActions must be used within FabActionsProvider'
+    )
+  }
+  return ctx
+}
+
+// Read by the desktop Fab and MobileNav to render whichever action set is
+// currently active.
+export function useResolvedFabActions() {
+  const { primary, secondaryActions } = useFabActionsContext()
+  return { primary, secondaryActions }
 }
 
 // Called by a page to replace the FAB's actions while it's mounted (e.g. the
@@ -54,7 +79,7 @@ export function useFabActionsOverride() {
 // `null` to fall back to the default action set — e.g. when the current
 // user doesn't own the level being viewed.
 export function useFabActions(actions: FabAction[] | null) {
-  const { setActions } = useContext(FabActionsContext)
+  const { setOverride } = useFabActionsContext()
   // Actions arrays are rebuilt every render (fresh onClick closures) — key
   // the effect on a cheap signature instead of the array reference so we
   // don't re-register (and re-render every FAB consumer) on every render of
@@ -65,8 +90,8 @@ export function useFabActions(actions: FabAction[] | null) {
     : null
 
   useEffect(() => {
-    setActions(actions)
-    return () => setActions(null)
+    setOverride(actions)
+    return () => setOverride(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, setActions])
+  }, [signature, setOverride])
 }

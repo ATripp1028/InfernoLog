@@ -6,8 +6,7 @@ import {
   MOBILE_OVERFLOW_KEYS,
   type NavItem,
 } from '../utils/navConfig'
-import { useFabActionsOverride, type FabAction } from '@/context/FabActionsContext'
-import { useDefaultFabActions } from '@/features/logging/useDefaultFabActions'
+import { useResolvedFabActions, type FabAction } from '@/context/FabActionsContext'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
 import { cn } from '@/lib/utils'
 
@@ -15,16 +14,11 @@ export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
   const location = useLocation()
-  const override = useFabActionsOverride()
-  const { actions: defaultActions, dialogs } = useDefaultFabActions()
+  const { primary, secondaryActions } = useResolvedFabActions()
 
-  const actions = override ?? defaultActions
-  // Every actions array (default or registered via useFabActions) has at
-  // least one entry.
-  const primary = actions[0]!
   // Bottom-to-top on desktop reads primary last; the mobile list mirrors
   // that top-to-bottom, so the primary row goes last here too.
-  const orderedActions = actions.slice(1).reverse().concat(primary)
+  const orderedActions = secondaryActions.concat(primary)
 
   const byKey = (key: string): NavItem => {
     const item = NAV_ITEMS.find((n) => n.key === key)
@@ -99,7 +93,6 @@ export function MobileNav() {
           }}
         />
       </nav>
-      {dialogs}
     </div>
   )
 }
