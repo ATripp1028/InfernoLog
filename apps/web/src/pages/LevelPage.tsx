@@ -1,5 +1,13 @@
 import { Link, useParams, useNavigate } from '@tanstack/react-router'
-import { AlertCircle, ArrowLeft, Lock, List, Pencil, Trash2, Upload } from 'lucide-react'
+import {
+  AlertCircle,
+  ArrowLeft,
+  Lock,
+  List,
+  Pencil,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'

@@ -6,7 +6,10 @@ import {
   MOBILE_OVERFLOW_KEYS,
   type NavItem,
 } from '../utils/navConfig'
-import { useResolvedFabActions, type FabAction } from '@/context/FabActionsContext'
+import {
+  useResolvedFabActions,
+  type FabAction,
+} from '@/context/FabActionsContext'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
 import { cn } from '@/lib/utils'
 

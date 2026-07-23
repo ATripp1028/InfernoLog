@@ -88,7 +88,10 @@ export function DesktopHoverFab({
               exit={{ opacity: 0, y: 16, scale: 0.85 }}
               transition={{ duration: 0.18, ease: 'easeOut', delay: i * 0.03 }}
             >
-              <FabActionButton action={action} forceExpanded={autoExpandLabels} />
+              <FabActionButton
+                action={action}
+                forceExpanded={autoExpandLabels}
+              />
             </motion.div>
           ))}
       </AnimatePresence>
@@ -154,7 +157,10 @@ function FabActionButton({
             transition={{ duration: 0.12 }}
             className="flex items-center justify-center"
           >
-            <ShownIcon size={primary ? 24 : 18} strokeWidth={primary ? 2.5 : 2} />
+            <ShownIcon
+              size={primary ? 24 : 18}
+              strokeWidth={primary ? 2.5 : 2}
+            />
           </motion.span>
         </AnimatePresence>
       </motion.span>
