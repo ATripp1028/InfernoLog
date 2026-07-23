@@ -209,7 +209,6 @@ export function List() {
       ),
     }))
     // activeCategories reference changes only when category content changes (TanStack Query stable refs)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategories])
 
   // The docked panel is 320px wide; the content column adds ~48px padding at md+.
