@@ -20,3 +20,7 @@ The **/apps/web/public/assets/infernolog/** directory holds real product screens
 ```
 
 Two sets exist because the List, Ranking, and privacy-toggle shots are **captured natively at each viewport** rather than scaled from one source — those three don't survive being scaled down from the desktop layout. The desktop `completion-logging-modal`, `progress-timeline`, and `import-conflict` shots are reused on mobile (scaled down whole, never cropped), so they have no separate mobile capture. The landing page swaps between the two sets with a `<picture>` element / responsive layout. See the "Landing Page" Figma frames for exact per-viewport sizing.
+
+## Art
+
+The favicon was made by me in Inkscape and formatted using https://realfavicongenerator.net/.
