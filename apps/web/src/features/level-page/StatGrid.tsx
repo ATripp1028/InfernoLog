@@ -1,4 +1,5 @@
 import { HelpCircle } from 'lucide-react'
+import { computeOverallRating } from '@infernolog/core'
 import { formatDate } from '@/lib/dateFormat'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import type {
@@ -24,42 +25,6 @@ function getDateDisplay(
     }
   }
   return { text: formatDate(fallbackIso, datePref), uncertain: false }
-}
-
-// Replicates apps/api/src/utils/rating.ts on the client side so the level
-// page can display the proper overall rating without an extra API call.
-function computeOverallRating(
-  ratingMode: 'SIMPLE' | 'WEIGHTED',
-  includeEnjoyment: boolean,
-  enjoymentWeight: number,
-  categoryWeights: Map<string, number>,
-  update: {
-    simpleRating: number | null
-    enjoyment: number | null
-    ratingScores: { categoryId: string; score: number }[]
-  }
-): number | null {
-  if (ratingMode === 'SIMPLE') {
-    return update.simpleRating
-  }
-
-  let weightedSum = 0
-  let weightTotal = 0
-
-  for (const { categoryId, score } of update.ratingScores) {
-    const weight = categoryWeights.get(categoryId)
-    if (weight === undefined) continue
-    weightedSum += score * weight
-    weightTotal += weight
-  }
-
-  if (includeEnjoyment && update.enjoyment !== null) {
-    weightedSum += update.enjoyment * enjoymentWeight
-    weightTotal += enjoymentWeight
-  }
-
-  if (weightTotal === 0) return null
-  return Math.round(weightedSum / weightTotal)
 }
 
 interface StatBoxProps {
@@ -123,10 +88,7 @@ export function StatGrid({
   )
   const overallRating = completion
     ? computeOverallRating(
-        ratingMode,
-        includeEnjoyment,
-        enjoymentWeight,
-        categoryWeights,
+        { ratingMode, includeEnjoyment, enjoymentWeight, categoryWeights },
         completion
       )
     : null

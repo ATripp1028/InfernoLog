@@ -30,6 +30,7 @@ export interface MeData {
   defaultPercentageVersion: GdVersion
   dateFormatPreference: DateFormatPreference
   showHighlightUrl: boolean
+  autoExpandFabLabels: boolean
   includeEnjoyment: boolean
   enjoymentWeight: number
   enjoymentSortOrder: number
@@ -253,6 +254,7 @@ export interface UpdateMeInput {
   defaultPercentageVersion?: GdVersion
   dateFormatPreference?: DateFormatPreference
   showHighlightUrl?: boolean
+  autoExpandFabLabels?: boolean
   ratingMode?: RatingMode
   ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean

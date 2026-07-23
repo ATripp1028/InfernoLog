@@ -1,8 +1,9 @@
-import { ArrowUpDown, Search, SlidersHorizontal, X } from 'lucide-react'
+import { ArrowUpDown, Search, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { SortChips } from './SortChips'
 import { ColumnsMenu } from './ColumnsMenu'
 import { PresetSelector } from './PresetSelector'
+import { FilterTab } from './FilterTab'
 import type { ColumnDef, ColumnVisibility } from './columns'
 import type { SortKey, SortSpec } from './types'
 import type { ListPreset } from '@/lib/api/presets'
@@ -17,7 +18,8 @@ interface ToolbarProps {
   allColumnDefs: ColumnDef[]
   categorySortOptions: { key: SortKey; label: string }[]
   activeFilterCount: number
-  onOpenFilters: () => void
+  filterOpen: boolean
+  onToggleFilters: () => void
   onOpenControls: () => void
   onReset: () => void
   canReset: boolean
@@ -44,7 +46,8 @@ export function Toolbar({
   allColumnDefs,
   categorySortOptions,
   activeFilterCount,
-  onOpenFilters,
+  filterOpen,
+  onToggleFilters,
   onOpenControls,
   onReset,
   canReset,
@@ -116,20 +119,6 @@ export function Toolbar({
           />
         </div>
 
-        <button
-          type="button"
-          onClick={onOpenFilters}
-          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-3 pr-2.5 text-[13px] font-medium text-text-primary cursor-pointer"
-        >
-          <SlidersHorizontal size={13} className="text-text-secondary" />
-          Filters
-          {activeFilterCount > 0 && (
-            <span className="rounded-full bg-[var(--color-primary)] px-1.5 text-[10px] font-bold text-white">
-              {activeFilterCount}
-            </span>
-          )}
-        </button>
-
         {canReset && (
           <button
             type="button"
@@ -140,6 +129,14 @@ export function Toolbar({
             <X size={14} />
           </button>
         )}
+
+        {/* Last child on purpose — its negative right margin cancels the
+            page's own padding, so it pokes out to the true edge. */}
+        <FilterTab
+          open={filterOpen}
+          onToggle={onToggleFilters}
+          activeCount={activeFilterCount}
+        />
       </div>
     </div>
   )

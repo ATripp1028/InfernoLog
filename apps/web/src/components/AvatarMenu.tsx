@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, Settings, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, UseNavigateResult } from '@tanstack/react-router'
 
-function handleNavigate(navigate: UseNavigateResult<string>, to: string, setOpen: React.Dispatch<React.SetStateAction<boolean>>) {
+function handleNavigate(
+  navigate: UseNavigateResult<string>,
+  to: string,
+  setOpen: React.Dispatch<React.SetStateAction<boolean>>
+) {
   navigate({ to, replace: true })
   setOpen(false)
 }
@@ -12,7 +17,7 @@ export function AvatarMenu() {
   const { signOut } = useAuth()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   useEffect(() => {
     if (!open) return
@@ -32,22 +37,35 @@ export function AvatarMenu() {
         aria-label="Account menu"
         aria-haspopup="menu"
         aria-expanded={open}
-        onClick={() => setOpen(v => !v)}
+        onClick={() => setOpen((v) => !v)}
         className="flex size-10 items-center justify-center rounded-full border border-border bg-bg-elevated text-text-secondary transition-colors hover:text-text-primary"
       >
         <User size={18} />
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-        >
-          <MenuItem icon={<User size={14} />} label="Profile" onClick={() => handleNavigate(navigate, '/profile', setOpen)} />
-          <MenuItem icon={<Settings size={14} />} label="Settings" onClick={() => handleNavigate(navigate, '/settings', setOpen)} />
-          <MenuItem icon={<LogOut size={14} />} label="Logout" onClick={signOut} />
-        </div>
-      )}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="menu"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.15, ease: 'easeOut' }}
+            className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+          >
+            <MenuItem
+              icon={<Settings size={14} />}
+              label="Settings"
+              onClick={() => handleNavigate(navigate, '/settings', setOpen)}
+            />
+            <MenuItem
+              icon={<LogOut size={14} />}
+              label="Logout"
+              onClick={signOut}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

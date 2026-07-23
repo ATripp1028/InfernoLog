@@ -1,28 +1,29 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { Menu, Plus } from 'lucide-react'
+import { Menu, Plus, type LucideIcon } from 'lucide-react'
 import {
   NAV_ITEMS,
   MOBILE_OVERFLOW_KEYS,
   type NavItem,
 } from '../utils/navConfig'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import {
-  LOGGING_ACTIONS,
-  type LoggingAction,
-} from '@/features/logging/loggingActions'
-import { useMobileFabContext } from '@/context/MobileFabContext'
-import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
-import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+  useResolvedFabActions,
+  type FabAction,
+} from '@/context/FabActionsContext'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { cn } from '@/lib/utils'
 
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
-  const [wtbOpen, setWtbOpen] = useState(false)
-  const [addColOpen, setAddColOpen] = useState(false)
   const location = useLocation()
-  const { open } = useLoggingFlow()
-  const { overrideToggle } = useMobileFabContext()
+  const { primary, secondaryActions } = useResolvedFabActions()
+
+  // secondaryActions is farthest-from-FAB-first (desktop fan-out order —
+  // see FabActionsContext). The mobile sheet is a plain top-to-bottom list,
+  // so undo that reversal to read primary first, most consequential/
+  // least-common action last (e.g. Delete at the bottom).
+  const orderedActions = [primary, ...secondaryActions.slice().reverse()]
 
   const byKey = (key: string): NavItem => {
     const item = NAV_ITEMS.find((n) => n.key === key)
@@ -36,66 +37,42 @@ export function MobileNav() {
 
   return (
     <div className="md:hidden">
-      {overflowOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setOverflowOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pt-2 pb-1">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {overflow.map((item) => (
-                <li key={item.key}>
-                  <SheetItem
-                    item={item}
-                    onNavigate={() => setOverflowOpen(false)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+      <MobileActionSheet
+        open={overflowOpen}
+        onClose={() => setOverflowOpen(false)}
+        ariaLabel="More"
+      >
+        <ul className="flex flex-col gap-1 px-2 py-2">
+          {overflow.map((item) => (
+            <li key={item.key}>
+              <SheetItem
+                item={item}
+                onNavigate={() => setOverflowOpen(false)}
+              />
+            </li>
+          ))}
+        </ul>
+      </MobileActionSheet>
 
-      {fabMenuOpen && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            onClick={() => setFabMenuOpen(false)}
-            className="fixed inset-0 z-30 bg-black/40"
-          />
-          <div className="fixed inset-x-0 bottom-[72px] z-40 rounded-t-card border-t border-border-subtle bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-            <div className="flex justify-center pt-2 pb-1">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-            <ul className="flex flex-col gap-1 px-2 py-2">
-              {LOGGING_ACTIONS.map((action) => (
-                <li key={action.key}>
-                  <FabSheetItem
-                    action={action}
-                    onSelect={() => {
-                      setFabMenuOpen(false)
-                      if (action.path) {
-                        open(action.path)
-                      } else if (action.key === 'want-to-beat') {
-                        setWtbOpen(true)
-                      } else if (action.key === 'add-to-list') {
-                        setAddColOpen(true)
-                      }
-                    }}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+      <MobileActionSheet
+        open={fabMenuOpen}
+        onClose={() => setFabMenuOpen(false)}
+        ariaLabel="Quick actions"
+      >
+        <ul className="flex flex-col gap-1 px-2 py-2">
+          {orderedActions.map((action) => (
+            <li key={action.key}>
+              <FabSheetItem
+                action={action}
+                onSelect={() => {
+                  setFabMenuOpen(false)
+                  action.onClick()
+                }}
+              />
+            </li>
+          ))}
+        </ul>
+      </MobileActionSheet>
 
       <nav
         aria-label="Primary mobile"
@@ -105,11 +82,15 @@ export function MobileNav() {
         <BarTab item={ranking} active={location.pathname === ranking.to} />
         <FabSlot
           active={fabMenuOpen}
+          label={primary.label}
+          icon={Plus}
           onClick={() => {
             setOverflowOpen(false)
-            if (overrideToggle) {
-              setFabMenuOpen(false)
-              overrideToggle()
+            // A single registered action (e.g. Collections index's "New
+            // collection") triggers directly — no point opening a sheet
+            // with one row in it.
+            if (secondaryActions.length === 0) {
+              primary.onClick()
             } else {
               setFabMenuOpen((v) => !v)
             }
@@ -124,11 +105,6 @@ export function MobileNav() {
           }}
         />
       </nav>
-      <AddToWantToBeatDialog open={wtbOpen} onClose={() => setWtbOpen(false)} />
-      <AddToCollectionDialog
-        open={addColOpen}
-        onClose={() => setAddColOpen(false)}
-      />
     </div>
   )
 }
@@ -190,21 +166,25 @@ function MoreTab({
 
 function FabSlot({
   active,
+  label,
+  icon: Icon,
   onClick,
 }: {
   active: boolean
+  label: string
+  icon: LucideIcon
   onClick: () => void
 }) {
   return (
     <button
       type="button"
-      aria-label="Log a level"
+      aria-label={label}
       aria-haspopup="menu"
       aria-expanded={active}
       onClick={onClick}
       className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
     >
-      <Plus size={24} strokeWidth={2.5} />
+      <Icon size={24} strokeWidth={2.5} />
     </button>
   )
 }
@@ -213,7 +193,7 @@ function FabSheetItem({
   action,
   onSelect,
 }: {
-  action: LoggingAction
+  action: FabAction
   onSelect: () => void
 }) {
   const Icon = action.icon
@@ -232,11 +212,12 @@ function FabSheetItem({
     <button
       type="button"
       onClick={onSelect}
-      className={`flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors ${
-        action.highlight
-          ? 'bg-primary text-primary-foreground'
+      className={cn(
+        'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
+        action.danger
+          ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
           : 'text-text-primary hover:bg-bg-subtle'
-      }`}
+      )}
     >
       <Icon size={20} />
       <span>{action.label}</span>

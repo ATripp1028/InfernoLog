@@ -18,6 +18,7 @@ import {
 } from '@/features/logging/format'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from './tierColor'
+import { countActiveFilters } from './filtering'
 import {
   ATTEMPTS_DOMAIN,
   RATING_DOMAIN,
@@ -385,6 +386,7 @@ export function FilterPanel({
   const set = (patch: Partial<FilterState>) =>
     onChange({ ...filters, ...patch })
   const max = displayMax(scale)
+  const hasActiveFilters = countActiveFilters(filters) > 0
 
   function parseRating(text: string): number | null {
     const v = parseFloat(text)
@@ -399,13 +401,17 @@ export function FilterPanel({
     <div className="flex h-full flex-col bg-[var(--color-bg-surface)]">
       {/* Header */}
       <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-3">
-        <button
-          type="button"
-          onClick={() => onChange(defaultFilterState())}
-          className="rounded px-2 py-1 text-[13px] font-medium text-primary cursor-pointer"
-        >
-          Clear all
-        </button>
+        {hasActiveFilters ? (
+          <button
+            type="button"
+            onClick={() => onChange(defaultFilterState())}
+            className="rounded px-2 py-1 text-[13px] font-medium text-primary cursor-pointer"
+          >
+            Clear all
+          </button>
+        ) : (
+          <span className="w-12" />
+        )}
         <p className="text-[15px] font-semibold text-text-primary">Filters</p>
         {onClose ? (
           <button

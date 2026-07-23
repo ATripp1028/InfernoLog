@@ -418,21 +418,40 @@ export default $config({
     // read the stored GDDL API key. Synchronous (lists are small, max 4 items).
     gddlKeyRoute('POST /v1/me/gddl-lists-sync')
 
+    // Level-seed SQS queue — declared here (ahead of the SPREADSHEET IMPORT
+    // section below, which owns the consumer side) so gddlSyncWorker can link
+    // to it too: a GDDL sync can find existing-but-unverified stub levels
+    // (see getOrCreateLevel's needsSeed in services/gddlSync.ts) and needs to
+    // enqueue them for the same async RobTop enrichment as spreadsheet import.
+    const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
+
+    const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {
+      dlq: {
+        queue: levelSeedDlq.arn,
+        retry: 3,
+      },
+    })
+
     // Worker Lambda — runs the full GDDL import in the background so that
     // API Gateway's hard 29-second integration timeout never applies.
     // The route Lambda invokes this asynchronously (InvocationType: Event)
     // and returns 202 + jobId immediately.
     const gddlSyncWorker = new sst.aws.Function('GddlSyncWorker', {
       handler: 'src/handlers/gddlSyncWorker.handler',
-      link: sharedLinks,
+      link: [...sharedLinks, levelSeedQueue],
       environment: {
         ...sharedEnvironment,
         GDDL_KMS_KEY_ID: gddlKmsKey.arn,
+        LEVEL_SEED_QUEUE_URL: levelSeedQueue.url,
       },
       permissions: [
         {
           actions: ['kms:Decrypt'],
           resources: [gddlKmsKey.arn],
+        },
+        {
+          actions: ['sqs:SendMessage'],
+          resources: [levelSeedQueue.arn],
         },
       ],
       timeout: '15 minutes',
@@ -501,15 +520,6 @@ export default $config({
     // retries, each up to a 10s rate-limiter wait + 5s fetch, plus backoff)
     // — timeout sized well above that per-batch worst case.
     // ─────────────────────────────────────────────
-    const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
-
-    const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {
-      dlq: {
-        queue: levelSeedDlq.arn,
-        retry: 3,
-      },
-    })
-
     levelSeedQueue.subscribe(
       {
         handler: 'src/handlers/levelSeedWorker.handler',

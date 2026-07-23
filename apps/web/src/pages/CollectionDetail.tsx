@@ -45,13 +45,30 @@ import {
 } from '@/features/collections/identity'
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
-import {
-  CollectionsFab,
-  collectionDetailActions,
-} from '@/features/collections/CollectionsFab'
+import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
+import { useFabActions } from '@/context/FabActionsContext'
 
 export function CollectionDetail({ collectionId }: { collectionId: string }) {
   const collection = useCollection(collectionId)
+  const [addOpen, setAddOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // Registered unconditionally (like LevelPage's owner-actions override) so
+  // the FAB switches to this collection's actions in the same commit data
+  // arrives, rather than showing the unrelated global default (logging)
+  // actions for the entire loading window — collection pages used to
+  // suppress that default FAB outright while loading.
+  useFabActions(
+    collection.data
+      ? collectionDetailActions({
+          isCustom: !isBuiltIn(collection.data.type),
+          onAddLevels: () => setAddOpen(true),
+          onEdit: () => setEditOpen(true),
+          onDelete: () => setConfirmDelete(true),
+        })
+      : null
+  )
 
   if (collection.isPending) return <PageLoading />
   if (collection.error || !collection.data) {
@@ -73,21 +90,43 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
     )
   }
 
-  return <Loaded collection={collection.data} />
+  return (
+    <Loaded
+      collection={collection.data}
+      addOpen={addOpen}
+      setAddOpen={setAddOpen}
+      editOpen={editOpen}
+      setEditOpen={setEditOpen}
+      confirmDelete={confirmDelete}
+      setConfirmDelete={setConfirmDelete}
+    />
+  )
 }
 
-function Loaded({ collection }: { collection: CollectionDetailData }) {
+function Loaded({
+  collection,
+  addOpen,
+  setAddOpen,
+  editOpen,
+  setEditOpen,
+  confirmDelete,
+  setConfirmDelete,
+}: {
+  collection: CollectionDetailData
+  addOpen: boolean
+  setAddOpen: (v: boolean) => void
+  editOpen: boolean
+  setEditOpen: (v: boolean) => void
+  confirmDelete: boolean
+  setConfirmDelete: (v: boolean) => void
+}) {
   const navigate = useNavigate()
-  const custom = !isBuiltIn(collection.type)
 
   const updateCollection = useUpdateCollection()
   const deleteCollection = useDeleteCollection()
   const removeEntry = useRemoveCollectionEntry()
   const reorderEntry = useReorderCollectionEntry()
 
-  const [addOpen, setAddOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
 
   const sensors = useSortableSensors()
@@ -217,15 +256,6 @@ function Loaded({ collection }: { collection: CollectionDetailData }) {
           </DndContext>
         </section>
       )}
-
-      <CollectionsFab
-        actions={collectionDetailActions({
-          isCustom: custom,
-          onAddLevels: () => setAddOpen(true),
-          onEdit: () => setEditOpen(true),
-          onDelete: () => setConfirmDelete(true),
-        })}
-      />
 
       <AddLevelsDialog
         open={addOpen}

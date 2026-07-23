@@ -14,8 +14,10 @@ import { Prisma } from '@prisma/client'
 import * as Sentry from '@sentry/node'
 import { EditProgressInputSchema } from '@infernolog/core'
 import prisma from '../utils/prisma'
-import { computeOverallRating } from '../utils/rating'
-import type { OverallRatingConfig } from '../utils/rating'
+import {
+  computeOverallRating,
+  type OverallRatingConfig,
+} from '@infernolog/core'
 import { computeRunsGraph } from '../utils/runsGraph'
 import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 import type { HonoVariables } from '../types/hono'
