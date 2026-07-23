@@ -112,6 +112,16 @@ function ColumnHeaders({
         const isDraggable = !!col.sortKey
         const isDragging = draggingId === col.id
         const isOver = dragOverId === col.id && draggingId !== col.id
+        // handleDrop inserts the dragged column at the target's original
+        // index — for a forward drag (dragging rightward past its own slot)
+        // that removal shifts everything left first, so the column actually
+        // lands to the right of the target. Point the indicator at the side
+        // it will really land on, or dragging onto the last column shows a
+        // "before" indicator while the column drops in after it.
+        const isForwardDrag =
+          isOver &&
+          draggingId != null &&
+          columnOrder.indexOf(draggingId) < columnOrder.indexOf(col.id)
         const sortIdx = col.sortKey
           ? sorts.findIndex((s) => s.key === col.sortKey)
           : -1
@@ -160,7 +170,8 @@ function ColumnHeaders({
                 !isDragging &&
                 'cursor-grab active:cursor-grabbing',
               isDragging && 'opacity-40',
-              isOver && 'border-l-2 border-primary',
+              isOver && (isForwardDrag ? 'border-r-2' : 'border-l-2'),
+              isOver && 'border-primary',
               col.responsiveClass
             )}
             style={{ width: col.width }}
