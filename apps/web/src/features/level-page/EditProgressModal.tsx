@@ -18,7 +18,7 @@ import {
   clampPercent,
   digitsOnly,
   maxValueError,
-  formatRating,
+  formatDisplayRating,
   MAX_ATTEMPTS,
   MAX_FPS,
   MAX_GDDL_TIER,
@@ -510,7 +510,7 @@ export function EditProgressModal({
                           <p className="text-right text-xs text-text-tertiary">
                             Weighted avg:{' '}
                             <span className="font-medium text-text-secondary">
-                              {formatRating(weightedAvg, scale)}
+                              {formatDisplayRating(weightedAvg)}
                             </span>
                           </p>
                         )}

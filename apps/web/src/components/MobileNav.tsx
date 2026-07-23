@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
-import { Menu, type LucideIcon } from 'lucide-react'
+import { Menu, Plus, type LucideIcon } from 'lucide-react'
 import {
   NAV_ITEMS,
   MOBILE_OVERFLOW_KEYS,
@@ -19,9 +19,11 @@ export function MobileNav() {
   const location = useLocation()
   const { primary, secondaryActions } = useResolvedFabActions()
 
-  // Bottom-to-top on desktop reads primary last; the mobile list mirrors
-  // that top-to-bottom, so the primary row goes last here too.
-  const orderedActions = secondaryActions.concat(primary)
+  // secondaryActions is farthest-from-FAB-first (desktop fan-out order —
+  // see FabActionsContext). The mobile sheet is a plain top-to-bottom list,
+  // so undo that reversal to read primary first, most consequential/
+  // least-common action last (e.g. Delete at the bottom).
+  const orderedActions = [primary, ...secondaryActions.slice().reverse()]
 
   const byKey = (key: string): NavItem => {
     const item = NAV_ITEMS.find((n) => n.key === key)
@@ -81,10 +83,17 @@ export function MobileNav() {
         <FabSlot
           active={fabMenuOpen}
           label={primary.label}
-          icon={primary.icon}
+          icon={Plus}
           onClick={() => {
             setOverflowOpen(false)
-            setFabMenuOpen((v) => !v)
+            // A single registered action (e.g. Collections index's "New
+            // collection") triggers directly — no point opening a sheet
+            // with one row in it.
+            if (secondaryActions.length === 0) {
+              primary.onClick()
+            } else {
+              setFabMenuOpen((v) => !v)
+            }
           }}
         />
         <BarTab item={log} active={location.pathname === log.to} />

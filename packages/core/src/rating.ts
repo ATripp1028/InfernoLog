@@ -1,8 +1,10 @@
-// Overall-rating computation for a single progress update.
+// Overall-rating computation for a single progress update. Shared by
+// apps/api (query-time serialization) and apps/web (client-side preview
+// before an edit is saved) so the two never drift — see docs/RATING_SYSTEM.md.
 //
-// The displayed/filtered rating is computed at query time and never stored
-// (see docs/RATING_SYSTEM.md). In SIMPLE mode it is just `simpleRating`; in
-// WEIGHTED mode it is the weighted average of the user's per-category scores:
+// The displayed/filtered rating is computed at query time and never stored.
+// In SIMPLE mode it is just `simpleRating`; in WEIGHTED mode it is the
+// weighted average of the user's per-category scores:
 //
 //   weighted_avg = Σ(score_i × weight_i) / Σ(weight_i)
 //
@@ -12,8 +14,8 @@
 // omitted rather than counted as zero. All values are on the 0–100 internal
 // scale; display conversion happens in the UI per `user.ratingDisplayScale`.
 
-// `ratingMode` is a plain string union rather than the core/Prisma enum so the
-// helper accepts values from either without a nominal-enum mismatch.
+// `ratingMode` is a plain string union rather than a nominal enum so the
+// helper accepts values from either app's enum without a type mismatch.
 export interface OverallRatingConfig {
   ratingMode: 'SIMPLE' | 'WEIGHTED'
   includeEnjoyment: boolean

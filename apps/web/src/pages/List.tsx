@@ -484,6 +484,7 @@ export function List() {
       availableDifficulties={availableDifficulties}
       earliestDate={earliestDate}
       maxAttempts={maxAttempts}
+      onClose={() => setFilterOpen(false)}
       {...(activeCategories.length > 0 && {
         ratingCategories: activeCategories,
       })}

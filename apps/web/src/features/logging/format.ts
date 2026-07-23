@@ -66,6 +66,12 @@ export function formatRating(
   internal: number,
   scale: RatingDisplayScale
 ): string {
-  const v = toDisplay(internal, scale)
-  return v.toFixed(3).replace(/\.?0+$/, '')
+  return formatDisplayRating(toDisplay(internal, scale))
+}
+
+// Same trimming as formatRating, for a value that's already in display units
+// (e.g. a weighted average computed from already-converted form inputs) —
+// use this instead of formatRating to avoid converting twice.
+export function formatDisplayRating(display: number): string {
+  return display.toFixed(3).replace(/\.?0+$/, '')
 }

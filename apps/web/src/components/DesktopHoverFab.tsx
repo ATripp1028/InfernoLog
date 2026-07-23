@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -59,11 +59,34 @@ export function DesktopHoverFab({
     closeTimer.current = setTimeout(() => setExpanded(false), CLOSE_DELAY_MS)
   }
 
+  // Escape and clicks outside the group close it immediately, regardless of
+  // whether it was opened via hover (no focus involved) or keyboard focus —
+  // the container's own onKeyDown/onBlur only fire when focus is inside it,
+  // which hover-only expansion never establishes.
+  useEffect(() => {
+    if (!expanded) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setExpanded(false)
+    }
+    function onPointerDown(e: MouseEvent) {
+      if (!containerRef.current?.contains(e.target as Node)) setExpanded(false)
+    }
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('mousedown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('mousedown', onPointerDown)
+    }
+  }, [expanded])
+
+  useEffect(() => () => cancelClose(), [])
+
   return (
     <div
       ref={containerRef}
       role="group"
       aria-label={groupAriaLabel}
+      aria-expanded={expanded}
       className={cn('hidden flex-col items-end gap-3 md:flex', className)}
       style={style}
       onMouseEnter={openGroup}
@@ -72,9 +95,6 @@ export function DesktopHoverFab({
       onBlur={(e) => {
         if (!containerRef.current?.contains(e.relatedTarget as Node))
           scheduleClose()
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setExpanded(false)
       }}
     >
       <AnimatePresence>
