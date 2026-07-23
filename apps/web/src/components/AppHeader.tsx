@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { Search } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { AvatarMenu } from './AvatarMenu'
@@ -122,29 +123,35 @@ export function AppHeader() {
           />
         </div>
 
-        {showDropdown && (
-          <div
-            id="header-search-results"
-            role="listbox"
-            className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-card border border-border bg-bg-elevated shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-          >
-            {results.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-text-tertiary">
-                No logged levels match &quot;{query.trim()}&quot;
-              </p>
-            ) : (
-              results.map((item, index) => (
-                <SearchResultRow
-                  key={item.levelProgressId}
-                  item={item}
-                  active={index === activeIndex}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onSelect={() => selectResult(item)}
-                />
-              ))
-            )}
-          </div>
-        )}
+        <AnimatePresence>
+          {showDropdown && (
+            <motion.div
+              id="header-search-results"
+              role="listbox"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute left-0 right-0 top-full z-50 mt-2 max-h-96 overflow-y-auto rounded-card border border-border bg-bg-elevated shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            >
+              {results.length === 0 ? (
+                <p className="px-4 py-3 text-sm text-text-tertiary">
+                  No logged levels match &quot;{query.trim()}&quot;
+                </p>
+              ) : (
+                results.map((item, index) => (
+                  <SearchResultRow
+                    key={item.levelProgressId}
+                    item={item}
+                    active={index === activeIndex}
+                    onMouseEnter={() => setActiveIndex(index)}
+                    onSelect={() => selectResult(item)}
+                  />
+                ))
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <AvatarMenu />
