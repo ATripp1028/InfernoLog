@@ -84,7 +84,7 @@ const meSelect = {
   defaultFps: true,
   defaultPercentageVersion: true,
   dateFormatPreference: true,
-  showHighlightUrl: true,
+  showHighlightUrl: false,
   autoExpandFabLabels: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
