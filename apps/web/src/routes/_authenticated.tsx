@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/sonner'
 import { rankingQueryKey } from '@/lib/api/ranking'
 import { collectionsQueryKey } from '@/lib/api/collections'
 import { ImportStatusToast } from '@/features/import/ImportStatusToast'
+import { GddlSyncProvider } from '@/features/settings/GddlSyncProvider'
 
 export const Route = createFileRoute('/_authenticated')({
   component: AuthenticatedLayout,
@@ -58,11 +59,13 @@ function AuthenticatedLayout() {
 
   return (
     <LoggingFlowProvider>
-      <ReorderSyncWatcher />
-      <ImportStatusToast />
-      <Shell>
-        <Outlet />
-      </Shell>
+      <GddlSyncProvider>
+        <ReorderSyncWatcher />
+        <ImportStatusToast />
+        <Shell>
+          <Outlet />
+        </Shell>
+      </GddlSyncProvider>
     </LoggingFlowProvider>
   )
 }

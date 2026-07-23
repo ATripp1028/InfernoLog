@@ -540,22 +540,29 @@ app.post('/me/gddl-sync', async (c) => {
   }
 })
 
-// GET /v1/me/gddl-sync/:jobId — poll for the status of an async sync job.
-// Returns { status, result?, error? }; poll until status is not "pending".
-app.get('/me/gddl-sync/:jobId', async (c) => {
+// GET /v1/me/gddl-sync — the user's most recent GDDL sync job (or null),
+// mirroring GET /v1/me/import/status for spreadsheet import: no job id
+// needed, so the frontend can poll this from anywhere without having to
+// carry a job id across navigation or a page reload. GddlSyncJob rows are
+// never deleted (unlike ImportJob, which is one-per-user), so this always
+// returns the latest one ever created for the user, completed or not — the
+// caller is responsible for not re-acting to a job it's already handled.
+app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
-  const jobId = c.req.param('jobId')
 
-  const job = await prisma.gddlSyncJob.findFirst({
-    where: { id: jobId, userId },
-    select: { status: true, result: true, error: true },
-  })
+  try {
+    const job = await prisma.gddlSyncJob.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, status: true, result: true, error: true },
+    })
 
-  if (!job) {
-    return c.json({ error: 'Job not found' }, 404)
+    return c.json({ data: job }, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'GET /me/gddl-sync error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
   }
-
-  return c.json({ data: job })
 })
 
 // POST /v1/me/gddl-lists-sync — bidirectional sync of FAVORITES and

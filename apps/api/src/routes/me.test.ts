@@ -590,33 +590,44 @@ describe('POST /me/gddl-sync', () => {
   })
 })
 
-describe('GET /me/gddl-sync/:jobId', () => {
-  it('returns job status when the job belongs to the user', async () => {
+describe('GET /me/gddl-sync', () => {
+  it("returns the user's most recent job status", async () => {
     const jobData = {
+      id: 'job-123',
       status: 'completed',
       result: { created: 3, enriched: 0, skipped: 1, errors: [] },
       error: null,
     }
     syncJobMock.findFirst.mockResolvedValueOnce(jobData)
 
-    const res = await buildApp().request('/me/gddl-sync/job-123', {
-      method: 'GET',
-    })
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
     const body = (await res.json()) as { data: typeof jobData }
 
     expect(res.status).toBe(200)
+    expect(body.data.id).toBe('job-123')
     expect(body.data.status).toBe('completed')
     expect(body.data.result).toEqual(jobData.result)
+    expect(syncJobMock.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { startedAt: 'desc' } })
+    )
   })
 
-  it('returns 404 when the job does not exist or belongs to another user', async () => {
+  it('returns null when the user has never run a sync', async () => {
     syncJobMock.findFirst.mockResolvedValueOnce(null)
 
-    const res = await buildApp().request('/me/gddl-sync/unknown-job', {
-      method: 'GET',
-    })
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: null }
 
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(200)
+    expect(body.data).toBeNull()
+  })
+
+  it('returns 500 when the DB query throws', async () => {
+    syncJobMock.findFirst.mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+
+    expect(res.status).toBe(500)
   })
 })
 
