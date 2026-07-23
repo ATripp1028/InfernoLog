@@ -196,16 +196,14 @@ export function AcknowledgmentsPage() {
           </ul>
         </Section> */}
 
-        <Section
-          title="Community Artists"
-          intro="These people contributed visual assets to InfernoLog."
-        >
-          <ul className="list-disc space-y-1 pl-6">
-            <li>
-              MrSp0rkMan (Alex) — InfernoLog logo, favicon, and app icon.
-            </li>
-          </ul>
-        </Section>
+      <Section
+        title="Community Artists"
+        intro="These people contributed visual assets to InfernoLog."
+      >
+        <ul className="list-disc space-y-1 pl-6">
+          <li>MrSp0rkMan (Alex) — InfernoLog logo, favicon, and app icon.</li>
+        </ul>
+      </Section>
 
       <Section
         title="Open Source Libraries"
