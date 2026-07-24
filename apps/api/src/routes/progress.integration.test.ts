@@ -52,14 +52,15 @@ async function seedProgress(
     userId: string
     levelId: string
     status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
+    // One current value per level, not per event — lives on LevelProgress.
+    simpleRating?: number | null
+    ratingScores?: Array<{ categoryId: string; score: number }>
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
       loggedAt?: Date
-      simpleRating?: number | null
       enjoyment?: number | null
       percentage?: number | null
       attempts?: number | null
-      ratingScores?: Array<{ categoryId: string; score: number }>
     }>
   }
 ) {
@@ -68,15 +69,17 @@ async function seedProgress(
       userId: args.userId,
       levelId: args.levelId,
       status: args.status,
+      simpleRating: args.simpleRating ?? null,
+      ...(args.ratingScores
+        ? { ratingScores: { create: args.ratingScores } }
+        : {}),
       progressUpdates: {
         create: (args.updates ?? []).map((u) => ({
           kind: u.kind ?? 'PROGRESS',
           loggedAt: u.loggedAt,
-          simpleRating: u.simpleRating ?? null,
           enjoyment: u.enjoyment ?? null,
           percentage: u.percentage ?? null,
           attempts: u.attempts ?? null,
-          ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
         })),
       },
     },
@@ -105,12 +108,12 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '100',
       status: 'COMPLETED',
+      simpleRating: 70,
       updates: [
         { loggedAt: new Date('2026-01-01'), percentage: 80 },
         {
           kind: 'COMPLETION',
           loggedAt: new Date('2025-12-01'),
-          simpleRating: 70,
           attempts: 12000,
         },
       ],
@@ -140,7 +143,7 @@ describe('GET /me/progress', () => {
     expect(completed.status).toBe('COMPLETED')
     expect(completed.entry?.kind).toBe('COMPLETION')
     expect(completed.entry?.attempts).toBe(12000)
-    expect(completed.entry?.overallRating).toBe(70) // SIMPLE → simpleRating
+    expect(completed.overallRating).toBe(70) // SIMPLE → simpleRating
     // Completed classic level with no ClassicRanking row.
     expect(completed.needsPlacement).toBe(true)
 
@@ -162,7 +165,8 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '101',
       status: 'COMPLETED',
-      updates: [{ kind: 'COMPLETION', simpleRating: 50 }],
+      simpleRating: 50,
+      updates: [{ kind: 'COMPLETION' }],
     })
     await prisma.classicRanking.create({
       data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
@@ -194,22 +198,18 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '500',
       status: 'COMPLETED',
-      updates: [
-        {
-          kind: 'COMPLETION',
-          // simpleRating should be ignored in WEIGHTED mode.
-          simpleRating: 10,
-          ratingScores: [
-            { categoryId: gameplay.id, score: 80 },
-            { categoryId: deco.id, score: 40 },
-          ],
-        },
+      // simpleRating should be ignored in WEIGHTED mode.
+      simpleRating: 10,
+      ratingScores: [
+        { categoryId: gameplay.id, score: 80 },
+        { categoryId: deco.id, score: 40 },
       ],
+      updates: [{ kind: 'COMPLETION' }],
     })
 
     const list = await getList(user.id)
     // (80*0.7 + 40*0.3) / (0.7 + 0.3) = 68
-    expect(list[0]?.entry?.overallRating).toBe(68)
+    expect(list[0]?.overallRating).toBe(68)
   })
 
   it('returns only the authenticated user rows', async () => {
@@ -354,12 +354,8 @@ describe('DELETE /me/progress/:levelId', () => {
       userId: user.id,
       levelId: '900',
       status: 'COMPLETED',
-      updates: [
-        {
-          kind: 'COMPLETION',
-          simpleRating: 70,
-        },
-      ],
+      simpleRating: 70,
+      updates: [{ kind: 'COMPLETION' }],
     })
 
     const res = await del(user.id, '900')
@@ -399,7 +395,7 @@ describe('DELETE /me/progress/:levelId', () => {
 })
 
 describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
-  it('deletes a non-last update and cascades its rating scores, leaving the level entry intact', async () => {
+  it('deletes a non-last update, leaving the level entry and its rating scores intact', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '910' })
     const cat = await seedRatingCategory(prisma, user.id)
@@ -407,13 +403,12 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
       userId: user.id,
       levelId: '910',
       status: 'COMPLETED',
+      // Rating scores live on LevelProgress, not any specific update — they
+      // are never cascaded by deleting one of several updates.
+      ratingScores: [{ categoryId: cat.id, score: 80 }],
       updates: [
         { kind: 'PROGRESS', loggedAt: new Date('2024-01-01'), percentage: 40 },
-        {
-          kind: 'COMPLETION',
-          loggedAt: new Date('2024-01-02'),
-          ratingScores: [{ categoryId: cat.id, score: 80 }],
-        },
+        { kind: 'COMPLETION', loggedAt: new Date('2024-01-02') },
       ],
     })
     const progressUpdate = await prisma.progressUpdate.findFirstOrThrow({
@@ -435,8 +430,11 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
     // The completion (and the level entry) survive untouched.
     const remaining = await prisma.levelProgress.findUniqueOrThrow({
       where: { id: lp.id },
+      include: { ratingScores: true },
     })
     expect(remaining.status).toBe('COMPLETED')
+    expect(remaining.ratingScores).toHaveLength(1)
+    expect(remaining.ratingScores[0]?.score).toBe(80)
   })
 
   it('deletes the whole level entry when it was the only logged update', async () => {
@@ -476,6 +474,10 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
         { kind: 'COMPLETION', loggedAt: new Date('2024-01-02') },
       ],
     })
+    await prisma.levelProgress.update({
+      where: { id: lp.id },
+      data: { coinsCollected: 3 },
+    })
     await prisma.classicRanking.create({
       data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
     })
@@ -490,6 +492,8 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
       where: { id: lp.id },
     })
     expect(remaining.status).toBe('IN_PROGRESS')
+    // Only meaningful once completed — cleared when the completion is undone.
+    expect(remaining.coinsCollected).toBeNull()
     expect(
       await prisma.classicRanking.findUnique({
         where: { levelProgressId: lp.id },

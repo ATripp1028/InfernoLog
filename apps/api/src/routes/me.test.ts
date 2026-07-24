@@ -314,7 +314,7 @@ describe('DELETE /me', () => {
       where: { userId: USER_ID },
     })
     expect(prisma.ratingScore.deleteMany).toHaveBeenCalledWith({
-      where: { progressUpdate: { levelProgress: { userId: USER_ID } } },
+      where: { levelProgress: { userId: USER_ID } },
     })
     expect(prisma.user.delete).toHaveBeenCalledWith({
       where: { id: USER_ID },
@@ -550,7 +550,8 @@ describe('POST /me/gddl-sync', () => {
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
       gddlApiKeyEncrypted: 'ciphertext',
     } as never)
-    syncJobMock.create.mockResolvedValueOnce({ id: 'job-123' })
+    syncJobMock.findUnique.mockResolvedValueOnce(null)
+    syncJobMock.upsert.mockResolvedValueOnce({ id: 'job-123' })
     mockLambdaSend.mockResolvedValueOnce({})
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
@@ -558,9 +559,10 @@ describe('POST /me/gddl-sync', () => {
 
     expect(res.status).toBe(202)
     expect(body.data.jobId).toBe('job-123')
-    expect(syncJobMock.create).toHaveBeenCalledWith(
+    expect(syncJobMock.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: expect.objectContaining({ status: 'pending' }),
+        create: expect.objectContaining({ status: 'pending' }),
+        update: expect.objectContaining({ status: 'pending' }),
       })
     )
     expect(mockLambdaSend).toHaveBeenCalledTimes(1)
@@ -577,11 +579,12 @@ describe('POST /me/gddl-sync', () => {
     expect(mockLambdaSend).not.toHaveBeenCalled()
   })
 
-  it('returns 500 when the DB create throws', async () => {
+  it('returns 500 when the DB upsert throws', async () => {
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
       gddlApiKeyEncrypted: 'ciphertext',
     } as never)
-    syncJobMock.create.mockRejectedValueOnce(new Error('DB error'))
+    syncJobMock.findUnique.mockResolvedValueOnce(null)
+    syncJobMock.upsert.mockRejectedValueOnce(new Error('DB error'))
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
 
@@ -593,7 +596,7 @@ describe('POST /me/gddl-sync', () => {
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
       gddlApiKeyEncrypted: 'ciphertext',
     } as never)
-    syncJobMock.findFirst.mockResolvedValueOnce({
+    syncJobMock.findUnique.mockResolvedValueOnce({
       id: 'job-already-running',
       status: 'pending',
       startedAt: new Date(),
@@ -604,7 +607,7 @@ describe('POST /me/gddl-sync', () => {
 
     expect(res.status).toBe(202)
     expect(body.data.jobId).toBe('job-already-running')
-    expect(syncJobMock.create).not.toHaveBeenCalled()
+    expect(syncJobMock.upsert).not.toHaveBeenCalled()
     expect(mockLambdaSend).not.toHaveBeenCalled()
   })
 
@@ -612,12 +615,12 @@ describe('POST /me/gddl-sync', () => {
     prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
       gddlApiKeyEncrypted: 'ciphertext',
     } as never)
-    syncJobMock.findFirst.mockResolvedValueOnce({
+    syncJobMock.findUnique.mockResolvedValueOnce({
       id: 'job-stuck',
       status: 'pending',
       startedAt: new Date(Date.now() - 30 * 60 * 1000),
     })
-    syncJobMock.create.mockResolvedValueOnce({ id: 'job-new' })
+    syncJobMock.upsert.mockResolvedValueOnce({ id: 'job-new' })
     mockLambdaSend.mockResolvedValueOnce({})
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
@@ -631,7 +634,7 @@ describe('POST /me/gddl-sync', () => {
         data: expect.objectContaining({ status: 'failed' }),
       })
     )
-    expect(syncJobMock.create).toHaveBeenCalledTimes(1)
+    expect(syncJobMock.upsert).toHaveBeenCalledTimes(1)
     expect(mockLambdaSend).toHaveBeenCalledTimes(1)
   })
 })
@@ -644,7 +647,7 @@ describe('GET /me/gddl-sync', () => {
       result: { created: 3, enriched: 0, skipped: 1, errors: [] },
       error: null,
     }
-    syncJobMock.findFirst.mockResolvedValueOnce(jobData)
+    syncJobMock.findUnique.mockResolvedValueOnce(jobData)
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
     const body = (await res.json()) as { data: typeof jobData }
@@ -653,13 +656,11 @@ describe('GET /me/gddl-sync', () => {
     expect(body.data.id).toBe('job-123')
     expect(body.data.status).toBe('completed')
     expect(body.data.result).toEqual(jobData.result)
-    expect(syncJobMock.findFirst).toHaveBeenCalledWith(
-      expect.objectContaining({ orderBy: { startedAt: 'desc' } })
-    )
+    expect(syncJobMock.findUnique).toHaveBeenCalled()
   })
 
   it('returns null when the user has never run a sync', async () => {
-    syncJobMock.findFirst.mockResolvedValueOnce(null)
+    syncJobMock.findUnique.mockResolvedValueOnce(null)
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
     const body = (await res.json()) as { data: null }
@@ -669,7 +670,7 @@ describe('GET /me/gddl-sync', () => {
   })
 
   it('returns 500 when the DB query throws', async () => {
-    syncJobMock.findFirst.mockRejectedValueOnce(new Error('DB error'))
+    syncJobMock.findUnique.mockRejectedValueOnce(new Error('DB error'))
 
     const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
 
@@ -677,7 +678,7 @@ describe('GET /me/gddl-sync', () => {
   })
 
   it('expires a stale pending job to failed instead of leaving it pending forever', async () => {
-    syncJobMock.findFirst.mockResolvedValueOnce({
+    syncJobMock.findUnique.mockResolvedValueOnce({
       id: 'job-stuck',
       status: 'pending',
       result: null,

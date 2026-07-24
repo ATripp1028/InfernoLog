@@ -37,10 +37,9 @@ export interface FlowDraft {
   worstFail: string
   worstFailDate: string
   worstFailAlreadyLogged: boolean
+  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+  // no separate paired field.
   difficultyOpinion: DifficultyOpinion | null
-  // Non-demon difficulty opinion as a star count (1–9), only when the opinion
-  // is NOT_DEMON_WORTHY.
-  difficultyOpinionStars: number | null
   // Ratings — 0–100 internally regardless of display scale.
   enjoyment: number | null
   simpleRating: number | null
@@ -90,7 +89,6 @@ export function emptyDraft(): FlowDraft {
     worstFailDate: '',
     worstFailAlreadyLogged: false,
     difficultyOpinion: null,
-    difficultyOpinionStars: null,
     enjoyment: null,
     simpleRating: null,
     ratingScores: {},
@@ -135,7 +133,6 @@ export function draftFromExistingCompletion(
   draft.worstFailDate = isoToDateInput(existing.worstFailDate) ?? ''
   draft.worstFailAlreadyLogged = false
   draft.difficultyOpinion = existing.difficultyOpinion
-  draft.difficultyOpinionStars = existing.difficultyOpinionStars
   draft.enjoyment = existing.enjoyment
   draft.simpleRating = existing.simpleRating
   draft.ratingScores = Object.fromEntries(

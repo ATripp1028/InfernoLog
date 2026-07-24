@@ -75,7 +75,7 @@ export function ListRow({
   datePref,
   minWidth,
 }: RowProps) {
-  const { entry, level } = item
+  const { entry, level, overallRating, ratingScores } = item
   const dash = <span className="text-text-tertiary">—</span>
 
   const orderedCols = columnOrder
@@ -154,8 +154,8 @@ export function ListRow({
                 responsiveClass={col.responsiveClass}
                 label="rating"
               >
-                {entry?.overallRating != null
-                  ? formatRating(entry.overallRating, scale)
+                {overallRating != null
+                  ? formatRating(overallRating, scale)
                   : dash}
               </Cell>
             )
@@ -285,8 +285,8 @@ export function ListRow({
             if (col.id.startsWith('cat:')) {
               const catId = col.id.slice(4)
               const score =
-                entry?.ratingScores.find((r) => r.categoryId === catId)
-                  ?.score ?? null
+                ratingScores.find((r) => r.categoryId === catId)?.score ??
+                null
               return (
                 <Cell
                   key={col.id}

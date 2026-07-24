@@ -1,7 +1,6 @@
 import { z } from 'zod'
 import {
   LevelSchema,
-  ProgressUpdateInputSchema,
   PublicUserProfileSchema,
   CompletionInputSchema,
   ProgressInputSchema,
@@ -36,7 +35,6 @@ import {
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
-export type ProgressUpdateInput = z.infer<typeof ProgressUpdateInputSchema>
 export type PublicUserProfile = z.infer<typeof PublicUserProfileSchema>
 
 export type CompletionInput = z.infer<typeof CompletionInputSchema>

@@ -6,6 +6,11 @@ export interface LevelPageData {
   worstFail: number | null
   worstFailDate: string | null
   userGddlTier: number | null
+  // One current value per level, not per event.
+  simpleRating: number | null
+  ratingScores: RatingScore[]
+  coinsCollected: number | null
+  completionTime: number | null
   createdAt: string
   updatedAt: string
   rankingIndex: number | null
@@ -25,7 +30,6 @@ export interface LevelMeta {
   inGameDifficulty: string | null
   isDemon: boolean
   isRated: boolean
-  difficultyFace: string | null
   featured: boolean
   epicValue: number
   length: string | null
@@ -35,7 +39,6 @@ export interface LevelMeta {
   coinsVerified: boolean | null
   twoPlayer: boolean | null
   officialSongId: number | null
-  gddlTier: number | null
 }
 
 export interface ProgressUpdate {
@@ -51,15 +54,11 @@ export interface ProgressUpdate {
   fps: number | null
   percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   enjoyment: number | null
-  simpleRating: number | null
   difficultyOpinion: string | null
-  difficultyOpinionStars: number | null
   notes: string | null
   videoUrl: string | null
   highlightUrl: string | null
   loggedAt: string
-  ratingScores: RatingScore[]
-  coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
   device: 'pc' | 'mobile' | null

@@ -74,7 +74,6 @@ async function syncOneLevel(
     await prisma.level.update({
       where: { inGameId: levelId },
       data: {
-        delisted: true,
         delistedAt: new Date(),
         lastCheckedAt: new Date(),
       },
@@ -154,7 +153,7 @@ export async function runVolatileSync(): Promise<SyncBatchResult> {
   const cutoff = volatileCutoff()
   const rows = await prisma.level.findMany({
     where: {
-      delisted: false,
+      delistedAt: null,
       OR: [{ isRated: false }, { ratingStatusSince: { gte: cutoff } }],
     },
     select: { inGameId: true },
@@ -177,7 +176,7 @@ export async function runStandardSync(): Promise<SyncBatchResult> {
   const rows = await prisma.level.findMany({
     where: {
       isRated: true,
-      delisted: false,
+      delistedAt: null,
       OR: [{ ratingStatusSince: null }, { ratingStatusSince: { lt: cutoff } }],
     },
     select: { inGameId: true },

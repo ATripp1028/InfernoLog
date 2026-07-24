@@ -12,7 +12,6 @@ import { buildCompletionInput } from '../payload'
 import { formatNumber, formatRating } from '../format'
 
 const OPINION_LABELS: Record<string, string> = {
-  NOT_DEMON_WORTHY: 'Not demon-worthy',
   EASY: 'Easy',
   MEDIUM: 'Medium',
   HARD: 'Hard',
@@ -20,12 +19,25 @@ const OPINION_LABELS: Record<string, string> = {
   EXTREME: 'Extreme',
 }
 
-function opinionLabel(opinion: string, stars: number | null): string {
-  const base = OPINION_LABELS[opinion] ?? opinion
-  if (opinion === 'NOT_DEMON_WORTHY' && stars != null) {
-    return `${base} · ${stars}★ ${starCountToDifficulty(stars)}`
+// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR).
+const OPINION_TO_STAR: Record<string, number> = {
+  AUTO: 1,
+  TWO_STAR: 2,
+  THREE_STAR: 3,
+  FOUR_STAR: 4,
+  FIVE_STAR: 5,
+  SIX_STAR: 6,
+  SEVEN_STAR: 7,
+  EIGHT_STAR: 8,
+  NINE_STAR: 9,
+}
+
+function opinionLabel(opinion: string): string {
+  const stars = OPINION_TO_STAR[opinion]
+  if (stars != null) {
+    return `Not demon-worthy · ${stars}★ ${starCountToDifficulty(stars)}`
   }
-  return base
+  return OPINION_LABELS[opinion] ?? opinion
 }
 
 export function CompletionReviewStep() {
@@ -95,10 +107,7 @@ export function CompletionReviewStep() {
           {draft.difficultyOpinion && (
             <Row
               label="Your difficulty rating"
-              value={opinionLabel(
-                draft.difficultyOpinion,
-                draft.difficultyOpinionStars
-              )}
+              value={opinionLabel(draft.difficultyOpinion)}
             />
           )}
           {weightedAvg != null && (

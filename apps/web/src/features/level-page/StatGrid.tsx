@@ -89,7 +89,11 @@ export function StatGrid({
   const overallRating = completion
     ? computeOverallRating(
         { ratingMode, includeEnjoyment, enjoymentWeight, categoryWeights },
-        completion
+        {
+          simpleRating: data.simpleRating,
+          enjoyment: completion.enjoyment,
+          ratingScores: data.ratingScores,
+        }
       )
     : null
   const ratingDisplay =

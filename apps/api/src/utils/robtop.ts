@@ -39,20 +39,15 @@ export interface RobtopLevel {
   description: string | null
   creatorPlayerId: string | null
   creatorAccountId: string | null
-  creatorPoints: number | null
   stars: number | null
   starsRequested: number | null
   partialDiff: string | null
-  difficultyFace: string | null
   downloads: number | null
   likes: number | null
   disliked: boolean | null
   objectCount: number | null
-  largeLevel: boolean | null
   coins: number | null
   coinsVerified: boolean | null
-  orbs: number | null
-  diamonds: number | null
   featured: boolean | null
   featureScore: number | null
   epicValue: number | null
@@ -61,12 +56,11 @@ export interface RobtopLevel {
   copiedFromId: string | null
   levelVersion: number | null
   gameVersion: string | null
-  editorSeconds: number | null
-  editorSecondsTotal: number | null
   officialSongId: number | null
   songId: string | null
   songLink: string | null
-  songSize: string | null
+  // Raw megabyte value (e.g. 9.56). Format at the display layer.
+  songSize: number | null
 }
 
 // getGJLevels21 only returns song metadata for custom (Newgrounds) songs. For
@@ -129,6 +123,12 @@ const LENGTHS = ['Tiny', 'Short', 'Medium', 'Long', 'XL', 'Platformer'] as const
 const int = (v: string | undefined): number | null => {
   if (v === undefined || v === '') return null
   const n = Number.parseInt(v, 10)
+  return Number.isNaN(n) ? null : n
+}
+
+const float = (v: string | undefined): number | null => {
+  if (v === undefined || v === '') return null
+  const n = Number.parseFloat(v)
   return Number.isNaN(n) ? null : n
 }
 
@@ -290,20 +290,15 @@ function buildRobtopLevel(
     description: decodeDescription(L['3']),
     creatorPlayerId: L['6'] || null,
     creatorAccountId: creator?.accountId ?? null,
-    creatorPoints: null,
     stars,
     starsRequested: int(L['39']),
     partialDiff,
-    difficultyFace: null,
     downloads: int(L['10']),
     likes,
     disliked: likes !== null ? likes < 0 : null,
     objectCount: int(L['45']),
-    largeLevel: null,
     coins: int(L['37']),
     coinsVerified: L['38'] === '1',
-    orbs: null,
-    diamonds: null,
     featured: featureScore !== null ? featureScore > 0 : null,
     featureScore,
     epicValue: int(L['42']),
@@ -312,12 +307,10 @@ function buildRobtopLevel(
     copiedFromId: L['30'] && L['30'] !== '0' ? L['30'] : null,
     levelVersion: int(L['5']),
     gameVersion: formatGameVersion(int(L['13'])),
-    editorSeconds: int(L['46']),
-    editorSecondsTotal: int(L['47']),
     officialSongId: isCustom ? null : officialSongIndex,
     songId: isCustom ? customSongId : null,
     songLink: isCustom ? decodeUrl(song?.['10']) : null,
-    songSize: isCustom && song?.['5'] ? `${song['5']}MB` : null,
+    songSize: isCustom ? float(song?.['5']) : null,
   }
 }
 

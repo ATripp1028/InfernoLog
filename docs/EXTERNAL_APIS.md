@@ -21,7 +21,7 @@ type=10&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
 
 The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). Rate limits are ~2 req/s for data endpoints; our usage is per-user cache-miss only.
 
-`-1` (or empty/malformed) means not found → the client returns `null`. Custom (Newgrounds) songs come from the response; **official/built-in tracks** are resolved name/author from a static table in `robtop.ts` (the level object only carries the official-song index). A few fields GDBrowser used to compute (creator points, orbs, diamonds) are not in the level object and are stored `null`.
+`-1` (or empty/malformed) means not found → the client returns `null`. Custom (Newgrounds) songs come from the response; **official/built-in tracks** are resolved name/author from a static table in `robtop.ts` (the level object only carries the official-song index). A few fields GDBrowser used to compute (creator points, orbs, diamonds, difficulty face, "large level", editor time) aren't in the raw level object at all — they don't exist as `levels` columns, rather than being stored permanently `null`.
 
 Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofill`). Subsequent users logging the same level ID do not trigger a new request — the cached data is returned directly.
 
@@ -105,8 +105,8 @@ Both schedules run one shared fetch/compare/write **core** (`apps/api/src/servic
 
 | Job               | Cadence                            | Query (levels passed to the shared core)                                                                                           |
 | ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted = false` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
-| **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted = false` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
+| **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted_at IS NULL` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
+| **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted_at IS NULL` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
 
 The queries are complementary: the weekly job covers never-rated levels (a rating can appear at any time) and rated levels whose rating status changed within the last 14 days (the volatile window, most likely to be revised soon). The monthly job covers everything else that's rated and not delisted — including rated levels whose `rating_status_since` was never stamped (e.g. cached via import/resolve rather than a sync). No level is processed by both jobs in the same window.
 
@@ -116,9 +116,9 @@ The core calls `fetchRobtopLevel`, then:
 
 **Not found** (RobTop `-1`/empty → `null`, the same contract the `/resolve` endpoint uses):
 
-- Set `delisted = true`, `delisted_at = now()` (and `last_checked_at`).
+- Set `delisted_at = now()` (and `last_checked_at`); `delisted` on the wire is derived as `delisted_at != null` — no separate boolean column.
 - Freeze all metadata (`name`, `creator`, `in_game_difficulty`, `song_name`, `song_author`, `is_rated`) at last-known values.
-- Run no diff logic. Delisted rows are excluded from both jobs thereafter.
+- Run no diff logic. Delisted rows are excluded from both jobs thereafter (there is no un-delist path, so the timestamp alone is authoritative).
 
 **Found** — diff against the cached row, writing only what changed:
 

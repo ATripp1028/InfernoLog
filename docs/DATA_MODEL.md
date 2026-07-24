@@ -24,18 +24,16 @@
 │level_progress│   │classic_ranking│  │ collections │
 └──────┬──────┘   └───────────────┘  └──────┬──────┘
        │                                     │
-       ├─────────────────┐          ┌────────▼────────┐
-       │                 │          │collection_entries│
-┌──────▼──────┐  ┌───────▼──────┐  └─────────────────┘
-│progress_    │  │ levels       │
-│updates      │  │ (shared cache)│
+       ├─────────────────┬───────────┐  ┌────▼────────────┐
+       │                 │           │  │collection_entries│
+┌──────▼──────┐  ┌───────▼──────┐  ┌─▼──────────┐ └─────────────────┘
+│progress_    │  │ levels       │  │rating_scores│
+│updates      │  │ (shared cache)│  └────────────┘
 └──────┬──────┘  └──────────────┘
        │
-       ├──────────────────┐
-       │                  │
-┌──────▼──────┐  ┌────────▼──────┐
-│list_        │  │rating_scores  │
-│references   │  └───────────────┘
+┌──────▼──────┐
+│list_        │
+│references   │
 └─────────────┘
 ```
 
@@ -101,7 +99,7 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `role`                       | ENUM      | `user`, `moderator`, `admin`                                                                                                                                                                         |
 | `account_status`             | ENUM      | `active`, `suspended`, `banned`                                                                                                                                                                      |
 | `suspension_until`           | TIMESTAMP | Nullable                                                                                                                                                                                             |
-| `is_verified`                | BOOLEAN   | Default false                                                                                                                                                                                        |
+| `verified_at`                | TIMESTAMP | Nullable. `is_verified` on the wire is derived as `verified_at != null` — no separate boolean column                                                                                                |
 | `gddl_api_key_encrypted`     | VARCHAR   | Encrypted at rest, never exposed to frontend                                                                                                                                                         |
 | `rating_mode`                | ENUM      | `simple`, `weighted`. Default `simple`                                                                                                                                                               |
 | `rating_display_scale`       | ENUM      | `zero_to_ten`, `zero_to_hundred`. Default `zero_to_ten`. Display-only — ratings/enjoyment are always stored as 0-100 integers regardless of this setting; the frontend converts at the display layer |
@@ -128,14 +126,14 @@ See `LOGGING_FLOW_RECONCILIATION.md` for the `dropped → in_progress` and drop-
 | `nong_song_title`     | VARCHAR   | Nullable. Intended song name (v2)                                                                                                                                                              |
 | `nong_artist`         | VARCHAR   | Nullable. Intended artist (v2)                                                                                                                                                                 |
 | `nong_source_url`     | VARCHAR   | Nullable. Link to SFH or source (v2)                                                                                                                                                           |
-| `peak_music_bpm`      | INTEGER   | Nullable. Music BPM metadata (v2)                                                                                                                                                              |
 | `data_source`         | ENUM      | `robtop_autofill`, `manual`. Provenance of the cached metadata (legacy rows may read `gdbrowser_autofill`)                                                                                     |
 | `verified`            | BOOLEAN   | Default false for `manual` rows. A later sync can backfill and verify/override manually-entered metadata (including `in_game_difficulty`)                                                      |
 | `last_checked_at`     | TIMESTAMP | Updated by the RobTop sync jobs on every level processed (found or not). See `EXTERNAL_APIS.md`                                                                                                |
 | `rating_status_since` | TIMESTAMP | Nullable. Stamped whenever `is_rated` flips or `in_game_difficulty` changes value. Drives the weekly "volatile" sync's 14-day window                                                           |
-| `delisted`            | BOOLEAN   | Default false. Set true when a sync finds the level gone from RobTop's servers; a delisted row is frozen at last-known values and excluded from both sync jobs                                 |
-| `delisted_at`         | TIMESTAMP | Nullable. When the level was first detected as delisted                                                                                                                                        |
+| `delisted_at`         | TIMESTAMP | Nullable. When the level was first detected as delisted; `delisted` on the wire is derived as `delisted_at != null` — a delisted row is frozen at last-known values and excluded from both sync jobs, and there is no un-delist path, so the timestamp alone is authoritative |
 | `created_at`          | TIMESTAMP |                                                                                                                                                                                                |
+
+Extended RobTop metadata (description, stars, downloads, coins, etc. — see `schema.prisma`) is also cached here but omitted from this table for brevity. `peak_music_bpm`, `creator_points`, `difficulty_face`, `large_level`, `orbs`, `diamonds`, `editor_seconds`, and `editor_seconds_total` do not exist — the direct RobTop `getGJLevels21` client this app uses (as opposed to the earlier GDBrowser proxy) never returns them, so they were removed rather than kept as permanently-null columns. `song_size` is a raw float (megabytes), formatted at the display layer.
 
 ### `level_progress`
 
@@ -149,7 +147,12 @@ One row per user per level. Created when the user logs their first progress upda
 | `status`      | ENUM      | `in_progress`, `dropped`, `completed`. Derived from the latest `progress_updates` event, but stored (not computed at query time) so it can be filtered/indexed                         |
 | `visibility`  | ENUM      | `public`, `private`. Per-entry privacy                                                                                                                                                 |
 | `level_notes` | TEXT      | Nullable. "About this level overall" — distinct from per-completion `progress_updates.notes`. One value per user per level; survives edits or deletions of individual progress updates |
+| `simple_rating` | DECIMAL | Nullable. 0-10. The user's single rating for this level (SIMPLE mode) — one current value per level, not one per logged event. Editable from any progress-editing surface, not just the completion. WEIGHTED mode scores live in `rating_scores`, also keyed on this row |
+| `coins_collected` | INTEGER | Nullable. Bitmask (bit 0 = coin 1, etc.) — only meaningful once the level is completed (coins only count on the winning attempt); cleared if the completion is later deleted |
+| `completion_time` | INTERVAL | Nullable. Platformer levels only (v2): time of the completing attempt |
 | `created_at`  | TIMESTAMP |                                                                                                                                                                                        |
+
+`simple_rating`/`coins_collected`/`completion_time` moved here from `progress_updates` — despite being entered during completion logging, they describe the level's current state (one value, editable in place), not a specific historical event. Same reasoning as `worst_fail`/`worst_fail_date` (see the Level Page Runs Graph section below): a rolling, level-scoped value the logging UI asks for once and remembers, rather than a per-event field.
 
 ### `progress_updates`
 
@@ -163,16 +166,14 @@ Every logged event for a level: a session log, a completion, or a drop. All fiel
 | `percentage`                  | DECIMAL   | Nullable. Classic levels only (0-100). Progress path only — omitted on completions (100% implied) and drops                                                                                                                                      |
 | `run_from`                    | INTEGER   | Nullable. Start of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                              |
 | `run_to`                      | INTEGER   | Nullable. End of best run (0-100). Populated only on progress entries in "From a run" mode — never on completions                                                                                                                                |
-| `completion_time`             | INTERVAL  | Nullable. Platformer levels only (v2)                                                                                                                                                                                                            |
 | `attempts`                    | INTEGER   | Nullable. Cumulative at time of update                                                                                                                                                                                                           |
 | `date`                        | DATE      | Nullable                                                                                                                                                                                                                                         |
 | `date_uncertain`              | BOOLEAN   | Default false                                                                                                                                                                                                                                    |
 | `on_stream`                   | BOOLEAN   | Default false                                                                                                                                                                                                                                    |
 | `fps`                         | INTEGER   | Nullable                                                                                                                                                                                                                                         |
 | `peak_heart_rate_bpm`         | INTEGER   | Nullable (v2)                                                                                                                                                                                                                                    |
-| `enjoyment`                   | DECIMAL   | Nullable. 0-10                                                                                                                                                                                                                                   |
-| `simple_rating`               | DECIMAL   | Nullable. 0-10. Used when user is in simple rating mode                                                                                                                                                                                          |
-| `difficulty_opinion`          | ENUM      | Nullable. The user's subjective read: `not_demon_worthy`, `easy`, `medium`, `hard`, `insane`, `extreme`. The only difficulty field the user edits                                                                                                |
+| `enjoyment`                   | DECIMAL   | Nullable. 0-10. Logged per-event (any progress update, not just completions) — mirrors the GDDL's approach. Distinct from `level_progress.simple_rating`/`rating_scores`, which are one current value per level, not per event                  |
+| `difficulty_opinion`          | ENUM      | Nullable. The user's subjective read: `easy`, `medium`, `hard`, `insane`, `extreme`, or one of the non-demon star values `auto`/`two_star`/`three_star`/.../`nine_star` (1–9★, carrying their own star count rather than a separate paired field). The only difficulty field the user edits |
 | `in_game_difficulty_snapshot` | VARCHAR   | Nullable. Optional historical snapshot of the level's cached `in_game_difficulty` at time of beat. Populated **automatically from the `levels` cache** — never user-edited                                                                       |
 | `notes`                       | TEXT      | Nullable                                                                                                                                                                                                                                         |
 | `video_url`                   | VARCHAR   | Nullable. Completion video. The Level Page hero embeds this; unambiguous in v1 (one completion per level). In v3, rebeat introduces multiple completions each with their own video — "which video is the hero" is deferred to the rebeat design. |
@@ -183,10 +184,9 @@ Every logged event for a level: a session log, a completion, or a drop. All fiel
 
 - Only one `progress_update` per `level_progress` may have `kind = COMPLETION`. `kind = DROP` may repeat — a level can be dropped, resumed, and dropped again, and each drop keeps its own row (not overwritten)
 - `percentage` only applies to classic levels. Omitted for platformer
-- `completion_time` only applies to platformer levels (v2)
 - Non-completion, non-drop entries are hidden throughout the UI unless the "show non-completions" toggle is active
 - Rebeat handling (multiple completions per level) is a v3 feature
-- **Two difficulty concepts, never conflated.** The level's _actual rating_ (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A `not_demon_worthy` opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when the GD servers report the level isn't a demon at all
+- **Two difficulty concepts, never conflated.** The level's _actual rating_ (`levels.in_game_difficulty`) is cached and read-only; the per-user `difficulty_opinion` here is the only difficulty the user edits. Surfacing the two side by side lets the user state where they disagree. A non-demon star opinion is a **disagreement flag only** — the level stays in the difficulty ranking (it is still a rated demon). This is distinct from the non-demon **soft gate** (see `LOGGING_FLOW.md`), which fires when the GD servers report the level isn't a demon at all
 
 ### `list_references`
 
@@ -203,10 +203,12 @@ Attached to a `progress_update`. Typically attached to the completion update but
 
 ### `rating_scores`
 
+One current set of per-category scores per level (WEIGHTED mode) — keyed on `level_progress`, not `progress_updates`, for the same reason `simple_rating` (SIMPLE mode) lives there: a rating is a property of the level, not of a specific logged event.
+
 | Column               | Type    | Notes                  |
 | -------------------- | ------- | ---------------------- |
 | `id`                 | UUID    |                        |
-| `progress_update_id` | UUID    | FK → progress_updates  |
+| `level_progress_id`  | UUID    | FK → level_progress    |
 | `category_id`        | UUID    | FK → rating_categories |
 | `score`              | DECIMAL | 0-10                   |
 

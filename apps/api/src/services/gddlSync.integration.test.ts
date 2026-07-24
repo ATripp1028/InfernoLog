@@ -212,7 +212,6 @@ describe('syncGddlSubmissions', () => {
         kind: 'COMPLETION',
         date: null,
         enjoyment: null,
-        simpleRating: null,
         videoUrl: null,
       },
       select: { id: true },

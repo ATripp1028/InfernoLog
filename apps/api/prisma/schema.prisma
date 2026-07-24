@@ -111,10 +111,19 @@ enum RatingDisplayScale {
 
 // The user's subjective difficulty read on a completion — the ONLY difficulty
 // field the user edits. Distinct from the level's cached in-game difficulty
-// (Level.inGameDifficulty). NOT_DEMON_WORTHY is a disagreement flag only; the
-// level stays a rated demon. See DATA_MODEL.md and LOGGING_FLOW.md.
+// (Level.inGameDifficulty). The non-demon star values (AUTO..NINE_STAR) are a
+// disagreement flag only; the level stays a rated demon. See DATA_MODEL.md
+// and LOGGING_FLOW.md.
 enum DifficultyOpinion {
-  NOT_DEMON_WORTHY
+  AUTO
+  TWO_STAR
+  THREE_STAR
+  FOUR_STAR
+  FIVE_STAR
+  SIX_STAR
+  SEVEN_STAR
+  EIGHT_STAR
+  NINE_STAR
   EASY
   MEDIUM
   HARD
@@ -180,8 +189,7 @@ model User {
   accountStatus         AccountStatus        @default(ACTIVE)
   suspensionUntil       DateTime?
 
-  // Verification
-  isVerified            Boolean              @default(false)
+  // Verification — derived as verifiedAt != null (see PublicUserProfileSchema).
   verifiedAt            DateTime?
 
   // GDDL integration — key stored encrypted, never exposed to frontend.
@@ -277,9 +285,6 @@ model Level {
   nongArtist            String?
   nongSourceUrl         String?
 
-  // Additional metadata (v2)
-  peakMusicBpm          Int?                 // Music BPM, not heart rate
-
   // ── Extended GDBrowser metadata ──────────────────────────────────────────
   // A snapshot of everything RobTop's level object exposes (via GDBrowser), so
   // we retain the data even if the level later changes or is deleted upstream,
@@ -290,24 +295,19 @@ model Level {
   // Creator identity beyond the display name.
   creatorPlayerId       String?
   creatorAccountId      String?
-  creatorPoints         Int?
   // Rating / difficulty detail. stars is the awarded star/moon count (0 when
-  // unrated → isRated); partialDiff/difficultyFace are GDBrowser's
-  // machine-readable difficulty tokens ("demon-extreme", "demon-extreme-featured").
+  // unrated → isRated); partialDiff is GDBrowser's machine-readable
+  // difficulty token ("demon-extreme", "demon-extreme-featured").
   stars                 Int?
   starsRequested        Int?
   partialDiff           String?
-  difficultyFace        String?
   // Engagement / stats.
   downloads             Int?
   likes                 Int?
   disliked              Boolean?
   objectCount           Int?
-  largeLevel            Boolean?
   coins                 Int?
   coinsVerified         Boolean?
-  orbs                  Int?
-  diamonds              Int?
   // Showcase flags. epicValue: 0 none, 1 epic, 2 legendary, 3 mythic.
   featured              Boolean?
   featureScore          Int?
@@ -318,19 +318,13 @@ model Level {
   copiedFromId          String?
   levelVersion          Int?
   gameVersion           String?
-  editorSeconds         Int?
-  editorSecondsTotal    Int?
   // Song detail beyond name/author. officialSongId is set when the level uses a
   // built-in track; songId is the Newgrounds/custom song id otherwise.
   officialSongId        Int?
   songId                String?
   songLink              String?
-  songSize              String?
-
-  // Community GDDL tier for this level (rounded integer). Updated opportunistically
-  // when level metadata is fetched and the requesting user has a GDDL API key.
-  // Null when no GDDL data has been fetched yet or the level is not on GDDL.
-  gddlTier              Int?
+  // Raw megabyte value (e.g. 9.56). Format at the display layer.
+  songSize              Float?
 
   // Data provenance
   dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
@@ -347,9 +341,9 @@ model Level {
   // the 14-day "volatile" window the weekly job re-checks a rated level for.
   ratingStatusSince     DateTime?
   // Set when a sync finds the level is gone from GD's servers (RobTop "not
-  // found"). A delisted row is frozen at its last-known values and excluded
-  // from both sync jobs.
-  delisted              Boolean              @default(false)
+  // found") — derived as delistedAt != null. A delisted row is frozen at its
+  // last-known values and excluded from both sync jobs, and is never
+  // reverted (no un-delist path), so the timestamp alone is authoritative.
   delistedAt            DateTime?
 
   createdAt             DateTime             @default(now())
@@ -396,10 +390,21 @@ model LevelProgress {
   // One value per user per level. See DATA_MODEL.md.
   levelNotes      String?
 
-  // The user's own opinion on the level's GDDL tier (independent of the
-  // community value stored on Level.gddlTier). Set during completion logging
-  // or via the edit form. Null when the user has not given an opinion.
+  // The user's own opinion on the level's GDDL tier. Set during completion
+  // logging or via the edit form. Null when the user has not given an opinion.
   userGddlTier    Int?
+
+  // The user's single rating for this level (SIMPLE mode) — one score per
+  // level, not one per logged event. WEIGHTED mode scores live in
+  // RatingScore, also keyed on this row. Editable from any progress-editing
+  // surface, not just the completion. 0-100 internally.
+  simpleRating    Int?
+  // Coins collected bitmask (bit 0 = coin 1, etc.) — only meaningful once the
+  // level is completed (coins only count on the winning attempt). Null = not
+  // logged.
+  coinsCollected  Int?
+  // Platformer levels only (v2): time of the completing attempt, in seconds.
+  completionTime  Int?
 
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
@@ -409,6 +414,7 @@ model LevelProgress {
   level           Level                @relation(fields: [levelId], references: [inGameId])
   progressUpdates ProgressUpdate[]
   classicRanking  ClassicRanking?
+  ratingScores    RatingScore[]
 
   @@unique([userId, levelId]) // One LevelProgress per user per level
   @@map("level_progress")
@@ -438,8 +444,6 @@ model ProgressUpdate {
   // runFrom/runTo: best run range e.g. 44-87
   runFrom               Int?
   runTo                 Int?
-  // completionTime: platformer levels only (v2). Null for classic.
-  completionTime        Int?            // stored as seconds
 
   // Attempt tracking
   // Convention: cumulative attempts across ALL uploads/copies of the level.
@@ -457,10 +461,10 @@ model ProgressUpdate {
   peakHeartRateBpm      Int?            // v2 — heart rate monitor data
 
   // Ratings
+  // enjoyment: logged per-event (any progress update, not just completions) —
+  // mirrors the GDDL's approach. Distinct from simpleRating/ratingScores,
+  // which live on LevelProgress (one current value per level, not per event).
   enjoyment             Int?            // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
-  // simpleRating: used when user is in SIMPLE rating mode
-  simpleRating          Int?            // 0-100 internally
-  // Weighted mode scores stored in RatingScore relation
 
   // Contextual metadata
   // Snapshot of in-game difficulty rating at time of logging
@@ -468,20 +472,14 @@ model ProgressUpdate {
   // Populated automatically from the Level cache — never user-edited.
   inGameDifficulty      String?
   // The user's subjective difficulty opinion (the only difficulty they edit).
+  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
+  // than a separate paired field. See LOGGING_FLOW.md.
   difficultyOpinion     DifficultyOpinion?
-  // When the opinion is NOT_DEMON_WORTHY, the non-demon difficulty the user
-  // thinks it deserves, expressed as a star count 1–9 (1=Auto … 8–9=Insane).
-  // Null for demon-tier opinions. See LOGGING_FLOW.md.
-  difficultyOpinionStars Int?
   notes                 String?
 
   // Media
   videoUrl              String?         // Completion video
   highlightUrl          String?         // Highlight reel — independent of onStream
-
-  // Coins collected at time of completion — bitmask (bit 0 = coin 1, etc.).
-  // Only meaningful for completion entries; null = not logged.
-  coinsCollected        Int?
 
   // 2-player level logging. Null = not a 2-player level or not logged.
   // true = beat it solo; false = beat it with a partner.
@@ -491,16 +489,11 @@ model ProgressUpdate {
   // Device the level was beaten on. Null = not logged.
   device                Device?
 
-  // Ranking snapshot — only populated for completion entries
-  top5AtTime            Boolean         @default(false)
-  top5Position          Int?            // 1-5, null if not top 5
-
   loggedAt              DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
 
   // Relations
   levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-  ratingScores          RatingScore[]
 
   @@map("progress_updates")
 }
@@ -542,22 +535,23 @@ model RatingCategory {
 
 // ─────────────────────────────────────────────
 // RATING SCORES
-// Per-category scores per progress update.
+// Per-category scores per level (one set per LevelProgress, not per event —
+// see LevelProgress.simpleRating for the SIMPLE-mode counterpart).
 // Weighted average computed at query time — never stored.
 // ─────────────────────────────────────────────
 
 model RatingScore {
   id                String          @id @default(uuid())
-  progressUpdateId  String
+  levelProgressId   String
   categoryId        String
 
   score             Int             // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
 
   // Relations
-  progressUpdate    ProgressUpdate  @relation(fields: [progressUpdateId], references: [id], onDelete: Cascade)
+  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
   ratingCategory    RatingCategory  @relation(fields: [categoryId], references: [id])
 
-  @@unique([progressUpdateId, categoryId])
+  @@unique([levelProgressId, categoryId])
   @@map("rating_scores")
 }
 
@@ -726,19 +720,18 @@ model ModerationAction {
 
 // Tracks an async GDDL submission-history import. The route Lambda creates a
 // pending row and returns the id immediately; the worker Lambda updates the row
-// to completed/failed when the sync finishes.
+// to completed/failed when the sync finishes. One row per user — same pattern
+// as ImportJob: starting a new sync deletes the previous job first, since
+// nothing ever reads sync history beyond the latest job.
 model GddlSyncJob {
   id         String    @id @default(uuid())
-  userId     String
+  userId     String    @unique
   status     String    // "pending" | "completed" | "failed"
   result     Json?
   error      String?
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
 
-  // GET/POST /me/gddl-sync both look up { where: { userId }, orderBy: { startedAt: 'desc' } }
-  // on every 2s poll while a sync is active — keep it an index lookup, not a table scan.
-  @@index([userId, startedAt])
   @@map("gddl_sync_jobs")
 }
 

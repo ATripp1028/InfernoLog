@@ -26,8 +26,18 @@ export interface FieldDescriptor {
   max?: number
 }
 
+// The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+// no separate paired field. See packages/core/src/enums.ts.
 const DIFFICULTY_OPINION_OPTIONS = [
-  { value: 'NOT_DEMON_WORTHY', label: 'Not demon-worthy' },
+  { value: 'AUTO', label: 'Not demon-worthy · 1★ Auto' },
+  { value: 'TWO_STAR', label: 'Not demon-worthy · 2★' },
+  { value: 'THREE_STAR', label: 'Not demon-worthy · 3★' },
+  { value: 'FOUR_STAR', label: 'Not demon-worthy · 4★' },
+  { value: 'FIVE_STAR', label: 'Not demon-worthy · 5★' },
+  { value: 'SIX_STAR', label: 'Not demon-worthy · 6★' },
+  { value: 'SEVEN_STAR', label: 'Not demon-worthy · 7★' },
+  { value: 'EIGHT_STAR', label: 'Not demon-worthy · 8★' },
+  { value: 'NINE_STAR', label: 'Not demon-worthy · 9★' },
   { value: 'EASY', label: 'Easy' },
   { value: 'MEDIUM', label: 'Medium' },
   { value: 'HARD', label: 'Hard' },
@@ -63,12 +73,6 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
     label: 'Difficulty opinion',
     format: 'enum',
     options: DIFFICULTY_OPINION_OPTIONS,
-  },
-  {
-    field: 'difficultyOpinionStars',
-    label: 'Difficulty stars',
-    format: 'number',
-    max: 9,
   },
   {
     field: 'coinsCollected',

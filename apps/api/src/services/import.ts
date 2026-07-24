@@ -321,6 +321,9 @@ interface LpFields {
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string | null
   userGddlTier?: number | null
+  // One current value per level, not per event — see schema.prisma.
+  simpleRating?: number | null
+  coinsCollected?: number | null
 }
 
 interface LpPlan {
@@ -433,7 +436,6 @@ function applyLp(plan: LpPlan, fields: LpFields): void {
 // real replace rather than the merge it used to be mislabeled as.
 function buildCompletionProgressUpdateFields(
   row: ImportCompletionRow,
-  coinsCollected: number | null,
   inGameDifficulty: string | null
 ) {
   return {
@@ -448,11 +450,7 @@ function buildCompletionProgressUpdateFields(
     highlightUrl: row.highlightUrl ?? null,
     notes: row.notes ?? null,
     enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
-    simpleRating:
-      row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     difficultyOpinion: row.difficultyOpinion ?? null,
-    difficultyOpinionStars: row.difficultyOpinionStars ?? null,
-    coinsCollected,
     twoPlayerSolo: row.twoPlayerSolo ?? null,
     twoPlayerPartner: row.twoPlayerPartner ?? null,
     device: row.device ?? null,
@@ -470,6 +468,7 @@ function buildCompletionProgressUpdateFields(
 function buildCompletionLpFields(
   row: ImportCompletionRow,
   userGddlTier: number | null,
+  coinsCollected: number | null,
   fallbackVisibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC'
 ): LpFields {
   return {
@@ -479,6 +478,9 @@ function buildCompletionLpFields(
     visibility: row.visibility ?? fallbackVisibility,
     levelNotes: row.levelNotes ?? null,
     userGddlTier,
+    simpleRating:
+      row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
+    coinsCollected,
   }
 }
 
@@ -489,8 +491,7 @@ function buildCompletionLpFields(
 // the frontend (see FieldConflictMerge) — a field that's still blank here
 // was never in conflict, so there's nothing to reconcile.
 function buildCompletionMergePatch(
-  row: ImportCompletionRow,
-  coinsCollected: number | null
+  row: ImportCompletionRow
 ): Prisma.ProgressUpdateUncheckedUpdateInput {
   const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
   if (row.date != null) merge.date = new Date(row.date)
@@ -504,13 +505,8 @@ function buildCompletionMergePatch(
   if (row.runFrom != null) merge.runFrom = row.runFrom
   if (row.runTo != null) merge.runTo = row.runTo
   if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
-  if (row.simpleRating != null)
-    merge.simpleRating = Math.round(row.simpleRating * 10)
   if (row.difficultyOpinion != null)
     merge.difficultyOpinion = row.difficultyOpinion
-  if (row.difficultyOpinionStars != null)
-    merge.difficultyOpinionStars = row.difficultyOpinionStars
-  if (coinsCollected != null) merge.coinsCollected = coinsCollected
   if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
   if (row.twoPlayerPartner != null)
     merge.twoPlayerPartner = row.twoPlayerPartner
@@ -520,7 +516,8 @@ function buildCompletionMergePatch(
 
 function buildCompletionMergeLpFields(
   row: ImportCompletionRow,
-  userGddlTier: number | null
+  userGddlTier: number | null,
+  coinsCollected: number | null
 ): LpFields {
   return {
     ...(row.percentage != null
@@ -532,6 +529,10 @@ function buildCompletionMergeLpFields(
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     ...(userGddlTier != null ? { userGddlTier } : {}),
+    ...(row.simpleRating != null
+      ? { simpleRating: Math.round(row.simpleRating * 10) }
+      : {}),
+    ...(coinsCollected != null ? { coinsCollected } : {}),
   }
 }
 
@@ -604,14 +605,18 @@ function planCompletion(
   const plan = getLpPlan(ctx, levelId)
 
   if (existingCompletionId && resolution === 'merge') {
-    const merge = buildCompletionMergePatch(row, coinsCollected)
+    const merge = buildCompletionMergePatch(row)
     if (Object.keys(merge).length > 0) {
       ctx.writes.progressUpdateUpdates.push({
         id: existingCompletionId,
         data: merge,
       })
     }
-    const lpMerge = buildCompletionMergeLpFields(row, userGddlTier)
+    const lpMerge = buildCompletionMergeLpFields(
+      row,
+      userGddlTier,
+      coinsCollected
+    )
     if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return { status: 'updated' }
   }
@@ -620,7 +625,6 @@ function planCompletion(
   // (no existing row at all) — both write every field of `row` unconditionally.
   const fields = buildCompletionProgressUpdateFields(
     row,
-    coinsCollected,
     ctx.levelDiff.get(levelId) ?? null
   )
 
@@ -632,7 +636,12 @@ function planCompletion(
     const existingVisibility = ctx.dbState.get(levelId)?.visibility ?? 'PUBLIC'
     applyLp(
       plan,
-      buildCompletionLpFields(row, userGddlTier, existingVisibility)
+      buildCompletionLpFields(
+        row,
+        userGddlTier,
+        coinsCollected,
+        existingVisibility
+      )
     )
     return { status: 'updated' }
   }
@@ -646,7 +655,7 @@ function planCompletion(
   })
   applyLp(plan, {
     status: 'COMPLETED',
-    ...buildCompletionLpFields(row, userGddlTier),
+    ...buildCompletionLpFields(row, userGddlTier, coinsCollected),
   })
 
   return { status: 'committed' }
@@ -1608,12 +1617,10 @@ export async function processImportJobBatch(
               stars: rtData.stars,
               starsRequested: rtData.starsRequested,
               partialDiff: rtData.partialDiff,
-              difficultyFace: rtData.difficultyFace,
               downloads: rtData.downloads,
               likes: rtData.likes,
               disliked: rtData.disliked,
               objectCount: rtData.objectCount,
-              largeLevel: rtData.largeLevel,
               coins: rtData.coins,
               coinsVerified: rtData.coinsVerified,
               featured: rtData.featured,
@@ -1624,8 +1631,6 @@ export async function processImportJobBatch(
               copiedFromId: rtData.copiedFromId,
               levelVersion: rtData.levelVersion,
               gameVersion: rtData.gameVersion,
-              editorSeconds: rtData.editorSeconds,
-              editorSecondsTotal: rtData.editorSecondsTotal,
               officialSongId: rtData.officialSongId,
               songId: rtData.songId,
               songLink: rtData.songLink,
@@ -1791,7 +1796,6 @@ interface ExistingCompletionSnapshot {
   enjoyment: number | null // internal 0-100
   simpleRating: number | null // internal 0-100
   difficultyOpinion: string | null
-  difficultyOpinionStars: number | null
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
@@ -1846,11 +1850,6 @@ function diffCompletionFields(
     'difficultyOpinion',
     existing.difficultyOpinion,
     row.difficultyOpinion ?? null
-  )
-  push(
-    'difficultyOpinionStars',
-    existing.difficultyOpinionStars,
-    row.difficultyOpinionStars ?? null
   )
   push(
     'coinsCollected',
@@ -1988,10 +1987,7 @@ export async function checkImportConflicts(
               highlightUrl: true,
               notes: true,
               enjoyment: true,
-              simpleRating: true,
               difficultyOpinion: true,
-              difficultyOpinionStars: true,
-              coinsCollected: true,
               twoPlayerSolo: true,
               twoPlayerPartner: true,
               device: true,
@@ -2023,10 +2019,9 @@ export async function checkImportConflicts(
       highlightUrl: pu.highlightUrl,
       notes: pu.notes,
       enjoyment: pu.enjoyment,
-      simpleRating: pu.simpleRating,
+      simpleRating: lp.simpleRating,
       difficultyOpinion: pu.difficultyOpinion,
-      difficultyOpinionStars: pu.difficultyOpinionStars,
-      coinsCollected: pu.coinsCollected,
+      coinsCollected: lp.coinsCollected,
       twoPlayerSolo: pu.twoPlayerSolo,
       twoPlayerPartner: pu.twoPlayerPartner,
       device: pu.device,

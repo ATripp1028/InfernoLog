@@ -63,9 +63,8 @@ describe('POST /me/completions', () => {
     const lp = await prisma.levelProgress.findUniqueOrThrow({
       where: { userId_levelId: { userId: user.id, levelId: '100' } },
       include: {
-        progressUpdates: {
-          include: { ratingScores: true },
-        },
+        progressUpdates: true,
+        ratingScores: true,
       },
     })
     expect(lp.status).toBe('COMPLETED')
@@ -77,8 +76,9 @@ describe('POST /me/completions', () => {
     expect(pu.difficultyOpinion).toBe('EXTREME')
     // In-game difficulty is snapshotted from the cached level, not the client.
     expect(pu.inGameDifficulty).toBe('Insane Demon')
-    expect(pu.ratingScores).toHaveLength(1)
-    expect(pu.ratingScores[0]?.score).toBe(75)
+    // Rating scores live on LevelProgress — one current set per level.
+    expect(lp.ratingScores).toHaveLength(1)
+    expect(lp.ratingScores[0]?.score).toBe(75)
     expect(lp.userGddlTier).toBe(28)
   })
 
@@ -105,16 +105,20 @@ describe('POST /me/completions', () => {
         levelProgress: { userId: user.id, levelId: '101' },
         kind: 'COMPLETION',
       },
-      include: { ratingScores: true },
     })
     // Still exactly one completion — updated, not duplicated.
     expect(completions).toHaveLength(1)
     const completion = completions[0]
     if (!completion) throw new Error('expected a completion update')
     expect(completion.attempts).toBe(2000)
-    // Child rows were replaced, not accumulated.
-    expect(completion.ratingScores).toHaveLength(1)
-    expect(completion.ratingScores[0]?.score).toBe(90)
+
+    // Rating-score rows (on LevelProgress) were replaced, not accumulated.
+    const lp = await prisma.levelProgress.findUniqueOrThrow({
+      where: { userId_levelId: { userId: user.id, levelId: '101' } },
+      include: { ratingScores: true },
+    })
+    expect(lp.ratingScores).toHaveLength(1)
+    expect(lp.ratingScores[0]?.score).toBe(90)
   })
 })
 
