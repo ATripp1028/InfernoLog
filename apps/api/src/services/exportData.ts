@@ -297,7 +297,6 @@ async function exportRatings(userId: string, skip: number, take: number) {
   const lps = await prisma.levelProgress.findMany({
     where: {
       userId,
-      progressUpdates: { some: { kind: 'COMPLETION' } },
       ratingScores: { some: {} },
     },
     orderBy: { createdAt: 'asc' },
@@ -307,8 +306,10 @@ async function exportRatings(userId: string, skip: number, take: number) {
       levelId: true,
       level: { select: { name: true, creator: true } },
       ratingScores: { select: { categoryId: true, score: true } },
+      // Representative update (completion first, else most recent) — rating
+      // is level-level and doesn't require a completion to exist.
       progressUpdates: {
-        where: { kind: 'COMPLETION' },
+        orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }],
         take: 1,
         select: { inGameDifficulty: true },
       },
@@ -317,7 +318,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
 
   return lps.flatMap((lp) => {
     const pu = lp.progressUpdates[0]
-    if (!pu || lp.ratingScores.length === 0) return []
+    if (lp.ratingScores.length === 0) return []
     const scores: Record<string, number> = {}
     for (const s of lp.ratingScores) {
       const name = catNameById.get(s.categoryId)
@@ -329,7 +330,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
         levelId: lp.levelId,
         levelName: lp.level.name,
         creator: lp.level.creator,
-        inGameDifficulty: pu.inGameDifficulty,
+        inGameDifficulty: pu?.inGameDifficulty ?? null,
         scores,
       },
     ]

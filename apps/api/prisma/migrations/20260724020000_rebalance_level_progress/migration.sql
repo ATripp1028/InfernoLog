@@ -51,24 +51,53 @@ DROP TYPE "DifficultyOpinion_old";
 COMMIT;
 
 -- ============================================================
--- 2. LevelProgress: add relocated columns, backfill from the (at most one)
---    COMPLETION progress_update per level_progress, then drop the old
---    columns off progress_updates.
+-- 2. LevelProgress: add relocated columns, backfill from whichever
+--    progress_update actually carries a value for each column (these fields
+--    were never restricted to the COMPLETION row pre-refactor — applyEdit
+--    could target any progress_update). Per column, prefer the COMPLETION
+--    row if it has a value, else the most recently logged row that does.
 -- ============================================================
 ALTER TABLE "level_progress" ADD COLUMN "coinsCollected" INTEGER,
 ADD COLUMN "completionTime" INTEGER,
 ADD COLUMN "simpleRating" INTEGER;
 
 UPDATE "level_progress" lp
-SET "coinsCollected" = pu."coinsCollected",
-    "completionTime" = pu."completionTime",
-    "simpleRating" = pu."simpleRating"
-FROM "progress_updates" pu
-WHERE pu."levelProgressId" = lp.id AND pu.kind = 'COMPLETION';
+SET "coinsCollected" = cc."coinsCollected"
+FROM (
+  SELECT DISTINCT ON ("levelProgressId") "levelProgressId", "coinsCollected"
+  FROM "progress_updates"
+  WHERE "coinsCollected" IS NOT NULL
+  ORDER BY "levelProgressId", (kind = 'COMPLETION') DESC, "loggedAt" DESC
+) cc
+WHERE cc."levelProgressId" = lp.id;
+
+UPDATE "level_progress" lp
+SET "completionTime" = ct."completionTime"
+FROM (
+  SELECT DISTINCT ON ("levelProgressId") "levelProgressId", "completionTime"
+  FROM "progress_updates"
+  WHERE "completionTime" IS NOT NULL
+  ORDER BY "levelProgressId", (kind = 'COMPLETION') DESC, "loggedAt" DESC
+) ct
+WHERE ct."levelProgressId" = lp.id;
+
+UPDATE "level_progress" lp
+SET "simpleRating" = sr."simpleRating"
+FROM (
+  SELECT DISTINCT ON ("levelProgressId") "levelProgressId", "simpleRating"
+  FROM "progress_updates"
+  WHERE "simpleRating" IS NOT NULL
+  ORDER BY "levelProgressId", (kind = 'COMPLETION') DESC, "loggedAt" DESC
+) sr
+WHERE sr."levelProgressId" = lp.id;
 
 -- ============================================================
--- 3. RatingScore: repoint from progressUpdateId to levelProgressId (via the
---    owning completion update), then swap the FK/unique index.
+-- 3. RatingScore: repoint from progressUpdateId to levelProgressId, then swap
+--    the FK/unique index. ratingScores were never restricted to the
+--    COMPLETION row pre-refactor, so two different progress_updates on the
+--    same level_progress could each hold a row for the same category —
+--    dedupe (preferring the COMPLETION row, then most recently logged)
+--    before the new unique(levelProgressId, categoryId) index is created.
 -- ============================================================
 ALTER TABLE "rating_scores" ADD COLUMN "levelProgressId" TEXT;
 
@@ -76,6 +105,20 @@ UPDATE "rating_scores" rs
 SET "levelProgressId" = pu."levelProgressId"
 FROM "progress_updates" pu
 WHERE pu.id = rs."progressUpdateId";
+
+DELETE FROM "rating_scores" rs
+WHERE rs.id IN (
+  SELECT ranked.id FROM (
+    SELECT rs2.id,
+      ROW_NUMBER() OVER (
+        PARTITION BY rs2."levelProgressId", rs2."categoryId"
+        ORDER BY (pu2.kind = 'COMPLETION') DESC, pu2."loggedAt" DESC
+      ) AS rn
+    FROM "rating_scores" rs2
+    JOIN "progress_updates" pu2 ON pu2.id = rs2."progressUpdateId"
+  ) ranked
+  WHERE ranked.rn > 1
+);
 
 ALTER TABLE "rating_scores" ALTER COLUMN "levelProgressId" SET NOT NULL;
 

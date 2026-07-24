@@ -30,6 +30,10 @@ import {
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { useResolveLevel } from '@/lib/api/logging'
+import {
+  STAR_TO_OPINION as SHARED_STAR_TO_OPINION,
+  NOT_DEMON_OPINION_VALUES,
+} from '@infernolog/core'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 import {
   DevicePicker,
@@ -179,20 +183,29 @@ export function EditProgressModal({
           effectiveDefault
         )
       )
+    }
+  }, [open, data, scale, me.data, progressUpdateId, levelId])
 
-      // Live "Community: X" hint for the GDDL tier field — same live fetch
-      // the initial logging flow uses (never blocks/fails: a hint, not a
-      // requirement). Reset first so a stale tier from a previously-viewed
-      // level never flashes before this one resolves.
-      setSuggestedGddlTier(null)
-      if (completionUpdate) {
-        resolveLevel.mutate(levelId, {
-          onSuccess: (res) => setSuggestedGddlTier(res.suggestedGddlTier),
-        })
-      }
+  // Live "Community: X" hint for the GDDL tier field — same live fetch the
+  // initial logging flow uses (never blocks/fails: a hint, not a
+  // requirement). Kept in its own effect keyed only on `open`/`levelId` (not
+  // `data`) so an unrelated background refetch of the level page while the
+  // modal stays open doesn't refire this network call — the community tier
+  // doesn't change between refetches. Reset first so a stale tier from a
+  // previously-viewed level never flashes before this one resolves.
+  useEffect(() => {
+    if (!open) return
+    setSuggestedGddlTier(null)
+    const hasCompletion = data.progressUpdates.some(
+      (u) => u.kind === 'COMPLETION'
+    )
+    if (hasCompletion) {
+      resolveLevel.mutate(levelId, {
+        onSuccess: (res) => setSuggestedGddlTier(res.suggestedGddlTier),
+      })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, scale, me.data, progressUpdateId, levelId])
+  }, [open, levelId])
 
   if (!me.data) return null
 
@@ -743,20 +756,14 @@ const DEMON_OPINIONS = [
 ]
 
 // The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
-// rather than a separate paired field — see packages/core/src/enums.ts.
-const STAR_TO_OPINION: Record<number, DifficultyOpinion> = {
-  1: 'AUTO',
-  2: 'TWO_STAR',
-  3: 'THREE_STAR',
-  4: 'FOUR_STAR',
-  5: 'FIVE_STAR',
-  6: 'SIX_STAR',
-  7: 'SEVEN_STAR',
-  8: 'EIGHT_STAR',
-  9: 'NINE_STAR',
-}
+// rather than a separate paired field — shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
 const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
-  Object.values(STAR_TO_OPINION)
+  NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
 )
 
 function DifficultyOpinionSelect({

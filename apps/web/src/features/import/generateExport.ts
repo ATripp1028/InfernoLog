@@ -7,6 +7,7 @@
 import * as XLSX from 'xlsx'
 import type { ExportResponse } from '@/lib/api/import'
 import type { DateFormat } from './parseSpreadsheet'
+import { opinionToStars } from '@infernolog/core'
 import {
   COMPLETION_HEADERS,
   PROGRESS_HEADERS,
@@ -44,25 +45,14 @@ function coinBit(mask: number | null, bit: number): Cell {
 }
 
 // The wire format merges "not demon-worthy" + a star count into one enum
-// value; the sheet keeps them as two user-facing columns for clarity.
-const OPINION_TO_STAR: Record<string, number> = {
-  AUTO: 1,
-  TWO_STAR: 2,
-  THREE_STAR: 3,
-  FOUR_STAR: 4,
-  FIVE_STAR: 5,
-  SIX_STAR: 6,
-  SEVEN_STAR: 7,
-  EIGHT_STAR: 8,
-  NINE_STAR: 9,
-}
-
+// value; the sheet keeps them as two user-facing columns for clarity. Shared
+// mapping, see packages/core/src/difficultyOpinion.ts.
 function splitDifficultyOpinion(opinion: string | null): {
   difficulty_opinion: Cell
   difficulty_opinion_stars: Cell
 } {
   if (!opinion) return { difficulty_opinion: '', difficulty_opinion_stars: '' }
-  const star = OPINION_TO_STAR[opinion]
+  const star = opinionToStars(opinion)
   if (star != null) {
     return {
       difficulty_opinion: 'not_demon_worthy',

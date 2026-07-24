@@ -8,6 +8,10 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import type { DifficultyOpinion, Level } from '@/lib/api/logging'
+import {
+  STAR_TO_OPINION as SHARED_STAR_TO_OPINION,
+  NOT_DEMON_OPINION_VALUES,
+} from '@infernolog/core'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -254,20 +258,14 @@ export function CompletionBasicsStep() {
 }
 
 // The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
-// rather than a separate paired field — see packages/core/src/enums.ts.
-const STAR_TO_OPINION: Record<number, DifficultyOpinion> = {
-  1: 'AUTO',
-  2: 'TWO_STAR',
-  3: 'THREE_STAR',
-  4: 'FOUR_STAR',
-  5: 'FIVE_STAR',
-  6: 'SIX_STAR',
-  7: 'SEVEN_STAR',
-  8: 'EIGHT_STAR',
-  9: 'NINE_STAR',
-}
+// rather than a separate paired field — shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
 const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
-  Object.values(STAR_TO_OPINION)
+  NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
 )
 
 function DifficultyOpinionSelect({

@@ -149,6 +149,12 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         data: updateFields,
       })
       progressUpdateId = existing.id
+      // Replace rating-score rows so the edit fully reflects the new
+      // payload. Keyed on the LevelProgress — one current set of scores per
+      // level. Only relevant when replacing an existing completion — a
+      // brand-new one can't have any rating-score rows yet, so skip the
+      // (guaranteed 0-row) delete.
+      await tx.ratingScore.deleteMany({ where: { levelProgressId: lp.id } })
     } else {
       const created = await tx.progressUpdate.create({
         data: { ...updateFields, levelProgressId: lp.id },
@@ -157,9 +163,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       progressUpdateId = created.id
     }
 
-    // Replace rating-score rows so the edit fully reflects the new payload.
-    // Keyed on the LevelProgress — one current set of scores per level.
-    await tx.ratingScore.deleteMany({ where: { levelProgressId: lp.id } })
     if (input.ratingScores?.length) {
       await tx.ratingScore.createMany({
         data: input.ratingScores.map((r) => ({
@@ -413,18 +416,24 @@ export async function deleteProgressUpdate(
       else if (newStatus === 'DROPPED') newStatus = 'IN_PROGRESS'
     }
 
+    const uncompleting = lp.status === 'COMPLETED' && newStatus !== 'COMPLETED'
     if (newStatus !== lp.status) {
       await tx.levelProgress.update({
         where: { id: lp.id },
-        data: { status: newStatus },
+        data: {
+          status: newStatus,
+          // Only meaningful once completed — cleared when the completion is
+          // undone. Folded into the same write as the status change (both
+          // always fire together, since `uncompleting` implies `newStatus
+          // !== lp.status`) rather than a second round-trip to the same row.
+          ...(uncompleting
+            ? { coinsCollected: null, completionTime: null }
+            : {}),
+        },
       })
     }
-    if (lp.status === 'COMPLETED' && newStatus !== 'COMPLETED') {
+    if (uncompleting) {
       await tx.classicRanking.deleteMany({ where: { levelProgressId: lp.id } })
-      await tx.levelProgress.update({
-        where: { id: lp.id },
-        data: { coinsCollected: null, completionTime: null },
-      })
     }
 
     return { deletedLevelProgress: false }

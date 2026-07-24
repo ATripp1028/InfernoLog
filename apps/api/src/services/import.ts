@@ -467,10 +467,14 @@ function buildCompletionProgressUpdateFields(
 // brand-new completion, which has no existing value to preserve.
 function buildCompletionLpFields(
   row: ImportCompletionRow,
-  userGddlTier: number | null,
-  coinsCollected: number | null,
-  fallbackVisibility: 'PUBLIC' | 'PRIVATE' = 'PUBLIC'
+  resolvedFields: {
+    userGddlTier: number | null
+    coinsCollected: number | null
+    fallbackVisibility?: 'PUBLIC' | 'PRIVATE'
+  }
 ): LpFields {
+  const { userGddlTier, coinsCollected, fallbackVisibility = 'PUBLIC' } =
+    resolvedFields
   return {
     worstFail: row.percentage != null ? Math.round(row.percentage) : null,
     worstFailDate:
@@ -516,9 +520,12 @@ function buildCompletionMergePatch(
 
 function buildCompletionMergeLpFields(
   row: ImportCompletionRow,
-  userGddlTier: number | null,
-  coinsCollected: number | null
+  resolvedFields: {
+    userGddlTier: number | null
+    coinsCollected: number | null
+  }
 ): LpFields {
+  const { userGddlTier, coinsCollected } = resolvedFields
   return {
     ...(row.percentage != null
       ? { worstFail: Math.round(row.percentage) }
@@ -612,11 +619,10 @@ function planCompletion(
         data: merge,
       })
     }
-    const lpMerge = buildCompletionMergeLpFields(
-      row,
+    const lpMerge = buildCompletionMergeLpFields(row, {
       userGddlTier,
-      coinsCollected
-    )
+      coinsCollected,
+    })
     if (Object.keys(lpMerge).length > 0) applyLp(plan, lpMerge)
     return { status: 'updated' }
   }
@@ -636,12 +642,11 @@ function planCompletion(
     const existingVisibility = ctx.dbState.get(levelId)?.visibility ?? 'PUBLIC'
     applyLp(
       plan,
-      buildCompletionLpFields(
-        row,
+      buildCompletionLpFields(row, {
         userGddlTier,
         coinsCollected,
-        existingVisibility
-      )
+        fallbackVisibility: existingVisibility,
+      })
     )
     return { status: 'updated' }
   }
@@ -655,7 +660,7 @@ function planCompletion(
   })
   applyLp(plan, {
     status: 'COMPLETED',
-    ...buildCompletionLpFields(row, userGddlTier, coinsCollected),
+    ...buildCompletionLpFields(row, { userGddlTier, coinsCollected }),
   })
 
   return { status: 'committed' }

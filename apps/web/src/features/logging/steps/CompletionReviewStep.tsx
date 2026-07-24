@@ -10,6 +10,7 @@ import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
 import { buildCompletionInput } from '../payload'
 import { formatNumber, formatRating } from '../format'
+import { opinionToStars } from '@infernolog/core'
 
 const OPINION_LABELS: Record<string, string> = {
   EASY: 'Easy',
@@ -19,21 +20,10 @@ const OPINION_LABELS: Record<string, string> = {
   EXTREME: 'Extreme',
 }
 
-// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR).
-const OPINION_TO_STAR: Record<string, number> = {
-  AUTO: 1,
-  TWO_STAR: 2,
-  THREE_STAR: 3,
-  FOUR_STAR: 4,
-  FIVE_STAR: 5,
-  SIX_STAR: 6,
-  SEVEN_STAR: 7,
-  EIGHT_STAR: 8,
-  NINE_STAR: 9,
-}
-
+// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
+// — shared mapping, see packages/core/src/difficultyOpinion.ts.
 function opinionLabel(opinion: string): string {
-  const stars = OPINION_TO_STAR[opinion]
+  const stars = opinionToStars(opinion)
   if (stars != null) {
     return `Not demon-worthy · ${stars}★ ${starCountToDifficulty(stars)}`
   }

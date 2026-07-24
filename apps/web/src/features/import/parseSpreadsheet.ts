@@ -14,6 +14,7 @@ import type {
   Device,
   EntryVisibility,
 } from '@/lib/api/import'
+import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
 
 // ── Date format ────────────────────────────────────────────────────────────
 
@@ -258,18 +259,12 @@ const VALID_DIFFICULTY_OPINIONS = new Set<string>([
 
 // The sheet keeps two user-facing columns (difficulty_opinion +
 // difficulty_opinion_stars) for clarity, but the wire format merges them: the
-// non-demon star values carry their own star count. 1=AUTO..9=NINE_STAR.
-const STAR_TO_OPINION: Record<number, DifficultyOpinion> = {
-  1: 'AUTO',
-  2: 'TWO_STAR',
-  3: 'THREE_STAR',
-  4: 'FOUR_STAR',
-  5: 'FIVE_STAR',
-  6: 'SIX_STAR',
-  7: 'SEVEN_STAR',
-  8: 'EIGHT_STAR',
-  9: 'NINE_STAR',
-}
+// non-demon star values carry their own star count. Shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
 
 function parseCompletionRow(
   raw: Record<string, unknown>,
