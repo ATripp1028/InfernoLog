@@ -201,15 +201,19 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
 
 export function LoggingSection({ me }: LoggingSectionProps) {
   const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const { getExport } = useImportApi()
   const importStatus = useImportStatus()
 
   const handleExport = async () => {
+    setExporting(true)
     try {
       const exportData = await getExport()
       downloadExport(exportData, me.dateFormatPreference)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -282,8 +286,13 @@ export function LoggingSection({ me }: LoggingSectionProps) {
           label="Export to spreadsheet"
           description="Download your completion history as an xlsx spreadsheet. Useful for backups or sharing with others."
           control={
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              Export
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+            >
+              {exporting ? 'Exporting…' : 'Export'}
             </Button>
           }
         />

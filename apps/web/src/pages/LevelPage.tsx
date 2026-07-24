@@ -153,6 +153,7 @@ export function LevelPage() {
     deleteProgress.mutate(levelId, {
       onSuccess: () => {
         toast.success('Level deleted')
+        setPendingDelete(false)
         void navigate({ to: '/list' })
       },
       onError: () => {
@@ -166,12 +167,12 @@ export function LevelPage() {
     deleteProgressUpdate.mutate(pendingDeleteUpdateId, {
       onSuccess: (result) => {
         toast.success('Entry deleted')
+        setPendingDeleteUpdateId(null)
         if (result.deletedLevelProgress) void navigate({ to: '/list' })
       },
       onError: () => {
         toast.error('Failed to delete entry')
       },
-      onSettled: () => setPendingDeleteUpdateId(null),
     })
   }
 
@@ -181,7 +182,10 @@ export function LevelPage() {
 
   function handleGddlSubmitConfirm() {
     submitGddlRecord.mutate(levelId, {
-      onSuccess: () => toast.success('Submitted to GDDL'),
+      onSuccess: () => {
+        toast.success('Submitted to GDDL')
+        setPendingGddlSubmit(false)
+      },
       onError: () => toast.error('Failed to submit to GDDL'),
     })
   }
@@ -467,6 +471,7 @@ export function LevelPage() {
         description={`This removes "${levelName}" and all its logged progress permanently. This can't be undone.`}
         confirmLabel="Delete"
         destructive
+        isPending={deleteProgress.isPending}
         onConfirm={handleDeleteConfirm}
       />
 
@@ -482,6 +487,7 @@ export function LevelPage() {
         }
         confirmLabel="Delete"
         destructive
+        isPending={deleteProgressUpdate.isPending}
         onConfirm={handleDeleteEntryConfirm}
       />
 
@@ -492,6 +498,7 @@ export function LevelPage() {
         title="Submit to GDDL?"
         description="Sends your completion to the GD Ladder using your connected API key."
         confirmLabel="Submit"
+        isPending={submitGddlRecord.isPending}
         onConfirm={handleGddlSubmitConfirm}
       />
     </>

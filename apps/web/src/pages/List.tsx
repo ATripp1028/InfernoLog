@@ -87,6 +87,9 @@ export function List() {
   const [controlsOpen, setControlsOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<ListPreset | null>(null)
+  const [overwritingPresetId, setOverwritingPresetId] = useState<
+    string | null
+  >(null)
 
   // Currently active preset: null = Default built-in view
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
@@ -378,11 +381,13 @@ export function List() {
   function handleOverwritePreset(id: string) {
     const preset = presets.find((p) => p.id === id)
     if (!preset) return
+    setOverwritingPresetId(id)
     updatePreset.mutate(
       { id, input: currentConfig },
       {
         onSuccess: () => toast.success(`Preset "${preset.name}" updated`),
         onError: () => toast.error('Failed to update preset'),
+        onSettled: () => setOverwritingPresetId(null),
       }
     )
   }
@@ -465,7 +470,10 @@ export function List() {
     if (!pendingDelete) return
     const name = pendingDelete.level.name ?? 'Level'
     deleteProgress.mutate(pendingDelete.level.inGameId, {
-      onSuccess: () => toast.success(`Deleted ${name}`),
+      onSuccess: () => {
+        toast.success(`Deleted ${name}`)
+        setPendingDelete(null)
+      },
       onError: () => toast.error(`Couldn't delete ${name}`),
     })
   }
@@ -521,6 +529,7 @@ export function List() {
             onEditPreset={handleEditPreset}
             onDiscardPreset={handleDiscardPresetChanges}
             deletingPresetId={deletingPresetId}
+            overwritingPresetId={overwritingPresetId}
           />
 
           {items.length === 0 ? (
@@ -609,6 +618,7 @@ export function List() {
         }" and all its logged progress. This can't be undone.`}
         confirmLabel="Delete"
         destructive
+        isPending={deleteProgress.isPending}
         onConfirm={confirmDelete}
       />
 

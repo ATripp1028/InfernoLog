@@ -19,7 +19,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ChevronLeft, GripVertical, Plus, X } from 'lucide-react'
+import { ChevronLeft, GripVertical, Loader2, Plus, X } from 'lucide-react'
 import { toast } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/PageLoading'
@@ -126,6 +126,9 @@ function Loaded({
   const deleteCollection = useDeleteCollection()
   const removeEntry = useRemoveCollectionEntry()
   const reorderEntry = useReorderCollectionEntry()
+  const removingEntryId = removeEntry.isPending
+    ? (removeEntry.variables?.entryId ?? null)
+    : null
 
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -231,6 +234,7 @@ function Loaded({
                     position={i + 1}
                     entry={entry}
                     dimmed={entry.id === activeId}
+                    removing={entry.id === removingEntryId}
                     onRemove={() =>
                       removeEntry.mutate(
                         { collectionId: collection.id, entryId: entry.id },
@@ -379,11 +383,13 @@ function SortableRow({
   position,
   entry,
   dimmed,
+  removing,
   onRemove,
 }: {
   position: number
   entry: CollectionEntry
   dimmed: boolean
+  removing: boolean
   onRemove: () => void
 }) {
   const {
@@ -406,6 +412,7 @@ function SortableRow({
       <Row
         position={position}
         entry={entry}
+        removing={removing}
         onRemove={onRemove}
         handleProps={{ ...attributes, ...listeners }}
       />
@@ -416,12 +423,14 @@ function SortableRow({
 function Row({
   position,
   entry,
+  removing = false,
   onRemove,
   handleProps,
   overlay = false,
 }: {
   position: number
   entry: CollectionEntry
+  removing?: boolean
   onRemove?: () => void
   handleProps?: Record<string, unknown>
   overlay?: boolean
@@ -471,9 +480,14 @@ function Row({
             type="button"
             aria-label={`Remove ${level.name ?? 'level'} from collection`}
             onClick={onRemove}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
+            disabled={removing}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <X size={14} />
+            {removing ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <X size={14} />
+            )}
           </button>
         )}
       </div>

@@ -90,6 +90,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       await removeKey.mutateAsync()
       setValue('')
       setEditing(false)
+      setConfirmDisconnect(false)
       toast.success('GDDL account disconnected')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
@@ -204,6 +205,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
         description="Your synced completions will remain, but InfernoLog will no longer be able to sync new data from your GDDL account."
         confirmLabel="Disconnect"
         destructive
+        isPending={removeKey.isPending}
         onConfirm={() => void disconnect()}
       />
 

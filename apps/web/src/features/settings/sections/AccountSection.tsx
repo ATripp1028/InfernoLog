@@ -39,6 +39,7 @@ export function AccountSection({ me }: AccountSectionProps) {
     try {
       await disconnect.mutateAsync()
       toast.success('Discord account disconnected')
+      setConfirmDiscordDisconnect(false)
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : 'Failed to disconnect Discord'
@@ -104,6 +105,7 @@ export function AccountSection({ me }: AccountSectionProps) {
         description="This unlinks your Discord account from InfernoLog."
         confirmLabel="Disconnect"
         destructive
+        isPending={disconnect.isPending}
         onConfirm={() => void handleDisconnect()}
       />
     </SettingsSection>
