@@ -28,6 +28,7 @@ interface ToolbarProps {
   selectedPresetId: string | null
   isPresetModified: boolean
   deletingPresetId: string | null
+  overwritingPresetIds: string[]
   onSelectPreset: (id: string | null) => void
   onSaveNewPreset: () => void
   onOverwritePreset: (id: string) => void
@@ -55,6 +56,7 @@ export function Toolbar({
   selectedPresetId,
   isPresetModified,
   deletingPresetId,
+  overwritingPresetIds,
   onSelectPreset,
   onSaveNewPreset,
   onOverwritePreset,
@@ -83,6 +85,7 @@ export function Toolbar({
           selectedPresetId={selectedPresetId}
           isModified={isPresetModified}
           deletingPresetId={deletingPresetId}
+          overwritingPresetIds={overwritingPresetIds}
           onSelect={onSelectPreset}
           onSaveNew={onSaveNewPreset}
           onOverwrite={onOverwritePreset}

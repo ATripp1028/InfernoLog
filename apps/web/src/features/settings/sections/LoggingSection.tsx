@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import {
   DateFormatPreference,
   type GdVersion,
+  type Device,
   useUpdateMe,
   type MeData,
 } from '@/lib/api/me'
@@ -63,6 +64,14 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
   const handlePercentageVersionChange = async (value: GdVersion) => {
     try {
       await update.mutateAsync({ defaultPercentageVersion: value })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  const handleDeviceChange = async (value: Device) => {
+    try {
+      await update.mutateAsync({ defaultDevice: value })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }
@@ -138,6 +147,24 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
         }
       />
       <SettingRow
+        label="Default device"
+        description="Which device to pre-select when logging."
+        control={
+          <Select
+            value={me.defaultDevice}
+            onValueChange={(v) => void handleDeviceChange(v as Device)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pc">PC</SelectItem>
+              <SelectItem value="mobile">Mobile</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
+      <SettingRow
         label="Default FPS"
         description="Pre-filled into the Log Level form. Must be at least 60."
         control={
@@ -174,15 +201,19 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
 
 export function LoggingSection({ me }: LoggingSectionProps) {
   const [importOpen, setImportOpen] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const { getExport } = useImportApi()
   const importStatus = useImportStatus()
 
   const handleExport = async () => {
+    setExporting(true)
     try {
       const exportData = await getExport()
       downloadExport(exportData, me.dateFormatPreference)
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to export')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -255,8 +286,13 @@ export function LoggingSection({ me }: LoggingSectionProps) {
           label="Export to spreadsheet"
           description="Download your completion history as an xlsx spreadsheet. Useful for backups or sharing with others."
           control={
-            <Button variant="outline" size="sm" onClick={handleExport}>
-              Export
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void handleExport()}
+              disabled={exporting}
+            >
+              {exporting ? 'Exporting…' : 'Export'}
             </Button>
           }
         />

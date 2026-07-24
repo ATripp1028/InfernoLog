@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useMutationState } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Loader2 } from 'lucide-react'
 import { useMe } from '../lib/api/me'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import {
@@ -8,6 +11,7 @@ import {
   useCreatePreset,
   useUpdatePreset,
   useDeletePreset,
+  updatePresetMutationKey,
   type ListPreset,
 } from '../lib/api/presets'
 import { useLevelPage } from '../lib/api/levelPage'
@@ -69,6 +73,13 @@ export function List() {
   const deletePreset = useDeletePreset()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
+
+  // Derived (not local state) so concurrent overwrites of different presets
+  // don't clear each other's in-flight indicator via a shared onSettled.
+  const overwritingPresetIds = useMutationState({
+    filters: { mutationKey: updatePresetMutationKey, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as { id: string }).id,
+  })
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
@@ -463,7 +474,10 @@ export function List() {
     if (!pendingDelete) return
     const name = pendingDelete.level.name ?? 'Level'
     deleteProgress.mutate(pendingDelete.level.inGameId, {
-      onSuccess: () => toast.success(`Deleted ${name}`),
+      onSuccess: () => {
+        toast.success(`Deleted ${name}`)
+        setPendingDelete(null)
+      },
       onError: () => toast.error(`Couldn't delete ${name}`),
     })
   }
@@ -519,6 +533,7 @@ export function List() {
             onEditPreset={handleEditPreset}
             onDiscardPreset={handleDiscardPresetChanges}
             deletingPresetId={deletingPresetId}
+            overwritingPresetIds={overwritingPresetIds}
           />
 
           {items.length === 0 ? (
@@ -607,6 +622,7 @@ export function List() {
         }" and all its logged progress. This can't be undone.`}
         confirmLabel="Delete"
         destructive
+        isPending={deleteProgress.isPending}
         onConfirm={confirmDelete}
       />
 
@@ -619,6 +635,28 @@ export function List() {
           scale={ratingDisplayScale}
           progressUpdateId={null}
         />
+      )}
+
+      {/* Fetching a level's edit data is a network round-trip — without this,
+          clicking Edit does nothing visible until it resolves, which reads as
+          a hang. Shown immediately on click; swaps for EditProgressModal once
+          editLevelQuery.data lands. */}
+      {editingLevelId && !editLevelQuery.data && !editLevelQuery.isError && (
+        <Dialog.Root open onOpenChange={(o) => !o && setEditingLevelId(null)}>
+          <Dialog.Portal>
+            <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+            <Dialog.Content
+              aria-describedby={undefined}
+              className="fixed left-1/2 top-1/2 z-50 w-[280px] -translate-x-1/2 -translate-y-1/2 focus:outline-none"
+            >
+              <Dialog.Title className="sr-only">Loading entry</Dialog.Title>
+              <div className="flex flex-col items-center gap-3 rounded-card border border-border bg-bg-surface p-8 shadow-[0_24px_64px_rgba(0,0,0,0.6)]">
+                <Loader2 size={20} className="animate-spin text-primary" />
+                <p className="text-sm text-text-secondary">Loading entry…</p>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
       )}
 
       <AddToCollectionDialog

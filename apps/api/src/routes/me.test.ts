@@ -588,35 +588,114 @@ describe('POST /me/gddl-sync', () => {
     expect(res.status).toBe(500)
     expect(mockLambdaSend).not.toHaveBeenCalled()
   })
+
+  it('returns the existing job instead of starting a second one while a sync is already pending', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    syncJobMock.findFirst.mockResolvedValueOnce({
+      id: 'job-already-running',
+      status: 'pending',
+      startedAt: new Date(),
+    })
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
+    const body = (await res.json()) as { data: { jobId: string } }
+
+    expect(res.status).toBe(202)
+    expect(body.data.jobId).toBe('job-already-running')
+    expect(syncJobMock.create).not.toHaveBeenCalled()
+    expect(mockLambdaSend).not.toHaveBeenCalled()
+  })
+
+  it('expires a stale pending job and starts a new one', async () => {
+    prisma.user.findUniqueOrThrow.mockResolvedValueOnce({
+      gddlApiKeyEncrypted: 'ciphertext',
+    } as never)
+    syncJobMock.findFirst.mockResolvedValueOnce({
+      id: 'job-stuck',
+      status: 'pending',
+      startedAt: new Date(Date.now() - 30 * 60 * 1000),
+    })
+    syncJobMock.create.mockResolvedValueOnce({ id: 'job-new' })
+    mockLambdaSend.mockResolvedValueOnce({})
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'POST' })
+    const body = (await res.json()) as { data: { jobId: string } }
+
+    expect(res.status).toBe(202)
+    expect(body.data.jobId).toBe('job-new')
+    expect(syncJobMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'job-stuck' },
+        data: expect.objectContaining({ status: 'failed' }),
+      })
+    )
+    expect(syncJobMock.create).toHaveBeenCalledTimes(1)
+    expect(mockLambdaSend).toHaveBeenCalledTimes(1)
+  })
 })
 
-describe('GET /me/gddl-sync/:jobId', () => {
-  it('returns job status when the job belongs to the user', async () => {
+describe('GET /me/gddl-sync', () => {
+  it("returns the user's most recent job status", async () => {
     const jobData = {
+      id: 'job-123',
       status: 'completed',
       result: { created: 3, enriched: 0, skipped: 1, errors: [] },
       error: null,
     }
     syncJobMock.findFirst.mockResolvedValueOnce(jobData)
 
-    const res = await buildApp().request('/me/gddl-sync/job-123', {
-      method: 'GET',
-    })
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
     const body = (await res.json()) as { data: typeof jobData }
 
     expect(res.status).toBe(200)
+    expect(body.data.id).toBe('job-123')
     expect(body.data.status).toBe('completed')
     expect(body.data.result).toEqual(jobData.result)
+    expect(syncJobMock.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ orderBy: { startedAt: 'desc' } })
+    )
   })
 
-  it('returns 404 when the job does not exist or belongs to another user', async () => {
+  it('returns null when the user has never run a sync', async () => {
     syncJobMock.findFirst.mockResolvedValueOnce(null)
 
-    const res = await buildApp().request('/me/gddl-sync/unknown-job', {
-      method: 'GET',
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: null }
+
+    expect(res.status).toBe(200)
+    expect(body.data).toBeNull()
+  })
+
+  it('returns 500 when the DB query throws', async () => {
+    syncJobMock.findFirst.mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+
+    expect(res.status).toBe(500)
+  })
+
+  it('expires a stale pending job to failed instead of leaving it pending forever', async () => {
+    syncJobMock.findFirst.mockResolvedValueOnce({
+      id: 'job-stuck',
+      status: 'pending',
+      result: null,
+      error: null,
+      startedAt: new Date(Date.now() - 30 * 60 * 1000),
     })
 
-    expect(res.status).toBe(404)
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: { status: string } }
+
+    expect(res.status).toBe(200)
+    expect(body.data.status).toBe('failed')
+    expect(syncJobMock.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'job-stuck' },
+        data: expect.objectContaining({ status: 'failed' }),
+      })
+    )
   })
 })
 

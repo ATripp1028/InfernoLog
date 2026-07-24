@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
-import { useImportStatus } from '@/lib/api/import'
+import { useImportStatus, type ImportStatusResponse } from '@/lib/api/import'
+import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
 
 const TOAST_ID = 'import-status'
 
@@ -13,7 +15,27 @@ const TOAST_ID = 'import-status'
 export function ImportStatusToast() {
   const importStatus = useImportStatus()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const wasVisible = useRef(false)
+  const prevStatusRef = useRef<ImportStatusResponse['status'] | null>(null)
+
+  // The worker writes completions/progress/ranking/collections/ratings
+  // straight to Postgres — nothing else refetches those views on job
+  // completion. Fire the same invalidation a manual log write would, once
+  // per newly-observed completion (covers both the running->completed
+  // transition and discovering an already-finished job on mount, e.g. after
+  // a reload). This component is mounted exactly once at the app shell, so
+  // prevStatusRef isn't duplicated across the other useImportStatus() call
+  // sites that just display status.
+  useEffect(() => {
+    const status = importStatus.data?.status
+    if (status === 'completed' && prevStatusRef.current !== 'completed') {
+      for (const key of INVALIDATE_ON_WRITE) {
+        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
+      }
+    }
+    prevStatusRef.current = status ?? null
+  }, [importStatus.data?.status, queryClient])
 
   useEffect(() => {
     const data = importStatus.data

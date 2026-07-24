@@ -181,12 +181,13 @@ app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
 app.delete('/me/collections/:collectionId/entries/:entryId', async (c) => {
   const userId = c.get('userId') as string
   try {
-    await removeEntry(
-      userId,
-      c.req.param('collectionId'),
-      c.req.param('entryId')
-    )
-    return c.body(null, 204)
+    return c.json({
+      data: await removeEntry(
+        userId,
+        c.req.param('collectionId'),
+        c.req.param('entryId')
+      ),
+    })
   } catch (error) {
     const { status, body } = mapServiceError(
       error,

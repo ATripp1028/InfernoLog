@@ -83,10 +83,13 @@ export function useCreatePreset() {
   })
 }
 
+export const updatePresetMutationKey = ['updatePreset'] as const
+
 export function useUpdatePreset() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
+    mutationKey: updatePresetMutationKey,
     mutationFn: async ({
       id,
       input,
