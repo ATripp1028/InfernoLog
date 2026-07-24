@@ -125,7 +125,7 @@ interface PresetSelectorProps {
   selectedPresetId: string | null
   isModified: boolean
   deletingPresetId: string | null
-  overwritingPresetId: string | null
+  overwritingPresetIds: string[]
   onSelect: (id: string | null) => void
   onSaveNew: () => void
   onOverwrite: (id: string) => void
@@ -139,7 +139,7 @@ export function PresetSelector({
   selectedPresetId,
   isModified,
   deletingPresetId,
-  overwritingPresetId,
+  overwritingPresetIds,
   onSelect,
   onSaveNew,
   onOverwrite,
@@ -147,7 +147,8 @@ export function PresetSelector({
   onEdit,
   onDiscard,
 }: PresetSelectorProps) {
-  const isOverwriting = overwritingPresetId === selectedPresetId
+  const isOverwriting =
+    selectedPresetId != null && overwritingPresetIds.includes(selectedPresetId)
   const [open, setOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 

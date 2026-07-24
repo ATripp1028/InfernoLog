@@ -199,7 +199,7 @@ function AttemptsClarification() {
       <PopoverTrigger asChild>
         <button
           type="button"
-          aria-label="What is the percentage version?"
+          aria-label="What counts as an attempt?"
           className="inline-flex size-4 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
         >
           <Info size={12} />

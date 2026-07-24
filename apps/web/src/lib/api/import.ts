@@ -6,9 +6,8 @@
 
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { INVALIDATE_ON_WRITE } from './logging'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -478,13 +477,14 @@ export const importStatusQueryKey = ['import-status'] as const
 // Always enabled (not keyed by a jobId prop) so it can be mounted app-wide —
 // on login/reload it discovers whether a job is still active, per the
 // persistent-status requirement (toast/Settings must reappear if so). Polls
-// every 2s while running; a `null` result means no current job.
+// every 2s while running; a `null` result means no current job. Read-only:
+// several components call this to display status, but only the app-shell
+// singleton (ImportStatusToast) fires the completion side effect — putting
+// it here too would replay it on every remount of every consumer.
 export function useImportStatus() {
   const { isAuthenticated, getIdToken } = useAuth()
-  const queryClient = useQueryClient()
-  const prevStatusRef = useRef<ImportStatusResponse['status'] | null>(null)
 
-  const query = useQuery({
+  return useQuery({
     queryKey: importStatusQueryKey,
     enabled: isAuthenticated,
     queryFn: async (): Promise<ImportStatusResponse | null> => {
@@ -499,24 +499,6 @@ export function useImportStatus() {
       query.state.data?.status === 'running' ? 2000 : false,
     retry: false,
   })
-
-  // The worker writes completions/progress/ranking/collections/ratings
-  // straight to Postgres — nothing else refetches those views on job
-  // completion. Fire the same invalidation a manual log write would, once
-  // per newly-observed completion (covers both the running->completed
-  // transition and discovering an already-finished job on a fresh mount,
-  // e.g. this hook remounting after a reload).
-  useEffect(() => {
-    const status = query.data?.status
-    if (status === 'completed' && prevStatusRef.current !== 'completed') {
-      for (const key of INVALIDATE_ON_WRITE) {
-        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
-      }
-    }
-    prevStatusRef.current = status ?? null
-  }, [query.data?.status, queryClient])
-
-  return query
 }
 
 export function useResolveImportRow() {

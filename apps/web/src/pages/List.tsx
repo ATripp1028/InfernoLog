@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { useMutationState } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
@@ -10,6 +11,7 @@ import {
   useCreatePreset,
   useUpdatePreset,
   useDeletePreset,
+  updatePresetMutationKey,
   type ListPreset,
 } from '../lib/api/presets'
 import { useLevelPage } from '../lib/api/levelPage'
@@ -72,6 +74,13 @@ export function List() {
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
 
+  // Derived (not local state) so concurrent overwrites of different presets
+  // don't clear each other's in-flight indicator via a shared onSettled.
+  const overwritingPresetIds = useMutationState({
+    filters: { mutationKey: updatePresetMutationKey, status: 'pending' },
+    select: (mutation) => (mutation.state.variables as { id: string }).id,
+  })
+
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
   const [addToCollectionItem, setAddToCollectionItem] =
@@ -87,9 +96,6 @@ export function List() {
   const [controlsOpen, setControlsOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<ListPreset | null>(null)
-  const [overwritingPresetId, setOverwritingPresetId] = useState<
-    string | null
-  >(null)
 
   // Currently active preset: null = Default built-in view
   const [selectedPresetId, setSelectedPresetId] = useState<string | null>(null)
@@ -381,13 +387,11 @@ export function List() {
   function handleOverwritePreset(id: string) {
     const preset = presets.find((p) => p.id === id)
     if (!preset) return
-    setOverwritingPresetId(id)
     updatePreset.mutate(
       { id, input: currentConfig },
       {
         onSuccess: () => toast.success(`Preset "${preset.name}" updated`),
         onError: () => toast.error('Failed to update preset'),
-        onSettled: () => setOverwritingPresetId(null),
       }
     )
   }
@@ -529,7 +533,7 @@ export function List() {
             onEditPreset={handleEditPreset}
             onDiscardPreset={handleDiscardPresetChanges}
             deletingPresetId={deletingPresetId}
-            overwritingPresetId={overwritingPresetId}
+            overwritingPresetIds={overwritingPresetIds}
           />
 
           {items.length === 0 ? (

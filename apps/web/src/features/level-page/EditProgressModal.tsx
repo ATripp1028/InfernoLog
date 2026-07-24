@@ -78,8 +78,7 @@ function initForm(
   scale: RatingDisplayScale,
   categories: RatingCategory[],
   progressUpdateId: string | null,
-  defaultPercentageVersion: 'TWO_ONE' | 'TWO_TWO' = 'TWO_TWO',
-  defaultDevice: Device | null = null
+  defaultPercentageVersion: 'TWO_ONE' | 'TWO_TWO' = 'TWO_TWO'
 ): EditForm {
   const latest =
     (progressUpdateId
@@ -123,7 +122,7 @@ function initForm(
     coinsCollected: latest?.coinsCollected ?? 0,
     twoPlayerSolo: latest?.twoPlayerSolo ?? null,
     twoPlayerPartner: latest?.twoPlayerPartner ?? '',
-    device: (latest?.device as Device | null | undefined) ?? defaultDevice,
+    device: (latest?.device as Device | null | undefined) ?? null,
     userGddlTier:
       data.userGddlTier != null
         ? String(data.userGddlTier)
@@ -172,8 +171,7 @@ export function EditProgressModal({
           scale,
           me.data.ratingCategories,
           progressUpdateId,
-          effectiveDefault,
-          me.data.defaultDevice
+          effectiveDefault
         )
       )
     }

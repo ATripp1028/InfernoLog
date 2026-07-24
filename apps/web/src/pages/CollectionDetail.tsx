@@ -126,9 +126,11 @@ function Loaded({
   const deleteCollection = useDeleteCollection()
   const removeEntry = useRemoveCollectionEntry()
   const reorderEntry = useReorderCollectionEntry()
-  const removingEntryId = removeEntry.isPending
-    ? (removeEntry.variables?.entryId ?? null)
-    : null
+  const removingEntryIds = useMutationState({
+    filters: { mutationKey: ['removeCollectionEntry'], status: 'pending' },
+    select: (mutation) =>
+      (mutation.state.variables as { entryId: string } | undefined)?.entryId,
+  })
 
   const [activeId, setActiveId] = useState<string | null>(null)
 
@@ -234,7 +236,7 @@ function Loaded({
                     position={i + 1}
                     entry={entry}
                     dimmed={entry.id === activeId}
-                    removing={entry.id === removingEntryId}
+                    removing={removingEntryIds.includes(entry.id)}
                     onRemove={() =>
                       removeEntry.mutate(
                         { collectionId: collection.id, entryId: entry.id },

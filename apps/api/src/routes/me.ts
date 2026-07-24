@@ -85,7 +85,7 @@ const meSelect = {
   defaultPercentageVersion: true,
   defaultDevice: true,
   dateFormatPreference: true,
-  showHighlightUrl: false,
+  showHighlightUrl: true,
   autoExpandFabLabels: true,
   includeEnjoyment: true,
   enjoymentWeight: true,
@@ -497,10 +497,40 @@ app.delete('/me/gddl-key', async (c) => {
   }
 })
 
+// GddlSyncWorker runs with a 15-minute Lambda timeout (sst.config.ts). If a
+// pending job is older than that, the worker died without ever updating the
+// row (crash, undeployed ARN, etc.) — treat it as failed rather than letting
+// it block sync forever, since only one job may be active per user at a time.
+const GDDL_SYNC_STALE_MS = 20 * 60 * 1000
+
+async function expireIfStale<
+  T extends { id: string; status: string; startedAt: Date },
+>(job: T): Promise<T> {
+  if (
+    job.status !== 'pending' ||
+    Date.now() - job.startedAt.getTime() <= GDDL_SYNC_STALE_MS
+  ) {
+    return job
+  }
+  await prisma.gddlSyncJob.update({
+    where: { id: job.id },
+    data: {
+      status: 'failed',
+      error: 'Sync timed out',
+      finishedAt: new Date(),
+    },
+  })
+  return { ...job, status: 'failed' }
+}
+
 // POST /v1/me/gddl-sync — creates an async sync job and returns 202 + jobId
 // immediately. The actual import is handled by the GddlSyncWorker Lambda
 // (invoked asynchronously) so API Gateway's 29-second integration timeout
 // never applies regardless of how many GDDL pages / RobTop lookups are needed.
+// Only one job may be active per user at a time: if one is already pending,
+// this returns its id instead of starting a second (idempotent under
+// double-clicks/multiple tabs, and keeps GET /me/gddl-sync's "most recent
+// job" always the one job a client could actually be waiting on).
 app.post('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
@@ -517,6 +547,17 @@ app.post('/me/gddl-sync', async (c) => {
         },
         400
       )
+    }
+
+    const mostRecent = await prisma.gddlSyncJob.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true, status: true, startedAt: true },
+    })
+    const existing = mostRecent ? await expireIfStale(mostRecent) : null
+
+    if (existing?.status === 'pending') {
+      return c.json({ data: { jobId: existing.id } }, 202)
     }
 
     const job = await prisma.gddlSyncJob.create({
@@ -548,6 +589,10 @@ app.post('/me/gddl-sync', async (c) => {
 // never deleted (unlike ImportJob, which is one-per-user), so this always
 // returns the latest one ever created for the user, completed or not — the
 // caller is responsible for not re-acting to a job it's already handled.
+// Since only one job is ever active at a time, this is also the one job a
+// client could be polling for, and a stale pending job is lazily expired
+// here so the UI it drives (e.g. the disabled Sync button) can recover
+// without the user needing to trigger a new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
@@ -555,10 +600,27 @@ app.get('/me/gddl-sync', async (c) => {
     const job = await prisma.gddlSyncJob.findFirst({
       where: { userId },
       orderBy: { startedAt: 'desc' },
-      select: { id: true, status: true, result: true, error: true },
+      select: {
+        id: true,
+        status: true,
+        result: true,
+        error: true,
+        startedAt: true,
+      },
     })
+    const current = job ? await expireIfStale(job) : null
 
-    return c.json({ data: job }, 200)
+    return c.json(
+      {
+        data: current && {
+          id: current.id,
+          status: current.status,
+          result: current.result,
+          error: current.error,
+        },
+      },
+      200
+    )
   } catch (err) {
     logger.error({ userId, err }, 'GET /me/gddl-sync error')
     Sentry.captureException(err)

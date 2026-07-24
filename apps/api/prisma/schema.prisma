@@ -736,6 +736,9 @@ model GddlSyncJob {
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
 
+  // GET/POST /me/gddl-sync both look up { where: { userId }, orderBy: { startedAt: 'desc' } }
+  // on every 2s poll while a sync is active — keep it an index lookup, not a table scan.
+  @@index([userId, startedAt])
   @@map("gddl_sync_jobs")
 }
 
