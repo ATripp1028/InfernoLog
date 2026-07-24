@@ -2,29 +2,22 @@ import { Toaster as Sonner } from 'sonner'
 
 type ToasterProps = React.ComponentProps<typeof Sonner>
 
+// Every toast (success/error/warning/info/loading + the persistent import
+// toast) renders via toast.custom() and fully self-styles — see
+// components/ui/toast.tsx — so no default toastOptions.classNames are needed
+// here beyond layout.
 export function Toaster(props: ToasterProps) {
   return (
     <Sonner
       theme="dark"
-      position="bottom-right"
+      position="bottom-left"
       offset={16}
       mobileOffset={{
         bottom: 'calc(72px + env(safe-area-inset-bottom) + 16px)',
-      }}
-      toastOptions={{
-        classNames: {
-          toast:
-            'group toast cursor-pointer group-[.toaster]:bg-[var(--color-bg-elevated)] group-[.toaster]:text-foreground group-[.toaster]:border-[var(--color-border)] group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
-          actionButton:
-            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton:
-            'group-[.toast]:bg-[var(--color-bg-subtle)] group-[.toast]:text-foreground',
-        },
       }}
       {...props}
     />
   )
 }
 
-export { toast } from 'sonner'
+export { toast } from './toast'

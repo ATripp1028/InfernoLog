@@ -83,3 +83,14 @@
 ):hover {
   cursor: pointer;
 }
+
+/* Countdown fill for toast auto-dismiss progress bars (components/ui/toast.tsx).
+   Paused via animation-play-state so it stays in sync with the JS dismiss timer. */
+@keyframes toast-countdown {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
