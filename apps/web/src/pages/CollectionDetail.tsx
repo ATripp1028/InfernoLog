@@ -46,6 +46,7 @@ import {
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
 import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
+import { useCollectionsSaveNotifier } from '@/features/collections/hooks/useCollectionsSaveNotifier'
 import { useFabActions } from '@/context/FabActionsContext'
 
 export function CollectionDetail({ collectionId }: { collectionId: string }) {
@@ -121,6 +122,10 @@ function Loaded({
   setConfirmDelete: (v: boolean) => void
 }) {
   const navigate = useNavigate()
+
+  // One "Saved" toast per drag-reorder/remove burst — see the hook for why
+  // it's scoped to just those two mutations.
+  useCollectionsSaveNotifier()
 
   const updateCollection = useUpdateCollection()
   const deleteCollection = useDeleteCollection()
