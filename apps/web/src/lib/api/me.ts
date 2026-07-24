@@ -8,6 +8,7 @@ export type RatingMode = 'SIMPLE' | 'WEIGHTED'
 export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
 export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
+export type Device = 'pc' | 'mobile'
 
 export interface RatingCategory {
   id: string
@@ -28,6 +29,7 @@ export interface MeData {
   ratingDisplayScale: RatingDisplayScale
   defaultFps: number
   defaultPercentageVersion: GdVersion
+  defaultDevice: Device
   dateFormatPreference: DateFormatPreference
   showHighlightUrl: boolean
   autoExpandFabLabels: boolean
@@ -259,6 +261,7 @@ export interface UpdateMeInput {
   discordPublic?: boolean
   defaultFps?: number
   defaultPercentageVersion?: GdVersion
+  defaultDevice?: Device
   dateFormatPreference?: DateFormatPreference
   showHighlightUrl?: boolean
   autoExpandFabLabels?: boolean

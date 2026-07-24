@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import {
   DateFormatPreference,
   type GdVersion,
+  type Device,
   useUpdateMe,
   type MeData,
 } from '@/lib/api/me'
@@ -63,6 +64,14 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
   const handlePercentageVersionChange = async (value: GdVersion) => {
     try {
       await update.mutateAsync({ defaultPercentageVersion: value })
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to save')
+    }
+  }
+
+  const handleDeviceChange = async (value: Device) => {
+    try {
+      await update.mutateAsync({ defaultDevice: value })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save')
     }
@@ -133,6 +142,24 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
             <SelectContent>
               <SelectItem value="TWO_TWO">2.2 (time-based)</SelectItem>
               <SelectItem value="TWO_ONE">2.1 (distance-based)</SelectItem>
+            </SelectContent>
+          </Select>
+        }
+      />
+      <SettingRow
+        label="Default device"
+        description="Which device to pre-select when logging."
+        control={
+          <Select
+            value={me.defaultDevice}
+            onValueChange={(v) => void handleDeviceChange(v as Device)}
+          >
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pc">PC</SelectItem>
+              <SelectItem value="mobile">Mobile</SelectItem>
             </SelectContent>
           </Select>
         }

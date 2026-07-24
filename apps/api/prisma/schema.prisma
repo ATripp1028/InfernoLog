@@ -198,6 +198,8 @@ model User {
   // Default GD version for percentage interpretation (2.1 = distance-based,
   // 2.2 = time-based). Pre-filled into the Log Level form.
   defaultPercentageVersion GdVersion         @default(TWO_TWO)
+  // Default device pre-filled into the Log Level form.
+  defaultDevice         Device               @default(pc)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)

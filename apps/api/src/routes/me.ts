@@ -83,6 +83,7 @@ const meSelect = {
   ratingDisplayScale: true,
   defaultFps: true,
   defaultPercentageVersion: true,
+  defaultDevice: true,
   dateFormatPreference: true,
   showHighlightUrl: false,
   autoExpandFabLabels: true,
