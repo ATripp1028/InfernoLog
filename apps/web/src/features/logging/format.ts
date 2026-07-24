@@ -46,7 +46,8 @@ export function formatNumber(n: number): string {
 }
 
 // Ratings/enjoyment are stored 0–100 internally; the display layer converts to
-// the user's chosen scale (0–10 or 0–100). See DATA_MODEL.md.
+// the user's chosen scale (0–10 or 0–100). See RatingDisplayScale in
+// apps/api/prisma/schema.prisma.
 export function displayMax(scale: RatingDisplayScale): number {
   return scale === 'ZERO_TO_TEN' ? 10 : 100
 }

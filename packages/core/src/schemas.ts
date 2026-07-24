@@ -228,7 +228,7 @@ export const RatingConfigSchema = z
 // ─────────────────────────────────────────────
 // LOGGING FLOW — entry-creation request bodies
 // The three FAB paths (completion / progress / drop) plus the level-entry
-// support endpoints. See LOGGING_FLOW.md and DATA_MODEL.md.
+// support endpoints. See LOGGING_FLOW.md and apps/api/prisma/schema.prisma.
 //
 // Ratings/enjoyment are integers 0–100 internally regardless of the user's
 // display scale — the frontend converts at the display layer. The authenticated

@@ -28,7 +28,7 @@ This split is a **COPPA compliance requirement, not a UX preference.** Cognito c
 
 ## API Keys (Third-Party Access) _(v3)_
 
-API keys are not built in v1 or v2. They are introduced in v3 to coincide with the Geode mod launch. The `api_keys` table schema is defined in `DATA_MODEL.md` for reference but should not be implemented until v3.
+API keys are not built in v1 or v2. They are introduced in v3 to coincide with the Geode mod launch. The `ApiKey` model already exists in `schema.prisma` for reference (a migration ran ahead of the feature), but no route or service code reads or writes it — it should stay unused until v3.
 
 API keys allow third-party tools (e.g. the Geode mod, community tools) to perform operations on behalf of a user.
 

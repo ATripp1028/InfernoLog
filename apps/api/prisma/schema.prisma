@@ -1,6 +1,34 @@
 // InfernoLog — Prisma Schema
 // Database: PostgreSQL (Neon)
-// See DATA_MODEL.md for full entity documentation and rationale
+//
+// Core principles:
+//  - Level identity is the in-game GD level ID (Level.inGameId), not a UUID.
+//    Reuploads share the same in-game data and are treated as the same level.
+//  - Level metadata is a shared cache (Level), reused across every user who
+//    logs the same level rather than duplicated per user.
+//  - List-tier/rank values are snapshotted at time of logging and never
+//    silently updated later.
+//  - Progress over completions: the fundamental unit is ProgressUpdate. A
+//    completion is just a ProgressUpdate with kind = COMPLETION; a drop is
+//    kind = DROP. There's no separate table for "attempting" vs "completed"
+//    vs "dropped" — see the ProgressUpdate model below.
+//  - Rating scores are always stored raw per-category; weighted averages are
+//    computed at query time, never stored.
+//  - Classic and platformer levels are parallel, independent systems
+//    (LevelType), accommodated from day one.
+//
+// Relationship shape (one row per user per level, except Level itself, which
+// is a shared cache):
+//
+//   User ──┬── LevelProgress ──┬── ProgressUpdate
+//          │                   ├── ClassicRanking
+//          │                   └── RatingScore ── RatingCategory
+//          └── Collection ── CollectionEntry
+//
+//   LevelProgress.levelId and CollectionEntry.levelId both FK to
+//   Level.inGameId. Adding a level to a Collection (e.g. Want to Beat) does
+//   NOT create a LevelProgress row — that only happens on the user's first
+//   logged progress update.
 
 generator client {
   provider        = "prisma-client-js"
@@ -28,6 +56,14 @@ enum Role {
   ADMIN
 }
 
+// SUSPENDED/BANNED are placeholders in v1: no code currently reads or sets
+// accountStatus, and there is no moderation route implementation (see
+// docs/MODERATION.md for the intended design — a ban should permanently
+// delete the user's content and hold their username so it can't be
+// reclaimed, but neither is built). The one deletion path that IS
+// implemented is user-initiated: DELETE /v1/me (apps/api/src/routes/me.ts)
+// hard-deletes the User row, which cascades to LevelProgress/ProgressUpdate/
+// Collection/etc. via the onDelete: Cascade relations below.
 enum AccountStatus {
   ACTIVE
   SUSPENDED
@@ -51,6 +87,31 @@ enum LevelType {
   PLATFORMER
 }
 
+// State machine for LevelProgress.status:
+//
+//   want_to_beat (Collection only — no LevelProgress row yet)
+//        │ user logs first progress/drop/completion update
+//        ▼
+//   IN_PROGRESS ──drop───────► DROPPED
+//        ▲                        │
+//        └────new progress log────┘  (automatic — logging progress implies
+//                                      active play, no explicit "resume")
+//        │
+//        └──log 100% / completion──► COMPLETED
+//
+// - A LevelProgress row is created on the user's first action for that
+//   level. That action can be a progress log (-> IN_PROGRESS), a completion
+//   (-> COMPLETED), or a drop (-> DROPPED directly, "drop-from-scratch" — the
+//   row need not pass through IN_PROGRESS first). Every one of these actions
+//   creates a ProgressUpdate row; no action creates a LevelProgress without
+//   one.
+// - A level can be dropped more than once (drop -> resume -> drop again) —
+//   each drop is its own ProgressUpdate (kind = DROP), so full history
+//   survives even though `status` only reflects the current state.
+// - COMPLETED is left untouched by further progress logs in v1 (rebeat is a
+//   future feature).
+// - See docs/LOGGING_FLOW_RECONCILIATION.md for the dropped -> in_progress
+//   auto-flip and drop-from-scratch decisions.
 enum LevelProgressStatus {
   IN_PROGRESS
   DROPPED
@@ -68,6 +129,17 @@ enum ProgressUpdateKind {
   COMPLETION
 }
 
+// Per-entry privacy override, independent of User.profilePublic — e.g. hide
+// a completion until a YouTube video goes live while keeping the rest of the
+// profile public. A private profile forces everything private regardless of
+// this setting; a public profile respects it per-entry.
+//
+// Currently only exposed on LevelProgress.visibility (below). Extending this
+// to ProgressUpdate and CollectionEntry, so an individual logged event or
+// collection entry can be hidden independently, is designed but not built —
+// there's no public-profile route consuming it yet either; every route in
+// apps/api/src/routes is currently scoped to the authenticated user's own
+// /me/* endpoints.
 enum EntryVisibility {
   PUBLIC
   PRIVATE
@@ -112,8 +184,7 @@ enum RatingDisplayScale {
 // The user's subjective difficulty read on a completion — the ONLY difficulty
 // field the user edits. Distinct from the level's cached in-game difficulty
 // (Level.inGameDifficulty). The non-demon star values (AUTO..NINE_STAR) are a
-// disagreement flag only; the level stays a rated demon. See DATA_MODEL.md
-// and LOGGING_FLOW.md.
+// disagreement flag only; the level stays a rated demon. See LOGGING_FLOW.md.
 enum DifficultyOpinion {
   AUTO
   TWO_STAR
@@ -180,7 +251,9 @@ model User {
   // accounts, or an in-progress signup).
   legalAcceptedAt       DateTime?
 
-  // Privacy
+  // Privacy — global override. A private profile forces all entries private
+  // regardless of per-entry EntryVisibility; see that enum for the current
+  // (partial) state of per-entry privacy.
   profilePublic         Boolean              @default(true)
   discordPublic         Boolean              @default(true)
 
@@ -387,7 +460,7 @@ model LevelProgress {
 
   // "About this level overall" — distinct from progress_updates.notes (which is
   // per-completion). Survives edits or deletions of individual progress updates.
-  // One value per user per level. See DATA_MODEL.md.
+  // One value per user per level.
   levelNotes      String?
 
   // The user's own opinion on the level's GDDL tier. Set during completion
@@ -424,9 +497,13 @@ model LevelProgress {
 // PROGRESS UPDATES
 // Every logged event for a level: a session log, a completion, or a drop.
 // A completion is a ProgressUpdate with kind = COMPLETION; a drop is one with
-// kind = DROP (reusing date/attempts/notes rather than drop-specific fields —
-// see DATA_MODEL.md). All fields optional except levelProgressId, kind, and
-// loggedAt. Non-completion entries hidden throughout UI unless toggle enabled.
+// kind = DROP, reusing date/attempts/notes rather than drop-specific fields —
+// a drop's reason is just its `notes` under a different label, its date is
+// just its `date`, and so on. Same reasoning as percentage/runFrom/runTo
+// being shared between progress and completion rows: the columns describe
+// an event, and `kind` says which kind of event it is. All fields optional
+// except levelProgressId, kind, and loggedAt. Non-completion entries hidden
+// throughout the UI unless the "show non-completions" toggle is active.
 // ─────────────────────────────────────────────
 
 model ProgressUpdate {

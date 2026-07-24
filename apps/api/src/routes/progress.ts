@@ -364,7 +364,7 @@ app.get('/me/progress/:levelId', async (c) => {
         rankPosition,
         // Completion media (video/highlight) — unambiguous in v1 (one completion
         // per level). In v3 (rebeat), "which video is the hero" is deferred to
-        // the rebeat design. See DATA_MODEL.md near progress_updates.video_url.
+        // the rebeat design. See ProgressUpdate.videoUrl in schema.prisma.
         completionVideoUrl: completionUpdate?.videoUrl ?? null,
         completionHighlightUrl: completionUpdate?.highlightUrl ?? null,
         level: lp.level,

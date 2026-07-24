@@ -52,7 +52,7 @@ export enum ProgressUpdateKind {
 // The user's subjective difficulty read on a completion. The non-demon star
 // values (AUTO..NINE_STAR) are a disagreement flag only — the level stays a
 // rated demon. Distinct from the level's cached in-game difficulty. See
-// DATA_MODEL.md / LOGGING_FLOW.md.
+// LOGGING_FLOW.md and the DifficultyOpinion enum in apps/api/prisma/schema.prisma.
 export enum DifficultyOpinion {
   AUTO = 'AUTO',
   TWO_STAR = 'TWO_STAR',
