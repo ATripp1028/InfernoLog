@@ -192,8 +192,10 @@ export interface LogResult {
 }
 
 // Placeholder query keys the Log/List/Ranking pages will adopt; invalidated on
-// every write so those views refetch once they're built.
-const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
+// every write so those views refetch once they're built. Exported so other
+// flows that bulk-write progress data (e.g. GDDL/spreadsheet import) can
+// invalidate the same set instead of duplicating it.
+export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   ['log'],
   ['list'],
   ['ranking'],

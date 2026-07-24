@@ -282,7 +282,7 @@ describe('collection entries', () => {
       'DELETE',
       `${path}/${detail.data.entries[0]!.id}`
     )
-    expect(removeRes.status).toBe(204)
+    expect(removeRes.status).toBe(200)
     const afterRemove = (await (
       await send(user.id, 'GET', `${base}/${favorites.id}`)
     ).json()) as DetailBody

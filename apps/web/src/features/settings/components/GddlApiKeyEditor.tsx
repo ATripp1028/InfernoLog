@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,14 +8,12 @@ import {
   useRemoveGddlApiKey,
   useSetGddlApiKey,
   useGddlSync,
-  useGddlSyncStatus,
   useGddlListsSync,
+  gddlSyncStatusQueryKey,
   type MeData,
-  type GddlSyncResult,
   type GddlListSyncResult,
 } from '@/lib/api/me'
-import { listQueryKey } from '@/lib/api/list'
-import { rankingQueryKey } from '@/lib/api/ranking'
+import { useGddlSyncContext } from '../GddlSyncProvider'
 import { ConnectedAccountRow } from './ConnectedAccountRow'
 
 interface GddlApiKeyEditorProps {
@@ -48,20 +46,6 @@ function buildListSyncToast(result: GddlListSyncResult): string {
     : `Lists synced — ${summary}`
 }
 
-function buildSyncToast(result: GddlSyncResult): string {
-  const parts: string[] = []
-  if (result.created > 0)
-    parts.push(
-      `${result.created} completion${result.created === 1 ? '' : 's'} added`
-    )
-  if (result.enriched > 0) parts.push(`${result.enriched} enriched`)
-  const summary = parts.length > 0 ? parts.join(', ') : 'Nothing new to import'
-  if (result.errors.length > 0) {
-    return `Sync complete — ${summary} · ${result.errors.length} level${result.errors.length === 1 ? '' : 's'} could not be imported`
-  }
-  return `Sync complete — ${summary}`
-}
-
 // GDDL connection, presented like the Google/Discord rows. Connecting requires
 // pasting an API key (verified server-side); the key is write-only and never
 // sent back. When connected we show the confirmed GDDL username.
@@ -70,32 +54,19 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
   const removeKey = useRemoveGddlApiKey()
   const sync = useGddlSync()
   const listSync = useGddlListsSync()
+  const { isSyncing: jobSyncing } = useGddlSyncContext()
   const queryClient = useQueryClient()
 
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState('')
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [offerSync, setOfferSync] = useState(false)
-  const [syncJobId, setSyncJobId] = useState<string | null>(null)
 
-  const syncStatus = useGddlSyncStatus(syncJobId)
-
-  // Watch for the worker to finish and update the toast accordingly.
-  useEffect(() => {
-    if (!syncJobId || !syncStatus.data) return
-    const { status, result, error } = syncStatus.data
-    if (status === 'completed' && result) {
-      toast.success(buildSyncToast(result), { id: `gddl-sync-${syncJobId}` })
-      void queryClient.invalidateQueries({ queryKey: listQueryKey })
-      void queryClient.invalidateQueries({ queryKey: rankingQueryKey })
-      setSyncJobId(null)
-    } else if (status === 'failed') {
-      toast.error(error ?? 'Sync failed', { id: `gddl-sync-${syncJobId}` })
-      setSyncJobId(null)
-    }
-  }, [syncStatus.data, syncJobId, queryClient])
-
-  const isSyncing = sync.isPending || syncJobId !== null
+  // Completion toast and list/ranking cache invalidation are handled by
+  // GddlSyncProvider (mounted app-wide, polling the shared job-status query)
+  // so they still fire if this component unmounts — e.g. the user navigates
+  // away from Settings — before the job finishes.
+  const isSyncing = sync.isPending || jobSyncing
 
   const save = async () => {
     const trimmed = value.trim()
@@ -119,6 +90,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       await removeKey.mutateAsync()
       setValue('')
       setEditing(false)
+      setConfirmDisconnect(false)
       toast.success('GDDL account disconnected')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to disconnect')
@@ -128,7 +100,9 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
   const runSync = async () => {
     try {
       const { jobId } = await sync.mutateAsync()
-      setSyncJobId(jobId)
+      // The shared status query would pick this up on its next 2s poll
+      // regardless; refetch now so the button/toast react immediately.
+      void queryClient.invalidateQueries({ queryKey: gddlSyncStatusQueryKey })
       toast.loading('Syncing with GDDL…', { id: `gddl-sync-${jobId}` })
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Sync failed')
@@ -231,6 +205,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
         description="Your synced completions will remain, but InfernoLog will no longer be able to sync new data from your GDDL account."
         confirmLabel="Disconnect"
         destructive
+        isPending={removeKey.isPending}
         onConfirm={() => void disconnect()}
       />
 

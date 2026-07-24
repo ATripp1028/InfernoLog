@@ -22,6 +22,12 @@ import {
   GdVersionInfoButton,
   isPreTwoTwo,
 } from './CompletionSessionStep'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { Info } from 'lucide-react'
 
 const MODE_OPTIONS = [
   { value: 'from_zero', label: 'From 0%' },
@@ -69,6 +75,10 @@ export function ProgressStep() {
     <>
       <StepBody>
         <LevelHeader level={level} />
+        <FieldHint>
+          Pick &quot;From a run&quot; to log a segment (e.g. 30% → 63%), or
+          &quot; From 0%&quot; to log progress from the start.
+        </FieldHint>
 
         <div>
           <FieldLabel>This run</FieldLabel>
@@ -145,7 +155,10 @@ export function ProgressStep() {
             </div>
           )}
           <div>
-            <FieldLabel htmlFor="p-attempts">Attempts</FieldLabel>
+            <div className="mb-1.5 flex items-center gap-1.5">
+              <FieldLabel htmlFor="p-attempts">Attempts</FieldLabel>
+              <AttemptsClarification />
+            </div>
             <Input
               id="p-attempts"
               inputMode="numeric"
@@ -170,12 +183,6 @@ export function ProgressStep() {
             />
           </div>
         )}
-
-        <FieldHint>
-          Cumulative across all copies and reuploads. Pick &quot;From a
-          run&quot; to log a segment (e.g. 30% → 63%) instead of progress from
-          the start.
-        </FieldHint>
       </StepBody>
 
       <StepFooter>
@@ -187,5 +194,26 @@ export function ProgressStep() {
         </Button>
       </StepFooter>
     </>
+  )
+}
+
+function AttemptsClarification() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="What counts as an attempt?"
+          className="inline-flex size-4 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
+        >
+          <Info size={12} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
+        <p className="text-text-secondary">
+          Cumulative across all copies and reuploads.
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }

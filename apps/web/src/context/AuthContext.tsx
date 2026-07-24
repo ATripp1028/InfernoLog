@@ -10,6 +10,7 @@ import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import { queryClient } from '../lib/queryClient'
 import { persister } from '../lib/persister'
+import { clearHandledGddlSyncJobId } from '../lib/gddlSyncStorage'
 
 // Sign In and Sign Up both go through the same Cognito Google OAuth flow —
 // Cognito has no built-in concept of the two being different requests. This
@@ -59,6 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setIsAuthenticated(false)
           queryClient.clear()
           persister.removeClient()
+          clearHandledGddlSyncJobId()
           break
       }
     })
