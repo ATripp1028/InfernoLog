@@ -8,6 +8,7 @@ export type RatingMode = 'SIMPLE' | 'WEIGHTED'
 export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
 export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
+export type Device = 'pc' | 'mobile'
 
 export interface RatingCategory {
   id: string
@@ -28,6 +29,7 @@ export interface MeData {
   ratingDisplayScale: RatingDisplayScale
   defaultFps: number
   defaultPercentageVersion: GdVersion
+  defaultDevice: Device
   dateFormatPreference: DateFormatPreference
   showHighlightUrl: boolean
   autoExpandFabLabels: boolean
@@ -163,13 +165,15 @@ export interface GddlSyncResult {
 }
 
 export interface GddlSyncJobStatus {
+  id: string
   status: 'pending' | 'completed' | 'failed'
   result: GddlSyncResult | null
   error: string | null
 }
 
-// Starts an async sync job. Returns the jobId immediately (202); the caller
-// should poll useGddlSyncStatus until status is not "pending".
+// Starts an async sync job. Returns the jobId immediately (202); the id is
+// only used to key the "Syncing…" loading toast shown right away — actual
+// progress/completion is picked up by useGddlSyncStatus's poll.
 export function useGddlSync() {
   const { getIdToken } = useAuth()
   return useMutation({
@@ -184,24 +188,29 @@ export function useGddlSync() {
   })
 }
 
-// Polls for the status of a sync job. Pass null to disable.
-// Stops refetching automatically once status is no longer "pending".
-export function useGddlSyncStatus(jobId: string | null) {
-  const { getIdToken } = useAuth()
+export const gddlSyncStatusQueryKey = ['gddl-sync'] as const
+
+// Always enabled (not keyed by a jobId prop) so it can be mounted app-wide —
+// mirrors useImportStatus for spreadsheet import. GET /v1/me/gddl-sync
+// returns the user's most recent job regardless of which tab/page started
+// it, so this survives navigation and a full page reload without any
+// client-side job-id tracking. Polls every 2s while a job is "pending"; a
+// `null` result means the user has never run a sync.
+export function useGddlSyncStatus() {
+  const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
-    queryKey: ['gddl-sync', jobId],
-    enabled: jobId !== null,
-    queryFn: async (): Promise<GddlSyncJobStatus> => {
+    queryKey: gddlSyncStatusQueryKey,
+    enabled: isAuthenticated,
+    queryFn: async (): Promise<GddlSyncJobStatus | null> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: GddlSyncJobStatus }>(
-        `/v1/me/gddl-sync/${jobId}`,
+      const { data } = await apiFetch<{ data: GddlSyncJobStatus | null }>(
+        '/v1/me/gddl-sync',
         { token, method: 'GET' }
       )
       return data
     },
-    refetchInterval: (query) => {
-      return query.state.data?.status === 'pending' ? 2000 : false
-    },
+    refetchInterval: (query) =>
+      query.state.data?.status === 'pending' ? 2000 : false,
     retry: false,
   })
 }
@@ -252,6 +261,7 @@ export interface UpdateMeInput {
   discordPublic?: boolean
   defaultFps?: number
   defaultPercentageVersion?: GdVersion
+  defaultDevice?: Device
   dateFormatPreference?: DateFormatPreference
   showHighlightUrl?: boolean
   autoExpandFabLabels?: boolean

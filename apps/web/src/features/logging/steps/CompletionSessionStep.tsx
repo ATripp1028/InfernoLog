@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -31,6 +32,14 @@ import type { Device, GdVersion } from '@/lib/api/logging'
 export function CompletionSessionStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
+  const defaultDevice = me.data?.defaultDevice
+
+  useEffect(() => {
+    if (draft.device === null && defaultDevice) {
+      patchDraft({ device: defaultDevice })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultDevice])
 
   if (!level) return null
 

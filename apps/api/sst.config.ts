@@ -481,8 +481,9 @@ export default $config({
       { auth: jwtAuth }
     )
 
-    // GET /v1/me/gddl-sync/{jobId} — poll for sync job status (no KMS needed).
-    authedRoute('GET /v1/me/gddl-sync/{jobId}')
+    // GET /v1/me/gddl-sync — the user's current/most-recent sync job status
+    // (no jobId path param — mirrors GET /v1/me/import/status).
+    authedRoute('GET /v1/me/gddl-sync')
 
     // ─────────────────────────────────────────────
     // COLLECTIONS — built-in (Want to Beat / Favorites / Least Favorites)

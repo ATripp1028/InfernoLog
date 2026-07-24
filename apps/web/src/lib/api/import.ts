@@ -477,9 +477,13 @@ export const importStatusQueryKey = ['import-status'] as const
 // Always enabled (not keyed by a jobId prop) so it can be mounted app-wide —
 // on login/reload it discovers whether a job is still active, per the
 // persistent-status requirement (toast/Settings must reappear if so). Polls
-// every 2s while running; a `null` result means no current job.
+// every 2s while running; a `null` result means no current job. Read-only:
+// several components call this to display status, but only the app-shell
+// singleton (ImportStatusToast) fires the completion side effect — putting
+// it here too would replay it on every remount of every consumer.
 export function useImportStatus() {
   const { isAuthenticated, getIdToken } = useAuth()
+
   return useQuery({
     queryKey: importStatusQueryKey,
     enabled: isAuthenticated,

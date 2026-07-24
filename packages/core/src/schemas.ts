@@ -154,6 +154,7 @@ export const UpdateMeSchema = z
     discordPublic: z.boolean().optional(),
     defaultFps: z.number().int().min(MIN_FPS).max(MAX_FPS).optional(),
     defaultPercentageVersion: z.nativeEnum(GdVersion).optional(),
+    defaultDevice: z.nativeEnum(Device).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
     ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),

@@ -198,10 +198,12 @@ model User {
   // Default GD version for percentage interpretation (2.1 = distance-based,
   // 2.2 = time-based). Pre-filled into the Log Level form.
   defaultPercentageVersion GdVersion         @default(TWO_TWO)
+  // Default device pre-filled into the Log Level form.
+  defaultDevice         Device               @default(pc)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
   ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
-  showHighlightUrl      Boolean              @default(true)
+  showHighlightUrl      Boolean              @default(false)
   // Desktop FABs (logging, level-page, collections): whether hovering the
   // group immediately shows every action's label, vs. only the one under
   // the pointer. Defaults on so new users can learn the icons.
@@ -734,6 +736,9 @@ model GddlSyncJob {
   startedAt  DateTime  @default(now())
   finishedAt DateTime?
 
+  // GET/POST /me/gddl-sync both look up { where: { userId }, orderBy: { startedAt: 'desc' } }
+  // on every 2s poll while a sync is active — keep it an index lookup, not a table scan.
+  @@index([userId, startedAt])
   @@map("gddl_sync_jobs")
 }
 

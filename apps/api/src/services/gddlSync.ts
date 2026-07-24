@@ -149,8 +149,10 @@ function mapGddlFields(sub: GddlSubmission): MappedFields {
   const fields: MappedFields = {}
   const date = parseDateAdded(sub.DateAdded)
   if (date) fields.date = date
-  // GDDL uses 0-10; InfernoLog stores 0-100 internally.
-  if (sub.Enjoyment != null) fields.enjoyment = sub.Enjoyment * 10
+  // GDDL uses 0-10; InfernoLog stores 0-100 internally. Round since our column
+  // is an integer and GDDL's enjoyment isn't guaranteed to land on a whole
+  // number once scaled (e.g. 7.33 -> 73.3).
+  if (sub.Enjoyment != null) fields.enjoyment = Math.round(sub.Enjoyment * 10)
   if (sub.Proof?.trim()) fields.videoUrl = sub.Proof.trim()
   return fields
 }

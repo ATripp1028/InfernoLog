@@ -189,6 +189,7 @@ export function useRemoveCollectionEntry() {
   const qc = useQueryClient()
   const applyDetail = useApplyDetail()
   return useMutation({
+    mutationKey: ['removeCollectionEntry'],
     mutationFn: async (vars: {
       collectionId: string
       entryId: string

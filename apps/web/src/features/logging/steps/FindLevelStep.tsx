@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,6 +11,7 @@ import {
   type Level,
   type LevelSearchResult,
 } from '@/lib/api/logging'
+import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -25,6 +26,20 @@ export function FindLevelStep() {
   const isNumeric = /^\d+$/.test(trimmed)
   const search = useLevelSearch(query)
   const cachedLevel = useLevelById(trimmed)
+
+  // Multiple completions per level are out of scope for v1 — grey out levels
+  // the user has already logged a completion for, same pattern as the
+  // "already beaten" state in AddLevelsDialog's collection picker.
+  const myProgress = useMyProgress()
+  const completedIds = useMemo(
+    () =>
+      new Set(
+        myProgress.data
+          ?.filter((i) => i.status === 'COMPLETED')
+          .map((i) => i.level.inGameId) ?? []
+      ),
+    [myProgress.data]
+  )
 
   async function resolve(levelId: string) {
     try {
@@ -86,6 +101,7 @@ export function FindLevelStep() {
           <div className="overflow-hidden rounded-md border border-border">
             <LevelResultRow
               level={cachedLevel.data}
+              alreadyLogged={completedIds.has(cachedLevel.data.inGameId)}
               disabled={resolveLevel.isPending}
               onSelect={() => resolve(cachedLevel.data!.inGameId)}
             />
@@ -107,6 +123,7 @@ export function FindLevelStep() {
                   <ResultRow
                     key={r.inGameId}
                     result={r}
+                    alreadyLogged={completedIds.has(r.inGameId)}
                     disabled={resolveLevel.isPending}
                     onSelect={() => resolve(r.inGameId)}
                   />
@@ -128,7 +145,11 @@ export function FindLevelStep() {
         </Button>
         <Button
           onClick={() => resolve(trimmed)}
-          disabled={!isNumeric || resolveLevel.isPending}
+          disabled={
+            !isNumeric ||
+            resolveLevel.isPending ||
+            (showCachedPreview && completedIds.has(trimmed))
+          }
         >
           {resolveLevel.isPending ? 'Looking up…' : 'Continue'}
         </Button>
@@ -141,10 +162,12 @@ export function FindLevelStep() {
 function LevelResultRow({
   level,
   onSelect,
+  alreadyLogged = false,
   disabled,
 }: {
   level: Level
   onSelect: () => void
+  alreadyLogged?: boolean
   disabled: boolean
 }) {
   const meta = [level.creator ? `by ${level.creator}` : null, level.songName]
@@ -153,7 +176,7 @@ function LevelResultRow({
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={alreadyLogged || disabled}
       onClick={onSelect}
       className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
     >
@@ -187,9 +210,15 @@ function LevelResultRow({
           )}
         </span>
       </span>
-      <span className="relative font-mono text-xs text-text-secondary">
-        #{level.inGameId}
-      </span>
+      {alreadyLogged ? (
+        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+          Already logged
+        </span>
+      ) : (
+        <span className="relative font-mono text-xs text-text-secondary">
+          #{level.inGameId}
+        </span>
+      )}
     </button>
   )
 }
@@ -197,10 +226,12 @@ function LevelResultRow({
 function ResultRow({
   result,
   onSelect,
+  alreadyLogged = false,
   disabled,
 }: {
   result: LevelSearchResult
   onSelect: () => void
+  alreadyLogged?: boolean
   disabled: boolean
 }) {
   const meta = [result.creator ? `by ${result.creator}` : null, result.songName]
@@ -209,7 +240,7 @@ function ResultRow({
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={alreadyLogged || disabled}
       onClick={onSelect}
       className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
     >
@@ -246,9 +277,15 @@ function ResultRow({
           )}
         </span>
       </span>
-      <span className="relative font-mono text-xs text-text-secondary">
-        #{result.inGameId}
-      </span>
+      {alreadyLogged ? (
+        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+          Already logged
+        </span>
+      ) : (
+        <span className="relative font-mono text-xs text-text-secondary">
+          #{result.inGameId}
+        </span>
+      )}
     </button>
   )
 }

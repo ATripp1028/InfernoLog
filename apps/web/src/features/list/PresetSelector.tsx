@@ -125,6 +125,7 @@ interface PresetSelectorProps {
   selectedPresetId: string | null
   isModified: boolean
   deletingPresetId: string | null
+  overwritingPresetIds: string[]
   onSelect: (id: string | null) => void
   onSaveNew: () => void
   onOverwrite: (id: string) => void
@@ -138,6 +139,7 @@ export function PresetSelector({
   selectedPresetId,
   isModified,
   deletingPresetId,
+  overwritingPresetIds,
   onSelect,
   onSaveNew,
   onOverwrite,
@@ -145,6 +147,8 @@ export function PresetSelector({
   onEdit,
   onDiscard,
 }: PresetSelectorProps) {
+  const isOverwriting =
+    selectedPresetId != null && overwritingPresetIds.includes(selectedPresetId)
   const [open, setOpen] = useState(false)
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
 
@@ -412,10 +416,17 @@ export function PresetSelector({
             <button
               type="button"
               onClick={handleOverwrite}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+              disabled={isOverwriting}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <RotateCcw size={12} />
-              Overwrite "{selectedPreset?.name}"
+              {isOverwriting ? (
+                <Loader2 size={12} className="animate-spin" />
+              ) : (
+                <RotateCcw size={12} />
+              )}
+              {isOverwriting
+                ? `Overwriting "${selectedPreset?.name}"…`
+                : `Overwrite "${selectedPreset?.name}"`}
             </button>
           )}
 
@@ -453,11 +464,16 @@ export function PresetSelector({
         <button
           type="button"
           onClick={() => onOverwrite(selectedPresetId)}
+          disabled={isOverwriting}
           title={`Overwrite "${selectedPreset?.name}" with current view`}
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <RotateCcw size={12} />
-          Overwrite
+          {isOverwriting ? (
+            <Loader2 size={12} className="animate-spin" />
+          ) : (
+            <RotateCcw size={12} />
+          )}
+          {isOverwriting ? 'Overwriting…' : 'Overwrite'}
         </button>
       )}
 

@@ -1,5 +1,6 @@
 import type {
   CompletionInput,
+  Device,
   DropInput,
   GdVersion,
   Level,
@@ -70,7 +71,7 @@ export function buildCompletionInput(
       level.twoPlayer && draft.twoPlayerSolo === false
         ? draft.twoPlayerPartner.trim() || null
         : null,
-    device: draft.device,
+    device: draft.device ?? me.defaultDevice ?? null,
   }
 }
 
@@ -78,7 +79,8 @@ export function buildProgressInput(
   level: Level,
   draft: FlowDraft,
   defaultFps?: number,
-  defaultPercentageVersion?: GdVersion
+  defaultPercentageVersion?: GdVersion,
+  defaultDevice?: Device
 ): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
@@ -91,7 +93,7 @@ export function buildProgressInput(
     onStream: draft.onStream,
     notes: draft.notes.trim() || null,
     visibility: draft.visibility,
-    device: draft.device,
+    device: draft.device ?? defaultDevice ?? null,
   }
   if (draft.progressMode === 'from_run') {
     return {

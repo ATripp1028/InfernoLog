@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -32,6 +33,14 @@ export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const me = useMe()
   const logProgress = useLogProgress()
+  const defaultDevice = me.data?.defaultDevice
+
+  useEffect(() => {
+    if (draft.device === null && defaultDevice) {
+      patchDraft({ device: defaultDevice })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultDevice])
 
   if (!level) return null
 
@@ -49,7 +58,8 @@ export function ProgressSessionStep() {
           level,
           draft,
           me.data?.defaultFps,
-          me.data?.defaultPercentageVersion
+          me.data?.defaultPercentageVersion,
+          me.data?.defaultDevice
         )
       )
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
