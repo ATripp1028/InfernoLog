@@ -29,6 +29,7 @@ import {
   type RatingCategory,
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
+import { useResolveLevel } from '@/lib/api/logging'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 import {
   DevicePicker,
@@ -152,7 +153,11 @@ export function EditProgressModal({
   const [form, setForm] = useState<EditForm>(() =>
     initForm(data, scale, [], progressUpdateId)
   )
+  const [suggestedGddlTier, setSuggestedGddlTier] = useState<number | null>(
+    null
+  )
   const editProgress = useEditProgress(levelId)
+  const resolveLevel = useResolveLevel()
   const me = useMe()
 
   useEffect(() => {
@@ -174,8 +179,20 @@ export function EditProgressModal({
           effectiveDefault
         )
       )
+
+      // Live "Community: X" hint for the GDDL tier field — same live fetch
+      // the initial logging flow uses (never blocks/fails: a hint, not a
+      // requirement). Reset first so a stale tier from a previously-viewed
+      // level never flashes before this one resolves.
+      setSuggestedGddlTier(null)
+      if (completionUpdate) {
+        resolveLevel.mutate(levelId, {
+          onSuccess: (res) => setSuggestedGddlTier(res.suggestedGddlTier),
+        })
+      }
     }
-  }, [open, data, scale, me.data, progressUpdateId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, data, scale, me.data, progressUpdateId, levelId])
 
   if (!me.data) return null
 
@@ -566,7 +583,11 @@ export function EditProgressModal({
                     <Input
                       id="ep-gddl-tier"
                       inputMode="numeric"
-                      placeholder="—"
+                      placeholder={
+                        suggestedGddlTier != null
+                          ? `Community: ${suggestedGddlTier}`
+                          : '—'
+                      }
                       value={form.userGddlTier}
                       onChange={(e) =>
                         patch({ userGddlTier: digitsOnly(e.target.value) })

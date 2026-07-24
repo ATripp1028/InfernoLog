@@ -91,7 +91,7 @@ As platform owner, the admin cannot be banned from their own platform. However, 
 
 ## Verification
 
-Verification (`is_verified = true`) is a badge indicating a notable community member.
+Verification (`users.verified_at != null` — `is_verified` on the wire is derived from this timestamp, not a stored boolean) is a badge indicating a notable community member.
 
 **Granting:** Admin only. Candidate criteria may include YouTube subscriber count, Pointercrate stats viewer profile status, or other community standing indicators. Specific thresholds are TBD (v2/v3 feature).
 
