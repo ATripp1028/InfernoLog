@@ -22,7 +22,11 @@ import {
   GdVersionInfoButton,
   isPreTwoTwo,
 } from './CompletionSessionStep'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { Info } from 'lucide-react'
 
 const MODE_OPTIONS = [
@@ -72,8 +76,8 @@ export function ProgressStep() {
       <StepBody>
         <LevelHeader level={level} />
         <FieldHint>
-          Pick &quot;From a run&quot; to log a segment (e.g. 30% → 63%), or &quot;
-          From 0%&quot; to log progress from the start.
+          Pick &quot;From a run&quot; to log a segment (e.g. 30% → 63%), or
+          &quot; From 0%&quot; to log progress from the start.
         </FieldHint>
 
         <div>
@@ -194,7 +198,7 @@ export function ProgressStep() {
 }
 
 function AttemptsClarification() {
-    return (
+  return (
     <Popover>
       <PopoverTrigger asChild>
         <button
