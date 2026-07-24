@@ -189,7 +189,7 @@ export function useRemoveCollectionEntry() {
   const qc = useQueryClient()
   const applyDetail = useApplyDetail()
   return useMutation({
-    mutationKey: REMOVE_COLLECTION_ENTRY_KEY,
+    mutationKey: ['removeCollectionEntry'],
     mutationFn: async (vars: {
       collectionId: string
       entryId: string
@@ -223,19 +223,6 @@ export function useRemoveCollectionEntry() {
   })
 }
 
-const REMOVE_COLLECTION_ENTRY_KEY = ['removeCollectionEntry'] as const
-const COLLECTION_REORDER_KEY = ['collectionReorder'] as const
-
-// Reorder and remove are silent-on-success (they already give immediate
-// optimistic feedback via row movement/disappearance) — the
-// `useCollectionsSaveNotifier` hook (apps/web/src/features/collections/hooks)
-// listens for them as a group so one "Saved" toast fires per drag/removal
-// burst instead of per mutation. Create/update/delete/add-entry already show
-// their own per-action toast at the call site and are intentionally excluded
-// here to avoid double-toasting.
-export const COLLECTION_SAVE_MUTATION_KEYS: ReadonlyArray<readonly string[]> =
-  [REMOVE_COLLECTION_ENTRY_KEY, COLLECTION_REORDER_KEY]
-
 export interface ReorderEntryVars {
   collectionId: string
   entryId: string
@@ -249,7 +236,7 @@ export function useReorderCollectionEntry() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
   return useMutation({
-    mutationKey: COLLECTION_REORDER_KEY,
+    mutationKey: ['collectionReorder'],
     scope: { id: 'collectionReorder' },
     mutationFn: async (vars: ReorderEntryVars): Promise<CollectionDetail> => {
       const token = await getIdToken()

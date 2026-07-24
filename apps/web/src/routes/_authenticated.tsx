@@ -70,12 +70,14 @@ function AuthenticatedLayout() {
   )
 }
 
-// Watches ranking and collection reorder mutation queues. When a batch drains
-// (pending count → 0 after having been > 0), invalidates the relevant query and
-// shows a "Saved" toast. Errors are already toasted per-mutation; the watcher
-// just suppresses the success toast when any error occurred in the batch.
-// Lives here (always mounted) so the toast fires regardless of which page the
-// user is on when the final API call settles.
+// Watches ranking and collection reorder/remove mutation queues. When a batch
+// drains (pending count → 0 after having been > 0), invalidates the relevant
+// query and shows a "Saved" toast. Errors are already toasted per-mutation;
+// the watcher just suppresses the success toast when any error occurred in
+// the batch. Lives here (always mounted) so the toast fires regardless of
+// which page the user is on when the final API call settles.
+const COLLECTION_WATCHED_KEYS = ['collectionReorder', 'removeCollectionEntry']
+
 function ReorderSyncWatcher() {
   const qc = useQueryClient()
 
@@ -92,7 +94,9 @@ function ReorderSyncWatcher() {
       const key = event.mutation.options.mutationKey
       if (!Array.isArray(key)) return
       if (key[0] === 'rankingReorder') rankingHadError.current = true
-      if (key[0] === 'collectionReorder') collectionHadError.current = true
+      if (COLLECTION_WATCHED_KEYS.includes(key[0] as string)) {
+        collectionHadError.current = true
+      }
     })
   }, [qc])
 
@@ -113,7 +117,11 @@ function ReorderSyncWatcher() {
   }, [pendingRanking, qc])
 
   const pendingCollections = useMutationState({
-    filters: { mutationKey: ['collectionReorder'], status: 'pending' },
+    filters: {
+      predicate: (m) =>
+        COLLECTION_WATCHED_KEYS.includes(m.options.mutationKey?.[0] as string),
+      status: 'pending',
+    },
   }).length
   const collectionWasActive = useRef(false)
   useEffect(() => {
@@ -124,9 +132,9 @@ function ReorderSyncWatcher() {
     if (!collectionWasActive.current) return
     collectionWasActive.current = false
     if (collectionHadError.current) {
-      toast.error('Could not save collection order')
+      toast.error('Could not save collection')
     } else {
-      toast.success('Collection order saved')
+      toast.success('Collection saved')
     }
     collectionHadError.current = false
     void qc.invalidateQueries({ queryKey: collectionsQueryKey })
