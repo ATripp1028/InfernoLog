@@ -29,26 +29,20 @@ export const LevelSchema = z.object({
   nongSongTitle: z.string().nullable(),
   nongArtist: z.string().nullable(),
   nongSourceUrl: z.string().url().nullable(),
-  peakMusicBpm: z.number().int().nullable(),
   // Extended level metadata — a snapshot of RobTop's level object. All
   // nullable: absent on manual rows and on rows cached before capture existed.
   description: z.string().nullable(),
   creatorPlayerId: z.string().nullable(),
   creatorAccountId: z.string().nullable(),
-  creatorPoints: z.number().int().nullable(),
   stars: z.number().int().nullable(),
   starsRequested: z.number().int().nullable(),
   partialDiff: z.string().nullable(),
-  difficultyFace: z.string().nullable(),
   downloads: z.number().int().nullable(),
   likes: z.number().int().nullable(),
   disliked: z.boolean().nullable(),
   objectCount: z.number().int().nullable(),
-  largeLevel: z.boolean().nullable(),
   coins: z.number().int().nullable(),
   coinsVerified: z.boolean().nullable(),
-  orbs: z.number().int().nullable(),
-  diamonds: z.number().int().nullable(),
   featured: z.boolean().nullable(),
   featureScore: z.number().int().nullable(),
   epicValue: z.number().int().nullable(),
@@ -57,35 +51,13 @@ export const LevelSchema = z.object({
   copiedFromId: z.string().nullable(),
   levelVersion: z.number().int().nullable(),
   gameVersion: z.string().nullable(),
-  editorSeconds: z.number().int().nullable(),
-  editorSecondsTotal: z.number().int().nullable(),
   officialSongId: z.number().int().nullable(),
   songId: z.string().nullable(),
   songLink: z.string().nullable(),
-  songSize: z.string().nullable(),
+  // Raw megabyte value (e.g. 9.56). Format at the display layer.
+  songSize: z.number().nullable(),
   dataSource: z.string(),
   verified: z.boolean(),
-})
-
-export const ProgressUpdateInputSchema = z.object({
-  levelProgressId: z.string().uuid(),
-  isCompletion: z.boolean().default(false),
-  percentage: z.number().min(0).max(100).nullable(), // For Classic
-  runFrom: z.number().int().min(0).max(100).nullable(),
-  runTo: z.number().int().min(0).max(100).nullable(),
-  completionTime: z.number().int().nonnegative().nullable(), // For Platformer (seconds)
-  attempts: z.number().int().nonnegative().nullable(),
-  date: z.coerce.date().nullable(),
-  dateUncertain: z.boolean().default(false),
-  onStream: z.boolean().default(false),
-  fps: z.number().int().positive().nullable(),
-  peakHeartRateBpm: z.number().int().positive().nullable(),
-  enjoyment: z.number().int().min(0).max(100).nullable(),
-  simpleRating: z.number().int().min(0).max(100).nullable(),
-  inGameDifficulty: z.string().nullable(),
-  notes: z.string().max(2000).nullable(),
-  videoUrl: z.string().url().nullable(),
-  highlightUrl: z.string().url().nullable(),
 })
 
 export const PublicUserProfileSchema = z.object({
@@ -256,7 +228,7 @@ export const RatingConfigSchema = z
 // ─────────────────────────────────────────────
 // LOGGING FLOW — entry-creation request bodies
 // The three FAB paths (completion / progress / drop) plus the level-entry
-// support endpoints. See LOGGING_FLOW.md and DATA_MODEL.md.
+// support endpoints. See LOGGING_FLOW.md and apps/api/prisma/schema.prisma.
 //
 // Ratings/enjoyment are integers 0–100 internally regardless of the user's
 // display scale — the frontend converts at the display layer. The authenticated
@@ -308,11 +280,12 @@ export const CompletionInputSchema = z.object({
   // "I already logged my worst fail" (so the server keeps the existing value).
   worstFailDate: z.coerce.date().nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
+  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+  // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
-  // Non-demon difficulty opinion as a star count (1–9), only meaningful when
-  // difficultyOpinion is NOT_DEMON_WORTHY.
-  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
+  // enjoyment is logged per-event on the ProgressUpdate (see schema.prisma).
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+  // LevelProgress fields — one current value per level, not per event.
   // SIMPLE mode: a single rating. WEIGHTED mode: per-category scores. We store
   // whichever the client sends and never pre-compute the weighted average.
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
@@ -326,6 +299,8 @@ export const CompletionInputSchema = z.object({
     .optional(),
   // Coins collected bitmask (bit 0 = coin 1, bit 1 = coin 2, bit 2 = coin 3). 0–7.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // Platformer only (v2, no UI yet): time of the completing attempt, seconds.
+  completionTime: z.number().int().nonnegative().nullable().optional(),
   // 2-player: true = beat solo, false = beat with partner. Null = not a 2P level.
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
@@ -399,6 +374,20 @@ export const EditProgressInputSchema = z.object({
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   worstFailDate: z.coerce.date().nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).optional(),
+  // One current value per level, not per event — editable regardless of
+  // which ProgressUpdate is being viewed.
+  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+  ratingScores: z.array(RatingScoreInputSchema).optional(),
+  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+  // Platformer only (v2, no UI yet): time of the completing attempt, seconds.
+  completionTime: z.number().int().nonnegative().nullable().optional(),
+  userGddlTier: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_GDDL_TIER)
+    .nullable()
+    .optional(),
   // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
   dateUncertain: z.boolean().optional(),
@@ -412,25 +401,16 @@ export const EditProgressInputSchema = z.object({
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().optional(),
+  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+  // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
-  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
-  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   highlightUrl: z.string().url().nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
-  ratingScores: z.array(RatingScoreInputSchema).optional(),
-  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
   twoPlayerSolo: z.boolean().nullable().optional(),
   twoPlayerPartner: z.string().max(100).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
-  userGddlTier: z
-    .number()
-    .int()
-    .min(0)
-    .max(MAX_GDDL_TIER)
-    .nullable()
-    .optional(),
 })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
@@ -480,9 +460,7 @@ export const ExistingCompletionSchema = z.object({
   worstFail: z.number().int().nullable(),
   worstFailDate: z.coerce.date().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
-  difficultyOpinionStars: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(),
-  simpleRating: z.number().int().nullable(),
   fps: z.number().int().nullable(),
   onStream: z.boolean(),
   videoUrl: z.string().nullable(),
@@ -490,9 +468,13 @@ export const ExistingCompletionSchema = z.object({
   notes: z.string().nullable(),
   visibility: z.nativeEnum(EntryVisibility),
   device: z.nativeEnum(Device).nullable(),
+  // LevelProgress fields
+  simpleRating: z.number().int().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
+  coinsCollected: z.number().int().nullable(),
+  completionTime: z.number().int().nullable(),
   userGddlTier: z.number().int().nullable(),
   percentageVersion: z.nativeEnum(GdVersion).nullable(),
 })
@@ -529,7 +511,6 @@ export const LevelListSummarySchema = z.object({
   inGameDifficulty: z.string().nullable(),
   isDemon: z.boolean(),
   isRated: z.boolean(),
-  difficultyFace: z.string().nullable(),
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),
   length: z.string().nullable(),
@@ -540,7 +521,6 @@ export const LevelListSummarySchema = z.object({
   coinsVerified: z.boolean().nullable(),
   twoPlayer: z.boolean().nullable(),
   gameVersion: z.string().nullable(),
-  gddlTier: z.number().int().nullable(),
 })
 
 // The representative progress update folded into a list row: the completion
@@ -558,9 +538,6 @@ export const LevelProgressListEntrySchema = z.object({
   runFrom: z.number().int().nullable(),
   runTo: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(), // 0–100 internal scale
-  // Computed at query time (never stored): simpleRating in SIMPLE mode, the
-  // weighted average of ratingScores in WEIGHTED mode. 0–100 internal scale.
-  overallRating: z.number().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   onStream: z.boolean(),
   fps: z.number().int().nullable(),
@@ -570,11 +547,6 @@ export const LevelProgressListEntrySchema = z.object({
   notes: z.string().nullable(),
   device: z.nativeEnum(Device).nullable(),
   loggedAt: z.coerce.date(),
-  // Per-category scores used for tie-breaking weighted-average sorts and for
-  // individual category columns. Only meaningful in WEIGHTED mode.
-  ratingScores: z.array(
-    z.object({ categoryId: z.string(), score: z.number().int() })
-  ),
 })
 
 export const LevelProgressListItemSchema = z.object({
@@ -591,6 +563,15 @@ export const LevelProgressListItemSchema = z.object({
   needsPlacement: z.boolean(),
   // The user's own GDDL tier opinion (set during completion logging or edit).
   userGddlTier: z.number().int().nullable(),
+  // Computed at query time (never stored): simpleRating in SIMPLE mode, the
+  // weighted average of ratingScores in WEIGHTED mode. 0–100 internal scale.
+  // One value per level (LevelProgress), not per logged event.
+  overallRating: z.number().nullable(),
+  // Per-category scores used for tie-breaking weighted-average sorts and for
+  // individual category columns. Only meaningful in WEIGHTED mode.
+  ratingScores: z.array(
+    z.object({ categoryId: z.string(), score: z.number().int() })
+  ),
   level: LevelListSummarySchema,
   // Null only for the rare status row with zero progress updates.
   entry: LevelProgressListEntrySchema.nullable(),
@@ -858,10 +839,9 @@ export const ImportCompletionRowSchema = z.object({
   // 0-10 display scale (server converts to 0-100 on write).
   enjoyment: z.number().min(0).max(10).nullable().optional(),
   simpleRating: z.number().min(0).max(10).nullable().optional(),
+  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+  // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
-  // Non-demon star rating (1–9) — only meaningful when difficultyOpinion is
-  // NOT_DEMON_WORTHY.
-  difficultyOpinionStars: z.number().int().min(1).max(9).nullable().optional(),
   // User-coin collection as a bitmask (bit 0 = coin 1 … bit 2 = coin 3).
   // Ignored server-side for levels that have no user coins.
   coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
@@ -1297,7 +1277,6 @@ export const ExportCompletionSchema = z.object({
   enjoyment: z.number().int().nullable(), // 0-100 internal
   simpleRating: z.number().int().nullable(), // 0-100 internal
   difficultyOpinion: z.string().nullable(),
-  difficultyOpinionStars: z.number().int().nullable(),
   coinsCollected: z.number().int().nullable(),
   twoPlayerSolo: z.boolean().nullable(),
   twoPlayerPartner: z.string().nullable(),

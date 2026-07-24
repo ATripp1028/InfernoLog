@@ -20,17 +20,17 @@ InfernoLog offers two rating modes. Users select their preferred mode in account
 └─────────────────────────────────────────────────┘
 ```
 
-All ratings apply to any progress update, not just completions — mirroring the GDDL's approach. Non-completion ratings are hidden unless the "show non-completions" toggle is active.
+Rating (`simple_rating` / `rating_scores`) is **one current value per level**, not per logged event — it lives on `level_progress` and is editable from any progress-editing surface (the completion flow, or the edit form for any entry), not gated to completions specifically. `enjoyment` is the exception: it's logged per-event on `progress_updates`, mirroring the GDDL's approach, since a session's enjoyment can genuinely differ beat-to-beat in a way a level's overall rating doesn't. Non-completion entries (and the enjoyment they carry) are hidden unless the "show non-completions" toggle is active.
 
 ### Display scale
 
-`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are _displayed and entered_ (e.g. `4.7` vs `47`). Storage is unaffected either way — `progress_updates.simple_rating`, `rating_scores`, and `enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
+`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are _displayed and entered_ (e.g. `4.7` vs `47`). Storage is unaffected either way — `level_progress.simple_rating`, `rating_scores`, and `progress_updates.enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
 
 ---
 
 ## Simple Mode
 
-A single **0–10 score** per progress update. Stored in `progress_updates.simple_rating`. No configuration required.
+A single **0–10 score** per level. Stored in `level_progress.simple_rating`. No configuration required.
 
 Display: shown as a single number or star-equivalent wherever ratings appear.
 
@@ -71,18 +71,16 @@ Enjoyment (`progress_updates.enjoyment`) is a standalone field by default and is
 
 ## Mode Switching
 
-Switching modes preserves all data:
+Switching modes preserves all data — a level has exactly one current rating, so there's no per-entry history to reconcile:
 
 ```
 Simple → Weighted:
-  simple_rating scores preserved
-  Per-category scores start blank for new entries
-  Old simple scores displayed as-is for historical entries
+  simple_rating preserved, but no longer displayed/editable
+  Per-category scores start blank until the user rates by category
 
 Weighted → Simple:
-  Per-category scores preserved
-  Weighted averages still computable for historical entries
-  New entries use single score field
+  Per-category scores preserved, but no longer displayed/editable
+  simple_rating starts blank until the user re-rates
 ```
 
 ---
@@ -101,13 +99,13 @@ If a user deletes a rating category, associated `rating_scores` rows are soft-de
 
 ## Display Rules
 
-| Context               | Simple Mode             | Weighted Mode                         |
-| --------------------- | ----------------------- | ------------------------------------- |
-| Completion entry card | Single score badge      | Weighted average + breakdown on hover |
-| Log list view         | Score column            | Weighted average column               |
-| Sorting               | By simple_rating        | By computed weighted avg              |
-| No rating entered     | Blank (not 0)           | Blank (not 0)                         |
-| Non-completion entry  | Hidden unless toggle on | Hidden unless toggle on               |
+| Context                             | Simple Mode                                                                                                          | Weighted Mode                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Completion entry card               | Single score badge                                                                                                   | Weighted average + breakdown on hover |
+| Log list view                       | Score column                                                                                                         | Weighted average column               |
+| Sorting                             | By simple_rating                                                                                                     | By computed weighted avg              |
+| No rating entered                   | Blank (not 0)                                                                                                        | Blank (not 0)                         |
+| Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same                                  |
 
 ---
 

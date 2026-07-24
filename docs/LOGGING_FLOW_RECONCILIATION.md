@@ -2,7 +2,7 @@
 
 `LOGGING_FLOW.md` is the authoritative spec for the logging flow. Where it
 disagrees with older docs (e.g. `RANKING_SYSTEM.md`, `LEVEL_LOGGING.md`,
-`DATA_MODEL.md`), this file records the resolved decision.
+`apps/api/prisma/schema.prisma`), this file records the resolved decision.
 
 ## Status transition: logging progress on a dropped level
 
@@ -26,10 +26,11 @@ Implemented in `apps/api/src/services/progress.ts` (`applyProgress`).
 
 ## Drop-from-scratch
 
-The `DATA_MODEL.md` state diagram only draws `in_progress → dropped`, but the
-real flow allows dropping a level the user has never logged. Resolved in favor
-of the flow: the shared find-or-create may create a `level_progress` straight
-into `status = dropped` with no prior `in_progress` row.
+Dropping a level the user has never logged before ("drop-from-scratch") is
+allowed: the shared find-or-create may create a `level_progress` straight
+into `status = dropped` with no prior `in_progress` row. (Documented directly
+on the `LevelProgressStatus` enum in `schema.prisma` — this note just records
+that it was a deliberate decision, not an oversight.)
 
 ## Per-action write routes
 

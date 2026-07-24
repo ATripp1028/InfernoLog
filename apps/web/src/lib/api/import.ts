@@ -12,7 +12,15 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export type DifficultyOpinion =
-  | 'NOT_DEMON_WORTHY'
+  | 'AUTO'
+  | 'TWO_STAR'
+  | 'THREE_STAR'
+  | 'FOUR_STAR'
+  | 'FIVE_STAR'
+  | 'SIX_STAR'
+  | 'SEVEN_STAR'
+  | 'EIGHT_STAR'
+  | 'NINE_STAR'
   | 'EASY'
   | 'MEDIUM'
   | 'HARD'
@@ -37,7 +45,6 @@ export interface ImportCompletionRow {
   enjoyment?: number | null
   simpleRating?: number | null
   difficultyOpinion?: DifficultyOpinion | null
-  difficultyOpinionStars?: number | null
   coinsCollected?: number | null
   twoPlayerSolo?: boolean | null
   twoPlayerPartner?: string | null
@@ -320,7 +327,6 @@ export interface ExportCompletion {
   enjoyment: number | null
   simpleRating: number | null
   difficultyOpinion: string | null
-  difficultyOpinionStars: number | null
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null

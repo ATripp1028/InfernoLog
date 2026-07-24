@@ -29,6 +29,11 @@ import {
   type RatingCategory,
 } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
+import { useResolveLevel } from '@/lib/api/logging'
+import {
+  STAR_TO_OPINION as SHARED_STAR_TO_OPINION,
+  NOT_DEMON_OPINION_VALUES,
+} from '@infernolog/core'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 import {
   DevicePicker,
@@ -45,7 +50,15 @@ type DifficultyOpinion =
   | 'HARD'
   | 'INSANE'
   | 'EXTREME'
-  | 'NOT_DEMON_WORTHY'
+  | 'AUTO'
+  | 'TWO_STAR'
+  | 'THREE_STAR'
+  | 'FOUR_STAR'
+  | 'FIVE_STAR'
+  | 'SIX_STAR'
+  | 'SEVEN_STAR'
+  | 'EIGHT_STAR'
+  | 'NINE_STAR'
 
 interface EditForm {
   date: string
@@ -57,7 +70,6 @@ interface EditForm {
   percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   onStream: boolean
   difficultyOpinion: DifficultyOpinion | null
-  difficultyOpinionStars: number | null
   enjoyment: number | null
   simpleRating: number | null
   videoUrl: string
@@ -101,13 +113,11 @@ function initForm(
     onStream: latest?.onStream ?? false,
     difficultyOpinion:
       (latest?.difficultyOpinion as DifficultyOpinion | null) ?? null,
-    difficultyOpinionStars: latest?.difficultyOpinionStars ?? null,
     enjoyment:
       latest?.enjoyment != null ? toDisplay(latest.enjoyment, scale) : null,
+    // One current value per level, not per event.
     simpleRating:
-      latest?.simpleRating != null
-        ? toDisplay(latest.simpleRating, scale)
-        : null,
+      data.simpleRating != null ? toDisplay(data.simpleRating, scale) : null,
     videoUrl: latest?.videoUrl ?? '',
     highlightUrl: latest?.highlightUrl ?? '',
     notes: latest?.notes ?? '',
@@ -115,20 +125,15 @@ function initForm(
     visibility: data.visibility,
     ratingScores: Object.fromEntries(
       categories.map((cat) => {
-        const found = latest?.ratingScores.find((r) => r.categoryId === cat.id)
+        const found = data.ratingScores.find((r) => r.categoryId === cat.id)
         return [cat.id, found != null ? toDisplay(found.score, scale) : null]
       })
     ),
-    coinsCollected: latest?.coinsCollected ?? 0,
+    coinsCollected: data.coinsCollected ?? 0,
     twoPlayerSolo: latest?.twoPlayerSolo ?? null,
     twoPlayerPartner: latest?.twoPlayerPartner ?? '',
     device: (latest?.device as Device | null | undefined) ?? null,
-    userGddlTier:
-      data.userGddlTier != null
-        ? String(data.userGddlTier)
-        : data.level.gddlTier != null
-          ? String(data.level.gddlTier)
-          : '',
+    userGddlTier: data.userGddlTier != null ? String(data.userGddlTier) : '',
   }
 }
 
@@ -152,7 +157,11 @@ export function EditProgressModal({
   const [form, setForm] = useState<EditForm>(() =>
     initForm(data, scale, [], progressUpdateId)
   )
+  const [suggestedGddlTier, setSuggestedGddlTier] = useState<number | null>(
+    null
+  )
   const editProgress = useEditProgress(levelId)
+  const resolveLevel = useResolveLevel()
   const me = useMe()
 
   useEffect(() => {
@@ -175,7 +184,28 @@ export function EditProgressModal({
         )
       )
     }
-  }, [open, data, scale, me.data, progressUpdateId])
+  }, [open, data, scale, me.data, progressUpdateId, levelId])
+
+  // Live "Community: X" hint for the GDDL tier field — same live fetch the
+  // initial logging flow uses (never blocks/fails: a hint, not a
+  // requirement). Kept in its own effect keyed only on `open`/`levelId` (not
+  // `data`) so an unrelated background refetch of the level page while the
+  // modal stays open doesn't refire this network call — the community tier
+  // doesn't change between refetches. Reset first so a stale tier from a
+  // previously-viewed level never flashes before this one resolves.
+  useEffect(() => {
+    if (!open) return
+    setSuggestedGddlTier(null)
+    const hasCompletion = data.progressUpdates.some(
+      (u) => u.kind === 'COMPLETION'
+    )
+    if (hasCompletion) {
+      resolveLevel.mutate(levelId, {
+        onSuccess: (res) => setSuggestedGddlTier(res.suggestedGddlTier),
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, levelId])
 
   if (!me.data) return null
 
@@ -235,24 +265,25 @@ export function EditProgressModal({
 
     payload.device = form.device
 
+    // Rating is a per-level value, not per-event — editable regardless of
+    // which entry is being viewed. enjoyment is per-event but shares the
+    // same UI section.
+    payload.enjoyment =
+      form.enjoyment != null ? toInternal(form.enjoyment, scale) : null
+    if (weighted) {
+      payload.ratingScores = Object.entries(form.ratingScores)
+        .filter(([, v]) => v != null)
+        .map(([categoryId, v]) => ({
+          categoryId,
+          score: toInternal(v!, scale),
+        }))
+    } else {
+      payload.simpleRating =
+        form.simpleRating != null ? toInternal(form.simpleRating, scale) : null
+    }
+
     if (isCompletion) {
       payload.difficultyOpinion = form.difficultyOpinion
-      payload.difficultyOpinionStars = form.difficultyOpinionStars
-      payload.enjoyment =
-        form.enjoyment != null ? toInternal(form.enjoyment, scale) : null
-      if (weighted) {
-        payload.ratingScores = Object.entries(form.ratingScores)
-          .filter(([, v]) => v != null)
-          .map(([categoryId, v]) => ({
-            categoryId,
-            score: toInternal(v!, scale),
-          }))
-      } else {
-        payload.simpleRating =
-          form.simpleRating != null
-            ? toInternal(form.simpleRating, scale)
-            : null
-      }
       payload.videoUrl = form.videoUrl || null
       payload.highlightUrl = form.highlightUrl || null
       payload.userGddlTier =
@@ -434,16 +465,7 @@ export function EditProgressModal({
                 <Section label="Difficulty">
                   <DifficultyOpinionSelect
                     value={form.difficultyOpinion}
-                    onChange={(v) =>
-                      patch({
-                        difficultyOpinion: v,
-                        ...(v === 'NOT_DEMON_WORTHY'
-                          ? {}
-                          : { difficultyOpinionStars: null }),
-                      })
-                    }
-                    stars={form.difficultyOpinionStars}
-                    onStarsChange={(s) => patch({ difficultyOpinionStars: s })}
+                    onChange={(v) => patch({ difficultyOpinion: v })}
                   />
                 </Section>
               )}
@@ -478,60 +500,59 @@ export function EditProgressModal({
                   </div>
                 )}
 
-              {/* ── Rating (completion only) ──────────────────── */}
-              {isCompletion && (
-                <Section label="Rating">
-                  {weighted ? (
-                    categories.length === 0 ? (
-                      <p className="text-sm text-text-tertiary">
-                        No rating categories configured. Add some in Settings to
-                        rate by category.
-                      </p>
-                    ) : (
-                      <>
-                        {categories.map((cat) => (
-                          <RatingRow
-                            key={cat.id}
-                            label={cat.name}
-                            sublabel={`weight ${Math.round(cat.weight * 100)}%`}
-                            value={form.ratingScores[cat.id] ?? null}
-                            scale={scale}
-                            onChange={(v) =>
-                              patch({
-                                ratingScores: {
-                                  ...form.ratingScores,
-                                  [cat.id]: v,
-                                },
-                              })
-                            }
-                          />
-                        ))}
-                        {weightedAvg != null && (
-                          <p className="text-right text-xs text-text-tertiary">
-                            Weighted avg:{' '}
-                            <span className="font-medium text-text-secondary">
-                              {formatDisplayRating(weightedAvg)}
-                            </span>
-                          </p>
-                        )}
-                      </>
-                    )
+              {/* ── Rating (one current value per level — not gated to
+                  completions; enjoyment is per-event but shares this UI) ── */}
+              <Section label="Rating">
+                {weighted ? (
+                  categories.length === 0 ? (
+                    <p className="text-sm text-text-tertiary">
+                      No rating categories configured. Add some in Settings to
+                      rate by category.
+                    </p>
                   ) : (
-                    <RatingRow
-                      label="Score"
-                      value={form.simpleRating}
-                      scale={scale}
-                      onChange={(v) => patch({ simpleRating: v })}
-                    />
-                  )}
+                    <>
+                      {categories.map((cat) => (
+                        <RatingRow
+                          key={cat.id}
+                          label={cat.name}
+                          sublabel={`weight ${Math.round(cat.weight * 100)}%`}
+                          value={form.ratingScores[cat.id] ?? null}
+                          scale={scale}
+                          onChange={(v) =>
+                            patch({
+                              ratingScores: {
+                                ...form.ratingScores,
+                                [cat.id]: v,
+                              },
+                            })
+                          }
+                        />
+                      ))}
+                      {weightedAvg != null && (
+                        <p className="text-right text-xs text-text-tertiary">
+                          Weighted avg:{' '}
+                          <span className="font-medium text-text-secondary">
+                            {formatDisplayRating(weightedAvg)}
+                          </span>
+                        </p>
+                      )}
+                    </>
+                  )
+                ) : (
                   <RatingRow
-                    label="Enjoyment"
-                    value={form.enjoyment}
+                    label="Score"
+                    value={form.simpleRating}
                     scale={scale}
-                    onChange={(v) => patch({ enjoyment: v })}
+                    onChange={(v) => patch({ simpleRating: v })}
                   />
-                </Section>
-              )}
+                )}
+                <RatingRow
+                  label="Enjoyment"
+                  value={form.enjoyment}
+                  scale={scale}
+                  onChange={(v) => patch({ enjoyment: v })}
+                />
+              </Section>
 
               {/* ── Media (completion only) ───────────────────── */}
               {isCompletion && (
@@ -576,8 +597,8 @@ export function EditProgressModal({
                       id="ep-gddl-tier"
                       inputMode="numeric"
                       placeholder={
-                        data.level.gddlTier != null
-                          ? `Community: ${data.level.gddlTier}`
+                        suggestedGddlTier != null
+                          ? `Community: ${suggestedGddlTier}`
                           : '—'
                       }
                       value={form.userGddlTier}
@@ -734,18 +755,25 @@ const DEMON_OPINIONS = [
   },
 ]
 
+// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
+// rather than a separate paired field — shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
+const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
+  NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
+)
+
 function DifficultyOpinionSelect({
   value,
   onChange,
-  stars,
-  onStarsChange,
 }: {
   value: DifficultyOpinion | null
   onChange: (v: DifficultyOpinion) => void
-  stars: number | null
-  onStarsChange: (s: number) => void
 }) {
-  const notWorthy = value === 'NOT_DEMON_WORTHY'
+  const notWorthy = value != null && NOT_DEMON_OPINIONS.has(value)
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-5 justify-items-center gap-2">
@@ -775,7 +803,7 @@ function DifficultyOpinionSelect({
       <button
         type="button"
         aria-pressed={notWorthy}
-        onClick={() => onChange('NOT_DEMON_WORTHY')}
+        onClick={() => onChange(STAR_TO_OPINION[1]!)}
         className={cn(
           'h-10 w-full rounded-md border px-4 text-sm font-medium transition-colors',
           notWorthy
@@ -793,7 +821,7 @@ function DifficultyOpinionSelect({
           </p>
           <div className="grid grid-cols-5 justify-items-center gap-2 sm:grid-cols-9">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
-              const active = stars === n
+              const active = value === STAR_TO_OPINION[n]
               const difficulty = starCountToDifficulty(n)
               return (
                 <button
@@ -802,7 +830,7 @@ function DifficultyOpinionSelect({
                   title={`${n}★ · ${difficulty}`}
                   aria-label={`${n} star ${difficulty}`}
                   aria-pressed={active}
-                  onClick={() => onStarsChange(n)}
+                  onClick={() => onChange(STAR_TO_OPINION[n]!)}
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-md border px-2 py-1 transition-all',
                     active

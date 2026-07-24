@@ -53,20 +53,15 @@ function makeRobtop(overrides: Partial<RobtopLevel> = {}): RobtopLevel {
     description: null,
     creatorPlayerId: null,
     creatorAccountId: null,
-    creatorPoints: null,
     stars: null,
     starsRequested: null,
     partialDiff: null,
-    difficultyFace: null,
     downloads: null,
     likes: null,
     disliked: null,
     objectCount: null,
-    largeLevel: null,
     coins: null,
     coinsVerified: null,
-    orbs: null,
-    diamonds: null,
     featured: null,
     featureScore: null,
     epicValue: null,
@@ -75,8 +70,6 @@ function makeRobtop(overrides: Partial<RobtopLevel> = {}): RobtopLevel {
     copiedFromId: null,
     levelVersion: null,
     gameVersion: null,
-    editorSeconds: null,
-    editorSecondsTotal: null,
     officialSongId: null,
     songId: null,
     songLink: null,
@@ -231,7 +224,8 @@ describe('syncLevelBatch — not found (delisting)', () => {
     const after = await prisma.level.findUniqueOrThrow({
       where: { inGameId: '100' },
     })
-    expect(after.delisted).toBe(true)
+    // delisted on the wire is derived as delistedAt != null — no separate
+    // boolean column.
     expect(after.delistedAt).not.toBeNull()
     // Metadata frozen at last-known values.
     expect(after.name).toBe('Cached Name')
@@ -293,7 +287,6 @@ describe('runVolatileSync — selection', () => {
     await seedCachedLevel({
       inGameId: 'gone',
       isRated: false,
-      delisted: true,
       delistedAt: new Date(),
     })
     robtopMock.mockResolvedValue(makeRobtop())
@@ -332,7 +325,6 @@ describe('runStandardSync — selection', () => {
       inGameId: 'gone',
       isRated: true,
       ratingStatusSince: daysAgo(100),
-      delisted: true,
       delistedAt: new Date(),
     })
     robtopMock.mockResolvedValue(makeRobtop())

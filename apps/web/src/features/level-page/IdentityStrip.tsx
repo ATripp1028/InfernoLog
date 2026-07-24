@@ -2,14 +2,6 @@ import { DifficultyFace } from '@/components/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import type { LevelMeta } from './types'
 
-function GddlPill({ tier }: { tier: number }) {
-  return (
-    <span className="inline-flex h-[22px] items-center rounded bg-[#2d1b1b] px-2 text-[11px] font-medium text-[#ff8a8a]">
-      GDDL {tier}
-    </span>
-  )
-}
-
 interface IdentityStripProps {
   level: LevelMeta
   /** Mobile: full-width strip with strong scrim; desktop: card inset with lighter treatment */
@@ -71,11 +63,6 @@ export function IdentityStrip({
           <p className="mt-1 text-[13px] text-text-secondary md:text-sm">
             by {level.creator ?? 'Unknown'} · {level.inGameId}
           </p>
-          {level.gddlTier != null && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <GddlPill tier={level.gddlTier} />
-            </div>
-          )}
         </div>
       </div>
     </div>

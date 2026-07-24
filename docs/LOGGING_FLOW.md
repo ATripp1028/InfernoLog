@@ -243,9 +243,9 @@ all).
   keep-private toggle. Attempts on a drop is optional but encouraged — it puts the eventual
   completion's attempt count in perspective if the level is later beaten.
 - Styled with the danger color; CTA "Drop level". The level's progress history stays intact —
-  a drop is its own progress update (same as a completion or session log — see
-  `DATA_MODEL.md`), not a deletion, and a level can be dropped more than once without losing
-  earlier drops' dates/reasons.
+  a drop is its own progress update (same as a completion or session log — see the
+  `ProgressUpdate` model in `schema.prisma`), not a deletion, and a level can be dropped more
+  than once without losing earlier drops' dates/reasons.
 
 ---
 

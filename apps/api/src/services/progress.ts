@@ -8,7 +8,6 @@
 
 import prisma from '../utils/prisma'
 import type { Prisma } from '@prisma/client'
-import { DifficultyOpinion } from '@infernolog/core'
 import { removeFromWantToBeat } from './collections'
 import type {
   CompletionInput,
@@ -65,9 +64,9 @@ type DecimalLike = { toNumber(): number }
 const toNum = (v: DecimalLike | number | null): number | null =>
   v === null ? null : typeof v === 'number' ? v : v.toNumber()
 
-const progressUpdateInclude = {
+const levelProgressInclude = {
   ratingScores: { select: { categoryId: true, score: true } },
-} satisfies Prisma.ProgressUpdateInclude
+} satisfies Prisma.LevelProgressInclude
 
 // Loads the full resulting record so handlers can return it without a
 // follow-up GET (the standard "return the whole record" response shape).
@@ -77,10 +76,12 @@ async function loadFullEntry(
   progressUpdateId: string
 ) {
   const [levelProgress, progressUpdate] = await Promise.all([
-    tx.levelProgress.findUniqueOrThrow({ where: { id: levelProgressId } }),
+    tx.levelProgress.findUniqueOrThrow({
+      where: { id: levelProgressId },
+      include: levelProgressInclude,
+    }),
     tx.progressUpdate.findUniqueOrThrow({
       where: { id: progressUpdateId },
-      include: progressUpdateInclude,
     }),
   ])
   return {
@@ -126,15 +127,8 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
       enjoyment: input.enjoyment ?? null,
-      simpleRating: input.simpleRating ?? null,
       difficultyOpinion: input.difficultyOpinion ?? null,
-      // Only retained for the NOT_DEMON_WORTHY opinion; cleared otherwise.
-      difficultyOpinionStars:
-        input.difficultyOpinion === DifficultyOpinion.NOT_DEMON_WORTHY
-          ? (input.difficultyOpinionStars ?? null)
-          : null,
       inGameDifficulty: level?.inGameDifficulty ?? null,
-      coinsCollected: input.coinsCollected ?? null,
       twoPlayerSolo: input.twoPlayerSolo ?? null,
       twoPlayerPartner: input.twoPlayerPartner ?? null,
       device: input.device ?? null,
@@ -154,11 +148,13 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         where: { id: existing.id },
         data: updateFields,
       })
-      // Replace child rows so the edit fully reflects the new payload.
-      await tx.ratingScore.deleteMany({
-        where: { progressUpdateId: existing.id },
-      })
       progressUpdateId = existing.id
+      // Replace rating-score rows so the edit fully reflects the new
+      // payload. Keyed on the LevelProgress — one current set of scores per
+      // level. Only relevant when replacing an existing completion — a
+      // brand-new one can't have any rating-score rows yet, so skip the
+      // (guaranteed 0-row) delete.
+      await tx.ratingScore.deleteMany({ where: { levelProgressId: lp.id } })
     } else {
       const created = await tx.progressUpdate.create({
         data: { ...updateFields, levelProgressId: lp.id },
@@ -170,7 +166,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     if (input.ratingScores?.length) {
       await tx.ratingScore.createMany({
         data: input.ratingScores.map((r) => ({
-          progressUpdateId,
+          levelProgressId: lp.id,
           categoryId: r.categoryId,
           score: r.score,
         })),
@@ -185,6 +181,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         status: 'COMPLETED',
         visibility: input.visibility,
         userGddlTier: input.userGddlTier ?? null,
+        simpleRating: input.simpleRating ?? null,
+        coinsCollected: input.coinsCollected ?? null,
+        completionTime: input.completionTime ?? null,
         ...(input.worstFail !== undefined
           ? { worstFail: input.worstFail }
           : {}),
@@ -301,6 +300,12 @@ export async function applyEdit(
     if (input.visibility !== undefined) lpData.visibility = input.visibility
     if (input.userGddlTier !== undefined)
       lpData.userGddlTier = input.userGddlTier
+    if (input.simpleRating !== undefined)
+      lpData.simpleRating = input.simpleRating
+    if (input.coinsCollected !== undefined)
+      lpData.coinsCollected = input.coinsCollected
+    if (input.completionTime !== undefined)
+      lpData.completionTime = input.completionTime
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
@@ -313,17 +318,11 @@ export async function applyEdit(
     if (input.onStream !== undefined) puData.onStream = input.onStream
     if (input.difficultyOpinion !== undefined)
       puData.difficultyOpinion = input.difficultyOpinion
-    if (input.difficultyOpinionStars !== undefined)
-      puData.difficultyOpinionStars = input.difficultyOpinionStars
     if (input.enjoyment !== undefined) puData.enjoyment = input.enjoyment
-    if (input.simpleRating !== undefined)
-      puData.simpleRating = input.simpleRating
     if (input.videoUrl !== undefined) puData.videoUrl = input.videoUrl
     if (input.highlightUrl !== undefined)
       puData.highlightUrl = input.highlightUrl
     if (input.notes !== undefined) puData.notes = input.notes
-    if (input.coinsCollected !== undefined)
-      puData.coinsCollected = input.coinsCollected
     if (input.twoPlayerSolo !== undefined)
       puData.twoPlayerSolo = input.twoPlayerSolo
     if (input.twoPlayerPartner !== undefined)
@@ -341,13 +340,11 @@ export async function applyEdit(
       })
     }
     if (input.ratingScores !== undefined) {
-      await tx.ratingScore.deleteMany({
-        where: { progressUpdateId: targetUpdateId },
-      })
+      await tx.ratingScore.deleteMany({ where: { levelProgressId: lp.id } })
       if (input.ratingScores.length > 0) {
         await tx.ratingScore.createMany({
           data: input.ratingScores.map((r) => ({
-            progressUpdateId: targetUpdateId!,
+            levelProgressId: lp.id,
             categoryId: r.categoryId,
             score: r.score,
           })),
@@ -360,13 +357,17 @@ export async function applyEdit(
 
 // ─────────────────────────────────────────────
 // DELETE PROGRESS UPDATE — removes a single logged entry (completion,
-// progress log, or drop). RatingScore rows cascade via the schema's
-// onDelete: Cascade.
+// progress log, or drop). RatingScore rows now live on LevelProgress (one
+// current rating per level, independent of any specific event), so deleting
+// a completion does NOT clear them — only coinsCollected/completionTime,
+// which are meaningless once the level isn't marked completed.
 //
 // If it's the ONLY progress_update on the level_progress, the whole
 // level_progress is deleted instead (a level_progress is always created
 // together with at least one progress_update — see findOrCreateLevelProgress
-// — so leaving one with zero updates would violate that invariant).
+// — so leaving one with zero updates would violate that invariant). Deleting
+// the whole level_progress cascades RatingScore too, via the schema's
+// onDelete: Cascade.
 //
 // Otherwise, status is recomputed by replaying the remaining updates in
 // loggedAt order using the same rules the three write paths already apply on
@@ -415,13 +416,23 @@ export async function deleteProgressUpdate(
       else if (newStatus === 'DROPPED') newStatus = 'IN_PROGRESS'
     }
 
+    const uncompleting = lp.status === 'COMPLETED' && newStatus !== 'COMPLETED'
     if (newStatus !== lp.status) {
       await tx.levelProgress.update({
         where: { id: lp.id },
-        data: { status: newStatus },
+        data: {
+          status: newStatus,
+          // Only meaningful once completed — cleared when the completion is
+          // undone. Folded into the same write as the status change (both
+          // always fire together, since `uncompleting` implies `newStatus
+          // !== lp.status`) rather than a second round-trip to the same row.
+          ...(uncompleting
+            ? { coinsCollected: null, completionTime: null }
+            : {}),
+        },
       })
     }
-    if (lp.status === 'COMPLETED' && newStatus !== 'COMPLETED') {
+    if (uncompleting) {
       await tx.classicRanking.deleteMany({ where: { levelProgressId: lp.id } })
     }
 

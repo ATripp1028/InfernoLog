@@ -8,6 +8,10 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import type { DifficultyOpinion, Level } from '@/lib/api/logging'
+import {
+  STAR_TO_OPINION as SHARED_STAR_TO_OPINION,
+  NOT_DEMON_OPINION_VALUES,
+} from '@infernolog/core'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -30,8 +34,9 @@ import {
   isPreTwoTwo,
 } from './CompletionSessionStep'
 
-// The five demon-tier opinions, each shown as a round face button. The sixth
-// opinion (NOT_DEMON_WORTHY) is kept as a labelled text button for clarity.
+// The five demon-tier opinions, each shown as a round face button. The
+// non-demon star values (AUTO..NINE_STAR) are kept behind a labelled
+// "Not demon-worthy" text button for clarity.
 const DEMON_OPINIONS: ReadonlyArray<{
   value: DifficultyOpinion
   label: string
@@ -199,17 +204,7 @@ export function CompletionBasicsStep() {
           </FieldLabel>
           <DifficultyOpinionSelect
             value={draft.difficultyOpinion}
-            onChange={(v) =>
-              patchDraft({
-                difficultyOpinion: v,
-                // Clear the star sub-choice when leaving "Not demon-worthy".
-                ...(v === 'NOT_DEMON_WORTHY'
-                  ? {}
-                  : { difficultyOpinionStars: null }),
-              })
-            }
-            stars={draft.difficultyOpinionStars}
-            onStarsChange={(s) => patchDraft({ difficultyOpinionStars: s })}
+            onChange={(v) => patchDraft({ difficultyOpinion: v })}
           />
           <FieldHint>
             What you think it deserves — separate from the in-game rating shown
@@ -262,18 +257,25 @@ export function CompletionBasicsStep() {
   )
 }
 
+// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
+// rather than a separate paired field — shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
+const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
+  NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
+)
+
 function DifficultyOpinionSelect({
   value,
   onChange,
-  stars,
-  onStarsChange,
 }: {
   value: DifficultyOpinion | null
   onChange: (value: DifficultyOpinion) => void
-  stars: number | null
-  onStarsChange: (stars: number) => void
 }) {
-  const notWorthy = value === 'NOT_DEMON_WORTHY'
+  const notWorthy = value != null && NOT_DEMON_OPINIONS.has(value)
   return (
     <div className="space-y-3">
       {/* Demon difficulty faces — one row, evenly spaced across the width. */}
@@ -305,7 +307,7 @@ function DifficultyOpinionSelect({
       <button
         type="button"
         aria-pressed={notWorthy}
-        onClick={() => onChange('NOT_DEMON_WORTHY')}
+        onClick={() => onChange(STAR_TO_OPINION[1]!)}
         className={cn(
           'h-10 w-full rounded-md border px-4 text-sm font-medium transition-colors',
           notWorthy
@@ -326,7 +328,7 @@ function DifficultyOpinionSelect({
           </p>
           <div className="grid grid-cols-5 justify-items-center gap-2 sm:grid-cols-9">
             {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
-              const active = stars === n
+              const active = value === STAR_TO_OPINION[n]
               const difficulty = starCountToDifficulty(n)
               return (
                 <button
@@ -335,7 +337,7 @@ function DifficultyOpinionSelect({
                   title={`${n}★ · ${difficulty}`}
                   aria-label={`${n} star ${difficulty}`}
                   aria-pressed={active}
-                  onClick={() => onStarsChange(n)}
+                  onClick={() => onChange(STAR_TO_OPINION[n]!)}
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-md border px-2 py-1 transition-all',
                     active

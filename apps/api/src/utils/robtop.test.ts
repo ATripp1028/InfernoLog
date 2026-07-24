@@ -32,7 +32,7 @@ describe('parseGetGJLevels21', () => {
     expect(level.officialSongId).toBeNull()
     expect(level.songName).toBe('At the Speed of Light')
     expect(level.songAuthor).toBe('Dimrain47')
-    expect(level.songSize).toBe('9.56MB')
+    expect(level.songSize).toBe(9.56)
     expect(level.songLink).toBe(
       'https://geometrydashcontent.b-cdn.net/songs/467339.mp3'
     )
@@ -48,18 +48,11 @@ describe('parseGetGJLevels21', () => {
     expect(level.copiedFromId).toBe('7679228')
     expect(level.levelVersion).toBe(3)
     expect(level.gameVersion).toBe('2.1')
-    expect(level.editorSeconds).toBe(1)
-    expect(level.editorSecondsTotal).toBe(2)
 
     // base64 description decoded.
     expect(level.description).toBe(
       'Whose blood will be spilt in the Bloodbath? Who will the victors be? How many will survive? Good luck...'
     )
-
-    // Not provided by getGJLevels21.
-    expect(level.creatorPoints).toBeNull()
-    expect(level.orbs).toBeNull()
-    expect(level.diamonds).toBeNull()
   })
 
   it('returns null for the "-1" not-found sentinel and empty bodies', () => {

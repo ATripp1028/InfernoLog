@@ -82,16 +82,21 @@ export function StatGrid({
   const attempts = completion?.attempts ?? latestUpdate?.attempts ?? null
 
   // RATING — computed overall rating (weighted avg or simple per user mode),
-  // shown separately from enjoyment. GDDL tier has its own stat box.
+  // shown separately from enjoyment. GDDL tier has its own stat box. Rating
+  // lives on LevelProgress (one current value per level), independent of
+  // completion status — so this is computed regardless of whether a
+  // completion exists, matching the list view (apps/api/src/routes/progress.ts).
   const categoryWeights = new Map(
     ratingCategories.map((cat) => [cat.id, cat.weight])
   )
-  const overallRating = completion
-    ? computeOverallRating(
-        { ratingMode, includeEnjoyment, enjoymentWeight, categoryWeights },
-        completion
-      )
-    : null
+  const overallRating = computeOverallRating(
+    { ratingMode, includeEnjoyment, enjoymentWeight, categoryWeights },
+    {
+      simpleRating: data.simpleRating,
+      enjoyment: (completion ?? latestUpdate)?.enjoyment ?? null,
+      ratingScores: data.ratingScores,
+    }
+  )
   const ratingDisplay =
     overallRating != null ? formatRating(overallRating, scale) : '—'
 

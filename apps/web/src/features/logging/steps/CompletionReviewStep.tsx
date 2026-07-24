@@ -10,9 +10,9 @@ import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
 import { buildCompletionInput } from '../payload'
 import { formatNumber, formatRating } from '../format'
+import { opinionToStars } from '@infernolog/core'
 
 const OPINION_LABELS: Record<string, string> = {
-  NOT_DEMON_WORTHY: 'Not demon-worthy',
   EASY: 'Easy',
   MEDIUM: 'Medium',
   HARD: 'Hard',
@@ -20,12 +20,14 @@ const OPINION_LABELS: Record<string, string> = {
   EXTREME: 'Extreme',
 }
 
-function opinionLabel(opinion: string, stars: number | null): string {
-  const base = OPINION_LABELS[opinion] ?? opinion
-  if (opinion === 'NOT_DEMON_WORTHY' && stars != null) {
-    return `${base} · ${stars}★ ${starCountToDifficulty(stars)}`
+// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
+// — shared mapping, see packages/core/src/difficultyOpinion.ts.
+function opinionLabel(opinion: string): string {
+  const stars = opinionToStars(opinion)
+  if (stars != null) {
+    return `Not demon-worthy · ${stars}★ ${starCountToDifficulty(stars)}`
   }
-  return base
+  return OPINION_LABELS[opinion] ?? opinion
 }
 
 export function CompletionReviewStep() {
@@ -95,10 +97,7 @@ export function CompletionReviewStep() {
           {draft.difficultyOpinion && (
             <Row
               label="Your difficulty rating"
-              value={opinionLabel(
-                draft.difficultyOpinion,
-                draft.difficultyOpinionStars
-              )}
+              value={opinionLabel(draft.difficultyOpinion)}
             />
           )}
           {weightedAvg != null && (

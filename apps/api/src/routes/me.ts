@@ -97,13 +97,14 @@ const meSelect = {
   gddlUsername: true,
   onboardingCompleted: true,
   legalAcceptedAt: true,
-  isVerified: true,
+  verifiedAt: true,
   createdAt: true,
 } as const
 
 type RawUser = {
   enjoymentWeight: { toNumber(): number } | number
   gddlApiKeyEncrypted?: string | null
+  verifiedAt?: Date | null
   ratingCategories?: Array<{
     id: string
     name: string
@@ -117,11 +118,17 @@ type RawUser = {
 function serializeMe(user: RawUser) {
   // gddlApiKeyEncrypted is destructured out so it can never leak to the client;
   // we expose only whether a key is set.
-  const { enjoymentWeight, ratingCategories, gddlApiKeyEncrypted, ...rest } =
-    user
+  const {
+    enjoymentWeight,
+    ratingCategories,
+    gddlApiKeyEncrypted,
+    verifiedAt,
+    ...rest
+  } = user
   return {
     ...rest,
     hasGddlApiKey: Boolean(gddlApiKeyEncrypted),
+    isVerified: verifiedAt != null,
     enjoymentWeight:
       typeof enjoymentWeight === 'number'
         ? enjoymentWeight
@@ -352,7 +359,7 @@ app.delete('/me', async (c) => {
       }),
       prisma.gddlSyncJob.deleteMany({ where: { userId } }),
       prisma.ratingScore.deleteMany({
-        where: { progressUpdate: { levelProgress: { userId } } },
+        where: { levelProgress: { userId } },
       }),
       prisma.user.delete({ where: { id: userId } }),
     ])
@@ -549,19 +556,29 @@ app.post('/me/gddl-sync', async (c) => {
       )
     }
 
-    const mostRecent = await prisma.gddlSyncJob.findFirst({
+    const existingJob = await prisma.gddlSyncJob.findUnique({
       where: { userId },
-      orderBy: { startedAt: 'desc' },
       select: { id: true, status: true, startedAt: true },
     })
-    const existing = mostRecent ? await expireIfStale(mostRecent) : null
+    const existing = existingJob ? await expireIfStale(existingJob) : null
 
     if (existing?.status === 'pending') {
       return c.json({ data: { jobId: existing.id } }, 202)
     }
 
-    const job = await prisma.gddlSyncJob.create({
-      data: { userId, status: 'pending' },
+    // One row per user (userId is unique) — a prior completed/failed job is
+    // overwritten rather than left to accumulate; nothing reads sync history
+    // beyond the latest job.
+    const job = await prisma.gddlSyncJob.upsert({
+      where: { userId },
+      create: { userId, status: 'pending' },
+      update: {
+        status: 'pending',
+        result: Prisma.JsonNull,
+        error: null,
+        startedAt: new Date(),
+        finishedAt: null,
+      },
       select: { id: true },
     })
 
@@ -582,24 +599,21 @@ app.post('/me/gddl-sync', async (c) => {
   }
 })
 
-// GET /v1/me/gddl-sync — the user's most recent GDDL sync job (or null),
-// mirroring GET /v1/me/import/status for spreadsheet import: no job id
-// needed, so the frontend can poll this from anywhere without having to
-// carry a job id across navigation or a page reload. GddlSyncJob rows are
-// never deleted (unlike ImportJob, which is one-per-user), so this always
-// returns the latest one ever created for the user, completed or not — the
-// caller is responsible for not re-acting to a job it's already handled.
-// Since only one job is ever active at a time, this is also the one job a
-// client could be polling for, and a stale pending job is lazily expired
-// here so the UI it drives (e.g. the disabled Sync button) can recover
-// without the user needing to trigger a new sync attempt first.
+// GET /v1/me/gddl-sync — the user's GDDL sync job (or null), mirroring GET
+// /v1/me/import/status for spreadsheet import: no job id needed, so the
+// frontend can poll this from anywhere without having to carry a job id
+// across navigation or a page reload. GddlSyncJob is one-per-user (like
+// ImportJob) — a new sync overwrites the previous job (see POST handler
+// above) — so this always returns the single current/most-recent job,
+// completed or not. A stale pending job is lazily expired here so the UI it
+// drives (e.g. the disabled Sync button) can recover without the user
+// needing to trigger a new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
   try {
-    const job = await prisma.gddlSyncJob.findFirst({
+    const job = await prisma.gddlSyncJob.findUnique({
       where: { userId },
-      orderBy: { startedAt: 'desc' },
       select: {
         id: true,
         status: true,

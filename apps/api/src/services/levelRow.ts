@@ -15,7 +15,6 @@ export const levelSelect = {
   inGameDifficulty: true,
   isDemon: true,
   isRated: true,
-  difficultyFace: true,
   featured: true,
   epicValue: true,
   length: true,

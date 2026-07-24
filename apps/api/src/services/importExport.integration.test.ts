@@ -250,7 +250,6 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       enjoyment: c.enjoyment == null ? null : c.enjoyment / 10,
       simpleRating: c.simpleRating == null ? null : c.simpleRating / 10,
       difficultyOpinion: c.difficultyOpinion as DifficultyOpinion | null,
-      difficultyOpinionStars: c.difficultyOpinionStars,
       coinsCollected: c.coinsCollected,
       twoPlayerSolo: c.twoPlayerSolo,
       twoPlayerPartner: c.twoPlayerPartner,

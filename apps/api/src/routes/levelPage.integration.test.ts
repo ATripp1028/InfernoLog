@@ -57,7 +57,6 @@ type LevelPageBody = {
       runFrom: number | null
       runTo: number | null
       attempts: number | null
-      ratingScores: Array<{ categoryId: string; score: number }>
     }>
     runsGraph: Array<{
       progressUpdateId: string | null
@@ -85,6 +84,9 @@ async function seedProgress(
     visibility?: 'PUBLIC' | 'PRIVATE'
     levelNotes?: string | null
     worstFail?: number | null
+    // One current value per level, not per event — lives on LevelProgress.
+    simpleRating?: number | null
+    ratingScores?: Array<{ categoryId: string; score: number }>
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
       percentage?: number | null
@@ -92,8 +94,6 @@ async function seedProgress(
       runTo?: number | null
       date?: Date | null
       loggedAt?: Date
-      simpleRating?: number | null
-      ratingScores?: Array<{ categoryId: string; score: number }>
       videoUrl?: string | null
       highlightUrl?: string | null
     }>
@@ -107,6 +107,10 @@ async function seedProgress(
       visibility: args.visibility ?? 'PUBLIC',
       levelNotes: args.levelNotes ?? null,
       worstFail: args.worstFail ?? null,
+      simpleRating: args.simpleRating ?? null,
+      ...(args.ratingScores
+        ? { ratingScores: { create: args.ratingScores } }
+        : {}),
       progressUpdates: {
         create: (args.updates ?? []).map((u) => ({
           kind: u.kind ?? 'PROGRESS',
@@ -115,10 +119,8 @@ async function seedProgress(
           runTo: u.runTo ?? null,
           date: u.date ?? null,
           loggedAt: u.loggedAt ?? new Date(),
-          simpleRating: u.simpleRating ?? null,
           videoUrl: u.videoUrl ?? null,
           highlightUrl: u.highlightUrl ?? null,
-          ratingScores: u.ratingScores ? { create: u.ratingScores } : undefined,
         })),
       },
     },
@@ -150,13 +152,10 @@ describe('GET /me/progress/:levelId — owner', () => {
       userId: user.id,
       levelId: '1001',
       status: 'COMPLETED',
+      simpleRating: 80,
       updates: [
         { percentage: 60, loggedAt: new Date('2025-01-01') },
-        {
-          kind: 'COMPLETION',
-          loggedAt: new Date('2025-06-01'),
-          simpleRating: 80,
-        },
+        { kind: 'COMPLETION', loggedAt: new Date('2025-06-01') },
       ],
     })
 

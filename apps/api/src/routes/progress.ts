@@ -43,7 +43,6 @@ const levelListSelect = {
   inGameDifficulty: true,
   isDemon: true,
   isRated: true,
-  difficultyFace: true,
   featured: true,
   epicValue: true,
   length: true,
@@ -53,12 +52,7 @@ const levelListSelect = {
   coinsVerified: true,
   twoPlayer: true,
   gameVersion: true,
-  gddlTier: true,
 } satisfies Prisma.LevelSelect
-
-const listEntryInclude = {
-  ratingScores: { select: { categoryId: true, score: true } },
-} satisfies Prisma.ProgressUpdateInclude
 
 const levelProgressListSelect = {
   id: true,
@@ -70,6 +64,8 @@ const levelProgressListSelect = {
   // Presence of a ranking row → !needsPlacement for completed classic levels.
   classicRanking: { select: { id: true } },
   userGddlTier: true,
+  simpleRating: true,
+  ratingScores: { select: { categoryId: true, score: true } },
   level: { select: levelListSelect },
   // The representative update: completion first (kind desc — see
   // ProgressUpdateKind's declaration order), else the most recent. For a
@@ -79,7 +75,6 @@ const levelProgressListSelect = {
   progressUpdates: {
     orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }] as const,
     take: 1,
-    include: listEntryInclude,
   },
 } satisfies Prisma.LevelProgressSelect
 
@@ -87,10 +82,7 @@ type RawRow = Prisma.LevelProgressGetPayload<{
   select: typeof levelProgressListSelect
 }>
 
-function serializeEntry(
-  update: RawRow['progressUpdates'][number],
-  ratingConfig: OverallRatingConfig
-) {
+function serializeEntry(update: RawRow['progressUpdates'][number]) {
   return {
     progressUpdateId: update.id,
     kind: update.kind,
@@ -101,11 +93,6 @@ function serializeEntry(
     runFrom: update.runFrom,
     runTo: update.runTo,
     enjoyment: update.enjoyment,
-    overallRating: computeOverallRating(ratingConfig, {
-      simpleRating: update.simpleRating,
-      enjoyment: update.enjoyment,
-      ratingScores: update.ratingScores,
-    }),
     difficultyOpinion: update.difficultyOpinion,
     onStream: update.onStream,
     fps: update.fps,
@@ -115,7 +102,6 @@ function serializeEntry(
     notes: update.notes,
     device: update.device,
     loggedAt: update.loggedAt,
-    ratingScores: update.ratingScores,
   }
 }
 
@@ -139,8 +125,16 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
       level.levelType === 'CLASSIC' &&
       row.classicRanking === null,
     userGddlTier: row.userGddlTier,
+    // One rating per level (LevelProgress), not per event — enjoyment still
+    // comes from the representative update since it's logged per-event.
+    overallRating: computeOverallRating(ratingConfig, {
+      simpleRating: row.simpleRating,
+      enjoyment: update?.enjoyment ?? null,
+      ratingScores: row.ratingScores,
+    }),
+    ratingScores: row.ratingScores,
     level,
-    entry: update ? serializeEntry(update, ratingConfig) : null,
+    entry: update ? serializeEntry(update) : null,
   }
 }
 
@@ -213,10 +207,16 @@ app.get('/me/progress/:levelId', async (c) => {
         worstFail: true,
         worstFailDate: true,
         userGddlTier: true,
+        simpleRating: true,
+        coinsCollected: true,
+        completionTime: true,
         createdAt: true,
         updatedAt: true,
         classicRanking: {
           select: { id: true, rankingIndex: true },
+        },
+        ratingScores: {
+          select: { categoryId: true, score: true },
         },
         level: {
           select: {
@@ -227,7 +227,6 @@ app.get('/me/progress/:levelId', async (c) => {
             inGameDifficulty: true,
             isDemon: true,
             isRated: true,
-            difficultyFace: true,
             featured: true,
             epicValue: true,
             length: true,
@@ -237,7 +236,6 @@ app.get('/me/progress/:levelId', async (c) => {
             coinsVerified: true,
             twoPlayer: true,
             officialSongId: true,
-            gddlTier: true,
           },
         },
         progressUpdates: {
@@ -255,20 +253,14 @@ app.get('/me/progress/:levelId', async (c) => {
             fps: true,
             percentageVersion: true,
             enjoyment: true,
-            simpleRating: true,
             difficultyOpinion: true,
-            difficultyOpinionStars: true,
             notes: true,
             videoUrl: true,
             highlightUrl: true,
             loggedAt: true,
-            coinsCollected: true,
             twoPlayerSolo: true,
             twoPlayerPartner: true,
             device: true,
-            ratingScores: {
-              select: { categoryId: true, score: true },
-            },
           },
         },
       },
@@ -358,6 +350,11 @@ app.get('/me/progress/:levelId', async (c) => {
         worstFail: lp.worstFail,
         worstFailDate: lp.worstFailDate,
         userGddlTier: lp.userGddlTier,
+        // One current value per level, not per event.
+        simpleRating: lp.simpleRating,
+        ratingScores: lp.ratingScores,
+        coinsCollected: lp.coinsCollected,
+        completionTime: lp.completionTime,
         createdAt: lp.createdAt,
         updatedAt: lp.updatedAt,
         // Ranking placement (null if unplaced or not completed)
@@ -367,7 +364,7 @@ app.get('/me/progress/:levelId', async (c) => {
         rankPosition,
         // Completion media (video/highlight) — unambiguous in v1 (one completion
         // per level). In v3 (rebeat), "which video is the hero" is deferred to
-        // the rebeat design. See DATA_MODEL.md near progress_updates.video_url.
+        // the rebeat design. See ProgressUpdate.videoUrl in schema.prisma.
         completionVideoUrl: completionUpdate?.videoUrl ?? null,
         completionHighlightUrl: completionUpdate?.highlightUrl ?? null,
         level: lp.level,
@@ -384,15 +381,11 @@ app.get('/me/progress/:levelId', async (c) => {
           fps: u.fps,
           percentageVersion: u.percentageVersion,
           enjoyment: u.enjoyment,
-          simpleRating: u.simpleRating,
           difficultyOpinion: u.difficultyOpinion,
-          difficultyOpinionStars: u.difficultyOpinionStars,
           notes: u.notes,
           videoUrl: u.videoUrl,
           highlightUrl: u.highlightUrl,
           loggedAt: u.loggedAt,
-          ratingScores: u.ratingScores,
-          coinsCollected: u.coinsCollected,
           twoPlayerSolo: u.twoPlayerSolo,
           twoPlayerPartner: u.twoPlayerPartner,
           device: u.device,

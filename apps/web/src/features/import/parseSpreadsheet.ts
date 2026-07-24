@@ -14,6 +14,7 @@ import type {
   Device,
   EntryVisibility,
 } from '@/lib/api/import'
+import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
 
 // ── Date format ────────────────────────────────────────────────────────────
 
@@ -256,6 +257,15 @@ const VALID_DIFFICULTY_OPINIONS = new Set<string>([
   'extreme',
 ])
 
+// The sheet keeps two user-facing columns (difficulty_opinion +
+// difficulty_opinion_stars) for clarity, but the wire format merges them: the
+// non-demon star values carry their own star count. Shared table, see
+// packages/core/src/difficultyOpinion.ts.
+const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
+  number,
+  DifficultyOpinion
+>
+
 function parseCompletionRow(
   raw: Record<string, unknown>,
   rowIndex: number,
@@ -382,13 +392,15 @@ function parseCompletionRow(
       'warning'
     )
 
-  // Difficulty opinion enum
+  // Difficulty opinion — the sheet keeps two columns (text opinion + a
+  // separate star number for "not demon-worthy") but the wire format merges
+  // them into one enum value.
   const rawDO = toStr(getField(raw, 'difficulty_opinion'))
-  let difficultyOpinion: DifficultyOpinion | null = null
+  let rawOpinion: string | null = null
   if (rawDO) {
     const normalized = rawDO.toLowerCase().replace(/\s+/g, '_')
     if (VALID_DIFFICULTY_OPINIONS.has(normalized)) {
-      difficultyOpinion = normalized.toUpperCase() as DifficultyOpinion
+      rawOpinion = normalized
     } else {
       pushFlag(
         'difficulty_opinion',
@@ -416,6 +428,21 @@ function parseCompletionRow(
       `difficulty_opinion_stars ${difficultyOpinionStars} is outside 1-9 — value dropped`,
       'warning'
     )
+
+  const validStars =
+    difficultyOpinionStars != null &&
+    difficultyOpinionStars >= 1 &&
+    difficultyOpinionStars <= 9
+      ? Math.round(difficultyOpinionStars)
+      : null
+  // "not demon-worthy" always resolves to a concrete star value — default to
+  // AUTO (1 star) when the sheet gives no star count.
+  const difficultyOpinion: DifficultyOpinion | null =
+    rawOpinion == null
+      ? null
+      : rawOpinion === 'not_demon_worthy'
+        ? STAR_TO_OPINION[validStars ?? 1]!
+        : (rawOpinion.toUpperCase() as DifficultyOpinion)
 
   // Coins — three booleans (coin_1..coin_3) folded into a bitmask (bit 0 =
   // coin 1). Null when the row specifies none; levels without user coins ignore
@@ -488,12 +515,6 @@ function parseCompletionRow(
         ? simpleRating
         : null,
     difficultyOpinion,
-    difficultyOpinionStars:
-      difficultyOpinionStars != null &&
-      difficultyOpinionStars >= 1 &&
-      difficultyOpinionStars <= 9
-        ? Math.round(difficultyOpinionStars)
-        : null,
     coinsCollected,
     twoPlayerSolo: toBool(getField(raw, 'two_player_solo')),
     twoPlayerPartner: toStr(getField(raw, 'two_player_partner')),

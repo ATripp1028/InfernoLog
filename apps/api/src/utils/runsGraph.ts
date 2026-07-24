@@ -7,7 +7,6 @@
 //   If the drop recorded a worstFail AND it differs from the prior entry's
 //   `to`, emit a synthetic bar for that percentage with droppedAfter=true.
 //   Otherwise flag the most recent real update's droppedAfter=true.
-// See DATA_MODEL.md and the Level Page spec for the full rationale.
 
 export type ProgressUpdateForGraph = {
   id: string

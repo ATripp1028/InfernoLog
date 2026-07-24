@@ -25,7 +25,7 @@ export function ListCard({
   scale: RatingDisplayScale
   datePref: DateFormatPreference
 }) {
-  const { entry, level } = item
+  const { entry, level, overallRating } = item
 
   // Text stats follow the column toggles (so toggling columns is meaningful on
   // mobile, where there's no table).
@@ -36,8 +36,8 @@ export function ListCard({
     )
   if (columns.attempts && entry?.attempts != null)
     stats.push(`${formatNumber(entry.attempts)} att`)
-  if (columns.rating && entry?.overallRating != null)
-    stats.push(formatRating(entry.overallRating, scale))
+  if (columns.rating && overallRating != null)
+    stats.push(formatRating(overallRating, scale))
   if (columns.enjoy && entry?.enjoyment != null)
     stats.push(`★ ${formatRating(entry.enjoyment, scale)}`)
   if (columns.length && level.length) stats.push(level.length)

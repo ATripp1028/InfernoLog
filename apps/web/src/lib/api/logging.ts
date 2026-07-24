@@ -10,7 +10,15 @@ import { apiFetch } from './client'
 // ─────────────────────────────────────────────
 
 export type DifficultyOpinion =
-  | 'NOT_DEMON_WORTHY'
+  | 'AUTO'
+  | 'TWO_STAR'
+  | 'THREE_STAR'
+  | 'FOUR_STAR'
+  | 'FIVE_STAR'
+  | 'SIX_STAR'
+  | 'SEVEN_STAR'
+  | 'EIGHT_STAR'
+  | 'NINE_STAR'
   | 'EASY'
   | 'MEDIUM'
   | 'HARD'
@@ -38,25 +46,19 @@ export interface Level {
   nongSongTitle: string | null
   nongArtist: string | null
   nongSourceUrl: string | null
-  peakMusicBpm: number | null
   // Extended RobTop level metadata snapshot (all nullable; see schema.prisma).
   description: string | null
   creatorPlayerId: string | null
   creatorAccountId: string | null
-  creatorPoints: number | null
   stars: number | null
   starsRequested: number | null
   partialDiff: string | null
-  difficultyFace: string | null
   downloads: number | null
   likes: number | null
   disliked: boolean | null
   objectCount: number | null
-  largeLevel: boolean | null
   coins: number | null
   coinsVerified: boolean | null
-  orbs: number | null
-  diamonds: number | null
   featured: boolean | null
   featureScore: number | null
   epicValue: number | null
@@ -65,12 +67,11 @@ export interface Level {
   copiedFromId: string | null
   levelVersion: number | null
   gameVersion: string | null
-  editorSeconds: number | null
-  editorSecondsTotal: number | null
   officialSongId: number | null
   songId: string | null
   songLink: string | null
-  songSize: string | null
+  // Raw megabyte value (e.g. 9.56). Format at the display layer.
+  songSize: number | null
   dataSource: string
   verified: boolean
 }
@@ -92,9 +93,7 @@ export interface ExistingCompletion {
   dateUncertain: boolean
   attempts: number | null
   difficultyOpinion: DifficultyOpinion | null
-  difficultyOpinionStars: number | null
   enjoyment: number | null
-  simpleRating: number | null
   worstFail: number | null
   worstFailDate: string | null
   fps: number | null
@@ -105,9 +104,12 @@ export interface ExistingCompletion {
   notes: string | null
   visibility: EntryVisibility
   device: Device | null
+  // LevelProgress fields — one current value per level, not per event.
+  simpleRating: number | null
   ratingScores: Array<{ categoryId: string; score: number }>
-  userGddlTier: number | null
   coinsCollected: number | null
+  completionTime: number | null
+  userGddlTier: number | null
   twoPlayerSolo: boolean | null
   twoPlayerPartner: string | null
 }
@@ -146,12 +148,12 @@ export interface CompletionInput {
   visibility?: EntryVisibility
   videoUrl?: string | null
   difficultyOpinion?: DifficultyOpinion | null
-  difficultyOpinionStars?: number | null
   enjoyment?: number | null
   simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
   userGddlTier?: number | null
   coinsCollected?: number | null
+  completionTime?: number | null
   twoPlayerSolo?: boolean | null
   twoPlayerPartner?: string | null
   device?: Device | null

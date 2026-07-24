@@ -91,9 +91,3 @@ Features:
 - Toggle to show/hide unrated levels (ranking numbers update for that view)
 - Unplaced completions (user chose "Place later") live in a separate **Unplaced** panel until manually placed — they are not shown inline as auto-placed entries
 - Sortable by any logged metric independent of ranking order
-
----
-
-## Top 5 Tracking
-
-When logging a completion that falls in the user's personal top 5 at that moment, `top_5_at_time = true` and `top_5_position` are set on the progress update. This snapshot is never retroactively updated as the ranking evolves — it reflects the state at time of logging.

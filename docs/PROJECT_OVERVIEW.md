@@ -117,15 +117,15 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 
 ## Document Map
 
-| Document               | Contents                                                        |
-| ---------------------- | --------------------------------------------------------------- |
-| `DATA_MODEL.md`        | Full schema, entity relationships, fractional indexing          |
-| `AUTH.md`              | Cognito, OAuth, API keys, username rules                        |
-| `PRIVACY.md`           | Per-entry privacy, profile visibility, API behavior             |
-| `RANKING_SYSTEM.md`    | Personal ranking, manual placement                              |
-| `LIST_INTEGRATIONS.md` | GDDL, AREDL, NLW list references                                |
-| `LOGGING_FLOW.md`      | FAB-triggered logging modal: completion / progress / drop paths |
-| `LEVEL_LOGGING.md`     | Progress entry model, completion flow, drop flow                |
+| Document                        | Contents                                                                                                                                                 |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/api/prisma/schema.prisma` | Full schema, entity relationships, fractional indexing — inline comments are the source of truth for the data model (superseded the old `DATA_MODEL.md`) |
+| `AUTH.md`                       | Cognito, OAuth, API keys, username rules                                                                                                                 |
+| `PRIVACY.md`                    | Per-entry privacy, profile visibility, API behavior                                                                                                      |
+| `RANKING_SYSTEM.md`             | Personal ranking, manual placement                                                                                                                       |
+| `LIST_INTEGRATIONS.md`          | GDDL tier tracking (multi-list AREDL/NLW design was abandoned)                                                                                           |
+| `LOGGING_FLOW.md`               | FAB-triggered logging modal: completion / progress / drop paths                                                                                          |
+| `LEVEL_LOGGING.md`              | Progress entry model, completion flow, drop flow                                                                                                         |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
 > | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |

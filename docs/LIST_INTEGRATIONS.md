@@ -2,43 +2,9 @@
 
 ## Overview
 
-InfernoLog supports multiple community difficulty lists as reference sources. Users are not locked into a single list — they can log tier/rank values from any supported list against any completion, and add references retroactively.
+InfernoLog integrates with **GDDL only**. An earlier design supported multiple community difficulty lists (AREDL, NLW, Pemonlist, Pointercrate) behind a generic `list_references` table and a pluggable `ListProvider` interface — that multi-list design was abandoned; it was never implemented and there's no plan to build it. See "Abandoned Design" below for historical context.
 
-List tier/rank values are always **snapshots at time of logging**, reflecting historical context. They are never automatically updated after logging.
-
----
-
-## Supported Lists (v1)
-
-| List                          | Abbreviation | Type                      | API Available      | Primary Use Case                                          |
-| ----------------------------- | ------------ | ------------------------- | ------------------ | --------------------------------------------------------- |
-| GD Demon Ladder               | GDDL         | Tiered (numeric)          | Yes                | Most comprehensive — every demon in the game              |
-| All Rated Extreme Demons List | AREDL        | Ranked (numeric position) | Investigate        | Extreme demons (AREDL rank shown for extreme demons only) |
-| Non-Listworthy Spreadsheet    | NLW          | Tiered (named tiers)      | Likely manual only | Extreme Demons (only shown for extreme demons)            |
-| Pemonlist                     | Pemonlist    | Ranked                    | Investigate        | Platformer demons (v2)                                    |
-
-Pointercrate was evaluated and **cut from v1**: it adds significant development burden for coverage largely mirrored by the top ~150 of AREDL.
-
-Additional lists may be added in future versions. The architecture uses a `ListProvider` interface so new sources are additive.
-
----
-
-## List Reference Data Model
-
-Each completion can have multiple list references. See `DATA_MODEL.md` — `list_references` table for schema details.
-
-Key behaviors:
-
-- A completion can have zero, one, or many list references
-- References can be added retroactively after a completion is logged
-- `at_time_of_completion` flag distinguishes snapshot values from retroactively added ones
-- Deleting a completion deletes all its list references (no independent existence)
-
----
-
-## List References and Ranking Placement
-
-List references do **not** auto-place a completion. There is no priority chain and no cross-list conflict handling — every completion is placed manually by the user (see `RANKING_SYSTEM.md`). A list reference is genuine data the user may want on record, which _additionally_ serves as a convenience: it sets the starting scroll position in the placement view. Difficulty consistency across list sources is the user's responsibility.
+The GDDL tier is a **snapshot at time of logging**: `LevelProgress.userGddlTier` (see `schema.prisma`), one value per user per level, entered/confirmed manually rather than kept live. It is never automatically updated after logging.
 
 ---
 
@@ -73,70 +39,9 @@ The GDDL tier is entered/confirmed manually by the user rather than fetched auto
 
 GDDL records cannot be deleted via the API. If a user deletes a completion from InfernoLog, they are warned in the delete confirmation modal that the associated GDDL record must be managed directly on the GDDL platform.
 
----
+### CSV Import/Export
 
-## AREDL Integration
-
-**API:** Public API available. Integration feasibility to be confirmed.
-
-The AREDL rank reference appears **only for extreme demons** (AREDL = All Rated Extreme Demons List — it lists extreme demons only). This is a conditional-render rule in the list-references step, keyed off the level's cached in-game difficulty. AREDL's top ~150 covers the extreme-demon ground Pointercrate would have, which is why Pointercrate was cut from v1.
-
----
-
-## NLW Integration
-
-**API:** Likely spreadsheet-based with no public API. Manual entry only for v1. A read-only scrape approach may be investigated for v2.
-
-NLW covers extreme demons in a bracket-based system, which many extreme demon grinders prefer to the rigid number ranks of the AREDL.
-
----
-
-## ListProvider Interface
-
-All list integrations are implemented behind a common `ListProvider` interface on the backend. This ensures new list sources can be added without touching existing integration code.
-
-Minimum interface:
-
-```typescript
-interface ListProvider {
-  id: ListSource
-  displayName: string
-  autofillByLevelId(levelId: string): Promise<ListAutofillResult | null>
-  submitRecord?(
-    levelId: string,
-    userCredential: string
-  ): Promise<ListSubmitResult>
-}
-```
-
-`submitRecord` is optional — lists without an API or write capability implement autofill only.
-
----
-
-## Skill Tags
-
-Skill tags describe what gameplay mechanics a level challenges (e.g. "wave", "straight fly", "memory", "timing").
-
-```
-Version timeline:
-  v1:  No skill tags
-  v3:  Tags sourced from GDDL/AREDL APIs — per-level, globally applied
-  v4:  Independent voting system — community votes on level skillsets
-```
-
-### v3 Integration-Sourced Tags
-
-Tags are pulled from GDDL and AREDL during autofill and stored on the `levels` table. They are:
-
-- **Per-level (global)** — the same tags apply to a level for all users
-- **Read-only** in v3 — users cannot add or modify tags, only consume them
-- **Absent for unrated levels** — no tags until v4 voting covers them
-- **Filterable** — users can filter their completion log and stats by skill tag
-- **Functional in Level Picker** — skill tag questions become available in v3
-
-### v4 Independent Voting
-
-Community members vote on what skillsets a level challenges. Requires an established user base to produce meaningful results — deliberately held until v4. Non-completion entries are excluded from skill tag voting even in v4.
+The import/export format has a `gddl_tier` column backed by `LevelProgress.userGddlTier`, plus `gddl_tier_at_drop`. It also still has an `nlw_tier` column left over from the abandoned multi-list design — it has no backing storage and is always blank on export.
 
 ---
 
@@ -149,4 +54,15 @@ GDDL exposes a favorites and least favorites feature via its API. InfernoLog mir
 - When marking a level as a favorite in InfernoLog, users can optionally **sync** that to their GDDL account simultaneously
 - Beyond these, users can create unlimited **custom named collections** (e.g. "Recommended to Friends"); "Want to Beat" is itself a built-in
 
-See `DATA_MODEL.md` — `collections` and `collection_entries` tables.
+See the `Collection` and `CollectionEntry` models in `schema.prisma`.
+
+---
+
+## Abandoned Design (historical only — not a roadmap)
+
+Everything below was designed at some point but was **abandoned and never built**. It's kept here only so a future read of old PRs/discussions referencing it has context. None of it should be implemented off the back of this doc.
+
+- **Multi-list support** (AREDL, NLW, Pemonlist) behind a generic `list_references` table: one-to-many per completion, `at_time_of_completion` snapshot flag, and a `ListProvider` interface for pluggable sources (`autofillByLevelId` / optional `submitRecord`). Pointercrate was evaluated and rejected even for this design, as mirrored well enough by AREDL's top ~150.
+- **AREDL rank**, shown only for extreme demons.
+- **NLW bracket tier**, manual-entry only (no public API).
+- **Skill tags** (e.g. "wave", "memory", "timing") sourced from GDDL/AREDL autofill and stored per-level, plus a later community-voting system on top.

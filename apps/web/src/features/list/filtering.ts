@@ -196,7 +196,7 @@ export function applyFilters(
       return false
 
     if (ratingActive) {
-      const r = item.entry?.overallRating
+      const r = item.overallRating
       if (r == null || !inRange(r, filters.rating)) return false
     }
 
@@ -225,9 +225,7 @@ export function applyFilters(
     }
 
     for (const [catId, range] of activeCatFilters) {
-      const score = item.entry?.ratingScores.find(
-        (r) => r.categoryId === catId
-      )?.score
+      const score = item.ratingScores.find((r) => r.categoryId === catId)?.score
       if (score == null || !inRange(score, range)) return false
     }
 
@@ -274,7 +272,7 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
     case 'attempts':
       return item.entry?.attempts ?? null
     case 'rating':
-      return item.entry?.overallRating ?? null
+      return item.overallRating ?? null
     case 'enjoyment':
       return item.entry?.enjoyment ?? null
     case 'tier':
@@ -310,8 +308,7 @@ function sortValue(item: ListItem, key: SortKey): number | string | null {
       if (key.startsWith('cat:')) {
         const catId = key.slice(4)
         return (
-          item.entry?.ratingScores.find((r) => r.categoryId === catId)?.score ??
-          null
+          item.ratingScores.find((r) => r.categoryId === catId)?.score ?? null
         )
       }
       return null
@@ -364,11 +361,9 @@ export function sortItems(
       if (cmp === 0 && spec.key === 'rating' && tiebreakerCats.length > 0) {
         for (const cat of tiebreakerCats) {
           const aScore =
-            x.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
-            null
+            x.ratingScores.find((r) => r.categoryId === cat.id)?.score ?? null
           const bScore =
-            y.entry?.ratingScores.find((r) => r.categoryId === cat.id)?.score ??
-            null
+            y.ratingScores.find((r) => r.categoryId === cat.id)?.score ?? null
           cmp = compareValues(aScore, bScore, spec.dir)
           if (cmp !== 0) break
         }

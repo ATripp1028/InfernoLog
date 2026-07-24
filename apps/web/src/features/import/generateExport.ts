@@ -7,6 +7,7 @@
 import * as XLSX from 'xlsx'
 import type { ExportResponse } from '@/lib/api/import'
 import type { DateFormat } from './parseSpreadsheet'
+import { opinionToStars } from '@infernolog/core'
 import {
   COMPLETION_HEADERS,
   PROGRESS_HEADERS,
@@ -43,6 +44,27 @@ function coinBit(mask: number | null, bit: number): Cell {
   return (mask & (1 << bit)) !== 0
 }
 
+// The wire format merges "not demon-worthy" + a star count into one enum
+// value; the sheet keeps them as two user-facing columns for clarity. Shared
+// mapping, see packages/core/src/difficultyOpinion.ts.
+function splitDifficultyOpinion(opinion: string | null): {
+  difficulty_opinion: Cell
+  difficulty_opinion_stars: Cell
+} {
+  if (!opinion) return { difficulty_opinion: '', difficulty_opinion_stars: '' }
+  const star = opinionToStars(opinion)
+  if (star != null) {
+    return {
+      difficulty_opinion: 'not_demon_worthy',
+      difficulty_opinion_stars: star,
+    }
+  }
+  return {
+    difficulty_opinion: opinion.toLowerCase(),
+    difficulty_opinion_stars: '',
+  }
+}
+
 function completionRecord(
   c: ExportResponse['completions'][number],
   fmt: DateFormat
@@ -62,10 +84,7 @@ function completionRecord(
     device: c.device ?? '',
     enjoyment: toTenScale(c.enjoyment),
     simple_rating: toTenScale(c.simpleRating),
-    difficulty_opinion: c.difficultyOpinion
-      ? c.difficultyOpinion.toLowerCase()
-      : '',
-    difficulty_opinion_stars: c.difficultyOpinionStars ?? '',
+    ...splitDifficultyOpinion(c.difficultyOpinion),
     coin_1: coinBit(c.coinsCollected, 0),
     coin_2: coinBit(c.coinsCollected, 1),
     coin_3: coinBit(c.coinsCollected, 2),
