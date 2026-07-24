@@ -59,7 +59,10 @@ function splitDifficultyOpinion(opinion: string | null): {
       difficulty_opinion_stars: star,
     }
   }
-  return { difficulty_opinion: opinion.toLowerCase(), difficulty_opinion_stars: '' }
+  return {
+    difficulty_opinion: opinion.toLowerCase(),
+    difficulty_opinion_stars: '',
+  }
 }
 
 function completionRecord(

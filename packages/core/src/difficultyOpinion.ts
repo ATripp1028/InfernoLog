@@ -29,9 +29,8 @@ export const STAR_TO_OPINION: Record<number, string> = STAR_TO_OPINION_ENUM
 
 // The non-demon opinion values as plain strings (1★ Auto .. 9★), for
 // consumers building a Set/allowlist without the nominal enum type.
-export const NOT_DEMON_OPINION_VALUES: readonly string[] = Object.values(
-  STAR_TO_OPINION_ENUM
-)
+export const NOT_DEMON_OPINION_VALUES: readonly string[] =
+  Object.values(STAR_TO_OPINION_ENUM)
 
 // Inverse of STAR_TO_OPINION. Returns null for a demon-tier opinion
 // (EASY..EXTREME) or an unrecognized value.

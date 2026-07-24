@@ -225,9 +225,7 @@ export function applyFilters(
     }
 
     for (const [catId, range] of activeCatFilters) {
-      const score = item.ratingScores.find(
-        (r) => r.categoryId === catId
-      )?.score
+      const score = item.ratingScores.find((r) => r.categoryId === catId)?.score
       if (score == null || !inRange(score, range)) return false
     }
 

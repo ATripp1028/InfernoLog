@@ -103,8 +103,8 @@ Both schedules run one shared fetch/compare/write **core** (`apps/api/src/servic
 
 ### The Two Schedules
 
-| Job               | Cadence                            | Query (levels passed to the shared core)                                                                                           |
-| ----------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Job               | Cadence                            | Query (levels passed to the shared core)                                                                                              |
+| ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted_at IS NULL` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
 | **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted_at IS NULL` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
 

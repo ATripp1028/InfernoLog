@@ -6,11 +6,11 @@ This document is for the InfernoLog moderation team. It covers operational proce
 
 ## Roles
 
-| Role | Capabilities |
-|---|---|
-| `user` | Standard platform access |
+| Role        | Capabilities                                                                                         |
+| ----------- | ---------------------------------------------------------------------------------------------------- |
+| `user`      | Standard platform access                                                                             |
 | `moderator` | Access to moderation dashboard, reports queue, appeals queue. Cannot promote/demote other moderators |
-| `admin` | All moderator capabilities + moderator promotion/demotion + verification management |
+| `admin`     | All moderator capabilities + moderator promotion/demotion + verification management                  |
 
 Role assignment is managed by the admin (platform owner) via the admin dashboard.
 
@@ -75,6 +75,7 @@ Moderators are held to the same content standards as regular users under `COMMUN
 ### Reports Against Moderators
 
 If a report is filed against a moderator:
+
 1. The report is automatically excluded from that moderator's queue
 2. Another moderator handles the report using standard procedures
 3. That moderator may escalate to the full mod team for a vote on banning
@@ -103,10 +104,10 @@ Verification revocation does not automatically result in a ban — it is an inde
 
 ## Content on Banned/Suspended Accounts
 
-| Status | Content Visibility | Data Retention |
-|---|---|---|
+| Status    | Content Visibility             | Data Retention                  |
+| --------- | ------------------------------ | ------------------------------- |
 | Suspended | Hidden for suspension duration | Retained, restored on unsuspend |
-| Banned | Immediately hidden | Permanently deleted |
+| Banned    | Immediately hidden             | Permanently deleted             |
 
 Banned users' usernames are retained and cannot be claimed by others.
 

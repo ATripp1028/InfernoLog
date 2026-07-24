@@ -99,13 +99,13 @@ If a user deletes a rating category, associated `rating_scores` rows are soft-de
 
 ## Display Rules
 
-| Context               | Simple Mode             | Weighted Mode                         |
-| --------------------- | ----------------------- | ------------------------------------- |
-| Completion entry card | Single score badge      | Weighted average + breakdown on hover |
-| Log list view         | Score column            | Weighted average column               |
-| Sorting               | By simple_rating        | By computed weighted avg              |
-| No rating entered     | Blank (not 0)           | Blank (not 0)                         |
-| Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same |
+| Context                             | Simple Mode                                                                                                          | Weighted Mode                         |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
+| Completion entry card               | Single score badge                                                                                                   | Weighted average + breakdown on hover |
+| Log list view                       | Score column                                                                                                         | Weighted average column               |
+| Sorting                             | By simple_rating                                                                                                     | By computed weighted avg              |
+| No rating entered                   | Blank (not 0)                                                                                                        | Blank (not 0)                         |
+| Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same                                  |
 
 ---
 

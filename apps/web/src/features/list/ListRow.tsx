@@ -285,8 +285,7 @@ export function ListRow({
             if (col.id.startsWith('cat:')) {
               const catId = col.id.slice(4)
               const score =
-                ratingScores.find((r) => r.categoryId === catId)?.score ??
-                null
+                ratingScores.find((r) => r.categoryId === catId)?.score ?? null
               return (
                 <Cell
                   key={col.id}

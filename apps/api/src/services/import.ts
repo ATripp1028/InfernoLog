@@ -473,8 +473,11 @@ function buildCompletionLpFields(
     fallbackVisibility?: 'PUBLIC' | 'PRIVATE'
   }
 ): LpFields {
-  const { userGddlTier, coinsCollected, fallbackVisibility = 'PUBLIC' } =
-    resolvedFields
+  const {
+    userGddlTier,
+    coinsCollected,
+    fallbackVisibility = 'PUBLIC',
+  } = resolvedFields
   return {
     worstFail: row.percentage != null ? Math.round(row.percentage) : null,
     worstFailDate:
