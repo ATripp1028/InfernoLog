@@ -6,6 +6,7 @@ import type {
   GdVersion,
   Level,
 } from '@/lib/api/logging'
+import { getViewerTimezone, getZonedParts } from '@/lib/timezone'
 
 export type FlowPath = 'completion' | 'progress' | 'drop'
 
@@ -32,10 +33,16 @@ export type RatingScoresDraft = Record<string, number>
 // slider-backed ratings are stored as 0–100 integers (the internal scale).
 export interface FlowDraft {
   date: string | null
+  // Time-of-day for `date` — `HH:mm` or `''` (no time entered, the common
+  // case). `timezone` is only meaningful once `time !== ''`.
+  time: string
+  timezone: string
   dateUncertain: boolean
   attempts: string
   worstFail: string
   worstFailDate: string
+  worstFailTime: string
+  worstFailTimezone: string
   worstFailAlreadyLogged: boolean
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
@@ -83,10 +90,14 @@ function todayDateInput(): string {
 export function emptyDraft(): FlowDraft {
   return {
     date: todayDateInput(),
+    time: '',
+    timezone: getViewerTimezone(),
     dateUncertain: false,
     attempts: '',
     worstFail: '',
     worstFailDate: '',
+    worstFailTime: '',
+    worstFailTimezone: getViewerTimezone(),
     worstFailAlreadyLogged: false,
     difficultyOpinion: null,
     enjoyment: null,
@@ -120,17 +131,45 @@ function isoToDateInput(iso: string | null): string | null {
   return d.toISOString().slice(0, 10)
 }
 
+// Serialized ISO date (+ optional IANA zone it was entered in) → the date/time
+// input values that pre-populate a DateTimeField. When a zone is present, the
+// date is derived in THAT zone rather than sliced from raw UTC — an entry
+// logged at 11:58 PM America/New_York is already the next day in UTC, so a
+// naive slice would show the wrong calendar date back to the user.
+function isoToDateTimeInput(
+  iso: string | null,
+  timezone: string | null
+): { date: string | null; time: string } {
+  if (!iso) return { date: null, time: '' }
+  if (!timezone) return { date: isoToDateInput(iso), time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: null, time: '' }
+  const { year, month, day, hour, minute } = getZonedParts(d, timezone)
+  const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  return { date, time }
+}
+
 // Pre-populate the completion draft from a prior completion so the wizard edits
 // in place ("edit, not replace") rather than starting blank.
 export function draftFromExistingCompletion(
   existing: ExistingCompletion
 ): FlowDraft {
   const draft = emptyDraft()
-  draft.date = isoToDateInput(existing.date)
+  const session = isoToDateTimeInput(existing.date, existing.dateTimezone)
+  draft.date = session.date
+  draft.time = session.time
+  draft.timezone = existing.dateTimezone ?? getViewerTimezone()
   draft.dateUncertain = existing.dateUncertain
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
   draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
-  draft.worstFailDate = isoToDateInput(existing.worstFailDate) ?? ''
+  const worstFail = isoToDateTimeInput(
+    existing.worstFailDate,
+    existing.worstFailDateTimezone
+  )
+  draft.worstFailDate = worstFail.date ?? ''
+  draft.worstFailTime = worstFail.time
+  draft.worstFailTimezone = existing.worstFailDateTimezone ?? getViewerTimezone()
   draft.worstFailAlreadyLogged = false
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.enjoyment = existing.enjoyment

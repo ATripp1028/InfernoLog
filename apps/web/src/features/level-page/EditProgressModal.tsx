@@ -41,6 +41,8 @@ import {
   GdVersionInfoButton,
   isPreTwoTwo,
 } from '@/features/logging/steps/CompletionSessionStep'
+import { DateTimeField } from '@/features/logging/components'
+import { getViewerTimezone, getZonedParts, zonedTimeToUtc } from '@/lib/timezone'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -62,10 +64,14 @@ type DifficultyOpinion =
 
 interface EditForm {
   date: string
+  time: string
+  timezone: string
   dateUncertain: boolean
   attempts: string
   worstFail: string
   worstFailDate: string
+  worstFailTime: string
+  worstFailTimezone: string
   fps: string
   percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   onStream: boolean
@@ -85,6 +91,25 @@ interface EditForm {
   userGddlTier: string
 }
 
+// Serialized ISO date (+ optional IANA zone it was entered in) → the date/time
+// input values that pre-populate a DateTimeField. When a zone is present, the
+// date is derived in THAT zone rather than sliced from raw UTC — an entry
+// logged at 11:58 PM America/New_York is already the next day in UTC, so a
+// naive slice would show the wrong calendar date back to the user.
+function zonedDateTimeInput(
+  iso: string | null,
+  timezone: string | null
+): { date: string; time: string } {
+  if (!iso) return { date: '', time: '' }
+  if (!timezone) return { date: (iso as string).slice(0, 10), time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: '', time: '' }
+  const { year, month, day, hour, minute } = getZonedParts(d, timezone)
+  const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  return { date, time }
+}
+
 function initForm(
   data: LevelPageData,
   scale: RatingDisplayScale,
@@ -98,14 +123,21 @@ function initForm(
           (u) => u.progressUpdateId === progressUpdateId
         )
       : undefined) ?? data.progressUpdates[0]
+  const session = zonedDateTimeInput(latest?.date ?? null, latest?.dateTimezone ?? null)
+  const worstFail = zonedDateTimeInput(
+    data.worstFailDate,
+    data.worstFailDateTimezone
+  )
   return {
-    date: latest?.date ? (latest.date as string).slice(0, 10) : '',
+    date: session.date,
+    time: session.time,
+    timezone: latest?.dateTimezone ?? getViewerTimezone(),
     dateUncertain: latest?.dateUncertain ?? false,
     attempts: latest?.attempts != null ? String(latest.attempts) : '',
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
-    worstFailDate: data.worstFailDate
-      ? (data.worstFailDate as string).slice(0, 10)
-      : '',
+    worstFailDate: worstFail.date,
+    worstFailTime: worstFail.time,
+    worstFailTimezone: data.worstFailDateTimezone ?? getViewerTimezone(),
     fps: latest?.fps != null ? String(latest.fps) : '',
     percentageVersion:
       (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ??
@@ -248,13 +280,34 @@ export function EditProgressModal({
   }
 
   function handleSave() {
+    const session = form.date
+      ? form.time
+        ? {
+            date: zonedTimeToUtc(form.date, form.time, form.timezone).toISOString(),
+            dateTimezone: form.timezone,
+          }
+        : { date: form.date, dateTimezone: null }
+      : { date: null, dateTimezone: null }
+    const worstFail = form.worstFailDate
+      ? form.worstFailTime
+        ? {
+            worstFailDate: zonedTimeToUtc(
+              form.worstFailDate,
+              form.worstFailTime,
+              form.worstFailTimezone
+            ).toISOString(),
+            worstFailDateTimezone: form.worstFailTimezone,
+          }
+        : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
+      : { worstFailDate: null, worstFailDateTimezone: null }
+
     const payload: Record<string, unknown> = {
       ...(progressUpdateId ? { progressUpdateId } : {}),
-      date: form.date || null,
+      ...session,
       dateUncertain: form.dateUncertain,
       attempts: form.attempts !== '' ? parseInt(form.attempts, 10) : null,
       worstFail: form.worstFail !== '' ? parseInt(form.worstFail, 10) : null,
-      worstFailDate: form.worstFailDate || null,
+      ...worstFail,
       fps: form.fps !== '' ? parseInt(form.fps, 10) : null,
       percentageVersion: form.percentageVersion,
       onStream: form.onStream,
@@ -356,11 +409,14 @@ export function EditProgressModal({
               <Section label="Details">
                 <div>
                   <FieldLabel htmlFor="ep-date">Date</FieldLabel>
-                  <Input
-                    id="ep-date"
-                    type="date"
-                    value={form.date}
-                    onChange={(e) => patch({ date: e.target.value })}
+                  <DateTimeField
+                    dateId="ep-date"
+                    dateValue={form.date}
+                    timeValue={form.time}
+                    timezoneValue={form.timezone}
+                    onDateChange={(v) => patch({ date: v })}
+                    onTimeChange={(v) => patch({ time: v })}
+                    onTimezoneChange={(v) => patch({ timezone: v })}
                   />
                   <label className="mt-2 flex cursor-pointer items-center gap-2 text-sm text-text-secondary">
                     <Switch
@@ -403,11 +459,14 @@ export function EditProgressModal({
                   <FieldLabel htmlFor="ep-worstfaildate">
                     Worst fail date
                   </FieldLabel>
-                  <Input
-                    id="ep-worstfaildate"
-                    type="date"
-                    value={form.worstFailDate}
-                    onChange={(e) => patch({ worstFailDate: e.target.value })}
+                  <DateTimeField
+                    dateId="ep-worstfaildate"
+                    dateValue={form.worstFailDate}
+                    timeValue={form.worstFailTime}
+                    timezoneValue={form.worstFailTimezone}
+                    onDateChange={(v) => patch({ worstFailDate: v })}
+                    onTimeChange={(v) => patch({ worstFailTime: v })}
+                    onTimezoneChange={(v) => patch({ worstFailTimezone: v })}
                   />
                 </div>
 

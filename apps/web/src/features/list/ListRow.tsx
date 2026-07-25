@@ -1,7 +1,8 @@
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { formatRating, formatNumber } from '@/features/logging/format'
-import { formatDate } from '@/lib/dateFormat'
+import { formatEntryDateTime } from '@/lib/dateFormat'
+import { getViewerTimezone } from '@/lib/timezone'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
@@ -11,6 +12,8 @@ import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
 import type { ListItem } from './types'
+
+const VIEWER_TZ = getViewerTimezone()
 
 // Minimum width reserved for the Level (face + name) cell before the table
 // scrolls horizontally — keeps long names readable rather than squeezing them.
@@ -110,31 +113,53 @@ export function ListRow({
                 <div className="text-[10px] text-text-tertiary">GDDL</div>
               </div>
             )
-          case 'date':
+          case 'date': {
+            const display = entry?.date
+              ? formatEntryDateTime(
+                  entry.date,
+                  entry.dateTimezone,
+                  datePref,
+                  VIEWER_TZ
+                )
+              : null
             return (
-              <Cell
+              <div
                 key={col.id}
-                width={col.width}
-                responsiveClass={col.responsiveClass}
-                label="date"
-              >
-                {entry?.date ? (
-                  <span
-                    className={entry.dateUncertain ? 'text-warning' : undefined}
-                  >
-                    {formatDate(entry.date, datePref)}
-                    {entry.dateUncertain && (
-                      <span title="Uncertain date" className="text-warning">
-                        {' '}
-                        ?
-                      </span>
-                    )}
-                  </span>
-                ) : (
-                  dash
+                className={cn(
+                  'relative shrink-0 flex-col items-center justify-center gap-0.5',
+                  col.responsiveClass
                 )}
-              </Cell>
+                style={{ width: col.width }}
+              >
+                <div className="truncate text-sm font-semibold text-text-primary">
+                  {display ? (
+                    <span
+                      className={
+                        entry?.dateUncertain ? 'text-warning' : undefined
+                      }
+                    >
+                      {display.dateText}
+                      {entry?.dateUncertain && (
+                        <span title="Uncertain date" className="text-warning">
+                          {' '}
+                          ?
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    dash
+                  )}
+                </div>
+                {display?.timeText && (
+                  <div className="truncate text-[9px] leading-tight text-text-tertiary">
+                    {display.timeText}
+                    {display.showZoneBadge ? ` ${display.zoneLabel}` : ''}
+                  </div>
+                )}
+                <div className="text-[10px] text-text-tertiary">date</div>
+              </div>
             )
+          }
           case 'attempts':
             return (
               <Cell

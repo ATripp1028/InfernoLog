@@ -6,6 +6,7 @@ import { Segmented } from '@/components/ui/segmented'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  DateTimeField,
   FieldError,
   FieldHint,
   FieldLabel,
@@ -132,11 +133,14 @@ export function ProgressStep() {
             </div>
             <div>
               <FieldLabel htmlFor="p-date">Date</FieldLabel>
-              <Input
-                id="p-date"
-                type="date"
-                value={draft.date ?? ''}
-                onChange={(e) => patchDraft({ date: e.target.value || null })}
+              <DateTimeField
+                dateId="p-date"
+                dateValue={draft.date ?? ''}
+                timeValue={draft.time}
+                timezoneValue={draft.timezone}
+                onDateChange={(v) => patchDraft({ date: v || null })}
+                onTimeChange={(v) => patchDraft({ time: v })}
+                onTimezoneChange={(v) => patchDraft({ timezone: v })}
               />
             </div>
           </div>
@@ -146,11 +150,14 @@ export function ProgressStep() {
           {fromRun && (
             <div>
               <FieldLabel htmlFor="p-date2">Date</FieldLabel>
-              <Input
-                id="p-date2"
-                type="date"
-                value={draft.date ?? ''}
-                onChange={(e) => patchDraft({ date: e.target.value || null })}
+              <DateTimeField
+                dateId="p-date2"
+                dateValue={draft.date ?? ''}
+                timeValue={draft.time}
+                timezoneValue={draft.timezone}
+                onDateChange={(v) => patchDraft({ date: v || null })}
+                onTimeChange={(v) => patchDraft({ time: v })}
+                onTimezoneChange={(v) => patchDraft({ timezone: v })}
               />
             </div>
           )}

@@ -450,9 +450,15 @@ model LevelProgress {
   // — the user's "worst fail". Captured on the completion and drop screens.
   // Level-scoped (one value per user/level), updated on each such log.
   worstFail       Int?
-  // Calendar date of the worst fail session. Null when the user opts out
-  // ("I already logged my worst fail") or leaves it blank.
-  worstFailDate   DateTime? @db.Date
+  // Date/time of the worst fail session. Time-of-day is optional — null
+  // worstFailDateTimezone means no time was entered (legacy rows and the
+  // common case), in which case this is midnight UTC and no time/zone is
+  // ever shown. Null worstFailDate means the user opted out ("I already
+  // logged my worst fail") or left it blank.
+  worstFailDate         DateTime?
+  // IANA zone the time-of-day above was entered in (e.g. "America/New_York").
+  // Null whenever worstFailDate has no time component.
+  worstFailDateTimezone String?
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
@@ -528,7 +534,13 @@ model ProgressUpdate {
   attempts              Int?
 
   // Session metadata
-  date                  DateTime?       @db.Date
+  // Time-of-day is optional — null dateTimezone means no time was entered
+  // (legacy rows and the common case), in which case this is midnight UTC
+  // and no time/zone is ever shown.
+  date                  DateTime?
+  // IANA zone the time-of-day above was entered in (e.g. "America/New_York").
+  // Null whenever date has no time component.
+  dateTimezone          String?
   dateUncertain         Boolean         @default(false)
   onStream              Boolean         @default(false)
   fps                   Int?

@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api/client'
 import { useLogDrop } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  DateTimeField,
   FieldError,
   FieldHint,
   FieldLabel,
@@ -51,11 +52,14 @@ export function DropStep() {
 
         <div>
           <FieldLabel htmlFor="d-date">Date dropped</FieldLabel>
-          <Input
-            id="d-date"
-            type="date"
-            value={draft.date ?? ''}
-            onChange={(e) => patchDraft({ date: e.target.value || null })}
+          <DateTimeField
+            dateId="d-date"
+            dateValue={draft.date ?? ''}
+            timeValue={draft.time}
+            timezoneValue={draft.timezone}
+            onDateChange={(v) => patchDraft({ date: v || null })}
+            onTimeChange={(v) => patchDraft({ time: v })}
+            onTimezoneChange={(v) => patchDraft({ timezone: v })}
           />
         </div>
 
@@ -110,12 +114,15 @@ export function DropStep() {
                 patchDraft({ worstFail: clampPercent(e.target.value) })
               }
             />
-            <Input
-              id="d-worstfaildate"
-              type="date"
+            <DateTimeField
+              dateId="d-worstfaildate"
               disabled={draft.worstFailAlreadyLogged}
-              value={draft.worstFailDate}
-              onChange={(e) => patchDraft({ worstFailDate: e.target.value })}
+              dateValue={draft.worstFailDate}
+              timeValue={draft.worstFailTime}
+              timezoneValue={draft.worstFailTimezone}
+              onDateChange={(v) => patchDraft({ worstFailDate: v })}
+              onTimeChange={(v) => patchDraft({ worstFailTime: v })}
+              onTimezoneChange={(v) => patchDraft({ worstFailTimezone: v })}
             />
             {draft.worstFailAlreadyLogged ? (
               <FieldHint>Keeping your previously logged worst fail.</FieldHint>

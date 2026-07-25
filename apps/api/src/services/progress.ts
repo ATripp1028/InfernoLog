@@ -118,6 +118,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     const updateFields = {
       kind: 'COMPLETION' as const,
       date: input.date ?? null,
+      dateTimezone: input.dateTimezone ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
@@ -190,6 +191,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         ...(input.worstFailDate !== undefined
           ? { worstFailDate: input.worstFailDate }
           : {}),
+        ...(input.worstFailDateTimezone !== undefined
+          ? { worstFailDateTimezone: input.worstFailDateTimezone }
+          : {}),
       },
     })
 
@@ -223,6 +227,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
     const base = {
       kind: 'PROGRESS' as const,
       date: input.date ?? null,
+      dateTimezone: input.dateTimezone ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
@@ -297,6 +302,8 @@ export async function applyEdit(
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
     if (input.worstFailDate !== undefined)
       lpData.worstFailDate = input.worstFailDate
+    if (input.worstFailDateTimezone !== undefined)
+      lpData.worstFailDateTimezone = input.worstFailDateTimezone
     if (input.visibility !== undefined) lpData.visibility = input.visibility
     if (input.userGddlTier !== undefined)
       lpData.userGddlTier = input.userGddlTier
@@ -309,6 +316,8 @@ export async function applyEdit(
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
     if (input.date !== undefined) puData.date = input.date
+    if (input.dateTimezone !== undefined)
+      puData.dateTimezone = input.dateTimezone
     if (input.dateUncertain !== undefined)
       puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
@@ -462,6 +471,7 @@ export async function applyDrop(userId: string, input: DropInput) {
         levelProgressId: lp.id,
         kind: 'DROP',
         date: input.date ?? null,
+        dateTimezone: input.dateTimezone ?? null,
         attempts: input.attempts ?? null,
         notes: input.notes ?? null,
       },
@@ -478,6 +488,9 @@ export async function applyDrop(userId: string, input: DropInput) {
           : {}),
         ...(input.worstFailDate !== undefined
           ? { worstFailDate: input.worstFailDate }
+          : {}),
+        ...(input.worstFailDateTimezone !== undefined
+          ? { worstFailDateTimezone: input.worstFailDateTimezone }
           : {}),
       },
     })

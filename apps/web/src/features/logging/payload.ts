@@ -7,6 +7,7 @@ import type {
   ProgressInput,
 } from '@/lib/api/logging'
 import type { MeData } from '@/lib/api/me'
+import { zonedTimeToUtc } from '@/lib/timezone'
 import type { FlowDraft } from './types'
 
 function intOrNull(
@@ -17,6 +18,36 @@ function intOrNull(
   if (t === '') return fallback
   const n = Number.parseInt(t, 10)
   return Number.isNaN(n) ? null : n
+}
+
+// The session-date choke point: time empty → byte-identical legacy shape
+// (bare date string, no timezone). Time set → converted to the correct UTC
+// instant via the entered IANA zone.
+function sessionDateFields(
+  draft: FlowDraft
+): { date: string | null; dateTimezone: string | null } {
+  if (!draft.date) return { date: null, dateTimezone: null }
+  if (!draft.time) return { date: draft.date, dateTimezone: null }
+  return {
+    date: zonedTimeToUtc(draft.date, draft.time, draft.timezone).toISOString(),
+    dateTimezone: draft.timezone,
+  }
+}
+
+function worstFailDateFields(
+  draft: FlowDraft
+): { worstFailDate: string | null; worstFailDateTimezone: string | null } {
+  if (!draft.worstFailDate) return { worstFailDate: null, worstFailDateTimezone: null }
+  if (!draft.worstFailTime)
+    return { worstFailDate: draft.worstFailDate, worstFailDateTimezone: null }
+  return {
+    worstFailDate: zonedTimeToUtc(
+      draft.worstFailDate,
+      draft.worstFailTime,
+      draft.worstFailTimezone
+    ).toISOString(),
+    worstFailDateTimezone: draft.worstFailTimezone,
+  }
 }
 
 export function buildCompletionInput(
@@ -39,12 +70,12 @@ export function buildCompletionInput(
     ? {}
     : {
         worstFail: intOrNull(draft.worstFail),
-        worstFailDate: draft.worstFailDate || null,
+        ...worstFailDateFields(draft),
       }
 
   return {
     levelId: level.inGameId,
-    date: draft.date,
+    ...sessionDateFields(draft),
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
@@ -80,7 +111,7 @@ export function buildProgressInput(
 ): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
-    date: draft.date,
+    ...sessionDateFields(draft),
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     fps: intOrNull(draft.fps, defaultFps ?? null),
@@ -113,11 +144,11 @@ export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
     ? {}
     : {
         worstFail: intOrNull(draft.worstFail),
-        worstFailDate: draft.worstFailDate || null,
+        ...worstFailDateFields(draft),
       }
   return {
     levelId: level.inGameId,
-    date: draft.date,
+    ...sessionDateFields(draft),
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
     notes: draft.droppedReason.trim() || null,

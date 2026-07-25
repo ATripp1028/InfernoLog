@@ -1,6 +1,7 @@
 import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
-import { formatDate } from '@/lib/dateFormat'
+import { formatEntryDateTime } from '@/lib/dateFormat'
+import { getViewerTimezone } from '@/lib/timezone'
 import { formatRating, formatNumber } from '@/features/logging/format'
 import type {
   DateFormatPreference,
@@ -8,6 +9,8 @@ import type {
   RatingCategory,
 } from '@/lib/api/me'
 import type { LevelPageData, ProgressUpdate } from './types'
+
+const VIEWER_TZ = getViewerTimezone()
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
@@ -17,14 +20,24 @@ function getDateDisplay(
   update: ProgressUpdate | undefined,
   fallbackIso: string,
   datePref: DateFormatPreference
-): { text: string; uncertain: boolean } {
+): {
+  text: string
+  timeText: string | null
+  zoneSuffix: string | null
+  uncertain: boolean
+} {
   if (update?.date) {
+    const { dateText, timeText, showZoneBadge, zoneLabel } =
+      formatEntryDateTime(update.date, update.dateTimezone, datePref, VIEWER_TZ)
     return {
-      text: formatDate(update.date, datePref),
+      text: dateText,
+      timeText,
+      zoneSuffix: showZoneBadge ? zoneLabel : null,
       uncertain: update.dateUncertain,
     }
   }
-  return { text: formatDate(fallbackIso, datePref), uncertain: false }
+  const { dateText } = formatEntryDateTime(fallbackIso, null, datePref, VIEWER_TZ)
+  return { text: dateText, timeText: null, zoneSuffix: null, uncertain: false }
 }
 
 interface StatBoxProps {
@@ -72,11 +85,12 @@ export function StatGrid({
   const latestUpdate = progressUpdates[0]
 
   // DATE: completion date → most recent update date → last-updated
-  const { text: dateText, uncertain } = getDateDisplay(
-    completion ?? latestUpdate,
-    data.updatedAt,
-    datePref
-  )
+  const {
+    text: dateText,
+    timeText,
+    zoneSuffix,
+    uncertain,
+  } = getDateDisplay(completion ?? latestUpdate, data.updatedAt, datePref)
 
   // ATTEMPTS: completion → latest update (the drop, if dropped) → null
   const attempts = completion?.attempts ?? latestUpdate?.attempts ?? null
@@ -127,6 +141,12 @@ export function StatGrid({
         value={
           <span className="flex items-center gap-1">
             {dateText}
+            {timeText && (
+              <span className="text-[11px] font-normal text-text-tertiary">
+                {timeText}
+                {zoneSuffix ? ` ${zoneSuffix}` : ''}
+              </span>
+            )}
             {uncertain && (
               <HelpCircle
                 size={13}

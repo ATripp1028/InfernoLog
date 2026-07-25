@@ -4,7 +4,7 @@ import { toast } from '@/components/ui/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useLogCompletion } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
-import { formatDate } from '@/lib/dateFormat'
+import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
@@ -88,7 +88,18 @@ export function CompletionReviewStep() {
           {draft.date && (
             <Row
               label="Date"
-              value={formatDate(draft.date, me.data.dateFormatPreference)}
+              value={[
+                formatDate(draft.date, me.data.dateFormatPreference),
+                draft.time
+                  ? formatTimeOfDay(
+                      Number(draft.time.slice(0, 2)),
+                      Number(draft.time.slice(3, 5)),
+                      me.data.dateFormatPreference
+                    )
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             />
           )}
           {level.inGameDifficulty && (

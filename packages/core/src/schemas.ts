@@ -243,6 +243,9 @@ export const LevelIdSchema = z
 // Fields shared by every logged entry's "session details" step.
 const sessionDetailFields = {
   date: z.coerce.date().nullable().optional(),
+  // IANA zone the time-of-day on `date` was entered in (e.g. "America/New_York").
+  // Null/omitted means no time was entered — `date` is a bare calendar date.
+  dateTimezone: z.string().nullable().optional(),
   dateUncertain: z.boolean().default(false),
   attempts: z
     .number()
@@ -276,9 +279,12 @@ export const CompletionInputSchema = z.object({
   ...sessionDetailFields,
   // Best run from 0% reached before beating the level (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
-  // Calendar date of the worst fail session. Omitted when the user checks
+  // Date/time of the worst fail session. Omitted when the user checks
   // "I already logged my worst fail" (so the server keeps the existing value).
   worstFailDate: z.coerce.date().nullable().optional(),
+  // IANA zone the time-of-day on worstFailDate was entered in. Null/omitted
+  // means no time was entered.
+  worstFailDateTimezone: z.string().nullable().optional(),
   videoUrl: z.string().url().nullable().optional(),
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
@@ -348,6 +354,7 @@ export const ProgressInputSchema = z
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
   date: z.coerce.date().nullable().optional(),
+  dateTimezone: z.string().nullable().optional(),
   attempts: z
     .number()
     .int()
@@ -358,8 +365,9 @@ export const DropInputSchema = z.object({
   notes: z.string().max(2000).nullable().optional(),
   // Best run from 0% reached before dropping (the user's "worst fail").
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
-  // Calendar date of the worst fail session.
+  // Date/time of the worst fail session.
   worstFailDate: z.coerce.date().nullable().optional(),
+  worstFailDateTimezone: z.string().nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
@@ -373,6 +381,7 @@ export const EditProgressInputSchema = z.object({
   levelNotes: z.string().max(5000).nullable().optional(),
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   worstFailDate: z.coerce.date().nullable().optional(),
+  worstFailDateTimezone: z.string().nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).optional(),
   // One current value per level, not per event — editable regardless of
   // which ProgressUpdate is being viewed.
@@ -390,6 +399,7 @@ export const EditProgressInputSchema = z.object({
     .optional(),
   // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
+  dateTimezone: z.string().nullable().optional(),
   dateUncertain: z.boolean().optional(),
   attempts: z
     .number()
@@ -455,10 +465,12 @@ export const LevelSearchResultSchema = z.object({
 export const ExistingCompletionSchema = z.object({
   progressUpdateId: z.string().uuid(),
   date: z.coerce.date().nullable(),
+  dateTimezone: z.string().nullable(),
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   worstFail: z.number().int().nullable(),
   worstFailDate: z.coerce.date().nullable(),
+  worstFailDateTimezone: z.string().nullable(),
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   enjoyment: z.number().int().nullable(),
   fps: z.number().int().nullable(),
@@ -532,6 +544,7 @@ export const LevelProgressListEntrySchema = z.object({
   progressUpdateId: z.string().uuid(),
   kind: z.nativeEnum(ProgressUpdateKind),
   date: z.coerce.date().nullable(),
+  dateTimezone: z.string().nullable(),
   dateUncertain: z.boolean(),
   attempts: z.number().int().nullable(),
   percentage: z.number().nullable(),

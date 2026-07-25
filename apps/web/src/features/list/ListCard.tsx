@@ -2,7 +2,8 @@ import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatRating, formatNumber } from '@/features/logging/format'
-import { formatDate } from '@/lib/dateFormat'
+import { formatEntryDateTime } from '@/lib/dateFormat'
+import { getViewerTimezone } from '@/lib/timezone'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
 import { NAME_COLOR } from './LevelCell'
@@ -11,6 +12,8 @@ import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
 import type { ColumnVisibility } from './columns'
 import type { ListItem } from './types'
+
+const VIEWER_TZ = getViewerTimezone()
 
 // Mobile card. Face, tier badge, and status icons are vertically centered in a
 // single row; the stats line reflects the enabled column toggles.
@@ -30,10 +33,18 @@ export function ListCard({
   // Text stats follow the column toggles (so toggling columns is meaningful on
   // mobile, where there's no table).
   const stats: string[] = []
-  if (columns.date && entry?.date)
-    stats.push(
-      `${formatDate(entry.date, datePref)}${entry.dateUncertain ? ' ?' : ''}`
+  if (columns.date && entry?.date) {
+    const display = formatEntryDateTime(
+      entry.date,
+      entry.dateTimezone,
+      datePref,
+      VIEWER_TZ
     )
+    const time = display.timeText
+      ? ` ${display.timeText}${display.showZoneBadge ? ` ${display.zoneLabel}` : ''}`
+      : ''
+    stats.push(`${display.dateText}${time}${entry.dateUncertain ? ' ?' : ''}`)
+  }
   if (columns.attempts && entry?.attempts != null)
     stats.push(`${formatNumber(entry.attempts)} att`)
   if (columns.rating && overallRating != null)

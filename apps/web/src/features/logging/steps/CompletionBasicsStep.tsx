@@ -15,6 +15,7 @@ import {
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
+  DateTimeField,
   FieldError,
   FieldHint,
   FieldLabel,
@@ -109,11 +110,14 @@ export function CompletionBasicsStep() {
 
         <div>
           <FieldLabel htmlFor="c-date">Date</FieldLabel>
-          <Input
-            id="c-date"
-            type="date"
-            value={draft.date ?? ''}
-            onChange={(e) => patchDraft({ date: e.target.value || null })}
+          <DateTimeField
+            dateId="c-date"
+            dateValue={draft.date ?? ''}
+            timeValue={draft.time}
+            timezoneValue={draft.timezone}
+            onDateChange={(v) => patchDraft({ date: v || null })}
+            onTimeChange={(v) => patchDraft({ time: v })}
+            onTimezoneChange={(v) => patchDraft({ timezone: v })}
           />
           <label className="mt-2 flex items-center gap-2 text-sm text-text-secondary">
             <Switch
@@ -170,12 +174,15 @@ export function CompletionBasicsStep() {
                 patchDraft({ worstFail: clampPercent(e.target.value) })
               }
             />
-            <Input
-              id="c-worstfaildate"
-              type="date"
+            <DateTimeField
+              dateId="c-worstfaildate"
               disabled={draft.worstFailAlreadyLogged}
-              value={draft.worstFailDate}
-              onChange={(e) => patchDraft({ worstFailDate: e.target.value })}
+              dateValue={draft.worstFailDate}
+              timeValue={draft.worstFailTime}
+              timezoneValue={draft.worstFailTimezone}
+              onDateChange={(v) => patchDraft({ worstFailDate: v })}
+              onTimeChange={(v) => patchDraft({ worstFailTime: v })}
+              onTimezoneChange={(v) => patchDraft({ worstFailTimezone: v })}
             />
             {draft.worstFailAlreadyLogged ? (
               <FieldHint>Keeping your previously logged worst fail.</FieldHint>
