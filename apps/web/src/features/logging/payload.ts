@@ -37,6 +37,18 @@ function sessionDateFields(
 function worstFailDateFields(
   draft: FlowDraft
 ): { worstFailDate: string | null; worstFailDateTimezone: string | null } {
+  if (draft.worstFailSameDay) {
+    if (!draft.date) return { worstFailDate: null, worstFailDateTimezone: null }
+    if (!draft.time) return { worstFailDate: draft.date, worstFailDateTimezone: null }
+    // Nudge one second earlier than the completion/drop instant so the two
+    // events don't collide at minute-only display precision — otherwise
+    // event lists that sort by exact timestamp can't tell which came first.
+    const instant = zonedTimeToUtc(draft.date, draft.time, draft.timezone)
+    return {
+      worstFailDate: new Date(instant.getTime() - 1000).toISOString(),
+      worstFailDateTimezone: draft.timezone,
+    }
+  }
   if (!draft.worstFailDate) return { worstFailDate: null, worstFailDateTimezone: null }
   if (!draft.worstFailTime)
     return { worstFailDate: draft.worstFailDate, worstFailDateTimezone: null }

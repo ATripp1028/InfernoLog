@@ -174,16 +174,30 @@ export function CompletionBasicsStep() {
                 patchDraft({ worstFail: clampPercent(e.target.value) })
               }
             />
-            <DateTimeField
-              dateId="c-worstfaildate"
-              disabled={draft.worstFailAlreadyLogged}
-              dateValue={draft.worstFailDate}
-              timeValue={draft.worstFailTime}
-              timezoneValue={draft.worstFailTimezone}
-              onDateChange={(v) => patchDraft({ worstFailDate: v })}
-              onTimeChange={(v) => patchDraft({ worstFailTime: v })}
-              onTimezoneChange={(v) => patchDraft({ worstFailTimezone: v })}
-            />
+            <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
+              <input
+                type="checkbox"
+                checked={draft.worstFailSameDay}
+                disabled={draft.worstFailAlreadyLogged}
+                onChange={(e) =>
+                  patchDraft({ worstFailSameDay: e.target.checked })
+                }
+                className="rounded border-border"
+              />
+              Same day as completion
+            </label>
+            {!draft.worstFailSameDay && (
+              <DateTimeField
+                dateId="c-worstfaildate"
+                disabled={draft.worstFailAlreadyLogged}
+                dateValue={draft.worstFailDate}
+                timeValue={draft.worstFailTime}
+                timezoneValue={draft.worstFailTimezone}
+                onDateChange={(v) => patchDraft({ worstFailDate: v })}
+                onTimeChange={(v) => patchDraft({ worstFailTime: v })}
+                onTimezoneChange={(v) => patchDraft({ worstFailTimezone: v })}
+              />
+            )}
             {draft.worstFailAlreadyLogged ? (
               <FieldHint>Keeping your previously logged worst fail.</FieldHint>
             ) : (

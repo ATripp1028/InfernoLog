@@ -42,6 +42,7 @@ import {
   isPreTwoTwo,
 } from '@/features/logging/steps/CompletionSessionStep'
 import { DateTimeField } from '@/features/logging/components'
+import { isSameDayToggleOn } from '@/features/logging/types'
 import { getViewerTimezone, getZonedParts, zonedTimeToUtc } from '@/lib/timezone'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
@@ -72,6 +73,7 @@ interface EditForm {
   worstFailDate: string
   worstFailTime: string
   worstFailTimezone: string
+  worstFailSameDay: boolean
   fps: string
   percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
   onStream: boolean
@@ -128,6 +130,7 @@ function initForm(
     data.worstFailDate,
     data.worstFailDateTimezone
   )
+  const isCompletionEntry = latest?.kind === 'COMPLETION'
   return {
     date: session.date,
     time: session.time,
@@ -138,6 +141,14 @@ function initForm(
     worstFailDate: worstFail.date,
     worstFailTime: worstFail.time,
     worstFailTimezone: data.worstFailDateTimezone ?? getViewerTimezone(),
+    worstFailSameDay:
+      isCompletionEntry &&
+      isSameDayToggleOn(
+        latest?.date ?? null,
+        latest?.dateTimezone ?? null,
+        data.worstFailDate,
+        data.worstFailDateTimezone
+      ),
     fps: latest?.fps != null ? String(latest.fps) : '',
     percentageVersion:
       (latest?.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ??
@@ -288,18 +299,30 @@ export function EditProgressModal({
           }
         : { date: form.date, dateTimezone: null }
       : { date: null, dateTimezone: null }
-    const worstFail = form.worstFailDate
-      ? form.worstFailTime
+    const worstFail = form.worstFailSameDay
+      ? // Nudge one second earlier than the completion instant so the two
+        // events don't collide at minute-only display precision — otherwise
+        // event lists that sort by exact timestamp can't tell which came first.
+        session.dateTimezone
         ? {
-            worstFailDate: zonedTimeToUtc(
-              form.worstFailDate,
-              form.worstFailTime,
-              form.worstFailTimezone
+            worstFailDate: new Date(
+              new Date(session.date as string).getTime() - 1000
             ).toISOString(),
-            worstFailDateTimezone: form.worstFailTimezone,
+            worstFailDateTimezone: session.dateTimezone,
           }
-        : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
-      : { worstFailDate: null, worstFailDateTimezone: null }
+        : { worstFailDate: session.date, worstFailDateTimezone: null }
+      : form.worstFailDate
+        ? form.worstFailTime
+          ? {
+              worstFailDate: zonedTimeToUtc(
+                form.worstFailDate,
+                form.worstFailTime,
+                form.worstFailTimezone
+              ).toISOString(),
+              worstFailDateTimezone: form.worstFailTimezone,
+            }
+          : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
+        : { worstFailDate: null, worstFailDateTimezone: null }
 
     const payload: Record<string, unknown> = {
       ...(progressUpdateId ? { progressUpdateId } : {}),
@@ -456,18 +479,38 @@ export function EditProgressModal({
                 </div>
 
                 <div>
-                  <FieldLabel htmlFor="ep-worstfaildate">
-                    Worst fail date
-                  </FieldLabel>
-                  <DateTimeField
-                    dateId="ep-worstfaildate"
-                    dateValue={form.worstFailDate}
-                    timeValue={form.worstFailTime}
-                    timezoneValue={form.worstFailTimezone}
-                    onDateChange={(v) => patch({ worstFailDate: v })}
-                    onTimeChange={(v) => patch({ worstFailTime: v })}
-                    onTimezoneChange={(v) => patch({ worstFailTimezone: v })}
-                  />
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <Label
+                      htmlFor="ep-worstfaildate"
+                      className="text-sm text-text-secondary"
+                    >
+                      Worst fail date
+                    </Label>
+                    {isCompletion && (
+                      <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
+                        <input
+                          type="checkbox"
+                          checked={form.worstFailSameDay}
+                          onChange={(e) =>
+                            patch({ worstFailSameDay: e.target.checked })
+                          }
+                          className="rounded border-border"
+                        />
+                        Same day as completion
+                      </label>
+                    )}
+                  </div>
+                  {!form.worstFailSameDay && (
+                    <DateTimeField
+                      dateId="ep-worstfaildate"
+                      dateValue={form.worstFailDate}
+                      timeValue={form.worstFailTime}
+                      timezoneValue={form.worstFailTimezone}
+                      onDateChange={(v) => patch({ worstFailDate: v })}
+                      onTimeChange={(v) => patch({ worstFailTime: v })}
+                      onTimezoneChange={(v) => patch({ worstFailTimezone: v })}
+                    />
+                  )}
                 </div>
 
                 {showVersionPicker && (

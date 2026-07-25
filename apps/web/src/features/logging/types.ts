@@ -44,6 +44,9 @@ export interface FlowDraft {
   worstFailTime: string
   worstFailTimezone: string
   worstFailAlreadyLogged: boolean
+  // Worst fail date/time mirror `date`/`time`/`timezone` at submit time —
+  // the DateTimeField is hidden while this is on.
+  worstFailSameDay: boolean
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
   difficultyOpinion: DifficultyOpinion | null
@@ -99,6 +102,7 @@ export function emptyDraft(): FlowDraft {
     worstFailTime: '',
     worstFailTimezone: getViewerTimezone(),
     worstFailAlreadyLogged: false,
+    worstFailSameDay: false,
     difficultyOpinion: null,
     enjoyment: null,
     simpleRating: null,
@@ -150,6 +154,29 @@ function isoToDateTimeInput(
   return { date, time }
 }
 
+// "Same day" toggle produces a worst-fail instant exactly one second before
+// the completion/drop instant (bare dates with no time just match exactly) —
+// used to pre-check the toggle when reopening an entry saved that way.
+export function isSameDayToggleOn(
+  anchorDateRaw: string | null,
+  anchorTimezone: string | null,
+  worstFailDateRaw: string | null,
+  worstFailTimezone: string | null
+): boolean {
+  if (anchorDateRaw == null || worstFailDateRaw == null) return false
+  if (anchorTimezone == null || worstFailTimezone == null) {
+    return (
+      anchorTimezone == null &&
+      worstFailTimezone == null &&
+      anchorDateRaw === worstFailDateRaw
+    )
+  }
+  return (
+    new Date(worstFailDateRaw).getTime() ===
+    new Date(anchorDateRaw).getTime() - 1000
+  )
+}
+
 // Pre-populate the completion draft from a prior completion so the wizard edits
 // in place ("edit, not replace") rather than starting blank.
 export function draftFromExistingCompletion(
@@ -171,6 +198,12 @@ export function draftFromExistingCompletion(
   draft.worstFailTime = worstFail.time
   draft.worstFailTimezone = existing.worstFailDateTimezone ?? getViewerTimezone()
   draft.worstFailAlreadyLogged = false
+  draft.worstFailSameDay = isSameDayToggleOn(
+    existing.date,
+    existing.dateTimezone,
+    existing.worstFailDate,
+    existing.worstFailDateTimezone
+  )
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.enjoyment = existing.enjoyment
   draft.simpleRating = existing.simpleRating
