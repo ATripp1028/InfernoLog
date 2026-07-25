@@ -11,6 +11,8 @@ export function ControlsSheet({
   onSorts,
   columns,
   onColumns,
+  hideTime,
+  onHideTime,
   allColumnDefs,
   categorySortOptions,
 }: {
@@ -18,6 +20,8 @@ export function ControlsSheet({
   onSorts: (s: SortSpec[]) => void
   columns: ColumnVisibility
   onColumns: (c: ColumnVisibility) => void
+  hideTime: boolean
+  onHideTime: (next: boolean) => void
   allColumnDefs: ColumnDef[]
   categorySortOptions: { key: SortKey; label: string }[]
 }) {
@@ -70,6 +74,13 @@ export function ControlsSheet({
             ))}
           </>
         )}
+      </section>
+      <section className="flex flex-col gap-1">
+        <h3 className="text-xs font-semibold text-text-secondary">Display</h3>
+        <label className="flex cursor-pointer items-center justify-between py-1.5 text-sm text-text-primary">
+          Hide time
+          <Switch checked={hideTime} onCheckedChange={onHideTime} />
+        </label>
       </section>
     </div>
   )

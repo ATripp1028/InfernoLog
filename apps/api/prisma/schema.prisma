@@ -910,6 +910,10 @@ model ListPreset {
   filters     Json     // FilterState (excludes the text search field)
   columns     Json     // ColumnVisibility (Record<ColumnId, boolean>)
   columnOrder Json     // ColumnId[]
+  // Display preference, not part of the JSON blobs above since it's a plain
+  // boolean rather than an opaque client-owned shape. Hides the time-of-day
+  // line under the date column across the whole list.
+  hideTime    Boolean  @default(false)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

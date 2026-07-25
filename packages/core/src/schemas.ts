@@ -796,6 +796,9 @@ export const ListPresetInputSchema = z.object({
   filters: z.unknown(),
   columns: z.unknown(),
   columnOrder: z.unknown(),
+  // Display preference — hides the time-of-day line under the date column.
+  // A plain boolean rather than another opaque blob, unlike the four above.
+  hideTime: z.boolean().default(false),
 })
 
 export const ListPresetUpdateSchema = ListPresetInputSchema.partial()
@@ -810,6 +813,7 @@ export const ListPresetSchema = z.object({
   filters: z.unknown(),
   columns: z.unknown(),
   columnOrder: z.unknown(),
+  hideTime: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 })

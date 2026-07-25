@@ -26,6 +26,7 @@ interface RowProps {
   allColumnDefs: ColumnDef[]
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  hideTime: boolean
   minWidth: number
 }
 
@@ -76,6 +77,7 @@ export function ListRow({
   allColumnDefs,
   scale,
   datePref,
+  hideTime,
   minWidth,
 }: RowProps) {
   const { entry, level, overallRating, ratingScores } = item
@@ -150,7 +152,7 @@ export function ListRow({
                     dash
                   )}
                 </div>
-                {display?.timeText && (
+                {!hideTime && display?.timeText && (
                   <div className="truncate text-[9px] leading-tight text-text-tertiary">
                     {display.timeText}
                     {display.showZoneBadge ? ` ${display.zoneLabel}` : ''}

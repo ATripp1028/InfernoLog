@@ -22,11 +22,13 @@ export function ListCard({
   columns,
   scale,
   datePref,
+  hideTime,
 }: {
   item: ListItem
   columns: ColumnVisibility
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  hideTime: boolean
 }) {
   const { entry, level, overallRating } = item
 
@@ -40,9 +42,10 @@ export function ListCard({
       datePref,
       VIEWER_TZ
     )
-    const time = display.timeText
-      ? ` ${display.timeText}${display.showZoneBadge ? ` ${display.zoneLabel}` : ''}`
-      : ''
+    const time =
+      !hideTime && display.timeText
+        ? ` ${display.timeText}${display.showZoneBadge ? ` ${display.zoneLabel}` : ''}`
+        : ''
     stats.push(`${display.dateText}${time}${entry.dateUncertain ? ' ?' : ''}`)
   }
   if (columns.attempts && entry?.attempts != null)

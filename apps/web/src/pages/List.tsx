@@ -61,7 +61,7 @@ import {
   DEFAULT_SORTS,
   cleanupPresetForCategories,
 } from '../features/list/presets'
-import type { PresetColorId } from '../features/list/presets'
+import type { PresetColorId, ViewConfig } from '../features/list/presets'
 import { getPresetCookie, setPresetCookie } from '../lib/presetCookie'
 
 export function List() {
@@ -92,6 +92,7 @@ export function List() {
     defaultColumnVisibility
   )
   const [columnOrder, setColumnOrder] = useState<ColumnId[]>(defaultColumnOrder)
+  const [hideTime, setHideTime] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -125,6 +126,7 @@ export function List() {
     setFilters(cleaned.filters)
     setColumns(cleaned.columns)
     setColumnOrder(cleaned.columnOrder)
+    setHideTime(cleaned.hideTime)
   }, [me.data, presetsQuery.data])
 
   // md+ docks the filter panel inline (live table updates); mobile uses a sheet.
@@ -295,8 +297,8 @@ export function List() {
 
   // Compare the current view config against the selected preset (or the default).
   const currentConfig = useMemo(
-    () => ({ sorts, filters, columns, columnOrder }),
-    [sorts, filters, columns, columnOrder]
+    () => ({ sorts, filters, columns, columnOrder, hideTime }),
+    [sorts, filters, columns, columnOrder, hideTime]
   )
 
   const isPresetModified = useMemo(() => {
@@ -304,12 +306,7 @@ export function List() {
     // Normalize a config the same way applyPresetConfig does: add missing active
     // cat keys to columnOrder, and fill in any filter fields added after the
     // preset was saved.
-    function normalize(config: {
-      sorts: SortSpec[]
-      filters: FilterState
-      columns: ColumnVisibility
-      columnOrder: ColumnId[]
-    }) {
+    function normalize(config: ViewConfig) {
       const cleaned = cleanupPresetForCategories(config, activeIds)
       return { ...cleaned, filters: normalizeFilterState(cleaned.filters) }
     }
@@ -328,12 +325,7 @@ export function List() {
 
   const { ratingDisplayScale, dateFormatPreference } = me.data
 
-  function applyPresetConfig(config: {
-    sorts: SortSpec[]
-    filters: FilterState
-    columns: ColumnVisibility
-    columnOrder: ColumnId[]
-  }) {
+  function applyPresetConfig(config: ViewConfig) {
     // Ensure active cat keys are always in columnOrder regardless of whether the
     // preset or default config was saved before those categories existed.
     const activeCatKeys = activeCategories.map((c) => `cat:${c.id}` as ColumnId)
@@ -345,6 +337,7 @@ export function List() {
     setSorts(config.sorts)
     setFilters(config.filters)
     setColumns(config.columns)
+    setHideTime(config.hideTime)
     setColumnOrder(fullOrder)
   }
 
@@ -515,6 +508,8 @@ export function List() {
             onSorts={setSorts}
             columns={columns}
             onColumns={setColumns}
+            hideTime={hideTime}
+            onHideTime={setHideTime}
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
             activeFilterCount={activeFilterCount}
@@ -552,6 +547,7 @@ export function List() {
                 onToggleSort={toggleSort}
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
+                hideTime={hideTime}
                 onEditItem={handleEdit}
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
@@ -562,6 +558,7 @@ export function List() {
                 columns={columns}
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
+                hideTime={hideTime}
               />
             </>
           )}
@@ -607,6 +604,8 @@ export function List() {
             onSorts={setSorts}
             columns={columns}
             onColumns={setColumns}
+            hideTime={hideTime}
+            onHideTime={setHideTime}
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
           />

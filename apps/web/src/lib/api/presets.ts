@@ -16,6 +16,7 @@ export interface ListPreset {
   filters: FilterState
   columns: ColumnVisibility
   columnOrder: ColumnId[]
+  hideTime: boolean
   createdAt: string
   updatedAt: string
 }
@@ -28,6 +29,7 @@ export interface CreatePresetInput {
   filters: FilterState
   columns: ColumnVisibility
   columnOrder: ColumnId[]
+  hideTime: boolean
 }
 
 export interface UpdatePresetInput {
@@ -38,6 +40,7 @@ export interface UpdatePresetInput {
   filters?: FilterState
   columns?: ColumnVisibility
   columnOrder?: ColumnId[]
+  hideTime?: boolean
 }
 
 export const presetsQueryKey = ['list-presets'] as const
@@ -55,9 +58,11 @@ export function useListPresets() {
       )
       // Normalize stored filters so presets saved before a filter field was
       // added still have every field present (avoids undefined access crashes).
+      // hideTime similarly defaults to false for presets saved before it existed.
       return data.map((p) => ({
         ...p,
         filters: normalizeFilterState(p.filters),
+        hideTime: p.hideTime ?? false,
       }))
     },
   })

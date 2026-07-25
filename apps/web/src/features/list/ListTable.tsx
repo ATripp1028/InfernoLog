@@ -17,6 +17,7 @@ interface ListTableProps {
   onToggleSort: (key: SortKey) => void
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  hideTime: boolean
   onEditItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
   onNavigate: (item: ListItem) => void
@@ -195,6 +196,7 @@ export function ListTable({
   onToggleSort,
   scale,
   datePref,
+  hideTime,
   onEditItem,
   onDeleteItem,
   onNavigate,
@@ -269,6 +271,7 @@ export function ListTable({
                 allColumnDefs={allColumnDefs}
                 scale={scale}
                 datePref={datePref}
+                hideTime={hideTime}
                 minWidth={minWidth}
               />
               <div

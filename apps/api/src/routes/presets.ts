@@ -7,6 +7,7 @@
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are opaque
 // JSON blobs — the API stores and returns them verbatim without deep validation.
+// hideTime is a plain boolean display preference, validated normally.
 
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
@@ -46,8 +47,16 @@ app.post('/me/list-presets', async (c) => {
     if (!parsed.success) {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
-    const { name, description, color, sorts, filters, columns, columnOrder } =
-      parsed.data
+    const {
+      name,
+      description,
+      color,
+      sorts,
+      filters,
+      columns,
+      columnOrder,
+      hideTime,
+    } = parsed.data
     const preset = await prisma.listPreset.create({
       data: {
         userId,
@@ -58,6 +67,7 @@ app.post('/me/list-presets', async (c) => {
         filters: filters as object,
         columns: columns as object,
         columnOrder: columnOrder as object,
+        hideTime,
       },
     })
     return c.json({ data: preset }, 201)
@@ -86,8 +96,16 @@ app.patch('/me/list-presets/:id', async (c) => {
       return c.json({ error: parsed.error.flatten() }, 400)
     }
 
-    const { name, description, color, sorts, filters, columns, columnOrder } =
-      parsed.data
+    const {
+      name,
+      description,
+      color,
+      sorts,
+      filters,
+      columns,
+      columnOrder,
+      hideTime,
+    } = parsed.data
     const preset = await prisma.listPreset.update({
       where: { id },
       data: {
@@ -98,6 +116,7 @@ app.patch('/me/list-presets/:id', async (c) => {
         ...(filters !== undefined && { filters: filters as object }),
         ...(columns !== undefined && { columns: columns as object }),
         ...(columnOrder !== undefined && { columnOrder: columnOrder as object }),
+        ...(hideTime !== undefined && { hideTime }),
       },
     })
     return c.json({ data: preset })
