@@ -9,6 +9,7 @@ interface MobilePagerProps {
   columns: ColumnVisibility
   scale: RatingDisplayScale
   datePref: DateFormatPreference
+  hideTime: boolean
 }
 
 // Mobile list — each card taps through to the level page. Mobile-only (md+ shows ListTable).
@@ -17,6 +18,7 @@ export function MobilePager({
   columns,
   scale,
   datePref,
+  hideTime,
 }: MobilePagerProps) {
   const navigate = useNavigate()
 
@@ -40,6 +42,7 @@ export function MobilePager({
             columns={columns}
             scale={scale}
             datePref={datePref}
+            hideTime={hideTime}
           />
         </button>
       ))}

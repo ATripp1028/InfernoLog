@@ -118,6 +118,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     const updateFields = {
       kind: 'COMPLETION' as const,
       date: input.date ?? null,
+      dateTimezone: input.dateTimezone ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
@@ -187,8 +188,15 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         ...(input.worstFail !== undefined
           ? { worstFail: input.worstFail }
           : {}),
+        // worstFailDateTimezone is never written independently — whenever
+        // worstFailDate changes, the timezone is always resolved alongside it
+        // (defaulting to null, "no time entered") so a stale zone from a
+        // prior edit can never linger paired with a new date.
         ...(input.worstFailDate !== undefined
-          ? { worstFailDate: input.worstFailDate }
+          ? {
+              worstFailDate: input.worstFailDate,
+              worstFailDateTimezone: input.worstFailDateTimezone ?? null,
+            }
           : {}),
       },
     })
@@ -223,6 +231,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
     const base = {
       kind: 'PROGRESS' as const,
       date: input.date ?? null,
+      dateTimezone: input.dateTimezone ?? null,
       dateUncertain: input.dateUncertain,
       attempts: input.attempts ?? null,
       fps: input.fps ?? null,
@@ -295,8 +304,14 @@ export async function applyEdit(
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
     if (input.worstFail !== undefined) lpData.worstFail = input.worstFail
-    if (input.worstFailDate !== undefined)
+    // worstFailDateTimezone is never written independently — whenever
+    // worstFailDate changes, the timezone is always resolved alongside it
+    // (defaulting to null, "no time entered") so a stale zone from a prior
+    // edit can never linger paired with a new date.
+    if (input.worstFailDate !== undefined) {
       lpData.worstFailDate = input.worstFailDate
+      lpData.worstFailDateTimezone = input.worstFailDateTimezone ?? null
+    }
     if (input.visibility !== undefined) lpData.visibility = input.visibility
     if (input.userGddlTier !== undefined)
       lpData.userGddlTier = input.userGddlTier
@@ -308,7 +323,11 @@ export async function applyEdit(
       lpData.completionTime = input.completionTime
 
     const puData: Prisma.ProgressUpdateUpdateInput = {}
-    if (input.date !== undefined) puData.date = input.date
+    // dateTimezone is never written independently — see worstFailDate above.
+    if (input.date !== undefined) {
+      puData.date = input.date
+      puData.dateTimezone = input.dateTimezone ?? null
+    }
     if (input.dateUncertain !== undefined)
       puData.dateUncertain = input.dateUncertain
     if (input.attempts !== undefined) puData.attempts = input.attempts
@@ -462,6 +481,7 @@ export async function applyDrop(userId: string, input: DropInput) {
         levelProgressId: lp.id,
         kind: 'DROP',
         date: input.date ?? null,
+        dateTimezone: input.dateTimezone ?? null,
         attempts: input.attempts ?? null,
         notes: input.notes ?? null,
       },
@@ -476,8 +496,13 @@ export async function applyDrop(userId: string, input: DropInput) {
         ...(input.worstFail !== undefined
           ? { worstFail: input.worstFail }
           : {}),
+        // worstFailDateTimezone is never written independently — see
+        // applyCompletion/applyEdit above.
         ...(input.worstFailDate !== undefined
-          ? { worstFailDate: input.worstFailDate }
+          ? {
+              worstFailDate: input.worstFailDate,
+              worstFailDateTimezone: input.worstFailDateTimezone ?? null,
+            }
           : {}),
       },
     })

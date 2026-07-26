@@ -380,6 +380,59 @@ describe('computeRunsGraph — drop-merge rule', () => {
 })
 
 // ─────────────────────────────────────────────
+// Worst-fail milestone ordering — date/worstFailDate can now carry a real
+// time-of-day (see ProgressUpdate.dateTimezone in schema.prisma), which is
+// what actually resolves same-calendar-day ordering. The hand-coded
+// "worst_fail before completion" tiebreaker below is only a fallback for
+// entries with no time-of-day (or a genuine exact tie).
+// ─────────────────────────────────────────────
+
+describe('computeRunsGraph — worst-fail milestone ordering', () => {
+  it('same-date tie (no time-of-day) falls back to the worst_fail-before-completion tiebreaker', () => {
+    const sameDay = new Date('2025-07-18T00:00:00.000Z')
+    const completion = makeUpdate({
+      id: 'u1',
+      isCompletion: true,
+      date: sameDay,
+      loggedAt: sameDay,
+    })
+    const graph = computeRunsGraph([completion], [], {
+      percentage: 45,
+      date: sameDay,
+    })
+    expect(graph.map((e) => e.kind)).toEqual(['worst_fail', 'completion'])
+  })
+
+  it('with real time-of-day, a worst-fail logged AFTER the completion sorts after it — the opposite of the legacy tiebreaker', () => {
+    const completion = makeUpdate({
+      id: 'u1',
+      isCompletion: true,
+      date: new Date('2025-07-18T09:00:00.000Z'),
+      loggedAt: new Date('2025-07-18T09:00:00.000Z'),
+    })
+    const graph = computeRunsGraph([completion], [], {
+      percentage: 45,
+      date: new Date('2025-07-18T09:30:00.000Z'),
+    })
+    expect(graph.map((e) => e.kind)).toEqual(['completion', 'worst_fail'])
+  })
+
+  it('with real time-of-day, a worst-fail logged before the completion still sorts first — driven by the clock time, not the tiebreaker', () => {
+    const completion = makeUpdate({
+      id: 'u1',
+      isCompletion: true,
+      date: new Date('2025-07-18T23:30:00.000Z'),
+      loggedAt: new Date('2025-07-18T23:30:00.000Z'),
+    })
+    const graph = computeRunsGraph([completion], [], {
+      percentage: 45,
+      date: new Date('2025-07-18T23:00:00.000Z'),
+    })
+    expect(graph.map((e) => e.kind)).toEqual(['worst_fail', 'completion'])
+  })
+})
+
+// ─────────────────────────────────────────────
 // Edge cases
 // ─────────────────────────────────────────────
 

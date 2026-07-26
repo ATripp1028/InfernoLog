@@ -6,6 +6,7 @@ import type {
   GdVersion,
   Level,
 } from '@/lib/api/logging'
+import { getViewerTimezone, getZonedParts } from '@/lib/timezone'
 
 export type FlowPath = 'completion' | 'progress' | 'drop'
 
@@ -32,11 +33,20 @@ export type RatingScoresDraft = Record<string, number>
 // slider-backed ratings are stored as 0–100 integers (the internal scale).
 export interface FlowDraft {
   date: string | null
+  // Time-of-day for `date` — `HH:mm` or `''` (no time entered, the common
+  // case). `timezone` is only meaningful once `time !== ''`.
+  time: string
+  timezone: string
   dateUncertain: boolean
   attempts: string
   worstFail: string
   worstFailDate: string
+  worstFailTime: string
+  worstFailTimezone: string
   worstFailAlreadyLogged: boolean
+  // Worst fail date/time mirror `date`/`time`/`timezone` at submit time —
+  // the DateTimeField is hidden while this is on.
+  worstFailSameDay: boolean
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
   difficultyOpinion: DifficultyOpinion | null
@@ -83,11 +93,16 @@ function todayDateInput(): string {
 export function emptyDraft(): FlowDraft {
   return {
     date: todayDateInput(),
+    time: '',
+    timezone: getViewerTimezone(),
     dateUncertain: false,
     attempts: '',
     worstFail: '',
     worstFailDate: '',
+    worstFailTime: '',
+    worstFailTimezone: getViewerTimezone(),
     worstFailAlreadyLogged: false,
+    worstFailSameDay: false,
     difficultyOpinion: null,
     enjoyment: null,
     simpleRating: null,
@@ -120,18 +135,75 @@ function isoToDateInput(iso: string | null): string | null {
   return d.toISOString().slice(0, 10)
 }
 
+// Serialized ISO date (+ optional IANA zone it was entered in) → the date/time
+// input values that pre-populate a DateTimeField. When a zone is present, the
+// date is derived in THAT zone rather than sliced from raw UTC — an entry
+// logged at 11:58 PM America/New_York is already the next day in UTC, so a
+// naive slice would show the wrong calendar date back to the user.
+function isoToDateTimeInput(
+  iso: string | null,
+  timezone: string | null
+): { date: string | null; time: string } {
+  if (!iso) return { date: null, time: '' }
+  if (!timezone) return { date: isoToDateInput(iso), time: '' }
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return { date: null, time: '' }
+  const { year, month, day, hour, minute } = getZonedParts(d, timezone)
+  const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+  return { date, time }
+}
+
+// "Same day" toggle produces a worst-fail instant exactly one second before
+// the completion/drop instant (bare dates with no time just match exactly) —
+// used to pre-check the toggle when reopening an entry saved that way.
+export function isSameDayToggleOn(
+  anchorDateRaw: string | null,
+  anchorTimezone: string | null,
+  worstFailDateRaw: string | null,
+  worstFailTimezone: string | null
+): boolean {
+  if (anchorDateRaw == null || worstFailDateRaw == null) return false
+  // The toggle always writes matching timezones for both fields (see
+  // sessionDateFields/worstFailDateFields in payload.ts) — a mismatched pair
+  // was never produced by the toggle itself (imported/legacy data, most
+  // likely), so it can't be "same day toggle on" regardless of timestamps.
+  if (anchorTimezone !== worstFailTimezone) return false
+  if (anchorTimezone == null) return anchorDateRaw === worstFailDateRaw
+  return (
+    new Date(worstFailDateRaw).getTime() ===
+    new Date(anchorDateRaw).getTime() - 1000
+  )
+}
+
 // Pre-populate the completion draft from a prior completion so the wizard edits
 // in place ("edit, not replace") rather than starting blank.
 export function draftFromExistingCompletion(
   existing: ExistingCompletion
 ): FlowDraft {
   const draft = emptyDraft()
-  draft.date = isoToDateInput(existing.date)
+  const session = isoToDateTimeInput(existing.date, existing.dateTimezone)
+  draft.date = session.date
+  draft.time = session.time
+  draft.timezone = existing.dateTimezone ?? getViewerTimezone()
   draft.dateUncertain = existing.dateUncertain
   draft.attempts = existing.attempts != null ? String(existing.attempts) : ''
   draft.worstFail = existing.worstFail != null ? String(existing.worstFail) : ''
-  draft.worstFailDate = isoToDateInput(existing.worstFailDate) ?? ''
+  const worstFail = isoToDateTimeInput(
+    existing.worstFailDate,
+    existing.worstFailDateTimezone
+  )
+  draft.worstFailDate = worstFail.date ?? ''
+  draft.worstFailTime = worstFail.time
+  draft.worstFailTimezone =
+    existing.worstFailDateTimezone ?? getViewerTimezone()
   draft.worstFailAlreadyLogged = false
+  draft.worstFailSameDay = isSameDayToggleOn(
+    existing.date,
+    existing.dateTimezone,
+    existing.worstFailDate,
+    existing.worstFailDateTimezone
+  )
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.enjoyment = existing.enjoyment
   draft.simpleRating = existing.simpleRating

@@ -45,6 +45,14 @@ function delUpdate(userId: string, levelId: string, progressUpdateId: string) {
   )
 }
 
+function patch(userId: string, levelId: string, payload: unknown) {
+  return buildApp(progressApp, { userId }).request(`/me/progress/${levelId}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
 // Helper: create a level_progress row with progress updates inline.
 async function seedProgress(
   db: PrismaClient,
@@ -534,5 +542,63 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
     expect(
       await prisma.progressUpdate.findUnique({ where: { id: update.id } })
     ).not.toBeNull()
+  })
+})
+
+describe('PATCH /me/progress/:levelId', () => {
+  it('round-trips date/dateTimezone and worstFailDate/worstFailDateTimezone', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '920' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '920',
+      status: 'COMPLETED',
+      updates: [{ kind: 'COMPLETION', loggedAt: new Date('2024-01-01') }],
+    })
+
+    const res = await patch(user.id, '920', {
+      date: '2026-07-18T09:15:00.000Z',
+      dateTimezone: 'America/New_York',
+      worstFailDate: '2026-07-17T08:00:00.000Z',
+      worstFailDateTimezone: 'America/New_York',
+    })
+    expect(res.status).toBe(200)
+
+    const updated = await prisma.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+      include: { progressUpdates: true },
+    })
+    expect(updated.worstFailDateTimezone).toBe('America/New_York')
+    expect(updated.progressUpdates[0]?.dateTimezone).toBe('America/New_York')
+  })
+
+  it('omitting dateTimezone/worstFailDateTimezone leaves the stored values untouched', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '921' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '921',
+      status: 'COMPLETED',
+      updates: [{ kind: 'COMPLETION', loggedAt: new Date('2024-01-01') }],
+    })
+    await prisma.levelProgress.update({
+      where: { id: lp.id },
+      data: { worstFailDateTimezone: 'UTC' },
+    })
+    await prisma.progressUpdate.updateMany({
+      where: { levelProgressId: lp.id },
+      data: { dateTimezone: 'UTC' },
+    })
+
+    const res = await patch(user.id, '921', { attempts: 42 })
+    expect(res.status).toBe(200)
+
+    const updated = await prisma.levelProgress.findUniqueOrThrow({
+      where: { id: lp.id },
+      include: { progressUpdates: true },
+    })
+    expect(updated.worstFailDateTimezone).toBe('UTC')
+    expect(updated.progressUpdates[0]?.dateTimezone).toBe('UTC')
+    expect(updated.progressUpdates[0]?.attempts).toBe(42)
   })
 })

@@ -156,6 +156,7 @@ export interface ViewConfig {
   filters: FilterState
   columns: ColumnVisibility
   columnOrder: ColumnId[]
+  hideTime: boolean
 }
 
 export function viewConfigsEqual(a: ViewConfig, b: ViewConfig): boolean {
@@ -163,7 +164,8 @@ export function viewConfigsEqual(a: ViewConfig, b: ViewConfig): boolean {
     sortsEqual(a.sorts, b.sorts) &&
     filtersEqual(a.filters, b.filters) &&
     columnsEqual(a.columns, b.columns) &&
-    columnOrderEqual(a.columnOrder, b.columnOrder)
+    columnOrderEqual(a.columnOrder, b.columnOrder) &&
+    a.hideTime === b.hideTime
   )
 }
 
@@ -173,6 +175,7 @@ export function defaultViewConfig(): ViewConfig {
     filters: defaultFilterState(),
     columns: defaultColumnVisibility(),
     columnOrder: defaultColumnOrder(),
+    hideTime: false,
   }
 }
 

@@ -11,10 +11,14 @@ import { COLUMNS } from './columns'
 export function ColumnsMenu({
   columns,
   onChange,
+  hideTime,
+  onHideTime,
   allColumnDefs,
 }: {
   columns: ColumnVisibility
   onChange: (next: ColumnVisibility) => void
+  hideTime: boolean
+  onHideTime: (next: boolean) => void
   allColumnDefs: ColumnDef[]
 }) {
   function toggle(id: ColumnId) {
@@ -67,6 +71,14 @@ export function ColumnsMenu({
             ))}
           </>
         )}
+        <div className="mx-2 my-1 border-t border-[var(--color-border-subtle)]" />
+        <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+          Display
+        </p>
+        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]">
+          Hide time
+          <Switch checked={hideTime} onCheckedChange={onHideTime} />
+        </label>
       </PopoverContent>
     </Popover>
   )

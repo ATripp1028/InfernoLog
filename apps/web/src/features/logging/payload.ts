@@ -7,7 +7,20 @@ import type {
   ProgressInput,
 } from '@/lib/api/logging'
 import type { MeData } from '@/lib/api/me'
+import { ApiError } from '@/lib/api/client'
+import { zonedTimeToUtc, NonexistentLocalTimeError } from '@/lib/timezone'
 import type { FlowDraft } from './types'
+
+// Shared submit-error → toast message mapping for the completion/drop/progress
+// steps below — a NonexistentLocalTimeError means the entered date/time falls
+// in a DST "spring forward" gap for the selected zone (see zonedTimeToUtc);
+// anything else falls back to the ApiError message or a generic fallback.
+export function loggingErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof NonexistentLocalTimeError) {
+    return "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
+  }
+  return err instanceof ApiError ? err.message : fallback
+}
 
 function intOrNull(
   value: string,
@@ -17,6 +30,52 @@ function intOrNull(
   if (t === '') return fallback
   const n = Number.parseInt(t, 10)
   return Number.isNaN(n) ? null : n
+}
+
+// The session-date choke point: time empty → byte-identical legacy shape
+// (bare date string, no timezone). Time set → converted to the correct UTC
+// instant via the entered IANA zone.
+function sessionDateFields(draft: FlowDraft): {
+  date: string | null
+  dateTimezone: string | null
+} {
+  if (!draft.date) return { date: null, dateTimezone: null }
+  if (!draft.time) return { date: draft.date, dateTimezone: null }
+  return {
+    date: zonedTimeToUtc(draft.date, draft.time, draft.timezone).toISOString(),
+    dateTimezone: draft.timezone,
+  }
+}
+
+function worstFailDateFields(draft: FlowDraft): {
+  worstFailDate: string | null
+  worstFailDateTimezone: string | null
+} {
+  if (draft.worstFailSameDay) {
+    if (!draft.date) return { worstFailDate: null, worstFailDateTimezone: null }
+    if (!draft.time)
+      return { worstFailDate: draft.date, worstFailDateTimezone: null }
+    // Nudge one second earlier than the completion/drop instant so the two
+    // events don't collide at minute-only display precision — otherwise
+    // event lists that sort by exact timestamp can't tell which came first.
+    const instant = zonedTimeToUtc(draft.date, draft.time, draft.timezone)
+    return {
+      worstFailDate: new Date(instant.getTime() - 1000).toISOString(),
+      worstFailDateTimezone: draft.timezone,
+    }
+  }
+  if (!draft.worstFailDate)
+    return { worstFailDate: null, worstFailDateTimezone: null }
+  if (!draft.worstFailTime)
+    return { worstFailDate: draft.worstFailDate, worstFailDateTimezone: null }
+  return {
+    worstFailDate: zonedTimeToUtc(
+      draft.worstFailDate,
+      draft.worstFailTime,
+      draft.worstFailTimezone
+    ).toISOString(),
+    worstFailDateTimezone: draft.worstFailTimezone,
+  }
 }
 
 export function buildCompletionInput(
@@ -39,12 +98,12 @@ export function buildCompletionInput(
     ? {}
     : {
         worstFail: intOrNull(draft.worstFail),
-        worstFailDate: draft.worstFailDate || null,
+        ...worstFailDateFields(draft),
       }
 
   return {
     levelId: level.inGameId,
-    date: draft.date,
+    ...sessionDateFields(draft),
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
@@ -80,7 +139,7 @@ export function buildProgressInput(
 ): ProgressInput {
   const common = {
     enjoyment: draft.enjoyment,
-    date: draft.date,
+    ...sessionDateFields(draft),
     dateUncertain: draft.dateUncertain,
     attempts: intOrNull(draft.attempts),
     fps: intOrNull(draft.fps, defaultFps ?? null),
@@ -113,11 +172,11 @@ export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
     ? {}
     : {
         worstFail: intOrNull(draft.worstFail),
-        worstFailDate: draft.worstFailDate || null,
+        ...worstFailDateFields(draft),
       }
   return {
     levelId: level.inGameId,
-    date: draft.date,
+    ...sessionDateFields(draft),
     attempts: intOrNull(draft.attempts),
     ...worstFailFields,
     notes: draft.droppedReason.trim() || null,

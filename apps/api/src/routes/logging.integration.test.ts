@@ -82,6 +82,53 @@ describe('POST /me/completions', () => {
     expect(lp.userGddlTier).toBe(28)
   })
 
+  it('persists dateTimezone/worstFailDateTimezone alongside a real time-of-day', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '102' })
+
+    const res = await post(user.id, '/me/completions', {
+      levelId: '102',
+      date: '2026-06-01T23:30:00.000Z',
+      dateTimezone: 'America/New_York',
+      worstFail: 45,
+      worstFailDate: '2026-05-30T10:00:00.000Z',
+      worstFailDateTimezone: 'America/New_York',
+    })
+    expect(res.status).toBe(201)
+
+    const lp = await prisma.levelProgress.findUniqueOrThrow({
+      where: { userId_levelId: { userId: user.id, levelId: '102' } },
+      include: { progressUpdates: true },
+    })
+    expect(lp.worstFailDateTimezone).toBe('America/New_York')
+    const pu = lp.progressUpdates[0]
+    if (!pu) throw new Error('expected a completion update')
+    expect(pu.dateTimezone).toBe('America/New_York')
+  })
+
+  it('stores dateTimezone/worstFailDateTimezone as null when only a bare date is sent (legacy shape)', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '103' })
+
+    const res = await post(user.id, '/me/completions', {
+      levelId: '103',
+      date: '2026-06-01',
+      worstFail: 20,
+      worstFailDate: '2026-05-30',
+    })
+    expect(res.status).toBe(201)
+
+    const lp = await prisma.levelProgress.findUniqueOrThrow({
+      where: { userId_levelId: { userId: user.id, levelId: '103' } },
+      include: { progressUpdates: true },
+    })
+    expect(lp.worstFailDateTimezone).toBeNull()
+    const pu = lp.progressUpdates[0]
+    if (!pu) throw new Error('expected a completion update')
+    expect(pu.dateTimezone).toBeNull()
+    expect(pu.date?.toISOString()).toContain('2026-06-01')
+  })
+
   it('edits the existing completion in place rather than creating a second one', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '101' })
@@ -208,6 +255,23 @@ describe('POST /me/drops', () => {
     expect(drop.kind).toBe('DROP')
     expect(drop.attempts).toBe(8000)
     expect(drop.notes).toBe('too hard for now')
+  })
+
+  it('persists dateTimezone on a drop when a real time-of-day is sent', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '301' })
+
+    const res = await post(user.id, '/me/drops', {
+      levelId: '301',
+      date: '2026-06-10T14:15:00.000Z',
+      dateTimezone: 'UTC',
+    })
+
+    expect(res.status).toBe(201)
+    const drop = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgress: { userId: user.id, levelId: '301' } },
+    })
+    expect(drop.dateTimezone).toBe('UTC')
   })
 })
 

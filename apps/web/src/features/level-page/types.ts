@@ -5,6 +5,7 @@ export interface LevelPageData {
   levelNotes: string | null
   worstFail: number | null
   worstFailDate: string | null
+  worstFailDateTimezone: string | null
   userGddlTier: number | null
   // One current value per level, not per event.
   simpleRating: number | null
@@ -49,6 +50,7 @@ export interface ProgressUpdate {
   runTo: number | null
   attempts: number | null
   date: string | null
+  dateTimezone: string | null
   dateUncertain: boolean
   onStream: boolean
   fps: number | null

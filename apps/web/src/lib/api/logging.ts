@@ -90,12 +90,14 @@ export interface LevelSearchResult {
 export interface ExistingCompletion {
   progressUpdateId: string
   date: string | null
+  dateTimezone: string | null
   dateUncertain: boolean
   attempts: number | null
   difficultyOpinion: DifficultyOpinion | null
   enjoyment: number | null
   worstFail: number | null
   worstFailDate: string | null
+  worstFailDateTimezone: string | null
   fps: number | null
   percentageVersion: GdVersion | null
   onStream: boolean
@@ -136,10 +138,12 @@ export interface ManualLevelInput {
 export interface CompletionInput {
   levelId: string
   date?: string | null
+  dateTimezone?: string | null
   dateUncertain?: boolean
   attempts?: number | null
   worstFail?: number | null
   worstFailDate?: string | null
+  worstFailDateTimezone?: string | null
   fps?: number | null
   percentageVersion?: GdVersion | null
   onStream?: boolean
@@ -165,6 +169,7 @@ export type ProgressInput = { levelId: string } & (
 ) & {
     enjoyment?: number | null
     date?: string | null
+    dateTimezone?: string | null
     dateUncertain?: boolean
     attempts?: number | null
     fps?: number | null
@@ -179,9 +184,11 @@ export type ProgressInput = { levelId: string } & (
 export interface DropInput {
   levelId: string
   date?: string | null
+  dateTimezone?: string | null
   attempts?: number | null
   worstFail?: number | null
   worstFailDate?: string | null
+  worstFailDateTimezone?: string | null
   notes?: string | null
   visibility?: EntryVisibility
 }

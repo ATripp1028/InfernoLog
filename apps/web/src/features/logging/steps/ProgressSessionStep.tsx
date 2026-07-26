@@ -5,7 +5,6 @@ import { Switch } from '@/components/ui/switch'
 import { Slider } from '@/components/ui/slider'
 import { StepperInput } from '@/components/ui/stepper-input'
 import { toast } from '@/components/ui/sonner'
-import { ApiError } from '@/lib/api/client'
 import { useLogProgress } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -18,7 +17,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { buildProgressInput } from '../payload'
+import { buildProgressInput, loggingErrorMessage } from '../payload'
 import {
   digitsOnly,
   maxValueError,
@@ -65,9 +64,7 @@ export function ProgressSessionStep() {
       toast.success(`Progress logged for ${level.name ?? 'level'}`)
       close()
     } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not log progress'
-      )
+      toast.error(loggingErrorMessage(err, 'Could not log progress'))
     }
   }
 

@@ -1,8 +1,11 @@
 import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
-import { formatDate } from '@/lib/dateFormat'
+import { formatEntryDateTime } from '@/lib/dateFormat'
+import { getViewerTimezone } from '@/lib/timezone'
 import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/me'
 import type { LevelPageData, ProgressUpdate } from './types'
+
+const VIEWER_TZ = getViewerTimezone()
 
 // Percentage / run label for a progress update
 function rangeLabel(update: ProgressUpdate): string {
@@ -16,13 +19,59 @@ function rangeLabel(update: ProgressUpdate): string {
 
 function formatEntryDate(
   dateStr: string | null,
+  dateTimezone: string | null,
   loggedAt: string,
   uncertain: boolean,
   datePref: DateFormatPreference
-): { text: string; uncertain: boolean } {
-  if (!dateStr)
-    return { text: formatDate(loggedAt, datePref), uncertain: false }
-  return { text: formatDate(dateStr, datePref), uncertain }
+): {
+  text: string
+  timeText: string | null
+  zoneSuffix: string | null
+  uncertain: boolean
+} {
+  if (!dateStr) {
+    const { dateText } = formatEntryDateTime(
+      loggedAt,
+      null,
+      datePref,
+      VIEWER_TZ
+    )
+    return {
+      text: dateText,
+      timeText: null,
+      zoneSuffix: null,
+      uncertain: false,
+    }
+  }
+  const { dateText, timeText, showZoneBadge, zoneLabel } = formatEntryDateTime(
+    dateStr,
+    dateTimezone,
+    datePref,
+    VIEWER_TZ
+  )
+  return {
+    text: dateText,
+    timeText,
+    zoneSuffix: showZoneBadge ? zoneLabel : null,
+    uncertain,
+  }
+}
+
+function EntryTimeSuffix({
+  timeText,
+  zoneSuffix,
+}: {
+  timeText: string | null
+  zoneSuffix: string | null
+}) {
+  if (!timeText) return null
+  return (
+    <span className="text-[10px] text-text-tertiary">
+      {' '}
+      {timeText}
+      {zoneSuffix ? ` ${zoneSuffix}` : ''}
+    </span>
+  )
 }
 
 // ─── Timeline dot ────────────────────────────────────────────────
@@ -66,8 +115,14 @@ function CompletionEntry({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const { text: dateText, uncertain } = formatEntryDate(
+  const {
+    text: dateText,
+    timeText,
+    zoneSuffix,
+    uncertain,
+  } = formatEntryDate(
     update.date,
+    update.dateTimezone,
     update.loggedAt,
     update.dateUncertain,
     datePref
@@ -86,6 +141,7 @@ function CompletionEntry({
           <span className="text-xs text-text-secondary">
             {uncertain ? '~' : ''}
             {dateText}
+            <EntryTimeSuffix timeText={timeText} zoneSuffix={zoneSuffix} />
           </span>
         </div>
         {isOwner && (
@@ -174,8 +230,13 @@ function ProgressEntry({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const { text: dateText } = formatEntryDate(
+  const {
+    text: dateText,
+    timeText,
+    zoneSuffix,
+  } = formatEntryDate(
     update.date,
+    update.dateTimezone,
     update.loggedAt,
     update.dateUncertain,
     datePref
@@ -199,6 +260,7 @@ function ProgressEntry({
           </span>
           <span className="shrink-0 text-xs text-text-secondary">
             {dateText}
+            <EntryTimeSuffix timeText={timeText} zoneSuffix={zoneSuffix} />
           </span>
           {update.attempts != null && (
             <span className="text-xs text-text-tertiary">
@@ -294,8 +356,13 @@ function DropEntry({
   onEdit: () => void
   onDelete: () => void
 }) {
-  const { text: dateText } = formatEntryDate(
+  const {
+    text: dateText,
+    timeText,
+    zoneSuffix,
+  } = formatEntryDate(
     update.date,
+    update.dateTimezone,
     update.loggedAt,
     update.dateUncertain,
     datePref
@@ -308,7 +375,10 @@ function DropEntry({
           <span className="inline-flex h-[22px] items-center rounded bg-[rgba(239,68,68,0.1)] px-2 text-[11px] font-medium text-[#ff8a8a]">
             ⚑ Dropped
           </span>
-          <span className="text-xs text-text-secondary">{dateText}</span>
+          <span className="text-xs text-text-secondary">
+            {dateText}
+            <EntryTimeSuffix timeText={timeText} zoneSuffix={zoneSuffix} />
+          </span>
           {update.attempts != null && (
             <span className="text-xs text-text-tertiary">
               {formatNumber(update.attempts)} attempts

@@ -15,6 +15,8 @@ interface ToolbarProps {
   onSorts: (s: SortSpec[]) => void
   columns: ColumnVisibility
   onColumns: (c: ColumnVisibility) => void
+  hideTime: boolean
+  onHideTime: (next: boolean) => void
   allColumnDefs: ColumnDef[]
   categorySortOptions: { key: SortKey; label: string }[]
   activeFilterCount: number
@@ -44,6 +46,8 @@ export function Toolbar({
   onSorts,
   columns,
   onColumns,
+  hideTime,
+  onHideTime,
   allColumnDefs,
   categorySortOptions,
   activeFilterCount,
@@ -118,6 +122,8 @@ export function Toolbar({
           <ColumnsMenu
             columns={columns}
             onChange={onColumns}
+            hideTime={hideTime}
+            onHideTime={onHideTime}
             allColumnDefs={allColumnDefs}
           />
         </div>

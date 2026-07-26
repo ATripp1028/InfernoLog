@@ -46,6 +46,9 @@ type Event =
   | { type: 'worst_fail'; entry: RunsGraphEntry; effectiveDate: Date }
 
 // The effective date used to sort a progress update within the timeline.
+// `date` may now carry a real time-of-day (see ProgressUpdate.dateTimezone in
+// schema.prisma), in which case same-calendar-day entries sort by actual
+// clock time instead of falling through to the tiebreakers below.
 function effectiveDateOf(u: ProgressUpdateForGraph): Date {
   return u.date ?? u.loggedAt
 }
@@ -154,7 +157,9 @@ export function computeRunsGraph(
     if (bDate === null) return -1
     const diff = aDate.getTime() - bDate.getTime()
     if (diff !== 0) return diff
-    // Same-date tiebreakers (in priority order):
+    // Same-date tiebreakers — a FALLBACK for entries with no time-of-day (or a
+    // genuine exact tie), now that `date`/`worstFailDate` can carry real time
+    // and resolve same-day ordering on their own (in priority order):
     // 1. worst_fail sorts before a completion — it happened just before the win.
     // 2. updates sort before drops — the drop should reference the preceding update.
     const aIsCompletion = a.type === 'update' && a.update.isCompletion

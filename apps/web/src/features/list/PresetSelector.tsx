@@ -81,6 +81,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
       <div className="space-y-1.5 border-t border-[var(--color-border-subtle)] pt-2">
         <HoverRow label="Sort" value={sortSummary} />
         <HoverRow label="Cols" value={colSummary} />
+        {preset.hideTime && <HoverRow label="Time" value="Hidden" />}
         {filterLines.length === 0 ? (
           <HoverRow label="Filters" value="None" />
         ) : (
