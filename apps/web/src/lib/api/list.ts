@@ -50,11 +50,16 @@ export function useDeleteProgress() {
     },
     // Deleting a level's entire progress can remove a Ranking entry and/or
     // affect Collections (e.g. Want to Beat), and if the level's own page is
-    // open it needs to know the entry is gone — not just the List.
-    onSettled: () => {
-      for (const key of INVALIDATE_ON_WRITE) {
-        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
-      }
+    // open it needs to know the entry is gone — not just the List. Awaited
+    // (allSettled) so callers relying on mutateAsync/isPending stay pending
+    // until the refetch actually lands, rather than seeing stale data with no
+    // indication a refetch is in flight.
+    onSettled: async () => {
+      await Promise.allSettled(
+        INVALIDATE_ON_WRITE.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as unknown[] })
+        )
+      )
     },
   })
 }

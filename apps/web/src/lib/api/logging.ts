@@ -295,12 +295,20 @@ export function useCreateManualLevel() {
 // Logging writes
 // ─────────────────────────────────────────────
 
+// Awaited by every mutation's onSuccess below (react-query awaits whatever
+// onSuccess returns before resolving mutate/mutateAsync) — so callers stay in
+// their pending state until the affected views have actually refetched,
+// rather than closing/navigating while the UI still shows stale data with no
+// indication a refetch is even happening. allSettled so a single failed
+// refetch can't surface as a false "write failed" error.
 export function useInvalidateOnWrite() {
   const queryClient = useQueryClient()
-  return () => {
-    for (const key of INVALIDATE_ON_WRITE) {
-      void queryClient.invalidateQueries({ queryKey: key as unknown[] })
-    }
+  return async () => {
+    await Promise.allSettled(
+      INVALIDATE_ON_WRITE.map((key) =>
+        queryClient.invalidateQueries({ queryKey: key as unknown[] })
+      )
+    )
   }
 }
 
