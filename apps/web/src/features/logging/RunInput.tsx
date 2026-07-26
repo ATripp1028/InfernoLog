@@ -77,7 +77,7 @@ export function formatRunInputValue(
   return ''
 }
 
-interface RunInputProps {
+export interface RunInputProps {
   id?: string
   initialValue: string
   onParsedChange: (result: ParsedRun | null) => void

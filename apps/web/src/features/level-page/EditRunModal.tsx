@@ -47,7 +47,7 @@ import {
   formatRunInputValue,
   parseRunInput,
   type ParsedRun,
-} from './RunInput'
+} from '@/features/logging/RunInput'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 interface EditRunForm {
