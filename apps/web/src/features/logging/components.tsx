@@ -166,7 +166,9 @@ export function DateTimeField({
         />
       </div>
       {timeValue === '' ? (
-        <FieldHint>Time is optional — leave blank to just log the date.</FieldHint>
+        <FieldHint>
+          Time is optional — leave blank to just log the date.
+        </FieldHint>
       ) : (
         <select
           aria-label="Timezone"

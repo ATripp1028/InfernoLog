@@ -30,8 +30,18 @@ function formatEntryDate(
   uncertain: boolean
 } {
   if (!dateStr) {
-    const { dateText } = formatEntryDateTime(loggedAt, null, datePref, VIEWER_TZ)
-    return { text: dateText, timeText: null, zoneSuffix: null, uncertain: false }
+    const { dateText } = formatEntryDateTime(
+      loggedAt,
+      null,
+      datePref,
+      VIEWER_TZ
+    )
+    return {
+      text: dateText,
+      timeText: null,
+      zoneSuffix: null,
+      uncertain: false,
+    }
   }
   const { dateText, timeText, showZoneBadge, zoneLabel } = formatEntryDateTime(
     dateStr,

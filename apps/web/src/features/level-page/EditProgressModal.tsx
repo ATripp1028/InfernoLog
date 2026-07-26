@@ -130,7 +130,10 @@ function initForm(
           (u) => u.progressUpdateId === progressUpdateId
         )
       : undefined) ?? data.progressUpdates[0]
-  const session = zonedDateTimeInput(latest?.date ?? null, latest?.dateTimezone ?? null)
+  const session = zonedDateTimeInput(
+    latest?.date ?? null,
+    latest?.dateTimezone ?? null
+  )
   const worstFail = zonedDateTimeInput(
     data.worstFailDate,
     data.worstFailDateTimezone

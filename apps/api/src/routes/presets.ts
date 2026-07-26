@@ -115,7 +115,9 @@ app.patch('/me/list-presets/:id', async (c) => {
         ...(sorts !== undefined && { sorts: sorts as object }),
         ...(filters !== undefined && { filters: filters as object }),
         ...(columns !== undefined && { columns: columns as object }),
-        ...(columnOrder !== undefined && { columnOrder: columnOrder as object }),
+        ...(columnOrder !== undefined && {
+          columnOrder: columnOrder as object,
+        }),
         ...(hideTime !== undefined && { hideTime }),
       },
     })

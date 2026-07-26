@@ -36,7 +36,12 @@ function getDateDisplay(
       uncertain: update.dateUncertain,
     }
   }
-  const { dateText } = formatEntryDateTime(fallbackIso, null, datePref, VIEWER_TZ)
+  const { dateText } = formatEntryDateTime(
+    fallbackIso,
+    null,
+    datePref,
+    VIEWER_TZ
+  )
   return { text: dateText, timeText: null, zoneSuffix: null, uncertain: false }
 }
 

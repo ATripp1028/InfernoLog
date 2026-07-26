@@ -195,7 +195,8 @@ export function draftFromExistingCompletion(
   )
   draft.worstFailDate = worstFail.date ?? ''
   draft.worstFailTime = worstFail.time
-  draft.worstFailTimezone = existing.worstFailDateTimezone ?? getViewerTimezone()
+  draft.worstFailTimezone =
+    existing.worstFailDateTimezone ?? getViewerTimezone()
   draft.worstFailAlreadyLogged = false
   draft.worstFailSameDay = isSameDayToggleOn(
     existing.date,

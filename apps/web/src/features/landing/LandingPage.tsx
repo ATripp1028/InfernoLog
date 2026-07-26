@@ -93,11 +93,10 @@ export function LandingPage() {
               Log a completion the way it actually felt
             </LandingHeading>
             <LandingBody>
-              Enter a level, and InfernoLog pulls the
-              name, creator, song, and difficulty automatically - allowing you
-              to focus on the details that matter: your rating, attempts, and
-              the date you beat it while still retaining metadata to allow
-              for sorting and filtering.
+              Enter a level, and InfernoLog pulls the name, creator, song, and
+              difficulty automatically - allowing you to focus on the details
+              that matter: your rating, attempts, and the date you beat it while
+              still retaining metadata to allow for sorting and filtering.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[600px]">
@@ -115,7 +114,8 @@ export function LandingPage() {
             <LandingHeading>Every attempt is part of the record</LandingHeading>
             <LandingBody>
               Your spreadsheet probably remembers the day you beat a level, but
-              not the journey to get there. InfernoLog lets you track every part of the journey.
+              not the journey to get there. InfernoLog lets you track every part
+              of the journey.
             </LandingBody>
           </div>
           <div className="w-full shrink-0 lg:w-[307px]">
@@ -132,11 +132,11 @@ export function LandingPage() {
           <div className="flex max-w-[720px] flex-col gap-4">
             <LandingHeading>Your whole log, sorted your way</LandingHeading>
             <LandingBody>
-              All your demons in one place, sortable and filterable 
-              by any of the metadata you care about without wrestling 
-              with spreadsheet formulas and semantics. Furthermore,
-              you can save these configurations as presets to quickly 
-              switch between different views of your log.
+              All your demons in one place, sortable and filterable by any of
+              the metadata you care about without wrestling with spreadsheet
+              formulas and semantics. Furthermore, you can save these
+              configurations as presets to quickly switch between different
+              views of your log.
             </LandingBody>
           </div>
           <picture className="w-full">
@@ -159,9 +159,9 @@ export function LandingPage() {
               Rank them the way you actually feel about them
             </LandingHeading>
             <LandingBody>
-              Difficulty is, to an extent, subjective. InfernoLog lets 
-              you drag and drop your own personal difficulty order, 
-              independent of any community list. 
+              Difficulty is, to an extent, subjective. InfernoLog lets you drag
+              and drop your own personal difficulty order, independent of any
+              community list.
             </LandingBody>
           </div>
           <picture className="w-full">

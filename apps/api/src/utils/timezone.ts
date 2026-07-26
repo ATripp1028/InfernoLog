@@ -29,10 +29,7 @@ function partsFormatter(timeZone: string): Intl.DateTimeFormat {
 // is midnight UTC by convention. When `timezone` is set, the date is derived
 // in THAT zone instead, since the stored instant may have rolled into a
 // different UTC calendar day than the one the user experienced/entered.
-export function zonedDateString(
-  date: Date,
-  timezone: string | null
-): string {
+export function zonedDateString(date: Date, timezone: string | null): string {
   if (!timezone) return date.toISOString().slice(0, 10)
   try {
     return partsFormatter(timezone).format(date)

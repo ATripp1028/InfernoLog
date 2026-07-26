@@ -35,9 +35,10 @@ function intOrNull(
 // The session-date choke point: time empty → byte-identical legacy shape
 // (bare date string, no timezone). Time set → converted to the correct UTC
 // instant via the entered IANA zone.
-function sessionDateFields(
-  draft: FlowDraft
-): { date: string | null; dateTimezone: string | null } {
+function sessionDateFields(draft: FlowDraft): {
+  date: string | null
+  dateTimezone: string | null
+} {
   if (!draft.date) return { date: null, dateTimezone: null }
   if (!draft.time) return { date: draft.date, dateTimezone: null }
   return {
@@ -46,12 +47,14 @@ function sessionDateFields(
   }
 }
 
-function worstFailDateFields(
-  draft: FlowDraft
-): { worstFailDate: string | null; worstFailDateTimezone: string | null } {
+function worstFailDateFields(draft: FlowDraft): {
+  worstFailDate: string | null
+  worstFailDateTimezone: string | null
+} {
   if (draft.worstFailSameDay) {
     if (!draft.date) return { worstFailDate: null, worstFailDateTimezone: null }
-    if (!draft.time) return { worstFailDate: draft.date, worstFailDateTimezone: null }
+    if (!draft.time)
+      return { worstFailDate: draft.date, worstFailDateTimezone: null }
     // Nudge one second earlier than the completion/drop instant so the two
     // events don't collide at minute-only display precision — otherwise
     // event lists that sort by exact timestamp can't tell which came first.
@@ -61,7 +64,8 @@ function worstFailDateFields(
       worstFailDateTimezone: draft.timezone,
     }
   }
-  if (!draft.worstFailDate) return { worstFailDate: null, worstFailDateTimezone: null }
+  if (!draft.worstFailDate)
+    return { worstFailDate: null, worstFailDateTimezone: null }
   if (!draft.worstFailTime)
     return { worstFailDate: draft.worstFailDate, worstFailDateTimezone: null }
   return {

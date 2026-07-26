@@ -88,7 +88,12 @@ export function formatEntryDateTime(
   viewerTimezone: string
 ): EntryDateTimeDisplay {
   if (date == null) {
-    return { dateText: '', timeText: null, showZoneBadge: false, zoneLabel: null }
+    return {
+      dateText: '',
+      timeText: null,
+      showZoneBadge: false,
+      zoneLabel: null,
+    }
   }
   if (dateTimezone == null) {
     return {
@@ -100,7 +105,12 @@ export function formatEntryDateTime(
   }
   const instant = typeof date === 'string' ? new Date(date) : date
   if (Number.isNaN(instant.getTime())) {
-    return { dateText: '', timeText: null, showZoneBadge: false, zoneLabel: null }
+    return {
+      dateText: '',
+      timeText: null,
+      showZoneBadge: false,
+      zoneLabel: null,
+    }
   }
   const { year, month, day, hour, minute } = getZonedParts(
     instant,
