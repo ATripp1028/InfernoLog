@@ -29,28 +29,41 @@ interface RunsGraphProps {
   entries: RunsGraphEntry[]
 }
 
+// A stable identity for a bar, independent of its current position in the
+// array — `progressUpdateId` is null for the worst-fail bar and for
+// synthetic drop-derived bars, both of which can change position when an
+// edit shifts the chronological sort order. Falling back to the array index
+// there would let a row's DOM/refs/overlap-state get reused by an unrelated
+// bar after a reorder (observed as a duplicated percent label).
+function entryKey(entry: RunsGraphEntry, i: number): string {
+  if (entry.progressUpdateId) return entry.progressUpdateId
+  if (entry.kind === 'worst_fail') return 'worst-fail'
+  return `drop-${entry.to}-${i}`
+}
+
 export function RunsGraph({ entries }: RunsGraphProps) {
   // Track which "worst fail" rows have their end-percent label overlapping
   // the "Worst fail" text label, so it can be moved inline instead.
-  const labelRefs = useRef<Map<number, HTMLSpanElement>>(new Map())
-  const percentRefs = useRef<Map<number, HTMLSpanElement>>(new Map())
-  const [overlapIndices, setOverlapIndices] = useState<Set<number>>(new Set())
+  const labelRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
+  const percentRefs = useRef<Map<string, HTMLSpanElement>>(new Map())
+  const [overlapKeys, setOverlapKeys] = useState<Set<string>>(new Set())
 
   useLayoutEffect(() => {
     const recompute = () => {
-      const next = new Set<number>()
+      const next = new Set<string>()
       entries.forEach((entry, i) => {
         if (entry.kind !== 'worst_fail') return
-        const labelEl = labelRefs.current.get(i)
-        const percentEl = percentRefs.current.get(i)
+        const key = entryKey(entry, i)
+        const labelEl = labelRefs.current.get(key)
+        const percentEl = percentRefs.current.get(key)
         if (!labelEl || !percentEl) return
         const labelRect = labelEl.getBoundingClientRect()
         const percentRect = percentEl.getBoundingClientRect()
         if (percentRect.left < labelRect.right + 4) {
-          next.add(i)
+          next.add(key)
         }
       })
-      setOverlapIndices(next)
+      setOverlapKeys(next)
     }
 
     recompute()
@@ -113,16 +126,17 @@ export function RunsGraph({ entries }: RunsGraphProps) {
               const lColor = labelColor(entry)
               const rowTop = i * ROW_HEIGHT
               const isWorstFail = entry.kind === 'worst_fail'
+              const key = entryKey(entry, i)
               // A bar starting at the left edge is understood to start from
               // 0, and one reaching the right edge is understood to reach
               // 100 — labeling those values above the bar is redundant.
               const showPercentLabel = toPct !== 0 && toPct !== 100
               const overlapsWorstFailLabel =
-                isWorstFail && overlapIndices.has(i)
+                isWorstFail && overlapKeys.has(key)
 
               return (
                 <div
-                  key={entry.progressUpdateId ?? `entry-${i}`}
+                  key={key}
                   className="absolute left-0 right-0"
                   style={{ top: rowTop, height: ROW_HEIGHT }}
                 >
@@ -132,8 +146,8 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                       ref={
                         isWorstFail
                           ? (el) => {
-                              if (el) labelRefs.current.set(i, el)
-                              else labelRefs.current.delete(i)
+                              if (el) labelRefs.current.set(key, el)
+                              else labelRefs.current.delete(key)
                             }
                           : undefined
                       }
@@ -183,8 +197,8 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                         ref={
                           isWorstFail
                             ? (el) => {
-                                if (el) percentRefs.current.set(i, el)
-                                else percentRefs.current.delete(i)
+                                if (el) percentRefs.current.set(key, el)
+                                else percentRefs.current.delete(key)
                               }
                             : undefined
                         }
