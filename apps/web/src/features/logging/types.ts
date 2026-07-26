@@ -164,13 +164,12 @@ export function isSameDayToggleOn(
   worstFailTimezone: string | null
 ): boolean {
   if (anchorDateRaw == null || worstFailDateRaw == null) return false
-  if (anchorTimezone == null || worstFailTimezone == null) {
-    return (
-      anchorTimezone == null &&
-      worstFailTimezone == null &&
-      anchorDateRaw === worstFailDateRaw
-    )
-  }
+  // The toggle always writes matching timezones for both fields (see
+  // sessionDateFields/worstFailDateFields in payload.ts) — a mismatched pair
+  // was never produced by the toggle itself (imported/legacy data, most
+  // likely), so it can't be "same day toggle on" regardless of timestamps.
+  if (anchorTimezone !== worstFailTimezone) return false
+  if (anchorTimezone == null) return anchorDateRaw === worstFailDateRaw
   return (
     new Date(worstFailDateRaw).getTime() ===
     new Date(anchorDateRaw).getTime() - 1000

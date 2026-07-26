@@ -149,6 +149,7 @@ export function DateTimeField({
       <div className="flex h-9 w-full overflow-hidden rounded-md border border-input bg-[var(--color-bg-surface)] shadow-sm transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
         <input
           type="time"
+          aria-label="Time (optional)"
           value={timeValue}
           disabled={disabled}
           onChange={(e) => onTimeChange(e.target.value)}
@@ -164,7 +165,9 @@ export function DateTimeField({
           className="min-w-0 flex-1 border-0 bg-transparent px-2 py-1 text-sm text-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
         />
       </div>
-      {timeValue !== '' && (
+      {timeValue === '' ? (
+        <FieldHint>Time is optional — leave blank to just log the date.</FieldHint>
+      ) : (
         <select
           aria-label="Timezone"
           value={timezoneValue}

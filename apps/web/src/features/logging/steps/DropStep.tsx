@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { toast } from '@/components/ui/sonner'
-import { ApiError } from '@/lib/api/client'
 import { useLogDrop } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -14,7 +13,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { buildDropInput } from '../payload'
+import { buildDropInput, loggingErrorMessage } from '../payload'
 import {
   clampPercent,
   digitsOnly,
@@ -36,9 +35,7 @@ export function DropStep() {
       toast.success(`Dropped ${level.name ?? 'level'}`)
       close()
     } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not drop level'
-      )
+      toast.error(loggingErrorMessage(err, 'Could not drop level'))
     }
   }
 

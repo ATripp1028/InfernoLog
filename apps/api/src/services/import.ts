@@ -25,6 +25,7 @@ import type {
 import { logger } from '../utils/logger'
 import { searchRobtopByName, type RobtopLevel } from '../utils/robtop'
 import { fetchGddlTier, roundGddlTier } from '../utils/gddl'
+import { zonedDateString } from '../utils/timezone'
 import { removeFromWantToBeat } from './collections'
 import { checkRatingConflicts } from './importRatings'
 import { checkCollectionsMerge } from './importCollections'
@@ -318,6 +319,10 @@ interface LpFields {
   // field the sheet leaves blank, rather than only ever being able to omit it.
   worstFail?: number | null
   worstFailDate?: Date | null
+  // Import rows never carry a real time-of-day for worstFailDate — always
+  // nulled alongside worstFailDate so a previously-real-time value (from an
+  // ordinary logging-flow entry) doesn't linger stale on the new date.
+  worstFailDateTimezone?: string | null
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string | null
   userGddlTier?: number | null
@@ -440,6 +445,9 @@ function buildCompletionProgressUpdateFields(
 ) {
   return {
     date: row.date ? new Date(row.date) : null,
+    // Import rows never carry a real time-of-day — always nulled alongside
+    // `date` so a previously-real-time value doesn't linger stale.
+    dateTimezone: null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
     runFrom: row.runFrom ?? null,
@@ -482,6 +490,7 @@ function buildCompletionLpFields(
     worstFail: row.percentage != null ? Math.round(row.percentage) : null,
     worstFailDate:
       row.worstFailDate != null ? new Date(row.worstFailDate) : null,
+    worstFailDateTimezone: null,
     visibility: row.visibility ?? fallbackVisibility,
     levelNotes: row.levelNotes ?? null,
     userGddlTier,
@@ -501,7 +510,12 @@ function buildCompletionMergePatch(
   row: ImportCompletionRow
 ): Prisma.ProgressUpdateUncheckedUpdateInput {
   const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
-  if (row.date != null) merge.date = new Date(row.date)
+  if (row.date != null) {
+    merge.date = new Date(row.date)
+    // Import rows never carry a real time-of-day — null the timezone
+    // alongside date so a previously-real-time value doesn't linger stale.
+    merge.dateTimezone = null
+  }
   if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
   if (row.attempts != null) merge.attempts = row.attempts
   if (row.fps != null) merge.fps = row.fps
@@ -534,7 +548,10 @@ function buildCompletionMergeLpFields(
       ? { worstFail: Math.round(row.percentage) }
       : {}),
     ...(row.worstFailDate != null
-      ? { worstFailDate: new Date(row.worstFailDate) }
+      ? {
+          worstFailDate: new Date(row.worstFailDate),
+          worstFailDateTimezone: null,
+        }
       : {}),
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
@@ -683,8 +700,13 @@ function planCompletion(
 // commit-time fallback for rows /check couldn't pre-resolve (name-only rows
 // resolve their level too late to be pre-checked) — see matchExistingEvent.
 
-const isoDate = (d: Date | null): string | null =>
-  d ? d.toISOString().slice(0, 10) : null
+// `timezone` is the existing row's paired dateTimezone/worstFailDateTimezone
+// column — null means no time-of-day was ever entered (date is midnight UTC,
+// a raw slice is correct); non-null means the date must be read back through
+// that zone to recover the calendar day the user actually entered, since the
+// UTC calendar day can differ from it (see apps/api/src/utils/timezone.ts).
+const isoDate = (d: Date | null, timezone: string | null): string | null =>
+  d ? zonedDateString(d, timezone) : null
 
 type DecimalLike = { toNumber(): number }
 const toNum = (v: DecimalLike | number | null): number | null =>
@@ -694,6 +716,7 @@ interface ExistingEventSnapshot {
   id: string
   levelId: string
   date: Date | null
+  dateTimezone: string | null
   dateUncertain: boolean
   attempts: number | null
   percentage: number | null
@@ -721,6 +744,7 @@ async function fetchExistingEvents(
     select: {
       id: true,
       date: true,
+      dateTimezone: true,
       dateUncertain: true,
       attempts: true,
       percentage: true,
@@ -739,6 +763,7 @@ async function fetchExistingEvents(
     id: r.id,
     levelId: r.levelProgress.levelId,
     date: r.date,
+    dateTimezone: r.dateTimezone,
     dateUncertain: r.dateUncertain,
     attempts: r.attempts,
     percentage: toNum(r.percentage),
@@ -806,7 +831,7 @@ function diffProgressFields(
 ): ImportFieldDiff[] {
   const diffs: ImportFieldDiff[] = []
   const push = createFieldPusher(diffs)
-  push('date', isoDate(existing.date), row.date ?? null)
+  push('date', isoDate(existing.date, existing.dateTimezone), row.date ?? null)
   push('dateUncertain', existing.dateUncertain, row.dateUncertain ?? null)
   push('attempts', existing.attempts, row.attempts ?? null)
   push('percentage', existing.percentage, row.percentage ?? null)
@@ -831,7 +856,11 @@ function diffDroppedFields(
 ): ImportFieldDiff[] {
   const diffs: ImportFieldDiff[] = []
   const push = createFieldPusher(diffs)
-  push('droppedAt', isoDate(existing.date), row.droppedAt ?? null)
+  push(
+    'droppedAt',
+    isoDate(existing.date, existing.dateTimezone),
+    row.droppedAt ?? null
+  )
   push('bestProgress', existing.percentage, row.bestProgress ?? null)
   push('runFrom', existing.runFrom, row.runFrom ?? null)
   push('runTo', existing.runTo, row.runTo ?? null)
@@ -862,7 +891,7 @@ function matchExistingEvent(
   let sawPartial = false
   for (const existing of candidates) {
     const existingKey = deriveEventKey({
-      date: isoDate(existing.date),
+      date: isoDate(existing.date, existing.dateTimezone),
       percentage: existing.percentage,
       runFrom: existing.runFrom,
       runTo: existing.runTo,
@@ -945,6 +974,7 @@ function planDrop(
     if (resolution === 'overwrite') {
       const fields = {
         date: row.droppedAt ? new Date(row.droppedAt) : null,
+        dateTimezone: null,
         attempts: row.attemptsAtDrop ?? null,
         notes: row.reason ?? null,
         percentage: row.bestProgress ?? null,
@@ -962,7 +992,10 @@ function planDrop(
     // resolution === 'merge', or absent (ordinary id round-trip) — only the
     // fields the sheet provides are written, same shape either way.
     const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
-    if (row.droppedAt != null) merge.date = new Date(row.droppedAt)
+    if (row.droppedAt != null) {
+      merge.date = new Date(row.droppedAt)
+      merge.dateTimezone = null
+    }
     if (row.attemptsAtDrop != null) merge.attempts = row.attemptsAtDrop
     if (row.reason != null) merge.notes = row.reason
     if (row.bestProgress != null) merge.percentage = row.bestProgress
@@ -998,6 +1031,7 @@ function planDrop(
     levelProgressId: plan.id,
     kind: 'DROP',
     date: row.droppedAt ? new Date(row.droppedAt) : null,
+    dateTimezone: null,
     attempts: row.attemptsAtDrop ?? null,
     notes: row.reason ?? null,
     percentage: row.bestProgress ?? null,
@@ -1047,6 +1081,7 @@ function planProgress(
     if (resolution === 'overwrite') {
       const fields = {
         date: row.date ? new Date(row.date) : null,
+        dateTimezone: null,
         dateUncertain: row.dateUncertain ?? false,
         attempts: row.attempts ?? null,
         percentage: row.percentage ?? null,
@@ -1068,7 +1103,10 @@ function planProgress(
     // resolution === 'merge', or absent (ordinary id round-trip) — only the
     // fields the sheet provides are written, same shape either way.
     const merge: Prisma.ProgressUpdateUncheckedUpdateInput = {}
-    if (row.date != null) merge.date = new Date(row.date)
+    if (row.date != null) {
+      merge.date = new Date(row.date)
+      merge.dateTimezone = null
+    }
     if (row.dateUncertain != null) merge.dateUncertain = row.dateUncertain
     if (row.attempts != null) merge.attempts = row.attempts
     if (row.percentage != null) merge.percentage = row.percentage
@@ -1110,6 +1148,7 @@ function planProgress(
     levelProgressId: plan.id,
     kind: 'PROGRESS',
     date: row.date ? new Date(row.date) : null,
+    dateTimezone: null,
     dateUncertain: row.dateUncertain ?? false,
     attempts: row.attempts ?? null,
     percentage: row.percentage ?? null,
@@ -1792,6 +1831,7 @@ export async function commitImportBatch(
 // `buildCompletionLpFields` can write.
 interface ExistingCompletionSnapshot {
   date: Date | null
+  dateTimezone: string | null
   dateUncertain: boolean
   attempts: number | null
   runFrom: number | null
@@ -1810,6 +1850,7 @@ interface ExistingCompletionSnapshot {
   device: string | null
   worstFail: number | null
   worstFailDate: Date | null
+  worstFailDateTimezone: string | null
   visibility: string
   levelNotes: string | null
   userGddlTier: number | null
@@ -1829,7 +1870,7 @@ function diffCompletionFields(
   const diffs: ImportFieldDiff[] = []
   const push = createFieldPusher(diffs)
 
-  push('date', isoDate(existing.date), row.date ?? null)
+  push('date', isoDate(existing.date, existing.dateTimezone), row.date ?? null)
   push('dateUncertain', existing.dateUncertain, row.dateUncertain ?? null)
   push('attempts', existing.attempts, row.attempts ?? null)
   push('runFrom', existing.runFrom, row.runFrom ?? null)
@@ -1878,7 +1919,7 @@ function diffCompletionFields(
   )
   push(
     'worstFailDate',
-    isoDate(existing.worstFailDate),
+    isoDate(existing.worstFailDate, existing.worstFailDateTimezone),
     row.worstFailDate ?? null
   )
   push('visibility', existing.visibility, row.visibility ?? null)
@@ -1930,7 +1971,7 @@ function scanForConflicts<
     let exact = false
     for (const existing of candidates) {
       const existingKey = deriveEventKey({
-        date: isoDate(existing.date),
+        date: isoDate(existing.date, existing.dateTimezone),
         percentage: existing.percentage,
         runFrom: existing.runFrom,
         runTo: existing.runTo,
@@ -1985,6 +2026,7 @@ export async function checkImportConflicts(
             where: { kind: 'COMPLETION' },
             select: {
               date: true,
+              dateTimezone: true,
               dateUncertain: true,
               attempts: true,
               runFrom: true,
@@ -2017,6 +2059,7 @@ export async function checkImportConflicts(
 
     const snapshot: ExistingCompletionSnapshot = {
       date: pu.date,
+      dateTimezone: pu.dateTimezone,
       dateUncertain: pu.dateUncertain,
       attempts: pu.attempts,
       runFrom: pu.runFrom,
@@ -2035,6 +2078,7 @@ export async function checkImportConflicts(
       device: pu.device,
       worstFail: lp.worstFail,
       worstFailDate: lp.worstFailDate,
+      worstFailDateTimezone: lp.worstFailDateTimezone,
       visibility: lp.visibility,
       levelNotes: lp.levelNotes,
       userGddlTier: lp.userGddlTier,

@@ -43,7 +43,12 @@ import {
 } from '@/features/logging/steps/CompletionSessionStep'
 import { DateTimeField } from '@/features/logging/components'
 import { isSameDayToggleOn } from '@/features/logging/types'
-import { getViewerTimezone, getZonedParts, zonedTimeToUtc } from '@/lib/timezone'
+import {
+  getViewerTimezone,
+  getZonedParts,
+  zonedTimeToUtc,
+  NonexistentLocalTimeError,
+} from '@/lib/timezone'
 import type { Device } from '@/lib/api/logging'
 import type { LevelMeta, LevelPageData } from './types'
 
@@ -130,7 +135,12 @@ function initForm(
     data.worstFailDate,
     data.worstFailDateTimezone
   )
-  const isCompletionEntry = latest?.kind === 'COMPLETION'
+  // Same-day-as-anchor is offered for both completions and drops (see
+  // CompletionBasicsStep/DropStep, which both write the nudge — see
+  // isSameDayToggleOn) — gating this on completion only would forget the
+  // toggle's on/off state every time an existing drop is reopened for edit.
+  const isCompletionOrDropEntry =
+    latest?.kind === 'COMPLETION' || latest?.kind === 'DROP'
   return {
     date: session.date,
     time: session.time,
@@ -142,7 +152,7 @@ function initForm(
     worstFailTime: worstFail.time,
     worstFailTimezone: data.worstFailDateTimezone ?? getViewerTimezone(),
     worstFailSameDay:
-      isCompletionEntry &&
+      isCompletionOrDropEntry &&
       isSameDayToggleOn(
         latest?.date ?? null,
         latest?.dateTimezone ?? null,
@@ -259,6 +269,7 @@ export function EditProgressModal({
         )
       : undefined) ?? data.progressUpdates[0]
   const isCompletion = latestUpdate?.kind === 'COMPLETION'
+  const isDrop = latestUpdate?.kind === 'DROP'
   const showHighlightUrl = me.data.showHighlightUrl
   const completionUpdate = data.progressUpdates.find(
     (u) => u.kind === 'COMPLETION'
@@ -291,38 +302,57 @@ export function EditProgressModal({
   }
 
   function handleSave() {
-    const session = form.date
-      ? form.time
-        ? {
-            date: zonedTimeToUtc(form.date, form.time, form.timezone).toISOString(),
-            dateTimezone: form.timezone,
-          }
-        : { date: form.date, dateTimezone: null }
-      : { date: null, dateTimezone: null }
-    const worstFail = form.worstFailSameDay
-      ? // Nudge one second earlier than the completion instant so the two
-        // events don't collide at minute-only display precision — otherwise
-        // event lists that sort by exact timestamp can't tell which came first.
-        session.dateTimezone
-        ? {
-            worstFailDate: new Date(
-              new Date(session.date as string).getTime() - 1000
-            ).toISOString(),
-            worstFailDateTimezone: session.dateTimezone,
-          }
-        : { worstFailDate: session.date, worstFailDateTimezone: null }
-      : form.worstFailDate
-        ? form.worstFailTime
+    let session: { date: string | null; dateTimezone: string | null }
+    let worstFail: {
+      worstFailDate: string | null
+      worstFailDateTimezone: string | null
+    }
+    try {
+      session = form.date
+        ? form.time
           ? {
-              worstFailDate: zonedTimeToUtc(
-                form.worstFailDate,
-                form.worstFailTime,
-                form.worstFailTimezone
+              date: zonedTimeToUtc(
+                form.date,
+                form.time,
+                form.timezone
               ).toISOString(),
-              worstFailDateTimezone: form.worstFailTimezone,
+              dateTimezone: form.timezone,
             }
-          : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
-        : { worstFailDate: null, worstFailDateTimezone: null }
+          : { date: form.date, dateTimezone: null }
+        : { date: null, dateTimezone: null }
+      worstFail = form.worstFailSameDay
+        ? // Nudge one second earlier than the completion instant so the two
+          // events don't collide at minute-only display precision — otherwise
+          // event lists that sort by exact timestamp can't tell which came first.
+          session.dateTimezone
+          ? {
+              worstFailDate: new Date(
+                new Date(session.date as string).getTime() - 1000
+              ).toISOString(),
+              worstFailDateTimezone: session.dateTimezone,
+            }
+          : { worstFailDate: session.date, worstFailDateTimezone: null }
+        : form.worstFailDate
+          ? form.worstFailTime
+            ? {
+                worstFailDate: zonedTimeToUtc(
+                  form.worstFailDate,
+                  form.worstFailTime,
+                  form.worstFailTimezone
+                ).toISOString(),
+                worstFailDateTimezone: form.worstFailTimezone,
+              }
+            : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
+          : { worstFailDate: null, worstFailDateTimezone: null }
+    } catch (err) {
+      if (err instanceof NonexistentLocalTimeError) {
+        toast.error(
+          "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
+        )
+        return
+      }
+      throw err
+    }
 
     const payload: Record<string, unknown> = {
       ...(progressUpdateId ? { progressUpdateId } : {}),
@@ -486,7 +516,7 @@ export function EditProgressModal({
                     >
                       Worst fail date
                     </Label>
-                    {isCompletion && (
+                    {(isCompletion || isDrop) && (
                       <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
                         <input
                           type="checkbox"
@@ -496,7 +526,7 @@ export function EditProgressModal({
                           }
                           className="rounded border-border"
                         />
-                        Same day as completion
+                        Same day as {isCompletion ? 'completion' : 'drop'}
                       </label>
                     )}
                   </div>

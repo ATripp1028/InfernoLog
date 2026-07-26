@@ -13,12 +13,17 @@
 
 import prisma from '../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
+import { zonedDateString } from '../utils/timezone'
 
 export const EXPORT_DEFAULT_LIMIT = 500
 export const EXPORT_MAX_LIMIT = 1000
 
-const iso = (d: Date | null): string | null =>
-  d ? d.toISOString().slice(0, 10) : null
+// `timezone` is the paired dateTimezone/worstFailDateTimezone column — null
+// means no time-of-day was entered (date is midnight UTC, a raw slice is
+// correct); non-null means the date must be read back through that zone to
+// recover the calendar day the user actually entered.
+const iso = (d: Date | null, timezone: string | null): string | null =>
+  d ? zonedDateString(d, timezone) : null
 
 type DecimalLike = { toNumber(): number }
 const toNum = (v: DecimalLike | number | null): number | null =>
@@ -41,6 +46,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       levelId: true,
       worstFail: true,
       worstFailDate: true,
+      worstFailDateTimezone: true,
       visibility: true,
       levelNotes: true,
       userGddlTier: true,
@@ -52,6 +58,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         take: 1,
         select: {
           date: true,
+          dateTimezone: true,
           dateUncertain: true,
           attempts: true,
           runFrom: true,
@@ -81,11 +88,11 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         levelName: lp.level.name,
         creator: lp.level.creator,
         inGameDifficulty: pu.inGameDifficulty,
-        date: iso(pu.date),
+        date: iso(pu.date, pu.dateTimezone),
         dateUncertain: pu.dateUncertain,
         attempts: pu.attempts,
         percentage: lp.worstFail,
-        worstFailDate: iso(lp.worstFailDate),
+        worstFailDate: iso(lp.worstFailDate, lp.worstFailDateTimezone),
         runFrom: pu.runFrom,
         runTo: pu.runTo,
         onStream: pu.onStream,
@@ -122,6 +129,7 @@ async function exportProgress(userId: string, skip: number, take: number) {
     select: {
       id: true,
       date: true,
+      dateTimezone: true,
       dateUncertain: true,
       attempts: true,
       percentage: true,
@@ -148,7 +156,7 @@ async function exportProgress(userId: string, skip: number, take: number) {
     levelId: u.levelProgress.levelId,
     levelName: u.levelProgress.level.name,
     creator: u.levelProgress.level.creator,
-    date: iso(u.date),
+    date: iso(u.date, u.dateTimezone),
     dateUncertain: u.dateUncertain,
     attempts: u.attempts,
     percentage: toNum(u.percentage),
@@ -177,6 +185,7 @@ async function exportDropped(userId: string, skip: number, take: number) {
     select: {
       id: true,
       date: true,
+      dateTimezone: true,
       attempts: true,
       notes: true,
       levelProgress: {
@@ -214,7 +223,7 @@ async function exportDropped(userId: string, skip: number, take: number) {
       inGameDifficulty: lp.level.inGameDifficulty,
       bestProgress: isCurrentDrop ? lp.worstFail : null,
       attemptsAtDrop: u.attempts,
-      droppedAt: iso(u.date),
+      droppedAt: iso(u.date, u.dateTimezone),
       reason: u.notes,
     }
   })

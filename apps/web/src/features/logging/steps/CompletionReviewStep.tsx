@@ -1,14 +1,13 @@
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
-import { ApiError } from '@/lib/api/client'
 import { useLogCompletion } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
-import { buildCompletionInput } from '../payload'
+import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber, formatRating } from '../format'
 import { opinionToStars } from '@infernolog/core'
 
@@ -70,9 +69,7 @@ export function CompletionReviewStep() {
       setLastCompletion(result.levelProgress.id)
       setStep(me.data.hasGddlApiKey ? 'c_gddl' : 'c_success')
     } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not log completion'
-      )
+      toast.error(loggingErrorMessage(err, 'Could not log completion'))
     }
   }
 

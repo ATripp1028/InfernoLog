@@ -240,12 +240,33 @@ export const LevelIdSchema = z
   .string()
   .regex(/^\d+$/, 'Level ID must be numeric')
 
+// Validity check for a user-submitted timezone string — rejects clearly
+// invalid values at the write boundary rather than storing a string that
+// throws when Intl.DateTimeFormat is later constructed from it for display.
+// Attempts actual construction rather than checking membership in
+// Intl.supportedValuesOf('timeZone')'s list — that list excludes some
+// spec-legal values the constructor still accepts (notably 'UTC' itself).
+function isValidTimeZone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat(undefined, { timeZone: tz })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const timezoneField = z
+  .string()
+  .refine(isValidTimeZone, { message: 'Must be a valid IANA time zone name' })
+  .nullable()
+  .optional()
+
 // Fields shared by every logged entry's "session details" step.
 const sessionDetailFields = {
   date: z.coerce.date().nullable().optional(),
   // IANA zone the time-of-day on `date` was entered in (e.g. "America/New_York").
   // Null/omitted means no time was entered — `date` is a bare calendar date.
-  dateTimezone: z.string().nullable().optional(),
+  dateTimezone: timezoneField,
   dateUncertain: z.boolean().default(false),
   attempts: z
     .number()
@@ -284,7 +305,7 @@ export const CompletionInputSchema = z.object({
   worstFailDate: z.coerce.date().nullable().optional(),
   // IANA zone the time-of-day on worstFailDate was entered in. Null/omitted
   // means no time was entered.
-  worstFailDateTimezone: z.string().nullable().optional(),
+  worstFailDateTimezone: timezoneField,
   videoUrl: z.string().url().nullable().optional(),
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
@@ -354,7 +375,7 @@ export const ProgressInputSchema = z
 export const DropInputSchema = z.object({
   levelId: LevelIdSchema,
   date: z.coerce.date().nullable().optional(),
-  dateTimezone: z.string().nullable().optional(),
+  dateTimezone: timezoneField,
   attempts: z
     .number()
     .int()
@@ -367,7 +388,7 @@ export const DropInputSchema = z.object({
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   // Date/time of the worst fail session.
   worstFailDate: z.coerce.date().nullable().optional(),
-  worstFailDateTimezone: z.string().nullable().optional(),
+  worstFailDateTimezone: timezoneField,
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
 })
 
@@ -381,7 +402,7 @@ export const EditProgressInputSchema = z.object({
   levelNotes: z.string().max(5000).nullable().optional(),
   worstFail: z.number().int().min(0).max(100).nullable().optional(),
   worstFailDate: z.coerce.date().nullable().optional(),
-  worstFailDateTimezone: z.string().nullable().optional(),
+  worstFailDateTimezone: timezoneField,
   visibility: z.nativeEnum(EntryVisibility).optional(),
   // One current value per level, not per event — editable regardless of
   // which ProgressUpdate is being viewed.
@@ -399,7 +420,7 @@ export const EditProgressInputSchema = z.object({
     .optional(),
   // ProgressUpdate fields
   date: z.coerce.date().nullable().optional(),
-  dateTimezone: z.string().nullable().optional(),
+  dateTimezone: timezoneField,
   dateUncertain: z.boolean().optional(),
   attempts: z
     .number()

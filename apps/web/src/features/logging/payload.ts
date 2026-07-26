@@ -7,8 +7,20 @@ import type {
   ProgressInput,
 } from '@/lib/api/logging'
 import type { MeData } from '@/lib/api/me'
-import { zonedTimeToUtc } from '@/lib/timezone'
+import { ApiError } from '@/lib/api/client'
+import { zonedTimeToUtc, NonexistentLocalTimeError } from '@/lib/timezone'
 import type { FlowDraft } from './types'
+
+// Shared submit-error → toast message mapping for the completion/drop/progress
+// steps below — a NonexistentLocalTimeError means the entered date/time falls
+// in a DST "spring forward" gap for the selected zone (see zonedTimeToUtc);
+// anything else falls back to the ApiError message or a generic fallback.
+export function loggingErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof NonexistentLocalTimeError) {
+    return "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
+  }
+  return err instanceof ApiError ? err.message : fallback
+}
 
 function intOrNull(
   value: string,

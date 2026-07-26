@@ -77,10 +77,10 @@ export interface EntryDateTimeDisplay {
 // existing calendar-only rendering unchanged. When a timezone IS present, the
 // date/time shown are computed in THAT zone (not the viewer's), so an entry
 // always displays the same wall-clock moment to every viewer. The zone badge
-// shows whenever it differs from the viewer's current zone, or whenever it's
-// UTC — UTC doubles as the legacy/no-time fallback convention, so it's always
-// flagged explicitly rather than risk a viewer assuming an unlabeled time is
-// already in their own zone.
+// shows whenever it differs from the viewer's current zone — a viewer whose
+// own zone genuinely is UTC sees no badge on their own UTC-zoned entries,
+// same as anyone else viewing their own zone's entries. `null` (not the
+// string 'UTC') is the one convention-wide signal for "no time entered".
 export function formatEntryDateTime(
   date: Date | string | null,
   dateTimezone: string | null,
@@ -99,6 +99,9 @@ export function formatEntryDateTime(
     }
   }
   const instant = typeof date === 'string' ? new Date(date) : date
+  if (Number.isNaN(instant.getTime())) {
+    return { dateText: '', timeText: null, showZoneBadge: false, zoneLabel: null }
+  }
   const { year, month, day, hour, minute } = getZonedParts(
     instant,
     dateTimezone
@@ -110,7 +113,6 @@ export function formatEntryDateTime(
     datePreference
   )
   const timeText = formatTimeOfDay(hour, minute, datePreference)
-  const showZoneBadge =
-    dateTimezone !== viewerTimezone || dateTimezone === 'UTC'
+  const showZoneBadge = dateTimezone !== viewerTimezone
   return { dateText, timeText, showZoneBadge, zoneLabel: dateTimezone }
 }
