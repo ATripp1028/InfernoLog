@@ -200,16 +200,18 @@ export interface LogResult {
   progressUpdate: { id: string } | null
 }
 
-// Placeholder query keys the Log/List/Ranking pages will adopt; invalidated on
-// every write so those views refetch once they're built. Exported so other
-// flows that bulk-write progress data (e.g. GDDL/spreadsheet import) can
-// invalidate the same set instead of duplicating it.
+// Every view that can be affected by a completion/progress/drop write.
+// Exported so other flows that write the same underlying data (edit/delete
+// on the Level Page, bulk GDDL/spreadsheet import, GDDL auto-sync) can
+// invalidate the same set instead of duplicating — and drifting from — it.
 export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
-  ['log'],
   ['list'],
   ['ranking'],
   // A completion can auto-remove a level from Want to Beat.
   ['collections'],
+  // Prefix match: invalidates ['level-page', levelId] for whichever level
+  // was open, without needing to know its id here.
+  ['level-page'],
 ]
 
 // ─────────────────────────────────────────────
@@ -293,7 +295,7 @@ export function useCreateManualLevel() {
 // Logging writes
 // ─────────────────────────────────────────────
 
-function useInvalidateOnWrite() {
+export function useInvalidateOnWrite() {
   const queryClient = useQueryClient()
   return () => {
     for (const key of INVALIDATE_ON_WRITE) {

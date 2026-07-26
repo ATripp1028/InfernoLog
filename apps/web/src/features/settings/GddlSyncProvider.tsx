@@ -2,8 +2,7 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 import { useGddlSyncStatus, type GddlSyncResult } from '@/lib/api/me'
-import { listQueryKey } from '@/lib/api/list'
-import { rankingQueryKey } from '@/lib/api/ranking'
+import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
 import {
   getHandledGddlSyncJobId,
   setHandledGddlSyncJobId,
@@ -32,8 +31,8 @@ const GddlSyncContext = createContext<GddlSyncContextValue | null>(null)
 // Polls GET /v1/me/gddl-sync (the user's current/most-recent job, no id
 // needed) at the authenticated app shell — mirrors ImportStatusToast/
 // useImportStatus for spreadsheet import — so the completion toast and
-// list/ranking cache invalidation fire regardless of which page is open,
-// and survive a full page reload: the server is the source of truth for
+// cache invalidation fire regardless of which page is open, and survive a
+// full page reload: the server is the source of truth for
 // "the current job," not client state. The only client-side bookkeeping
 // left is which job id we've already reacted to (gddlSyncStorage), since
 // the endpoint keeps returning the latest job long after it's finished.
@@ -54,8 +53,12 @@ export function GddlSyncProvider({ children }: { children: ReactNode }) {
           id: `gddl-sync-${job.id}`,
         })
       }
-      void queryClient.invalidateQueries({ queryKey: listQueryKey })
-      void queryClient.invalidateQueries({ queryKey: rankingQueryKey })
+      // Mirrors ImportStatusToast: the sync worker writes completions
+      // straight to Postgres, so fire the same invalidation a manual log
+      // write would (List/Ranking/Collections/whichever Level Page is open).
+      for (const key of INVALIDATE_ON_WRITE) {
+        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
+      }
     } else {
       toast.error(job.error ?? 'Sync failed', { id: `gddl-sync-${job.id}` })
     }
