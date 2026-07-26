@@ -2,16 +2,20 @@ import { Link, useParams, useNavigate } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowLeft,
+  Check,
+  Flag,
   Lock,
   List,
   Pencil,
   Trash2,
   Upload,
+  X,
 } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
+import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
 import { AlertDialog } from '@/components/ui/alert-dialog'
 import { toast } from '@/components/ui/sonner'
@@ -145,6 +149,7 @@ export function LevelPage() {
   const [editLevelOpen, setEditLevelOpen] = useState(false)
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
+  const { openForEdit } = useLoggingFlow()
 
   const query = useLevelPage(levelId)
 
@@ -226,6 +231,30 @@ export function LevelPage() {
             icon: Pencil,
             onClick: handleEditRun,
           },
+          // A level can only hold one completion — once it's beaten there's
+          // nothing new left to log.
+          ...(!hasCompletion
+            ? [
+                {
+                  key: 'log-completion',
+                  label: 'Log a completion',
+                  icon: Check,
+                  onClick: () => openForEdit(levelId, 'completion'),
+                },
+                {
+                  key: 'log-progress',
+                  label: 'Log progress',
+                  icon: Flag,
+                  onClick: () => openForEdit(levelId, 'progress'),
+                },
+                {
+                  key: 'log-drop',
+                  label: 'Drop this level',
+                  icon: X,
+                  onClick: () => openForEdit(levelId, 'drop'),
+                },
+              ]
+            : []),
           {
             key: 'add-collection',
             label: 'Add to a Collection',

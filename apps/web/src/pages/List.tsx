@@ -15,6 +15,8 @@ import {
   type ListPreset,
 } from '../lib/api/presets'
 import { useLevelPage } from '../lib/api/levelPage'
+import { useLoggingFlow } from '../features/logging/LoggingFlowProvider'
+import type { FlowPath } from '../features/logging/types'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
 import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
@@ -74,6 +76,7 @@ export function List() {
   const deletePreset = useDeletePreset()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
+  const { openForEdit } = useLoggingFlow()
 
   // Derived (not local state) so concurrent overwrites of different presets
   // don't clear each other's in-flight indicator via a shared onSettled.
@@ -457,6 +460,10 @@ export function List() {
     setEditingLevelId(item.level.inGameId)
   }
 
+  function handleLog(item: ListItem, path: FlowPath) {
+    openForEdit(item.level.inGameId, path)
+  }
+
   function handleNavigate(item: ListItem) {
     void navigate({
       to: '/list/$levelId',
@@ -553,6 +560,7 @@ export function List() {
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
                 onAddToCollectionItem={setAddToCollectionItem}
+                onLogItem={handleLog}
               />
               <MobilePager
                 items={visible}
