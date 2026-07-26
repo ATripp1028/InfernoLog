@@ -22,7 +22,9 @@ import { LevelNotes } from '@/features/level-page/LevelNotes'
 import { Timeline } from '@/features/level-page/Timeline'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
 import { useFabActions } from '@/context/FabActionsContext'
-import { EditProgressModal } from '@/features/level-page/EditProgressModal'
+import { EditRunModal } from '@/features/level-page/EditRunModal'
+import { EditLevelModal } from '@/features/level-page/EditLevelModal'
+import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { useState } from 'react'
 
@@ -136,10 +138,11 @@ export function LevelPage() {
     string | null
   >(null)
   const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [editProgressUpdateId, setEditProgressUpdateId] = useState<
+  const [editRunOpen, setEditRunOpen] = useState(false)
+  const [editRunProgressUpdateId, setEditRunProgressUpdateId] = useState<
     string | null
   >(null)
+  const [editLevelOpen, setEditLevelOpen] = useState(false)
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
   const submitGddlRecord = useSubmitGddlRecord()
 
@@ -176,8 +179,21 @@ export function LevelPage() {
     })
   }
 
-  function handleEditLevel() {
-    setEditOpen(true)
+  // FAB's "Edit this entry" — resolves the primary entry (completion-first,
+  // else newest) since the FAB isn't scoped to any one Timeline card. Uses
+  // `query.data` directly (rather than the destructured `data` below) since
+  // this runs before the loading/error early returns, same reason
+  // `isOwner`/`hasCompletion` above do.
+  function handleEditRun() {
+    if (!query.data) return
+    const id = findPrimaryProgressUpdateId(query.data)
+    if (!id) return
+    setEditRunProgressUpdateId(id)
+    setEditRunOpen(true)
+  }
+
+  function handleEditLevelDetails() {
+    setEditLevelOpen(true)
   }
 
   function handleGddlSubmitConfirm() {
@@ -208,7 +224,7 @@ export function LevelPage() {
             key: 'edit',
             label: 'Edit this entry',
             icon: Pencil,
-            onClick: handleEditLevel,
+            onClick: handleEditRun,
           },
           {
             key: 'add-collection',
@@ -315,7 +331,7 @@ export function LevelPage() {
           <LevelNotes
             notes={data.levelNotes}
             isOwner={isOwner}
-            onEdit={handleEditLevel}
+            onEdit={handleEditLevelDetails}
           />
         </div>
 
@@ -334,8 +350,8 @@ export function LevelPage() {
               datePref={dateFormatPreference}
               isOwner={isOwner}
               onEdit={(id) => {
-                setEditProgressUpdateId(id)
-                setEditOpen(true)
+                setEditRunProgressUpdateId(id)
+                setEditRunOpen(true)
               }}
               onDelete={(id) => setPendingDeleteUpdateId(id)}
             />
@@ -390,7 +406,7 @@ export function LevelPage() {
               <LevelNotes
                 notes={data.levelNotes}
                 isOwner={isOwner}
-                onEdit={handleEditLevel}
+                onEdit={handleEditLevelDetails}
               />
             </div>
 
@@ -412,8 +428,8 @@ export function LevelPage() {
                     datePref={dateFormatPreference}
                     isOwner={isOwner}
                     onEdit={(id) => {
-                      setEditProgressUpdateId(id)
-                      setEditOpen(true)
+                      setEditRunProgressUpdateId(id)
+                      setEditRunOpen(true)
                     }}
                     onDelete={(id) => setPendingDeleteUpdateId(id)}
                   />
@@ -441,18 +457,30 @@ export function LevelPage() {
         </div>
       </div>
 
-      {/* Edit modal */}
+      {/* Edit run modal */}
       {isOwner && (
-        <EditProgressModal
-          open={editOpen}
+        <EditRunModal
+          open={editRunOpen}
           onClose={() => {
-            setEditOpen(false)
-            setEditProgressUpdateId(null)
+            setEditRunOpen(false)
+            setEditRunProgressUpdateId(null)
           }}
           data={data}
           levelId={levelId}
           scale={ratingDisplayScale}
-          progressUpdateId={editProgressUpdateId}
+          datePref={dateFormatPreference}
+          progressUpdateId={editRunProgressUpdateId}
+        />
+      )}
+
+      {/* Edit level details modal */}
+      {isOwner && (
+        <EditLevelModal
+          open={editLevelOpen}
+          onClose={() => setEditLevelOpen(false)}
+          data={data}
+          levelId={levelId}
+          scale={ratingDisplayScale}
         />
       )}
 

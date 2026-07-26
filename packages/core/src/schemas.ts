@@ -395,54 +395,73 @@ export const DropInputSchema = z.object({
 // EDIT PROGRESS — partial update applied to the most recent ProgressUpdate
 // for a given level, plus LevelProgress-level metadata. All fields optional;
 // only present keys are written. Sent as PATCH /v1/me/progress/:levelId.
-export const EditProgressInputSchema = z.object({
-  // When provided, targets this specific ProgressUpdate instead of the most recent
-  progressUpdateId: z.string().uuid().optional(),
-  // LevelProgress fields
-  levelNotes: z.string().max(5000).nullable().optional(),
-  worstFail: z.number().int().min(0).max(100).nullable().optional(),
-  worstFailDate: z.coerce.date().nullable().optional(),
-  worstFailDateTimezone: timezoneField,
-  visibility: z.nativeEnum(EntryVisibility).optional(),
-  // One current value per level, not per event — editable regardless of
-  // which ProgressUpdate is being viewed.
-  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
-  ratingScores: z.array(RatingScoreInputSchema).optional(),
-  coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
-  // Platformer only (v2, no UI yet): time of the completing attempt, seconds.
-  completionTime: z.number().int().nonnegative().nullable().optional(),
-  userGddlTier: z
-    .number()
-    .int()
-    .min(0)
-    .max(MAX_GDDL_TIER)
-    .nullable()
-    .optional(),
-  // ProgressUpdate fields
-  date: z.coerce.date().nullable().optional(),
-  dateTimezone: timezoneField,
-  dateUncertain: z.boolean().optional(),
-  attempts: z
-    .number()
-    .int()
-    .nonnegative()
-    .max(MAX_ATTEMPTS)
-    .nullable()
-    .optional(),
-  fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
-  percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
-  onStream: z.boolean().optional(),
-  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-  // no separate paired field.
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
-  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
-  videoUrl: z.string().url().nullable().optional(),
-  highlightUrl: z.string().url().nullable().optional(),
-  notes: z.string().max(2000).nullable().optional(),
-  twoPlayerSolo: z.boolean().nullable().optional(),
-  twoPlayerPartner: z.string().max(100).nullable().optional(),
-  device: z.nativeEnum(Device).nullable().optional(),
-})
+export const EditProgressInputSchema = z
+  .object({
+    // When provided, targets this specific ProgressUpdate instead of the most recent
+    progressUpdateId: z.string().uuid().optional(),
+    // LevelProgress fields
+    levelNotes: z.string().max(5000).nullable().optional(),
+    worstFail: z.number().int().min(0).max(100).nullable().optional(),
+    worstFailDate: z.coerce.date().nullable().optional(),
+    worstFailDateTimezone: timezoneField,
+    visibility: z.nativeEnum(EntryVisibility).optional(),
+    // One current value per level, not per event — editable regardless of
+    // which ProgressUpdate is being viewed.
+    simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+    ratingScores: z.array(RatingScoreInputSchema).optional(),
+    coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
+    // Platformer only (v2, no UI yet): time of the completing attempt, seconds.
+    completionTime: z.number().int().nonnegative().nullable().optional(),
+    userGddlTier: z
+      .number()
+      .int()
+      .min(0)
+      .max(MAX_GDDL_TIER)
+      .nullable()
+      .optional(),
+    // ProgressUpdate fields
+    date: z.coerce.date().nullable().optional(),
+    dateTimezone: timezoneField,
+    dateUncertain: z.boolean().optional(),
+    attempts: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(MAX_ATTEMPTS)
+      .nullable()
+      .optional(),
+    fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
+    percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
+    onStream: z.boolean().optional(),
+    // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+    // no separate paired field.
+    difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
+    enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+    videoUrl: z.string().url().nullable().optional(),
+    highlightUrl: z.string().url().nullable().optional(),
+    notes: z.string().max(2000).nullable().optional(),
+    twoPlayerSolo: z.boolean().nullable().optional(),
+    twoPlayerPartner: z.string().max(100).nullable().optional(),
+    device: z.nativeEnum(Device).nullable().optional(),
+    // Percentage/run-range editing — only meaningful for kind=PROGRESS
+    // entries (completions are implied 100%, drops don't track a
+    // percentage). Mutually exclusive with runFrom/runTo, same as the
+    // from_zero/from_run split in ProgressInputSchema above — enforced in
+    // applyEdit (apps/api/src/services/progress.ts), not here, since this
+    // is a flat partial-update schema rather than a discriminated union.
+    percentage: z.number().min(0).max(100).nullable().optional(),
+    runFrom: z.number().int().min(0).max(100).nullable().optional(),
+    runTo: z.number().int().min(0).max(100).nullable().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.runFrom != null && v.runTo != null && v.runTo < v.runFrom) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'runTo must be greater than or equal to runFrom',
+        path: ['runTo'],
+      })
+    }
+  })
 
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
 // difficulty BECOMES the level's in-game difficulty (the one sanctioned

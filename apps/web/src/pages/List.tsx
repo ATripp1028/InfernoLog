@@ -21,7 +21,8 @@ import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
-import { EditProgressModal } from '../features/level-page/EditProgressModal'
+import { EditRunModal } from '../features/level-page/EditRunModal'
+import { findPrimaryProgressUpdateId } from '../features/level-page/primaryEntry'
 import { AddToCollectionDialog } from '../features/collections/AddToCollectionDialog'
 import { Toolbar } from '../features/list/Toolbar'
 import { ListTable, tableMinWidth } from '../features/list/ListTable'
@@ -626,19 +627,20 @@ export function List() {
       />
 
       {editingLevelId && editLevelQuery.data && (
-        <EditProgressModal
+        <EditRunModal
           open
           onClose={() => setEditingLevelId(null)}
           data={editLevelQuery.data}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
-          progressUpdateId={null}
+          datePref={dateFormatPreference}
+          progressUpdateId={findPrimaryProgressUpdateId(editLevelQuery.data)}
         />
       )}
 
       {/* Fetching a level's edit data is a network round-trip — without this,
           clicking Edit does nothing visible until it resolves, which reads as
-          a hang. Shown immediately on click; swaps for EditProgressModal once
+          a hang. Shown immediately on click; swaps for EditRunModal once
           editLevelQuery.data lands. */}
       {editingLevelId && !editLevelQuery.data && !editLevelQuery.isError && (
         <Dialog.Root open onOpenChange={(o) => !o && setEditingLevelId(null)}>

@@ -347,6 +347,18 @@ export async function applyEdit(
     if (input.twoPlayerPartner !== undefined)
       puData.twoPlayerPartner = input.twoPlayerPartner
     if (input.device !== undefined) puData.device = input.device
+    // Mutually exclusive, mirroring applyProgress's progressFields below —
+    // a run either starts from 0% (percentage) or from a prior run
+    // (runFrom/runTo), never both, so writing one clears the other.
+    if (input.percentage !== undefined) {
+      puData.percentage = input.percentage
+      puData.runFrom = null
+      puData.runTo = null
+    } else if (input.runFrom !== undefined || input.runTo !== undefined) {
+      puData.runFrom = input.runFrom ?? null
+      puData.runTo = input.runTo ?? null
+      puData.percentage = null
+    }
 
     if (Object.keys(lpData).length > 0) {
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })
