@@ -66,7 +66,10 @@ interface EditRunForm {
   device: Device | null
 }
 
-function initForm(update: ProgressUpdate, scale: RatingDisplayScale): EditRunForm {
+function initForm(
+  update: ProgressUpdate,
+  scale: RatingDisplayScale
+): EditRunForm {
   const session = zonedDateTimeInput(update.date, update.dateTimezone)
   return {
     date: session.date,
@@ -78,8 +81,10 @@ function initForm(update: ProgressUpdate, scale: RatingDisplayScale): EditRunFor
     percentageVersion:
       (update.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ?? 'TWO_TWO',
     onStream: update.onStream,
-    difficultyOpinion: (update.difficultyOpinion as DifficultyOpinion | null) ?? null,
-    enjoyment: update.enjoyment != null ? toDisplay(update.enjoyment, scale) : null,
+    difficultyOpinion:
+      (update.difficultyOpinion as DifficultyOpinion | null) ?? null,
+    enjoyment:
+      update.enjoyment != null ? toDisplay(update.enjoyment, scale) : null,
     videoUrl: update.videoUrl ?? '',
     highlightUrl: update.highlightUrl ?? '',
     notes: update.notes ?? '',
@@ -151,7 +156,9 @@ export function EditRunModal({
       update.runTo
     )
     const result = parseRunInput(initialText)
-    setParsedRun(result.kind === 'ok' ? { from: result.from, to: result.to } : null)
+    setParsedRun(
+      result.kind === 'ok' ? { from: result.from, to: result.to } : null
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, progressUpdateId, scale])
 
@@ -209,7 +216,8 @@ export function EditRunModal({
       onStream: form.onStream,
       notes: form.notes || null,
       device: form.device,
-      enjoyment: form.enjoyment != null ? toInternal(form.enjoyment, scale) : null,
+      enjoyment:
+        form.enjoyment != null ? toInternal(form.enjoyment, scale) : null,
     }
 
     if (isProgress && parsedRun) {

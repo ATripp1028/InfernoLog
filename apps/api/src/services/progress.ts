@@ -33,7 +33,9 @@ export class LevelNotFoundError extends Error {
 // drops don't track a percentage) — a client-input error, so 400 not 500.
 export class ProgressFieldsNotApplicableError extends Error {
   constructor(kind: string) {
-    super(`percentage/runFrom/runTo only apply to PROGRESS entries, not ${kind}`)
+    super(
+      `percentage/runFrom/runTo only apply to PROGRESS entries, not ${kind}`
+    )
     this.name = 'ProgressFieldsNotApplicableError'
   }
 }

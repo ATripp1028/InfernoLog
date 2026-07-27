@@ -30,10 +30,7 @@ import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import {
-  SeededLevelPreviewCard,
-  SectionLabel,
-} from './SeededLevelPreviewCard'
+import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
 
 interface PickedLevel {
   inGameId: string

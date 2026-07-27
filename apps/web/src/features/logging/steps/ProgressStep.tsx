@@ -24,11 +24,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Info } from 'lucide-react'
-import {
-  RunInput,
-  formatRunInputValue,
-  type ParsedRun,
-} from '../RunInput'
+import { RunInput, formatRunInputValue, type ParsedRun } from '../RunInput'
 
 export function ProgressStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()

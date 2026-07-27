@@ -62,7 +62,8 @@ export function parseRunInput(raw: string): RunParseResult {
 
   return {
     kind: 'error',
-    message: "Couldn't read that — try a number like 63, or a range like 52-92.",
+    message:
+      "Couldn't read that — try a number like 63, or a range like 52-92.",
   }
 }
 
@@ -90,7 +91,9 @@ export function RunInput({ id, initialValue, onParsedChange }: RunInputProps) {
   const result = parseRunInput(text)
 
   useEffect(() => {
-    onParsedChange(result.kind === 'ok' ? { from: result.from, to: result.to } : null)
+    onParsedChange(
+      result.kind === 'ok' ? { from: result.from, to: result.to } : null
+    )
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text])
 
@@ -105,8 +108,7 @@ export function RunInput({ id, initialValue, onParsedChange }: RunInputProps) {
         value={text}
         onChange={(e) => setText(e.target.value)}
         className={cn(
-          result.kind === 'error' &&
-            'border-danger focus-visible:ring-danger'
+          result.kind === 'error' && 'border-danger focus-visible:ring-danger'
         )}
       />
       <p className="mt-1.5 text-xs text-text-tertiary">
