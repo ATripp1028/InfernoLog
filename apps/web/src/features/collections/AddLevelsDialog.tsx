@@ -27,7 +27,10 @@ import {
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { cn } from '@/lib/utils'
+import {
+  SeededLevelPreviewCard,
+  SectionLabel,
+} from './SeededLevelPreviewCard'
 
 interface AddLevelsDialogProps {
   open: boolean
@@ -245,68 +248,25 @@ export function AddLevelsDialog({
 
         {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
         {seeded && !seedingId && (
-          <div>
-            <SectionLabel>Selected</SectionLabel>
-            <div
-              className={cn(
-                'relative flex items-center gap-3 overflow-hidden rounded-btn border border-border bg-bg-surface px-4 py-3.5',
-                (seededBlocked || seededAlreadyAdded) && 'opacity-60'
-              )}
-            >
-              <img
-                src={levelThumbnailUrl(seeded.inGameId)}
-                alt=""
-                aria-hidden
-                loading="lazy"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none'
-                }}
-                className="absolute inset-0 size-full object-cover"
-              />
-              <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-              <DifficultyFace
-                difficulty={seeded.inGameDifficulty}
-                featured={seeded.featured}
-                epicValue={seeded.epicValue}
-                rated={seeded.isRated}
-                size={72}
-                className="relative drop-shadow"
-              />
-              <span className="relative min-w-0 flex-1">
-                <span className="block truncate font-semibold text-text-primary">
-                  {seeded.name ?? `Level #${seeded.inGameId}`}
-                </span>
-                <span className="block truncate text-[13px] text-text-secondary">
-                  {[
-                    seeded.creator ? `by ${seeded.creator}` : null,
-                    seeded.inGameDifficulty,
-                    `#${seeded.inGameId}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </span>
-              {(seededBlocked || seededAlreadyAdded) && (
-                <span className="relative shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-                  {seededAlreadyAdded ? 'Added' : 'Already completed'}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setSeeded(null)}
-                className="relative shrink-0 text-sm font-medium text-primary hover:underline"
-              >
-                Change
-              </button>
-            </div>
-            <p className="mt-3 text-sm text-text-secondary">
-              {seededBlocked
+          <SeededLevelPreviewCard
+            level={seeded}
+            badge={
+              seededBlocked
+                ? 'Already completed'
+                : seededAlreadyAdded
+                  ? 'Added'
+                  : null
+            }
+            dimmed={seededBlocked || seededAlreadyAdded}
+            onChange={() => setSeeded(null)}
+            description={
+              seededBlocked
                 ? 'You already beat this level — Want to Beat only holds unbeaten levels.'
                 : seededAlreadyAdded
                   ? `This level is already in ${collection.name}.`
-                  : `This level will be added to ${collection.name}.`}
-            </p>
-          </div>
+                  : `This level will be added to ${collection.name}.`
+            }
+          />
         )}
 
         {/* Cached preview for a typed numeric ID — direct add on click. */}
@@ -499,14 +459,6 @@ export function AddLevelsDialog({
         {body}
       </div>
     </div>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-text-secondary">
-      {children}
-    </p>
   )
 }
 

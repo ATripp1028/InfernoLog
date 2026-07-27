@@ -661,6 +661,58 @@ describe('PATCH /me/progress/:levelId', () => {
     expect(updated.percentage).toBeNull()
   })
 
+  it('rejects setting percentage on a COMPLETION entry', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '925' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '925',
+      status: 'COMPLETED',
+      updates: [{ kind: 'COMPLETION' }],
+    })
+    const before = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+
+    const res = await patch(user.id, '925', {
+      progressUpdateId: before.id,
+      percentage: 40,
+    })
+    expect(res.status).toBe(400)
+
+    const unchanged = await prisma.progressUpdate.findUniqueOrThrow({
+      where: { id: before.id },
+    })
+    expect(unchanged.percentage).toBeNull()
+  })
+
+  it('rejects setting runFrom/runTo on a DROP entry', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '926' })
+    const lp = await seedProgress(prisma, {
+      userId: user.id,
+      levelId: '926',
+      status: 'DROPPED',
+      updates: [{ kind: 'DROP' }],
+    })
+    const before = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id },
+    })
+
+    const res = await patch(user.id, '926', {
+      progressUpdateId: before.id,
+      runFrom: 40,
+      runTo: 80,
+    })
+    expect(res.status).toBe(400)
+
+    const unchanged = await prisma.progressUpdate.findUniqueOrThrow({
+      where: { id: before.id },
+    })
+    expect(unchanged.runFrom).toBeNull()
+    expect(unchanged.runTo).toBeNull()
+  })
+
   it('rejects runTo less than runFrom', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '924' })

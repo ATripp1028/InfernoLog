@@ -30,7 +30,10 @@ import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { cn } from '@/lib/utils'
+import {
+  SeededLevelPreviewCard,
+  SectionLabel,
+} from './SeededLevelPreviewCard'
 
 interface PickedLevel {
   inGameId: string
@@ -286,66 +289,17 @@ export function AddToCollectionDialog({
 
       {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
       {seededLevel && !seedingId && (
-        <div>
-          <SectionLabel>Selected</SectionLabel>
-          <div
-            className={cn(
-              'relative flex items-center gap-3 overflow-hidden rounded-btn border border-border bg-bg-surface px-4 py-3.5',
-              seededLevel.completed && 'opacity-60'
-            )}
-          >
-            <img
-              src={levelThumbnailUrl(seededLevel.inGameId)}
-              alt=""
-              aria-hidden
-              loading="lazy"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-              className="absolute inset-0 size-full object-cover"
-            />
-            <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-            <DifficultyFace
-              difficulty={seededLevel.inGameDifficulty}
-              featured={seededLevel.featured}
-              epicValue={seededLevel.epicValue}
-              rated={seededLevel.isRated}
-              size={72}
-              className="relative drop-shadow"
-            />
-            <span className="relative min-w-0 flex-1">
-              <span className="block truncate font-semibold text-text-primary">
-                {seededLevel.name ?? `Level #${seededLevel.inGameId}`}
-              </span>
-              <span className="block truncate text-[13px] text-text-secondary">
-                {[
-                  seededLevel.creator ? `by ${seededLevel.creator}` : null,
-                  seededLevel.inGameDifficulty,
-                  `#${seededLevel.inGameId}`,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </span>
-            </span>
-            {seededLevel.completed && (
-              <span className="relative shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-                Already completed
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => setSeededLevel(null)}
-              className="relative shrink-0 text-sm font-medium text-primary hover:underline"
-            >
-              Change
-            </button>
-          </div>
-          <p className="mt-3 text-sm text-text-secondary">
-            {seededLevel.completed
+        <SeededLevelPreviewCard
+          level={seededLevel}
+          badge={seededLevel.completed ? 'Already completed' : null}
+          dimmed={seededLevel.completed}
+          onChange={() => setSeededLevel(null)}
+          description={
+            seededLevel.completed
               ? "You already completed this level — Want to Beat won't be offered as an option next."
-              : 'Continue to choose which collections to add it to.'}
-          </p>
-        </div>
+              : 'Continue to choose which collections to add it to.'
+          }
+        />
       )}
 
       {showCachedPreview && cachedLevel.data && (
@@ -690,14 +644,6 @@ export function AddToCollectionDialog({
         {footer}
       </div>
     </div>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-text-secondary">
-      {children}
-    </p>
   )
 }
 

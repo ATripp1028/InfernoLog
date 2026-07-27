@@ -27,11 +27,7 @@ import { useResolveLevel } from '@/lib/api/logging'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 import { DateTimeField } from '@/features/logging/components'
 import { isSameDayToggleOn } from '@/features/logging/types'
-import {
-  getViewerTimezone,
-  zonedTimeToUtc,
-  NonexistentLocalTimeError,
-} from '@/lib/timezone'
+import { getViewerTimezone } from '@/lib/timezone'
 import {
   Section,
   FieldLabel,
@@ -39,6 +35,7 @@ import {
   RatingRow,
   EditCoinsSection,
   zonedDateTimeInput,
+  composeZonedDate,
 } from './EditShared'
 import type { LevelPageData, ProgressUpdate } from './types'
 
@@ -139,12 +136,17 @@ export function EditLevelModal({
     null
   )
 
+  // Reset from server data when the dialog opens for this level — deliberately
+  // NOT keyed on `data` itself (mirrors EditRunModal's reset effect), since a
+  // background refetch of the level-page query (e.g. a GDDL sync invalidation
+  // for an unrelated level) would otherwise re-fire this and silently wipe
+  // whatever the user was mid-typing.
   useEffect(() => {
     if (open && me.data) {
       setForm(initForm(data, scale, me.data.ratingCategories, anchor))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, data, scale, me.data])
+  }, [open, levelId, scale, me.data])
 
   // Live "Community: X" hint for the GDDL tier field — a hint, never blocks.
   useEffect(() => {
@@ -183,38 +185,28 @@ export function EditLevelModal({
       worstFailDate: string | null
       worstFailDateTimezone: string | null
     }
-    try {
-      worstFail = form.worstFailSameDay
-        ? // Nudge one second earlier than the anchor instant so the two
-          // events don't collide at minute-only display precision.
-          anchor?.dateTimezone
-          ? {
-              worstFailDate: new Date(
-                new Date(anchor.date as string).getTime() - 1000
-              ).toISOString(),
-              worstFailDateTimezone: anchor.dateTimezone,
-            }
-          : { worstFailDate: anchor?.date ?? null, worstFailDateTimezone: null }
-        : form.worstFailDate
-          ? form.worstFailTime
-            ? {
-                worstFailDate: zonedTimeToUtc(
-                  form.worstFailDate,
-                  form.worstFailTime,
-                  form.worstFailTimezone
-                ).toISOString(),
-                worstFailDateTimezone: form.worstFailTimezone,
-              }
-            : { worstFailDate: form.worstFailDate, worstFailDateTimezone: null }
-          : { worstFailDate: null, worstFailDateTimezone: null }
-    } catch (err) {
-      if (err instanceof NonexistentLocalTimeError) {
-        toast.error(
-          "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
-        )
-        return
+    if (form.worstFailSameDay) {
+      // Nudge one second earlier than the anchor instant so the two events
+      // don't collide at minute-only display precision.
+      worstFail = anchor?.dateTimezone
+        ? {
+            worstFailDate: new Date(
+              new Date(anchor.date as string).getTime() - 1000
+            ).toISOString(),
+            worstFailDateTimezone: anchor.dateTimezone,
+          }
+        : { worstFailDate: anchor?.date ?? null, worstFailDateTimezone: null }
+    } else {
+      const composed = composeZonedDate(
+        form.worstFailDate,
+        form.worstFailTime,
+        form.worstFailTimezone
+      )
+      if (composed === 'invalid') return
+      worstFail = {
+        worstFailDate: composed.date,
+        worstFailDateTimezone: composed.dateTimezone,
       }
-      throw err
     }
 
     const payload: Record<string, unknown> = {

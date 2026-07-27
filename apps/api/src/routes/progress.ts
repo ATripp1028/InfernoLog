@@ -21,7 +21,11 @@ import {
 import { computeRunsGraph } from '../utils/runsGraph'
 import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
 import type { HonoVariables } from '../types/hono'
-import { applyEdit, deleteProgressUpdate } from '../services/progress'
+import {
+  applyEdit,
+  deleteProgressUpdate,
+  ProgressFieldsNotApplicableError,
+} from '../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -485,6 +489,9 @@ app.patch('/me/progress/:levelId', async (c) => {
 
     return c.json({ data: result })
   } catch (error) {
+    if (error instanceof ProgressFieldsNotApplicableError) {
+      return c.json({ error: error.message }, 400)
+    }
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

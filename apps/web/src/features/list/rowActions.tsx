@@ -4,6 +4,7 @@ import {
   FolderPlus,
   MoreVertical,
   Pencil,
+  Settings2,
   Trash2,
   X,
 } from 'lucide-react'
@@ -21,7 +22,8 @@ import {
 import type { FlowPath } from '@/features/logging/types'
 
 export interface RowActionHandlers {
-  onEdit: () => void
+  onEditRun: () => void
+  onEditLevel: () => void
   onDelete: () => void
   onAddToCollection: () => void
   // Only present for levels that aren't already completed — a level can only
@@ -60,8 +62,11 @@ export function RowContextMenu({
           </>
         )}
         <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-        <ContextMenuItem onSelect={handlers.onEdit}>
-          <Pencil size={14} /> Edit
+        <ContextMenuItem onSelect={handlers.onEditRun}>
+          <Pencil size={14} /> Edit most recent run
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={handlers.onEditLevel}>
+          <Settings2 size={14} /> Edit level details
         </ContextMenuItem>
         <ContextMenuItem destructive onSelect={handlers.onDelete}>
           <Trash2 size={14} /> Delete
@@ -122,7 +127,16 @@ export function RowActionsKebab({
           </>
         )}
         <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-        <MenuButton icon={Pencil} label="Edit" onClick={handlers.onEdit} />
+        <MenuButton
+          icon={Pencil}
+          label="Edit most recent run"
+          onClick={handlers.onEditRun}
+        />
+        <MenuButton
+          icon={Settings2}
+          label="Edit level details"
+          onClick={handlers.onEditLevel}
+        />
         <MenuButton
           icon={Trash2}
           label="Delete"

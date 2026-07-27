@@ -32,11 +32,14 @@ interface RunsGraphProps {
 // array — `progressUpdateId` is null for the worst-fail bar and for
 // synthetic drop-derived bars, both of which can change position when an
 // edit shifts the chronological sort order. Falling back to the array index
-// there would let React reuse an unrelated bar's identity after a reorder.
-function entryKey(entry: RunsGraphEntry, i: number): string {
+// there would let React reuse an unrelated bar's identity after a reorder, so
+// synthetic drop bars key on their own `date` instead — a level can be
+// dropped more than once at the same worst-fail percentage, but each drop
+// still has its own (possibly null) date.
+function entryKey(entry: RunsGraphEntry): string {
   if (entry.progressUpdateId) return entry.progressUpdateId
   if (entry.kind === 'worst_fail') return 'worst-fail'
-  return `drop-${entry.to}-${i}`
+  return `drop-${entry.to}-${entry.date ?? 'no-date'}`
 }
 
 export function RunsGraph({ entries }: RunsGraphProps) {
@@ -91,7 +94,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
               const label = entryLabel(entry)
               const lColor = labelColor(entry)
               const rowTop = i * ROW_HEIGHT
-              const key = entryKey(entry, i)
+              const key = entryKey(entry)
 
               return (
                 <div

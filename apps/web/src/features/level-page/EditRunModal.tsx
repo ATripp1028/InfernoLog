@@ -26,11 +26,7 @@ import {
   isPreTwoTwo,
 } from '@/features/logging/steps/CompletionSessionStep'
 import { DateTimeField } from '@/features/logging/components'
-import {
-  getViewerTimezone,
-  zonedTimeToUtc,
-  NonexistentLocalTimeError,
-} from '@/lib/timezone'
+import { getViewerTimezone } from '@/lib/timezone'
 import type { Device } from '@/lib/api/logging'
 import {
   Section,
@@ -40,6 +36,7 @@ import {
   DifficultyOpinionSelect,
   EditTwoPlayerSection,
   zonedDateTimeInput,
+  composeZonedDate,
   type DifficultyOpinion,
 } from './EditShared'
 import {
@@ -199,29 +196,8 @@ export function EditRunModal({
 
   function handleSave() {
     if (!update) return
-    let session: { date: string | null; dateTimezone: string | null }
-    try {
-      session = form.date
-        ? form.time
-          ? {
-              date: zonedTimeToUtc(
-                form.date,
-                form.time,
-                form.timezone
-              ).toISOString(),
-              dateTimezone: form.timezone,
-            }
-          : { date: form.date, dateTimezone: null }
-        : { date: null, dateTimezone: null }
-    } catch (err) {
-      if (err instanceof NonexistentLocalTimeError) {
-        toast.error(
-          "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
-        )
-        return
-      }
-      throw err
-    }
+    const session = composeZonedDate(form.date, form.time, form.timezone)
+    if (session === 'invalid') return
 
     const payload: Record<string, unknown> = {
       progressUpdateId: update.progressUpdateId,

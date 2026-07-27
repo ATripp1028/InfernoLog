@@ -333,8 +333,10 @@ export const CompletionInputSchema = z.object({
   twoPlayerPartner: z.string().max(100).nullable().optional(),
 })
 
-// PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0.
-// The cross-field runTo >= runFrom check lives in superRefine because a
+// PROGRESS — discriminated on "From 0%" vs "From a run". Floors are 0. 0% is
+// not a loggable run (it's not progress) — percentage must be > 0, and a
+// from_run entry must span a non-empty range (runTo > runFrom).
+// The cross-field runTo > runFrom check lives in superRefine because a
 // discriminated-union member must be a plain ZodObject (a per-member .refine
 // would wrap it in ZodEffects, which the union rejects).
 export const ProgressInputSchema = z
@@ -342,15 +344,15 @@ export const ProgressInputSchema = z
     z.object({
       mode: z.literal('from_zero'),
       levelId: LevelIdSchema,
-      // Best progress so far (single value). Floor 0.
-      percentage: z.number().min(0).max(100),
+      // Best progress so far (single value). 0% isn't a run.
+      percentage: z.number().gt(0).max(100),
       enjoyment: z.number().int().min(0).max(100).nullable().optional(),
       ...sessionDetailFields,
     }),
     z.object({
       mode: z.literal('from_run'),
       levelId: LevelIdSchema,
-      // Best run segment, e.g. 44 → 87. Both floored at 0.
+      // Best run segment, e.g. 44 → 87. runFrom floored at 0.
       runFrom: z.number().int().min(0).max(100),
       runTo: z.number().int().min(0).max(100),
       enjoyment: z.number().int().min(0).max(100).nullable().optional(),
@@ -358,10 +360,10 @@ export const ProgressInputSchema = z
     }),
   ])
   .superRefine((v, ctx) => {
-    if (v.mode === 'from_run' && v.runTo < v.runFrom) {
+    if (v.mode === 'from_run' && v.runTo <= v.runFrom) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'runTo must be greater than or equal to runFrom',
+        message: 'runTo must be greater than runFrom',
         path: ['runTo'],
       })
     }
@@ -449,15 +451,16 @@ export const EditProgressInputSchema = z
     // from_zero/from_run split in ProgressInputSchema above — enforced in
     // applyEdit (apps/api/src/services/progress.ts), not here, since this
     // is a flat partial-update schema rather than a discriminated union.
-    percentage: z.number().min(0).max(100).nullable().optional(),
+    // 0% isn't a run, so percentage (like ProgressInputSchema's) must be > 0.
+    percentage: z.number().gt(0).max(100).nullable().optional(),
     runFrom: z.number().int().min(0).max(100).nullable().optional(),
     runTo: z.number().int().min(0).max(100).nullable().optional(),
   })
   .superRefine((v, ctx) => {
-    if (v.runFrom != null && v.runTo != null && v.runTo < v.runFrom) {
+    if (v.runFrom != null && v.runTo != null && v.runTo <= v.runFrom) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'runTo must be greater than or equal to runFrom',
+        message: 'runTo must be greater than runFrom',
         path: ['runTo'],
       })
     }

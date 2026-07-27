@@ -1,8 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 import { useGddlSyncStatus, type GddlSyncResult } from '@/lib/api/me'
-import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
+import { useInvalidateOnWrite } from '@/lib/api/logging'
 import {
   getHandledGddlSyncJobId,
   setHandledGddlSyncJobId,
@@ -38,7 +37,7 @@ const GddlSyncContext = createContext<GddlSyncContextValue | null>(null)
 // the endpoint keeps returning the latest job long after it's finished.
 export function GddlSyncProvider({ children }: { children: ReactNode }) {
   const status = useGddlSyncStatus()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateOnWrite()
 
   useEffect(() => {
     const job = status.data
@@ -56,13 +55,12 @@ export function GddlSyncProvider({ children }: { children: ReactNode }) {
       // Mirrors ImportStatusToast: the sync worker writes completions
       // straight to Postgres, so fire the same invalidation a manual log
       // write would (List/Ranking/Collections/whichever Level Page is open).
-      for (const key of INVALIDATE_ON_WRITE) {
-        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
-      }
+      void invalidate()
     } else {
       toast.error(job.error ?? 'Sync failed', { id: `gddl-sync-${job.id}` })
     }
-  }, [status.data, queryClient])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.data])
 
   return (
     <GddlSyncContext.Provider

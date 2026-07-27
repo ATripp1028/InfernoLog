@@ -24,6 +24,7 @@ import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import { EditRunModal } from '../features/level-page/EditRunModal'
+import { EditLevelModal } from '../features/level-page/EditLevelModal'
 import { findPrimaryProgressUpdateId } from '../features/level-page/primaryEntry'
 import { AddToCollectionDialog } from '../features/collections/AddToCollectionDialog'
 import { Toolbar } from '../features/list/Toolbar'
@@ -87,6 +88,7 @@ export function List() {
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
+  const [editMode, setEditMode] = useState<'run' | 'level' | null>(null)
   const [addToCollectionItem, setAddToCollectionItem] =
     useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
@@ -157,6 +159,7 @@ export function List() {
     if (editLevelQuery.isError) {
       toast.error('Failed to load level data')
       setEditingLevelId(null)
+      setEditMode(null)
     }
   }, [editLevelQuery.isError])
 
@@ -456,8 +459,14 @@ export function List() {
     setFilters(defaultFilterState())
   }
 
-  function handleEdit(item: ListItem) {
+  function handleEditRun(item: ListItem) {
     setEditingLevelId(item.level.inGameId)
+    setEditMode('run')
+  }
+
+  function handleEditLevel(item: ListItem) {
+    setEditingLevelId(item.level.inGameId)
+    setEditMode('level')
   }
 
   function handleLog(item: ListItem, path: FlowPath) {
@@ -556,7 +565,8 @@ export function List() {
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
                 hideTime={hideTime}
-                onEditItem={handleEdit}
+                onEditRunItem={handleEditRun}
+                onEditLevelItem={handleEditLevel}
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
                 onAddToCollectionItem={setAddToCollectionItem}
@@ -634,10 +644,13 @@ export function List() {
         onConfirm={confirmDelete}
       />
 
-      {editingLevelId && editLevelQuery.data && (
+      {editingLevelId && editLevelQuery.data && editMode === 'run' && (
         <EditRunModal
           open
-          onClose={() => setEditingLevelId(null)}
+          onClose={() => {
+            setEditingLevelId(null)
+            setEditMode(null)
+          }}
           data={editLevelQuery.data}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
@@ -646,12 +659,33 @@ export function List() {
         />
       )}
 
+      {editingLevelId && editLevelQuery.data && editMode === 'level' && (
+        <EditLevelModal
+          open
+          onClose={() => {
+            setEditingLevelId(null)
+            setEditMode(null)
+          }}
+          data={editLevelQuery.data}
+          levelId={editingLevelId}
+          scale={ratingDisplayScale}
+        />
+      )}
+
       {/* Fetching a level's edit data is a network round-trip — without this,
           clicking Edit does nothing visible until it resolves, which reads as
-          a hang. Shown immediately on click; swaps for EditRunModal once
-          editLevelQuery.data lands. */}
+          a hang. Shown immediately on click; swaps for EditRunModal/EditLevelModal
+          once editLevelQuery.data lands. */}
       {editingLevelId && !editLevelQuery.data && !editLevelQuery.isError && (
-        <Dialog.Root open onOpenChange={(o) => !o && setEditingLevelId(null)}>
+        <Dialog.Root
+          open
+          onOpenChange={(o) => {
+            if (!o) {
+              setEditingLevelId(null)
+              setEditMode(null)
+            }
+          }}
+        >
           <Dialog.Portal>
             <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
             <Dialog.Content

@@ -170,7 +170,7 @@ describe('POST /me/completions', () => {
 })
 
 describe('POST /me/progress', () => {
-  it('persists a From-0% best-progress value (floor 0)', async () => {
+  it('rejects a From-0% best-progress value — 0% is not a run', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '200' })
 
@@ -181,12 +181,30 @@ describe('POST /me/progress', () => {
       attempts: 300,
     })
 
+    expect(res.status).toBe(400)
+    const pu = await prisma.progressUpdate.findFirst({
+      where: { levelProgress: { userId: user.id, levelId: '200' } },
+    })
+    expect(pu).toBeNull()
+  })
+
+  it('persists a From-0% best-progress value at the lowest valid floor (1%)', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '200' })
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '200',
+      percentage: 1,
+      attempts: 300,
+    })
+
     expect(res.status).toBe(201)
     const pu = await prisma.progressUpdate.findFirstOrThrow({
       where: { levelProgress: { userId: user.id, levelId: '200' } },
     })
     expect(pu.kind).toBe('PROGRESS')
-    expect(Number(pu.percentage)).toBe(0)
+    expect(Number(pu.percentage)).toBe(1)
     expect(pu.runFrom).toBeNull()
   })
 

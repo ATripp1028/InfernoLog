@@ -19,7 +19,8 @@ interface ListTableProps {
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
-  onEditItem: (item: ListItem) => void
+  onEditRunItem: (item: ListItem) => void
+  onEditLevelItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
   onNavigate: (item: ListItem) => void
   onAddToCollectionItem: (item: ListItem) => void
@@ -199,7 +200,8 @@ export function ListTable({
   scale,
   datePref,
   hideTime,
-  onEditItem,
+  onEditRunItem,
+  onEditLevelItem,
   onDeleteItem,
   onNavigate,
   onAddToCollectionItem,
@@ -243,7 +245,8 @@ export function ListTable({
       />
       {items.map((item) => {
         const handlers = {
-          onEdit: () => onEditItem(item),
+          onEditRun: () => onEditRunItem(item),
+          onEditLevel: () => onEditLevelItem(item),
           onDelete: () => onDeleteItem(item),
           onAddToCollection: () => onAddToCollectionItem(item),
           // A level can only hold one completion — once it's COMPLETED there's
