@@ -13,6 +13,7 @@ import {
 } from '@/lib/api/logging'
 import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
@@ -65,7 +66,9 @@ export function FindLevelStep() {
   const showResults = !isNumeric && trimmed.length >= 2
   const showCachedPreview =
     isNumeric && trimmed.length >= 4 && !!cachedLevel.data
-  const results = search.data ?? []
+  const results = sortAndCapSearchResults(search.data ?? [], (r) =>
+    completedIds.has(r.inGameId)
+  )
 
   return (
     <>

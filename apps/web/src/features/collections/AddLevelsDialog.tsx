@@ -25,6 +25,7 @@ import {
   type CollectionDetail,
 } from '@/lib/api/collections'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { cn } from '@/lib/utils'
 
@@ -185,6 +186,12 @@ export function AddLevelsDialog({
     !seedingId &&
     !seeded
 
+  const results = sortAndCapSearchResults(
+    search.data ?? [],
+    (r) =>
+      inCollection.has(r.inGameId) || (completedIds?.has(r.inGameId) ?? false)
+  )
+
   const body = (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
@@ -242,21 +249,30 @@ export function AddLevelsDialog({
             <SectionLabel>Selected</SectionLabel>
             <div
               className={cn(
-                'flex items-center gap-3 rounded-btn border px-4 py-3.5',
-                seededBlocked || seededAlreadyAdded
-                  ? 'border-border bg-bg-surface opacity-60'
-                  : 'border-primary/50 bg-primary/10'
+                'relative flex items-center gap-3 overflow-hidden rounded-btn border border-border bg-bg-surface px-4 py-3.5',
+                (seededBlocked || seededAlreadyAdded) && 'opacity-60'
               )}
             >
+              <img
+                src={levelThumbnailUrl(seeded.inGameId)}
+                alt=""
+                aria-hidden
+                loading="lazy"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+                className="absolute inset-0 size-full object-cover"
+              />
+              <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
               <DifficultyFace
                 difficulty={seeded.inGameDifficulty}
                 featured={seeded.featured}
                 epicValue={seeded.epicValue}
                 rated={seeded.isRated}
                 size={72}
-                className="drop-shadow"
+                className="relative drop-shadow"
               />
-              <span className="min-w-0 flex-1">
+              <span className="relative min-w-0 flex-1">
                 <span className="block truncate font-semibold text-text-primary">
                   {seeded.name ?? `Level #${seeded.inGameId}`}
                 </span>
@@ -271,14 +287,14 @@ export function AddLevelsDialog({
                 </span>
               </span>
               {(seededBlocked || seededAlreadyAdded) && (
-                <span className="shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+                <span className="relative shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
                   {seededAlreadyAdded ? 'Added' : 'Already completed'}
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => setSeeded(null)}
-                className="shrink-0 text-sm font-medium text-primary hover:underline"
+                className="relative shrink-0 text-sm font-medium text-primary hover:underline"
               >
                 Change
               </button>
@@ -343,7 +359,7 @@ export function AddLevelsDialog({
             <SectionLabel>Results</SectionLabel>
             {search.isPending ? (
               <p className="px-1 text-sm text-text-tertiary">Searching…</p>
-            ) : (search.data ?? []).length === 0 ? (
+            ) : results.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-base font-semibold text-text-primary">
                   No levels match &ldquo;{trimmed}&rdquo;
@@ -355,7 +371,7 @@ export function AddLevelsDialog({
               </div>
             ) : (
               <div className="overflow-hidden rounded-md border border-border">
-                {(search.data ?? []).map((r) => (
+                {results.map((r) => (
                   <ResultRow
                     key={r.inGameId}
                     levelId={r.inGameId}

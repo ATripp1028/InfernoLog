@@ -28,7 +28,9 @@ import {
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
 import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { cn } from '@/lib/utils'
 
 interface PickedLevel {
   inGameId: string
@@ -38,6 +40,12 @@ interface PickedLevel {
   featured: boolean | null
   epicValue: number | null
   isRated: boolean
+}
+
+// Holds a level resolved from RobTop, pending confirmation before it's used
+// as the pick for step 2. Mirrors AddLevelsDialog's seeded-confirmation step.
+interface SeededLevel extends PickedLevel {
+  completed: boolean
 }
 
 interface AddToCollectionDialogProps {
@@ -64,6 +72,7 @@ export function AddToCollectionDialog({
   const [collectionQuery, setCollectionQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [seedingId, setSeedingId] = useState<string | null>(null)
+  const [seededLevel, setSeededLevel] = useState<SeededLevel | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const resolveLevel = useResolveLevel()
@@ -94,6 +103,7 @@ export function AddToCollectionDialog({
       setCollectionQuery('')
       setSelectedIds(new Set())
       setSeedingId(null)
+      setSeededLevel(null)
       setIsSubmitting(false)
     }
   }, [open, preselectedLevel])
@@ -156,7 +166,7 @@ export function AddToCollectionDialog({
         )
         return
       }
-      selectLevel({
+      setSeededLevel({
         inGameId: res.level.inGameId,
         name: res.level.name,
         creator: res.level.creator,
@@ -164,7 +174,9 @@ export function AddToCollectionDialog({
         featured: res.level.featured,
         epicValue: res.level.epicValue,
         isRated: res.level.isRated,
+        completed: res.existingCompletion !== null,
       })
+      setLevelQuery('')
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : 'Could not look up that level'
@@ -213,15 +225,23 @@ export function AddToCollectionDialog({
 
   // ── Step 1: level search ───────────────────────────────────────────
 
-  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId
+  const showResults =
+    !isNumeric && trimmed.length >= 2 && !seedingId && !seededLevel
   const showCachedPreview =
-    isNumeric && trimmed.length >= 4 && !!cachedLevel.data && !seedingId
+    isNumeric &&
+    trimmed.length >= 4 &&
+    !!cachedLevel.data &&
+    !seedingId &&
+    !seededLevel
   const showSeedHint =
     isNumeric &&
     trimmed.length >= 4 &&
     !cachedLevel.data &&
     !cachedLevel.isFetching &&
-    !seedingId
+    !seedingId &&
+    !seededLevel
+
+  const results = sortAndCapSearchResults(search.data ?? [], () => false)
 
   const searchBody = (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
@@ -264,6 +284,70 @@ export function AddToCollectionDialog({
         </div>
       )}
 
+      {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
+      {seededLevel && !seedingId && (
+        <div>
+          <SectionLabel>Selected</SectionLabel>
+          <div
+            className={cn(
+              'relative flex items-center gap-3 overflow-hidden rounded-btn border border-border bg-bg-surface px-4 py-3.5',
+              seededLevel.completed && 'opacity-60'
+            )}
+          >
+            <img
+              src={levelThumbnailUrl(seededLevel.inGameId)}
+              alt=""
+              aria-hidden
+              loading="lazy"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+              className="absolute inset-0 size-full object-cover"
+            />
+            <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
+            <DifficultyFace
+              difficulty={seededLevel.inGameDifficulty}
+              featured={seededLevel.featured}
+              epicValue={seededLevel.epicValue}
+              rated={seededLevel.isRated}
+              size={72}
+              className="relative drop-shadow"
+            />
+            <span className="relative min-w-0 flex-1">
+              <span className="block truncate font-semibold text-text-primary">
+                {seededLevel.name ?? `Level #${seededLevel.inGameId}`}
+              </span>
+              <span className="block truncate text-[13px] text-text-secondary">
+                {[
+                  seededLevel.creator ? `by ${seededLevel.creator}` : null,
+                  seededLevel.inGameDifficulty,
+                  `#${seededLevel.inGameId}`,
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </span>
+            </span>
+            {seededLevel.completed && (
+              <span className="relative shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
+                Already completed
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => setSeededLevel(null)}
+              className="relative shrink-0 text-sm font-medium text-primary hover:underline"
+            >
+              Change
+            </button>
+          </div>
+          <p className="mt-3 text-sm text-text-secondary">
+            {seededLevel.completed
+              ? "You already completed this level — Want to Beat won't be offered as an option next."
+              : 'Continue to choose which collections to add it to.'}
+          </p>
+        </div>
+      )}
+
       {showCachedPreview && cachedLevel.data && (
         <div>
           <SectionLabel>Results</SectionLabel>
@@ -302,7 +386,7 @@ export function AddToCollectionDialog({
           <SectionLabel>Results</SectionLabel>
           {search.isPending ? (
             <p className="px-1 text-sm text-text-tertiary">Searching…</p>
-          ) : (search.data ?? []).length === 0 ? (
+          ) : results.length === 0 ? (
             <div className="py-8 text-center">
               <p className="text-base font-semibold text-text-primary">
                 No levels match &ldquo;{trimmed}&rdquo;
@@ -314,7 +398,7 @@ export function AddToCollectionDialog({
             </div>
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
-              {(search.data ?? []).map((r) => (
+              {results.map((r) => (
                 <ResultRow
                   key={r.inGameId}
                   levelId={r.inGameId}
@@ -333,19 +417,23 @@ export function AddToCollectionDialog({
         </div>
       )}
 
-      {!showResults && !showCachedPreview && !showSeedHint && !seedingId && (
-        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-          <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
-            <Search size={18} />
-          </span>
-          <p className="text-base font-semibold text-text-primary">
-            Find a level
-          </p>
-          <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
-            Search your cache by name, or paste any level ID.
-          </p>
-        </div>
-      )}
+      {!showResults &&
+        !showCachedPreview &&
+        !showSeedHint &&
+        !seedingId &&
+        !seededLevel && (
+          <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+            <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
+              <Search size={18} />
+            </span>
+            <p className="text-base font-semibold text-text-primary">
+              Find a level
+            </p>
+            <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
+              Search your cache by name, or paste any level ID.
+            </p>
+          </div>
+        )}
     </div>
   )
 
@@ -550,6 +638,15 @@ export function AddToCollectionDialog({
             : n === 0
               ? 'Select a collection'
               : `Add to ${n} collection${n === 1 ? '' : 's'}`}
+        </Button>
+      </div>
+    ) : seededLevel ? (
+      <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+        <Button
+          onClick={() => selectLevel(seededLevel)}
+          className="min-w-[180px]"
+        >
+          Continue
         </Button>
       </div>
     ) : null
