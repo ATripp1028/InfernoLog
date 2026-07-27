@@ -76,5 +76,9 @@ export interface RunsGraphEntry {
   kind: 'from_zero' | 'from_run' | 'completion' | 'worst_fail'
   from: number
   to: number
+  // ISO date string, or null when the underlying event has no recorded date.
+  // Used to give synthetic (progressUpdateId: null) bars a stable identity —
+  // see entryKey in RunsGraph.tsx.
+  date: string | null
   droppedAfter: boolean
 }

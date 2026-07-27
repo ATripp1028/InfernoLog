@@ -1,4 +1,13 @@
-import { FolderPlus, MoreVertical, Pencil, Trash2 } from 'lucide-react'
+import {
+  Check,
+  Flag,
+  FolderPlus,
+  MoreVertical,
+  Pencil,
+  Settings2,
+  Trash2,
+  X,
+} from 'lucide-react'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -10,11 +19,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import type { FlowPath } from '@/features/logging/types'
 
 export interface RowActionHandlers {
-  onEdit: () => void
+  onEditRun: () => void
+  onEditLevel: () => void
   onDelete: () => void
   onAddToCollection: () => void
+  // Only present for levels that aren't already completed — a level can only
+  // hold one completion, so once it has one there's nothing new to log.
+  onLog?: (path: FlowPath) => void
 }
 
 // Right-click context menu wrapping a desktop row. The trigger child must be a
@@ -33,9 +47,26 @@ export function RowContextMenu({
         <ContextMenuItem onSelect={handlers.onAddToCollection}>
           <FolderPlus size={14} /> Add to a Collection
         </ContextMenuItem>
+        {handlers.onLog && (
+          <>
+            <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+            <ContextMenuItem onSelect={() => handlers.onLog!('completion')}>
+              <Check size={14} /> Log a completion
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => handlers.onLog!('progress')}>
+              <Flag size={14} /> Log progress
+            </ContextMenuItem>
+            <ContextMenuItem onSelect={() => handlers.onLog!('drop')}>
+              <X size={14} /> Drop this level
+            </ContextMenuItem>
+          </>
+        )}
         <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-        <ContextMenuItem onSelect={handlers.onEdit}>
-          <Pencil size={14} /> Edit
+        <ContextMenuItem onSelect={handlers.onEditRun}>
+          <Pencil size={14} /> Edit most recent run
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={handlers.onEditLevel}>
+          <Settings2 size={14} /> Edit level details
         </ContextMenuItem>
         <ContextMenuItem destructive onSelect={handlers.onDelete}>
           <Trash2 size={14} /> Delete
@@ -75,8 +106,37 @@ export function RowActionsKebab({
           label="Add to a Collection"
           onClick={handlers.onAddToCollection}
         />
+        {handlers.onLog && (
+          <>
+            <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+            <MenuButton
+              icon={Check}
+              label="Log a completion"
+              onClick={() => handlers.onLog!('completion')}
+            />
+            <MenuButton
+              icon={Flag}
+              label="Log progress"
+              onClick={() => handlers.onLog!('progress')}
+            />
+            <MenuButton
+              icon={X}
+              label="Drop this level"
+              onClick={() => handlers.onLog!('drop')}
+            />
+          </>
+        )}
         <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-        <MenuButton icon={Pencil} label="Edit" onClick={handlers.onEdit} />
+        <MenuButton
+          icon={Pencil}
+          label="Edit most recent run"
+          onClick={handlers.onEditRun}
+        />
+        <MenuButton
+          icon={Settings2}
+          label="Edit level details"
+          onClick={handlers.onEditLevel}
+        />
         <MenuButton
           icon={Trash2}
           label="Delete"

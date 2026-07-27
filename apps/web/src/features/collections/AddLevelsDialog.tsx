@@ -25,8 +25,9 @@ import {
   type CollectionDetail,
 } from '@/lib/api/collections'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { cn } from '@/lib/utils'
+import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
 
 interface AddLevelsDialogProps {
   open: boolean
@@ -185,6 +186,12 @@ export function AddLevelsDialog({
     !seedingId &&
     !seeded
 
+  const results = sortAndCapSearchResults(
+    search.data ?? [],
+    (r) =>
+      inCollection.has(r.inGameId) || (completedIds?.has(r.inGameId) ?? false)
+  )
+
   const body = (
     <>
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
@@ -238,59 +245,25 @@ export function AddLevelsDialog({
 
         {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
         {seeded && !seedingId && (
-          <div>
-            <SectionLabel>Selected</SectionLabel>
-            <div
-              className={cn(
-                'flex items-center gap-3 rounded-btn border px-4 py-3.5',
-                seededBlocked || seededAlreadyAdded
-                  ? 'border-border bg-bg-surface opacity-60'
-                  : 'border-primary/50 bg-primary/10'
-              )}
-            >
-              <DifficultyFace
-                difficulty={seeded.inGameDifficulty}
-                featured={seeded.featured}
-                epicValue={seeded.epicValue}
-                rated={seeded.isRated}
-                size={72}
-                className="drop-shadow"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-semibold text-text-primary">
-                  {seeded.name ?? `Level #${seeded.inGameId}`}
-                </span>
-                <span className="block truncate text-[13px] text-text-secondary">
-                  {[
-                    seeded.creator ? `by ${seeded.creator}` : null,
-                    seeded.inGameDifficulty,
-                    `#${seeded.inGameId}`,
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </span>
-              </span>
-              {(seededBlocked || seededAlreadyAdded) && (
-                <span className="shrink-0 rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-                  {seededAlreadyAdded ? 'Added' : 'Already completed'}
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => setSeeded(null)}
-                className="shrink-0 text-sm font-medium text-primary hover:underline"
-              >
-                Change
-              </button>
-            </div>
-            <p className="mt-3 text-sm text-text-secondary">
-              {seededBlocked
+          <SeededLevelPreviewCard
+            level={seeded}
+            badge={
+              seededBlocked
+                ? 'Already completed'
+                : seededAlreadyAdded
+                  ? 'Added'
+                  : null
+            }
+            dimmed={seededBlocked || seededAlreadyAdded}
+            onChange={() => setSeeded(null)}
+            description={
+              seededBlocked
                 ? 'You already beat this level — Want to Beat only holds unbeaten levels.'
                 : seededAlreadyAdded
                   ? `This level is already in ${collection.name}.`
-                  : `This level will be added to ${collection.name}.`}
-            </p>
-          </div>
+                  : `This level will be added to ${collection.name}.`
+            }
+          />
         )}
 
         {/* Cached preview for a typed numeric ID — direct add on click. */}
@@ -343,7 +316,7 @@ export function AddLevelsDialog({
             <SectionLabel>Results</SectionLabel>
             {search.isPending ? (
               <p className="px-1 text-sm text-text-tertiary">Searching…</p>
-            ) : (search.data ?? []).length === 0 ? (
+            ) : results.length === 0 ? (
               <div className="py-8 text-center">
                 <p className="text-base font-semibold text-text-primary">
                   No levels match &ldquo;{trimmed}&rdquo;
@@ -355,7 +328,7 @@ export function AddLevelsDialog({
               </div>
             ) : (
               <div className="overflow-hidden rounded-md border border-border">
-                {(search.data ?? []).map((r) => (
+                {results.map((r) => (
                   <ResultRow
                     key={r.inGameId}
                     levelId={r.inGameId}
@@ -459,7 +432,7 @@ export function AddLevelsDialog({
           if (e.key === 'Escape') onClose()
         }}
       >
-        <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+        <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
           {header}
           {body}
         </div>
@@ -475,7 +448,7 @@ export function AddLevelsDialog({
         onClick={onClose}
         className="absolute inset-0 bg-black/55"
       />
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
         <div className="flex justify-center pt-2">
           <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
         </div>
@@ -483,14 +456,6 @@ export function AddLevelsDialog({
         {body}
       </div>
     </div>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-text-secondary">
-      {children}
-    </p>
   )
 }
 

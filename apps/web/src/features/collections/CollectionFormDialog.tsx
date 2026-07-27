@@ -103,7 +103,7 @@ export function CollectionFormDialog({
         if (e.key === 'Escape') onClose()
       }}
     >
-      <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-elevated shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+      <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between pb-2 pl-6 pr-5 pt-5">
           <h2 className="text-lg font-semibold text-text-primary">
             {editing ? 'Edit collection' : 'New collection'}

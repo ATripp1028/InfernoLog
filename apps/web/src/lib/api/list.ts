@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { LevelProgressListItem } from '@infernolog/core'
 import { useAuth } from '../../context/AuthContext'
 import { apiFetch } from './client'
+import { INVALIDATE_ON_WRITE } from './logging'
 
 export type { LevelProgressListItem }
 
@@ -47,8 +48,18 @@ export function useDeleteProgress() {
     onError: (_err, _levelId, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(listQueryKey, ctx.previous)
     },
-    onSettled: () => {
-      void queryClient.invalidateQueries({ queryKey: listQueryKey })
+    // Deleting a level's entire progress can remove a Ranking entry and/or
+    // affect Collections (e.g. Want to Beat), and if the level's own page is
+    // open it needs to know the entry is gone — not just the List. Awaited
+    // (allSettled) so callers relying on mutateAsync/isPending stay pending
+    // until the refetch actually lands, rather than seeing stale data with no
+    // indication a refetch is in flight.
+    onSettled: async () => {
+      await Promise.allSettled(
+        INVALIDATE_ON_WRITE.map((key) =>
+          queryClient.invalidateQueries({ queryKey: key as unknown[] })
+        )
+      )
     },
   })
 }

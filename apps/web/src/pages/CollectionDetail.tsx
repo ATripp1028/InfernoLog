@@ -291,7 +291,7 @@ function Loaded({
             if (e.target === e.currentTarget) setConfirmDelete(false)
           }}
         >
-          <div className="w-full max-w-[420px] rounded-xl border border-border bg-bg-elevated p-6 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+          <div className="w-full max-w-[420px] rounded-xl border border-border bg-bg-surface p-6 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
             <h2 className="text-lg font-semibold text-text-primary">
               Delete {collection.name}?
             </h2>

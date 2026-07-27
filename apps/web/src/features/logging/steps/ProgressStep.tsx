@@ -1,23 +1,18 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Segmented } from '@/components/ui/segmented'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   DateTimeField,
   FieldError,
-  FieldHint,
   FieldLabel,
   LevelHeader,
   StepBody,
   StepFooter,
 } from '../components'
 import { digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
-
-// Run-from/run-to/best-progress are all percentages (server-bounded 0-100).
-const MAX_PERCENT = 100
 import {
   GdVersionPicker,
   GdVersionInfoButton,
@@ -29,11 +24,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { Info } from 'lucide-react'
-
-const MODE_OPTIONS = [
-  { value: 'from_zero', label: 'From 0%' },
-  { value: 'from_run', label: 'From a run' },
-] as const
+import { RunInput, formatRunInputValue, type ParsedRun } from '../RunInput'
 
 export function ProgressStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
@@ -55,112 +46,90 @@ export function ProgressStep() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [draft.date])
 
+  // Tracks the *current* box contents' validity — separate from draft's
+  // percentage/runFrom/runTo, which only update on a valid parse and would
+  // otherwise stay stale (and wrongly keep Continue enabled) while the box
+  // shows invalid/empty text.
+  const [parsedRun, setParsedRun] = useState<ParsedRun | null>(() => {
+    if (
+      draft.progressMode === 'from_run' &&
+      draft.runFrom !== '' &&
+      draft.runTo !== ''
+    ) {
+      return {
+        from: parseInt(draft.runFrom, 10),
+        to: parseInt(draft.runTo, 10),
+      }
+    }
+    if (draft.progressMode === 'from_zero' && draft.percentage !== '') {
+      return { from: 0, to: parseInt(draft.percentage, 10) }
+    }
+    return null
+  })
+
+  function handleRunParsed(result: ParsedRun | null) {
+    setParsedRun(result)
+    if (!result) return
+    if (result.from === 0) {
+      patchDraft({
+        progressMode: 'from_zero',
+        percentage: String(result.to),
+        runFrom: '',
+        runTo: '',
+      })
+    } else {
+      patchDraft({
+        progressMode: 'from_run',
+        runFrom: String(result.from),
+        runTo: String(result.to),
+      })
+    }
+  }
+
   if (!level) return null
 
-  const fromRun = draft.progressMode === 'from_run'
   const showVersionPicker =
     level.levelType === 'CLASSIC' && !isPreTwoTwo(draft.date)
-  const runFromError = maxValueError(draft.runFrom, MAX_PERCENT)
-  const runToError = maxValueError(draft.runTo, MAX_PERCENT)
-  const percentageError = maxValueError(draft.percentage, MAX_PERCENT)
   const attemptsError = maxValueError(draft.attempts, MAX_ATTEMPTS)
-  const canContinue = fromRun
-    ? draft.runFrom.trim() !== '' &&
-      draft.runTo.trim() !== '' &&
-      !runFromError &&
-      !runToError &&
-      !attemptsError
-    : draft.percentage.trim() !== '' && !percentageError && !attemptsError
+  const canContinue = parsedRun != null && !attemptsError
 
   return (
     <>
       <StepBody>
         <LevelHeader level={level} />
-        <FieldHint>
-          Pick &quot;From a run&quot; to log a segment (e.g. 30% → 63%), or
-          &quot; From 0%&quot; to log progress from the start.
-        </FieldHint>
 
         <div>
-          <FieldLabel>This run</FieldLabel>
-          <Segmented
-            options={MODE_OPTIONS}
-            value={draft.progressMode}
-            onChange={(v) => patchDraft({ progressMode: v })}
+          <FieldLabel htmlFor="p-run">This run</FieldLabel>
+          <RunInput
+            id="p-run"
+            initialValue={formatRunInputValue(
+              draft.progressMode === 'from_zero' && draft.percentage !== ''
+                ? parseInt(draft.percentage, 10)
+                : null,
+              draft.progressMode === 'from_run' && draft.runFrom !== ''
+                ? parseInt(draft.runFrom, 10)
+                : null,
+              draft.progressMode === 'from_run' && draft.runTo !== ''
+                ? parseInt(draft.runTo, 10)
+                : null
+            )}
+            onParsedChange={handleRunParsed}
           />
         </div>
 
-        {fromRun ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <FieldLabel htmlFor="p-from">Run from %</FieldLabel>
-              <Input
-                id="p-from"
-                inputMode="numeric"
-                value={draft.runFrom}
-                onChange={(e) =>
-                  patchDraft({ runFrom: digitsOnly(e.target.value) })
-                }
-              />
-              {runFromError && <FieldError>{runFromError}</FieldError>}
-            </div>
-            <div>
-              <FieldLabel htmlFor="p-to">Run to %</FieldLabel>
-              <Input
-                id="p-to"
-                inputMode="numeric"
-                value={draft.runTo}
-                onChange={(e) =>
-                  patchDraft({ runTo: digitsOnly(e.target.value) })
-                }
-              />
-              {runToError && <FieldError>{runToError}</FieldError>}
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <FieldLabel htmlFor="p-best">Best progress %</FieldLabel>
-              <Input
-                id="p-best"
-                inputMode="numeric"
-                value={draft.percentage}
-                onChange={(e) =>
-                  patchDraft({ percentage: digitsOnly(e.target.value) })
-                }
-              />
-              {percentageError && <FieldError>{percentageError}</FieldError>}
-            </div>
-            <div>
-              <FieldLabel htmlFor="p-date">Date</FieldLabel>
-              <DateTimeField
-                dateId="p-date"
-                dateValue={draft.date ?? ''}
-                timeValue={draft.time}
-                timezoneValue={draft.timezone}
-                onDateChange={(v) => patchDraft({ date: v || null })}
-                onTimeChange={(v) => patchDraft({ time: v })}
-                onTimezoneChange={(v) => patchDraft({ timezone: v })}
-              />
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {fromRun && (
-            <div>
-              <FieldLabel htmlFor="p-date2">Date</FieldLabel>
-              <DateTimeField
-                dateId="p-date2"
-                dateValue={draft.date ?? ''}
-                timeValue={draft.time}
-                timezoneValue={draft.timezone}
-                onDateChange={(v) => patchDraft({ date: v || null })}
-                onTimeChange={(v) => patchDraft({ time: v })}
-                onTimezoneChange={(v) => patchDraft({ timezone: v })}
-              />
-            </div>
-          )}
+          <div>
+            <FieldLabel htmlFor="p-date">Date</FieldLabel>
+            <DateTimeField
+              dateId="p-date"
+              dateValue={draft.date ?? ''}
+              timeValue={draft.time}
+              timezoneValue={draft.timezone}
+              onDateChange={(v) => patchDraft({ date: v || null })}
+              onTimeChange={(v) => patchDraft({ time: v })}
+              onTimezoneChange={(v) => patchDraft({ timezone: v })}
+            />
+          </div>
           <div>
             <div className="mb-1.5 flex items-center gap-1.5">
               <FieldLabel htmlFor="p-attempts">Attempts</FieldLabel>

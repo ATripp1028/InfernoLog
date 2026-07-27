@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import type { FlowPath } from '@/features/logging/types'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
@@ -18,10 +19,12 @@ interface ListTableProps {
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
-  onEditItem: (item: ListItem) => void
+  onEditRunItem: (item: ListItem) => void
+  onEditLevelItem: (item: ListItem) => void
   onDeleteItem: (item: ListItem) => void
   onNavigate: (item: ListItem) => void
   onAddToCollectionItem: (item: ListItem) => void
+  onLogItem: (item: ListItem, path: FlowPath) => void
 }
 
 // px-3 (12px) on each side of every row.
@@ -197,10 +200,12 @@ export function ListTable({
   scale,
   datePref,
   hideTime,
-  onEditItem,
+  onEditRunItem,
+  onEditLevelItem,
   onDeleteItem,
   onNavigate,
   onAddToCollectionItem,
+  onLogItem,
 }: ListTableProps) {
   const orderedCols = columnOrder
     .map((id) => allColumnDefs.find((c) => c.id === id))
@@ -240,9 +245,15 @@ export function ListTable({
       />
       {items.map((item) => {
         const handlers = {
-          onEdit: () => onEditItem(item),
+          onEditRun: () => onEditRunItem(item),
+          onEditLevel: () => onEditLevelItem(item),
           onDelete: () => onDeleteItem(item),
           onAddToCollection: () => onAddToCollectionItem(item),
+          // A level can only hold one completion — once it's COMPLETED there's
+          // nothing new left to log.
+          ...(item.status !== 'COMPLETED' && {
+            onLog: (path: FlowPath) => onLogItem(item, path),
+          }),
         }
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>

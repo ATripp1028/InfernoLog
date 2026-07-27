@@ -7,7 +7,7 @@
 // handlers. See LOGGING_FLOW.md and the ticket spec.
 
 import prisma from '../utils/prisma'
-import type { Prisma } from '@prisma/client'
+import type { Prisma, ProgressUpdateKind } from '@prisma/client'
 import { removeFromWantToBeat } from './collections'
 import type {
   CompletionInput,
@@ -25,6 +25,18 @@ export class LevelNotFoundError extends Error {
   constructor(levelId: string) {
     super(`Level ${levelId} is not cached. Resolve it before logging.`)
     this.name = 'LevelNotFoundError'
+  }
+}
+
+// Thrown when an edit tries to write percentage/runFrom/runTo onto a
+// ProgressUpdate that isn't kind=PROGRESS (completions are implied 100%,
+// drops don't track a percentage) — a client-input error, so 400 not 500.
+export class ProgressFieldsNotApplicableError extends Error {
+  constructor(kind: string) {
+    super(
+      `percentage/runFrom/runTo only apply to PROGRESS entries, not ${kind}`
+    )
+    this.name = 'ProgressFieldsNotApplicableError'
   }
 }
 
@@ -281,25 +293,41 @@ export async function applyEdit(
     if (!lp) return null
 
     let targetUpdateId: string | undefined
+    let targetUpdateKind: ProgressUpdateKind | undefined
     if (input.progressUpdateId) {
       const update = await tx.progressUpdate.findFirst({
         where: { id: input.progressUpdateId, levelProgressId: lp.id },
-        select: { id: true },
+        select: { id: true, kind: true },
       })
       if (!update) return null
       targetUpdateId = update.id
+      targetUpdateKind = update.kind
     } else {
       const mostRecent = await tx.progressUpdate.findFirst({
         where: { levelProgressId: lp.id },
         orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }],
-        select: { id: true },
+        select: { id: true, kind: true },
       })
       targetUpdateId = mostRecent?.id
+      targetUpdateKind = mostRecent?.kind
     }
     // Every level_progress row is created together with at least one
     // progress_update (completion, progress, or drop) — see applyCompletion/
     // applyProgress/applyDrop below — so targetUpdateId is always found here.
     if (!targetUpdateId) return null
+
+    // percentage/runFrom/runTo are only meaningful for kind=PROGRESS entries
+    // (completions are implied 100%, drops don't track a percentage) — the
+    // client (EditRunModal) already gates on this, but the endpoint is public
+    // so it's enforced here too rather than trusting the caller.
+    if (
+      (input.percentage !== undefined ||
+        input.runFrom !== undefined ||
+        input.runTo !== undefined) &&
+      targetUpdateKind !== 'PROGRESS'
+    ) {
+      throw new ProgressFieldsNotApplicableError(targetUpdateKind!)
+    }
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
@@ -347,6 +375,21 @@ export async function applyEdit(
     if (input.twoPlayerPartner !== undefined)
       puData.twoPlayerPartner = input.twoPlayerPartner
     if (input.device !== undefined) puData.device = input.device
+    // Mutually exclusive, mirroring applyProgress's progressFields below —
+    // a run either starts from 0% (percentage) or from a prior run
+    // (runFrom/runTo), never both, so writing one clears the other. When only
+    // one of runFrom/runTo is sent, the omitted side defaults rather than
+    // clearing: no runFrom means the run started from 0, no runTo means it
+    // reached 100.
+    if (input.percentage !== undefined) {
+      puData.percentage = input.percentage
+      puData.runFrom = null
+      puData.runTo = null
+    } else if (input.runFrom !== undefined || input.runTo !== undefined) {
+      puData.runFrom = input.runFrom ?? 0
+      puData.runTo = input.runTo ?? 100
+      puData.percentage = null
+    }
 
     if (Object.keys(lpData).length > 0) {
       await tx.levelProgress.update({ where: { id: lp.id }, data: lpData })

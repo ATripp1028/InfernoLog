@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError, apiFetch } from './client'
+import { useInvalidateOnWrite } from './logging'
 import type { LevelPageData } from '../../features/level-page/types'
 
 export { ApiError }
@@ -24,7 +25,7 @@ export function useLevelPage(levelId: string) {
 
 export function useEditProgress(levelId: string) {
   const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateOnWrite()
   return useMutation({
     mutationFn: async (payload: Record<string, unknown>): Promise<void> => {
       const token = await getIdToken()
@@ -34,10 +35,9 @@ export function useEditProgress(levelId: string) {
         body: payload,
       })
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['level-page', levelId] })
-      void queryClient.invalidateQueries({ queryKey: ['list'] })
-    },
+    // Edits can change fields shown on the Ranking board (e.g. attempts) or
+    // Collections (e.g. visibility), not just this level's own page/the List.
+    onSuccess: invalidate,
   })
 }
 
@@ -48,7 +48,7 @@ export function useEditProgress(levelId: string) {
 // entry that no longer exists.
 export function useDeleteProgressUpdate(levelId: string) {
   const { getIdToken } = useAuth()
-  const queryClient = useQueryClient()
+  const invalidate = useInvalidateOnWrite()
   return useMutation({
     mutationFn: async (
       progressUpdateId: string
@@ -62,9 +62,8 @@ export function useDeleteProgressUpdate(levelId: string) {
       })
       return data
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['level-page', levelId] })
-      void queryClient.invalidateQueries({ queryKey: ['list'] })
-    },
+    // Deleting a completion removes its Ranking entry; deleting the last
+    // entry deletes the whole LevelProgress, which can affect Collections too.
+    onSuccess: invalidate,
   })
 }
