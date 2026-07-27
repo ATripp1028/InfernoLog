@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from '@/components/ui/sonner'
@@ -16,11 +16,14 @@ import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { useLoggingFlow } from '../LoggingFlowProvider'
+import type { ResolvedLevel } from '../types'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 
 export function FindLevelStep() {
   const { close, applyResolved, goManual } = useLoggingFlow()
   const [query, setQuery] = useState('')
+  const [seedingId, setSeedingId] = useState<string | null>(null)
+  const [seeded, setSeeded] = useState<ResolvedLevel | null>(null)
   const resolveLevel = useResolveLevel()
 
   const trimmed = query.trim()
@@ -42,6 +45,8 @@ export function FindLevelStep() {
     [myProgress.data]
   )
 
+  // Direct apply — for cached-preview / search-result rows, where the user
+  // can already see exactly what they're clicking.
   async function resolve(levelId: string) {
     try {
       const res = await resolveLevel.mutateAsync(levelId)
@@ -63,9 +68,53 @@ export function FindLevelStep() {
     }
   }
 
-  const showResults = !isNumeric && trimmed.length >= 2
+  // Seeded fetch — for unknown numeric IDs pulled live from RobTop. Holds for
+  // confirmation instead of applying immediately, since the user typed a raw
+  // ID with no name visible. Confirming re-uses the same row UI as a cached
+  // preview — clicking it applies, same as any other result row.
+  async function seedLevel(levelId: string) {
+    setSeedingId(levelId)
+    try {
+      const res = await resolveLevel.mutateAsync(levelId)
+      if (res.fallbackToManual) {
+        goManual(levelId, res.existingCompletion)
+        return
+      }
+      if (res.level) {
+        setSeeded({
+          level: res.level,
+          existingCompletion: res.existingCompletion,
+          suggestedGddlTier: res.suggestedGddlTier,
+        })
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : 'Could not look up that level'
+      )
+    } finally {
+      setSeedingId(null)
+    }
+  }
+
+  function updateQuery(value: string) {
+    setQuery(value)
+    if (seeded) setSeeded(null)
+  }
+
+  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
   const showCachedPreview =
-    isNumeric && trimmed.length >= 4 && !!cachedLevel.data
+    isNumeric &&
+    trimmed.length >= 4 &&
+    !!cachedLevel.data &&
+    !seedingId &&
+    !seeded
+  const showSeedHint =
+    isNumeric &&
+    trimmed.length >= 4 &&
+    !cachedLevel.data &&
+    !cachedLevel.isFetching &&
+    !seedingId &&
+    !seeded
   const results = sortAndCapSearchResults(search.data ?? [], (r) =>
     completedIds.has(r.inGameId)
   )
@@ -84,21 +133,41 @@ export function FindLevelStep() {
               id="level-query"
               autoFocus
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => updateQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && isNumeric) void resolve(trimmed)
+                if (e.key !== 'Enter' || !isNumeric) return
+                if (cachedLevel.data) void resolve(cachedLevel.data.inGameId)
+                else void seedLevel(trimmed)
               }}
               placeholder="Enter a level ID, or type a name to search"
               className="h-11 pl-9 text-base"
             />
           </div>
-          {!showResults && !showCachedPreview && (
+          {!showResults && !showCachedPreview && !seeded && (
             <FieldHint>
               Numbers only → looked up as an ID. Anything else → searched by
               name across levels InfernoLog already knows.
             </FieldHint>
           )}
         </div>
+
+        {seedingId && (
+          <div className="flex h-16 items-center gap-3 rounded-md border border-border bg-bg-surface px-4 text-sm text-text-secondary">
+            <Loader2 size={16} className="animate-spin text-primary" />
+            Fetching level {seedingId} from the GD servers…
+          </div>
+        )}
+
+        {seeded && !seedingId && (
+          <div className="overflow-hidden rounded-md border border-border">
+            <LevelResultRow
+              level={seeded.level}
+              alreadyLogged={completedIds.has(seeded.level.inGameId)}
+              disabled={resolveLevel.isPending}
+              onSelect={() => applyResolved(seeded)}
+            />
+          </div>
+        )}
 
         {showCachedPreview && cachedLevel.data && (
           <div className="overflow-hidden rounded-md border border-border">
@@ -109,6 +178,17 @@ export function FindLevelStep() {
               onSelect={() => resolve(cachedLevel.data!.inGameId)}
             />
           </div>
+        )}
+
+        {showSeedHint && (
+          <button
+            type="button"
+            onClick={() => void seedLevel(trimmed)}
+            className="flex h-11 w-full items-center gap-3 rounded-md border border-border bg-bg-surface px-4 text-left text-sm text-text-primary transition-colors hover:bg-bg-subtle"
+          >
+            <Search size={16} className="text-text-tertiary" />
+            Fetch level {trimmed} from the GD servers
+          </button>
         )}
 
         {showResults && (
@@ -145,16 +225,6 @@ export function FindLevelStep() {
       <StepFooter>
         <Button variant="outline" onClick={close}>
           Cancel
-        </Button>
-        <Button
-          onClick={() => resolve(trimmed)}
-          disabled={
-            !isNumeric ||
-            resolveLevel.isPending ||
-            (showCachedPreview && completedIds.has(trimmed))
-          }
-        >
-          {resolveLevel.isPending ? 'Looking up…' : 'Continue'}
         </Button>
       </StepFooter>
     </>
