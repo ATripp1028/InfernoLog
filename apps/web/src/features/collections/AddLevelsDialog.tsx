@@ -475,7 +475,7 @@ export function AddLevelsDialog({
           if (e.key === 'Escape') onClose()
         }}
       >
-        <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-elevated shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
+        <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
           {header}
           {body}
         </div>
@@ -491,7 +491,7 @@ export function AddLevelsDialog({
         onClick={onClose}
         className="absolute inset-0 bg-black/55"
       />
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-elevated shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
+      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
         <div className="flex justify-center pt-2">
           <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
         </div>
