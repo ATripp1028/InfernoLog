@@ -17,12 +17,13 @@ import prisma from '../utils/prisma'
 import { logger } from '../utils/logger'
 import { fetchRobtopLevel } from '../utils/robtop'
 import { fetchGddlTier } from '../utils/gddl'
+import { checkSfhNongIfDue } from '../services/sfhSync'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 // Columns returned for a cached level (the wire shape, LevelSchema). Excludes
-// the internal monthly-sync fields (lastCheckedAt, pending*).
+// internal sync/bookkeeping fields (lastCheckedAt, pending*, sfhCheckedAt).
 const levelSelect = {
   inGameId: true,
   levelType: true,
@@ -34,10 +35,16 @@ const levelSelect = {
   length: true,
   songName: true,
   songAuthor: true,
+  // NONG / Song File Hub data (sfhCheckedAt is internal bookkeeping, omitted).
   isNong: true,
-  nongSongTitle: true,
-  nongArtist: true,
-  nongSourceUrl: true,
+  sfhId: true,
+  sfhSongId: true,
+  sfhSongName: true,
+  sfhYoutubeUrl: true,
+  sfhYoutubeVideoId: true,
+  sfhDownloadUrl: true,
+  sfhFileType: true,
+  sfhDownloads: true,
   // Extended RobTop metadata.
   description: true,
   creatorPlayerId: true,
@@ -231,10 +238,15 @@ app.get('/levels/:levelId/resolve', async (c) => {
     }
 
     // GDDL suggested tier autofill — only meaningful for rated levels, and must
-    // never block or fail the resolve (returns null on any failure).
+    // never block or fail the resolve (returns null on any failure). The Song
+    // File Hub NONG check runs alongside it: best-effort, its result is cached
+    // (not surfaced in this payload yet), and it can never fail the resolve
+    // (checkSfhNongIfDue never throws and self-gates on delisted levels and
+    // levels checked within the re-check cadence).
     const [suggestedGddlTier, existingCompletion] = await Promise.all([
       level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
       loadExistingCompletion(userId, levelId),
+      checkSfhNongIfDue(levelId),
     ])
 
     return c.json({

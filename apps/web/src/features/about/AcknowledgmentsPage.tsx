@@ -140,11 +140,14 @@ export function AcknowledgmentsPage() {
           Credit: Prevter. <br />
           License: Apache 2.0.
         </Entry>
-        {/* not implemented yet, will readd when I implement it
-          <Entry name="Song File Hub">
-            NONG song database (v2). Credit: <Pending>Song File Hub team</Pending>
-            . Link: songfilehub.com.
+          <Entry 
+            name="Song File Hub"
+            link={{ label: 'songfilehub.com', href: 'https://songfilehub.com' }}
+          >
+            NONG song database. <br />
+            Credit: Song File Hub Staff <br />
           </Entry>
+        {/* not implemented yet, will readd when I implement it
           <Entry name="AREDL">
             Rank data for the All Rated Extreme Demons List. Credit:{' '}
             <Pending>AREDL maintainers</Pending>. Link:{' '}

@@ -116,6 +116,8 @@ export async function seedLevel(
     isDemon: boolean
     isRated: boolean
     levelType: 'CLASSIC' | 'PLATFORMER'
+    isNong: boolean
+    sfhCheckedAt: Date
   }> = {}
 ) {
   return prisma.level.create({
@@ -131,6 +133,8 @@ export async function seedLevel(
       isDemon: overrides.isDemon ?? false,
       isRated: overrides.isRated ?? false,
       levelType: overrides.levelType ?? 'CLASSIC',
+      isNong: overrides.isNong ?? false,
+      sfhCheckedAt: overrides.sfhCheckedAt ?? null,
     },
   })
 }

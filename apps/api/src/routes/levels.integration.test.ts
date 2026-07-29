@@ -18,19 +18,28 @@ vi.mock('../utils/logger', () => ({
 }))
 vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
 vi.mock('../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
+// Mock only the SFH HTTP client — checkSfhNongIfDue + the cache write run for
+// real against the test DB.
+vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 const { default: levelsApp } = await import('./levels')
 const { fetchRobtopLevel } = await import('../utils/robtop')
 const { fetchGddlTier } = await import('../utils/gddl')
+const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 
 const prisma = getTestPrisma()
 const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
 const gddlTierMock = fetchGddlTier as unknown as ReturnType<typeof vi.fn>
+const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
+
+const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000)
 
 beforeEach(async () => {
   vi.clearAllMocks()
   // Default: GDDL has no suggested tier. Individual tests override.
   gddlTierMock.mockResolvedValue(null)
+  // Default: SFH unavailable (no NONG write) so unrelated tests are unaffected.
+  sfhMock.mockResolvedValue(undefined)
   await truncateAll(prisma)
 })
 
@@ -168,6 +177,192 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.existingCompletion).not.toBeNull()
     expect(body.existingCompletion?.attempts).toBe(5000)
     expect(body.existingCompletion?.enjoyment).toBe(80)
+  })
+
+  // ─── Song File Hub NONG check ──────────────────────────────────────────────
+
+  const SFH_RESULT = {
+    sfhId: '64f54c6ceba5efcdadf78b01',
+    sfhSongId: '945695',
+    sfhSongName: 'CRIM3S - Lost (XVA Remix)',
+    sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
+    sfhYoutubeVideoId: 'YrTauLnDVdw',
+    sfhDownloadUrl: 'https://api.songfilehub.com/song/abc?download=true',
+    sfhFileType: 'mp3',
+    sfhDownloads: 1767103,
+  }
+
+  it('checks the rated SFH catalog for a rated level and persists a found NONG', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '600', isRated: true })
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/600/resolve'
+    )
+    expect(res.status).toBe(200)
+    expect(sfhMock).toHaveBeenCalledWith('600', 'rated')
+
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '600' },
+    })
+    expect(cached.isNong).toBe(true)
+    expect(cached.sfhCheckedAt).not.toBeNull()
+    expect(cached.sfhId).toBe('64f54c6ceba5efcdadf78b01')
+    expect(cached.sfhSongName).toBe('CRIM3S - Lost (XVA Remix)')
+    expect(cached.sfhDownloads).toBe(1767103)
+  })
+
+  it('checks SFH on a cache-miss level freshly created from RobTop', async () => {
+    const user = await seedUser(prisma)
+    robtopMock.mockResolvedValue({
+      name: 'Fresh Level',
+      creator: 'RobTop',
+      inGameDifficulty: 'Extreme Demon',
+      length: 'Long',
+      songName: 'Placeholder',
+      songAuthor: 'Author',
+      isRated: true,
+      isDemon: true,
+    })
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    await buildApp(levelsApp, { userId: user.id }).request('/levels/700/resolve')
+
+    // Rated RobTop level → rated SFH catalog, on the row just created.
+    expect(sfhMock).toHaveBeenCalledWith('700', 'rated')
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '700' },
+    })
+    expect(cached.isNong).toBe(true)
+    expect(cached.sfhCheckedAt).not.toBeNull()
+    expect(cached.sfhSongName).toBe('CRIM3S - Lost (XVA Remix)')
+  })
+
+  it('checks the unrated SFH catalog for an unrated level', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '605', isRated: false })
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    await buildApp(levelsApp, { userId: user.id }).request('/levels/605/resolve')
+
+    expect(sfhMock).toHaveBeenCalledWith('605', 'unrated')
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '605' },
+    })
+    expect(cached.isNong).toBe(true)
+  })
+
+  it('stamps sfhCheckedAt (isNong false) when SFH reports no NONG', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '601' })
+    sfhMock.mockResolvedValue(null)
+
+    await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/601/resolve'
+    )
+
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '601' },
+    })
+    expect(cached.isNong).toBe(false)
+    expect(cached.sfhCheckedAt).not.toBeNull()
+    expect(cached.sfhId).toBeNull()
+  })
+
+  it('returns cached SFH NONG fields in the resolve payload (and omits sfhCheckedAt)', async () => {
+    const user = await seedUser(prisma)
+    await prisma.level.create({
+      data: {
+        inGameId: '610',
+        dataSource: 'robtop_autofill',
+        verified: true,
+        isRated: true,
+        isNong: true,
+        sfhCheckedAt: daysAgo(30), // recent → no re-check this request
+        sfhId: '64f54c6ceba5efcdadf78b01',
+        sfhSongId: '945695',
+        sfhSongName: 'CRIM3S - Lost (XVA Remix)',
+        sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
+        sfhYoutubeVideoId: 'YrTauLnDVdw',
+        sfhDownloadUrl: 'https://api.songfilehub.com/song/abc?download=true',
+        sfhFileType: 'mp3',
+        sfhDownloads: 1767103,
+      },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/610/resolve'
+    )
+    const body = (await res.json()) as {
+      level: Record<string, unknown> | null
+    }
+
+    expect(res.status).toBe(200)
+    expect(sfhMock).not.toHaveBeenCalled() // within the re-check window
+    expect(body.level?.isNong).toBe(true)
+    expect(body.level?.sfhSongName).toBe('CRIM3S - Lost (XVA Remix)')
+    expect(body.level?.sfhYoutubeVideoId).toBe('YrTauLnDVdw')
+    expect(body.level?.sfhDownloadUrl).toBe(
+      'https://api.songfilehub.com/song/abc?download=true'
+    )
+    expect(body.level?.sfhDownloads).toBe(1767103)
+    // Internal bookkeeping field stays off the wire.
+    expect(body.level).not.toHaveProperty('sfhCheckedAt')
+  })
+
+  it('does not re-check a level checked within the re-check window', async () => {
+    const user = await seedUser(prisma)
+    // Found recently — still inside the 6-month window, so no re-query.
+    await seedLevel(prisma, {
+      inGameId: '602',
+      isNong: true,
+      sfhCheckedAt: daysAgo(30),
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/602/resolve'
+    )
+    expect(res.status).toBe(200)
+    expect(sfhMock).not.toHaveBeenCalled()
+  })
+
+  it('re-checks a level last checked longer ago than the re-check window', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, {
+      inGameId: '603',
+      isRated: false,
+      isNong: false,
+      sfhCheckedAt: daysAgo(200),
+    })
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    await buildApp(levelsApp, { userId: user.id }).request('/levels/603/resolve')
+
+    expect(sfhMock).toHaveBeenCalledWith('603', 'unrated')
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '603' },
+    })
+    expect(cached.isNong).toBe(true)
+  })
+
+  it('does not fail the resolve (no 500) and writes nothing when SFH is down', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '604' })
+    sfhMock.mockResolvedValue(undefined) // SFH failure signal
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/604/resolve'
+    )
+    expect(res.status).toBe(200)
+    expect(sfhMock).toHaveBeenCalledWith('604', 'unrated')
+
+    const cached = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '604' },
+    })
+    // Left unchecked so a later run retries.
+    expect(cached.sfhCheckedAt).toBeNull()
+    expect(cached.isNong).toBe(false)
   })
 })
 

@@ -11,6 +11,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
 import { fetchRobtopLevel } from '../utils/robtop'
+import { checkAndPersistSfhNong, sfhCheckDue } from './sfhSync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
@@ -36,10 +37,15 @@ export interface SyncBatchResult {
   ratingChanged: number
   delisted: number
   errors: number
+  // SFH bookkeeping: levels eligible for a Song File Hub check that we actually
+  // called SFH for this run, and how many of those turned up a rated NONG.
+  sfhChecked: number
+  sfhFound: number
 }
 
-// Just the fields the diff compares against. Selected up front so we compare to
-// the pre-sync snapshot even if the row is written mid-loop.
+// Just the fields the diff compares against, plus the SFH-gating fields.
+// Selected up front so we compare to the pre-sync snapshot even if the row is
+// written mid-loop. sfhCheckedAt/delistedAt drive the SFH re-check filter.
 const compareSelect = {
   isRated: true,
   inGameDifficulty: true,
@@ -47,11 +53,14 @@ const compareSelect = {
   creator: true,
   songName: true,
   songAuthor: true,
+  sfhCheckedAt: true,
+  delistedAt: true,
 } satisfies Prisma.LevelSelect
 
 async function syncOneLevel(
   levelId: string,
-  result: SyncBatchResult
+  result: SyncBatchResult,
+  paceMs: number
 ): Promise<void> {
   const current = await prisma.level.findUnique({
     where: { inGameId: levelId },
@@ -69,7 +78,8 @@ async function syncOneLevel(
   const robtop = await fetchRobtopLevel(levelId)
 
   // Not-found (RobTop "-1"/empty → null): freeze last-known metadata, flag the
-  // row delisted, and run no diff logic.
+  // row delisted, and run no diff logic. A level just discovered to no longer
+  // exist is NOT worth an SFH call this run, so we return before it.
   if (!robtop) {
     await prisma.level.update({
       where: { inGameId: levelId },
@@ -110,6 +120,21 @@ async function syncOneLevel(
 
   if (changed) result.updated++
   if (ratingChanged) result.ratingChanged++
+
+  // Opportunistic Song File Hub NONG check — piggybacks on this batch for any
+  // level due for a check (never successfully checked, or last checked past the
+  // re-check cadence) that wasn't (before this run) delisted. Paced separately
+  // since SFH is a community-run API. A failure leaves sfhCheckedAt null so a
+  // later run retries.
+  const sfhEligible =
+    current.delistedAt === null && sfhCheckDue(current.sfhCheckedAt)
+  if (sfhEligible) {
+    if (paceMs > 0) await sleep(paceMs)
+    result.sfhChecked++
+    // Query the SFH catalog matching this level's just-synced rating status.
+    const outcome = await checkAndPersistSfhNong(levelId, robtop.isRated)
+    if (outcome === 'found') result.sfhFound++
+  }
 }
 
 // Fetch/compare/write every level in the batch, sequentially and paced. Never
@@ -124,6 +149,8 @@ export async function syncLevelBatch(
     ratingChanged: 0,
     delisted: 0,
     errors: 0,
+    sfhChecked: 0,
+    sfhFound: 0,
   }
 
   for (let i = 0; i < levelIds.length; i++) {
@@ -132,7 +159,7 @@ export async function syncLevelBatch(
     if (i > 0 && paceMs > 0) await sleep(paceMs)
 
     try {
-      await syncOneLevel(levelId, result)
+      await syncOneLevel(levelId, result, paceMs)
     } catch (err) {
       result.errors++
       logger.error({ levelId, err }, 'levelSync: error syncing level')

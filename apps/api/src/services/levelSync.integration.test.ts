@@ -22,6 +22,8 @@ vi.mock('../utils/logger', () => ({
 vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }))
 
 vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
+// Mock only the SFH HTTP client; the sfhSync cache write runs for real.
+vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 // Import after vi.mock so levelSync picks up the mocked modules.
 const {
@@ -31,11 +33,13 @@ const {
   VOLATILE_WINDOW_DAYS,
 } = await import('./levelSync')
 const { fetchRobtopLevel } = await import('../utils/robtop')
+const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const prisma = getTestPrisma()
 const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
+const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
 
 // A full RobtopLevel with only the diff-relevant fields worth setting; the rest
 // default to null/false (the sync core never reads them).
@@ -102,6 +106,9 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000)
 beforeEach(async () => {
   await truncateAll(prisma)
   robtopMock.mockReset()
+  sfhMock.mockReset()
+  // Default: SFH reports no NONG (checked, none). SFH-specific tests override.
+  sfhMock.mockResolvedValue(null)
 })
 
 afterAll(async () => {
@@ -354,5 +361,130 @@ describe('runStandardSync — selection', () => {
     expect(volatileSeen).toContain('recent')
     // ...and therefore absent from standard's set — no double-processing.
     expect(standardSeen).not.toContain('recent')
+  })
+})
+
+// ─── Song File Hub NONG check (piggybacked on the batch) ────────────────────────
+
+const SFH_RESULT = {
+  sfhId: '64f54c6ceba5efcdadf78b01',
+  sfhSongId: '945695',
+  sfhSongName: 'CRIM3S - Lost (XVA Remix)',
+  sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
+  sfhYoutubeVideoId: 'YrTauLnDVdw',
+  sfhDownloadUrl: 'https://api.songfilehub.com/song/abc?download=true',
+  sfhFileType: 'mp3',
+  sfhDownloads: 1767103,
+}
+
+describe('syncLevelBatch — Song File Hub check', () => {
+  it('checks a fresh eligible level and persists a found NONG', async () => {
+    await seedCachedLevel() // sfhCheckedAt null, isNong false, not delisted
+    robtopMock.mockResolvedValue(makeRobtop()) // isRated: true
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    // Rated level → rated SFH catalog.
+    expect(sfhMock).toHaveBeenCalledWith('100', 'rated')
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.isNong).toBe(true)
+    expect(after.sfhCheckedAt).not.toBeNull()
+    expect(after.sfhId).toBe('64f54c6ceba5efcdadf78b01')
+    expect(after.sfhDownloads).toBe(1767103)
+    expect(result.sfhChecked).toBe(1)
+    expect(result.sfhFound).toBe(1)
+  })
+
+  it('checks the unrated catalog when the level syncs as unrated', async () => {
+    await seedCachedLevel({ isRated: false, inGameDifficulty: 'Unrated' })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ isRated: false, inGameDifficulty: 'Unrated' })
+    )
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    await syncLevelBatch(['100'], 0)
+
+    // Unrated level → unrated SFH catalog.
+    expect(sfhMock).toHaveBeenCalledWith('100', 'unrated')
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.isNong).toBe(true)
+  })
+
+  it('stamps sfhCheckedAt (isNong false) when SFH reports no NONG', async () => {
+    await seedCachedLevel()
+    robtopMock.mockResolvedValue(makeRobtop())
+    sfhMock.mockResolvedValue(null)
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.isNong).toBe(false)
+    expect(after.sfhCheckedAt).not.toBeNull()
+    expect(result.sfhChecked).toBe(1)
+    expect(result.sfhFound).toBe(0)
+  })
+
+  it('leaves sfhCheckedAt null on an SFH failure so a later run retries', async () => {
+    await seedCachedLevel()
+    robtopMock.mockResolvedValue(makeRobtop())
+    sfhMock.mockResolvedValue(undefined) // failure
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.sfhCheckedAt).toBeNull()
+    expect(after.isNong).toBe(false)
+    expect(result.sfhChecked).toBe(1)
+    expect(result.sfhFound).toBe(0)
+  })
+
+  it('skips a level checked within the re-check window', async () => {
+    await seedCachedLevel({ sfhCheckedAt: daysAgo(30) })
+    robtopMock.mockResolvedValue(makeRobtop())
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    expect(sfhMock).not.toHaveBeenCalled()
+    expect(result.sfhChecked).toBe(0)
+  })
+
+  it('re-checks a level last checked longer ago than the re-check window', async () => {
+    await seedCachedLevel({ sfhCheckedAt: daysAgo(200) })
+    robtopMock.mockResolvedValue(makeRobtop())
+    sfhMock.mockResolvedValue(SFH_RESULT)
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    expect(sfhMock).toHaveBeenCalledWith('100', 'rated')
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.isNong).toBe(true)
+    expect(result.sfhChecked).toBe(1)
+    expect(result.sfhFound).toBe(1)
+  })
+
+  it('skips the SFH check for a level delisted in this same run', async () => {
+    await seedCachedLevel() // eligible, but RobTop will report it gone
+    robtopMock.mockResolvedValue(null)
+
+    const result = await syncLevelBatch(['100'], 0)
+
+    expect(sfhMock).not.toHaveBeenCalled()
+    expect(result.delisted).toBe(1)
+    expect(result.sfhChecked).toBe(0)
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.sfhCheckedAt).toBeNull()
   })
 })
