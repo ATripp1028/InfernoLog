@@ -227,7 +227,9 @@ describe('GET /levels/:levelId/resolve', () => {
     })
     sfhMock.mockResolvedValue(SFH_RESULT)
 
-    await buildApp(levelsApp, { userId: user.id }).request('/levels/700/resolve')
+    await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/700/resolve'
+    )
 
     // Rated RobTop level → rated SFH catalog, on the row just created.
     expect(sfhMock).toHaveBeenCalledWith('700', 'rated')
@@ -244,7 +246,9 @@ describe('GET /levels/:levelId/resolve', () => {
     await seedLevel(prisma, { inGameId: '605', isRated: false })
     sfhMock.mockResolvedValue(SFH_RESULT)
 
-    await buildApp(levelsApp, { userId: user.id }).request('/levels/605/resolve')
+    await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/605/resolve'
+    )
 
     expect(sfhMock).toHaveBeenCalledWith('605', 'unrated')
     const cached = await prisma.level.findUniqueOrThrow({
@@ -337,7 +341,9 @@ describe('GET /levels/:levelId/resolve', () => {
     })
     sfhMock.mockResolvedValue(SFH_RESULT)
 
-    await buildApp(levelsApp, { userId: user.id }).request('/levels/603/resolve')
+    await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/603/resolve'
+    )
 
     expect(sfhMock).toHaveBeenCalledWith('603', 'unrated')
     const cached = await prisma.level.findUniqueOrThrow({

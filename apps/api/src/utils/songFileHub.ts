@@ -105,7 +105,10 @@ export async function fetchSongFileHubNong(
     if (!Array.isArray(body)) {
       // Unexpected shape — treat as a failure (retry later), not a cacheable
       // "none found".
-      logger.warn({ levelId }, 'fetchSongFileHubNong: unexpected response shape')
+      logger.warn(
+        { levelId },
+        'fetchSongFileHubNong: unexpected response shape'
+      )
       return undefined
     }
     if (body.length === 0) return null
