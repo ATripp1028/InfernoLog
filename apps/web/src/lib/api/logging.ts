@@ -43,9 +43,16 @@ export interface Level {
   songName: string | null
   songAuthor: string | null
   isNong: boolean
-  nongSongTitle: string | null
-  nongArtist: string | null
-  nongSourceUrl: string | null
+  // Song File Hub NONG data (null unless isNong). sfhSongName is the raw
+  // "Artist - Title" string; sfhCheckedAt is internal and not sent.
+  sfhId: string | null
+  sfhSongId: string | null
+  sfhSongName: string | null
+  sfhYoutubeUrl: string | null
+  sfhYoutubeVideoId: string | null
+  sfhDownloadUrl: string | null
+  sfhFileType: string | null
+  sfhDownloads: number | null
   // Extended RobTop level metadata snapshot (all nullable; see schema.prisma).
   description: string | null
   creatorPlayerId: string | null

@@ -64,6 +64,54 @@ GDDL records cannot be deleted via the API. Users are warned of this in the comp
 
 ---
 
+## Song File Hub (SFH)
+
+**Base URL:** `https://api.songfilehub.com`
+**Endpoint:** `GET /songs?levelID={levelId}&states={state}`
+**Purpose:** NONG (Not On NewGrounds) song metadata — the real song behind a level whose in-game song entry is a placeholder.
+**Auth:** None (public endpoint)
+**Called from:** Lambda only (`apps/api/src/utils/songFileHub.ts`)
+**License:** Community-run API — no published rate limit; pace calls and never poll.
+
+The response is an array of song objects; we persist the canonical one (highest `downloads`) to the `levels` cache (`sfh*` columns). `isNong` is derived from SFH alone.
+
+**The `states` filter mirrors the GD level's rating status:** rated levels query `states=rated`, unrated levels `states=unrated`. Both catalogs are curated the same way (mashups/remixes of Newgrounds-hosted songs are excluded), so a non-empty result from either is a **legitimate NONG**.
+
+The state is chosen at check time from the level's `is_rated` (in the sync job, from the value RobTop just returned).
+
+### Re-check Cadence
+
+A level's song — and therefore its NONG status — changing is vanishingly rare (e.g. Slaughterhouse gaining a NONG on a rework, Battle of the Shades being unrated after repeated reworks). So a successful check is trusted and **re-checked at most once every ~6 months** (`SFH_RECHECK_DAYS` in `services/sfhSync.ts`), not on every sync pass. `sfhCheckDue(sfhCheckedAt)` is the single gate both call sites use:
+
+- **`sfh_checked_at IS NULL`** (never succeeded — including a first check that failed) → always due, so failed checks retry every run until one succeeds and a transient outage never costs 6 months.
+- **`sfh_checked_at` older than the cadence** → due again; catches the rare after-the-fact NONG add/remove or a rating flip that moves a level between catalogs.
+- **`sfh_checked_at` within the cadence** → skipped.
+
+This applies to found and not-found levels alike. Trade-off worth noting: because a found level is re-queried, a spurious empty response on a re-check would flip `is_nong` back to false and clear the `sfh*` fields — acceptable given how rare both the song change and a spurious-empty are, but it's why the re-check window is long rather than aggressive.
+
+### Failure Handling
+
+SFH being slow/down/erroring is an **expected branch**, never a blocking error — same philosophy as RobTop and GDDL. `fetchSongFileHubNong` returns:
+
+- a result when a NONG exists (highest `downloads` wins if the array ever has more than one entry — not expected for a level-scoped query, but handled deterministically),
+- `null` when the call succeeded but the array was empty (a valid, cacheable "checked, no NONG"),
+- `undefined` when the call itself failed (network/timeout/non-2xx).
+
+The shared write step (`services/sfhSync.ts`) stamps `sfh_checked_at = now()` on found **and** empty (both are "checked"); a failure writes nothing and leaves `sfh_checked_at` null so a later run retries. A failed SFH call never sets `is_nong` and never surfaces a 5xx.
+
+### Decision Log
+
+- **No manual NONG entry.** SFH is the sole source of truth; the speculative `nong_song_title` / `nong_artist` / `nong_source_url` columns (never built into any UI) were dropped.
+- **`is_nong` is derived from SFH only** — `true` when a match is found, `false` when SFH confirms none.
+- **Re-checked at most once per ~6 months**, not one-and-done: cheap insurance against the rare song change, without flooding a community API for data that almost never moves.
+- **When checked:** at resolve time (best-effort, non-blocking, same contract as the GDDL suggested-tier fetch) and opportunistically during the RobTop sync jobs (see below), for any level currently due.
+
+### Sync-Job Integration
+
+`syncLevelBatch` (the shared core behind both sync schedules — see below) also runs an SFH check for any level in its batch that is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at < now() - SFH_RECHECK_DAYS)`). It piggybacks on the levels each job already pulls in (no new schedule, no new query — just a per-level filter). SFH calls are paced sequentially (~670ms) like the RobTop calls, since SFH is community infrastructure. A level that RobTop reports **delisted in the same run** skips its SFH check for that run.
+
+---
+
 ## levelthumbs
 
 **Base URL:** `https://levelthumbs.prevter.me/thumbnail/{levelId}`  
@@ -125,6 +173,7 @@ The core calls `fetchRobtopLevel`, then:
 - If `is_rated` or `in_game_difficulty` changed → write the new value(s) directly **and** stamp `rating_status_since = now()` (this is the only thing that drives the volatile window).
 - If `name`, `creator`, `song_name`, or `song_author` changed → write the new value(s) directly (no timestamp tracking).
 - `last_checked_at = now()` on every level processed, found or not.
+- After a **found** level is reconciled, run the Song File Hub NONG check if the level is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at older than the re-check cadence)`). A level **delisted this run** skips it. See the Song File Hub section above.
 
 ### Infrastructure Note
 

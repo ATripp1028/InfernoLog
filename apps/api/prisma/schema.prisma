@@ -352,11 +352,31 @@ model Level {
   songName              String?              // Newgrounds song
   songAuthor            String?
 
-  // NONG fields (v2) — manually entered by user
+  // NONG fields (v2) — sourced entirely from Song File Hub, never manually
+  // entered. isNong is derived from SFH: true when a match is found (rated
+  // levels query the rated catalog, unrated levels the unrated one), false when
+  // SFH confirms none. sfhCheckedAt is null until a call to SFH SUCCEEDS (found
+  // and not-found are both a "success" — only network/timeout failures leave it
+  // null). A level is re-checked at most once every ~6 months (SFH_RECHECK_DAYS)
+  // since a level's song almost never changes; a null sfhCheckedAt is always due
+  // so failed checks retry. See EXTERNAL_APIS.md decision log.
   isNong                Boolean              @default(false)
-  nongSongTitle         String?
-  nongArtist            String?
-  nongSourceUrl         String?
+  sfhCheckedAt          DateTime?
+  sfhId                 String?              // SFH's _id — canonical key if
+                                             // multiple results ever appear
+  sfhSongId             String?              // SFH's songID — the REAL song's
+                                             // id. Distinct from songId /
+                                             // officialSongId above, which
+                                             // describe the level's in-game
+                                             // PLACEHOLDER song.
+  sfhSongName           String?              // raw "Artist - Title" as
+                                             // returned by SFH, unsplit
+  sfhYoutubeUrl         String?              // songURL
+  sfhYoutubeVideoId     String?              // ytVideoID
+  sfhDownloadUrl        String?              // downloadUrl
+  sfhFileType           String?              // filetype
+  sfhDownloads          Int?                 // used to pick canonical if
+                                             // multiple results ever appear
 
   // ── Extended GDBrowser metadata ──────────────────────────────────────────
   // A snapshot of everything RobTop's level object exposes (via GDBrowser), so

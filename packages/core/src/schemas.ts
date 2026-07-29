@@ -26,9 +26,16 @@ export const LevelSchema = z.object({
   songName: z.string().nullable(),
   songAuthor: z.string().nullable(),
   isNong: z.boolean(),
-  nongSongTitle: z.string().nullable(),
-  nongArtist: z.string().nullable(),
-  nongSourceUrl: z.string().url().nullable(),
+  // Song File Hub NONG data (null unless isNong; sfhCheckedAt is internal and
+  // not on the wire). sfhSongName is the raw "Artist - Title" string.
+  sfhId: z.string().nullable(),
+  sfhSongId: z.string().nullable(),
+  sfhSongName: z.string().nullable(),
+  sfhYoutubeUrl: z.string().nullable(),
+  sfhYoutubeVideoId: z.string().nullable(),
+  sfhDownloadUrl: z.string().nullable(),
+  sfhFileType: z.string().nullable(),
+  sfhDownloads: z.number().int().nullable(),
   // Extended level metadata — a snapshot of RobTop's level object. All
   // nullable: absent on manual rows and on rows cached before capture existed.
   description: z.string().nullable(),
