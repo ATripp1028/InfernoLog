@@ -17,7 +17,7 @@ export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
   const location = useLocation()
-  const { primary, secondaryActions } = useResolvedFabActions()
+  const { primary, secondaryActions, sheetHeader } = useResolvedFabActions()
 
   // secondaryActions is farthest-from-FAB-first (desktop fan-out order —
   // see FabActionsContext). The mobile sheet is a plain top-to-bottom list,
@@ -57,8 +57,13 @@ export function MobileNav() {
       <MobileActionSheet
         open={fabMenuOpen}
         onClose={() => setFabMenuOpen(false)}
-        ariaLabel="Quick actions"
+        ariaLabel={sheetHeader ?? 'Quick actions'}
       >
+        {sheetHeader && (
+          <p className="px-5 pb-1 pt-1 text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
+            {sheetHeader}
+          </p>
+        )}
         <ul className="flex flex-col gap-1 px-2 py-2">
           {orderedActions.map((action) => (
             <li key={action.key}>

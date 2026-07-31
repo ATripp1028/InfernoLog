@@ -331,6 +331,17 @@ export function LevelPage() {
         <span className="text-sm font-medium text-text-primary truncate">
           {levelName}
         </span>
+        {/* Reciprocal cross-link to the community-facing Global Level Page —
+            the other half of the two-way link. Always valid here: this page
+            only renders when a LevelProgress row exists. */}
+        <Link
+          to="/levels/$levelId"
+          params={{ levelId }}
+          className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+        >
+          Global level page
+          <span aria-hidden>→</span>
+        </Link>
       </div>
 
       {/* ── Mobile layout ─────────────────────────────────────── */}

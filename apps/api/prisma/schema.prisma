@@ -364,11 +364,10 @@ model Level {
   sfhCheckedAt          DateTime?
   sfhId                 String?              // SFH's _id — canonical key if
                                              // multiple results ever appear
-  sfhSongId             String?              // SFH's songID — the REAL song's
-                                             // id. Distinct from songId /
-                                             // officialSongId above, which
-                                             // describe the level's in-game
-                                             // PLACEHOLDER song.
+  // NOTE: SFH's `songID` is deliberately NOT stored. An SFH entry is keyed by
+  // the Newgrounds song it replaces, so it always equals this level's `songId`
+  // (the in-game placeholder song) — a separate column only invited a false
+  // "all levels using this song" query. Read `songId` for the song identity.
   sfhSongName           String?              // raw "Artist - Title" as
                                              // returned by SFH, unsplit
   sfhYoutubeUrl         String?              // songURL

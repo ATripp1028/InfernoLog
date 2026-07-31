@@ -368,7 +368,6 @@ describe('runStandardSync — selection', () => {
 
 const SFH_RESULT = {
   sfhId: '64f54c6ceba5efcdadf78b01',
-  sfhSongId: '945695',
   sfhSongName: 'CRIM3S - Lost (XVA Remix)',
   sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
   sfhYoutubeVideoId: 'YrTauLnDVdw',

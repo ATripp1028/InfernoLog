@@ -357,12 +357,28 @@ export function parseGetGJLevels21(
 // (including community-voted difficulty for unrated levels). Resolves with the
 // normalized level, or null for any failure (down/timeout/not-found/malformed).
 // An EMPTY User-Agent is required — Cloudflare returns HTTP 1020 otherwise.
-export async function fetchRobtopLevel(
+// A RobTop fetch outcome that distinguishes the two failure modes callers may
+// need to branch on:
+//   - 'found'       → the level object
+//   - 'not_found'   → GD answered but has no such level (200 with a "-1"/empty
+//                     body). Terminal: the id does not exist.
+//   - 'unreachable' → the call itself couldn't complete (rate-limiter timeout,
+//                     non-OK response, network error, timeout, parse failure).
+//                     Retryable: says nothing about whether the level exists.
+export type RobtopFetchResult =
+  | { status: 'found'; level: RobtopLevel }
+  | { status: 'not_found' }
+  | { status: 'unreachable' }
+
+// Lower-level fetch that preserves the not-found vs unreachable distinction.
+// `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
+// that only care whether they got a level.
+export async function fetchRobtopLevelResult(
   levelId: string
-): Promise<RobtopLevel | null> {
+): Promise<RobtopFetchResult> {
   if (!(await acquireRobtopSlot())) {
     logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
-    return null
+    return { status: 'unreachable' }
   }
 
   const controller = new AbortController()
@@ -395,20 +411,29 @@ export async function fetchRobtopLevel(
         { levelId, status: res.status },
         'fetchRobtopLevel: non-OK response'
       )
-      return null
+      return { status: 'unreachable' }
     }
 
     // Select the exact id — a numeric search can return name-matched levels too.
-    return parseGetGJLevels21(await res.text(), levelId)
+    // A null parse here means GD returned no such level (the "-1"/empty body).
+    const level = parseGetGJLevels21(await res.text(), levelId)
+    return level ? { status: 'found', level } : { status: 'not_found' }
   } catch (err) {
-    // Network error, timeout/abort, or parse failure — fall back to manual,
-    // but log first so a persistent failure is diagnosable instead of just
-    // silently retried into oblivion.
+    // Network error, timeout/abort, or parse failure — retryable, and says
+    // nothing about whether the level exists. Log first so a persistent failure
+    // is diagnosable instead of silently retried into oblivion.
     logger.warn({ levelId, err }, 'fetchRobtopLevel: request failed')
-    return null
+    return { status: 'unreachable' }
   } finally {
     clearTimeout(timeout)
   }
+}
+
+export async function fetchRobtopLevel(
+  levelId: string
+): Promise<RobtopLevel | null> {
+  const result = await fetchRobtopLevelResult(levelId)
+  return result.status === 'found' ? result.level : null
 }
 
 // Searches RobTop's getGJLevels21 by level name and returns all matches.

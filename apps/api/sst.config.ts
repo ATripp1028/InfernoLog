@@ -375,6 +375,20 @@ export default $config({
       },
       { auth: jwtAuth }
     )
+    // The Global Level Page's data source. Like /resolve it can hit RobTop (on a
+    // cache miss) and shares the same global rate limiter, so it gets the same
+    // extended timeout rather than authedRoute's default.
+    api.route(
+      'GET /v1/levels/{levelId}/page',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '25 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
     authedRoute('POST /v1/levels')
     authedRoute('GET /v1/levels/{levelId}')
 

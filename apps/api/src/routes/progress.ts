@@ -241,7 +241,6 @@ app.get('/me/progress/:levelId', async (c) => {
             // NONG / Song File Hub data (null unless isNong).
             isNong: true,
             sfhId: true,
-            sfhSongId: true,
             sfhSongName: true,
             sfhYoutubeUrl: true,
             sfhYoutubeVideoId: true,

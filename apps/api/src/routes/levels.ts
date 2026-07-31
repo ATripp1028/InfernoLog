@@ -18,6 +18,7 @@ import { logger } from '../utils/logger'
 import { fetchRobtopLevel } from '../utils/robtop'
 import { fetchGddlTier } from '../utils/gddl'
 import { checkSfhNongIfDue } from '../services/sfhSync'
+import { buildRobtopCreateData, findOrResolveLevel } from '../services/levelResolve'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -38,7 +39,6 @@ const levelSelect = {
   // NONG / Song File Hub data (sfhCheckedAt is internal bookkeeping, omitted).
   isNong: true,
   sfhId: true,
-  sfhSongId: true,
   sfhSongName: true,
   sfhYoutubeUrl: true,
   sfhYoutubeVideoId: true,
@@ -72,6 +72,15 @@ const levelSelect = {
   songSize: true,
   dataSource: true,
   verified: true,
+} as const
+
+// The Global Level Page renders everything the logging wire shape carries plus
+// two fields the logging flow omits as internal: delistedAt (drives the amber
+// "frozen as of…" banner) and lastCheckedAt (the frozen-as-of date it shows).
+const pageLevelSelect = {
+  ...levelSelect,
+  delistedAt: true,
+  lastCheckedAt: true,
 } as const
 
 // Loads the authenticated user's existing completion for a level (if any),
@@ -194,45 +203,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
         })
       }
       level = await prisma.level.create({
-        data: {
-          inGameId: levelId,
-          levelType: gd.platformer ? 'PLATFORMER' : 'CLASSIC',
-          name: gd.name,
-          creator: gd.creator,
-          inGameDifficulty: gd.inGameDifficulty,
-          length: gd.length,
-          songName: gd.songName,
-          songAuthor: gd.songAuthor,
-          isRated: gd.isRated,
-          isDemon: gd.isDemon,
-          // Extended RobTop metadata snapshot.
-          description: gd.description,
-          creatorPlayerId: gd.creatorPlayerId,
-          creatorAccountId: gd.creatorAccountId,
-          stars: gd.stars,
-          starsRequested: gd.starsRequested,
-          partialDiff: gd.partialDiff,
-          downloads: gd.downloads,
-          likes: gd.likes,
-          disliked: gd.disliked,
-          objectCount: gd.objectCount,
-          coins: gd.coins,
-          coinsVerified: gd.coinsVerified,
-          featured: gd.featured,
-          featureScore: gd.featureScore,
-          epicValue: gd.epicValue,
-          twoPlayer: gd.twoPlayer,
-          lowDetailMode: gd.lowDetailMode,
-          copiedFromId: gd.copiedFromId,
-          levelVersion: gd.levelVersion,
-          gameVersion: gd.gameVersion,
-          officialSongId: gd.officialSongId,
-          songId: gd.songId,
-          songLink: gd.songLink,
-          songSize: gd.songSize,
-          dataSource: 'robtop_autofill',
-          verified: true,
-        },
+        data: buildRobtopCreateData(levelId, gd),
         select: levelSelect,
       })
     }
@@ -257,6 +228,56 @@ app.get('/levels/:levelId/resolve', async (c) => {
     })
   } catch (error) {
     console.error('GET /levels/:levelId/resolve error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// GET /v1/levels/:levelId/page — the Global Level Page's data source. Unlike
+// the bare cached-only GET below, a cache miss here resolves the level from GD
+// (autofill + SFH lookup) and caches it, matching ID entry elsewhere. The two
+// failure modes are kept distinct so the page can branch on them:
+//   404 { reason: 'not_found' }   — GD has no such level (terminal; nothing
+//                                   cached, so a later visit re-resolves)
+//   503 { reason: 'unreachable' } — GD couldn't be reached (retryable)
+app.get('/levels/:levelId/page', async (c) => {
+  const userId = c.get('userId') as string
+  const levelId = c.req.param('levelId')
+
+  if (!LevelIdSchema.safeParse(levelId).success) {
+    return c.json({ error: 'Level ID must be numeric' }, 400)
+  }
+
+  try {
+    const resolved = await findOrResolveLevel(levelId, pageLevelSelect)
+
+    if (resolved.status === 'not_found') {
+      return c.json({ error: 'No such level', reason: 'not_found' }, 404)
+    }
+    if (resolved.status === 'unreachable') {
+      return c.json(
+        {
+          error: 'Could not reach the Geometry Dash servers',
+          reason: 'unreachable',
+          retryable: true,
+        },
+        503
+      )
+    }
+
+    // Existence check ONLY — the page renders no progress values, just the
+    // cross-link to the user's own page for this level. A row in any state
+    // (in progress, dropped, completed) counts.
+    const progress = await prisma.levelProgress.findUnique({
+      where: { userId_levelId: { userId, levelId } },
+      select: { id: true },
+    })
+
+    return c.json({
+      data: { ...resolved.level, hasUserProgress: progress !== null },
+    })
+  } catch (error) {
+    console.error('GET /levels/:levelId/page error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

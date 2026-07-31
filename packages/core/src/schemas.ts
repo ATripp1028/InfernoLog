@@ -29,7 +29,6 @@ export const LevelSchema = z.object({
   // Song File Hub NONG data (null unless isNong; sfhCheckedAt is internal and
   // not on the wire). sfhSongName is the raw "Artist - Title" string.
   sfhId: z.string().nullable(),
-  sfhSongId: z.string().nullable(),
   sfhSongName: z.string().nullable(),
   sfhYoutubeUrl: z.string().nullable(),
   sfhYoutubeVideoId: z.string().nullable(),
@@ -66,6 +65,18 @@ export const LevelSchema = z.object({
   dataSource: z.string(),
   verified: z.boolean(),
 })
+
+// The Global Level Page (`GET /v1/levels/:levelId/page`) wire shape: everything
+// LevelSchema carries, plus two fields the logging flow treats as internal —
+// delistedAt (drives the frozen-as-of banner) and lastCheckedAt (its date) —
+// and hasUserProgress, an EXISTENCE check against the user's level_progress (no
+// progress values are sent). Dates arrive as ISO strings.
+export const GlobalLevelPageSchema = LevelSchema.extend({
+  delistedAt: z.string().nullable(),
+  lastCheckedAt: z.string().nullable(),
+  hasUserProgress: z.boolean(),
+})
+export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 
 export const PublicUserProfileSchema = z.object({
   id: z.string().uuid(),

@@ -46,7 +46,6 @@ export interface Level {
   // Song File Hub NONG data (null unless isNong). sfhSongName is the raw
   // "Artist - Title" string; sfhCheckedAt is internal and not sent.
   sfhId: string | null
-  sfhSongId: string | null
   sfhSongName: string | null
   sfhYoutubeUrl: string | null
   sfhYoutubeVideoId: string | null
