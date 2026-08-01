@@ -3,34 +3,10 @@ import { CopyableId } from '@/components/CopyableId'
 import { ratedStarSrc } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
-import { showcaseTier, showcaseLabel, type ShowcaseTier } from './format'
 
-// Showcase hues — the glow behind the face carries this visually; the pill
-// echoes it in text so it survives a glance at the label alone.
-const SHOWCASE_COLOR: Record<ShowcaseTier, string> = {
-  mythic: '#ff5ea0',
-  legendary: '#ffc93c',
-  epic: '#b06bff',
-  featured: '#4aa3ff',
-}
-
-function Pill({
-  children,
-  className,
-  style,
-}: {
-  children: React.ReactNode
-  className?: string
-  style?: React.CSSProperties
-}) {
+function Pill({ children }: { children: React.ReactNode }) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-medium leading-none text-text-secondary',
-        className
-      )}
-      style={style}
-    >
+    <span className="inline-flex items-center gap-1 rounded-md bg-white/[0.06] px-2 py-1 text-[11px] font-medium leading-none text-text-secondary">
       {children}
     </span>
   )
@@ -43,12 +19,11 @@ interface IdentityProps {
 
 export function Identity({ level, variant }: IdentityProps) {
   const isMobile = variant === 'mobile'
-  const tier = showcaseTier(level)
   const showStarCount = level.isRated && level.stars != null && level.stars > 0
   const description = level.description?.trim()
 
   return (
-    <div className={cn('flex gap-4', isMobile ? 'px-4 py-4' : '')}>
+    <div className="flex gap-4">
       <DifficultyFace
         difficulty={level.inGameDifficulty}
         featured={level.featured}
@@ -72,25 +47,16 @@ export function Identity({ level, variant }: IdentityProps) {
           by {level.creator ?? 'Unknown'}
         </p>
 
-        {/* Chip row — flex-wraps on mobile where the chips don't all fit
-            beside the face. */}
+        {/* Chip row. No difficulty pill (the face communicates difficulty) and
+            no showcase pill (the face's glow communicates that) — the id and
+            star count are the only things the face doesn't already say. */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <CopyableId id={level.inGameId} label="Level ID" />
 
-          {/* No difficulty pill — the face already communicates difficulty. */}
           {showStarCount && (
             <Pill>
               {level.stars}
               <img src={ratedStarSrc} alt="" aria-hidden className="size-3" />
-            </Pill>
-          )}
-
-          {tier && (
-            <Pill
-              className="uppercase tracking-wide"
-              style={{ color: SHOWCASE_COLOR[tier] }}
-            >
-              {showcaseLabel(tier)}
             </Pill>
           )}
         </div>

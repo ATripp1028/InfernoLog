@@ -159,8 +159,13 @@ export function GlobalLevelPage() {
           levelName={levelName}
           forcePlaceholder={delisted}
         />
-        <div className="border-b border-border-subtle">
+        {/* Identity + stats share one section — the identity block alone
+            carries too little to stand on its own. Never collapses. */}
+        <div className="border-b border-border-subtle px-4 py-4">
           <Identity level={level} variant="mobile" />
+          <div className="mt-4 border-t border-border-subtle pt-4">
+            <Stats level={level} />
+          </div>
         </div>
 
         {/* Cross-link — its own 48px row (no arrow: the accent carries the
@@ -176,9 +181,6 @@ export function GlobalLevelPage() {
           </Link>
         )}
 
-        <CollapsibleSection title="Stats">
-          <Stats level={level} />
-        </CollapsibleSection>
         <CollapsibleSection title="Song">
           <Song level={level} />
         </CollapsibleSection>
@@ -226,12 +228,13 @@ export function GlobalLevelPage() {
                 forcePlaceholder={delisted}
                 className="rounded-card"
               />
+              {/* Identity + stats share one card — the identity block alone
+                  carries too little to justify a card of its own. */}
               <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">
                 <Identity level={level} variant="desktop" />
-              </div>
-              <div className="mt-7">
-                <DesktopSectionHeader>Stats</DesktopSectionHeader>
-                <Stats level={level} />
+                <div className="mt-5 border-t border-border-subtle pt-5">
+                  <Stats level={level} />
+                </div>
               </div>
             </div>
 
@@ -293,19 +296,16 @@ function PageSkeleton() {
           <Pulse className="h-4 w-40" />
         </div>
         <div className="aspect-video w-full animate-pulse bg-bg-surface" />
-        <div className="flex gap-4 border-b border-border-subtle px-4 py-4">
-          <Pulse className="size-14 shrink-0 rounded-card" />
-          <div className="flex-1 space-y-2">
-            <Pulse className="h-5 w-2/3" />
-            <Pulse className="h-4 w-1/3" />
-            <Pulse className="h-6 w-3/4 rounded-md" />
+        <div className="border-b border-border-subtle px-4 py-4">
+          <div className="flex gap-4">
+            <Pulse className="size-[76px] shrink-0 rounded-card" />
+            <div className="flex-1 space-y-2">
+              <Pulse className="h-5 w-2/3" />
+              <Pulse className="h-4 w-1/3" />
+              <Pulse className="h-6 w-3/4 rounded-md" />
+            </div>
           </div>
-        </div>
-        <div className="border-t border-border-subtle px-4 py-4">
-          <div className="mb-3 text-[13px] font-medium text-text-primary">
-            Stats
-          </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <Pulse key={i} className="h-[52px] rounded-card" />
             ))}
@@ -315,22 +315,21 @@ function PageSkeleton() {
 
       {/* Desktop */}
       <div className="hidden md:block">
-        <div className="mx-auto max-w-[1200px] px-8 py-6">
+        <div className="mx-8 pb-16 pt-4">
           <div className="min-h-[20px] pb-4" />
           <div className="flex gap-8 border-t border-border-subtle pt-6">
             <div className="min-w-0 flex-1">
               <Pulse className="aspect-video w-full rounded-card" />
-              <div className="mt-5 flex gap-4">
-                <Pulse className="size-16 shrink-0 rounded-card" />
-                <div className="flex-1 space-y-2">
-                  <Pulse className="h-6 w-1/2" />
-                  <Pulse className="h-4 w-1/4" />
-                  <Pulse className="h-6 w-2/3 rounded-md" />
+              <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">
+                <div className="flex gap-4">
+                  <Pulse className="size-[104px] shrink-0 rounded-card" />
+                  <div className="flex-1 space-y-2">
+                    <Pulse className="h-6 w-1/2" />
+                    <Pulse className="h-4 w-1/4" />
+                    <Pulse className="h-6 w-2/3 rounded-md" />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-7">
-                <DesktopSectionHeader>Stats</DesktopSectionHeader>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border-subtle pt-5">
                   {Array.from({ length: 6 }).map((_, i) => (
                     <Pulse key={i} className="h-16 rounded-card" />
                   ))}

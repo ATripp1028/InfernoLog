@@ -18,32 +18,6 @@ export function formatGameVersion(
   return parts.length > 0 ? parts.join(' · ') : '—'
 }
 
-export type ShowcaseTier = 'mythic' | 'legendary' | 'epic' | 'featured'
-
-// Showcase status, mirroring gdAssets.levelGlow — the glow behind the face
-// carries this visually; the Identity pill labels it in words.
-export function showcaseTier(level: {
-  epicValue: number | null
-  featured: boolean | null
-}): ShowcaseTier | null {
-  if (level.epicValue === 3) return 'mythic'
-  if (level.epicValue === 2) return 'legendary'
-  if (level.epicValue === 1) return 'epic'
-  if (level.featured) return 'featured'
-  return null
-}
-
-const SHOWCASE_LABEL: Record<ShowcaseTier, string> = {
-  mythic: 'Mythic',
-  legendary: 'Legendary',
-  epic: 'Epic',
-  featured: 'Featured',
-}
-
-export function showcaseLabel(tier: ShowcaseTier): string {
-  return SHOWCASE_LABEL[tier]
-}
-
 // AREDL only ranks Extreme Demons, so the AREDL link renders for those alone.
 export function isExtremeDemon(level: GlobalLevelPageData): boolean {
   return (
