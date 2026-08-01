@@ -54,7 +54,7 @@ export function Identity({ level, variant }: IdentityProps) {
         featured={level.featured}
         epicValue={level.epicValue}
         rated={level.isRated}
-        size={isMobile ? 56 : 64}
+        size={isMobile ? 76 : 104}
         className="shrink-0"
       />
 
@@ -72,15 +72,12 @@ export function Identity({ level, variant }: IdentityProps) {
           by {level.creator ?? 'Unknown'}
         </p>
 
-        {/* Chip row — wraps to two rows on mobile (four don't fit beside the
-            56px face at 290px). */}
+        {/* Chip row — flex-wraps on mobile where the chips don't all fit
+            beside the face. */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <CopyableId id={level.inGameId} label="Level ID" />
 
-          <Pill className="uppercase tracking-wide">
-            {level.inGameDifficulty ?? 'Unrated'}
-          </Pill>
-
+          {/* No difficulty pill — the face already communicates difficulty. */}
           {showStarCount && (
             <Pill>
               {level.stars}

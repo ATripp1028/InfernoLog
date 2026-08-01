@@ -45,16 +45,6 @@ export function Thumbnail({
         className="size-full object-cover"
         onError={() => setFailed(true)}
       />
-      {!showPlaceholder && (
-        <a
-          href="https://levelthumbs.prevter.me"
-          target="_blank"
-          rel="noreferrer noopener"
-          className="absolute bottom-1.5 right-1.5 rounded bg-black/55 px-1.5 py-0.5 text-[10px] leading-none text-white/60 transition-colors hover:text-white/90"
-        >
-          levelthumbs.prevter.me
-        </a>
-      )}
     </div>
   )
 }

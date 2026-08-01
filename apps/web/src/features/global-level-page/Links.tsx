@@ -10,7 +10,18 @@ const gdBrowserLevel = (id: string) => `https://gdbrowser.com/${id}`
 const gdBrowserUser = (accountId: string) =>
   `https://gdbrowser.com/u/${accountId}`
 const gddlLevel = (id: string) => `https://gdladder.com/level/${id}`
-const aredlLevel = (id: string) => `https://aredl.net/levels/${id}`
+const aredlLevel = (id: string) => `https://aredl.net/list/${id}`
+
+// A YouTube search scoped to this exact level — "Geometry Dash {name} by
+// {creator} {id}" — which surfaces gameplay/verification videos far more
+// reliably than any single canonical link. Missing name/creator are simply
+// dropped from the query. Spaces render as '+' to match YouTube's own URLs.
+function youtubeSearch(level: GlobalLevelPageData): string {
+  const query = ['Geometry Dash', level.name, level.creator && `by ${level.creator}`, level.inGameId]
+    .filter(Boolean)
+    .join(' ')
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query).replace(/%20/g, '+')}`
+}
 
 type LinksVariant = 'card' | 'plain'
 
@@ -128,12 +139,19 @@ export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
       {isExtremeDemon(level) && (
         <ExternalRow
           href={aredlLevel(level.inGameId)}
-          label="Placement on AREDL"
+          label="Page on AREDL"
           pad={pad}
         />
       )}
+      <ExternalRow
+        href={youtubeSearch(level)}
+        label="Search on YouTube"
+        pad={pad}
+      />
 
-      {level.copiedFromId != null && (
+      {/* Omit when the copy-source is this level itself (a reupload shares the
+          in-game id) — a "Copied from" pointing at the same page is noise. */}
+      {level.copiedFromId != null && level.copiedFromId !== level.inGameId && (
         <>
           <p
             className={cn(

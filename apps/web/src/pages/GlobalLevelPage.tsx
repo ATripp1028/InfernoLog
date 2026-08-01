@@ -164,12 +164,13 @@ export function GlobalLevelPage() {
         </div>
 
         {/* Cross-link — its own 48px row (no arrow: the accent carries the
-            affordance; ← stays the only back-arrow on the page). */}
+            affordance; ← stays the only back-arrow on the page). Right-aligned
+            to match where the reciprocal link sits on the user-scoped page. */}
         {level.hasUserProgress && (
           <Link
             to="/list/$levelId"
             params={{ levelId }}
-            className="flex h-12 items-center border-b border-border-subtle px-4 text-[13px] font-medium text-[var(--color-primary-light)]"
+            className="flex h-12 items-center justify-end border-b border-border-subtle px-4 text-[13px] font-medium text-[var(--color-primary-light)]"
           >
             Your page for this level
           </Link>
@@ -192,7 +193,7 @@ export function GlobalLevelPage() {
 
       {/* ── Desktop ────────────────────────────────────────────── */}
       <div className="hidden md:block">
-        <div className="mx-auto max-w-[1200px] px-8 py-6">
+        <div className="mx-8 pb-16 pt-4">
           {delisted && (
             <div className="mb-4">
               <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
@@ -200,9 +201,10 @@ export function GlobalLevelPage() {
           )}
 
           {/* Breadcrumb slot — holds only the cross-link (when the user has a
-              page for this level). Empty otherwise; reserved height keeps the
-              layout from shifting. */}
-          <div className="flex min-h-[20px] items-center pb-4">
+              page for this level), right-aligned to match where the reciprocal
+              link sits on the user-scoped page. Empty otherwise; reserved
+              height keeps the layout from shifting. */}
+          <div className="flex min-h-[20px] items-center justify-end pb-4">
             {level.hasUserProgress && (
               <Link
                 to="/list/$levelId"
@@ -216,7 +218,7 @@ export function GlobalLevelPage() {
           </div>
 
           <div className="flex gap-8 border-t border-border-subtle pt-6">
-            {/* Left column — 680 at 1200 width. */}
+            {/* Left column — grows to fill; right column is fixed-width. */}
             <div className="min-w-0 flex-1">
               <Thumbnail
                 levelId={levelId}
