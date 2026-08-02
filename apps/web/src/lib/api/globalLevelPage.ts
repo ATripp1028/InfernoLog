@@ -30,17 +30,23 @@ export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
 }
 
 // Fetches the Global Level Page for a level. A cache miss resolves the level
-// from GD server-side (the /page endpoint does this); the two failure modes
-// arrive as distinct HTTP statuses (404 not-found vs 503 unreachable) so the
-// page can render different terminal/retryable states. retry:false so those
-// statuses surface immediately as states rather than being retried away — the
-// resolve-failed state offers a manual Retry (refetch) instead.
+// from GD server-side (the /page endpoint does this); the two known failure
+// modes arrive as distinct HTTP statuses (404 not-found vs 503 unreachable) so
+// the page can render different terminal/retryable states. Those two surface
+// immediately as states rather than being retried away (each offers a manual
+// Retry); everything else — a 500, a network failure — is likely transient
+// (e.g. a DB cold start), so we retry it a couple of times before giving up.
 export function useGlobalLevelPage(levelId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
     queryKey: ['global-level-page', levelId],
     enabled: isAuthenticated && !!levelId,
-    retry: false,
+    // 404/503 are meaningful states, not failures to retry; retry anything else.
+    retry: (failureCount, error) => {
+      const kind = levelPageErrorKind(error)
+      if (kind === 'not_found' || kind === 'unreachable') return false
+      return failureCount < 2
+    },
     queryFn: async (): Promise<GlobalLevelPageData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: GlobalLevelPageData }>(

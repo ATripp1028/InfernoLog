@@ -99,8 +99,10 @@ export function NotFoundState({
 }
 
 // "Resolve failed" — retryable, and deliberately distinct from not-found:
-// "this doesn't exist" and "we couldn't check" are different facts. Copy states
-// plainly that it isn't the user's fault.
+// "this doesn't exist" and "we couldn't check" are different facts. Reserved for
+// the 503 case ONLY, where GD genuinely couldn't be reached (a cache miss whose
+// RobTop resolve failed); the copy blames GD's servers, so it must not be shown
+// for errors GD had no part in. Copy states plainly that it isn't the user's fault.
 export function ResolveFailedState({
   onRetry,
   onSearch,
@@ -113,6 +115,34 @@ export function ResolveFailedState({
       icon={<ServerCrash size={38} className="text-text-tertiary" />}
       title="Couldn't reach GD's servers"
       body="This is usually temporary and not something you did. Level data will load once the servers respond."
+    >
+      <Button variant="default" onClick={onRetry}>
+        Retry
+      </Button>
+      <Button variant="outline" onClick={onSearch}>
+        Search the cache
+      </Button>
+    </CenteredState>
+  )
+}
+
+// Generic failure — a 500, a network blip, anything that isn't a clean
+// not-found (404) or GD-unreachable (503). Crucially this covers cached levels,
+// whose /page request never touches GD, so the copy must NOT blame GD's servers
+// (the old catch-all did, which was actively misleading). Retryable, since these
+// are usually transient (e.g. a DB cold start).
+export function GenericErrorState({
+  onRetry,
+  onSearch,
+}: {
+  onRetry: () => void
+  onSearch: () => void
+}) {
+  return (
+    <CenteredState
+      icon={<ServerCrash size={38} className="text-text-tertiary" />}
+      title="Something went wrong"
+      body="We couldn't load this level. This is usually temporary — try again in a moment."
     >
       <Button variant="default" onClick={onRetry}>
         Retry

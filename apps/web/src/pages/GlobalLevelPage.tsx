@@ -25,6 +25,7 @@ import {
   DelistedBanner,
   NotFoundState,
   ResolveFailedState,
+  GenericErrorState,
 } from '@/features/global-level-page/states'
 
 // Desktop section header — small uppercase grey, the desktop convention
@@ -113,9 +114,20 @@ export function GlobalLevelPage() {
       />
     )
   }
-  if (errorKind) {
+  // 503 — GD genuinely unreachable (a cache miss whose RobTop resolve failed).
+  if (errorKind === 'unreachable') {
     return (
       <ResolveFailedState
+        onRetry={() => void query.refetch()}
+        onSearch={() => void navigate({ to: '/list' })}
+      />
+    )
+  }
+  // Anything else (500, network failure) — don't blame GD; a cached level's
+  // /page request never touches it.
+  if (errorKind) {
+    return (
+      <GenericErrorState
         onRetry={() => void query.refetch()}
         onSearch={() => void navigate({ to: '/list' })}
       />
