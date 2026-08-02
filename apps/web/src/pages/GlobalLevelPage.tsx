@@ -5,7 +5,7 @@ import {
   useParams,
   useRouter,
 } from '@tanstack/react-router'
-import { ArrowLeft, Check, Flag, List, X } from 'lucide-react'
+import { ArrowLeft, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
   levelPageErrorKind,
@@ -14,6 +14,13 @@ import {
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+import {
+  useCollections,
+  useAddCollectionEntry,
+  collectionErrorCode,
+} from '@/lib/api/collections'
+import { ApiError } from '@/lib/api/client'
+import { toast } from '@/components/ui/sonner'
 import { Thumbnail } from '@/features/global-level-page/Thumbnail'
 import { Identity } from '@/features/global-level-page/Identity'
 import { Stats } from '@/features/global-level-page/Stats'
@@ -49,11 +56,37 @@ export function GlobalLevelPage() {
   const level = query.data
   const errorKind = query.error ? levelPageErrorKind(query.error) : null
 
+  // Want to Beat is a built-in collection — resolve its id so the FAB can add
+  // this level to it in one tap (the API enforces the "unbeaten only" rule).
+  const collections = useCollections()
+  const wtbId = collections.data?.find((c) => c.type === 'WANT_TO_BEAT')?.id
+  const addEntry = useAddCollectionEntry()
+
   const goBack = () => {
     // Return to wherever the id was entered (search, list, another level).
     // Falls back to the List if there's no history to pop.
     if (window.history.length > 1) router.history.back()
     else void navigate({ to: '/list' })
+  }
+
+  const handleAddToWantToBeat = () => {
+    if (!wtbId) return
+    addEntry.mutate(
+      { collectionId: wtbId, levelId },
+      {
+        onSuccess: () => toast.success('Added to Want to Beat'),
+        onError: (err) => {
+          const code = collectionErrorCode(err)
+          toast.error(
+            code === 'LEVEL_ALREADY_COMPLETED'
+              ? 'Already completed — Want to Beat only holds unbeaten levels'
+              : err instanceof ApiError
+                ? err.message
+                : 'Could not add to Want to Beat'
+          )
+        },
+      }
+    )
   }
 
   // FAB — four logging actions scoped to THIS level, no destructive item
@@ -86,6 +119,15 @@ export function GlobalLevelPage() {
             icon: X,
             disabled: fabDisabled,
             onClick: () => openForEdit(levelId, 'drop'),
+          },
+          {
+            key: 'want-to-beat',
+            label: 'Add to Want to Beat',
+            icon: Star,
+            // Needs the WTB collection id resolved; also pending while an add
+            // is in flight so a double-tap can't fire two requests.
+            disabled: fabDisabled || !wtbId || addEntry.isPending,
+            onClick: handleAddToWantToBeat,
           },
           {
             key: 'add-collection',
