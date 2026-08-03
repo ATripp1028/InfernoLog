@@ -27,7 +27,6 @@ const FETCH_TIMEOUT_MS = 5000
 // Normalized SFH result — the sfh* fields written to the levels cache 1:1.
 export interface SongFileHubResult {
   sfhId: string
-  sfhSongId: string
   sfhSongName: string
   sfhYoutubeUrl: string
   sfhYoutubeVideoId: string
@@ -40,7 +39,6 @@ export interface SongFileHubResult {
 // rest of the payload (urlHash, imageHash, state, …) is ignored.
 interface SfhSongRaw {
   _id?: unknown
-  songID?: unknown
   songName?: unknown
   songURL?: unknown
   ytVideoID?: unknown
@@ -55,7 +53,6 @@ const num = (v: unknown): number => (typeof v === 'number' ? v : 0)
 function normalize(raw: SfhSongRaw): SongFileHubResult {
   return {
     sfhId: str(raw._id),
-    sfhSongId: str(raw.songID),
     sfhSongName: str(raw.songName),
     sfhYoutubeUrl: str(raw.songURL),
     sfhYoutubeVideoId: str(raw.ytVideoID),

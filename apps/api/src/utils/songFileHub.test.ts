@@ -47,7 +47,6 @@ describe('fetchSongFileHubNong', () => {
 
     await expect(fetchSongFileHubNong('27690100')).resolves.toEqual({
       sfhId: '64f54c6ceba5efcdadf78b01',
-      sfhSongId: '945695',
       sfhSongName: 'CRIM3S - Lost (XVA Remix)',
       sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
       sfhYoutubeVideoId: 'YrTauLnDVdw',
@@ -84,7 +83,6 @@ describe('fetchSongFileHubNong', () => {
 
     const result = await fetchSongFileHubNong('27690100')
     expect(result?.sfhId).toBe('high')
-    expect(result?.sfhSongId).toBe('222')
     expect(result?.sfhDownloads).toBe(9999)
   })
 

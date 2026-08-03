@@ -16,21 +16,81 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
+vi.mock('../utils/robtop', () => ({
+  fetchRobtopLevel: vi.fn(),
+  // The /page endpoint resolves via findOrResolveLevel, which uses the
+  // distinction-preserving variant.
+  fetchRobtopLevelResult: vi.fn(),
+  // /gd-search runs the GD-server name search via runGdSearch.
+  searchRobtopByNameResult: vi.fn(),
+}))
 vi.mock('../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
 // Mock only the SFH HTTP client — checkSfhNongIfDue + the cache write run for
 // real against the test DB.
 vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 const { default: levelsApp } = await import('./levels')
-const { fetchRobtopLevel } = await import('../utils/robtop')
+const { fetchRobtopLevel, fetchRobtopLevelResult, searchRobtopByNameResult } =
+  await import('../utils/robtop')
 const { fetchGddlTier } = await import('../utils/gddl')
 const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 
 const prisma = getTestPrisma()
 const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
+const robtopResultMock = fetchRobtopLevelResult as unknown as ReturnType<
+  typeof vi.fn
+>
 const gddlTierMock = fetchGddlTier as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
+const gdSearchMock = searchRobtopByNameResult as unknown as ReturnType<
+  typeof vi.fn
+>
+
+// A minimal RobtopLevel for GD-search results. Only the fields the row shape
+// and buildRobtopCreateData read need realistic values; the rest default null.
+function makeRobtopLevel(over: {
+  name: string
+  isRated: boolean
+  inGameDifficulty?: string | null
+  stars?: number | null
+}) {
+  return {
+    name: over.name,
+    creator: 'Someone',
+    inGameDifficulty:
+      over.inGameDifficulty ?? (over.isRated ? 'Insane Demon' : null),
+    length: 'Long',
+    songName: 'Song',
+    songAuthor: 'Artist',
+    isRated: over.isRated,
+    isDemon: over.isRated,
+    platformer: false,
+    description: null,
+    creatorPlayerId: null,
+    creatorAccountId: null,
+    stars: over.stars ?? (over.isRated ? 10 : null),
+    starsRequested: null,
+    partialDiff: null,
+    downloads: null,
+    likes: null,
+    disliked: null,
+    objectCount: null,
+    coins: null,
+    coinsVerified: null,
+    featured: null,
+    featureScore: null,
+    epicValue: null,
+    twoPlayer: null,
+    lowDetailMode: null,
+    copiedFromId: null,
+    levelVersion: null,
+    gameVersion: null,
+    officialSongId: null,
+    songId: null,
+    songLink: null,
+    songSize: null,
+  }
+}
 
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000)
 
@@ -183,7 +243,6 @@ describe('GET /levels/:levelId/resolve', () => {
 
   const SFH_RESULT = {
     sfhId: '64f54c6ceba5efcdadf78b01',
-    sfhSongId: '945695',
     sfhSongName: 'CRIM3S - Lost (XVA Remix)',
     sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
     sfhYoutubeVideoId: 'YrTauLnDVdw',
@@ -285,7 +344,6 @@ describe('GET /levels/:levelId/resolve', () => {
         isNong: true,
         sfhCheckedAt: daysAgo(30), // recent → no re-check this request
         sfhId: '64f54c6ceba5efcdadf78b01',
-        sfhSongId: '945695',
         sfhSongName: 'CRIM3S - Lost (XVA Remix)',
         sfhYoutubeUrl: 'https://youtu.be/UWNvLgl0M60',
         sfhYoutubeVideoId: 'YrTauLnDVdw',
@@ -372,6 +430,110 @@ describe('GET /levels/:levelId/resolve', () => {
   })
 })
 
+describe('GET /levels/:levelId/page', () => {
+  it('returns a cached level with hasUserProgress=false and no RobTop call', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '810', name: 'Page Level' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/810/page'
+    )
+    const body = (await res.json()) as {
+      data: Record<string, unknown>
+    }
+
+    expect(res.status).toBe(200)
+    expect(body.data.inGameId).toBe('810')
+    expect(body.data.name).toBe('Page Level')
+    expect(body.data.hasUserProgress).toBe(false)
+    // Page-only fields that the logging wire shape omits.
+    expect(body.data).toHaveProperty('delistedAt')
+    expect(body.data).toHaveProperty('lastCheckedAt')
+    expect(robtopResultMock).not.toHaveBeenCalled()
+  })
+
+  it('reports hasUserProgress=true for any LevelProgress row (existence only)', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '811' })
+    // A non-completed row still counts — the cross-link condition is any row.
+    await prisma.levelProgress.create({
+      data: { userId: user.id, levelId: '811', status: 'IN_PROGRESS' },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/811/page'
+    )
+    const body = (await res.json()) as { data: { hasUserProgress: boolean } }
+
+    expect(res.status).toBe(200)
+    expect(body.data.hasUserProgress).toBe(true)
+  })
+
+  it('resolves an uncached level from RobTop, caches it, and returns it', async () => {
+    const user = await seedUser(prisma)
+    robtopResultMock.mockResolvedValue({
+      status: 'found',
+      level: {
+        name: 'Resolved Page Level',
+        creator: 'RobTop',
+        inGameDifficulty: 'Extreme Demon',
+        length: 'Long',
+        songName: 'Song',
+        songAuthor: 'Author',
+        isRated: true,
+        isDemon: true,
+        platformer: false,
+      },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/812/page'
+    )
+    const body = (await res.json()) as { data: Record<string, unknown> }
+
+    expect(res.status).toBe(200)
+    expect(robtopResultMock).toHaveBeenCalledWith('812')
+    expect(body.data.name).toBe('Resolved Page Level')
+    expect(body.data.dataSource).toBe('robtop_autofill')
+    expect(body.data.hasUserProgress).toBe(false)
+
+    const cached = await prisma.level.findUnique({ where: { inGameId: '812' } })
+    expect(cached?.name).toBe('Resolved Page Level')
+  })
+
+  it('returns 404 with reason=not_found when GD has no such level', async () => {
+    const user = await seedUser(prisma)
+    robtopResultMock.mockResolvedValue({ status: 'not_found' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/813/page'
+    )
+    const body = (await res.json()) as { reason?: string }
+
+    expect(res.status).toBe(404)
+    expect(body.reason).toBe('not_found')
+    // Nothing cached — a later visit re-resolves.
+    const cached = await prisma.level.findUnique({ where: { inGameId: '813' } })
+    expect(cached).toBeNull()
+  })
+
+  it('returns 503 with reason=unreachable when GD cannot be reached', async () => {
+    const user = await seedUser(prisma)
+    robtopResultMock.mockResolvedValue({ status: 'unreachable' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/814/page'
+    )
+    const body = (await res.json()) as { reason?: string; retryable?: boolean }
+
+    expect(res.status).toBe(503)
+    expect(body.reason).toBe('unreachable')
+    expect(body.retryable).toBe(true)
+    const cached = await prisma.level.findUnique({ where: { inGameId: '814' } })
+    expect(cached).toBeNull()
+  })
+})
+
 describe('POST /levels (manual metadata write)', () => {
   it('creates a manual level with verified=false and the user difficulty as in-game difficulty', async () => {
     const user = await seedUser(prisma)
@@ -434,5 +596,106 @@ describe('GET /levels/search (pg_trgm)', () => {
 
     expect(res.status).toBe(200)
     expect(body.data).toEqual([])
+  })
+})
+
+describe('GET /levels/gd-search (escalation)', () => {
+  it('dedupes cached levels, partitions rated/unrated, and seeds only rated', async () => {
+    const user = await seedUser(prisma)
+    // '100' is already cached → must be omitted from the GD results.
+    await seedLevel(prisma, { inGameId: '100', name: 'Bloodbath' })
+
+    gdSearchMock.mockResolvedValue({
+      status: 'ok',
+      results: [
+        {
+          levelId: '100',
+          level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }),
+        },
+        {
+          levelId: '200',
+          level: makeRobtopLevel({ name: 'Bloodlust', isRated: true }),
+        },
+        {
+          levelId: '300',
+          level: makeRobtopLevel({
+            name: 'bloodbath startpos',
+            isRated: false,
+          }),
+        },
+      ],
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/gd-search?q=bloodbath'
+    )
+    const body = (await res.json()) as {
+      status: string
+      rated: Array<{ inGameId: string }>
+      unrated: Array<{ inGameId: string }>
+    }
+
+    expect(res.status).toBe(200)
+    expect(body.status).toBe('ok')
+    // The already-cached '100' is omitted; new rated grouped, new unrated grouped.
+    expect(body.rated.map((r) => r.inGameId)).toEqual(['200'])
+    expect(body.unrated.map((r) => r.inGameId)).toEqual(['300'])
+
+    // Rated survivor is seeded automatically…
+    const seededRated = await prisma.level.findUnique({
+      where: { inGameId: '200' },
+    })
+    expect(seededRated?.dataSource).toBe('robtop_autofill')
+    // …the unrated survivor is NOT (seeded only if the user picks it).
+    const unseeded = await prisma.level.findUnique({
+      where: { inGameId: '300' },
+    })
+    expect(unseeded).toBeNull()
+  })
+
+  it('returns nothing_new when every result is already cached', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '100', name: 'Bloodbath' })
+
+    gdSearchMock.mockResolvedValue({
+      status: 'ok',
+      results: [
+        {
+          levelId: '100',
+          level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }),
+        },
+      ],
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/gd-search?q=bloodbath'
+    )
+    const body = (await res.json()) as { status: string; totalFound: number }
+
+    expect(res.status).toBe(200)
+    expect(body.status).toBe('nothing_new')
+    expect(body.totalFound).toBe(1)
+  })
+
+  it('returns 503 unreachable when the RobTop call fails', async () => {
+    const user = await seedUser(prisma)
+    gdSearchMock.mockResolvedValue({ status: 'unreachable' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/gd-search?q=bloodbath'
+    )
+    const body = (await res.json()) as { status: string; retryable?: boolean }
+
+    expect(res.status).toBe(503)
+    expect(body.status).toBe('unreachable')
+    expect(body.retryable).toBe(true)
+  })
+
+  it('400s when q is missing', async () => {
+    const user = await seedUser(prisma)
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/gd-search'
+    )
+    expect(res.status).toBe(400)
   })
 })

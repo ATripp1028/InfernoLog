@@ -29,7 +29,6 @@ export const LevelSchema = z.object({
   // Song File Hub NONG data (null unless isNong; sfhCheckedAt is internal and
   // not on the wire). sfhSongName is the raw "Artist - Title" string.
   sfhId: z.string().nullable(),
-  sfhSongId: z.string().nullable(),
   sfhSongName: z.string().nullable(),
   sfhYoutubeUrl: z.string().nullable(),
   sfhYoutubeVideoId: z.string().nullable(),
@@ -66,6 +65,18 @@ export const LevelSchema = z.object({
   dataSource: z.string(),
   verified: z.boolean(),
 })
+
+// The Global Level Page (`GET /v1/levels/:levelId/page`) wire shape: everything
+// LevelSchema carries, plus two fields the logging flow treats as internal —
+// delistedAt (drives the frozen-as-of banner) and lastCheckedAt (its date) —
+// and hasUserProgress, an EXISTENCE check against the user's level_progress (no
+// progress values are sent). Dates arrive as ISO strings.
+export const GlobalLevelPageSchema = LevelSchema.extend({
+  delistedAt: z.string().nullable(),
+  lastCheckedAt: z.string().nullable(),
+  hasUserProgress: z.boolean(),
+})
+export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 
 export const PublicUserProfileSchema = z.object({
   id: z.string().uuid(),
@@ -503,12 +514,35 @@ export const LevelSearchResultSchema = z.object({
   creator: z.string().nullable(),
   songName: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
+  // Star count (null for unrated). Rendered alongside the difficulty in a row.
+  stars: z.number().int().nullable(),
   // Drives the difficulty-face showcase glow in result rows.
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),
   // Drives the rated-star badge on standard-difficulty faces.
   isRated: z.boolean(),
 })
+
+// GET /v1/levels/gd-search response — the opt-in GD-server escalation. Three
+// outcomes the client branches on: `ok` (new levels found, rated grouped
+// first and already seeded, unrated returned unseeded), `nothing_new` (the
+// call succeeded but every result was already cached — a result, not a
+// failure), and `unreachable` (the RobTop call failed — retryable, sent with a
+// 503). See the SpecNote decision record.
+export const GdSearchResponseSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('ok'),
+    rated: z.array(LevelSearchResultSchema),
+    unrated: z.array(LevelSearchResultSchema),
+  }),
+  z.object({
+    status: z.literal('nothing_new'),
+    totalFound: z.number().int(),
+  }),
+  z.object({
+    status: z.literal('unreachable'),
+  }),
+])
 
 // The existing-completion summary folded into the resolve response so the
 // client can pre-populate the edit form ("edit, not replace").

@@ -12,7 +12,22 @@
 // resources/server/level).
 
 import { logger } from './logger'
-import { acquireRobtopSlot } from './robtopRateLimit'
+import {
+  acquireRobtopSlot,
+  reportRobtopThrottled,
+  DEFAULT_COOLDOWN_MS,
+} from './robtopRateLimit'
+
+// Parses an HTTP Retry-After header (delta-seconds or an HTTP date) to ms.
+// Returns undefined when absent/unparseable so the caller uses its default.
+function parseRetryAfterMs(headerValue: string | null): number | undefined {
+  if (!headerValue) return undefined
+  const secs = Number(headerValue)
+  if (Number.isFinite(secs)) return Math.max(0, secs * 1000)
+  const when = Date.parse(headerValue)
+  if (!Number.isNaN(when)) return Math.max(0, when - Date.now())
+  return undefined
+}
 
 const ROBTOP_API_BASE_URL =
   process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
@@ -357,12 +372,28 @@ export function parseGetGJLevels21(
 // (including community-voted difficulty for unrated levels). Resolves with the
 // normalized level, or null for any failure (down/timeout/not-found/malformed).
 // An EMPTY User-Agent is required — Cloudflare returns HTTP 1020 otherwise.
-export async function fetchRobtopLevel(
+// A RobTop fetch outcome that distinguishes the two failure modes callers may
+// need to branch on:
+//   - 'found'       → the level object
+//   - 'not_found'   → GD answered but has no such level (200 with a "-1"/empty
+//                     body). Terminal: the id does not exist.
+//   - 'unreachable' → the call itself couldn't complete (rate-limiter timeout,
+//                     non-OK response, network error, timeout, parse failure).
+//                     Retryable: says nothing about whether the level exists.
+export type RobtopFetchResult =
+  | { status: 'found'; level: RobtopLevel }
+  | { status: 'not_found' }
+  | { status: 'unreachable' }
+
+// Lower-level fetch that preserves the not-found vs unreachable distinction.
+// `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
+// that only care whether they got a level.
+export async function fetchRobtopLevelResult(
   levelId: string
-): Promise<RobtopLevel | null> {
+): Promise<RobtopFetchResult> {
   if (!(await acquireRobtopSlot())) {
     logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
-    return null
+    return { status: 'unreachable' }
   }
 
   const controller = new AbortController()
@@ -395,33 +426,66 @@ export async function fetchRobtopLevel(
         { levelId, status: res.status },
         'fetchRobtopLevel: non-OK response'
       )
-      return null
+      // A 429 means RobTop is rate-limiting our IP — open a shared cooldown so
+      // EVERY consumer backs off, not just this call. Best-effort; a failure to
+      // record it must not change what we return.
+      if (res.status === 429) {
+        const cooldownMs =
+          parseRetryAfterMs(res.headers.get('retry-after')) ??
+          DEFAULT_COOLDOWN_MS
+        try {
+          await reportRobtopThrottled(cooldownMs)
+        } catch (err) {
+          logger.warn(
+            { levelId, err },
+            'fetchRobtopLevel: cooldown write failed'
+          )
+        }
+      }
+      return { status: 'unreachable' }
     }
 
     // Select the exact id — a numeric search can return name-matched levels too.
-    return parseGetGJLevels21(await res.text(), levelId)
+    // A null parse here means GD returned no such level (the "-1"/empty body).
+    const level = parseGetGJLevels21(await res.text(), levelId)
+    return level ? { status: 'found', level } : { status: 'not_found' }
   } catch (err) {
-    // Network error, timeout/abort, or parse failure — fall back to manual,
-    // but log first so a persistent failure is diagnosable instead of just
-    // silently retried into oblivion.
+    // Network error, timeout/abort, or parse failure — retryable, and says
+    // nothing about whether the level exists. Log first so a persistent failure
+    // is diagnosable instead of silently retried into oblivion.
     logger.warn({ levelId, err }, 'fetchRobtopLevel: request failed')
-    return null
+    return { status: 'unreachable' }
   } finally {
     clearTimeout(timeout)
   }
 }
 
-// Searches RobTop's getGJLevels21 by level name and returns all matches.
-// Used during spreadsheet import to resolve name-only rows. Returns an empty
-// array on any failure — callers must handle a null resolution gracefully.
-// Pass diff/demonFilter to scope results to a specific difficulty.
-export async function searchRobtopByName(
+export async function fetchRobtopLevel(
+  levelId: string
+): Promise<RobtopLevel | null> {
+  const result = await fetchRobtopLevelResult(levelId)
+  return result.status === 'found' ? result.level : null
+}
+
+// A name-search outcome that preserves the reachable/unreachable distinction,
+// mirroring RobtopFetchResult. `ok` with an empty array is a genuine "GD found
+// nothing" (a 200 with a "-1"/empty body); `unreachable` is a call that
+// couldn't complete (rate-limiter timeout, non-OK, network/timeout/parse) and
+// is retryable. The toolbar's GD escalation needs this split so a request
+// failure reads differently from a legitimate empty result set.
+export type RobtopSearchOutcome =
+  | { status: 'ok'; results: RobtopSearchResult[] }
+  | { status: 'unreachable' }
+
+// Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter to scope
+// results to a specific difficulty.
+export async function searchRobtopByNameResult(
   name: string,
   options?: { diff?: string; demonFilter?: string }
-): Promise<RobtopSearchResult[]> {
+): Promise<RobtopSearchOutcome> {
   if (!(await acquireRobtopSlot())) {
     logger.warn({ name }, 'searchRobtopByName: rate limiter timed out')
-    return []
+    return { status: 'unreachable' }
   }
 
   const controller = new AbortController()
@@ -449,12 +513,41 @@ export async function searchRobtopByName(
       body,
       signal: controller.signal,
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      // Same shared-cooldown backoff as fetchRobtopLevelResult on a 429.
+      if (res.status === 429) {
+        const cooldownMs =
+          parseRetryAfterMs(res.headers.get('retry-after')) ??
+          DEFAULT_COOLDOWN_MS
+        try {
+          await reportRobtopThrottled(cooldownMs)
+        } catch (err) {
+          logger.warn(
+            { name, err },
+            'searchRobtopByName: cooldown write failed'
+          )
+        }
+      }
+      return { status: 'unreachable' }
+    }
 
-    return parseAllFromGetGJLevels21(await res.text())
+    return {
+      status: 'ok',
+      results: parseAllFromGetGJLevels21(await res.text()),
+    }
   } catch {
-    return []
+    return { status: 'unreachable' }
   } finally {
     clearTimeout(timeout)
   }
+}
+
+// Array-returning wrapper for callers that only need matches and treat any
+// failure as "no resolution" (spreadsheet import). Returns [] on unreachable.
+export async function searchRobtopByName(
+  name: string,
+  options?: { diff?: string; demonFilter?: string }
+): Promise<RobtopSearchResult[]> {
+  const outcome = await searchRobtopByNameResult(name, options)
+  return outcome.status === 'ok' ? outcome.results : []
 }

@@ -9,6 +9,7 @@ import {
   ManualLevelInputSchema,
   RatingScoreInputSchema,
   LevelSearchResultSchema,
+  GdSearchResponseSchema,
   ResolveLevelResponseSchema,
   ExistingCompletionSchema,
   LevelListSummarySchema,
@@ -44,6 +45,7 @@ export type EditProgressInput = z.infer<typeof EditProgressInputSchema>
 export type ManualLevelInput = z.infer<typeof ManualLevelInputSchema>
 export type RatingScoreInput = z.infer<typeof RatingScoreInputSchema>
 export type LevelSearchResult = z.infer<typeof LevelSearchResultSchema>
+export type GdSearchResponse = z.infer<typeof GdSearchResponseSchema>
 export type ResolveLevelResponse = z.infer<typeof ResolveLevelResponseSchema>
 export type ExistingCompletion = z.infer<typeof ExistingCompletionSchema>
 

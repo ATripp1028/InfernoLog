@@ -111,11 +111,21 @@ Name search queries **InfernoLog's `levels` cache**, not GD's live search.
   copies), costs nothing externally (no rate limits, no dependency on the GD servers' uptime), is
   trivially fast (local Postgres query — can afford live-as-you-type), and compounds with
   adoption (every ID anyone logs enriches the shared cache for everyone).
-- **Cold-start cost (accepted):** a level is only name-searchable after its first log by any
-  user. The graceful fallback: name search hits the cache, and if the level isn't found, the
-  field still accepts a raw ID → routes through GD-servers autofill → **populates the cache**,
-  making it name-findable next time. ID entry is the seeding mechanism for the search index,
-  not a worse parallel path.
+- **Cold-start cost (mitigated):** a level enters the cache the first time anyone logs it, IDs
+  it, or reaches it via the **GD-server search escalation** (see below). Before then, name search
+  simply won't surface it — but two graceful fallbacks close the gap: the field still accepts a
+  raw ID → routes through GD-servers autofill → **populates the cache**; and when a name search
+  under-delivers, the user can opt in to a one-request GD-server name search that seeds the rated
+  matches automatically (and an unrated one if they pick it). ID entry is no longer the _only_
+  seeding mechanism — escalation shares that role — but both are seeding paths, not worse
+  parallel ones. See the "GD-server search escalation" section for the opt-in rules.
+- **GD-server search escalation (opt-in):** offered under a cache name search (here, the toolbar,
+  and collections add) when the cache comes up short — on zero results and on partial hits alike.
+  It fires only on **explicit confirmation**, never on keystroke, and each subsequent search
+  needs its own confirm. One unfiltered `getGJLevels21` name query; levels already cached are
+  omitted; rated results are grouped first and seeded automatically, unrated are dimmed and seeded
+  only if selected. A dedupe-emptied result set is a distinct "nothing new" state, separate from a
+  retryable request failure. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`.
 - **Implementation notes:** prefer a `pg_trgm` GIN index on `name` over plain `ILIKE` for
   fuzzy/typo tolerance (GD names are full of stylized spellings); Neon supports the extension.
   Always show creator + difficulty + ID in results to disambiguate same-name / reupload cases.

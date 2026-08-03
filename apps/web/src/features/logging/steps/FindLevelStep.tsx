@@ -15,6 +15,8 @@ import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { DifficultyFace } from '@/components/DifficultyFace'
+import { GdSearchSection } from '@/features/search/GdSearchSection'
+import { useEscalation } from '@/features/search/useEscalation'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import type { ResolvedLevel } from '../types'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
@@ -25,6 +27,7 @@ export function FindLevelStep() {
   const [seedingId, setSeedingId] = useState<string | null>(null)
   const [seeded, setSeeded] = useState<ResolvedLevel | null>(null)
   const resolveLevel = useResolveLevel()
+  const escalation = useEscalation()
 
   const trimmed = query.trim()
   const isNumeric = /^\d+$/.test(trimmed)
@@ -99,6 +102,8 @@ export function FindLevelStep() {
   function updateQuery(value: string) {
     setQuery(value)
     if (seeded) setSeeded(null)
+    // Editing the query drops any prior GD escalation (fresh confirm required).
+    escalation.clear()
   }
 
   const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
@@ -218,6 +223,21 @@ export function FindLevelStep() {
               the level ID of the official version (not a startpos copy) to add
               it.
             </p>
+
+            {!search.isPending && (
+              <div className="overflow-hidden rounded-md border border-border">
+                <GdSearchSection
+                  escalation={escalation}
+                  query={trimmed}
+                  onSelect={(levelId) => void resolve(levelId)}
+                  offer={{
+                    title: `Search GD's servers for "${trimmed}"`,
+                    subtitle:
+                      'One request to RobTop. Rated levels are added automatically; unrated only if you pick one.',
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
       </StepBody>

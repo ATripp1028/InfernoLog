@@ -1,5 +1,6 @@
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -28,7 +29,14 @@ interface FabActionsContextValue {
   // FAB itself and the fan-out stack above it (farthest-from-FAB first).
   primary: FabAction
   secondaryActions: FabAction[]
-  setOverride: (actions: FabAction[] | null) => void
+  // Optional context header for the mobile FAB bottom sheet (e.g. the level
+  // name on the Global Level Page). Null for the default actions and any page
+  // that doesn't set one.
+  sheetHeader: string | null
+  setOverride: (
+    actions: FabAction[] | null,
+    sheetHeader?: string | null
+  ) => void
 }
 
 const FabActionsContext = createContext<FabActionsContextValue | null>(null)
@@ -38,8 +46,18 @@ const FabActionsContext = createContext<FabActionsContextValue | null>(null)
 // exactly once — they stay mounted but closed whenever a page's override is
 // showing instead, same as the default actions that would open them.
 export function FabActionsProvider({ children }: { children: ReactNode }) {
-  const [override, setOverride] = useState<FabAction[] | null>(null)
+  const [override, setOverrideState] = useState<FabAction[] | null>(null)
+  const [sheetHeader, setSheetHeader] = useState<string | null>(null)
   const { actions: defaultActions, dialogs } = useDefaultFabActions()
+
+  const setOverride = useCallback(
+    (actions: FabAction[] | null, header: string | null = null) => {
+      setOverrideState(actions)
+      // A header only makes sense alongside an override's action set.
+      setSheetHeader(actions ? header : null)
+    },
+    []
+  )
 
   const actions = override ?? defaultActions
   // Every actions array (default or registered via useFabActions) has at
@@ -49,7 +67,7 @@ export function FabActionsProvider({ children }: { children: ReactNode }) {
 
   return (
     <FabActionsContext.Provider
-      value={{ primary, secondaryActions, setOverride }}
+      value={{ primary, secondaryActions, sheetHeader, setOverride }}
     >
       {children}
       {dialogs}
@@ -70,15 +88,19 @@ function useFabActionsContext() {
 // Read by the desktop Fab and MobileNav to render whichever action set is
 // currently active.
 export function useResolvedFabActions() {
-  const { primary, secondaryActions } = useFabActionsContext()
-  return { primary, secondaryActions }
+  const { primary, secondaryActions, sheetHeader } = useFabActionsContext()
+  return { primary, secondaryActions, sheetHeader }
 }
 
 // Called by a page to replace the FAB's actions while it's mounted (e.g. the
 // level page's owner actions, or the collections page's actions). Pass
 // `null` to fall back to the default action set — e.g. when the current
-// user doesn't own the level being viewed.
-export function useFabActions(actions: FabAction[] | null) {
+// user doesn't own the level being viewed. `sheetHeader` optionally sets a
+// context header for the mobile FAB bottom sheet (e.g. the level name).
+export function useFabActions(
+  actions: FabAction[] | null,
+  sheetHeader?: string | null
+) {
   const { setOverride } = useFabActionsContext()
   // Actions arrays are rebuilt every render (fresh onClick closures) — key
   // the effect on a cheap signature instead of the array reference so we
@@ -90,8 +112,8 @@ export function useFabActions(actions: FabAction[] | null) {
     : null
 
   useEffect(() => {
-    setOverride(actions)
+    setOverride(actions, sheetHeader ?? null)
     return () => setOverride(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [signature, setOverride])
+  }, [signature, sheetHeader, setOverride])
 }

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
-import { apiFetch } from './client'
+import { ApiError, apiFetch } from './client'
 
 // ─────────────────────────────────────────────
 // Logging flow — wire types. We mirror packages/core's Zod schemas as plain TS
@@ -46,7 +46,6 @@ export interface Level {
   // Song File Hub NONG data (null unless isNong). sfhSongName is the raw
   // "Artist - Title" string; sfhCheckedAt is internal and not sent.
   sfhId: string | null
-  sfhSongId: string | null
   sfhSongName: string | null
   sfhYoutubeUrl: string | null
   sfhYoutubeVideoId: string | null
@@ -89,6 +88,7 @@ export interface LevelSearchResult {
   creator: string | null
   songName: string | null
   inGameDifficulty: string | null
+  stars: number | null
   featured: boolean | null
   epicValue: number | null
   isRated: boolean
@@ -266,6 +266,40 @@ export function useLevelSearch(query: string) {
         { token, method: 'GET' }
       )
       return data
+    },
+  })
+}
+
+// GD-server escalation response. Three outcomes the UI branches on — see the
+// gd-search endpoint. `unreachable` also covers a rejected request (mapped
+// below) so the hook always resolves to one of these rather than throwing for
+// the expected network-failure case.
+export type GdSearchResponse =
+  | { status: 'ok'; rated: LevelSearchResult[]; unrated: LevelSearchResult[] }
+  | { status: 'nothing_new'; totalFound: number }
+  | { status: 'unreachable' }
+
+// The opt-in escalation call. A mutation (not a query) because it fires only on
+// explicit confirmation and each call is independent — there is no "escalated
+// mode" to keep in sync. A 503 is the expected RobTop-unreachable branch and
+// resolves to { status: 'unreachable' } rather than rejecting; other failures
+// reject (surfaced as the hook's error state).
+export function useGdSearch() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (q: string): Promise<GdSearchResponse> => {
+      const token = await getIdToken()
+      try {
+        return await apiFetch<GdSearchResponse>(
+          `/v1/levels/gd-search?q=${encodeURIComponent(q)}`,
+          { token, method: 'GET' }
+        )
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 503) {
+          return { status: 'unreachable' }
+        }
+        throw err
+      }
     },
   })
 }

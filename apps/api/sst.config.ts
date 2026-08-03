@@ -357,6 +357,20 @@ export default $config({
     authedRoute('POST /v1/me/progress')
     authedRoute('POST /v1/me/drops')
     authedRoute('GET /v1/levels/search')
+    // The GD-server search escalation hits RobTop and shares the same global
+    // rate limiter as /resolve, so it gets the same extended timeout rather
+    // than authedRoute's default.
+    api.route(
+      'GET /v1/levels/gd-search',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '25 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
     // API Gateway HTTP API path params use {brace} syntax; Hono's own routes
     // keep :levelId. The actual request path is forwarded to Hono unchanged.
     // Explicit timeout (rather than authedRoute's default) because this route
@@ -366,6 +380,20 @@ export default $config({
     // budget comfortably covers.
     api.route(
       'GET /v1/levels/{levelId}/resolve',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '25 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
+    // The Global Level Page's data source. Like /resolve it can hit RobTop (on a
+    // cache miss) and shares the same global rate limiter, so it gets the same
+    // extended timeout rather than authedRoute's default.
+    api.route(
+      'GET /v1/levels/{levelId}/page',
       {
         handler: 'src/index.handler',
         link: sharedLinks,
@@ -629,16 +657,15 @@ export default $config({
     )
 
     // ─────────────────────────────────────────────
-    // ROBTOP LEVEL-CACHE SYNC — two EventBridge Scheduler cadences over one
-    // shared fetch/compare/write core (services/levelSync.ts). Both overwrite
-    // the `levels` cache directly on diff; there is no staging or nudge.
+    // ROBTOP LEVEL-CACHE SYNC — a single frequent EventBridge Scheduler cron
+    // over the shared fetch/compare/write core (services/levelSync.ts). Each run
+    // processes one bounded round-robin slice of the level cache, advancing a
+    // cursor and wrapping at the end, so every level is re-checked over a full
+    // rotation without any single run being large enough to trip RobTop's rate
+    // limit. Overwrites the `levels` cache directly on diff; no staging or nudge.
     //
-    //   Volatile (weekly): never-rated + recently-rated levels — the values
-    //     most likely to change soon after a level appears/gets rated.
-    //   Standard (monthly): everything else that's rated and not delisted.
-    //
-    // 15-minute timeout covers the ~670ms/level RobTop pacing at current cache
-    // size. See EXTERNAL_APIS.md.
+    // 15-minute timeout comfortably covers one slice at ~670ms/level RobTop
+    // pacing. See EXTERNAL_APIS.md.
     // ─────────────────────────────────────────────
     const syncFunctionOptions = {
       link: sharedLinks,
@@ -647,20 +674,13 @@ export default $config({
       ...sharedNodeOptions,
     }
 
-    new sst.aws.CronV2('VolatileLevelSync', {
-      // Every Monday at 00:00 UTC.
-      schedule: 'cron(0 0 ? * MON *)',
+    new sst.aws.CronV2('LevelSync', {
+      // Every 6 hours. Each run processes one bounded round-robin slice
+      // (SYNC_SLICE_SIZE levels) so no single run can trip RobTop's per-IP rate
+      // limit, and the ~6h gap gives the egress IP plenty of recovery time.
+      schedule: 'cron(0 0/6 * * ? *)',
       function: {
-        handler: 'src/handlers/volatileSyncWorker.handler',
-        ...syncFunctionOptions,
-      },
-    })
-
-    new sst.aws.CronV2('StandardLevelSync', {
-      // 00:00 UTC on the 1st of every month.
-      schedule: 'cron(0 0 1 * ? *)',
-      function: {
-        handler: 'src/handlers/standardSyncWorker.handler',
+        handler: 'src/handlers/levelSyncWorker.handler',
         ...syncFunctionOptions,
       },
     })

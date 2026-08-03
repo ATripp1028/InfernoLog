@@ -238,6 +238,16 @@ export function AcknowledgmentsPage() {
           terms are preserved.
         </p>
       </Section>
+      <Section
+        title="Other Acknowledgments"
+        intro="These people and projects contributed to InfernoLog in ways that don't fit neatly into the other categories."
+      >
+        <p className="font-medium text-foreground">Placeholder Images</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Placeholder images used in the UI are from{' '}
+          <SectionLink href="https://placehold.co/">placehold.co</SectionLink>.
+        </p>
+      </Section>
 
       <Section title="A Note on InfernoLog">
         <p>
