@@ -22,7 +22,11 @@ interface CopyableIdProps {
 // New in the Global Level Page PR; used here only. Migrating the app's other
 // id spots onto it is a separate PR.
 export function CopyableId({ id, label = 'ID', className }: CopyableIdProps) {
-  async function handleCopy() {
+  async function handleCopy(e: React.MouseEvent) {
+    // Stop the click from reaching a clickable ancestor (e.g. a list row that
+    // navigates on click / adds to a collection on double-click) — copying an
+    // id should never also trigger the row.
+    e.stopPropagation()
     try {
       await navigator.clipboard.writeText(id)
       toast.success(`${label} copied`)

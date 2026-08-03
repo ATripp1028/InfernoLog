@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Link,
   useNavigate,
@@ -61,6 +61,15 @@ export function GlobalLevelPage() {
   const collections = useCollections()
   const wtbId = collections.data?.find((c) => c.type === 'WANT_TO_BEAT')?.id
   const addEntry = useAddCollectionEntry()
+
+  // The subset AddToCollectionDialog needs as its preselected level. Memoized on
+  // the resolved level so its identity is stable across unrelated re-renders —
+  // an inline object would change every render and re-fire the dialog's reset
+  // effect (keyed on preselectedLevel), wiping in-progress selections while open.
+  const preselectedLevel = useMemo(
+    () => (query.data ? collectionLevel(query.data) : undefined),
+    [query.data]
+  )
 
   const goBack = () => {
     // Return to wherever the id was entered (search, list, another level).
@@ -310,11 +319,13 @@ export function GlobalLevelPage() {
         </div>
       </div>
 
-      <AddToCollectionDialog
-        open={addToCollectionOpen}
-        onClose={() => setAddToCollectionOpen(false)}
-        preselectedLevel={collectionLevel(level)}
-      />
+      {preselectedLevel && (
+        <AddToCollectionDialog
+          open={addToCollectionOpen}
+          onClose={() => setAddToCollectionOpen(false)}
+          preselectedLevel={preselectedLevel}
+        />
+      )}
     </>
   )
 }
