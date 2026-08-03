@@ -229,6 +229,11 @@ model RobtopRateLimit {
   id           String   @id @default("singleton")
   tokens       Float
   lastRefillAt DateTime @default(now())
+  // Set when a caller reports a RobTop 429 (see utils/robtopRateLimit.ts). While
+  // now() < cooldownUntil no token is granted, so EVERY RobTop consumer (sync,
+  // resolve, GDDL syncs) backs off together and lets the per-IP block recover
+  // instead of prolonging it. Null when not throttled.
+  cooldownUntil DateTime?
 
   @@map("robtop_rate_limit")
 }
@@ -441,17 +446,22 @@ model Level {
   verified              Boolean              @default(false)
 
   // RobTop sync job fields
-  // See EXTERNAL_APIS.md — two EventBridge schedules (weekly "volatile" +
-  // monthly "standard") share one fetch/compare/write core that overwrites the
-  // cache directly on diff. No staging, no nudges.
+  // See EXTERNAL_APIS.md — a single frequent cron round-robins the cache a
+  // bounded slice at a time (services/levelSync.ts), overwriting on diff. No
+  // staging, no nudges.
   lastCheckedAt         DateTime?
-  // Stamped whenever `isRated` flips or `inGameDifficulty` changes value. Drives
-  // the 14-day "volatile" window the weekly job re-checks a rated level for.
+  // Stamped whenever `isRated` flips or `inGameDifficulty` changes value.
   ratingStatusSince     DateTime?
-  // Set when a sync finds the level is gone from GD's servers (RobTop "not
-  // found") — derived as delistedAt != null. A delisted row is frozen at its
-  // last-known values and excluded from both sync jobs, and is never
-  // reverted (no un-delist path), so the timestamp alone is authoritative.
+  // Set the FIRST time a sync sees the level missing from GD (RobTop "not
+  // found"), and cleared the moment it's seen again. Delisting is NOT immediate:
+  // a level must stay missing past a confirmation window (see levelSync.ts) so a
+  // transient RobTop "-1"/rate-limit blip can't delist a live level. Null while
+  // the level is present.
+  missingSince          DateTime?
+  // Set once a level has been confirmed gone (missing past the window) — derived
+  // as delistedAt != null. A delisted row is frozen at its last-known values and
+  // excluded from the main sync, but a low-cadence reverify pass re-checks it and
+  // clears this if the level reappears (reuploads reuse the same inGameId).
   delistedAt            DateTime?
 
   createdAt             DateTime             @default(now())

@@ -21,24 +21,53 @@ const REFILL_PER_SEC = 1.5 // the steady rate every path individually paced to b
 const POLL_MS = 120
 const DEFAULT_MAX_WAIT_MS = 10_000
 
+// Default backoff when RobTop 429s without a usable Retry-After, and a hard cap
+// so a bogus/huge Retry-After can't wedge every consumer for a long time.
+export const DEFAULT_COOLDOWN_MS = 60_000
+export const MAX_COOLDOWN_MS = 5 * 60_000
+
 // Attempts to take one token, refilling first based on elapsed time since
-// the last refill (capped at CAPACITY). Returns whether a token was taken.
+// the last refill (capped at CAPACITY). A token is never granted while the
+// shared cooldown is active (set by reportRobtopThrottled after a 429), so all
+// consumers back off together. Returns whether a token was taken.
 async function tryAcquire(): Promise<boolean> {
   const rows = await prisma.$queryRaw<{ tokens: number }[]>`
     UPDATE "robtop_rate_limit"
     SET tokens = LEAST(${CAPACITY}::float, tokens + EXTRACT(EPOCH FROM (now() - "lastRefillAt")) * ${REFILL_PER_SEC}) - 1,
         "lastRefillAt" = now()
     WHERE id = 'singleton'
+      AND ("cooldownUntil" IS NULL OR "cooldownUntil" <= now())
       AND LEAST(${CAPACITY}::float, tokens + EXTRACT(EPOCH FROM (now() - "lastRefillAt")) * ${REFILL_PER_SEC}) >= 1
     RETURNING tokens
   `
   return rows.length > 0
 }
 
+// Records a RobTop 429 by opening (or extending) a shared cooldown, during which
+// tryAcquire grants nothing — so the whole app stops hitting RobTop and lets the
+// per-IP block clear instead of prolonging it. Only ever pushes the cooldown
+// later, never earlier. Best-effort; callers should not let a failure here
+// change the outcome of their request.
+export async function reportRobtopThrottled(
+  cooldownMs: number = DEFAULT_COOLDOWN_MS
+): Promise<void> {
+  const ms = Math.min(Math.max(cooldownMs, 0), MAX_COOLDOWN_MS)
+  await prisma.$executeRaw`
+    UPDATE "robtop_rate_limit"
+    SET "cooldownUntil" = GREATEST(
+      COALESCE("cooldownUntil", now()),
+      now() + ${ms}::double precision * interval '1 millisecond'
+    )
+    WHERE id = 'singleton'
+  `
+}
+
 // Blocks (polling) until a RobTop request slot is free, or gives up after
 // maxWaitMs. Returns false on timeout — fetchRobtopLevel treats that exactly
-// like any other failure (network error, non-OK status) and returns null,
-// so no caller needs special handling for "the limiter was busy".
+// like any other failure (network error, non-OK status) and returns null, so no
+// caller needs special handling for "the limiter was busy" or "we're cooling
+// down after a 429". (During a cooldown longer than maxWaitMs a caller simply
+// polls out and fails fast enough; the cooldown itself does the real throttling.)
 export async function acquireRobtopSlot(
   maxWaitMs: number = DEFAULT_MAX_WAIT_MS
 ): Promise<boolean> {

@@ -12,7 +12,22 @@
 // resources/server/level).
 
 import { logger } from './logger'
-import { acquireRobtopSlot } from './robtopRateLimit'
+import {
+  acquireRobtopSlot,
+  reportRobtopThrottled,
+  DEFAULT_COOLDOWN_MS,
+} from './robtopRateLimit'
+
+// Parses an HTTP Retry-After header (delta-seconds or an HTTP date) to ms.
+// Returns undefined when absent/unparseable so the caller uses its default.
+function parseRetryAfterMs(headerValue: string | null): number | undefined {
+  if (!headerValue) return undefined
+  const secs = Number(headerValue)
+  if (Number.isFinite(secs)) return Math.max(0, secs * 1000)
+  const when = Date.parse(headerValue)
+  if (!Number.isNaN(when)) return Math.max(0, when - Date.now())
+  return undefined
+}
 
 const ROBTOP_API_BASE_URL =
   process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
@@ -411,6 +426,19 @@ export async function fetchRobtopLevelResult(
         { levelId, status: res.status },
         'fetchRobtopLevel: non-OK response'
       )
+      // A 429 means RobTop is rate-limiting our IP — open a shared cooldown so
+      // EVERY consumer backs off, not just this call. Best-effort; a failure to
+      // record it must not change what we return.
+      if (res.status === 429) {
+        const cooldownMs =
+          parseRetryAfterMs(res.headers.get('retry-after')) ??
+          DEFAULT_COOLDOWN_MS
+        try {
+          await reportRobtopThrottled(cooldownMs)
+        } catch (err) {
+          logger.warn({ levelId, err }, 'fetchRobtopLevel: cooldown write failed')
+        }
+      }
       return { status: 'unreachable' }
     }
 
@@ -474,7 +502,20 @@ export async function searchRobtopByName(
       body,
       signal: controller.signal,
     })
-    if (!res.ok) return []
+    if (!res.ok) {
+      // Same shared-cooldown backoff as fetchRobtopLevelResult on a 429.
+      if (res.status === 429) {
+        const cooldownMs =
+          parseRetryAfterMs(res.headers.get('retry-after')) ??
+          DEFAULT_COOLDOWN_MS
+        try {
+          await reportRobtopThrottled(cooldownMs)
+        } catch (err) {
+          logger.warn({ name, err }, 'searchRobtopByName: cooldown write failed')
+        }
+      }
+      return []
+    }
 
     return parseAllFromGetGJLevels21(await res.text())
   } catch {

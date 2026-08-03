@@ -29,7 +29,8 @@ vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 // Import after vi.mock so levelSync picks up the mocked modules.
-const { syncLevelBatch, runLevelSyncSlice } = await import('./levelSync')
+const { syncLevelBatch, runLevelSyncSlice, runDelistedReverifySlice } =
+  await import('./levelSync')
 const { fetchRobtopLevelResult } = await import('../utils/robtop')
 const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 const Sentry = await import('@sentry/aws-serverless')
@@ -41,10 +42,12 @@ const resultMock = fetchRobtopLevelResult as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
 const captureMessageMock = vi.mocked(Sentry.captureMessage)
 
-// Reads the round-robin cursor directly (the module's readCursor is private).
-async function readCursor(): Promise<string | null> {
+// Reads a round-robin cursor directly (the module's readCursor is private).
+async function readCursor(
+  key: 'singleton' | 'reverify' = 'singleton'
+): Promise<string | null> {
   const row = await prisma.levelSyncCursor.findUnique({
-    where: { id: 'singleton' },
+    where: { id: key },
     select: { lastInGameId: true },
   })
   return row?.lastInGameId ?? null
@@ -285,9 +288,28 @@ describe('syncLevelBatch — found, rating diff', () => {
   })
 })
 
-describe('syncLevelBatch — not found (delisting)', () => {
-  it('sets delisted/delisted_at and freezes all metadata, running no diff logic', async () => {
-    await seedCachedLevel({ ratingStatusSince: daysAgo(3) })
+describe('syncLevelBatch — confirm-before-delist', () => {
+  it('first not-found stamps missingSince and does NOT delist', async () => {
+    // Regression guard for the Aug 2026 incident: a single not-found (which
+    // RobTop also returns under load) must never delist a live level.
+    await seedCachedLevel({ ratingStatusSince: daysAgo(3) }) // missingSince null
+    robtopMock.mockResolvedValue(null) // not_found
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.delistedAt).toBeNull()
+    expect(after.missingSince).not.toBeNull()
+    // Metadata untouched.
+    expect(after.name).toBe('Cached Name')
+    expect(result).toMatchObject({ processed: 1, delisted: 0, missing: 1 })
+  })
+
+  it('delists only once the level has stayed missing past the confirmation window', async () => {
+    // Already missing longer than the window → this not-found confirms it.
+    await seedCachedLevel({ missingSince: daysAgo(2), ratingStatusSince: daysAgo(3) })
     robtopMock.mockResolvedValue(null)
 
     const result = await syncLevelBatch(['100'])
@@ -295,26 +317,40 @@ describe('syncLevelBatch — not found (delisting)', () => {
     const after = await prisma.level.findUniqueOrThrow({
       where: { inGameId: '100' },
     })
-    // delisted on the wire is derived as delistedAt != null — no separate
-    // boolean column.
     expect(after.delistedAt).not.toBeNull()
-    // Metadata frozen at last-known values.
+    // Metadata frozen at last-known values; rating_status_since not re-stamped.
     expect(after.name).toBe('Cached Name')
-    expect(after.creator).toBe('Cached Creator')
-    expect(after.inGameDifficulty).toBe('Insane Demon')
-    expect(after.songName).toBe('Cached Song')
-    expect(after.songAuthor).toBe('Cached Author')
     expect(after.isRated).toBe(true)
-    // rating_status_since is not re-stamped by the delisting path.
-    expect(after.ratingStatusSince!.getTime()).toBeLessThan(
-      daysAgo(1).getTime()
-    )
-    expect(result).toMatchObject({
-      processed: 1,
-      updated: 0,
-      ratingChanged: 0,
-      delisted: 1,
+    expect(after.ratingStatusSince!.getTime()).toBeLessThan(daysAgo(1).getTime())
+    expect(result).toMatchObject({ processed: 1, delisted: 1, missing: 0 })
+  })
+
+  it('keeps waiting (no delist) while still inside the window', async () => {
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000)
+    await seedCachedLevel({ missingSince: oneHourAgo })
+    robtopMock.mockResolvedValue(null)
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
     })
+    expect(after.delistedAt).toBeNull()
+    expect(after.missingSince).not.toBeNull()
+    expect(result).toMatchObject({ delisted: 0, missing: 1 })
+  })
+
+  it('clears missingSince when a previously-missing level reappears', async () => {
+    await seedCachedLevel({ missingSince: daysAgo(2) })
+    robtopMock.mockResolvedValue(makeRobtop()) // found
+
+    await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.missingSince).toBeNull()
+    expect(after.delistedAt).toBeNull()
   })
 })
 
@@ -392,6 +428,12 @@ describe('syncLevelBatch — circuit breaker', () => {
     // 10 delisted, but never 5 in a row (a live level between each pair keeps the
     // streak short), so only the mass-delist alarm fires — not the breaker.
     const ids = await seedN(20)
+    // All already missing past the confirmation window, so a not-found delists
+    // immediately rather than just stamping missingSince.
+    await prisma.level.updateMany({
+      where: { inGameId: { in: ids } },
+      data: { missingSince: daysAgo(2) },
+    })
     for (let i = 0; i < ids.length; i++) {
       resultMock.mockResolvedValueOnce(
         i % 2 === 0
@@ -484,6 +526,59 @@ describe('runLevelSyncSlice — cursor advances past a failing stretch', () => {
     expect(result.aborted).toBe(true)
     expect(result.processed).toBe(5)
     expect(await readCursor()).toBe(ids[ids.length - 1])
+  })
+})
+
+describe('runDelistedReverifySlice', () => {
+  it('un-delists a delisted level that reappears on RobTop, and clears missingSince', async () => {
+    await seedCachedLevel({
+      inGameId: 'back',
+      delistedAt: new Date(),
+      missingSince: daysAgo(5),
+    })
+    resultMock.mockResolvedValue({ status: 'found', level: makeRobtop() })
+
+    const result = await runDelistedReverifySlice(10)
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: 'back' },
+    })
+    expect(after.delistedAt).toBeNull()
+    expect(after.missingSince).toBeNull()
+    expect(result).toMatchObject({ processed: 1, restored: 1, stillGone: 0 })
+  })
+
+  it('leaves a still-gone level delisted, and never touches non-delisted or official rows', async () => {
+    await seedCachedLevel({ inGameId: 'gone', delistedAt: new Date() })
+    await seedCachedLevel({ inGameId: 'live' }) // not delisted
+    await seedCachedLevel({
+      inGameId: 'off',
+      delistedAt: new Date(),
+      dataSource: 'official',
+    })
+    resultMock.mockResolvedValue({ status: 'not_found' })
+
+    const result = await runDelistedReverifySlice(10)
+
+    // Only the non-official delisted row is re-checked.
+    expect(resultMock.mock.calls.map((c) => c[0])).toEqual(['gone'])
+    const gone = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: 'gone' },
+    })
+    expect(gone.delistedAt).not.toBeNull()
+    expect(result).toMatchObject({ processed: 1, restored: 0, stillGone: 1 })
+  })
+
+  it('advances its own cursor without disturbing the main sweep cursor', async () => {
+    await seedCachedLevel({ inGameId: 'd-1', delistedAt: new Date() })
+    await seedCachedLevel({ inGameId: 'd-2', delistedAt: new Date() })
+    resultMock.mockResolvedValue({ status: 'not_found' })
+
+    await runDelistedReverifySlice(1)
+
+    expect(await readCursor('reverify')).toBe('d-1')
+    // The main-sweep cursor is untouched.
+    expect(await readCursor('singleton')).toBeNull()
   })
 })
 
@@ -596,7 +691,8 @@ describe('syncLevelBatch — Song File Hub check', () => {
   })
 
   it('skips the SFH check for a level delisted in this same run', async () => {
-    await seedCachedLevel() // eligible, but RobTop will report it gone
+    // Already missing past the window, so this not-found confirms the delist.
+    await seedCachedLevel({ missingSince: daysAgo(2) })
     robtopMock.mockResolvedValue(null)
 
     const result = await syncLevelBatch(['100'], 0)

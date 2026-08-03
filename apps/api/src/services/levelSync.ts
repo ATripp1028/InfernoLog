@@ -43,11 +43,25 @@ const CIRCUIT_BREAKER_STREAK = 5
 // to Sentry so it pages instead of being discovered weeks later.
 const MASS_DELIST_ALERT = 10
 
+// Confirm-before-delist window. A level's FIRST not-found stamps missingSince
+// but does NOT delist; only once it has stayed missing at least this long (i.e.
+// been re-confirmed on a later rotation) do we actually delist. At the current
+// ~daily rotation this is ~2 independent checks — enough that a transient RobTop
+// "-1"/rate-limit blip for a live level clears on the next `found` instead of
+// delisting it. Tune alongside the cron cadence in sst.config.ts.
+const DELIST_CONFIRM_MS = 36 * 60 * 60 * 1000 // 36 hours
+
 // Per-level result, so syncLevelBatch can drive the circuit breaker. 'synced'
-// (a live level, changed or not) resets the streak; 'delisted'/'unreachable'
-// extend it; 'skipped' (our cache row vanished mid-run — unrelated to RobTop
-// health) is neutral.
-type SyncOutcome = 'synced' | 'delisted' | 'unreachable' | 'skipped'
+// (a live level, changed or not) resets the streak; 'missing' (not-found, first
+// or unconfirmed — no delist yet), 'delisted' (not-found confirmed past the
+// window), and 'unreachable' all extend it; 'skipped' (our cache row vanished
+// mid-run — unrelated to RobTop health) is neutral.
+type SyncOutcome =
+  | 'synced'
+  | 'missing'
+  | 'delisted'
+  | 'unreachable'
+  | 'skipped'
 
 export interface SyncBatchResult {
   processed: number
@@ -57,7 +71,12 @@ export interface SyncBatchResult {
   // Subset of `updated` where is_rated / in_game_difficulty changed (stamped
   // rating_status_since).
   ratingChanged: number
+  // Confirmed gone (missing past the confirmation window) and delisted this run.
   delisted: number
+  // Seen missing (RobTop not-found) but NOT delisted — either the first sighting
+  // (missingSince just stamped) or still inside the confirmation window. Extends
+  // the circuit-breaker streak but writes no delistedAt.
+  missing: number
   // RobTop couldn't be reached for this level (rate-limit/Cloudflare/network/
   // timeout/parse). The row is left untouched — NOT delisted — and retried next
   // run. Tracked separately from `errors` (unexpected throws) and `delisted`
@@ -86,6 +105,7 @@ const compareSelect = {
   songAuthor: true,
   sfhCheckedAt: true,
   delistedAt: true,
+  missingSince: true,
 } satisfies Prisma.LevelSelect
 
 async function syncOneLevel(
@@ -123,21 +143,54 @@ async function syncOneLevel(
     return 'unreachable'
   }
 
-  // Not-found (RobTop "-1"/empty body): GD genuinely has no such level. Freeze
-  // last-known metadata, flag the row delisted, and run no diff logic. A level
-  // just discovered to no longer exist is NOT worth an SFH call this run, so we
-  // return before it.
+  // Not-found (RobTop "-1"/empty body): GD reports no such level. This is NOT an
+  // immediate delist — RobTop returns "-1" under load too, so a single sighting
+  // can't be trusted. We stamp missingSince on the first sighting and only delist
+  // once the level has stayed missing past the confirmation window (i.e. been
+  // re-confirmed on a later rotation). A level that reappears clears missingSince
+  // in the found path below. No SFH call either way, so we return before it.
   if (robtopResult.status === 'not_found') {
+    const now = new Date()
+
+    // First sighting — record it and wait for confirmation; do not delist.
+    if (current.missingSince === null) {
+      await prisma.level.update({
+        where: { inGameId: levelId },
+        data: { missingSince: now, lastCheckedAt: now },
+      })
+      result.missing++
+      logger.info(
+        { levelId },
+        'levelSync: level missing (first sighting; awaiting confirmation)'
+      )
+      return 'missing'
+    }
+
+    // Confirmed missing past the window — freeze last-known metadata and delist.
+    if (current.missingSince.getTime() <= now.getTime() - DELIST_CONFIRM_MS) {
+      await prisma.level.update({
+        where: { inGameId: levelId },
+        data: { delistedAt: now, lastCheckedAt: now },
+      })
+      result.delisted++
+      logger.info(
+        { levelId, missingSince: current.missingSince },
+        'levelSync: level delisted (missing past confirmation window)'
+      )
+      return 'delisted'
+    }
+
+    // Still missing but inside the window — keep waiting (leave missingSince).
     await prisma.level.update({
       where: { inGameId: levelId },
-      data: {
-        delistedAt: new Date(),
-        lastCheckedAt: new Date(),
-      },
+      data: { lastCheckedAt: now },
     })
-    result.delisted++
-    logger.info({ levelId }, 'levelSync: level delisted (no RobTop result)')
-    return 'delisted'
+    result.missing++
+    logger.info(
+      { levelId, missingSince: current.missingSince },
+      'levelSync: level still missing (inside confirmation window)'
+    )
+    return 'missing'
   }
 
   const robtop = robtopResult.level
@@ -152,19 +205,32 @@ async function syncOneLevel(
   if (ratingChanged) {
     data.isRated = robtop.isRated
     data.inGameDifficulty = robtop.inGameDifficulty
-    // Only rating-status volatility drives the weekly re-check window.
     data.ratingStatusSince = now
   }
 
-  if (robtop.name !== current.name) data.name = robtop.name
-  if (robtop.creator !== current.creator) data.creator = robtop.creator
-  if (robtop.songName !== current.songName) data.songName = robtop.songName
+  let changed = ratingChanged
+  if (robtop.name !== current.name) {
+    data.name = robtop.name
+    changed = true
+  }
+  if (robtop.creator !== current.creator) {
+    data.creator = robtop.creator
+    changed = true
+  }
+  if (robtop.songName !== current.songName) {
+    data.songName = robtop.songName
+    changed = true
+  }
   if (robtop.songAuthor !== current.songAuthor) {
     data.songAuthor = robtop.songAuthor
+    changed = true
   }
 
-  // More than just last_checked_at present means at least one field diffed.
-  const changed = Object.keys(data).length > 1
+  // The level is present, so any pending "missing" mark is stale — clear it so a
+  // brief disappearance never accumulates toward a delist. Bookkeeping only; not
+  // counted as a metadata `changed`.
+  if (current.missingSince !== null) data.missingSince = null
+
   await prisma.level.update({ where: { inGameId: levelId }, data })
 
   if (changed) result.updated++
@@ -201,6 +267,7 @@ export async function syncLevelBatch(
     updated: 0,
     ratingChanged: 0,
     delisted: 0,
+    missing: 0,
     unreachable: 0,
     errors: 0,
     aborted: false,
@@ -208,8 +275,8 @@ export async function syncLevelBatch(
     sfhFound: 0,
   }
 
-  // Consecutive "gone" (not-found/unreachable) or thrown results. Reset by any
-  // successful sync; a long enough streak trips the circuit breaker.
+  // Consecutive "gone" (not-found/missing/unreachable) or thrown results. Reset
+  // by any successful sync; a long enough streak trips the circuit breaker.
   let goneStreak = 0
 
   for (let i = 0; i < levelIds.length; i++) {
@@ -219,8 +286,13 @@ export async function syncLevelBatch(
 
     try {
       const outcome = await syncOneLevel(levelId, result, paceMs)
-      if (outcome === 'delisted' || outcome === 'unreachable') goneStreak++
-      else if (outcome === 'synced') goneStreak = 0
+      if (
+        outcome === 'delisted' ||
+        outcome === 'missing' ||
+        outcome === 'unreachable'
+      ) {
+        goneStreak++
+      } else if (outcome === 'synced') goneStreak = 0
       // 'skipped' is neutral — leave the streak unchanged.
     } catch (err) {
       result.errors++
@@ -265,7 +337,7 @@ export async function syncLevelBatch(
 // cache grows.
 export const SYNC_SLICE_SIZE = 50
 
-// Levels the sync considers, in every run: cached, not delisted, and not
+// Levels the main sweep considers, in every run: cached, not delisted, and not
 // official (getGJLevels21 never returns official levels, so syncing one always
 // looks like a not-found — it would wrongly delist a level that plainly exists).
 const syncEligibleWhere = {
@@ -273,39 +345,63 @@ const syncEligibleWhere = {
   dataSource: { not: 'official' },
 } satisfies Prisma.LevelWhereInput
 
-async function readCursor(): Promise<string | null> {
+// The reverify pass rotates over the OTHER half: already-delisted (non-official)
+// levels, re-checking whether they've come back (reuploads reuse the inGameId).
+const reverifyEligibleWhere = {
+  delistedAt: { not: null },
+  dataSource: { not: 'official' },
+} satisfies Prisma.LevelWhereInput
+
+// Each rotation keeps its own cursor row in level_sync_cursor, keyed by id.
+type CursorKey = 'singleton' | 'reverify'
+
+async function readCursor(key: CursorKey): Promise<string | null> {
   const row = await prisma.levelSyncCursor.findUnique({
-    where: { id: 'singleton' },
+    where: { id: key },
     select: { lastInGameId: true },
   })
   return row?.lastInGameId ?? null
 }
 
-async function writeCursor(lastInGameId: string): Promise<void> {
+async function writeCursor(key: CursorKey, lastInGameId: string): Promise<void> {
   await prisma.levelSyncCursor.upsert({
-    where: { id: 'singleton' },
-    create: { id: 'singleton', lastInGameId },
+    where: { id: key },
+    create: { id: key, lastInGameId },
     update: { lastInGameId },
   })
 }
 
-// Selects the next slice of eligible level ids after `cursor` (lexicographic —
+// Selects the next slice of ids matching `where` after `cursor` (lexicographic —
 // ids compare as strings, matching this orderBy). Returns fewer than `size` at
 // the end of the rotation, and an empty array once the cursor is past the last
 // id (the caller then wraps to the start).
 async function selectSlice(
+  where: Prisma.LevelWhereInput,
   cursor: string | null,
   size: number
 ): Promise<string[]> {
   const rows = await prisma.level.findMany({
-    where: cursor
-      ? { ...syncEligibleWhere, inGameId: { gt: cursor } }
-      : syncEligibleWhere,
+    where: cursor ? { ...where, inGameId: { gt: cursor } } : where,
     orderBy: { inGameId: 'asc' },
     take: size,
     select: { inGameId: true },
   })
   return rows.map((r) => r.inGameId)
+}
+
+// Reads a cursor and returns the next slice of ids for it, wrapping to the start
+// of the rotation when the cursor has passed the last matching id.
+async function nextSlice(
+  key: CursorKey,
+  where: Prisma.LevelWhereInput,
+  size: number
+): Promise<{ cursor: string | null; ids: string[] }> {
+  const cursor = await readCursor(key)
+  let ids = await selectSlice(where, cursor, size)
+  if (ids.length === 0 && cursor !== null) {
+    ids = await selectSlice(where, null, size)
+  }
+  return { cursor, ids }
 }
 
 // One cron slice of the round-robin sync. Reads the cursor, syncs the next
@@ -316,13 +412,7 @@ async function selectSlice(
 export async function runLevelSyncSlice(
   size: number = SYNC_SLICE_SIZE
 ): Promise<SyncBatchResult> {
-  const cursor = await readCursor()
-
-  let ids = await selectSlice(cursor, size)
-  // Cursor is past the last eligible id — wrap to the start of the rotation.
-  if (ids.length === 0 && cursor !== null) {
-    ids = await selectSlice(null, size)
-  }
+  const { cursor, ids } = await nextSlice('singleton', syncEligibleWhere, size)
 
   if (ids.length === 0) {
     logger.info('levelSync: no eligible levels to sync')
@@ -337,8 +427,81 @@ export async function runLevelSyncSlice(
 
   // Advance regardless of abort: the last id we selected this run becomes the
   // next run's starting point.
-  await writeCursor(ids[ids.length - 1]!)
+  await writeCursor('singleton', ids[ids.length - 1]!)
 
   logger.info({ ...result }, 'levelSync: slice complete')
+  return result
+}
+
+// How many delisted levels the reverify pass re-checks per run. Smaller than the
+// main slice — the delisted set is small and reappearances are rare, so this is
+// just a slow safety net that eventually notices a reupload.
+export const REVERIFY_SLICE_SIZE = 20
+
+export interface ReverifyResult {
+  processed: number
+  // Reappeared on RobTop → un-delisted this run.
+  restored: number
+  // Re-confirmed still gone → left delisted.
+  stillGone: number
+  // RobTop unreachable → left untouched, retried next lap.
+  unreachable: number
+}
+
+// One cron slice of the delisted-reverify rotation. Re-checks a bounded slice of
+// already-delisted levels and un-delists any that RobTop now returns (reuploads
+// reuse the inGameId, so a delisted level can legitimately come back). No
+// circuit breaker: reverify makes no destructive writes — un-delisting only a
+// level RobTop actually returns is always safe — and a run of not-founds is the
+// EXPECTED case here, not a failure signal. The shared 429 cooldown still stops
+// it from hammering a rate-limited RobTop.
+export async function runDelistedReverifySlice(
+  size: number = REVERIFY_SLICE_SIZE,
+  paceMs: number = PACE_MS
+): Promise<ReverifyResult> {
+  const result: ReverifyResult = {
+    processed: 0,
+    restored: 0,
+    stillGone: 0,
+    unreachable: 0,
+  }
+
+  const { ids } = await nextSlice('reverify', reverifyEligibleWhere, size)
+  if (ids.length === 0) {
+    logger.info('levelSync: no delisted levels to reverify')
+    return result
+  }
+
+  for (let i = 0; i < ids.length; i++) {
+    const levelId = ids[i]!
+    if (i > 0 && paceMs > 0) await sleep(paceMs)
+    result.processed++
+
+    try {
+      const res = await fetchRobtopLevelResult(levelId)
+      if (res.status === 'found') {
+        await prisma.level.update({
+          where: { inGameId: levelId },
+          data: { delistedAt: null, missingSince: null, lastCheckedAt: new Date() },
+        })
+        result.restored++
+        logger.info(
+          { levelId },
+          'levelSync: delisted level reappeared on RobTop; un-delisted'
+        )
+      } else if (res.status === 'not_found') {
+        result.stillGone++
+      } else {
+        result.unreachable++
+      }
+    } catch (err) {
+      result.unreachable++
+      logger.error({ levelId, err }, 'levelSync: error reverifying delisted level')
+      Sentry.captureException(err)
+    }
+  }
+
+  await writeCursor('reverify', ids[ids.length - 1]!)
+  logger.info({ ...result }, 'levelSync: reverify slice complete')
   return result
 }
