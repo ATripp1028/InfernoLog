@@ -97,7 +97,9 @@ export function SearchResults({
                 className={cn(
                   'flex h-14 w-full items-center gap-3 text-left text-sm text-text-primary transition-colors',
                   pad,
-                  i === activeIndex ? 'bg-white/[0.06]' : 'hover:bg-white/[0.03]'
+                  i === activeIndex
+                    ? 'bg-white/[0.06]'
+                    : 'hover:bg-white/[0.03]'
                 )}
               >
                 <ArrowRight size={16} className="shrink-0 text-text-tertiary" />

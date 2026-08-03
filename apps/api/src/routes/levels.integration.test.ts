@@ -57,7 +57,8 @@ function makeRobtopLevel(over: {
   return {
     name: over.name,
     creator: 'Someone',
-    inGameDifficulty: over.inGameDifficulty ?? (over.isRated ? 'Insane Demon' : null),
+    inGameDifficulty:
+      over.inGameDifficulty ?? (over.isRated ? 'Insane Demon' : null),
     length: 'Long',
     songName: 'Song',
     songAuthor: 'Artist',
@@ -607,9 +608,21 @@ describe('GET /levels/gd-search (escalation)', () => {
     gdSearchMock.mockResolvedValue({
       status: 'ok',
       results: [
-        { levelId: '100', level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }) },
-        { levelId: '200', level: makeRobtopLevel({ name: 'Bloodlust', isRated: true }) },
-        { levelId: '300', level: makeRobtopLevel({ name: 'bloodbath startpos', isRated: false }) },
+        {
+          levelId: '100',
+          level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }),
+        },
+        {
+          levelId: '200',
+          level: makeRobtopLevel({ name: 'Bloodlust', isRated: true }),
+        },
+        {
+          levelId: '300',
+          level: makeRobtopLevel({
+            name: 'bloodbath startpos',
+            isRated: false,
+          }),
+        },
       ],
     })
 
@@ -629,10 +642,14 @@ describe('GET /levels/gd-search (escalation)', () => {
     expect(body.unrated.map((r) => r.inGameId)).toEqual(['300'])
 
     // Rated survivor is seeded automatically…
-    const seededRated = await prisma.level.findUnique({ where: { inGameId: '200' } })
+    const seededRated = await prisma.level.findUnique({
+      where: { inGameId: '200' },
+    })
     expect(seededRated?.dataSource).toBe('robtop_autofill')
     // …the unrated survivor is NOT (seeded only if the user picks it).
-    const unseeded = await prisma.level.findUnique({ where: { inGameId: '300' } })
+    const unseeded = await prisma.level.findUnique({
+      where: { inGameId: '300' },
+    })
     expect(unseeded).toBeNull()
   })
 
@@ -643,7 +660,10 @@ describe('GET /levels/gd-search (escalation)', () => {
     gdSearchMock.mockResolvedValue({
       status: 'ok',
       results: [
-        { levelId: '100', level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }) },
+        {
+          levelId: '100',
+          level: makeRobtopLevel({ name: 'Bloodbath', isRated: true }),
+        },
       ],
     })
 

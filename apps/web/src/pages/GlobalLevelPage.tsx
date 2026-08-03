@@ -1,10 +1,5 @@
 import { useMemo, useState } from 'react'
-import {
-  Link,
-  useNavigate,
-  useParams,
-  useRouter,
-} from '@tanstack/react-router'
+import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
 import { ArrowLeft, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
@@ -348,7 +343,9 @@ function collectionLevel(level: GlobalLevelPageData) {
 // stat grid, real section headers) so nothing shifts when data lands. No
 // cross-link — a LevelProgress row can't exist for an uncached level.
 function Pulse({ className }: { className?: string }) {
-  return <div className={`animate-pulse rounded bg-bg-surface ${className ?? ''}`} />
+  return (
+    <div className={`animate-pulse rounded bg-bg-surface ${className ?? ''}`} />
+  )
 }
 
 function PageSkeleton() {

@@ -124,7 +124,10 @@ function CoinValue({ level }: { level: GlobalLevelPageData }) {
           className="size-[18px] shrink-0 object-contain"
           style={
             bronze
-              ? { filter: 'sepia(1) saturate(1.9) hue-rotate(-22deg) brightness(0.9)' }
+              ? {
+                  filter:
+                    'sepia(1) saturate(1.9) hue-rotate(-22deg) brightness(0.9)',
+                }
               : undefined
           }
         />

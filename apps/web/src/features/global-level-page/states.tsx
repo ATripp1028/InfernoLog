@@ -64,7 +64,9 @@ function CenteredState({
       <div className="mt-1 flex flex-wrap items-center justify-center gap-2">
         {children}
       </div>
-      {note && <p className="mt-1 max-w-md text-xs text-text-tertiary">{note}</p>}
+      {note && (
+        <p className="mt-1 max-w-md text-xs text-text-tertiary">{note}</p>
+      )}
     </div>
   )
 }

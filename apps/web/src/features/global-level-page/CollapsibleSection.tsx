@@ -12,7 +12,10 @@ interface CollapsibleSectionProps {
 //
 // State is intentionally local and defaults to open, so it does NOT persist —
 // a fresh mount (i.e. revisiting the page) resets every section to expanded.
-export function CollapsibleSection({ title, children }: CollapsibleSectionProps) {
+export function CollapsibleSection({
+  title,
+  children,
+}: CollapsibleSectionProps) {
   const [open, setOpen] = useState(true)
 
   return (

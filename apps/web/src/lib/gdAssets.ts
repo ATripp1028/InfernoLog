@@ -94,7 +94,8 @@ export function levelThumbnailUrl(levelId: string): string {
 // Local fallback shown when a level has no community thumbnail (or the fetch
 // fails, or the level is delisted). Ships in public/ at a 16:9 ratio so it
 // slots into the thumbnail box without shifting layout.
-export const levelThumbnailPlaceholder = '/assets/infernolog/placeholder-level.png'
+export const levelThumbnailPlaceholder =
+  '/assets/infernolog/placeholder-level.png'
 
 // User-coin icon: silver (verified) vs uncollected (unverified) so the list can
 // show whether a level's coins are silver-rated.

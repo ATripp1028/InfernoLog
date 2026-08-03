@@ -48,7 +48,10 @@ export function GdSearchSection({
   if (escalation.isPending) {
     return (
       <div
-        className={cn('flex items-center gap-2 py-3 text-sm text-text-secondary', pad)}
+        className={cn(
+          'flex items-center gap-2 py-3 text-sm text-text-secondary',
+          pad
+        )}
       >
         <Loader2 size={16} className="animate-spin text-primary" />
         Searching GD’s servers…
@@ -59,7 +62,14 @@ export function GdSearchSection({
   const result = escalation.result
 
   if (result?.status === 'ok') {
-    return <GdResults rated={result.rated} unrated={result.unrated} onSelect={onSelect} compact={compact} />
+    return (
+      <GdResults
+        rated={result.rated}
+        unrated={result.unrated}
+        onSelect={onSelect}
+        compact={compact}
+      />
+    )
   }
 
   if (result?.status === 'nothing_new') {

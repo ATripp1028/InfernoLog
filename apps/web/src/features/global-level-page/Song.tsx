@@ -39,13 +39,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 // A label-left / value-right row.
-function KVRow({
-  label,
-  value,
-}: {
-  label: string
-  value: React.ReactNode
-}) {
+function KVRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1">
       <span className="text-[11px] uppercase tracking-wide text-text-tertiary">
@@ -114,13 +108,7 @@ function StandardSong({
 
 // ── NONG (shows both songs) ─────────────────────────────────────────────────
 
-function NongSong({
-  level,
-  pad,
-}: {
-  level: GlobalLevelPageData
-  pad: string
-}) {
+function NongSong({ level, pad }: { level: GlobalLevelPageData; pad: string }) {
   const ngSize = formatSongSize(level.songSize)
 
   return (

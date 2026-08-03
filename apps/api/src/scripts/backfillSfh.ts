@@ -90,7 +90,9 @@ async function main() {
     orderBy: { inGameId: 'asc' },
   })
 
-  console.log(`Eligible levels (sfhCheckedAt=null, not delisted): ${levels.length}`)
+  console.log(
+    `Eligible levels (sfhCheckedAt=null, not delisted): ${levels.length}`
+  )
 
   if (dryRun) {
     console.log('Dry run — no SFH calls made, nothing written.')

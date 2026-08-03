@@ -436,7 +436,10 @@ export async function fetchRobtopLevelResult(
         try {
           await reportRobtopThrottled(cooldownMs)
         } catch (err) {
-          logger.warn({ levelId, err }, 'fetchRobtopLevel: cooldown write failed')
+          logger.warn(
+            { levelId, err },
+            'fetchRobtopLevel: cooldown write failed'
+          )
         }
       }
       return { status: 'unreachable' }
@@ -519,13 +522,19 @@ export async function searchRobtopByNameResult(
         try {
           await reportRobtopThrottled(cooldownMs)
         } catch (err) {
-          logger.warn({ name, err }, 'searchRobtopByName: cooldown write failed')
+          logger.warn(
+            { name, err },
+            'searchRobtopByName: cooldown write failed'
+          )
         }
       }
       return { status: 'unreachable' }
     }
 
-    return { status: 'ok', results: parseAllFromGetGJLevels21(await res.text()) }
+    return {
+      status: 'ok',
+      results: parseAllFromGetGJLevels21(await res.text()),
+    }
   } catch {
     return { status: 'unreachable' }
   } finally {

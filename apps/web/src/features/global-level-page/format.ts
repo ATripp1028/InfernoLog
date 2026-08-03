@@ -9,6 +9,7 @@ export function formatSongSize(mb: number | null): string | null {
 // AREDL only ranks Extreme Demons, so the AREDL link renders for those alone.
 export function isExtremeDemon(level: GlobalLevelPageData): boolean {
   return (
-    level.isDemon && (level.inGameDifficulty ?? '').toLowerCase().includes('extreme')
+    level.isDemon &&
+    (level.inGameDifficulty ?? '').toLowerCase().includes('extreme')
   )
 }

@@ -47,7 +47,8 @@ export function useToolbarSearch() {
   const items = useMemo<SearchItem[]>(() => {
     if (isNumeric) {
       if (trimmed.length < 4) return []
-      if (cachedLevel.data) return [{ id: cachedLevel.data.inGameId, level: cachedLevel.data }]
+      if (cachedLevel.data)
+        return [{ id: cachedLevel.data.inGameId, level: cachedLevel.data }]
       if (!cachedLevel.isFetching) return [{ id: trimmed, level: null }]
       return []
     }
@@ -56,7 +57,13 @@ export function useToolbarSearch() {
       id: r.inGameId,
       level: r,
     }))
-  }, [isNumeric, trimmed, cachedLevel.data, cachedLevel.isFetching, search.data])
+  }, [
+    isNumeric,
+    trimmed,
+    cachedLevel.data,
+    cachedLevel.isFetching,
+    search.data,
+  ])
 
   // Reset the keyboard highlight whenever the candidate set changes.
   useEffect(() => {

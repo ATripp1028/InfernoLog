@@ -245,8 +245,7 @@ export function AcknowledgmentsPage() {
         <p className="font-medium text-foreground">Placeholder Images</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Placeholder images used in the UI are from{' '}
-          <SectionLink href="https://placehold.co/">placehold.co</SectionLink>
-          .
+          <SectionLink href="https://placehold.co/">placehold.co</SectionLink>.
         </p>
       </Section>
 

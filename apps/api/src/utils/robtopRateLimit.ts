@@ -43,7 +43,9 @@ type AcquireOutcome = 'acquired' | 'cooling' | 'empty'
 // token was taken and whether a cooldown is in effect (all now() reads within a
 // single statement are consistent).
 async function tryAcquire(): Promise<AcquireOutcome> {
-  const rows = await prisma.$queryRaw<{ cooling: boolean; acquired: boolean }[]>`
+  const rows = await prisma.$queryRaw<
+    { cooling: boolean; acquired: boolean }[]
+  >`
     WITH state AS (
       SELECT ("cooldownUntil" IS NOT NULL AND "cooldownUntil" > now()) AS cooling
       FROM "robtop_rate_limit"

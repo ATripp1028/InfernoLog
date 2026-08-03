@@ -7,10 +7,7 @@
 
 import { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import {
-  fetchRobtopLevelResult,
-  type RobtopLevel,
-} from '../utils/robtop'
+import { fetchRobtopLevelResult, type RobtopLevel } from '../utils/robtop'
 import { checkSfhNongIfDue } from './sfhSync'
 
 // The Level create payload for a freshly-resolved RobTop level. Shared so the

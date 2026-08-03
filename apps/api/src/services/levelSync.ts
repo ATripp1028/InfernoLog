@@ -56,12 +56,7 @@ const DELIST_CONFIRM_MS = 36 * 60 * 60 * 1000 // 36 hours
 // or unconfirmed — no delist yet), 'delisted' (not-found confirmed past the
 // window), and 'unreachable' all extend it; 'skipped' (our cache row vanished
 // mid-run — unrelated to RobTop health) is neutral.
-type SyncOutcome =
-  | 'synced'
-  | 'missing'
-  | 'delisted'
-  | 'unreachable'
-  | 'skipped'
+type SyncOutcome = 'synced' | 'missing' | 'delisted' | 'unreachable' | 'skipped'
 
 export interface SyncBatchResult {
   processed: number
@@ -363,7 +358,10 @@ async function readCursor(key: CursorKey): Promise<string | null> {
   return row?.lastInGameId ?? null
 }
 
-async function writeCursor(key: CursorKey, lastInGameId: string): Promise<void> {
+async function writeCursor(
+  key: CursorKey,
+  lastInGameId: string
+): Promise<void> {
   await prisma.levelSyncCursor.upsert({
     where: { id: key },
     create: { id: key, lastInGameId },
@@ -482,7 +480,11 @@ export async function runDelistedReverifySlice(
       if (res.status === 'found') {
         await prisma.level.update({
           where: { inGameId: levelId },
-          data: { delistedAt: null, missingSince: null, lastCheckedAt: new Date() },
+          data: {
+            delistedAt: null,
+            missingSince: null,
+            lastCheckedAt: new Date(),
+          },
         })
         result.restored++
         logger.info(
@@ -496,7 +498,10 @@ export async function runDelistedReverifySlice(
       }
     } catch (err) {
       result.unreachable++
-      logger.error({ levelId, err }, 'levelSync: error reverifying delisted level')
+      logger.error(
+        { levelId, err },
+        'levelSync: error reverifying delisted level'
+      )
       Sentry.captureException(err)
     }
   }

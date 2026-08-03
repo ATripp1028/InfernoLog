@@ -13,9 +13,8 @@ vi.mock('./prisma', async () => {
   return { default: getTestPrisma() }
 })
 
-const { acquireRobtopSlot, reportRobtopThrottled } = await import(
-  './robtopRateLimit'
-)
+const { acquireRobtopSlot, reportRobtopThrottled } =
+  await import('./robtopRateLimit')
 
 const prisma = getTestPrisma()
 

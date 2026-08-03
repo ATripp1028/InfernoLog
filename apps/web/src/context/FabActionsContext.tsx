@@ -33,7 +33,10 @@ interface FabActionsContextValue {
   // name on the Global Level Page). Null for the default actions and any page
   // that doesn't set one.
   sheetHeader: string | null
-  setOverride: (actions: FabAction[] | null, sheetHeader?: string | null) => void
+  setOverride: (
+    actions: FabAction[] | null,
+    sheetHeader?: string | null
+  ) => void
 }
 
 const FabActionsContext = createContext<FabActionsContextValue | null>(null)

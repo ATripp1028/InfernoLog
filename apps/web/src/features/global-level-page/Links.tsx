@@ -17,7 +17,12 @@ const aredlLevel = (id: string) => `https://aredl.net/list/${id}`
 // reliably than any single canonical link. Missing name/creator are simply
 // dropped from the query. Spaces render as '+' to match YouTube's own URLs.
 function youtubeSearch(level: GlobalLevelPageData): string {
-  const query = ['Geometry Dash', level.name, level.creator && `by ${level.creator}`, level.inGameId]
+  const query = [
+    'Geometry Dash',
+    level.name,
+    level.creator && `by ${level.creator}`,
+    level.inGameId,
+  ]
     .filter(Boolean)
     .join(' ')
   return `https://www.youtube.com/results?search_query=${encodeURIComponent(query).replace(/%20/g, '+')}`

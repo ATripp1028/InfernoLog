@@ -309,7 +309,10 @@ describe('syncLevelBatch — confirm-before-delist', () => {
 
   it('delists only once the level has stayed missing past the confirmation window', async () => {
     // Already missing longer than the window → this not-found confirms it.
-    await seedCachedLevel({ missingSince: daysAgo(2), ratingStatusSince: daysAgo(3) })
+    await seedCachedLevel({
+      missingSince: daysAgo(2),
+      ratingStatusSince: daysAgo(3),
+    })
     robtopMock.mockResolvedValue(null)
 
     const result = await syncLevelBatch(['100'])
@@ -321,7 +324,9 @@ describe('syncLevelBatch — confirm-before-delist', () => {
     // Metadata frozen at last-known values; rating_status_since not re-stamped.
     expect(after.name).toBe('Cached Name')
     expect(after.isRated).toBe(true)
-    expect(after.ratingStatusSince!.getTime()).toBeLessThan(daysAgo(1).getTime())
+    expect(after.ratingStatusSince!.getTime()).toBeLessThan(
+      daysAgo(1).getTime()
+    )
     expect(result).toMatchObject({ processed: 1, delisted: 1, missing: 0 })
   })
 
