@@ -88,6 +88,7 @@ export interface LevelSearchResult {
   creator: string | null
   songName: string | null
   inGameDifficulty: string | null
+  stars: number | null
   featured: boolean | null
   epicValue: number | null
   isRated: boolean

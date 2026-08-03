@@ -514,6 +514,8 @@ export const LevelSearchResultSchema = z.object({
   creator: z.string().nullable(),
   songName: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
+  // Star count (null for unrated). Rendered alongside the difficulty in a row.
+  stars: z.number().int().nullable(),
   // Drives the difficulty-face showcase glow in result rows.
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),

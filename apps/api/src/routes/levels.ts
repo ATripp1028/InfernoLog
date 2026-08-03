@@ -159,7 +159,7 @@ app.get('/levels/search', async (c) => {
 
   try {
     const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
-      SELECT "inGameId", "name", "creator", "inGameDifficulty", "featured", "epicValue", "songName", "isRated"
+      SELECT "inGameId", "name", "creator", "inGameDifficulty", "stars", "featured", "epicValue", "songName", "isRated"
       FROM "levels"
       WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
       ORDER BY similarity("name", ${q}) DESC, "name" ASC
