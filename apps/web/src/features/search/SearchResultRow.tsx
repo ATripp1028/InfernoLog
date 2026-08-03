@@ -1,5 +1,5 @@
 import { DifficultyFace } from '@/components/DifficultyFace'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { cn } from '@/lib/utils'
 
 // The minimal level shape a search row renders. Both LevelSearchResult (cache
@@ -20,16 +20,18 @@ interface SearchResultRowProps {
   /** Highlighted via keyboard nav (desktop dropdown). */
   active?: boolean
   onMouseEnter?: () => void
-  /** Mobile overlay sizing (56×32 thumb, 11px meta, 24px face) vs desktop. */
+  /** Mobile overlay sizing (11px meta, 24px face) vs desktop. */
   compact?: boolean
   /** Unrated GD results render dimmed (see the escalation results view). */
   dimmed?: boolean
 }
 
-// A single search-result row: level thumbnail, name, and the load-bearing
-// `creator · ID · difficulty` triple (reuploads and remakes share names, so the
-// triple is how a user tells them apart), with the difficulty face right-
-// aligned. Used by both the desktop toolbar dropdown and the mobile overlay.
+// A single search-result row. Uses the same level-thumbnail wash as the list,
+// ranking, and collection entries (the shared ThumbnailWash) so search reads as
+// part of the same surface, with the load-bearing `creator · ID · difficulty`
+// triple over it (reuploads and remakes share names, so the triple is how a
+// user tells them apart). Used by both the desktop toolbar dropdown and the
+// mobile overlay.
 export function SearchResultRow({
   level,
   onSelect,
@@ -49,32 +51,22 @@ export function SearchResultRow({
       onMouseEnter={onMouseEnter}
       onClick={onSelect}
       className={cn(
-        'flex h-14 w-full items-center gap-3 text-left transition-colors',
+        'group relative flex h-14 w-full items-center gap-3 overflow-hidden text-left',
         compact ? 'px-4' : 'px-3',
-        active ? 'bg-white/[0.06]' : 'bg-transparent hover:bg-white/[0.03]',
         dimmed && 'opacity-70'
       )}
     >
+      <ThumbnailWash levelId={level.inGameId} variant="row" />
+      {/* Hover / keyboard-active tint, above the wash. */}
       <span
+        aria-hidden
         className={cn(
-          'relative shrink-0 overflow-hidden rounded bg-black',
-          compact ? 'h-8 w-14' : 'h-9 w-16'
+          'absolute inset-0 transition-colors',
+          active ? 'bg-white/[0.08]' : 'bg-white/0 group-hover:bg-white/[0.04]'
         )}
-      >
-        <img
-          src={levelThumbnailUrl(level.inGameId)}
-          alt=""
-          aria-hidden
-          loading="lazy"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-          className="absolute inset-0 size-full object-cover"
-        />
-        <span className="absolute inset-0 bg-[#3a1a10]/40" />
-      </span>
+      />
 
-      <span className="min-w-0 flex-1">
+      <span className="relative z-10 min-w-0 flex-1">
         <span
           className={cn(
             'block truncate text-sm font-medium leading-tight',
@@ -99,7 +91,7 @@ export function SearchResultRow({
         epicValue={level.epicValue ?? null}
         rated={level.isRated}
         size={compact ? 24 : 28}
-        className="shrink-0"
+        className="relative z-10 shrink-0"
       />
     </button>
   )
