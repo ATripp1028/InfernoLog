@@ -49,8 +49,8 @@ export function SearchResults({
   // escalated, GdSearchSection owns the copy.
   const offer = {
     title: hasResults
-      ? `Not the level you meant? Search GD's servers for "${trimmed}"`
-      : `Search GD's servers for "${trimmed}"`,
+      ? `Not the level you meant? Search GD's servers for "${trimmed} or enter a level ID"`
+      : `Search GD's servers for "${trimmed} or enter a level ID"`,
     subtitle: compact
       ? 'One request. Levels already cached are omitted.'
       : hasResults
