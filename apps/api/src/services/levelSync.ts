@@ -27,6 +27,26 @@ export const VOLATILE_WINDOW_DAYS = 14
 const PACE_MS = 670
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// Circuit breaker: if this many levels in a row come back "gone" (not-found or
+// unreachable) or throw, abort the whole batch. A healthy RobTop never returns a
+// long run of missing levels — an ID-ordered batch doesn't have 5 genuinely-
+// deleted levels back to back — so a streak this long means RobTop is rate-
+// limiting/erroring the whole run (the Aug 2026 incident 429'd every request
+// once it started). Aborting caps the blast radius and stops wasting the block
+// window; the untouched tail is retried on the next run.
+const CIRCUIT_BREAKER_STREAK = 5
+
+// Mass-delist alarm: a single run delisting at least this many levels (even if
+// not consecutive) is almost always an upstream problem, not reality. Surfaced
+// to Sentry so it pages instead of being discovered weeks later.
+const MASS_DELIST_ALERT = 10
+
+// Per-level result, so syncLevelBatch can drive the circuit breaker. 'synced'
+// (a live level, changed or not) resets the streak; 'delisted'/'unreachable'
+// extend it; 'skipped' (our cache row vanished mid-run — unrelated to RobTop
+// health) is neutral.
+type SyncOutcome = 'synced' | 'delisted' | 'unreachable' | 'skipped'
+
 export interface SyncBatchResult {
   processed: number
   // Found rows that had at least one field overwritten (excludes last_checked_at
@@ -42,6 +62,10 @@ export interface SyncBatchResult {
   // (genuine not-found) so a throttled batch is diagnosable.
   unreachable: number
   errors: number
+  // True if the circuit breaker tripped and the batch was aborted before every
+  // level was processed (RobTop was failing the whole run). The untouched tail
+  // is retried next run.
+  aborted: boolean
   // SFH bookkeeping: levels eligible for a Song File Hub check that we actually
   // called SFH for this run, and how many of those turned up a rated NONG.
   sfhChecked: number
@@ -66,7 +90,7 @@ async function syncOneLevel(
   levelId: string,
   result: SyncBatchResult,
   paceMs: number
-): Promise<void> {
+): Promise<SyncOutcome> {
   const current = await prisma.level.findUnique({
     where: { inGameId: levelId },
     select: compareSelect,
@@ -75,7 +99,7 @@ async function syncOneLevel(
   // reconcile against.
   if (!current) {
     logger.warn({ levelId }, 'levelSync: level row not found; skipping')
-    return
+    return 'skipped'
   }
 
   result.processed++
@@ -94,7 +118,7 @@ async function syncOneLevel(
       { levelId },
       'levelSync: RobTop unreachable; skipping (no delist, will retry)'
     )
-    return
+    return 'unreachable'
   }
 
   // Not-found (RobTop "-1"/empty body): GD genuinely has no such level. Freeze
@@ -111,7 +135,7 @@ async function syncOneLevel(
     })
     result.delisted++
     logger.info({ levelId }, 'levelSync: level delisted (no RobTop result)')
-    return
+    return 'delisted'
   }
 
   const robtop = robtopResult.level
@@ -158,10 +182,14 @@ async function syncOneLevel(
     const outcome = await checkAndPersistSfhNong(levelId, robtop.isRated)
     if (outcome === 'found') result.sfhFound++
   }
+
+  return 'synced'
 }
 
 // Fetch/compare/write every level in the batch, sequentially and paced. Never
-// throws: a per-level failure is logged + captured and the batch continues.
+// throws: a per-level failure is logged + captured and the batch continues —
+// except the circuit breaker, which aborts the batch when RobTop is clearly
+// failing the whole run (see CIRCUIT_BREAKER_STREAK).
 export async function syncLevelBatch(
   levelIds: string[],
   paceMs: number = PACE_MS
@@ -173,9 +201,14 @@ export async function syncLevelBatch(
     delisted: 0,
     unreachable: 0,
     errors: 0,
+    aborted: false,
     sfhChecked: 0,
     sfhFound: 0,
   }
+
+  // Consecutive "gone" (not-found/unreachable) or thrown results. Reset by any
+  // successful sync; a long enough streak trips the circuit breaker.
+  let goneStreak = 0
 
   for (let i = 0; i < levelIds.length; i++) {
     const levelId = levelIds[i]
@@ -183,12 +216,40 @@ export async function syncLevelBatch(
     if (i > 0 && paceMs > 0) await sleep(paceMs)
 
     try {
-      await syncOneLevel(levelId, result, paceMs)
+      const outcome = await syncOneLevel(levelId, result, paceMs)
+      if (outcome === 'delisted' || outcome === 'unreachable') goneStreak++
+      else if (outcome === 'synced') goneStreak = 0
+      // 'skipped' is neutral — leave the streak unchanged.
     } catch (err) {
       result.errors++
+      goneStreak++
       logger.error({ levelId, err }, 'levelSync: error syncing level')
       Sentry.captureException(err)
     }
+
+    if (goneStreak >= CIRCUIT_BREAKER_STREAK) {
+      result.aborted = true
+      const remaining = levelIds.length - (i + 1)
+      logger.error(
+        { streak: goneStreak, processed: result.processed, remaining },
+        'levelSync: circuit breaker tripped; aborting batch (RobTop failing)'
+      )
+      Sentry.captureMessage(
+        `levelSync circuit breaker: ${goneStreak} consecutive failures, ` +
+          `aborted with ${remaining} level(s) unprocessed`,
+        'error'
+      )
+      break
+    }
+  }
+
+  // Mass-delist alarm: a large number of delistings in one run (even without a
+  // consecutive streak) is almost always upstream failure, not real deletions.
+  if (!result.aborted && result.delisted >= MASS_DELIST_ALERT) {
+    Sentry.captureMessage(
+      `levelSync mass delist: ${result.delisted} levels delisted in one run`,
+      'error'
+    )
   }
 
   return result

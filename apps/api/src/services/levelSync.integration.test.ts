@@ -19,7 +19,10 @@ vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }))
+vi.mock('@sentry/aws-serverless', () => ({
+  captureException: vi.fn(),
+  captureMessage: vi.fn(),
+}))
 
 vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 // Mock only the SFH HTTP client; the sfhSync cache write runs for real.
@@ -34,12 +37,26 @@ const {
 } = await import('./levelSync')
 const { fetchRobtopLevelResult } = await import('../utils/robtop')
 const { fetchSongFileHubNong } = await import('../utils/songFileHub')
+const Sentry = await import('@sentry/aws-serverless')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const prisma = getTestPrisma()
 const resultMock = fetchRobtopLevelResult as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
+const captureMessageMock = vi.mocked(Sentry.captureMessage)
+
+// Seeds N cached levels with sequential ids ('id-1'..'id-N') so a batch can be
+// long enough to exercise the circuit breaker.
+async function seedN(n: number): Promise<string[]> {
+  const ids: string[] = []
+  for (let i = 1; i <= n; i++) {
+    const inGameId = `id-${i}`
+    await seedCachedLevel({ inGameId })
+    ids.push(inGameId)
+  }
+  return ids
+}
 
 // Back-compat shim: the sync now consumes fetchRobtopLevelResult (which keeps
 // the not-found vs unreachable distinction), but most tests here only care about
@@ -146,6 +163,7 @@ beforeEach(async () => {
   await truncateAll(prisma)
   robtopMock.mockReset()
   sfhMock.mockReset()
+  captureMessageMock.mockClear()
   // Default: SFH reports no NONG (checked, none). SFH-specific tests override.
   sfhMock.mockResolvedValue(null)
 })
@@ -315,6 +333,72 @@ describe('syncLevelBatch — unreachable (must NOT delist)', () => {
       unreachable: 1,
       errors: 0,
     })
+  })
+})
+
+describe('syncLevelBatch — circuit breaker', () => {
+  it('aborts the batch after a run of consecutive failures and alerts', async () => {
+    // The Aug 2026 incident: once RobTop starts 429ing, every request fails.
+    // The breaker must stop the batch instead of delisting the whole tail.
+    const ids = await seedN(10)
+    resultMock.mockResolvedValue({ status: 'unreachable' })
+
+    const result = await syncLevelBatch(ids, 0)
+
+    // Stopped at the streak threshold (5), not the full batch of 10.
+    expect(result.aborted).toBe(true)
+    expect(result.processed).toBe(5)
+    expect(result.unreachable).toBe(5)
+    // The untouched tail keeps its state — nothing delisted.
+    const delistedCount = await prisma.level.count({
+      where: { delistedAt: { not: null } },
+    })
+    expect(delistedCount).toBe(0)
+    // Paged, not silent.
+    expect(captureMessageMock).toHaveBeenCalledTimes(1)
+    expect(captureMessageMock.mock.calls[0]?.[1]).toBe('error')
+  })
+
+  it('resets the streak on a success so a healthy batch is not aborted', async () => {
+    const ids = await seedN(9)
+    // 4 unreachable, one live level (resets the streak), then 4 more.
+    resultMock
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'found', level: makeRobtop() })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+      .mockResolvedValueOnce({ status: 'unreachable' })
+
+    const result = await syncLevelBatch(ids, 0)
+
+    expect(result.aborted).toBe(false)
+    expect(result.processed).toBe(9)
+    expect(result.unreachable).toBe(8)
+    expect(captureMessageMock).not.toHaveBeenCalled()
+  })
+
+  it('alerts when a run mass-delists even without a consecutive streak', async () => {
+    // 10 delisted, but never 5 in a row (a live level between each pair keeps the
+    // streak short), so only the mass-delist alarm fires — not the breaker.
+    const ids = await seedN(20)
+    for (let i = 0; i < ids.length; i++) {
+      resultMock.mockResolvedValueOnce(
+        i % 2 === 0
+          ? { status: 'not_found' }
+          : { status: 'found', level: makeRobtop() }
+      )
+    }
+
+    const result = await syncLevelBatch(ids, 0)
+
+    expect(result.aborted).toBe(false)
+    expect(result.delisted).toBe(10)
+    expect(captureMessageMock).toHaveBeenCalledTimes(1)
+    expect(captureMessageMock.mock.calls[0]?.[0]).toContain('mass delist')
   })
 })
 
