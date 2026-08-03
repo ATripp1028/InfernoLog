@@ -21,7 +21,7 @@ vi.mock('../utils/logger', () => ({
 
 vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }))
 
-vi.mock('../utils/robtop', () => ({ fetchRobtopLevel: vi.fn() }))
+vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 // Mock only the SFH HTTP client; the sfhSync cache write runs for real.
 vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
@@ -32,14 +32,53 @@ const {
   runStandardSync,
   VOLATILE_WINDOW_DAYS,
 } = await import('./levelSync')
-const { fetchRobtopLevel } = await import('../utils/robtop')
+const { fetchRobtopLevelResult } = await import('../utils/robtop')
 const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const prisma = getTestPrisma()
-const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
+const resultMock = fetchRobtopLevelResult as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
+
+// Back-compat shim: the sync now consumes fetchRobtopLevelResult (which keeps
+// the not-found vs unreachable distinction), but most tests here only care about
+// "the RobtopLevel or null RobTop returned". This translates that older contract
+// to the result shape — a level → { found }, null → { not_found } — so existing
+// call sites need no change. A test exercising the unreachable branch (which must
+// NOT delist) drives `resultMock` directly with { status: 'unreachable' }.
+// Each mutating method returns `robtopMock` so chained calls
+// (.mockRejectedValueOnce(...).mockResolvedValueOnce(...)) stay wrapped rather
+// than falling through to the raw resultMock.
+const robtopMock = {
+  mockReset: () => {
+    resultMock.mockReset()
+    return robtopMock
+  },
+  mockClear: () => {
+    resultMock.mockClear()
+    return robtopMock
+  },
+  mockResolvedValue: (v: RobtopLevel | null) => {
+    resultMock.mockResolvedValue(
+      v ? { status: 'found', level: v } : { status: 'not_found' }
+    )
+    return robtopMock
+  },
+  mockResolvedValueOnce: (v: RobtopLevel | null) => {
+    resultMock.mockResolvedValueOnce(
+      v ? { status: 'found', level: v } : { status: 'not_found' }
+    )
+    return robtopMock
+  },
+  mockRejectedValueOnce: (e: unknown) => {
+    resultMock.mockRejectedValueOnce(e)
+    return robtopMock
+  },
+  get mock() {
+    return resultMock.mock
+  },
+}
 
 // A full RobtopLevel with only the diff-relevant fields worth setting; the rest
 // default to null/false (the sync core never reads them).
@@ -250,6 +289,31 @@ describe('syncLevelBatch — not found (delisting)', () => {
       updated: 0,
       ratingChanged: 0,
       delisted: 1,
+    })
+  })
+})
+
+describe('syncLevelBatch — unreachable (must NOT delist)', () => {
+  it('leaves the row untouched on a transient RobTop failure', async () => {
+    // Regression guard: a transient RobTop failure (rate-limit/Cloudflare/
+    // network) must never be mistaken for a not-found and delist a live level.
+    await seedCachedLevel({ ratingStatusSince: daysAgo(3) })
+    resultMock.mockResolvedValue({ status: 'unreachable' })
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.delistedAt).toBeNull()
+    // Row left entirely untouched — not even last_checked_at is stamped.
+    expect(after.lastCheckedAt).toBeNull()
+    expect(result).toMatchObject({
+      processed: 1,
+      updated: 0,
+      delisted: 0,
+      unreachable: 1,
+      errors: 0,
     })
   })
 })

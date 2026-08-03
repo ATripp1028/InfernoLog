@@ -10,7 +10,7 @@
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
-import { fetchRobtopLevel } from '../utils/robtop'
+import { fetchRobtopLevelResult } from '../utils/robtop'
 import { checkAndPersistSfhNong, sfhCheckDue } from './sfhSync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
@@ -36,6 +36,11 @@ export interface SyncBatchResult {
   // rating_status_since).
   ratingChanged: number
   delisted: number
+  // RobTop couldn't be reached for this level (rate-limit/Cloudflare/network/
+  // timeout/parse). The row is left untouched — NOT delisted — and retried next
+  // run. Tracked separately from `errors` (unexpected throws) and `delisted`
+  // (genuine not-found) so a throttled batch is diagnosable.
+  unreachable: number
   errors: number
   // SFH bookkeeping: levels eligible for a Song File Hub check that we actually
   // called SFH for this run, and how many of those turned up a rated NONG.
@@ -75,12 +80,28 @@ async function syncOneLevel(
 
   result.processed++
 
-  const robtop = await fetchRobtopLevel(levelId)
+  const robtopResult = await fetchRobtopLevelResult(levelId)
 
-  // Not-found (RobTop "-1"/empty → null): freeze last-known metadata, flag the
-  // row delisted, and run no diff logic. A level just discovered to no longer
-  // exist is NOT worth an SFH call this run, so we return before it.
-  if (!robtop) {
+  // Unreachable — a transient failure (rate-limiter timeout, Cloudflare block,
+  // non-OK response, network error, timeout, parse failure). It says NOTHING
+  // about whether the level exists, so we must NOT delist on it: doing so
+  // (the old code collapsed unreachable → null → delist) mass-delisted live
+  // levels whenever a batch got throttled. Leave the row entirely untouched —
+  // not even lastCheckedAt — and let a later run re-check it.
+  if (robtopResult.status === 'unreachable') {
+    result.unreachable++
+    logger.warn(
+      { levelId },
+      'levelSync: RobTop unreachable; skipping (no delist, will retry)'
+    )
+    return
+  }
+
+  // Not-found (RobTop "-1"/empty body): GD genuinely has no such level. Freeze
+  // last-known metadata, flag the row delisted, and run no diff logic. A level
+  // just discovered to no longer exist is NOT worth an SFH call this run, so we
+  // return before it.
+  if (robtopResult.status === 'not_found') {
     await prisma.level.update({
       where: { inGameId: levelId },
       data: {
@@ -92,6 +113,8 @@ async function syncOneLevel(
     logger.info({ levelId }, 'levelSync: level delisted (no RobTop result)')
     return
   }
+
+  const robtop = robtopResult.level
 
   // Found: diff against the cached snapshot and write only what changed.
   const now = new Date()
@@ -148,6 +171,7 @@ export async function syncLevelBatch(
     updated: 0,
     ratingChanged: 0,
     delisted: 0,
+    unreachable: 0,
     errors: 0,
     sfhChecked: 0,
     sfhFound: 0,
@@ -175,12 +199,15 @@ function volatileCutoff(): Date {
 }
 
 // Weekly job: never-rated levels (their rating can appear at any time) plus
-// rated levels still inside the volatile window. Delisted rows excluded.
+// rated levels still inside the volatile window. Delisted rows excluded, and so
+// are official levels — getGJLevels21 doesn't serve them, so a sync would always
+// see not-found and wrongly delist them (see runStandardSync).
 export async function runVolatileSync(): Promise<SyncBatchResult> {
   const cutoff = volatileCutoff()
   const rows = await prisma.level.findMany({
     where: {
       delistedAt: null,
+      dataSource: { not: 'official' },
       OR: [{ isRated: false }, { ratingStatusSince: { gte: cutoff } }],
     },
     select: { inGameId: true },
@@ -197,13 +224,16 @@ export async function runVolatileSync(): Promise<SyncBatchResult> {
 // was never stamped (null). The explicit null branch matters: a rated level
 // cached outside the sync (import/resolve) has a null rating_status_since and
 // would otherwise fall through both jobs, since SQL `NOT (ts >= cutoff)` drops
-// nulls.
+// nulls. Official levels are excluded: getGJLevels21 never returns them, so
+// syncing one always looks like a not-found and would delist a level that plainly
+// still exists.
 export async function runStandardSync(): Promise<SyncBatchResult> {
   const cutoff = volatileCutoff()
   const rows = await prisma.level.findMany({
     where: {
       isRated: true,
       delistedAt: null,
+      dataSource: { not: 'official' },
       OR: [{ ratingStatusSince: null }, { ratingStatusSince: { lt: cutoff } }],
     },
     select: { inGameId: true },

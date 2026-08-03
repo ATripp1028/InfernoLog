@@ -23,6 +23,11 @@
 // --dry-run  count the eligible backlog and exit without calling SFH or writing.
 // --pace <ms>  delay between SFH calls (default 500ms) — SFH is community-run.
 
+// Mark this file as a module so its top-level names don't collide in the global
+// scope with the other tsx scripts (all use dynamic import() rather than
+// top-level imports, which would otherwise leave them as global scripts).
+export {}
+
 const args = process.argv.slice(2)
 const target = args[0]
 const dryRun = args.includes('--dry-run')
