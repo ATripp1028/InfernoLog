@@ -7,6 +7,7 @@ import {
   type LevelSearchResult,
 } from '@/lib/api/logging'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
+import { useEscalation } from './useEscalation'
 
 // A selectable row in the results view. `level` is the cache-search result or
 // cached Level to render; a `null` level is the "go to level {id}" affordance
@@ -24,8 +25,19 @@ export interface SearchItem {
 // layered on by the consumer (Part 2) — this owns only the cache side.
 export function useToolbarSearch() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
+  const [query, setQueryRaw] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
+  const escalation = useEscalation()
+
+  // Editing the query drops any prior escalation, so the offer reappears and
+  // the next escalation needs its own explicit confirm (no "escalated mode").
+  const setQuery = useCallback(
+    (value: string) => {
+      setQueryRaw(value)
+      escalation.clear()
+    },
+    [escalation]
+  )
 
   const trimmed = query.trim()
   const isNumeric = /^\d+$/.test(trimmed)
@@ -69,24 +81,34 @@ export function useToolbarSearch() {
   const reset = useCallback(() => {
     setQuery('')
     setActiveIndex(0)
-  }, [])
+  }, [setQuery])
+
+  // Whether the current query has already been escalated (its GD results are
+  // showing) — gates Enter so a second Enter doesn't re-fire the request.
+  const escalated = escalation.escalatedQuery === trimmed && trimmed.length > 0
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (items.length === 0) return
-      if (e.key === 'ArrowDown') {
+      if (e.key === 'ArrowDown' && items.length > 0) {
         e.preventDefault()
         setActiveIndex((i) => (i + 1) % items.length)
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === 'ArrowUp' && items.length > 0) {
         e.preventDefault()
         setActiveIndex((i) => (i - 1 + items.length) % items.length)
       } else if (e.key === 'Enter') {
         e.preventDefault()
+        // Enter escalates when the offer is showing (matches the `↵ Enter`
+        // affordance on the escalation row); otherwise it opens the highlighted
+        // cache result.
+        if (canEscalate && !escalated && !escalation.isPending) {
+          escalation.escalate(trimmed)
+          return
+        }
         const item = items[activeIndex]
         if (item) go(item.id)
       }
     },
-    [items, activeIndex, go]
+    [items, activeIndex, go, canEscalate, escalated, escalation, trimmed]
   )
 
   return {
@@ -98,6 +120,8 @@ export function useToolbarSearch() {
     isSearching,
     showNoResults,
     canEscalate,
+    escalated,
+    escalation,
     activeIndex,
     setActiveIndex,
     handleKeyDown,

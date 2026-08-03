@@ -27,7 +27,10 @@ export function AppHeader() {
   }, [open])
 
   const hasDropdownContent =
-    state.items.length > 0 || state.showNoResults || state.isSearching
+    state.items.length > 0 ||
+    state.showNoResults ||
+    state.isSearching ||
+    state.canEscalate
   const showDropdown = open && state.trimmed.length > 0 && hasDropdownContent
 
   function closeDropdown() {

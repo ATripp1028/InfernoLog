@@ -357,6 +357,20 @@ export default $config({
     authedRoute('POST /v1/me/progress')
     authedRoute('POST /v1/me/drops')
     authedRoute('GET /v1/levels/search')
+    // The GD-server search escalation hits RobTop and shares the same global
+    // rate limiter as /resolve, so it gets the same extended timeout rather
+    // than authedRoute's default.
+    api.route(
+      'GET /v1/levels/gd-search',
+      {
+        handler: 'src/index.handler',
+        link: sharedLinks,
+        environment: sharedEnvironment,
+        timeout: '25 seconds',
+        ...sharedNodeOptions,
+      },
+      { auth: jwtAuth }
+    )
     // API Gateway HTTP API path params use {brace} syntax; Hono's own routes
     // keep :levelId. The actual request path is forwarded to Hono unchanged.
     // Explicit timeout (rather than authedRoute's default) because this route

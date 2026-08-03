@@ -30,6 +30,8 @@ import { useMyProgress } from '@/lib/api/list'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { GdSearchSection } from '@/features/search/GdSearchSection'
+import { useEscalation } from '@/features/search/useEscalation'
 import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
 
 interface PickedLevel {
@@ -79,6 +81,7 @@ export function AddToCollectionDialog({
   const addEntry = useAddCollectionEntry()
   const collections = useCollections()
   const list = useMyProgress()
+  const escalation = useEscalation()
 
   const completedIds = useMemo(
     () =>
@@ -105,8 +108,16 @@ export function AddToCollectionDialog({
       setSeedingId(null)
       setSeededLevel(null)
       setIsSubmitting(false)
+      escalation.clear()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, preselectedLevel])
+
+  // Editing the query drops any prior GD escalation (fresh confirm required).
+  function updateLevelQuery(value: string) {
+    setLevelQuery(value)
+    escalation.clear()
+  }
 
   // Batch-load collection details only once the user reaches the pick step.
   const collectionIds = useMemo(
@@ -261,7 +272,7 @@ export function AddToCollectionDialog({
             id="atc-level-query"
             autoFocus={isDesktop}
             value={levelQuery}
-            onChange={(e) => setLevelQuery(e.target.value)}
+            onChange={(e) => updateLevelQuery(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && isNumeric) {
                 if (cachedLevel.data) selectLevel(cachedLevel.data)
@@ -363,6 +374,21 @@ export function AddToCollectionDialog({
                   onSelect={() => selectLevel(r)}
                 />
               ))}
+            </div>
+          )}
+
+          {!search.isPending && (
+            <div className="mt-3 overflow-hidden rounded-md border border-border">
+              <GdSearchSection
+                escalation={escalation}
+                query={trimmed}
+                onSelect={(levelId) => void seedAndPick(levelId)}
+                offer={{
+                  title: `Search GD's servers for "${trimmed}"`,
+                  subtitle:
+                    'One request to RobTop. Levels already in your cache are omitted.',
+                }}
+              />
             </div>
           )}
         </div>

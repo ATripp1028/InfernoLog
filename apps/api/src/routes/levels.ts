@@ -19,6 +19,7 @@ import { fetchRobtopLevel } from '../utils/robtop'
 import { fetchGddlTier } from '../utils/gddl'
 import { checkSfhNongIfDue } from '../services/sfhSync'
 import { buildRobtopCreateData, findOrResolveLevel } from '../services/levelResolve'
+import { runGdSearch } from '../services/gdSearch'
 import type { HonoVariables } from '../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -168,6 +169,31 @@ app.get('/levels/search', async (c) => {
     return c.json({ data: results })
   } catch (error) {
     console.error('GET /levels/search error:', error)
+    Sentry.captureException(error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// GET /v1/levels/gd-search?q= — the opt-in GD-server name-search escalation.
+// One unfiltered getGJLevels21 query, cache dedupe, rated/unrated partition,
+// and automatic seeding of rated survivors (see services/gdSearch.ts). Fired
+// only on explicit user confirmation from a cache-search UI; never on
+// keystroke. Shares the RobTop rate limiter, hence the extended timeout in
+// sst.config.ts.
+app.get('/levels/gd-search', async (c) => {
+  const q = c.req.query('q')?.trim()
+  if (!q) return c.json({ error: 'Query parameter "q" is required' }, 400)
+
+  try {
+    const outcome = await runGdSearch(q)
+    // A failed RobTop call is retryable and distinct from "nothing new" — 503
+    // so the client can offer a retry rather than showing an empty result.
+    if (outcome.status === 'unreachable') {
+      return c.json({ status: 'unreachable', retryable: true }, 503)
+    }
+    return c.json(outcome)
+  } catch (error) {
+    console.error('GET /levels/gd-search error:', error)
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }

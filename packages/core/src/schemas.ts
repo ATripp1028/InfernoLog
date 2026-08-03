@@ -523,6 +523,27 @@ export const LevelSearchResultSchema = z.object({
   isRated: z.boolean(),
 })
 
+// GET /v1/levels/gd-search response — the opt-in GD-server escalation. Three
+// outcomes the client branches on: `ok` (new levels found, rated grouped
+// first and already seeded, unrated returned unseeded), `nothing_new` (the
+// call succeeded but every result was already cached — a result, not a
+// failure), and `unreachable` (the RobTop call failed — retryable, sent with a
+// 503). See the SpecNote decision record.
+export const GdSearchResponseSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('ok'),
+    rated: z.array(LevelSearchResultSchema),
+    unrated: z.array(LevelSearchResultSchema),
+  }),
+  z.object({
+    status: z.literal('nothing_new'),
+    totalFound: z.number().int(),
+  }),
+  z.object({
+    status: z.literal('unreachable'),
+  }),
+])
+
 // The existing-completion summary folded into the resolve response so the
 // client can pre-populate the edit form ("edit, not replace").
 export const ExistingCompletionSchema = z.object({

@@ -1,4 +1,5 @@
 import { DifficultyFace } from '@/components/DifficultyFace'
+import { CopyableId } from '@/components/CopyableId'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import type { LevelMeta } from './types'
 
@@ -61,8 +62,13 @@ export function IdentityStrip({
             {level.name ?? `Level #${level.inGameId}`}
           </h1>
           <p className="mt-1 text-[13px] text-text-secondary md:text-sm">
-            by {level.creator ?? 'Unknown'} · {level.inGameId}
+            by {level.creator ?? 'Unknown'}
           </p>
+          {/* ID as the shared copy control — matches the sibling Global Level
+              Page's Identity chip row. */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <CopyableId id={level.inGameId} label="Level ID" />
+          </div>
         </div>
       </div>
     </div>

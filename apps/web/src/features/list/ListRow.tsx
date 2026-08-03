@@ -6,7 +6,7 @@ import { getViewerTimezone } from '@/lib/timezone'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
-import { CopyableId } from './CopyableId'
+import { CopyableId } from '@/components/CopyableId'
 import { LevelCell } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
@@ -207,7 +207,7 @@ export function ListRow({
                 responsiveClass={col.responsiveClass}
                 label="id"
               >
-                <CopyableId id={level.inGameId} className="text-xs" />
+                <CopyableId id={level.inGameId} label="Level ID" />
               </Cell>
             )
           case 'creator':

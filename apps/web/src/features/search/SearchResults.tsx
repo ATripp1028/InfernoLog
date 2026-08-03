@@ -1,6 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { EscalationRow } from './EscalationRow'
+import { GdSearchSection } from './GdSearchSection'
 import { SearchResultRow } from './SearchResultRow'
 import type { useToolbarSearch } from './useToolbarSearch'
 
@@ -29,6 +29,7 @@ export function SearchResults({
     isSearching,
     showNoResults,
     canEscalate,
+    escalation,
     activeIndex,
     setActiveIndex,
     go,
@@ -43,14 +44,19 @@ export function SearchResults({
   }
 
   const hasResults = items.length > 0
-  const escalationTitle = hasResults
-    ? `Not the level you meant? Search GD's servers for "${trimmed}"`
-    : `Search GD's servers for "${trimmed}"`
-  const escalationSubtitle = compact
-    ? 'One request. Levels already cached are omitted.'
-    : hasResults
-      ? 'One request to RobTop. Levels already cached are omitted from the results.'
-      : "One request to RobTop's servers. Requires confirmation — never automatic."
+  // Only phrase the offer as "not the one you meant?" when the escalation is
+  // still being offered (i.e. cache results are showing above it). Once
+  // escalated, GdSearchSection owns the copy.
+  const offer = {
+    title: hasResults
+      ? `Not the level you meant? Search GD's servers for "${trimmed}"`
+      : `Search GD's servers for "${trimmed}"`,
+    subtitle: compact
+      ? 'One request. Levels already cached are omitted.'
+      : hasResults
+        ? 'One request to RobTop. Levels already cached are omitted from the results.'
+        : "One request to RobTop's servers. Requires confirmation — never automatic.",
+  }
 
   return (
     <div className="flex flex-col">
@@ -116,13 +122,13 @@ export function SearchResults({
       {canEscalate && (
         <>
           <div className="h-px bg-[#2e2e2e]" />
-          {/* Part 1: rendered but inert (no onConfirm). The GD-search endpoint
-              and confirm wiring land in Part 2. */}
-          <EscalationRow
-            title={escalationTitle}
-            subtitle={escalationSubtitle}
-            showEnterHint={!compact}
+          <GdSearchSection
+            escalation={escalation}
+            query={trimmed}
+            onSelect={select}
+            offer={offer}
             compact={compact}
+            showEnterHint={!compact}
           />
         </>
       )}

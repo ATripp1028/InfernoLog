@@ -27,6 +27,8 @@ import {
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { GdSearchSection } from '@/features/search/GdSearchSection'
+import { useEscalation } from '@/features/search/useEscalation'
 import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
 
 interface AddLevelsDialogProps {
@@ -65,6 +67,7 @@ export function AddLevelsDialog({
 
   const resolveLevel = useResolveLevel()
   const addEntry = useAddCollectionEntry()
+  const escalation = useEscalation()
 
   const trimmed = query.trim()
   const isNumeric = /^\d+$/.test(trimmed)
@@ -81,8 +84,17 @@ export function AddLevelsDialog({
       setAddAnother(false)
       setSeedingId(null)
       setAddingId(null)
+      escalation.clear()
     }
+    // escalation is stable enough; re-running only on `open` is intentional.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  // Editing the query drops any prior GD escalation (fresh confirm required).
+  function updateQuery(value: string) {
+    setQuery(value)
+    escalation.clear()
+  }
 
   if (!open) return null
 
@@ -211,7 +223,7 @@ export function AddLevelsDialog({
               id="collection-level-query"
               autoFocus={isDesktop}
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => updateQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && isNumeric) {
                   if (cachedLevel.data)
@@ -352,6 +364,21 @@ export function AddLevelsDialog({
               Paste a level ID to add one InfernoLog doesn&apos;t know yet —
               we&apos;ll fetch it from the GD servers.
             </p>
+
+            {!search.isPending && (
+              <div className="mt-3 overflow-hidden rounded-md border border-border">
+                <GdSearchSection
+                  escalation={escalation}
+                  query={trimmed}
+                  onSelect={(levelId) => void seedAndSelect(levelId)}
+                  offer={{
+                    title: `Search GD's servers for "${trimmed}"`,
+                    subtitle:
+                      'One request to RobTop. Levels already in your cache are omitted.',
+                  }}
+                />
+              </div>
+            )}
           </div>
         )}
 

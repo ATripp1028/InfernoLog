@@ -464,17 +464,25 @@ export async function fetchRobtopLevel(
   return result.status === 'found' ? result.level : null
 }
 
-// Searches RobTop's getGJLevels21 by level name and returns all matches.
-// Used during spreadsheet import to resolve name-only rows. Returns an empty
-// array on any failure — callers must handle a null resolution gracefully.
-// Pass diff/demonFilter to scope results to a specific difficulty.
-export async function searchRobtopByName(
+// A name-search outcome that preserves the reachable/unreachable distinction,
+// mirroring RobtopFetchResult. `ok` with an empty array is a genuine "GD found
+// nothing" (a 200 with a "-1"/empty body); `unreachable` is a call that
+// couldn't complete (rate-limiter timeout, non-OK, network/timeout/parse) and
+// is retryable. The toolbar's GD escalation needs this split so a request
+// failure reads differently from a legitimate empty result set.
+export type RobtopSearchOutcome =
+  | { status: 'ok'; results: RobtopSearchResult[] }
+  | { status: 'unreachable' }
+
+// Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter to scope
+// results to a specific difficulty.
+export async function searchRobtopByNameResult(
   name: string,
   options?: { diff?: string; demonFilter?: string }
-): Promise<RobtopSearchResult[]> {
+): Promise<RobtopSearchOutcome> {
   if (!(await acquireRobtopSlot())) {
     logger.warn({ name }, 'searchRobtopByName: rate limiter timed out')
-    return []
+    return { status: 'unreachable' }
   }
 
   const controller = new AbortController()
@@ -514,13 +522,23 @@ export async function searchRobtopByName(
           logger.warn({ name, err }, 'searchRobtopByName: cooldown write failed')
         }
       }
-      return []
+      return { status: 'unreachable' }
     }
 
-    return parseAllFromGetGJLevels21(await res.text())
+    return { status: 'ok', results: parseAllFromGetGJLevels21(await res.text()) }
   } catch {
-    return []
+    return { status: 'unreachable' }
   } finally {
     clearTimeout(timeout)
   }
+}
+
+// Array-returning wrapper for callers that only need matches and treat any
+// failure as "no resolution" (spreadsheet import). Returns [] on unreachable.
+export async function searchRobtopByName(
+  name: string,
+  options?: { diff?: string; demonFilter?: string }
+): Promise<RobtopSearchResult[]> {
+  const outcome = await searchRobtopByNameResult(name, options)
+  return outcome.status === 'ok' ? outcome.results : []
 }
