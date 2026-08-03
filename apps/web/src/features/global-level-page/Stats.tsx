@@ -5,8 +5,13 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { formatNumber } from '@/features/logging/format'
+import {
+  gdStatIconSrc,
+  officialCoinSrc,
+  userCoinSilverSrc,
+} from '@/lib/gdAssets'
+import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
-import { formatGameVersion } from './format'
 
 function StatCard({
   label,
@@ -24,10 +29,34 @@ function StatCard({
         {label}
         {info}
       </div>
-      <div className="mt-1 truncate text-sm font-medium text-text-primary md:text-base">
+      <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-sm font-medium text-text-primary md:text-base">
         {value}
       </div>
     </div>
+  )
+}
+
+// A small GDBrowser-style stat glyph (download/like/length/spike/etc), sized to
+// sit inline with the stat value text. `ariaLabel` doubles as the hover tooltip
+// (via `title` — `aria-label` alone shows no tooltip) and the accessible name;
+// without one the icon is decorative and hidden from assistive tech.
+function GdIcon({
+  src,
+  className,
+  ariaLabel,
+}: {
+  src: string
+  className?: string
+  ariaLabel?: string
+}) {
+  return (
+    <img
+      src={src}
+      alt={ariaLabel ?? ''}
+      title={ariaLabel}
+      aria-hidden={ariaLabel ? undefined : true}
+      className={cn('inline-block size-4 shrink-0 object-contain', className)}
+    />
   )
 }
 
@@ -65,12 +94,43 @@ function FlagChip({ label }: { label: string }) {
   )
 }
 
-// "{n} · verified" / "{n} · unverified" — coinsVerified says whether the coins
-// are silver (verified) rather than bronze.
-function formatCoins(level: GlobalLevelPageData): string {
+// Coins as sprites rather than a number: official (RobTop) levels show the gold
+// secret-coin, custom levels the user coin — silver when verified, bronze-tinted
+// when not. Count is implied by how many render.
+function CoinValue({ level }: { level: GlobalLevelPageData }) {
   const count = level.coins ?? 0
-  if (count <= 0) return '—'
-  return `${count} · ${level.coinsVerified ? 'verified' : 'unverified'}`
+  if (count <= 0) return <>—</>
+
+  const isOfficial = level.creator?.toLowerCase() === 'robtop'
+  const src = isOfficial ? officialCoinSrc : userCoinSilverSrc
+  // Unverified custom coins are bronze in-game; tint the silver sprite rather
+  // than swap to the greyed "uncollected" one.
+  const bronze = !isOfficial && !level.coinsVerified
+  const coinLabel = isOfficial
+    ? 'Secret coin'
+    : bronze
+      ? 'Unverified (bronze) user coin'
+      : 'Verified (silver) user coin'
+
+  return (
+    <span className="flex items-center gap-1">
+      {Array.from({ length: count }).map((_, i) => (
+        <img
+          key={i}
+          src={src}
+          alt=""
+          title={coinLabel}
+          aria-hidden
+          className="size-[18px] shrink-0 object-contain"
+          style={
+            bronze
+              ? { filter: 'sepia(1) saturate(1.9) hue-rotate(-22deg) brightness(0.9)' }
+              : undefined
+          }
+        />
+      ))}
+    </span>
+  )
 }
 
 // Six stat cards plus the conditional two-player / low-detail flag chips.
@@ -78,26 +138,78 @@ function formatCoins(level: GlobalLevelPageData): string {
 // take the chips with it (orphaned chips under a collapsed header look broken).
 export function Stats({ level }: { level: GlobalLevelPageData }) {
   const hasFlags = level.twoPlayer === true || level.lowDetailMode === true
+  const likes = level.likes ?? 0
+  const hasObjects = !!level.objectCount
 
   return (
     <div>
       <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
-        <StatCard label="Downloads" value={formatNumber(level.downloads ?? 0)} />
-        <StatCard label="Likes" value={formatNumber(level.likes ?? 0)} />
-        <StatCard label="Length" value={level.length ?? '—'} />
+        {/* Download icon trails the count. */}
+        <StatCard
+          label="Downloads"
+          value={
+            <>
+              {formatNumber(level.downloads ?? 0)}
+              <GdIcon src={gdStatIconSrc.download} ariaLabel="Downloads" />
+            </>
+          }
+        />
+        {/* Like icon for a non-negative score, dislike icon when the net score
+            is negative (GD stores dislikes as a negative like count). */}
+        <StatCard
+          label="Likes"
+          value={
+            <>
+              <GdIcon
+                src={likes < 0 ? gdStatIconSrc.dislike : gdStatIconSrc.like}
+                ariaLabel={likes < 0 ? 'Dislikes' : 'Likes'}
+              />
+              {formatNumber(Math.abs(likes))}
+            </>
+          }
+        />
+        <StatCard
+          label="Length"
+          value={
+            <>
+              <GdIcon src={gdStatIconSrc.length} ariaLabel="Length" />
+              {level.length ?? '—'}
+            </>
+          }
+        />
         <StatCard
           label="Objects"
           // getGJLevels21 (the browse endpoint) only reports object count for
           // newer levels; older ones come back as 0. A real level never has 0
           // objects, so treat 0 (and null) as "unknown" — show "—" and an info
           // popover explaining why, rather than an obviously-wrong count.
-          value={level.objectCount ? formatNumber(level.objectCount) : '—'}
-          info={level.objectCount ? undefined : <ObjectsInfoButton />}
+          value={
+            <>
+              <GdIcon src={gdStatIconSrc.spike} ariaLabel="Objects" />
+              {hasObjects ? formatNumber(level.objectCount!) : '—'}
+            </>
+          }
+          info={hasObjects ? undefined : <ObjectsInfoButton />}
         />
-        <StatCard label="Coins" value={formatCoins(level)} />
+        <StatCard label="Coins" value={<CoinValue level={level} />} />
+        {/* Info glyph for the game version, edit (build-tools) glyph for the
+            level's own revision number. */}
         <StatCard
-          label="GD Version"
-          value={formatGameVersion(level.gameVersion, level.levelVersion)}
+          label="Version"
+          value={
+            <span className="flex items-center gap-2.5">
+              <span className="flex items-center gap-1">
+                <GdIcon src={gdStatIconSrc.info} ariaLabel="Game Version" />
+                {level.gameVersion ?? '—'}
+              </span>
+              {level.levelVersion != null && (
+                <span className="flex items-center gap-1">
+                  <GdIcon src={gdStatIconSrc.edit} ariaLabel="Level Version" />
+                  {level.levelVersion}
+                </span>
+              )}
+            </span>
+          }
         />
       </div>
 

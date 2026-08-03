@@ -104,3 +104,19 @@ export function userCoinSrc(verified: boolean | null | undefined): string {
 
 // The gold "secret coin" sprite used by the official main levels.
 export const officialCoinSrc = `${GD_ASSET_BASE}/coin-official.png`
+
+// The silver user-coin sprite (verified). Rendered directly (rather than via
+// userCoinSrc) where an unverified coin should be the SAME sprite bronze-tinted,
+// not the greyed "uncollected" sprite.
+export const userCoinSilverSrc = `${GD_ASSET_BASE}/coin-user.png`
+
+// GDBrowser-style stat glyphs shown on the Global Level Page's stat cards.
+export const gdStatIconSrc = {
+  download: `${GD_ASSET_BASE}/downloadicon.png`,
+  like: `${GD_ASSET_BASE}/likeicon.png`,
+  dislike: `${GD_ASSET_BASE}/dislikeicon.png`,
+  length: `${GD_ASSET_BASE}/lengthicon.png`,
+  spike: `${GD_ASSET_BASE}/spike.png`,
+  info: `${GD_ASSET_BASE}/infoicon.png`,
+  edit: `${GD_ASSET_BASE}/editicon.png`,
+} as const
