@@ -233,6 +233,22 @@ model RobtopRateLimit {
   @@map("robtop_rate_limit")
 }
 
+// Round-robin cursor for the RobTop level-cache sync. The sync no longer runs
+// as one big monthly batch (which mass-tripped RobTop's rate limit); instead a
+// frequent cron processes a bounded slice of levels ordered by inGameId,
+// advancing this cursor each run and wrapping to the start at the end. Always
+// exactly one row (id = "singleton"); a missing/null cursor means "start over".
+// lastInGameId is a lexicographic marker (ids are compared as strings, matching
+// the sync's orderBy) — it's just a stable rotation position, not a numeric max.
+// See apps/api/src/services/levelSync.ts.
+model LevelSyncCursor {
+  id           String   @id @default("singleton")
+  lastInGameId String?
+  updatedAt    DateTime @updatedAt
+
+  @@map("level_sync_cursor")
+}
+
 // ─────────────────────────────────────────────
 // USERS
 // ─────────────────────────────────────────────

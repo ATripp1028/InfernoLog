@@ -29,12 +29,7 @@ vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 // Import after vi.mock so levelSync picks up the mocked modules.
-const {
-  syncLevelBatch,
-  runVolatileSync,
-  runStandardSync,
-  VOLATILE_WINDOW_DAYS,
-} = await import('./levelSync')
+const { syncLevelBatch, runLevelSyncSlice } = await import('./levelSync')
 const { fetchRobtopLevelResult } = await import('../utils/robtop')
 const { fetchSongFileHubNong } = await import('../utils/songFileHub')
 const Sentry = await import('@sentry/aws-serverless')
@@ -45,6 +40,15 @@ const prisma = getTestPrisma()
 const resultMock = fetchRobtopLevelResult as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
 const captureMessageMock = vi.mocked(Sentry.captureMessage)
+
+// Reads the round-robin cursor directly (the module's readCursor is private).
+async function readCursor(): Promise<string | null> {
+  const row = await prisma.levelSyncCursor.findUnique({
+    where: { id: 'singleton' },
+    select: { lastInGameId: true },
+  })
+  return row?.lastInGameId ?? null
+}
 
 // Seeds N cached levels with sequential ids ('id-1'..'id-N') so a batch can be
 // long enough to exercise the circuit breaker.
@@ -161,6 +165,9 @@ const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000)
 
 beforeEach(async () => {
   await truncateAll(prisma)
+  // The round-robin cursor lives outside truncateAll's table list; reset it so
+  // each test starts a fresh rotation.
+  await prisma.levelSyncCursor.deleteMany({})
   robtopMock.mockReset()
   sfhMock.mockReset()
   captureMessageMock.mockClear()
@@ -420,95 +427,63 @@ describe('syncLevelBatch — resilience', () => {
   })
 })
 
-// ─── query selection: which levels each job picks up ────────────────────────────
+// ─── round-robin slice: selection, cursor advancement, wrap ─────────────────────
 
-describe('runVolatileSync — selection', () => {
-  it('includes never-rated and recently-rated levels, excludes old-rated and delisted', async () => {
-    await seedCachedLevel({
-      inGameId: 'never',
-      isRated: false,
-      ratingStatusSince: null,
-    })
-    await seedCachedLevel({
-      inGameId: 'recent',
-      isRated: true,
-      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1),
-    })
-    await seedCachedLevel({
-      inGameId: 'old',
-      isRated: true,
-      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30),
-    })
-    await seedCachedLevel({
-      inGameId: 'gone',
-      isRated: false,
-      delistedAt: new Date(),
-    })
+describe('runLevelSyncSlice — eligibility', () => {
+  it('syncs cached non-delisted non-official levels; skips delisted and official', async () => {
+    await seedCachedLevel({ inGameId: 'a-normal' })
+    await seedCachedLevel({ inGameId: 'b-delisted', delistedAt: new Date() })
+    await seedCachedLevel({ inGameId: 'c-official', dataSource: 'official' })
     robtopMock.mockResolvedValue(makeRobtop())
 
-    const result = await runVolatileSync()
+    const result = await runLevelSyncSlice(10)
 
     const seen = robtopMock.mock.calls.map((c) => c[0]).sort()
-    expect(seen).toEqual(['never', 'recent'])
-    expect(result.processed).toBe(2)
+    expect(seen).toEqual(['a-normal'])
+    expect(result.processed).toBe(1)
   })
 })
 
-describe('runStandardSync — selection', () => {
-  it('includes rated levels outside the volatile window (old or null-stamped), excludes recent/unrated/delisted', async () => {
-    await seedCachedLevel({
-      inGameId: 'old',
-      isRated: true,
-      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS + 30),
-    })
-    await seedCachedLevel({
-      inGameId: 'nullstamp',
-      isRated: true,
-      ratingStatusSince: null,
-    })
-    await seedCachedLevel({
-      inGameId: 'recent',
-      isRated: true,
-      ratingStatusSince: daysAgo(VOLATILE_WINDOW_DAYS - 1),
-    })
-    await seedCachedLevel({
-      inGameId: 'unrated',
-      isRated: false,
-      ratingStatusSince: null,
-    })
-    await seedCachedLevel({
-      inGameId: 'gone',
-      isRated: true,
-      ratingStatusSince: daysAgo(100),
-      delistedAt: new Date(),
-    })
+describe('runLevelSyncSlice — round-robin', () => {
+  it('processes a bounded slice and advances the cursor across runs, wrapping at the end', async () => {
+    // Lexicographic order: 'r-1' < 'r-2' < 'r-3'.
+    await seedCachedLevel({ inGameId: 'r-1' })
+    await seedCachedLevel({ inGameId: 'r-2' })
+    await seedCachedLevel({ inGameId: 'r-3' })
     robtopMock.mockResolvedValue(makeRobtop())
 
-    const result = await runStandardSync()
+    // Run 1: first two, cursor → 'r-2'.
+    await runLevelSyncSlice(2)
+    expect(robtopMock.mock.calls.map((c) => c[0])).toEqual(['r-1', 'r-2'])
+    expect(await readCursor()).toBe('r-2')
 
-    const seen = robtopMock.mock.calls.map((c) => c[0]).sort()
-    expect(seen).toEqual(['nullstamp', 'old'])
-    expect(result.processed).toBe(2)
-  })
-
-  it('does not reprocess anything the volatile job covers in the same window', async () => {
-    // A recently-rated level is in volatile's set...
-    await seedCachedLevel({
-      inGameId: 'recent',
-      isRated: true,
-      ratingStatusSince: daysAgo(1),
-    })
-    robtopMock.mockResolvedValue(makeRobtop())
-
-    await runVolatileSync()
-    const volatileSeen = robtopMock.mock.calls.map((c) => c[0])
+    // Run 2: the remaining one after the cursor, cursor → 'r-3'.
     robtopMock.mockClear()
-    await runStandardSync()
-    const standardSeen = robtopMock.mock.calls.map((c) => c[0])
+    await runLevelSyncSlice(2)
+    expect(robtopMock.mock.calls.map((c) => c[0])).toEqual(['r-3'])
+    expect(await readCursor()).toBe('r-3')
 
-    expect(volatileSeen).toContain('recent')
-    // ...and therefore absent from standard's set — no double-processing.
-    expect(standardSeen).not.toContain('recent')
+    // Run 3: cursor is past the end → wrap to the start, cursor → 'r-2' again.
+    robtopMock.mockClear()
+    await runLevelSyncSlice(2)
+    expect(robtopMock.mock.calls.map((c) => c[0])).toEqual(['r-1', 'r-2'])
+    expect(await readCursor()).toBe('r-2')
+  })
+})
+
+describe('runLevelSyncSlice — cursor advances past a failing stretch', () => {
+  it('advances to the end of the slice even when the circuit breaker aborts', async () => {
+    // 8 levels, all unreachable → breaker aborts after 5. The cursor must still
+    // jump to the last id of the slice so the failing prefix can't pin the
+    // rotation and starve everything after it.
+    const ids = await seedN(8) // 'id-1'..'id-8', lexicographically ordered
+    resultMock.mockResolvedValue({ status: 'unreachable' })
+
+    const result = await runLevelSyncSlice(8)
+
+    expect(result.aborted).toBe(true)
+    expect(result.processed).toBe(5)
+    expect(await readCursor()).toBe(ids[ids.length - 1])
   })
 })
 

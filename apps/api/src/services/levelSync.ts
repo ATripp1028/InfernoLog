@@ -1,12 +1,19 @@
-// RobTop level-cache sync — the shared fetch/compare/write core behind both
-// scheduled jobs (weekly "volatile" + monthly "standard"). It re-checks cached
-// `levels` rows against GD's servers and overwrites changed fields directly.
-// There is no staging, no pending fields, and no nudge/notification: a diff is
-// written to the shared cache silently. See EXTERNAL_APIS.md.
+// RobTop level-cache sync — re-checks cached `levels` rows against GD's servers
+// and overwrites changed fields directly. There is no staging, no pending
+// fields, and no nudge/notification: a diff is written to the shared cache
+// silently. See EXTERNAL_APIS.md.
+//
+// A single frequent cron drives it as a ROUND-ROBIN over a cursor
+// (runLevelSyncSlice): each run processes a bounded slice of eligible levels
+// ordered by inGameId and advances the cursor, wrapping at the end. This
+// replaced the old "big weekly + big monthly batch" model, which fired the
+// entire rated-level set in one run and reliably tripped RobTop's per-IP rate
+// limit — mass-delisting live levels when transient failures were mistaken for
+// not-founds (fixed here too; see syncOneLevel + the circuit breaker).
 //
 // GOLDEN RULE (inherited from the RobTop client): a level that RobTop no longer
 // returns is treated as *delisted*, not deleted — its last-known metadata is
-// frozen and the row is flagged so both jobs skip it thereafter.
+// frozen and the row is flagged so the sync skips it thereafter.
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../utils/prisma'
@@ -14,11 +21,6 @@ import { fetchRobtopLevelResult } from '../utils/robtop'
 import { checkAndPersistSfhNong, sfhCheckDue } from './sfhSync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
-
-// The "volatile window": a rated level whose rating status changed within this
-// many days is re-checked weekly (rated difficulty is most likely to be revised
-// shortly after a level is rated). Older rated levels fall to the monthly job.
-export const VOLATILE_WINDOW_DAYS = 14
 
 // Local pacing on top of the shared rate limiter every fetchRobtopLevel call
 // goes through (utils/robtopRateLimit.ts) — belt and suspenders. `paceMs` is
@@ -255,53 +257,88 @@ export async function syncLevelBatch(
   return result
 }
 
-function volatileCutoff(): Date {
-  return new Date(Date.now() - VOLATILE_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+// How many levels one cron invocation processes. Deliberately well under
+// RobTop's rate-limit tolerance (the Aug 2026 incident tripped it after ~165
+// sequential requests), so a single slice can't provoke a throttle, and the
+// long gap between runs gives the egress IP ample recovery time. Bumping this
+// (or the cron frequency in sst.config.ts) tightens the re-check cadence as the
+// cache grows.
+export const SYNC_SLICE_SIZE = 50
+
+// Levels the sync considers, in every run: cached, not delisted, and not
+// official (getGJLevels21 never returns official levels, so syncing one always
+// looks like a not-found — it would wrongly delist a level that plainly exists).
+const syncEligibleWhere = {
+  delistedAt: null,
+  dataSource: { not: 'official' },
+} satisfies Prisma.LevelWhereInput
+
+async function readCursor(): Promise<string | null> {
+  const row = await prisma.levelSyncCursor.findUnique({
+    where: { id: 'singleton' },
+    select: { lastInGameId: true },
+  })
+  return row?.lastInGameId ?? null
 }
 
-// Weekly job: never-rated levels (their rating can appear at any time) plus
-// rated levels still inside the volatile window. Delisted rows excluded, and so
-// are official levels — getGJLevels21 doesn't serve them, so a sync would always
-// see not-found and wrongly delist them (see runStandardSync).
-export async function runVolatileSync(): Promise<SyncBatchResult> {
-  const cutoff = volatileCutoff()
-  const rows = await prisma.level.findMany({
-    where: {
-      delistedAt: null,
-      dataSource: { not: 'official' },
-      OR: [{ isRated: false }, { ratingStatusSince: { gte: cutoff } }],
-    },
-    select: { inGameId: true },
+async function writeCursor(lastInGameId: string): Promise<void> {
+  await prisma.levelSyncCursor.upsert({
+    where: { id: 'singleton' },
+    create: { id: 'singleton', lastInGameId },
+    update: { lastInGameId },
   })
-
-  logger.info({ count: rows.length }, 'levelSync: volatile batch selected')
-  const result = await syncLevelBatch(rows.map((r) => r.inGameId))
-  logger.info({ ...result }, 'levelSync: volatile batch complete')
-  return result
 }
 
-// Monthly job: everything the volatile job does NOT already cover — rated,
-// non-delisted levels whose rating status is older than the volatile window OR
-// was never stamped (null). The explicit null branch matters: a rated level
-// cached outside the sync (import/resolve) has a null rating_status_since and
-// would otherwise fall through both jobs, since SQL `NOT (ts >= cutoff)` drops
-// nulls. Official levels are excluded: getGJLevels21 never returns them, so
-// syncing one always looks like a not-found and would delist a level that plainly
-// still exists.
-export async function runStandardSync(): Promise<SyncBatchResult> {
-  const cutoff = volatileCutoff()
+// Selects the next slice of eligible level ids after `cursor` (lexicographic —
+// ids compare as strings, matching this orderBy). Returns fewer than `size` at
+// the end of the rotation, and an empty array once the cursor is past the last
+// id (the caller then wraps to the start).
+async function selectSlice(
+  cursor: string | null,
+  size: number
+): Promise<string[]> {
   const rows = await prisma.level.findMany({
-    where: {
-      isRated: true,
-      delistedAt: null,
-      dataSource: { not: 'official' },
-      OR: [{ ratingStatusSince: null }, { ratingStatusSince: { lt: cutoff } }],
-    },
+    where: cursor
+      ? { ...syncEligibleWhere, inGameId: { gt: cursor } }
+      : syncEligibleWhere,
+    orderBy: { inGameId: 'asc' },
+    take: size,
     select: { inGameId: true },
   })
+  return rows.map((r) => r.inGameId)
+}
 
-  logger.info({ count: rows.length }, 'levelSync: standard batch selected')
-  const result = await syncLevelBatch(rows.map((r) => r.inGameId))
-  logger.info({ ...result }, 'levelSync: standard batch complete')
+// One cron slice of the round-robin sync. Reads the cursor, syncs the next
+// `size` eligible levels (wrapping to the start when it reaches the end), and
+// advances the cursor to the last id in the slice — even if the circuit breaker
+// aborted partway, so a persistently-failing stretch can't pin the rotation and
+// starve everything after it (the skipped tail is retried on the next lap).
+export async function runLevelSyncSlice(
+  size: number = SYNC_SLICE_SIZE
+): Promise<SyncBatchResult> {
+  const cursor = await readCursor()
+
+  let ids = await selectSlice(cursor, size)
+  // Cursor is past the last eligible id — wrap to the start of the rotation.
+  if (ids.length === 0 && cursor !== null) {
+    ids = await selectSlice(null, size)
+  }
+
+  if (ids.length === 0) {
+    logger.info('levelSync: no eligible levels to sync')
+    return syncLevelBatch([])
+  }
+
+  logger.info(
+    { count: ids.length, from: cursor, to: ids[ids.length - 1] },
+    'levelSync: slice selected'
+  )
+  const result = await syncLevelBatch(ids)
+
+  // Advance regardless of abort: the last id we selected this run becomes the
+  // next run's starting point.
+  await writeCursor(ids[ids.length - 1]!)
+
+  logger.info({ ...result }, 'levelSync: slice complete')
   return result
 }
