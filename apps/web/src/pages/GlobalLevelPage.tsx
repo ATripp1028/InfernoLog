@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
-import { ArrowLeft, Check, Flag, List, Star, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
   levelPageErrorKind,
@@ -189,8 +189,9 @@ export function GlobalLevelPage() {
     <>
       {/* ── Mobile ─────────────────────────────────────────────── */}
       <div className="md:hidden">
-        {/* BackRow — real back affordance plus the level name. */}
-        <div className="flex h-14 items-center gap-2 border-b border-border-subtle px-4">
+        {/* BackRow — real back affordance plus the level name. Padding and
+            spacing mirror the user-scoped level page's back row. */}
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
           <button
             type="button"
             onClick={goBack}
@@ -202,6 +203,18 @@ export function GlobalLevelPage() {
           <span className="truncate text-sm font-medium text-text-primary">
             {levelName}
           </span>
+          {/* Cross-link — right-aligned to match where the reciprocal link
+              sits on the user-scoped page. */}
+          {level.hasUserProgress && (
+            <Link
+              to="/list/$levelId"
+              params={{ levelId }}
+              className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+            >
+              Your page for this level
+              <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
 
         {delisted && (
@@ -225,19 +238,6 @@ export function GlobalLevelPage() {
             <Stats level={level} />
           </div>
         </div>
-
-        {/* Cross-link — its own 48px row (no arrow: the accent carries the
-            affordance; ← stays the only back-arrow on the page). Right-aligned
-            to match where the reciprocal link sits on the user-scoped page. */}
-        {level.hasUserProgress && (
-          <Link
-            to="/list/$levelId"
-            params={{ levelId }}
-            className="flex h-12 items-center justify-end border-b border-border-subtle px-4 text-[13px] font-medium text-[var(--color-primary-light)]"
-          >
-            Your page for this level
-          </Link>
-        )}
 
         <CollapsibleSection title="Song">
           <Song level={level} />
@@ -353,7 +353,7 @@ function PageSkeleton() {
     <>
       {/* Mobile */}
       <div className="md:hidden">
-        <div className="flex h-14 items-center gap-2 border-b border-border-subtle px-4">
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
           <ArrowLeft size={18} className="text-text-tertiary" />
           <Pulse className="h-4 w-40" />
         </div>
