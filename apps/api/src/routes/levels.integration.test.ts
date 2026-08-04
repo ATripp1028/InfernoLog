@@ -726,6 +726,7 @@ async function seedBrowseLevel(over: {
   partialDiff?: string | null
   isRated?: boolean
   isDemon?: boolean
+  stars?: number | null
   downloads?: number | null
   likes?: number | null
   coins?: number | null
@@ -747,6 +748,7 @@ async function seedBrowseLevel(over: {
       partialDiff: over.partialDiff ?? null,
       isRated: over.isRated ?? false,
       isDemon: over.isDemon ?? false,
+      stars: over.stars ?? null,
       downloads: over.downloads ?? null,
       likes: over.likes ?? null,
       coins: over.coins ?? null,
@@ -840,6 +842,44 @@ describe('GET /levels/browse (filtered cursor search)', () => {
 
     const all = [...page1.data, ...page2.data].map((r) => r.inGameId)
     expect(new Set(all).size).toBe(35) // no duplicates across pages
+  })
+
+  it('sorts by difficulty face first, then star count', async () => {
+    const user = await seedUser(prisma)
+    // Extreme demon (rank 11), two hard demons (rank 9) differing by stars, an
+    // easy (rank 2). Expect face order, with stars breaking the demon-hard tie.
+    await seedBrowseLevel({ inGameId: 'ex', partialDiff: 'demon-extreme', stars: 2 })
+    await seedBrowseLevel({ inGameId: 'hd-lo', partialDiff: 'demon-hard', stars: 5 })
+    await seedBrowseLevel({ inGameId: 'hd-hi', partialDiff: 'demon-hard', stars: 10 })
+    await seedBrowseLevel({ inGameId: 'ez', partialDiff: 'easy', stars: 10 })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?sort=stars'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual([
+      'ex',
+      'hd-hi',
+      'hd-lo',
+      'ez',
+    ])
+  })
+
+  it('honors an ascending sortDir override', async () => {
+    const user = await seedUser(prisma)
+    await seedBrowseLevel({ inGameId: '1', downloads: 10 })
+    await seedBrowseLevel({ inGameId: '2', downloads: 300 })
+    await seedBrowseLevel({ inGameId: '3', downloads: 200 })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?sort=downloads&sortDir=asc'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual(['1', '3', '2'])
   })
 
   it('filters by creator when searchBy=creator', async () => {

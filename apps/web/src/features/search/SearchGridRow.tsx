@@ -28,6 +28,10 @@ export function SearchGridRow({
 }) {
   const difficulty = level.inGameDifficulty ?? 'Unrated'
   const likes = level.likes ?? 0
+  // RobTop's official levels aren't online levels, so their download/like counts
+  // are always 0 — hide those stats for them (same 'robtop' heuristic the Stats
+  // card uses).
+  const isRobtop = level.creator?.toLowerCase() === 'robtop'
 
   return (
     <Link
@@ -49,7 +53,7 @@ export function SearchGridRow({
         featured={level.featured}
         epicValue={level.epicValue}
         rated={level.isRated}
-        size={44}
+        size={88}
         className="relative z-10"
       />
 
@@ -63,16 +67,20 @@ export function SearchGridRow({
       </span>
 
       <span className="relative z-10 hidden shrink-0 items-center gap-3 text-xs sm:flex">
-        <Stat
-          icon={gdStatIconSrc.download}
-          label="Downloads"
-          value={formatNumber(level.downloads ?? 0)}
-        />
-        <Stat
-          icon={likes < 0 ? gdStatIconSrc.dislike : gdStatIconSrc.like}
-          label={likes < 0 ? 'Dislikes' : 'Likes'}
-          value={formatNumber(Math.abs(likes))}
-        />
+        {!isRobtop && (
+          <>
+            <Stat
+              icon={gdStatIconSrc.download}
+              label="Downloads"
+              value={formatNumber(level.downloads ?? 0)}
+            />
+            <Stat
+              icon={likes < 0 ? gdStatIconSrc.dislike : gdStatIconSrc.like}
+              label={likes < 0 ? 'Dislikes' : 'Likes'}
+              value={formatNumber(Math.abs(likes))}
+            />
+          </>
+        )}
         {level.length && (
           <Stat icon={gdStatIconSrc.length} label="Length" value={level.length} />
         )}

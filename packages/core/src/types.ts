@@ -17,6 +17,7 @@ import {
   LevelTypeFilterSchema,
   LevelSearchBySchema,
   LevelSortSchema,
+  LevelSortDirSchema,
   LevelSearchFiltersSchema,
   LevelBrowseQuerySchema,
   LevelBrowseResultSchema,
@@ -65,6 +66,7 @@ export type LevelSongType = z.infer<typeof LevelSongTypeSchema>
 export type LevelTypeFilter = z.infer<typeof LevelTypeFilterSchema>
 export type LevelSearchBy = z.infer<typeof LevelSearchBySchema>
 export type LevelSort = z.infer<typeof LevelSortSchema>
+export type LevelSortDir = z.infer<typeof LevelSortDirSchema>
 export type LevelSearchFilters = z.infer<typeof LevelSearchFiltersSchema>
 export type LevelBrowseQuery = z.infer<typeof LevelBrowseQuerySchema>
 export type LevelBrowseResult = z.infer<typeof LevelBrowseResultSchema>

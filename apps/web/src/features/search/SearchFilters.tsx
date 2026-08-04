@@ -1,20 +1,15 @@
+import { DifficultyFace } from '@/components/DifficultyFace'
 import { Chip } from '@/components/ui/chip'
 import { Segmented } from '@/components/ui/segmented'
+import { cn } from '@/lib/utils'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import {
+  DIFFICULTY_FACE,
   DIFFICULTY_OPTIONS,
   LENGTH_OPTIONS,
   LEVEL_TYPE_OPTIONS,
+  RATE_STATUS_FACE,
   RATE_STATUS_OPTIONS,
   SONG_TYPE_OPTIONS,
-  SORT_OPTIONS,
-  type LevelSort,
   type LevelTypeFilter,
   type LevelSongType,
   type SearchPageState,
@@ -50,6 +45,46 @@ function fromTri(v: 'any' | 'yes' | 'no'): boolean | undefined {
   return v === 'any' ? undefined : v === 'yes'
 }
 
+// A difficulty/rate-status face rendered as a toggle button.
+function FaceToggle({
+  selected,
+  label,
+  onClick,
+  difficulty,
+  featured,
+  epicValue,
+}: {
+  selected: boolean
+  label: string
+  onClick: () => void
+  difficulty: string
+  featured?: boolean | undefined
+  epicValue?: number | undefined
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={selected}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className={cn(
+        'rounded-md border p-1 transition-colors',
+        selected
+          ? 'border-primary bg-primary-dim'
+          : 'border-transparent hover:bg-bg-elevated'
+      )}
+    >
+      <DifficultyFace
+        difficulty={difficulty}
+        featured={featured ?? null}
+        epicValue={epicValue ?? null}
+        size={40}
+      />
+    </button>
+  )
+}
+
 function FilterGroup({
   label,
   children,
@@ -67,8 +102,8 @@ function FilterGroup({
   )
 }
 
-// The /search filter + sort panel. Every change navigates (via onChange →
-// replace) so the URL stays the source of truth for the results grid.
+// The /search filter panel (rendered inside a popover). Every change navigates
+// (via onChange → replace) so the URL stays the source of truth for the grid.
 export function SearchFilters({
   state,
   onChange,
@@ -76,70 +111,54 @@ export function SearchFilters({
   hasFilters,
 }: SearchFiltersProps) {
   return (
-    <div className="space-y-5 rounded-card border border-border-subtle bg-bg-surface p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-            Sort by
-          </span>
-          <div className="w-[168px]">
-            <Select
-              value={state.sort}
-              onValueChange={(v) => onChange({ sort: v as LevelSort })}
-            >
-              <SelectTrigger className="h-9" aria-label="Sort by">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SORT_OPTIONS.map((o) => (
-                  <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-medium text-text-primary">Filters</p>
         {hasFilters && (
           <button
             type="button"
             onClick={onReset}
             className="text-xs font-medium text-text-secondary hover:text-text-primary"
           >
-            Clear filters
+            Clear all
           </button>
         )}
       </div>
 
       <FilterGroup label="Difficulty">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1">
           {DIFFICULTY_OPTIONS.map((o) => (
-            <Chip
+            <FaceToggle
               key={o.value}
+              label={o.label}
+              difficulty={DIFFICULTY_FACE[o.value].difficulty}
               selected={state.difficulty?.includes(o.value) ?? false}
               onClick={() =>
                 onChange({ difficulty: toggle(state.difficulty, o.value) })
               }
-            >
-              {o.label}
-            </Chip>
+            />
           ))}
         </div>
       </FilterGroup>
 
       <FilterGroup label="Rate status">
-        <div className="flex flex-wrap gap-1.5">
-          {RATE_STATUS_OPTIONS.map((o) => (
-            <Chip
-              key={o.value}
-              selected={state.rateStatus?.includes(o.value) ?? false}
-              onClick={() =>
-                onChange({ rateStatus: toggle(state.rateStatus, o.value) })
-              }
-            >
-              {o.label}
-            </Chip>
-          ))}
+        <div className="flex flex-wrap gap-1">
+          {RATE_STATUS_OPTIONS.map((o) => {
+            const face = RATE_STATUS_FACE[o.value]
+            return (
+              <FaceToggle
+                key={o.value}
+                label={o.label}
+                difficulty={face.difficulty}
+                featured={face.featured}
+                epicValue={face.epicValue}
+                selected={state.rateStatus?.includes(o.value) ?? false}
+                onClick={() =>
+                  onChange({ rateStatus: toggle(state.rateStatus, o.value) })
+                }
+              />
+            )
+          })}
         </div>
       </FilterGroup>
 
@@ -157,66 +176,62 @@ export function SearchFilters({
         </div>
       </FilterGroup>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <FilterGroup label="Coins">
-          <div className="flex flex-wrap gap-1.5">
-            {[0, 1, 2, 3].map((n) => (
-              <Chip
-                key={n}
-                selected={state.coinCount?.includes(n) ?? false}
-                onClick={() =>
-                  onChange({ coinCount: toggle(state.coinCount, n) })
-                }
-              >
-                {n} {n === 1 ? 'coin' : 'coins'}
-              </Chip>
-            ))}
-          </div>
-          <div className="mt-2">
-            <Segmented
-              options={[
-                { value: 'any', label: 'Any' },
-                { value: 'yes', label: 'Verified' },
-                { value: 'no', label: 'Unverified' },
-              ]}
-              value={triValue(state.coinsVerified)}
-              onChange={(v) => onChange({ coinsVerified: fromTri(v) })}
-            />
-          </div>
-        </FilterGroup>
-
-        <FilterGroup label="Two player">
+      <FilterGroup label="Coins">
+        <div className="flex flex-wrap gap-1.5">
+          {[0, 1, 2, 3].map((n) => (
+            <Chip
+              key={n}
+              selected={state.coinCount?.includes(n) ?? false}
+              onClick={() => onChange({ coinCount: toggle(state.coinCount, n) })}
+            >
+              {n} {n === 1 ? 'coin' : 'coins'}
+            </Chip>
+          ))}
+        </div>
+        <div className="mt-2">
           <Segmented
-            options={TRISTATE}
-            value={triValue(state.twoPlayer)}
-            onChange={(v) => onChange({ twoPlayer: fromTri(v) })}
+            options={[
+              { value: 'any', label: 'Any' },
+              { value: 'yes', label: 'Verified' },
+              { value: 'no', label: 'Unverified' },
+            ]}
+            value={triValue(state.coinsVerified)}
+            onChange={(v) => onChange({ coinsVerified: fromTri(v) })}
           />
-        </FilterGroup>
+        </div>
+      </FilterGroup>
 
-        <FilterGroup label="Level type">
-          <Segmented
-            options={[{ value: 'any', label: 'Any' }, ...LEVEL_TYPE_OPTIONS]}
-            value={state.levelType ?? 'any'}
-            onChange={(v) =>
-              onChange({
-                levelType: v === 'any' ? undefined : (v as LevelTypeFilter),
-              })
-            }
-          />
-        </FilterGroup>
+      <FilterGroup label="Two player">
+        <Segmented
+          options={TRISTATE}
+          value={triValue(state.twoPlayer)}
+          onChange={(v) => onChange({ twoPlayer: fromTri(v) })}
+        />
+      </FilterGroup>
 
-        <FilterGroup label="Song">
-          <Segmented
-            options={[{ value: 'any', label: 'Any' }, ...SONG_TYPE_OPTIONS]}
-            value={state.songType ?? 'any'}
-            onChange={(v) =>
-              onChange({
-                songType: v === 'any' ? undefined : (v as LevelSongType),
-              })
-            }
-          />
-        </FilterGroup>
-      </div>
+      <FilterGroup label="Level type">
+        <Segmented
+          options={[{ value: 'any', label: 'Any' }, ...LEVEL_TYPE_OPTIONS]}
+          value={state.levelType ?? 'any'}
+          onChange={(v) =>
+            onChange({
+              levelType: v === 'any' ? undefined : (v as LevelTypeFilter),
+            })
+          }
+        />
+      </FilterGroup>
+
+      <FilterGroup label="Song">
+        <Segmented
+          options={[{ value: 'any', label: 'Any' }, ...SONG_TYPE_OPTIONS]}
+          value={state.songType ?? 'any'}
+          onChange={(v) =>
+            onChange({
+              songType: v === 'any' ? undefined : (v as LevelSongType),
+            })
+          }
+        />
+      </FilterGroup>
     </div>
   )
 }

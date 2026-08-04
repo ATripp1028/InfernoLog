@@ -170,6 +170,7 @@ function parseBrowseQuery(sp: URLSearchParams) {
     q: sp.get('q') ?? undefined,
     searchBy: sp.get('searchBy') ?? undefined,
     sort: sp.get('sort') ?? undefined,
+    sortDir: sp.get('sortDir') ?? undefined,
     cursor: sp.get('cursor') ?? undefined,
     difficulty: arr('difficulty'),
     rateStatus: arr('rateStatus'),

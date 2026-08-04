@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { SlidersHorizontal } from 'lucide-react'
 import { useLevelBrowse } from '@/lib/api/levelBrowse'
 import {
   browseApiQueryString,
@@ -10,7 +9,6 @@ import {
 import { useSearchPageBar } from '@/features/search/useSearchPageBar'
 import { useEscalation } from '@/features/search/useEscalation'
 import { SearchPageBar } from '@/features/search/SearchPageBar'
-import { SearchFilters } from '@/features/search/SearchFilters'
 import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'
 import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
@@ -24,7 +22,6 @@ export function SearchPage() {
   const navigate = useNavigate()
   const bar = useSearchPageBar(state)
   const escalation = useEscalation()
-  const [showFilters, setShowFilters] = useState(hasActiveFilters(state))
 
   const query = state.query?.trim() ?? ''
   const filtersActive = hasActiveFilters(state)
@@ -65,35 +62,13 @@ export function SearchPage() {
 
   return (
     <div className="relative mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:pt-10">
-      <SearchPageBar bar={bar} autoFocus />
-
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          type="button"
-          onClick={() => setShowFilters((v) => !v)}
-          className="inline-flex items-center gap-2 text-sm font-medium text-text-secondary hover:text-text-primary"
-          aria-expanded={showFilters}
-        >
-          <SlidersHorizontal size={16} />
-          Filters &amp; sort
-          {filtersActive && (
-            <span className="rounded-full bg-primary px-1.5 text-[11px] text-primary-foreground">
-              on
-            </span>
-          )}
-        </button>
-      </div>
-
-      {showFilters && (
-        <div className="mt-3">
-          <SearchFilters
-            state={state}
-            onChange={update}
-            onReset={resetFilters}
-            hasFilters={filtersActive}
-          />
-        </div>
-      )}
+      <SearchPageBar
+        bar={bar}
+        state={state}
+        onChange={update}
+        onReset={resetFilters}
+        autoFocus
+      />
 
       <div className="mt-6">
         {enabled ? (

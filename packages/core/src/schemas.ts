@@ -594,7 +594,8 @@ export const LevelTypeFilterSchema = z.enum(['CLASSIC', 'PLATFORMER'])
 export const LevelSearchBySchema = z.enum(['name', 'creator'])
 
 // Result ordering. 'relevance' requires a query (falls back to downloads with an
-// empty query); the rest sort on stored, user-independent columns.
+// empty query); the rest sort on stored, user-independent columns. 'stars' sorts
+// by difficulty face then star count (see browseLevels).
 export const LevelSortSchema = z.enum([
   'relevance',
   'likes',
@@ -604,6 +605,10 @@ export const LevelSortSchema = z.enum([
   'recentlyRated',
   'name',
 ])
+
+// Sort direction override. When omitted, each sort uses its natural direction
+// (name → asc, everything else → desc).
+export const LevelSortDirSchema = z.enum(['asc', 'desc'])
 
 // The filter set, shared by the cache browse and (where GD's schema permits) the
 // RobTop escalation. All optional — an empty object browses the whole cache.
@@ -624,6 +629,7 @@ export const LevelBrowseQuerySchema = LevelSearchFiltersSchema.extend({
   q: z.string().optional(),
   searchBy: LevelSearchBySchema.default('name'),
   sort: LevelSortSchema.default('relevance'),
+  sortDir: LevelSortDirSchema.optional(),
   cursor: z.string().optional(),
 })
 

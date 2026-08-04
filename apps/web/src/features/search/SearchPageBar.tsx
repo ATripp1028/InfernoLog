@@ -1,5 +1,17 @@
 import { useEffect, useRef } from 'react'
-import { ArrowRight, Search } from 'lucide-react'
+import {
+  ArrowDownWideNarrow,
+  ArrowRight,
+  ArrowUpNarrowWide,
+  Search,
+  SlidersHorizontal,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -7,20 +19,61 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { SEARCH_BY_OPTIONS, type LevelSearchBy } from '@/lib/levelSearchParams'
+import {
+  SEARCH_BY_OPTIONS,
+  effectiveSortDir,
+  hasActiveFilters,
+  type LevelSearchBy,
+  type SearchPageState,
+} from '@/lib/levelSearchParams'
+import { SearchFilters } from './SearchFilters'
+import { SortMenu, sortTriggerLabel } from './SortMenu'
 import { useSearchPageBar } from './useSearchPageBar'
 
 interface SearchPageBarProps {
   bar: ReturnType<typeof useSearchPageBar>
+  state: SearchPageState
+  onChange: (patch: Partial<SearchPageState>) => void
+  onReset: () => void
   autoFocus?: boolean
 }
 
-// The top-center search bar for /search: a "search by" selector and the query
-// input. The query is live (see useSearchPageBar) — the results grid updates as
-// you type. Enter flushes immediately; a numeric-only input is a level id and
-// gets a "go to level" affordance (Enter or the button opens it).
-export function SearchPageBar({ bar, autoFocus = false }: SearchPageBarProps) {
+// A bar-height pill button used for the sort and filter popover triggers.
+function BarButton({
+  children,
+  active = false,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+  return (
+    <button
+      type="button"
+      className={cn(
+        'relative flex h-11 shrink-0 items-center gap-1.5 rounded-btn border px-3 text-sm font-medium transition-colors',
+        active
+          ? 'border-primary/60 bg-primary-dim text-text-primary'
+          : 'border-[#333333] bg-[#212121] text-text-secondary hover:text-text-primary'
+      )}
+      {...props}
+    >
+      {children}
+    </button>
+  )
+}
+
+// The top-center search bar for /search: a "search by" selector, the live query
+// input, a sort menu, a filter menu, and the Search button. The query is live
+// (see useSearchPageBar); Enter flushes; a numeric-only input is a level id with
+// a "go to level" affordance.
+export function SearchPageBar({
+  bar,
+  state,
+  onChange,
+  onReset,
+  autoFocus = false,
+}: SearchPageBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const dir = effectiveSortDir(state)
+  const filtersActive = hasActiveFilters(state)
 
   useEffect(() => {
     if (autoFocus) inputRef.current?.focus()
@@ -70,6 +123,49 @@ export function SearchPageBar({ bar, autoFocus = false }: SearchPageBarProps) {
             className="w-full bg-transparent text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none"
           />
         </div>
+
+        {/* Sort — right of the search bar. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <BarButton aria-label="Sort results">
+              {dir === 'asc' ? (
+                <ArrowUpNarrowWide size={16} />
+              ) : (
+                <ArrowDownWideNarrow size={16} />
+              )}
+              <span className="hidden sm:inline">
+                {sortTriggerLabel(state.sort)}
+              </span>
+            </BarButton>
+          </PopoverTrigger>
+          <PopoverContent align="end" className="p-2">
+            <SortMenu state={state} onChange={onChange} />
+          </PopoverContent>
+        </Popover>
+
+        {/* Filters — between the sort control and the Search button. */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <BarButton aria-label="Filters" active={filtersActive}>
+              <SlidersHorizontal size={16} />
+              <span className="hidden sm:inline">Filters</span>
+              {filtersActive && (
+                <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
+              )}
+            </BarButton>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            className="max-h-[70vh] w-[min(92vw,400px)] overflow-y-auto p-4"
+          >
+            <SearchFilters
+              state={state}
+              onChange={onChange}
+              onReset={onReset}
+              hasFilters={filtersActive}
+            />
+          </PopoverContent>
+        </Popover>
 
         <button
           type="button"

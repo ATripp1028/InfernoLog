@@ -37,6 +37,7 @@ export type LevelSort =
   | 'objectCount'
   | 'recentlyRated'
   | 'name'
+export type LevelSortDir = 'asc' | 'desc'
 
 // Optionals are explicitly `| undefined` so a filter can be cleared by merging
 // `{ key: undefined }` into the state (exactOptionalPropertyTypes is on).
@@ -83,11 +84,21 @@ export interface SearchPageState extends LevelSearchFilters {
   query?: string | undefined
   searchBy: LevelSearchBy
   sort: LevelSort
+  sortDir?: LevelSortDir | undefined
 }
 
 export const DEFAULT_SEARCH_STATE: SearchPageState = {
   searchBy: 'name',
   sort: 'relevance',
+}
+
+// Each sort's default direction; the UI toggle overrides it via `sortDir`.
+export function naturalSortDir(sort: LevelSort): LevelSortDir {
+  return sort === 'name' ? 'asc' : 'desc'
+}
+
+export function effectiveSortDir(s: SearchPageState): LevelSortDir {
+  return s.sortDir ?? naturalSortDir(s.sort)
 }
 
 // True when any level-independent filter is set (ignores query/searchBy/sort).
@@ -139,7 +150,7 @@ export const LENGTH_OPTIONS: { value: LevelLength; label: string }[] = [
 
 export const SONG_TYPE_OPTIONS: { value: LevelSongType; label: string }[] = [
   { value: 'official', label: 'Official' },
-  { value: 'custom', label: 'Custom (Newgrounds)' },
+  { value: 'custom', label: 'Newgrounds' },
   { value: 'nong', label: 'NONG' },
 ]
 
@@ -152,11 +163,44 @@ export const SORT_OPTIONS: { value: LevelSort; label: string }[] = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'downloads', label: 'Downloads' },
   { value: 'likes', label: 'Likes' },
-  { value: 'stars', label: 'Difficulty (stars)' },
+  { value: 'stars', label: 'Difficulty' },
   { value: 'objectCount', label: 'Object count' },
   { value: 'recentlyRated', label: 'Recently rated' },
-  { value: 'name', label: 'Name (A–Z)' },
+  { value: 'name', label: 'Name' },
 ]
+
+// The DifficultyFace inputs (difficulty label + glow) representing each
+// difficulty filter token — the filter panel renders faces, not text.
+export const DIFFICULTY_FACE: Record<
+  LevelDifficulty,
+  { difficulty: string }
+> = {
+  auto: { difficulty: 'Auto' },
+  easy: { difficulty: 'Easy' },
+  normal: { difficulty: 'Normal' },
+  hard: { difficulty: 'Hard' },
+  harder: { difficulty: 'Harder' },
+  insane: { difficulty: 'Insane' },
+  'demon-easy': { difficulty: 'Easy Demon' },
+  'demon-medium': { difficulty: 'Medium Demon' },
+  'demon-hard': { difficulty: 'Hard Demon' },
+  'demon-insane': { difficulty: 'Insane Demon' },
+  'demon-extreme': { difficulty: 'Extreme Demon' },
+}
+
+// Rate status as a DifficultyFace: unrated is a plain Insane face (no glow);
+// every rated tier is a Hard Demon face carrying the matching showcase glow.
+export const RATE_STATUS_FACE: Record<
+  LevelRateStatus,
+  { difficulty: string; featured?: boolean; epicValue?: number }
+> = {
+  unrated: { difficulty: 'Insane' },
+  rated: { difficulty: 'Hard Demon' },
+  featured: { difficulty: 'Hard Demon', featured: true },
+  epic: { difficulty: 'Hard Demon', epicValue: 1 },
+  legendary: { difficulty: 'Hard Demon', epicValue: 2 },
+  mythic: { difficulty: 'Hard Demon', epicValue: 3 },
+}
 
 export const SEARCH_BY_OPTIONS: { value: LevelSearchBy; label: string }[] = [
   { value: 'name', label: 'Level name' },
@@ -203,6 +247,7 @@ export function validateSearchState(
         : undefined,
     searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
     sort: oneOf(raw.sort, SORT_VALUES) ?? 'relevance',
+    sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
     difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
     rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
     length: arrOf(raw.length, LENGTH_VALUES),
@@ -226,6 +271,7 @@ export function browseApiQueryString(
   if (q) sp.set('q', q)
   sp.set('searchBy', s.searchBy)
   sp.set('sort', s.sort)
+  if (s.sortDir) sp.set('sortDir', s.sortDir)
   if (cursor) sp.set('cursor', cursor)
   s.difficulty?.forEach((d) => sp.append('difficulty', d))
   s.rateStatus?.forEach((r) => sp.append('rateStatus', r))
