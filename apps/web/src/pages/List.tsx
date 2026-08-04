@@ -32,6 +32,7 @@ import { ListTable, tableMinWidth } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
 import { FilterPanel } from '../features/list/FilterPanel'
 import { ControlsSheet } from '../features/list/ControlsSheet'
+import { PresetSheet } from '../features/list/PresetSheet'
 import { PresetCreateDialog } from '../features/list/PresetCreateDialog'
 import {
   applyFilters,
@@ -101,6 +102,7 @@ export function List() {
   const [hideTime, setHideTime] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [presetSheetOpen, setPresetSheetOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<ListPreset | null>(null)
 
@@ -533,6 +535,7 @@ export function List() {
             filterOpen={filterOpen}
             onToggleFilters={() => setFilterOpen((o) => !o)}
             onOpenControls={() => setControlsOpen(true)}
+            onOpenPresets={() => setPresetSheetOpen(true)}
             onReset={resetAll}
             canReset={canReset}
             presets={presets}
@@ -627,6 +630,27 @@ export function List() {
             onHideTime={setHideTime}
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
+          />
+        </SheetContent>
+      </Sheet>
+
+      {/* Mobile presets — trigger lives above the search bar in Toolbar. */}
+      <Sheet open={presetSheetOpen} onOpenChange={setPresetSheetOpen}>
+        <SheetContent side="bottom" className="p-0">
+          <SheetTitle className="sr-only">Presets</SheetTitle>
+          <PresetSheet
+            presets={presets}
+            selectedPresetId={selectedPresetId}
+            isModified={isPresetModified}
+            deletingPresetId={deletingPresetId}
+            overwritingPresetIds={overwritingPresetIds}
+            onSelect={handleSelectPreset}
+            onSaveNew={handleSaveNewPreset}
+            onOverwrite={handleOverwritePreset}
+            onDelete={handleDeletePreset}
+            onEdit={handleEditPreset}
+            onDiscard={handleDiscardPresetChanges}
+            onClose={() => setPresetSheetOpen(false)}
           />
         </SheetContent>
       </Sheet>
