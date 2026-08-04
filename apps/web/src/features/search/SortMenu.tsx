@@ -19,7 +19,7 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
   const dir = effectiveSortDir(state)
 
   return (
-    <div className="w-[220px]">
+    <div className="w-full">
       <div className="flex items-center justify-between px-1 pb-2">
         <p className="text-sm font-medium text-text-primary">Sort by</p>
         <button
