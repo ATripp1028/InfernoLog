@@ -62,7 +62,7 @@ export function RobtopSearchOffer({
         <Server size={16} className={disabled ? '' : 'text-primary'} />
         {disabled
           ? 'RobTop can’t search these terms'
-          : "Not finding it? Search RobTop’s servers"}
+          : 'Not finding it? Search RobTop’s servers'}
       </button>
     </div>
   )

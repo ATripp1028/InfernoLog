@@ -5,9 +5,20 @@ import { formatNumber } from '@/features/logging/format'
 import { gdStatIconSrc } from '@/lib/gdAssets'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
 
-function Stat({ icon, label, value }: { icon: string; label: string; value: string }) {
+function Stat({
+  icon,
+  label,
+  value,
+}: {
+  icon: string
+  label: string
+  value: string
+}) {
   return (
-    <span className="inline-flex items-center gap-1 text-text-secondary" title={label}>
+    <span
+      className="inline-flex items-center gap-1 text-text-secondary"
+      title={label}
+    >
       <img src={icon} alt="" aria-hidden className="size-3.5 object-contain" />
       {value}
     </span>
@@ -72,7 +83,11 @@ export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
           </>
         )}
         {level.length && (
-          <Stat icon={gdStatIconSrc.length} label="Length" value={level.length} />
+          <Stat
+            icon={gdStatIconSrc.length}
+            label="Length"
+            value={level.length}
+          />
         )}
       </span>
     </Link>

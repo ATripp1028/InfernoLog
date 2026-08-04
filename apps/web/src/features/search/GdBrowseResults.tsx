@@ -74,8 +74,8 @@ export function GdBrowseResults({
         Couldn’t reach GD’s servers
       </p>
       <p className="mt-1 text-xs text-text-secondary">
-        The request didn’t go through — this says nothing about whether the level
-        exists.
+        The request didn’t go through — this says nothing about whether the
+        level exists.
       </p>
     </div>
   )

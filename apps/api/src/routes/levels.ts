@@ -268,7 +268,10 @@ app.get('/levels/gd-search', async (c) => {
     sort === 'downloads' ||
     sort === 'likes'
   if (trimmed.length === 0 && !hasBrowseIntent) {
-    return c.json({ error: 'A query or a browsable filter/sort is required' }, 400)
+    return c.json(
+      { error: 'A query or a browsable filter/sort is required' },
+      400
+    )
   }
 
   try {

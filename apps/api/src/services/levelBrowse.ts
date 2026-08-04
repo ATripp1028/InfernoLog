@@ -62,11 +62,23 @@ function sortDef(sort: LevelSort, q: string, searchBy: string): SortDef {
       : Prisma.sql`similarity(COALESCE("name", ''), ${q})`
   switch (sort) {
     case 'relevance':
-      return { expr: Prisma.sql`(${rel})::float8`, naturalDir: 'DESC', type: 'num' }
+      return {
+        expr: Prisma.sql`(${rel})::float8`,
+        naturalDir: 'DESC',
+        type: 'num',
+      }
     case 'likes':
-      return { expr: Prisma.sql`(COALESCE("likes", -1))::float8`, naturalDir: 'DESC', type: 'num' }
+      return {
+        expr: Prisma.sql`(COALESCE("likes", -1))::float8`,
+        naturalDir: 'DESC',
+        type: 'num',
+      }
     case 'downloads':
-      return { expr: Prisma.sql`(COALESCE("downloads", -1))::float8`, naturalDir: 'DESC', type: 'num' }
+      return {
+        expr: Prisma.sql`(COALESCE("downloads", -1))::float8`,
+        naturalDir: 'DESC',
+        type: 'num',
+      }
     case 'stars':
       // Difficulty face first (× 1000), star count as the tiebreaker.
       return {
@@ -75,7 +87,11 @@ function sortDef(sort: LevelSort, q: string, searchBy: string): SortDef {
         type: 'num',
       }
     case 'objectCount':
-      return { expr: Prisma.sql`(COALESCE("objectCount", -1))::float8`, naturalDir: 'DESC', type: 'num' }
+      return {
+        expr: Prisma.sql`(COALESCE("objectCount", -1))::float8`,
+        naturalDir: 'DESC',
+        type: 'num',
+      }
     case 'recentlyRated':
       return {
         expr: Prisma.sql`(EXTRACT(EPOCH FROM COALESCE("ratingStatusSince", 'epoch')))::float8`,
@@ -83,7 +99,11 @@ function sortDef(sort: LevelSort, q: string, searchBy: string): SortDef {
         type: 'num',
       }
     case 'name':
-      return { expr: Prisma.sql`LOWER(COALESCE("name", ''))`, naturalDir: 'ASC', type: 'text' }
+      return {
+        expr: Prisma.sql`LOWER(COALESCE("name", ''))`,
+        naturalDir: 'ASC',
+        type: 'text',
+      }
   }
 }
 
@@ -100,7 +120,8 @@ function decodeCursor(c: string): { v: number | string; id: string } | null {
       'id' in o &&
       typeof (o as { id: unknown }).id === 'string' &&
       'v' in o &&
-      (typeof (o as { v: unknown }).v === 'number' || typeof (o as { v: unknown }).v === 'string')
+      (typeof (o as { v: unknown }).v === 'number' ||
+        typeof (o as { v: unknown }).v === 'string')
     ) {
       return o as { v: number | string; id: string }
     }
@@ -118,14 +139,17 @@ export async function browseLevels(
   // Relevance needs a query term; with an empty query fall back to downloads
   // (the common "browse the cache by filter" default).
   const sort: LevelSort =
-    query.sort === 'relevance' && trimmed.length === 0 ? 'downloads' : query.sort
+    query.sort === 'relevance' && trimmed.length === 0
+      ? 'downloads'
+      : query.sort
 
   const conds: Prisma.Sql[] = []
 
   if (trimmed.length > 0) {
     // Escape ILIKE wildcards so a literal "100%" matches literally.
     const likePattern = `%${trimmed.replace(/[\\%_]/g, '\\$&')}%`
-    const col = searchBy === 'creator' ? Prisma.sql`"creator"` : Prisma.sql`"name"`
+    const col =
+      searchBy === 'creator' ? Prisma.sql`"creator"` : Prisma.sql`"name"`
     conds.push(Prisma.sql`(${col} ILIKE ${likePattern} OR ${col} % ${trimmed})`)
   }
 
@@ -181,14 +205,20 @@ export async function browseLevels(
 
   const s = sortDef(sort, trimmed, searchBy)
   const dir: 'ASC' | 'DESC' =
-    query.sortDir === 'asc' ? 'ASC' : query.sortDir === 'desc' ? 'DESC' : s.naturalDir
+    query.sortDir === 'asc'
+      ? 'ASC'
+      : query.sortDir === 'desc'
+        ? 'DESC'
+        : s.naturalDir
 
   if (cursor) {
     const dec = decodeCursor(cursor)
     if (dec) {
       const cmp = dir === 'DESC' ? Prisma.sql`<` : Prisma.sql`>`
       const vparam =
-        s.type === 'num' ? Prisma.sql`${Number(dec.v)}::float8` : Prisma.sql`${String(dec.v)}`
+        s.type === 'num'
+          ? Prisma.sql`${Number(dec.v)}::float8`
+          : Prisma.sql`${String(dec.v)}`
       conds.push(
         Prisma.sql`((${s.expr}) ${cmp} ${vparam} OR ((${s.expr}) = ${vparam} AND "inGameId" > ${dec.id}))`
       )
@@ -219,7 +249,8 @@ export async function browseLevels(
   const hasMore = rows.length > PAGE_SIZE
   const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows
   const last = page[page.length - 1]
-  const nextCursor = hasMore && last ? encodeCursor(last._sortval, last.inGameId) : null
+  const nextCursor =
+    hasMore && last ? encodeCursor(last._sortval, last.inGameId) : null
 
   const data = page.map((row): LevelBrowseResult => {
     // Strip the internal keyset value; the rest is the wire row.

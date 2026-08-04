@@ -90,7 +90,11 @@ function ResponsiveMenu({
     return (
       <Popover>
         <PopoverTrigger asChild>
-          <BarButton active={active} aria-label={ariaLabel} className={className}>
+          <BarButton
+            active={active}
+            aria-label={ariaLabel}
+            className={className}
+          >
             {triggerInner}
           </BarButton>
         </PopoverTrigger>

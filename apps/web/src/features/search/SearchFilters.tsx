@@ -168,7 +168,9 @@ export function SearchFilters({
             <Chip
               key={o.value}
               selected={state.length?.includes(o.value) ?? false}
-              onClick={() => onChange({ length: toggle(state.length, o.value) })}
+              onClick={() =>
+                onChange({ length: toggle(state.length, o.value) })
+              }
             >
               {o.label}
             </Chip>
@@ -182,7 +184,9 @@ export function SearchFilters({
             <Chip
               key={n}
               selected={state.coinCount?.includes(n) ?? false}
-              onClick={() => onChange({ coinCount: toggle(state.coinCount, n) })}
+              onClick={() =>
+                onChange({ coinCount: toggle(state.coinCount, n) })
+              }
             >
               {n} {n === 1 ? 'coin' : 'coins'}
             </Chip>

@@ -18,7 +18,8 @@ export function useLevelBrowse(state: SearchPageState, enabled: boolean) {
     enabled,
     staleTime: 30_000,
     initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last: LevelBrowseResponse) => last.nextCursor ?? undefined,
+    getNextPageParam: (last: LevelBrowseResponse) =>
+      last.nextCursor ?? undefined,
     queryFn: async ({ pageParam }): Promise<LevelBrowseResponse> => {
       const token = await getIdToken()
       const qs = browseApiQueryString(state, pageParam)

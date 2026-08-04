@@ -581,7 +581,13 @@ export const LevelRateStatusSchema = z.enum([
 // Length label as stored on Level.length, lowercased on the wire. Platformer is
 // omitted — it is expressed through the levelType filter (Level.length is
 // 'Platformer' for those rows, but levelType is the canonical flag).
-export const LevelLengthSchema = z.enum(['tiny', 'short', 'medium', 'long', 'xl'])
+export const LevelLengthSchema = z.enum([
+  'tiny',
+  'short',
+  'medium',
+  'long',
+  'xl',
+])
 
 // Song provenance. official → officialSongId set · custom → Newgrounds song,
 // isNong=false · nong → isNong=true (Song File Hub replacement).

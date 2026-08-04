@@ -52,7 +52,11 @@ export function SearchPage() {
     navigate({
       to: '/search',
       replace: true,
-      search: { query: state.query, searchBy: state.searchBy, sort: state.sort },
+      search: {
+        query: state.query,
+        searchBy: state.searchBy,
+        sort: state.sort,
+      },
     })
 
   // The RobTop offer is shown whenever a browse is running and we're not mid

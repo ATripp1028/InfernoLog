@@ -768,14 +768,23 @@ async function seedBrowseLevel(over: {
 }
 
 interface BrowseBody {
-  data: Array<{ inGameId: string; downloads: number | null; likes: number | null }>
+  data: Array<{
+    inGameId: string
+    downloads: number | null
+    likes: number | null
+  }>
   nextCursor: string | null
 }
 
 describe('GET /levels/browse (filtered cursor search)', () => {
   it('name-filters, sorts by relevance, and returns the extended row shape', async () => {
     const user = await seedUser(prisma)
-    await seedBrowseLevel({ inGameId: '1', name: 'Cataclysm', downloads: 500, likes: 100 })
+    await seedBrowseLevel({
+      inGameId: '1',
+      name: 'Cataclysm',
+      downloads: 500,
+      likes: 100,
+    })
     await seedBrowseLevel({ inGameId: '2', name: 'Deadlocked' })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
@@ -791,7 +800,12 @@ describe('GET /levels/browse (filtered cursor search)', () => {
 
   it('filters by difficulty (partialDiff) with no query', async () => {
     const user = await seedUser(prisma)
-    await seedBrowseLevel({ inGameId: '1', partialDiff: 'demon-extreme', isDemon: true, isRated: true })
+    await seedBrowseLevel({
+      inGameId: '1',
+      partialDiff: 'demon-extreme',
+      isDemon: true,
+      isRated: true,
+    })
     await seedBrowseLevel({ inGameId: '2', partialDiff: 'easy', isRated: true })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
@@ -848,9 +862,21 @@ describe('GET /levels/browse (filtered cursor search)', () => {
     const user = await seedUser(prisma)
     // Extreme demon (rank 11), two hard demons (rank 9) differing by stars, an
     // easy (rank 2). Expect face order, with stars breaking the demon-hard tie.
-    await seedBrowseLevel({ inGameId: 'ex', partialDiff: 'demon-extreme', stars: 2 })
-    await seedBrowseLevel({ inGameId: 'hd-lo', partialDiff: 'demon-hard', stars: 5 })
-    await seedBrowseLevel({ inGameId: 'hd-hi', partialDiff: 'demon-hard', stars: 10 })
+    await seedBrowseLevel({
+      inGameId: 'ex',
+      partialDiff: 'demon-extreme',
+      stars: 2,
+    })
+    await seedBrowseLevel({
+      inGameId: 'hd-lo',
+      partialDiff: 'demon-hard',
+      stars: 5,
+    })
+    await seedBrowseLevel({
+      inGameId: 'hd-hi',
+      partialDiff: 'demon-hard',
+      stars: 10,
+    })
     await seedBrowseLevel({ inGameId: 'ez', partialDiff: 'easy', stars: 10 })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(

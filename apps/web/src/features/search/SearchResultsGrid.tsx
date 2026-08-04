@@ -78,13 +78,11 @@ export function SearchResultsGrid({
       {/* The empty hint always renders on a zero-row cache result; any GD
           escalation results render below it via `trailing` (its copy points the
           user there). */}
-      {rows.length === 0 ? (
-        emptyHint
-      ) : (
-        rows.map((level) => (
-          <SearchGridRow key={level.inGameId} level={level} />
-        ))
-      )}
+      {rows.length === 0
+        ? emptyHint
+        : rows.map((level) => (
+            <SearchGridRow key={level.inGameId} level={level} />
+          ))}
 
       {/* Sentinel + spinner for the next page. */}
       <div ref={sentinelRef} />

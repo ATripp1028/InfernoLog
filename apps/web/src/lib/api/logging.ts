@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError, apiFetch } from './client'
-import { browseApiQueryString, type SearchPageState } from '../levelSearchParams'
+import {
+  browseApiQueryString,
+  type SearchPageState,
+} from '../levelSearchParams'
 
 // ─────────────────────────────────────────────
 // Logging flow — wire types. We mirror packages/core's Zod schemas as plain TS

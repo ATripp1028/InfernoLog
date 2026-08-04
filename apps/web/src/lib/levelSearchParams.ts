@@ -154,14 +154,15 @@ export const DIFFICULTY_OPTIONS: { value: LevelDifficulty; label: string }[] = [
   { value: 'demon-extreme', label: 'Extreme Demon' },
 ]
 
-export const RATE_STATUS_OPTIONS: { value: LevelRateStatus; label: string }[] = [
-  { value: 'unrated', label: 'Unrated' },
-  { value: 'rated', label: 'Rated' },
-  { value: 'featured', label: 'Featured' },
-  { value: 'epic', label: 'Epic' },
-  { value: 'legendary', label: 'Legendary' },
-  { value: 'mythic', label: 'Mythic' },
-]
+export const RATE_STATUS_OPTIONS: { value: LevelRateStatus; label: string }[] =
+  [
+    { value: 'unrated', label: 'Unrated' },
+    { value: 'rated', label: 'Rated' },
+    { value: 'featured', label: 'Featured' },
+    { value: 'epic', label: 'Epic' },
+    { value: 'legendary', label: 'Legendary' },
+    { value: 'mythic', label: 'Mythic' },
+  ]
 
 export const LENGTH_OPTIONS: { value: LevelLength; label: string }[] = [
   { value: 'tiny', label: 'Tiny' },
@@ -194,22 +195,20 @@ export const SORT_OPTIONS: { value: LevelSort; label: string }[] = [
 
 // The DifficultyFace inputs (difficulty label + glow) representing each
 // difficulty filter token — the filter panel renders faces, not text.
-export const DIFFICULTY_FACE: Record<
-  LevelDifficulty,
-  { difficulty: string }
-> = {
-  auto: { difficulty: 'Auto' },
-  easy: { difficulty: 'Easy' },
-  normal: { difficulty: 'Normal' },
-  hard: { difficulty: 'Hard' },
-  harder: { difficulty: 'Harder' },
-  insane: { difficulty: 'Insane' },
-  'demon-easy': { difficulty: 'Easy Demon' },
-  'demon-medium': { difficulty: 'Medium Demon' },
-  'demon-hard': { difficulty: 'Hard Demon' },
-  'demon-insane': { difficulty: 'Insane Demon' },
-  'demon-extreme': { difficulty: 'Extreme Demon' },
-}
+export const DIFFICULTY_FACE: Record<LevelDifficulty, { difficulty: string }> =
+  {
+    auto: { difficulty: 'Auto' },
+    easy: { difficulty: 'Easy' },
+    normal: { difficulty: 'Normal' },
+    hard: { difficulty: 'Hard' },
+    harder: { difficulty: 'Harder' },
+    insane: { difficulty: 'Insane' },
+    'demon-easy': { difficulty: 'Easy Demon' },
+    'demon-medium': { difficulty: 'Medium Demon' },
+    'demon-hard': { difficulty: 'Hard Demon' },
+    'demon-insane': { difficulty: 'Insane Demon' },
+    'demon-extreme': { difficulty: 'Extreme Demon' },
+  }
 
 // Rate status as a DifficultyFace: unrated is a plain Insane face (no glow);
 // every rated tier is a Hard Demon face carrying the matching showcase glow.
