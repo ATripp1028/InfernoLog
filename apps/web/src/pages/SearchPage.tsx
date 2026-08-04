@@ -59,9 +59,9 @@ export function SearchPage() {
 
   // The RobTop offer: a real (non-id) query or a browsable filter/sort, cache
   // results in view. Greyed (not hidden) in creator mode — GD has no creator
-  // search. Hidden on the idle/empty state.
-  const isNumericQuery = /^\d+$/.test(query)
-  const offerVisible = enabled && !isNumericQuery
+  // search. Hidden on the idle/empty state and while a numeric id is being typed
+  // (that jumps to the level page, it isn't a browse).
+  const offerVisible = enabled && !bar.numericId
 
   return (
     <div className="relative mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:pt-10">
