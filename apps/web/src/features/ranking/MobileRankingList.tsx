@@ -79,7 +79,7 @@ export function MobileRankingList({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 pb-[40px]">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-text-primary">Ranking</h1>
         <Button
@@ -166,7 +166,7 @@ export function MobileRankingList({
       <button
         type="button"
         onClick={() => setUnplacedOpen(true)}
-        className="flex w-full items-center justify-between rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm"
+        className="fixed inset-x-4 bottom-[80px] z-10 flex items-center justify-between rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
       >
         <span className="text-text-secondary">
           {data.unplaced.length} unplaced{' '}
