@@ -115,6 +115,29 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
   )
 }
 
+// Whether an escalation to GD's servers can actually be forwarded — mirrors the
+// API's browse-intent gate in GET /v1/levels/gd-search (which rejects anything
+// else with a 400). Only the subset getGJLevels21 can express counts: a name
+// query, a difficulty / rate-status / length / two-player / has-coins /
+// Newgrounds-song filter, or a downloads/likes sort. Creator queries aren't
+// forwardable (GD has no creator search), so in creator mode only the
+// filters/sort count. Cache-only refinements (exact coin count, coinsVerified,
+// levelType, official/NONG song) do NOT make an escalation forwardable.
+export function canEscalateToGd(s: SearchPageState): boolean {
+  const hasNameQuery = s.searchBy === 'name' && !!s.query?.trim()
+  return (
+    hasNameQuery ||
+    !!s.difficulty?.length ||
+    !!s.rateStatus?.length ||
+    !!s.length?.length ||
+    s.twoPlayer !== undefined ||
+    !!s.coinCount?.some((v) => v > 0) ||
+    s.songType === 'custom' ||
+    s.sort === 'downloads' ||
+    s.sort === 'likes'
+  )
+}
+
 // ── Labeled options for the filter/sort UI ─────────────────────────────────
 
 export const DIFFICULTY_OPTIONS: { value: LevelDifficulty; label: string }[] = [

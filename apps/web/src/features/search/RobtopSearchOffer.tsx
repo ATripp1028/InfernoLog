@@ -6,7 +6,11 @@ import type { useEscalation } from './useEscalation'
 interface RobtopSearchOfferProps {
   escalation: ReturnType<typeof useEscalation>
   state: SearchPageState
-  /** Creator mode: GD has no creator search, so the offer is greyed out. */
+  /**
+   * The current query/filters can't be forwarded to GD's servers (creator
+   * search, or a cache-only refinement), so the offer is greyed out — clicking
+   * it would only earn a rejection from the escalation endpoint.
+   */
   disabled: boolean
 }
 
@@ -45,7 +49,7 @@ export function RobtopSearchOffer({
         onClick={() => escalation.escalate(state)}
         title={
           disabled
-            ? 'RobTop search only supports level-name queries'
+            ? 'These search terms can’t be forwarded to RobTop’s servers — try a level name, difficulty, length, coins, two-player, or a downloads/likes sort'
             : undefined
         }
         className={cn(
@@ -57,7 +61,7 @@ export function RobtopSearchOffer({
       >
         <Server size={16} className={disabled ? '' : 'text-primary'} />
         {disabled
-          ? 'RobTop search needs a level-name query'
+          ? 'RobTop can’t search these terms'
           : "Not finding it? Search RobTop’s servers"}
       </button>
     </div>

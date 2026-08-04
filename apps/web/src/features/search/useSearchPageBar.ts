@@ -27,7 +27,9 @@ export function useSearchPageBar(committed: SearchPageState) {
   const lastSearchBy = useRef(committed.searchBy)
 
   const trimmed = query.trim()
-  const isNumeric = /^\d+$/.test(trimmed)
+  // A digits-only input is a level id only when searching by name; in creator
+  // mode it's a (numeric) creator name to browse, not a level to jump to.
+  const isNumeric = searchBy === 'name' && /^\d+$/.test(trimmed)
   const numericId = isNumeric && trimmed.length > 0 ? trimmed : null
   // The browse query the current input commits to: a numeric id is NOT a browse
   // term (it jumps via Enter), so it clears the committed query.

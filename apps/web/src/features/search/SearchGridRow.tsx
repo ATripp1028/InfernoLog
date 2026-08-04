@@ -3,7 +3,6 @@ import { DifficultyFace } from '@/components/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { formatNumber } from '@/features/logging/format'
 import { gdStatIconSrc } from '@/lib/gdAssets'
-import { cn } from '@/lib/utils'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
 
 function Stat({ icon, label, value }: { icon: string; label: string; value: string }) {
@@ -19,13 +18,7 @@ function Stat({ icon, label, value }: { icon: string; label: string; value: stri
 // load-bearing name + `creator · ID · difficulty` triple, and the
 // user-independent stats (downloads / likes / length). Links to the level's
 // Global Level Page.
-export function SearchGridRow({
-  level,
-  dimmed = false,
-}: {
-  level: LevelBrowseResult
-  dimmed?: boolean
-}) {
+export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
   const difficulty = level.inGameDifficulty ?? 'Unrated'
   const likes = level.likes ?? 0
   // RobTop's official levels aren't online levels, so their download/like counts
@@ -37,10 +30,7 @@ export function SearchGridRow({
     <Link
       to="/levels/$levelId"
       params={{ levelId: level.inGameId }}
-      className={cn(
-        'group relative flex items-center gap-3 overflow-hidden rounded-card border border-border-subtle px-3 py-2.5 transition-colors',
-        dimmed && 'opacity-70'
-      )}
+      className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-border-subtle px-3 py-2.5 transition-colors"
     >
       <ThumbnailWash levelId={level.inGameId} variant="row" />
       <span

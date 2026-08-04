@@ -3,6 +3,7 @@ import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useLevelBrowse } from '@/lib/api/levelBrowse'
 import {
   browseApiQueryString,
+  canEscalateToGd,
   hasActiveFilters,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
@@ -54,11 +55,14 @@ export function SearchPage() {
       search: { query: state.query, searchBy: state.searchBy, sort: state.sort },
     })
 
-  // The RobTop offer: a real (non-id) query or a browsable filter/sort, cache
-  // results in view. Greyed (not hidden) in creator mode — GD has no creator
-  // search. Hidden on the idle/empty state and while a numeric id is being typed
-  // (that jumps to the level page, it isn't a browse).
+  // The RobTop offer is shown whenever a browse is running and we're not mid
+  // level-id jump. It's greyed (not hidden) whenever the current query/filters
+  // can't be forwarded to GD's servers — creator search, or a cache-only
+  // refinement like exact coin count / coinsVerified / official-song — so the
+  // button never fires a request the escalation endpoint would reject with a
+  // 400 (which the UI would misreport as "couldn't reach GD's servers").
   const offerVisible = enabled && !bar.numericId
+  const canEscalate = canEscalateToGd(state)
 
   return (
     // Match the app's standard page padding (List/Ranking use p-4 md:p-6); the
@@ -107,7 +111,7 @@ export function SearchPage() {
         <RobtopSearchOffer
           escalation={escalation}
           state={state}
-          disabled={state.searchBy === 'creator'}
+          disabled={!canEscalate}
         />
       )}
     </div>

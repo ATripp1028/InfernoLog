@@ -75,7 +75,10 @@ export function SearchResultsGrid({
 
   return (
     <div className="space-y-2">
-      {rows.length === 0 && !trailing ? (
+      {/* The empty hint always renders on a zero-row cache result; any GD
+          escalation results render below it via `trailing` (its copy points the
+          user there). */}
+      {rows.length === 0 ? (
         emptyHint
       ) : (
         rows.map((level) => (

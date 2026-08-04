@@ -474,6 +474,17 @@ model Level {
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
   // (GET /v1/levels/search). Queried via the `%` operator / similarity().
   @@index([name(ops: raw("gin_trgm_ops"))], type: Gin)
+  // Difficulty is the most common (and most selective) /v1/levels/browse
+  // filter. This lets the browse bitmap-scan the matching difficulty subset and
+  // sort just that, instead of seq-scanning + sorting the whole levels cache.
+  @@index([partialDiff])
+  // NOTE: two more browse indexes exist that Prisma can't represent here —
+  // expression indexes on ((COALESCE("downloads", -1))::float8, "inGameId") and
+  // the same for "likes", added in migration 20260804000100. They serve the
+  // "most downloaded / liked" full-cache browse sorts (see services/levelBrowse
+  // sortDef). They're managed by hand in that migration; if a generated migration
+  // ever tries to DROP levels_browse_downloads_idx / levels_browse_likes_idx,
+  // that drop is spurious — keep the indexes.
   @@map("levels")
 }
 
