@@ -69,10 +69,10 @@ function FaceToggle({
       title={label}
       onClick={onClick}
       className={cn(
-        'rounded-md border p-1 transition-colors',
+        'flex items-center justify-center rounded-full p-1.5 transition-colors',
         selected
-          ? 'border-primary bg-primary-dim'
-          : 'border-transparent hover:bg-bg-elevated'
+          ? 'bg-primary-dim ring-2 ring-primary'
+          : 'hover:bg-white/[0.08]'
       )}
     >
       <DifficultyFace

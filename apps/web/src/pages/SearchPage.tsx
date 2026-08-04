@@ -61,7 +61,9 @@ export function SearchPage() {
   const offerVisible = enabled && !bar.numericId
 
   return (
-    <div className="relative mx-auto w-full max-w-3xl px-4 pb-28 pt-6 md:pt-10">
+    // Match the app's standard page padding (List/Ranking use p-4 md:p-6); the
+    // extra bottom padding clears the fixed RobTop offer + mobile nav.
+    <div className="p-4 pb-24 md:p-6">
       <SearchPageBar
         bar={bar}
         state={state}
