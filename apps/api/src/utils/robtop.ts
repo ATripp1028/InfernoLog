@@ -477,11 +477,27 @@ export type RobtopSearchOutcome =
   | { status: 'ok'; results: RobtopSearchResult[] }
   | { status: 'unreachable' }
 
-// Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter to scope
-// results to a specific difficulty.
+// Options for a getGJLevels21 name search / browse.
+export interface RobtopSearchOptions {
+  // Difficulty scoping (import's exact-match path uses these directly).
+  diff?: string
+  demonFilter?: string
+  // getGJLevels21 `type` — 0 (search by str, the default), 1 (most downloaded),
+  // 2 (most liked). The /search escalation sets this from the on-page sort when
+  // browsing with no query term.
+  type?: string
+  // Extra getGJLevels21 body params (len, twoPlayer, coins, featured, epic,
+  // star, customSong, …) forwarded from the /search page's filters. Applied
+  // last, so they win over diff/demonFilter if both are supplied.
+  extraParams?: Record<string, string>
+}
+
+// Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter (or the
+// wider option set) to scope results; an empty `name` with a `type` browses
+// (e.g. most-downloaded) rather than searching.
 export async function searchRobtopByNameResult(
   name: string,
-  options?: { diff?: string; demonFilter?: string }
+  options?: RobtopSearchOptions
 ): Promise<RobtopSearchOutcome> {
   if (!(await acquireRobtopSlot())) {
     logger.warn({ name }, 'searchRobtopByName: rate limiter timed out')
@@ -493,7 +509,7 @@ export async function searchRobtopByNameResult(
 
   try {
     const body = new URLSearchParams({
-      type: '0',
+      type: options?.type ?? '0',
       str: name,
       secret: GETLEVELS_SECRET,
       gameVersion: '22',
@@ -503,6 +519,9 @@ export async function searchRobtopByNameResult(
     if (options?.diff !== undefined) body.set('diff', options.diff)
     if (options?.demonFilter !== undefined)
       body.set('demonFilter', options.demonFilter)
+    if (options?.extraParams) {
+      for (const [k, v] of Object.entries(options.extraParams)) body.set(k, v)
+    }
 
     const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
       method: 'POST',
@@ -546,7 +565,7 @@ export async function searchRobtopByNameResult(
 // failure as "no resolution" (spreadsheet import). Returns [] on unreachable.
 export async function searchRobtopByName(
   name: string,
-  options?: { diff?: string; demonFilter?: string }
+  options?: RobtopSearchOptions
 ): Promise<RobtopSearchResult[]> {
   const outcome = await searchRobtopByNameResult(name, options)
   return outcome.status === 'ok' ? outcome.results : []

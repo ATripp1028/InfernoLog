@@ -357,6 +357,9 @@ export default $config({
     authedRoute('POST /v1/me/progress')
     authedRoute('POST /v1/me/drops')
     authedRoute('GET /v1/levels/search')
+    // The /search page's cursor-paginated, filtered cache search. Cache-only
+    // (no RobTop), so the default timeout is fine.
+    authedRoute('GET /v1/levels/browse')
     // The GD-server search escalation hits RobTop and shares the same global
     // rate limiter as /resolve, so it gets the same extended timeout rather
     // than authedRoute's default.

@@ -544,6 +544,108 @@ export const GdSearchResponseSchema = z.discriminatedUnion('status', [
   }),
 ])
 
+// ─────────────────────────────────────────────
+// LEVEL BROWSE — filters, sort, and the cursor-paginated cache search that
+// backs the /search page's results grid (GET /v1/levels/browse).
+// ─────────────────────────────────────────────
+
+// Difficulty tokens exactly as stored on Level.partialDiff (see deriveDifficulty
+// in apps/api/src/utils/robtop.ts). 'na' (unrated) is deliberately omitted here —
+// the unrated case is expressed through the rate-status filter instead.
+export const LevelDifficultySchema = z.enum([
+  'auto',
+  'easy',
+  'normal',
+  'hard',
+  'harder',
+  'insane',
+  'demon-easy',
+  'demon-medium',
+  'demon-hard',
+  'demon-insane',
+  'demon-extreme',
+])
+
+// Showcase / rating status. Selecting several ORs them together.
+//   unrated → isRated=false · rated → isRated=true · featured → featured=true
+//   epic → epicValue=1 · legendary → epicValue=2 · mythic → epicValue=3
+export const LevelRateStatusSchema = z.enum([
+  'unrated',
+  'rated',
+  'featured',
+  'epic',
+  'legendary',
+  'mythic',
+])
+
+// Length label as stored on Level.length, lowercased on the wire. Platformer is
+// omitted — it is expressed through the levelType filter (Level.length is
+// 'Platformer' for those rows, but levelType is the canonical flag).
+export const LevelLengthSchema = z.enum(['tiny', 'short', 'medium', 'long', 'xl'])
+
+// Song provenance. official → officialSongId set · custom → Newgrounds song,
+// isNong=false · nong → isNong=true (Song File Hub replacement).
+export const LevelSongTypeSchema = z.enum(['official', 'custom', 'nong'])
+
+export const LevelTypeFilterSchema = z.enum(['CLASSIC', 'PLATFORMER'])
+
+// Which text column the query string filters on. Creator search is cache-only
+// (GD's servers have no fuzzy creator search).
+export const LevelSearchBySchema = z.enum(['name', 'creator'])
+
+// Result ordering. 'relevance' requires a query (falls back to downloads with an
+// empty query); the rest sort on stored, user-independent columns.
+export const LevelSortSchema = z.enum([
+  'relevance',
+  'likes',
+  'downloads',
+  'stars',
+  'objectCount',
+  'recentlyRated',
+  'name',
+])
+
+// The filter set, shared by the cache browse and (where GD's schema permits) the
+// RobTop escalation. All optional — an empty object browses the whole cache.
+export const LevelSearchFiltersSchema = z.object({
+  difficulty: z.array(LevelDifficultySchema).optional(),
+  rateStatus: z.array(LevelRateStatusSchema).optional(),
+  twoPlayer: z.boolean().optional(),
+  coinCount: z.array(z.number().int().min(0).max(3)).optional(),
+  coinsVerified: z.boolean().optional(),
+  length: z.array(LevelLengthSchema).optional(),
+  levelType: LevelTypeFilterSchema.optional(),
+  songType: LevelSongTypeSchema.optional(),
+})
+
+// The full parsed query for GET /v1/levels/browse (the handler assembles this
+// from the raw query params before validating).
+export const LevelBrowseQuerySchema = LevelSearchFiltersSchema.extend({
+  q: z.string().optional(),
+  searchBy: LevelSearchBySchema.default('name'),
+  sort: LevelSortSchema.default('relevance'),
+  cursor: z.string().optional(),
+})
+
+// A results-grid row — the autocomplete row plus the extra user-independent
+// columns the grid renders.
+export const LevelBrowseResultSchema = LevelSearchResultSchema.extend({
+  likes: z.number().int().nullable(),
+  downloads: z.number().int().nullable(),
+  length: z.string().nullable(),
+  coins: z.number().int().nullable(),
+  coinsVerified: z.boolean().nullable(),
+  twoPlayer: z.boolean().nullable(),
+  isDemon: z.boolean(),
+  levelType: LevelTypeFilterSchema,
+})
+
+// `nextCursor` is an opaque keyset token; null when the last page was returned.
+export const LevelBrowseResponseSchema = z.object({
+  data: z.array(LevelBrowseResultSchema),
+  nextCursor: z.string().nullable(),
+})
+
 // The existing-completion summary folded into the resolve response so the
 // client can pre-populate the edit form ("edit, not replace").
 export const ExistingCompletionSchema = z.object({

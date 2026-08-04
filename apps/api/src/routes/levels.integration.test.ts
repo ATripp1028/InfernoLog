@@ -698,4 +698,161 @@ describe('GET /levels/gd-search (escalation)', () => {
     )
     expect(res.status).toBe(400)
   })
+
+  it('allows an empty query when a browsable filter/sort is present, and forwards the mapped GD params', async () => {
+    const user = await seedUser(prisma)
+    gdSearchMock.mockResolvedValue({ status: 'ok', results: [] })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/gd-search?difficulty=demon-extreme&sort=downloads'
+    )
+
+    expect(res.status).toBe(200)
+    // Empty str browse; sort=downloads → type '1'; demon-extreme → diff '-2' +
+    // demonFilter '5'.
+    expect(gdSearchMock).toHaveBeenCalledWith('', {
+      type: '1',
+      extraParams: { diff: '-2', demonFilter: '5' },
+    })
+  })
+})
+
+// A browse-level factory covering the user-independent columns the endpoint
+// filters and sorts on (seedLevel doesn't expose them).
+async function seedBrowseLevel(over: {
+  inGameId: string
+  name?: string
+  creator?: string
+  partialDiff?: string | null
+  isRated?: boolean
+  isDemon?: boolean
+  downloads?: number | null
+  likes?: number | null
+  coins?: number | null
+  coinsVerified?: boolean | null
+  twoPlayer?: boolean | null
+  length?: string | null
+  epicValue?: number | null
+  featured?: boolean | null
+  levelType?: 'CLASSIC' | 'PLATFORMER'
+  officialSongId?: number | null
+  songId?: string | null
+  isNong?: boolean
+}) {
+  return prisma.level.create({
+    data: {
+      inGameId: over.inGameId,
+      name: over.name ?? `Level ${over.inGameId}`,
+      creator: over.creator ?? 'Creator',
+      partialDiff: over.partialDiff ?? null,
+      isRated: over.isRated ?? false,
+      isDemon: over.isDemon ?? false,
+      downloads: over.downloads ?? null,
+      likes: over.likes ?? null,
+      coins: over.coins ?? null,
+      coinsVerified: over.coinsVerified ?? null,
+      twoPlayer: over.twoPlayer ?? null,
+      length: over.length ?? null,
+      epicValue: over.epicValue ?? null,
+      featured: over.featured ?? null,
+      levelType: over.levelType ?? 'CLASSIC',
+      officialSongId: over.officialSongId ?? null,
+      songId: over.songId ?? null,
+      isNong: over.isNong ?? false,
+      dataSource: 'robtop_autofill',
+      verified: true,
+    },
+  })
+}
+
+interface BrowseBody {
+  data: Array<{ inGameId: string; downloads: number | null; likes: number | null }>
+  nextCursor: string | null
+}
+
+describe('GET /levels/browse (filtered cursor search)', () => {
+  it('name-filters, sorts by relevance, and returns the extended row shape', async () => {
+    const user = await seedUser(prisma)
+    await seedBrowseLevel({ inGameId: '1', name: 'Cataclysm', downloads: 500, likes: 100 })
+    await seedBrowseLevel({ inGameId: '2', name: 'Deadlocked' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?q=Cataclysm&sort=relevance'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual(['1'])
+    expect(body.data[0]!.downloads).toBe(500)
+    expect(body.data[0]!.likes).toBe(100)
+  })
+
+  it('filters by difficulty (partialDiff) with no query', async () => {
+    const user = await seedUser(prisma)
+    await seedBrowseLevel({ inGameId: '1', partialDiff: 'demon-extreme', isDemon: true, isRated: true })
+    await seedBrowseLevel({ inGameId: '2', partialDiff: 'easy', isRated: true })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?difficulty=demon-extreme'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual(['1'])
+  })
+
+  it('sorts by downloads descending', async () => {
+    const user = await seedUser(prisma)
+    await seedBrowseLevel({ inGameId: '1', downloads: 10 })
+    await seedBrowseLevel({ inGameId: '2', downloads: 300 })
+    await seedBrowseLevel({ inGameId: '3', downloads: 200 })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?sort=downloads'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual(['2', '3', '1'])
+  })
+
+  it('paginates with a keyset cursor — no overlap, no gaps across pages', async () => {
+    const user = await seedUser(prisma)
+    // 35 levels with distinct downloads → two pages (30 + 5).
+    for (let i = 0; i < 35; i++) {
+      await seedBrowseLevel({ inGameId: String(1000 + i), downloads: i })
+    }
+
+    const app = buildApp(levelsApp, { userId: user.id })
+    const page1 = (await (
+      await app.request('/levels/browse?sort=downloads')
+    ).json()) as BrowseBody
+    expect(page1.data).toHaveLength(30)
+    expect(page1.nextCursor).not.toBeNull()
+
+    const page2 = (await (
+      await app.request(
+        `/levels/browse?sort=downloads&cursor=${encodeURIComponent(page1.nextCursor!)}`
+      )
+    ).json()) as BrowseBody
+    expect(page2.data).toHaveLength(5)
+    expect(page2.nextCursor).toBeNull()
+
+    const all = [...page1.data, ...page2.data].map((r) => r.inGameId)
+    expect(new Set(all).size).toBe(35) // no duplicates across pages
+  })
+
+  it('filters by creator when searchBy=creator', async () => {
+    const user = await seedUser(prisma)
+    await seedBrowseLevel({ inGameId: '1', name: 'Alpha', creator: 'Riot' })
+    await seedBrowseLevel({ inGameId: '2', name: 'Beta', creator: 'Somebody' })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?q=Riot&searchBy=creator'
+    )
+    const body = (await res.json()) as BrowseBody
+
+    expect(res.status).toBe(200)
+    expect(body.data.map((r) => r.inGameId)).toEqual(['1'])
+  })
 })

@@ -10,6 +10,17 @@ import {
   RatingScoreInputSchema,
   LevelSearchResultSchema,
   GdSearchResponseSchema,
+  LevelDifficultySchema,
+  LevelRateStatusSchema,
+  LevelLengthSchema,
+  LevelSongTypeSchema,
+  LevelTypeFilterSchema,
+  LevelSearchBySchema,
+  LevelSortSchema,
+  LevelSearchFiltersSchema,
+  LevelBrowseQuerySchema,
+  LevelBrowseResultSchema,
+  LevelBrowseResponseSchema,
   ResolveLevelResponseSchema,
   ExistingCompletionSchema,
   LevelListSummarySchema,
@@ -46,6 +57,18 @@ export type ManualLevelInput = z.infer<typeof ManualLevelInputSchema>
 export type RatingScoreInput = z.infer<typeof RatingScoreInputSchema>
 export type LevelSearchResult = z.infer<typeof LevelSearchResultSchema>
 export type GdSearchResponse = z.infer<typeof GdSearchResponseSchema>
+
+export type LevelDifficulty = z.infer<typeof LevelDifficultySchema>
+export type LevelRateStatus = z.infer<typeof LevelRateStatusSchema>
+export type LevelLength = z.infer<typeof LevelLengthSchema>
+export type LevelSongType = z.infer<typeof LevelSongTypeSchema>
+export type LevelTypeFilter = z.infer<typeof LevelTypeFilterSchema>
+export type LevelSearchBy = z.infer<typeof LevelSearchBySchema>
+export type LevelSort = z.infer<typeof LevelSortSchema>
+export type LevelSearchFilters = z.infer<typeof LevelSearchFiltersSchema>
+export type LevelBrowseQuery = z.infer<typeof LevelBrowseQuerySchema>
+export type LevelBrowseResult = z.infer<typeof LevelBrowseResultSchema>
+export type LevelBrowseResponse = z.infer<typeof LevelBrowseResponseSchema>
 export type ResolveLevelResponse = z.infer<typeof ResolveLevelResponseSchema>
 export type ExistingCompletion = z.infer<typeof ExistingCompletionSchema>
 

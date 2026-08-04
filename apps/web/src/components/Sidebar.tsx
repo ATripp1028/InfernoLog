@@ -16,7 +16,11 @@ export function Sidebar() {
           active={
             item.to
               ? location.pathname === item.to ||
-                location.pathname.startsWith(`${item.to}/`)
+                location.pathname.startsWith(`${item.to}/`) ||
+                (item.activePrefixes?.some((p) =>
+                  location.pathname.startsWith(p)
+                ) ??
+                  false)
               : false
           }
         />
