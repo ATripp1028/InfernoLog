@@ -1,5 +1,9 @@
 import { useCallback, useState } from 'react'
-import { useGdSearch, type GdSearchResponse } from '@/lib/api/logging'
+import {
+  useGdSearch,
+  type GdSearchInput,
+  type GdSearchResponse,
+} from '@/lib/api/logging'
 
 // Shared GD-server escalation state, reused by every cache-search call site
 // (toolbar, logging-flow entry, collections add). Tracks *which* query was
@@ -10,10 +14,13 @@ export function useEscalation() {
   const gdSearch = useGdSearch()
   const [escalatedQuery, setEscalatedQuery] = useState<string | null>(null)
 
+  // Accepts either a bare query string (toolbar/logging/collections) or a full
+  // /search state (whose filters/sort are forwarded to GD). The tracked
+  // "escalated query" is the string form or the state's query term.
   const escalate = useCallback(
-    (q: string) => {
-      setEscalatedQuery(q)
-      gdSearch.mutate(q)
+    (input: GdSearchInput) => {
+      setEscalatedQuery(typeof input === 'string' ? input : (input.query ?? ''))
+      gdSearch.mutate(input)
     },
     [gdSearch]
   )

@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../context/AuthContext'
 import { ApiError, apiFetch } from './client'
+import {
+  browseApiQueryString,
+  type SearchPageState,
+} from '../levelSearchParams'
 
 // ─────────────────────────────────────────────
 // Logging flow — wire types. We mirror packages/core's Zod schemas as plain TS
@@ -279,6 +283,11 @@ export type GdSearchResponse =
   | { status: 'nothing_new'; totalFound: number }
   | { status: 'unreachable' }
 
+// Input to an escalation. The bare-string form (`q`) is the legacy call from the
+// toolbar/logging/collections cache-search surfaces; the /search page passes a
+// full state so its filters/sort are forwarded to GD where the schema permits.
+export type GdSearchInput = string | SearchPageState
+
 // The opt-in escalation call. A mutation (not a query) because it fires only on
 // explicit confirmation and each call is independent — there is no "escalated
 // mode" to keep in sync. A 503 is the expected RobTop-unreachable branch and
@@ -287,13 +296,17 @@ export type GdSearchResponse =
 export function useGdSearch() {
   const { getIdToken } = useAuth()
   return useMutation({
-    mutationFn: async (q: string): Promise<GdSearchResponse> => {
+    mutationFn: async (input: GdSearchInput): Promise<GdSearchResponse> => {
       const token = await getIdToken()
+      const qs =
+        typeof input === 'string'
+          ? `q=${encodeURIComponent(input)}`
+          : browseApiQueryString(input)
       try {
-        return await apiFetch<GdSearchResponse>(
-          `/v1/levels/gd-search?q=${encodeURIComponent(q)}`,
-          { token, method: 'GET' }
-        )
+        return await apiFetch<GdSearchResponse>(`/v1/levels/gd-search?${qs}`, {
+          token,
+          method: 'GET',
+        })
       } catch (err) {
         if (err instanceof ApiError && err.status === 503) {
           return { status: 'unreachable' }

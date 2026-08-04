@@ -7,10 +7,95 @@
 // selects it (by navigating to its Global Level Page, which resolves+caches on
 // the miss). See the SpecNote decision record for the locked reasoning.
 
-import type { LevelSearchResult } from '@infernolog/core'
+import type {
+  LevelSearchResult,
+  LevelSearchFilters,
+  LevelSort,
+} from '@infernolog/core'
 import prisma from '../utils/prisma'
 import { searchRobtopByNameResult, type RobtopLevel } from '../utils/robtop'
 import { buildRobtopCreateData } from './levelResolve'
+
+// ── /search-page filters → getGJLevels21 params ────────────────────────────
+// Only the subset GD's schema can express is forwarded; everything else (exact
+// coin count, coinsVerified, creator search, NONG, object count) is dropped and
+// stays a cache-only refinement. See the /search plan's mapping notes.
+const NONDEMON_DIFF: Record<string, string> = {
+  auto: '-3',
+  easy: '1',
+  normal: '2',
+  hard: '3',
+  harder: '4',
+  insane: '5',
+}
+const DEMON_FILTER: Record<string, string> = {
+  'demon-easy': '1',
+  'demon-medium': '2',
+  'demon-hard': '3',
+  'demon-insane': '4',
+  'demon-extreme': '5',
+}
+const LEN_NUM: Record<string, string> = {
+  tiny: '0',
+  short: '1',
+  medium: '2',
+  long: '3',
+  xl: '4',
+}
+
+function buildRobtopParams(
+  filters: LevelSearchFilters,
+  sort: LevelSort,
+  hasQuery: boolean
+): { type?: string; extraParams: Record<string, string> } {
+  const p: Record<string, string> = {}
+
+  if (filters.difficulty?.length) {
+    const diffs: string[] = []
+    const demonTiers: string[] = []
+    for (const d of filters.difficulty) {
+      if (d.startsWith('demon-')) demonTiers.push(DEMON_FILTER[d]!)
+      else diffs.push(NONDEMON_DIFF[d]!)
+    }
+    // Any demon tier means adding the -2 (Demon) diff bucket; GD's demonFilter
+    // narrows to a single tier, so only forward it when exactly one is chosen.
+    if (demonTiers.length) diffs.push('-2')
+    if (diffs.length) p.diff = diffs.join(',')
+    if (demonTiers.length === 1) p.demonFilter = demonTiers[0]!
+  }
+
+  if (filters.length?.length) {
+    p.len = filters.length.map((l) => LEN_NUM[l]!).join(',')
+  }
+  if (filters.twoPlayer === true) p.twoPlayer = '1'
+  // GD only has a "has user coins" boolean, not an exact count.
+  if (filters.coinCount?.some((c) => c > 0)) p.coins = '1'
+
+  const rs = filters.rateStatus ?? []
+  if (rs.includes('featured')) p.featured = '1'
+  if (rs.includes('epic')) p.epic = '1'
+  if (rs.includes('legendary')) p.legendary = '1'
+  if (rs.includes('mythic')) p.mythic = '1'
+  const hasShowcase = rs.some((r) =>
+    ['featured', 'epic', 'legendary', 'mythic'].includes(r)
+  )
+  if (rs.includes('rated') && !hasShowcase) p.star = '1'
+  if (rs.length === 1 && rs[0] === 'unrated') p.noStar = '1'
+
+  if (filters.songType === 'custom') p.customSong = '1'
+
+  // Sort → getGJLevels21 `type` only matters for a query-less browse; a query
+  // keeps type=0 (search-by-str). Relevance and the cache-only sorts have no GD
+  // equivalent and fall back to the default order.
+  const result: { type?: string; extraParams: Record<string, string> } = {
+    extraParams: p,
+  }
+  if (!hasQuery) {
+    if (sort === 'downloads') result.type = '1'
+    else if (sort === 'likes') result.type = '2'
+  }
+  return result
+}
 
 export type GdSearchOutcome =
   // The call succeeded and at least one not-already-cached level survived.
@@ -39,8 +124,14 @@ function toRow(inGameId: string, level: RobtopLevel): LevelSearchResult {
   }
 }
 
-export async function runGdSearch(q: string): Promise<GdSearchOutcome> {
-  const outcome = await searchRobtopByNameResult(q)
+export async function runGdSearch(
+  q: string,
+  filters: LevelSearchFilters = {},
+  sort: LevelSort = 'relevance'
+): Promise<GdSearchOutcome> {
+  const trimmed = q.trim()
+  const params = buildRobtopParams(filters, sort, trimmed.length > 0)
+  const outcome = await searchRobtopByNameResult(trimmed, params)
   if (outcome.status === 'unreachable') return { status: 'unreachable' }
 
   const results = outcome.results

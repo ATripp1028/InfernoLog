@@ -7,6 +7,7 @@ import {
   BarChart3,
   Triangle,
   ShieldCheck,
+  Search,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -18,9 +19,21 @@ export interface NavItem {
   icon: LucideIcon
   to?: string
   status: NavStatus
+  // Extra path prefixes that should also mark this item active. The Search tab
+  // uses this so the Global Level Page (/levels/*) — part of the Search tab but
+  // on its own route — highlights Search.
+  activePrefixes?: string[]
 }
 
 export const NAV_ITEMS: NavItem[] = [
+  {
+    key: 'search',
+    label: 'Search',
+    icon: Search,
+    to: '/search',
+    status: 'enabled',
+    activePrefixes: ['/levels'],
+  },
   {
     key: 'list',
     label: 'List',
@@ -55,6 +68,7 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 export const MOBILE_OVERFLOW_KEYS = [
+  'search',
   'collections',
   'time',
   'stats',
