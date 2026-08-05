@@ -1,11 +1,18 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useRouter,
+} from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
   levelPageErrorKind,
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
+import { readBackOrigin } from '@/lib/backOrigin'
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
@@ -44,6 +51,7 @@ export function GlobalLevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
   const router = useRouter()
+  const location = useLocation()
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -67,10 +75,18 @@ export function GlobalLevelPage() {
   )
 
   const goBack = () => {
-    // Return to wherever the id was entered (search, list, another level).
-    // Falls back to the List if there's no history to pop.
-    if (window.history.length > 1) router.history.back()
-    else void navigate({ to: '/list' })
+    // Prefer the remembered origin (search, ranking, list, ...) — it's set
+    // whenever this page was reached via an in-app link and survives a hop
+    // through the paired user-scoped level page. Otherwise pop real history,
+    // falling back to the List if there's none to pop.
+    const origin = readBackOrigin(location.state)
+    if (origin) {
+      void navigate({ href: origin.href, replace: true })
+    } else if (window.history.length > 1) {
+      router.history.back()
+    } else {
+      void navigate({ to: '/list' })
+    }
   }
 
   const handleAddToWantToBeat = () => {
@@ -153,11 +169,7 @@ export function GlobalLevelPage() {
   // ── Terminal / retryable error states (kept visually + textually distinct) ──
   if (errorKind === 'not_found') {
     return (
-      <NotFoundState
-        levelId={levelId}
-        onCheckId={goBack}
-        onBack={() => void navigate({ to: '/list' })}
-      />
+      <NotFoundState levelId={levelId} onCheckId={goBack} onBack={goBack} />
     )
   }
   // 503 — GD genuinely unreachable (a cache miss whose RobTop resolve failed).
@@ -209,6 +221,7 @@ export function GlobalLevelPage() {
             <Link
               to="/list/$levelId"
               params={{ levelId }}
+              state={true}
               className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
             >
               Your page for this level
@@ -254,22 +267,27 @@ export function GlobalLevelPage() {
       {/* ── Desktop ────────────────────────────────────────────── */}
       <div className="hidden md:block">
         <div className="mx-8 pb-16 pt-4">
-          {delisted && (
-            <div className="mb-4">
-              <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
-            </div>
-          )}
-
-          {/* Breadcrumb slot — holds only the cross-link (when the user has a
-              page for this level), right-aligned to match where the reciprocal
-              link sits on the user-scoped page. Empty otherwise; reserved
-              height keeps the layout from shifting. */}
-          <div className="flex min-h-[20px] items-center justify-end pb-4">
+          {/* Back row — mirrors the user-scoped level page's desktop back
+              row: back arrow + level name on the left, cross-link (when the
+              user has a page for this level) right-aligned. */}
+          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+            <button
+              type="button"
+              onClick={goBack}
+              aria-label="Back"
+              className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft size={18} />
+            </button>
+            <span className="truncate text-sm font-medium text-text-primary">
+              {levelName}
+            </span>
             {level.hasUserProgress && (
               <Link
                 to="/list/$levelId"
                 params={{ levelId }}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+                state={true}
+                className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
               >
                 Your page for this level
                 <span aria-hidden>→</span>
@@ -277,7 +295,13 @@ export function GlobalLevelPage() {
             )}
           </div>
 
-          <div className="flex gap-8 border-t border-border-subtle pt-6">
+          {delisted && (
+            <div className="mb-4">
+              <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
+            </div>
+          )}
+
+          <div className="flex gap-8">
             {/* Left column — grows to fill; right column is fixed-width. */}
             <div className="min-w-0 flex-1">
               <Thumbnail
@@ -378,8 +402,11 @@ function PageSkeleton() {
       {/* Desktop */}
       <div className="hidden md:block">
         <div className="mx-8 pb-16 pt-4">
-          <div className="min-h-[20px] pb-4" />
-          <div className="flex gap-8 border-t border-border-subtle pt-6">
+          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+            <ArrowLeft size={18} className="text-text-tertiary" />
+            <Pulse className="h-4 w-40" />
+          </div>
+          <div className="flex gap-8">
             <div className="min-w-0 flex-1">
               <Pulse className="aspect-video w-full rounded-card" />
               <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">

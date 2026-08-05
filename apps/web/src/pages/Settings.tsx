@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useSearch } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 import { PageLoading } from '@/components/PageLoading'
 import { meQueryKey, useMe, type MeData } from '@/lib/api/me'
+import { backOriginState } from '@/lib/backOrigin'
 import { useImportStatus } from '@/lib/api/import'
 import { AccountSection } from '@/features/settings/sections/AccountSection'
 import { PrivacySection } from '@/features/settings/sections/PrivacySection'
@@ -33,6 +34,7 @@ export function Settings() {
     importStatus?: true
   }
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [importStatusOpen, setImportStatusOpen] = useState(false)
 
@@ -91,7 +93,11 @@ export function Settings() {
       <DangerZoneSection />
 
       <footer className="mt-8 border-t border-[var(--color-border)] pt-6 text-sm text-muted-foreground">
-        <Link to="/about" className="hover:text-foreground">
+        <Link
+          to="/about"
+          state={backOriginState(location.href)}
+          className="hover:text-foreground"
+        >
           Acknowledgments &amp; credits
         </Link>
       </footer>

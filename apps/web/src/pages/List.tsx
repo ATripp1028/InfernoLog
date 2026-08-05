@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutationState } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { useMe } from '../lib/api/me'
+import { backOriginState } from '../lib/backOrigin'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import {
   useListPresets,
@@ -79,6 +80,7 @@ export function List() {
   const deletePreset = useDeletePreset()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
+  const location = useLocation()
   const { openForEdit } = useLoggingFlow()
 
   // Derived (not local state) so concurrent overwrites of different presets
@@ -480,6 +482,7 @@ export function List() {
     void navigate({
       to: '/list/$levelId',
       params: { levelId: item.level.inGameId },
+      state: backOriginState(location.href),
     })
   }
 

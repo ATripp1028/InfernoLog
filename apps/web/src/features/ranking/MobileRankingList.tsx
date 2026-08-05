@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { arrayMove } from '@dnd-kit/sortable'
 import { ChevronUp, ChevronDown, Hash, Pencil, Search } from 'lucide-react'
 import type { ClassicRankingResponse } from '@infernolog/core'
@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { toast } from '@/components/ui/sonner'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
+import { backOriginState } from '@/lib/backOrigin'
 import { usePlaceRanking, useReorderRanking } from '@/lib/api/ranking'
 import { neighboursAround } from './neighbours'
 import { filterPlaced, filterUnplaced, reorderDisabled } from './filtering'
@@ -271,6 +272,7 @@ function MobileRow({
   onUp,
   onDown,
 }: MobileRowProps) {
+  const location = useLocation()
   const levelInfo = (
     <>
       <DifficultyFace
@@ -327,6 +329,7 @@ function MobileRow({
           <Link
             to="/list/$levelId"
             params={{ levelId: item.level.inGameId }}
+            state={backOriginState(location.href)}
             className="flex min-w-0 flex-1 items-center gap-3"
           >
             {levelInfo}
