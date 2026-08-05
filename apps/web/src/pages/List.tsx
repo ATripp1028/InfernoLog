@@ -20,6 +20,7 @@ import type { FlowPath } from '../features/logging/types'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
 import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
+import { MobileActionSheet } from '../components/MobileActionSheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
@@ -617,10 +618,16 @@ export function List() {
         </Sheet>
       )}
 
-      {/* Mobile controls — sort + columns. */}
-      <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
-        <SheetContent side="bottom" className="p-0">
-          <SheetTitle className="sr-only">Sort and columns</SheetTitle>
+      {/* Mobile controls — sort + columns. MobileActionSheet (not the Radix
+          Sheet primitive above) to match the spring-based slide the rest of
+          the app's mobile menus use (MobileNav, SearchPageBar) — the Radix
+          Sheet's CSS keyframe transition reads noticeably less smooth. */}
+      <MobileActionSheet
+        open={controlsOpen}
+        onClose={() => setControlsOpen(false)}
+        ariaLabel="Sort and columns"
+      >
+        <div className="max-h-[75vh] overflow-y-auto">
           <ControlsSheet
             sorts={sorts}
             onSorts={setSorts}
@@ -631,13 +638,16 @@ export function List() {
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
           />
-        </SheetContent>
-      </Sheet>
+        </div>
+      </MobileActionSheet>
 
       {/* Mobile presets — trigger lives above the search bar in Toolbar. */}
-      <Sheet open={presetSheetOpen} onOpenChange={setPresetSheetOpen}>
-        <SheetContent side="bottom" className="p-0">
-          <SheetTitle className="sr-only">Presets</SheetTitle>
+      <MobileActionSheet
+        open={presetSheetOpen}
+        onClose={() => setPresetSheetOpen(false)}
+        ariaLabel="Presets"
+      >
+        <div className="max-h-[75vh] overflow-y-auto">
           <PresetSheet
             presets={presets}
             selectedPresetId={selectedPresetId}
@@ -650,8 +660,8 @@ export function List() {
             onEdit={handleEditPreset}
             onClose={() => setPresetSheetOpen(false)}
           />
-        </SheetContent>
-      </Sheet>
+        </div>
+      </MobileActionSheet>
 
       <AlertDialog
         open={pendingDelete != null}
