@@ -13,7 +13,3 @@ export function getHandledGddlSyncJobId(): string | null {
 export function setHandledGddlSyncJobId(jobId: string): void {
   localStorage.setItem(KEY, jobId)
 }
-
-export function clearHandledGddlSyncJobId(): void {
-  localStorage.removeItem(KEY)
-}
