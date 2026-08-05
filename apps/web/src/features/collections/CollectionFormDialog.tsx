@@ -9,6 +9,8 @@ import { AlertTriangle, X } from 'lucide-react'
 import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import { MobileSheetDialog } from '@/components/MobileSheetDialog'
 import {
   collectionErrorCode,
   useCollections,
@@ -41,6 +43,7 @@ export function CollectionFormDialog({
   isSaving,
   editing,
 }: CollectionFormDialogProps) {
+  const isDesktop = useMediaQuery('(min-width: 768px)')
   const collections = useCollections()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -93,104 +96,130 @@ export function CollectionFormDialog({
     }
   }
 
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
-      }}
-    >
-      <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-        <div className="flex items-center justify-between pb-2 pl-6 pr-5 pt-5">
-          <h2 className="text-lg font-semibold text-text-primary">
-            {editing ? 'Edit collection' : 'New collection'}
-          </h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="flex size-7 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-          >
-            <X size={16} />
-          </button>
-        </div>
+  const header = (
+    <div className="flex items-center justify-between pb-2 pl-6 pr-5 pt-5">
+      <h2 className="text-lg font-semibold text-text-primary">
+        {editing ? 'Edit collection' : 'New collection'}
+      </h2>
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="flex size-7 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
+      >
+        <X size={16} />
+      </button>
+    </div>
+  )
 
-        <div className="flex flex-col gap-5 px-6 pb-5 pt-3">
-          <div className="flex flex-col gap-2">
-            <label
-              htmlFor="collection-name"
-              className="text-[13px] font-medium text-text-secondary"
-            >
-              Name
-            </label>
-            <div className="relative">
-              <input
-                id="collection-name"
-                autoFocus
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value)
-                  setServerError(null)
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') void handleSave()
-                }}
-                maxLength={50}
-                className={cn(
-                  'h-11 w-full rounded-btn border bg-bg-base px-3 pr-9 text-sm text-text-primary outline-none placeholder:text-text-tertiary',
-                  error
-                    ? 'border-[1.5px] border-red-500'
-                    : 'border-border focus:border-primary'
-                )}
-              />
-              {error && (
-                <AlertTriangle
-                  size={16}
-                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-red-500"
-                />
-              )}
-            </div>
-            {error && <p className="text-xs text-red-500">{error}</p>}
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-1.5">
-              <label
-                htmlFor="collection-description"
-                className="text-[13px] font-medium text-text-secondary"
-              >
-                Description
-              </label>
-              <span className="text-[11px] text-text-tertiary">Optional</span>
-            </div>
-            <textarea
-              id="collection-description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              maxLength={200}
-              rows={3}
-              placeholder="What's this collection for?"
-              className="w-full resize-none rounded-btn border border-border bg-bg-base px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-primary"
+  const body = (
+    <div className="flex flex-col gap-5 px-6 pb-5 pt-3">
+      <div className="flex flex-col gap-2">
+        <label
+          htmlFor="collection-name"
+          className="text-[13px] font-medium text-text-secondary"
+        >
+          Name
+        </label>
+        <div className="relative">
+          <input
+            id="collection-name"
+            autoFocus={isDesktop}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value)
+              setServerError(null)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void handleSave()
+            }}
+            maxLength={50}
+            className={cn(
+              'h-11 w-full rounded-btn border bg-bg-base px-3 pr-9 text-sm text-text-primary outline-none placeholder:text-text-tertiary',
+              error
+                ? 'border-[1.5px] border-red-500'
+                : 'border-border focus:border-primary'
+            )}
+          />
+          {error && (
+            <AlertTriangle
+              size={16}
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-red-500"
             />
-          </div>
+          )}
         </div>
+        {error && <p className="text-xs text-red-500">{error}</p>}
+      </div>
 
-        <div className="flex items-center justify-end gap-3 rounded-b-xl border-t border-border-subtle bg-bg-surface/50 px-6 py-3.5">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={() => void handleSave()} disabled={!canSave}>
-            {isSaving
-              ? 'Saving…'
-              : editing
-                ? 'Save changes'
-                : 'Create collection'}
-          </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-1.5">
+          <label
+            htmlFor="collection-description"
+            className="text-[13px] font-medium text-text-secondary"
+          >
+            Description
+          </label>
+          <span className="text-[11px] text-text-tertiary">Optional</span>
         </div>
+        <textarea
+          id="collection-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          maxLength={200}
+          rows={3}
+          placeholder="What's this collection for?"
+          className="w-full resize-none rounded-btn border border-border bg-bg-base px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-primary"
+        />
       </div>
     </div>
+  )
+
+  const footer = (
+    <div
+      className={cn(
+        'flex items-center justify-end gap-3 border-t border-border-subtle bg-bg-surface/50 px-6 py-3.5',
+        isDesktop && 'rounded-b-xl'
+      )}
+    >
+      <Button variant="outline" onClick={onClose}>
+        Cancel
+      </Button>
+      <Button onClick={() => void handleSave()} disabled={!canSave}>
+        {isSaving ? 'Saving…' : editing ? 'Save changes' : 'Create collection'}
+      </Button>
+    </div>
+  )
+
+  if (isDesktop) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose()
+        }}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') onClose()
+        }}
+      >
+        <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
+          {header}
+          {body}
+          {footer}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <MobileSheetDialog
+      onClose={onClose}
+      className="border-border bg-bg-surface"
+    >
+      <div className="overflow-y-auto">
+        {header}
+        {body}
+      </div>
+      {footer}
+    </MobileSheetDialog>
   )
 }

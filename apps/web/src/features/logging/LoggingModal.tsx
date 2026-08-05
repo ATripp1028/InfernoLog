@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  dialogContentAnimation,
+  dialogOverlayAnimation,
+} from '@/lib/dialogAnimation'
 import { Button } from '@/components/ui/button'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
@@ -147,7 +151,12 @@ export function LoggingModal() {
   return (
     <Dialog.Root open={isOpen} onOpenChange={(o) => !o && requestClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=open]:fade-in" />
+        <Dialog.Overlay
+          className={cn(
+            'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm',
+            dialogOverlayAnimation
+          )}
+        />
         <Dialog.Content
           aria-describedby={undefined}
           onInteractOutside={(e) => {
@@ -160,6 +169,9 @@ export function LoggingModal() {
           }}
           className={cn(
             'fixed z-50 focus:outline-none',
+            // Slide up from the bottom on mobile like the rest of the app's
+            // drawers; desktop swaps to a centered zoom/fade.
+            dialogContentAnimation,
             // Desktop: centered panel. The inset resets here are longhand on
             // purpose — mixing the `inset`/`inset-x` shorthand with `left`/`top`
             // at the same breakpoint clobbers positioning (Tailwind's utility

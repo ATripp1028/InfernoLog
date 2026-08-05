@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, Settings, User } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import { useNavigate, UseNavigateResult } from '@tanstack/react-router'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
 
 function handleNavigate(
   navigate: UseNavigateResult<string>,
@@ -15,12 +17,13 @@ function handleNavigate(
 
 export function AvatarMenu() {
   const { signOut } = useAuth()
+  const isDesktop = useMediaQuery('(min-width: 768px)')
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !isDesktop) return
     function handlePointerDown(event: MouseEvent) {
       if (!containerRef.current?.contains(event.target as Node)) {
         setOpen(false)
@@ -28,7 +31,7 @@ export function AvatarMenu() {
     }
     document.addEventListener('mousedown', handlePointerDown)
     return () => document.removeEventListener('mousedown', handlePointerDown)
-  }, [open])
+  }, [open, isDesktop])
 
   return (
     <div className="relative" ref={containerRef}>
@@ -43,29 +46,57 @@ export function AvatarMenu() {
         <User size={18} />
       </button>
 
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            role="menu"
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
-          >
-            <MenuItem
-              icon={<Settings size={14} />}
-              label="Settings"
-              onClick={() => handleNavigate(navigate, '/settings', setOpen)}
-            />
-            <MenuItem
-              icon={<LogOut size={14} />}
-              label="Logout"
-              onClick={signOut}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {isDesktop ? (
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              role="menu"
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
+              className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-card border border-border bg-bg-elevated p-2 shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+            >
+              <MenuItem
+                icon={<Settings size={14} />}
+                label="Settings"
+                onClick={() => handleNavigate(navigate, '/settings', setOpen)}
+              />
+              <MenuItem
+                icon={<LogOut size={14} />}
+                label="Logout"
+                onClick={signOut}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      ) : (
+        <MobileActionSheet
+          open={open}
+          onClose={() => setOpen(false)}
+          ariaLabel="Account menu"
+        >
+          <ul className="flex flex-col gap-1 px-2 py-2">
+            <li>
+              <MenuItem
+                icon={<Settings size={14} />}
+                label="Settings"
+                onClick={() => handleNavigate(navigate, '/settings', setOpen)}
+              />
+            </li>
+            <li>
+              <MenuItem
+                icon={<LogOut size={14} />}
+                label="Logout"
+                onClick={() => {
+                  setOpen(false)
+                  signOut()
+                }}
+              />
+            </li>
+          </ul>
+        </MobileActionSheet>
+      )}
     </div>
   )
 }

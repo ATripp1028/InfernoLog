@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { useMutationState } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { useMe } from '../lib/api/me'
+import { backOriginState } from '../lib/backOrigin'
 import { useMyProgress, useDeleteProgress } from '../lib/api/list'
 import {
   useListPresets,
@@ -20,6 +21,7 @@ import type { FlowPath } from '../features/logging/types'
 import { PageLoading } from '../components/PageLoading'
 import { TooltipProvider } from '../components/ui/tooltip'
 import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
+import { MobileActionSheet } from '../components/MobileActionSheet'
 import { AlertDialog } from '../components/ui/alert-dialog'
 import { toast } from '../components/ui/sonner'
 import { useMediaQuery } from '../lib/useMediaQuery'
@@ -32,6 +34,7 @@ import { ListTable, tableMinWidth } from '../features/list/ListTable'
 import { MobilePager } from '../features/list/MobilePager'
 import { FilterPanel } from '../features/list/FilterPanel'
 import { ControlsSheet } from '../features/list/ControlsSheet'
+import { PresetSheet } from '../features/list/PresetSheet'
 import { PresetCreateDialog } from '../features/list/PresetCreateDialog'
 import {
   applyFilters,
@@ -77,6 +80,7 @@ export function List() {
   const deletePreset = useDeletePreset()
   const deleteProgress = useDeleteProgress()
   const navigate = useNavigate()
+  const location = useLocation()
   const { openForEdit } = useLoggingFlow()
 
   // Derived (not local state) so concurrent overwrites of different presets
@@ -101,6 +105,7 @@ export function List() {
   const [hideTime, setHideTime] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [controlsOpen, setControlsOpen] = useState(false)
+  const [presetSheetOpen, setPresetSheetOpen] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editingPreset, setEditingPreset] = useState<ListPreset | null>(null)
 
@@ -477,6 +482,7 @@ export function List() {
     void navigate({
       to: '/list/$levelId',
       params: { levelId: item.level.inGameId },
+      state: backOriginState(location.href),
     })
   }
 
@@ -533,6 +539,7 @@ export function List() {
             filterOpen={filterOpen}
             onToggleFilters={() => setFilterOpen((o) => !o)}
             onOpenControls={() => setControlsOpen(true)}
+            onOpenPresets={() => setPresetSheetOpen(true)}
             onReset={resetAll}
             canReset={canReset}
             presets={presets}
@@ -614,10 +621,16 @@ export function List() {
         </Sheet>
       )}
 
-      {/* Mobile controls — sort + columns. */}
-      <Sheet open={controlsOpen} onOpenChange={setControlsOpen}>
-        <SheetContent side="bottom" className="p-0">
-          <SheetTitle className="sr-only">Sort and columns</SheetTitle>
+      {/* Mobile controls — sort + columns. MobileActionSheet (not the Radix
+          Sheet primitive above) to match the spring-based slide the rest of
+          the app's mobile menus use (MobileNav, SearchPageBar) — the Radix
+          Sheet's CSS keyframe transition reads noticeably less smooth. */}
+      <MobileActionSheet
+        open={controlsOpen}
+        onClose={() => setControlsOpen(false)}
+        ariaLabel="Sort and columns"
+      >
+        <div className="max-h-[75vh] overflow-y-auto">
           <ControlsSheet
             sorts={sorts}
             onSorts={setSorts}
@@ -628,8 +641,30 @@ export function List() {
             allColumnDefs={allColumnDefs}
             categorySortOptions={categorySortOptions}
           />
-        </SheetContent>
-      </Sheet>
+        </div>
+      </MobileActionSheet>
+
+      {/* Mobile presets — trigger lives above the search bar in Toolbar. */}
+      <MobileActionSheet
+        open={presetSheetOpen}
+        onClose={() => setPresetSheetOpen(false)}
+        ariaLabel="Presets"
+      >
+        <div className="max-h-[75vh] overflow-y-auto">
+          <PresetSheet
+            presets={presets}
+            selectedPresetId={selectedPresetId}
+            isModified={isPresetModified}
+            deletingPresetId={deletingPresetId}
+            overwritingPresetIds={overwritingPresetIds}
+            onSelect={handleSelectPreset}
+            onOverwrite={handleOverwritePreset}
+            onDelete={handleDeletePreset}
+            onEdit={handleEditPreset}
+            onClose={() => setPresetSheetOpen(false)}
+          />
+        </div>
+      </MobileActionSheet>
 
       <AlertDialog
         open={pendingDelete != null}

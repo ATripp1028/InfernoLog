@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { AnimatePresence, motion, useDragControls } from 'framer-motion'
 
 // Dragging the handle past this offset (or flicking it down fast enough)
@@ -23,6 +23,20 @@ export function MobileActionSheet({
   children,
 }: MobileActionSheetProps) {
   const dragControls = useDragControls()
+
+  // Radix Dialog's `Sheet` (this component's predecessor for some of these
+  // menus) closed on Escape for free; this plain framer-motion sheet doesn't
+  // get that automatically, so wire it up directly at the document level —
+  // content here is arbitrary (nav links, form controls), not a single
+  // focused element we can rely on to bubble a local keydown handler.
+  useEffect(() => {
+    if (!open) return
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [open, onClose])
 
   return (
     <AnimatePresence>

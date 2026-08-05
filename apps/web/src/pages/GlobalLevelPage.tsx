@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Link, useNavigate, useParams, useRouter } from '@tanstack/react-router'
-import { ArrowLeft, Check, Flag, List, Star, X } from 'lucide-react'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
+import { ArrowLeft, ArrowRight, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
   levelPageErrorKind,
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
+import { useGoBack } from '@/lib/useGoBack'
+import { BackLink } from '@/components/BackLink'
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
@@ -43,7 +45,7 @@ function DesktopSectionHeader({ children }: { children: React.ReactNode }) {
 export function GlobalLevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
-  const router = useRouter()
+  const back = useGoBack('/list')
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -65,13 +67,6 @@ export function GlobalLevelPage() {
     () => (query.data ? collectionLevel(query.data) : undefined),
     [query.data]
   )
-
-  const goBack = () => {
-    // Return to wherever the id was entered (search, list, another level).
-    // Falls back to the List if there's no history to pop.
-    if (window.history.length > 1) router.history.back()
-    else void navigate({ to: '/list' })
-  }
 
   const handleAddToWantToBeat = () => {
     if (!wtbId) return
@@ -155,7 +150,7 @@ export function GlobalLevelPage() {
     return (
       <NotFoundState
         levelId={levelId}
-        onCheckId={goBack}
+        onCheckId={back.onClick}
         onBack={() => void navigate({ to: '/list' })}
       />
     )
@@ -189,19 +184,32 @@ export function GlobalLevelPage() {
     <>
       {/* ── Mobile ─────────────────────────────────────────────── */}
       <div className="md:hidden">
-        {/* BackRow — real back affordance plus the level name. */}
-        <div className="flex h-14 items-center gap-2 border-b border-border-subtle px-4">
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label="Back"
+        {/* BackRow — real back affordance plus the level name. Padding and
+            spacing mirror the user-scoped level page's back row. */}
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
+          <BackLink
+            back={back}
+            ariaLabel="Back"
             className="text-text-secondary hover:text-text-primary"
           >
             <ArrowLeft size={18} />
-          </button>
+          </BackLink>
           <span className="truncate text-sm font-medium text-text-primary">
             {levelName}
           </span>
+          {/* Cross-link — right-aligned to match where the reciprocal link
+              sits on the user-scoped page. */}
+          {level.hasUserProgress && (
+            <Link
+              to="/list/$levelId"
+              params={{ levelId }}
+              state={true}
+              className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+            >
+              Your page for this level
+              <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
 
         {delisted && (
@@ -226,19 +234,6 @@ export function GlobalLevelPage() {
           </div>
         </div>
 
-        {/* Cross-link — its own 48px row (no arrow: the accent carries the
-            affordance; ← stays the only back-arrow on the page). Right-aligned
-            to match where the reciprocal link sits on the user-scoped page. */}
-        {level.hasUserProgress && (
-          <Link
-            to="/list/$levelId"
-            params={{ levelId }}
-            className="flex h-12 items-center justify-end border-b border-border-subtle px-4 text-[13px] font-medium text-[var(--color-primary-light)]"
-          >
-            Your page for this level
-          </Link>
-        )}
-
         <CollapsibleSection title="Song">
           <Song level={level} />
         </CollapsibleSection>
@@ -253,23 +248,27 @@ export function GlobalLevelPage() {
 
       {/* ── Desktop ────────────────────────────────────────────── */}
       <div className="hidden md:block">
-        <div className="mx-8 pb-16 pt-4">
-          {delisted && (
-            <div className="mb-4">
-              <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
-            </div>
-          )}
-
-          {/* Breadcrumb slot — holds only the cross-link (when the user has a
-              page for this level), right-aligned to match where the reciprocal
-              link sits on the user-scoped page. Empty otherwise; reserved
-              height keeps the layout from shifting. */}
-          <div className="flex min-h-[20px] items-center justify-end pb-4">
+        <div className="mx-8 pb-16">
+          {/* Back row — mirrors the user-scoped level page's desktop back
+              row: back arrow + level name on the left, cross-link (when the
+              user has a page for this level) right-aligned. */}
+          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+            <BackLink
+              back={back}
+              ariaLabel="Back"
+              className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
+            >
+              <ArrowLeft size={18} />
+            </BackLink>
+            <span className="truncate text-sm font-medium text-text-primary">
+              {levelName}
+            </span>
             {level.hasUserProgress && (
               <Link
                 to="/list/$levelId"
                 params={{ levelId }}
-                className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+                state={true}
+                className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
               >
                 Your page for this level
                 <span aria-hidden>→</span>
@@ -277,7 +276,13 @@ export function GlobalLevelPage() {
             )}
           </div>
 
-          <div className="flex gap-8 border-t border-border-subtle pt-6">
+          {delisted && (
+            <div className="mb-4">
+              <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
+            </div>
+          )}
+
+          <div className="flex gap-8">
             {/* Left column — grows to fill; right column is fixed-width. */}
             <div className="min-w-0 flex-1">
               <Thumbnail
@@ -353,7 +358,7 @@ function PageSkeleton() {
     <>
       {/* Mobile */}
       <div className="md:hidden">
-        <div className="flex h-14 items-center gap-2 border-b border-border-subtle px-4">
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
           <ArrowLeft size={18} className="text-text-tertiary" />
           <Pulse className="h-4 w-40" />
         </div>
@@ -378,8 +383,11 @@ function PageSkeleton() {
       {/* Desktop */}
       <div className="hidden md:block">
         <div className="mx-8 pb-16 pt-4">
-          <div className="min-h-[20px] pb-4" />
-          <div className="flex gap-8 border-t border-border-subtle pt-6">
+          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+            <ArrowLeft size={18} className="text-text-tertiary" />
+            <Pulse className="h-4 w-40" />
+          </div>
+          <div className="flex gap-8">
             <div className="min-w-0 flex-1">
               <Pulse className="aspect-video w-full rounded-card" />
               <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">

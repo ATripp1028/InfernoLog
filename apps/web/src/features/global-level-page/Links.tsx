@@ -1,6 +1,7 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
+import { backOriginState } from '@/lib/backOrigin'
 import { isExtremeDemon } from './format'
 
 // External link builders. AREDL's public level URL isn't pinned in the docs
@@ -91,10 +92,12 @@ function InternalRow({
   label: string
   pad: string
 }) {
+  const location = useLocation()
   return (
     <Link
       to="/levels/$levelId"
       params={{ levelId: to }}
+      state={backOriginState(location.href)}
       className={cn(
         'flex items-center justify-between py-2.5 text-sm text-[var(--color-primary-light)] transition hover:brightness-110',
         pad

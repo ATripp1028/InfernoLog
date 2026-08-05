@@ -1,8 +1,9 @@
-import { Link, useNavigate } from '@tanstack/react-router'
+import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { ReactNode } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { backOriginState } from '@/lib/backOrigin'
 import { EmberBackground } from './EmberBackground'
 
 // Unauthenticated marketing landing page (route `/`). Layout, copy, and image
@@ -70,6 +71,7 @@ const portraitShot =
   'mx-auto max-h-[450px] w-auto rounded-lg lg:max-h-none lg:w-full'
 
 export function LandingPage() {
+  const location = useLocation()
   return (
     <div className="relative min-h-screen bg-[var(--color-bg-base)] text-foreground">
       <EmberBackground />
@@ -241,16 +243,32 @@ export function LandingPage() {
             <Link to="/" className="hover:text-foreground">
               Home
             </Link>
-            <Link to="/about" className="hover:text-foreground">
+            <Link
+              to="/about"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               Acknowledgments
             </Link>
-            <Link to="/terms" className="hover:text-foreground">
+            <Link
+              to="/terms"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               Terms
             </Link>
-            <Link to="/privacy" className="hover:text-foreground">
+            <Link
+              to="/privacy"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               Privacy
             </Link>
-            <Link to="/dmca" className="hover:text-foreground">
+            <Link
+              to="/dmca"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               DMCA
             </Link>
           </nav>

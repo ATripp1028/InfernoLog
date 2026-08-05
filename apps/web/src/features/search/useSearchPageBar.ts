@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
+import { backOriginState } from '@/lib/backOrigin'
 import type { LevelSearchBy, SearchPageState } from '@/lib/levelSearchParams'
 
 const DEBOUNCE_MS = 250
@@ -11,6 +12,7 @@ const DEBOUNCE_MS = 250
 // Page (a browse can't auto-navigate on every keystroke).
 export function useSearchPageBar(committed: SearchPageState) {
   const navigate = useNavigate()
+  const location = useLocation()
   const [query, setQuery] = useState(committed.query ?? '')
   const [searchBy, setSearchBy] = useState<LevelSearchBy>(committed.searchBy)
 
@@ -73,9 +75,13 @@ export function useSearchPageBar(committed: SearchPageState) {
 
   const goToLevel = useCallback(
     (levelId: string) => {
-      navigate({ to: '/levels/$levelId', params: { levelId } })
+      navigate({
+        to: '/levels/$levelId',
+        params: { levelId },
+        state: backOriginState(location.href),
+      })
     },
-    [navigate]
+    [navigate, location.href]
   )
 
   // Enter: jump to a numeric id, otherwise flush the pending debounce so the

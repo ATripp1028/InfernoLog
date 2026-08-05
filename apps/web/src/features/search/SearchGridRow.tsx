@@ -1,8 +1,9 @@
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { formatNumber } from '@/features/logging/format'
 import { gdStatIconSrc } from '@/lib/gdAssets'
+import { backOriginState } from '@/lib/backOrigin'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
 
 function Stat({
@@ -36,11 +37,13 @@ export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
   // are always 0 — hide those stats for them (same 'robtop' heuristic the Stats
   // card uses).
   const isRobtop = level.creator?.toLowerCase() === 'robtop'
+  const location = useLocation()
 
   return (
     <Link
       to="/levels/$levelId"
       params={{ levelId: level.inGameId }}
+      state={backOriginState(location.href)}
       className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-border-subtle px-3 py-2.5 transition-colors"
     >
       <ThumbnailWash levelId={level.inGameId} variant="row" />

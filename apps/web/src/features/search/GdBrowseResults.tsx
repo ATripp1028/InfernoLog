@@ -1,6 +1,7 @@
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import type { LevelSearchResult } from '@/lib/api/logging'
+import { backOriginState } from '@/lib/backOrigin'
 import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
 
@@ -14,13 +15,18 @@ export function GdBrowseResults({
   escalation: ReturnType<typeof useEscalation>
 }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const result = escalation.result
 
   // Nothing to render until an escalation has been fired for this search.
   if (escalation.escalatedQuery === null || escalation.isPending) return null
 
   const go = (levelId: string) =>
-    navigate({ to: '/levels/$levelId', params: { levelId } })
+    navigate({
+      to: '/levels/$levelId',
+      params: { levelId },
+      state: backOriginState(location.href),
+    })
 
   if (result?.status === 'ok') {
     return (

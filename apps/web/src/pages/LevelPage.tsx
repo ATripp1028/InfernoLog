@@ -1,4 +1,4 @@
-import { Link, useParams, useNavigate } from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowLeft,
@@ -12,6 +12,8 @@ import {
   X,
 } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
+import { useGoBack, type GoBack } from '@/lib/useGoBack'
+import { BackLink } from '@/components/BackLink'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
@@ -50,7 +52,7 @@ function PrivateProfile() {
   )
 }
 
-function NotFound({ levelId }: { levelId: string }) {
+function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
       <AlertCircle size={36} className="text-text-tertiary" />
@@ -62,12 +64,12 @@ function NotFound({ levelId }: { levelId: string }) {
           Level #{levelId} hasn't been logged yet.
         </p>
       </div>
-      <Link
-        to="/list"
+      <BackLink
+        back={back}
         className="mt-2 text-sm text-[var(--color-primary-light)] hover:underline"
       >
-        ← Back to List
-      </Link>
+        ← Back
+      </BackLink>
     </div>
   )
 }
@@ -133,6 +135,7 @@ function TimelineSkeleton() {
 export function LevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
   const navigate = useNavigate()
+  const back = useGoBack('/list')
   const me = useMe()
   const deleteProgress = useDeleteProgress()
   const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
@@ -288,7 +291,7 @@ export function LevelPage() {
   }
 
   if (is403) return <PrivateProfile />
-  if (is404) return <NotFound levelId={levelId} />
+  if (is404) return <NotFound levelId={levelId} back={back} />
 
   if (query.error && !query.data) {
     return (
@@ -321,22 +324,24 @@ export function LevelPage() {
     <>
       {/* Back navigation row */}
       <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3 md:mx-8 md:border-b md:px-0 md:py-4">
-        <Link
-          to="/list"
+        <BackLink
+          back={back}
+          ariaLabel="Back"
           className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
-          aria-label="Back to List"
         >
           <ArrowLeft size={18} />
-        </Link>
+        </BackLink>
         <span className="text-sm font-medium text-text-primary truncate">
           {levelName}
         </span>
         {/* Reciprocal cross-link to the community-facing Global Level Page —
             the other half of the two-way link. Always valid here: this page
-            only renders when a LevelProgress row exists. */}
+            only renders when a LevelProgress row exists. `state` inherits
+            the remembered origin unchanged so the pair acts as one hop. */}
         <Link
           to="/levels/$levelId"
           params={{ levelId }}
+          state={true}
           className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
         >
           Global level page

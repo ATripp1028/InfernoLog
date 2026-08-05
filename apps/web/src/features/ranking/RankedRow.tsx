@@ -1,10 +1,11 @@
 import { forwardRef } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useLocation } from '@tanstack/react-router'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
+import { backOriginState } from '@/lib/backOrigin'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
 import { medalColor } from './medals'
@@ -27,6 +28,7 @@ interface RankedRowProps {
 export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
   ({ rank, item, handle, highlight, isDragging, style, domId }, ref) => {
     const { level, badge, attempts } = item
+    const location = useLocation()
     return (
       <div
         ref={ref}
@@ -46,6 +48,7 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
           <Link
             to="/list/$levelId"
             params={{ levelId: level.inGameId }}
+            state={backOriginState(location.href)}
             className="flex min-w-0 flex-1 items-center gap-3 self-stretch"
             onClick={(e) => e.stopPropagation()}
           >

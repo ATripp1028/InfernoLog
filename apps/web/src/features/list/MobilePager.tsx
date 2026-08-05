@@ -1,5 +1,6 @@
-import { useNavigate } from '@tanstack/react-router'
+import { useLocation, useNavigate } from '@tanstack/react-router'
 import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import { backOriginState } from '@/lib/backOrigin'
 import { ListCard } from './ListCard'
 import type { ColumnVisibility } from './columns'
 import type { ListItem } from './types'
@@ -21,6 +22,7 @@ export function MobilePager({
   hideTime,
 }: MobilePagerProps) {
   const navigate = useNavigate()
+  const location = useLocation()
 
   return (
     <div className="flex flex-col gap-2 md:hidden">
@@ -32,6 +34,7 @@ export function MobilePager({
             navigate({
               to: '/list/$levelId',
               params: { levelId: item.level.inGameId },
+              state: backOriginState(location.href),
             })
           }
           aria-label={`Open ${item.level.name ?? 'level'} details`}

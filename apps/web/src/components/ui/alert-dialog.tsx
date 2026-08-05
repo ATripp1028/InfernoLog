@@ -1,6 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { Button } from './button'
+import { cn } from '@/lib/utils'
+import {
+  dialogContentAnimation,
+  dialogOverlayAnimation,
+} from '@/lib/dialogAnimation'
 
 // A small centered confirm dialog over Radix Dialog (no extra dep). Used for
 // destructive confirmations like deleting a list entry.
@@ -40,11 +45,23 @@ export function AlertDialog({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
+        <Dialog.Overlay
+          className={cn(
+            'fixed inset-0 z-50 bg-black/60',
+            dialogOverlayAnimation
+          )}
+        />
         <Dialog.Content
           {...(description ? {} : { 'aria-describedby': undefined })}
-          className="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-card border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 shadow-xl focus:outline-none"
+          className={cn(
+            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 pb-6 shadow-xl focus:outline-none',
+            dialogContentAnimation,
+            'md:inset-auto md:left-1/2 md:top-1/2 md:bottom-auto md:w-[calc(100vw-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:border md:pb-5'
+          )}
         >
+          <div className="mx-auto mb-3 flex justify-center md:hidden">
+            <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
+          </div>
           <Dialog.Title className="text-base font-semibold text-text-primary">
             {title}
           </Dialog.Title>
