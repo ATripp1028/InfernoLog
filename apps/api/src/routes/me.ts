@@ -599,15 +599,26 @@ app.post('/me/gddl-sync', async (c) => {
   }
 })
 
+// How long a finished job stays visible via GET after it completes/fails.
+// GddlSyncJob is one-per-user and a new sync overwrites the previous job
+// rather than accumulating history, so without a cutoff this endpoint would
+// keep reporting a months-old completion as if it just happened — which is
+// exactly what caused a stale "Sync complete" toast to re-fire on login. The
+// job row itself isn't deleted (POST still needs it for the idempotency
+// check), just hidden from GET once it's old enough that no client could
+// plausibly still be waiting on it.
+const GDDL_SYNC_VISIBLE_MS = 10 * 60 * 1000
+
 // GET /v1/me/gddl-sync — the user's GDDL sync job (or null), mirroring GET
 // /v1/me/import/status for spreadsheet import: no job id needed, so the
 // frontend can poll this from anywhere without having to carry a job id
 // across navigation or a page reload. GddlSyncJob is one-per-user (like
 // ImportJob) — a new sync overwrites the previous job (see POST handler
-// above) — so this always returns the single current/most-recent job,
-// completed or not. A stale pending job is lazily expired here so the UI it
-// drives (e.g. the disabled Sync button) can recover without the user
-// needing to trigger a new sync attempt first.
+// above) — so this always returns the single current/most-recent job while
+// it's still relevant: pending, or finished within GDDL_SYNC_VISIBLE_MS. A
+// stale pending job is lazily expired here so the UI it drives (e.g. the
+// disabled Sync button) can recover without the user needing to trigger a
+// new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
@@ -620,18 +631,26 @@ app.get('/me/gddl-sync', async (c) => {
         result: true,
         error: true,
         startedAt: true,
+        finishedAt: true,
       },
     })
     const current = job ? await expireIfStale(job) : null
+    const visible =
+      current &&
+      (current.status === 'pending' ||
+        !current.finishedAt ||
+        Date.now() - current.finishedAt.getTime() <= GDDL_SYNC_VISIBLE_MS)
 
     return c.json(
       {
-        data: current && {
-          id: current.id,
-          status: current.status,
-          result: current.result,
-          error: current.error,
-        },
+        data: visible
+          ? {
+              id: current.id,
+              status: current.status,
+              result: current.result,
+              error: current.error,
+            }
+          : null,
       },
       200
     )

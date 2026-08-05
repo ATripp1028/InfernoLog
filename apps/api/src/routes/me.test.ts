@@ -698,6 +698,40 @@ describe('GET /me/gddl-sync', () => {
       })
     )
   })
+
+  it('returns null for a completed job finished outside the visibility window', async () => {
+    syncJobMock.findUnique.mockResolvedValueOnce({
+      id: 'job-old',
+      status: 'completed',
+      result: { created: 3, enriched: 0, skipped: 1, errors: [] },
+      error: null,
+      startedAt: new Date(Date.now() - 60 * 60 * 1000),
+      finishedAt: new Date(Date.now() - 30 * 60 * 1000),
+    })
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: null }
+
+    expect(res.status).toBe(200)
+    expect(body.data).toBeNull()
+  })
+
+  it('still returns a completed job finished within the visibility window', async () => {
+    syncJobMock.findUnique.mockResolvedValueOnce({
+      id: 'job-recent',
+      status: 'completed',
+      result: { created: 1, enriched: 0, skipped: 0, errors: [] },
+      error: null,
+      startedAt: new Date(Date.now() - 60 * 1000),
+      finishedAt: new Date(Date.now() - 30 * 1000),
+    })
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: { id: string } | null }
+
+    expect(res.status).toBe(200)
+    expect(body.data?.id).toBe('job-recent')
+  })
 })
 
 describe('POST /me/gddl-lists-sync', () => {
