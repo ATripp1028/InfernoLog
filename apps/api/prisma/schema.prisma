@@ -871,9 +871,11 @@ model ModerationAction {
 // the lifetime of their account (it does not change between sync runs).
 // Because `id` doesn't vary per run, the client can't dedupe "have I shown
 // this completion's toast" by id alone — `acknowledgedAt` is the per-run
-// signal instead: POST /me/gddl-sync resets it to null whenever a new sync
-// starts, and POST /me/gddl-sync/ack sets it once the client has shown the
-// result, so GET can stop returning an already-acknowledged completion
+// signal instead: POST /me/gddl-sync resets it (and `startedAt`) whenever a
+// new sync starts, and POST /me/gddl-sync/ack sets it once the client has
+// shown the result, scoped by both `id` and `startedAt` (not `id` alone) so
+// a delayed ack from an old run can't land on a newer run that reused the
+// same row. GET then stops returning an already-acknowledged completion,
 // without any client-side storage.
 model GddlSyncJob {
   id             String    @id @default(uuid())

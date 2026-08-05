@@ -511,7 +511,13 @@ app.delete('/me/gddl-key', async (c) => {
 const GDDL_SYNC_STALE_MS = 20 * 60 * 1000
 
 async function expireIfStale<
-  T extends { id: string; status: string; startedAt: Date },
+  T extends {
+    id: string
+    status: string
+    startedAt: Date
+    finishedAt: Date | null
+    error: string | null
+  },
 >(job: T): Promise<T> {
   if (
     job.status !== 'pending' ||
@@ -519,15 +525,17 @@ async function expireIfStale<
   ) {
     return job
   }
+  const finishedAt = new Date()
+  const error = 'Sync timed out'
   await prisma.gddlSyncJob.update({
     where: { id: job.id },
-    data: {
-      status: 'failed',
-      error: 'Sync timed out',
-      finishedAt: new Date(),
-    },
+    data: { status: 'failed', error, finishedAt },
   })
-  return { ...job, status: 'failed' }
+  // Mirror the DB write in the returned object — callers (POST's "is a sync
+  // already running" check and GET's response payload) read status,
+  // finishedAt, and error off this return value without re-querying, so it
+  // must reflect what was just persisted, not the pre-expiry job.
+  return { ...job, status: 'failed', error, finishedAt }
 }
 
 // POST /v1/me/gddl-sync — creates an async sync job and returns 202 + jobId
@@ -558,7 +566,13 @@ app.post('/me/gddl-sync', async (c) => {
 
     const existingJob = await prisma.gddlSyncJob.findUnique({
       where: { userId },
-      select: { id: true, status: true, startedAt: true },
+      select: {
+        id: true,
+        status: true,
+        startedAt: true,
+        finishedAt: true,
+        error: true,
+      },
     })
     const existing = existingJob ? await expireIfStale(existingJob) : null
 
@@ -602,23 +616,21 @@ app.post('/me/gddl-sync', async (c) => {
   }
 })
 
-// Backstop cap on how long a finished-but-unacknowledged job stays visible
-// via GET. Acknowledgment (see POST /me/gddl-sync/ack) is the primary
-// signal — the client calls it right after showing the result — but this
-// catches the case where that call never happens (tab closed mid-toast,
-// crash, ad blocker, etc.) so an unacknowledged job doesn't linger forever.
-const GDDL_SYNC_VISIBLE_MS = 10 * 60 * 1000
-
 // GET /v1/me/gddl-sync — the user's GDDL sync job (or null), mirroring GET
 // /v1/me/import/status for spreadsheet import: no job id needed, so the
 // frontend can poll this from anywhere without having to carry a job id
 // across navigation or a page reload. GddlSyncJob is one-per-user (like
 // ImportJob) — a new sync overwrites the previous job (see POST handler
 // above) — so this always returns the single current/most-recent job while
-// it's still relevant: pending, or completed/failed but not yet acknowledged
-// (and within GDDL_SYNC_VISIBLE_MS as a backstop). A stale pending job is
-// lazily expired here so the UI it drives (e.g. the disabled Sync button)
-// can recover without the user needing to trigger a new sync attempt first.
+// it's still relevant: pending, or completed/failed but not yet acknowledged.
+// No time-based cutoff on the unacknowledged case — the client calls POST
+// /me/gddl-sync/ack right after showing the result, scoped to this specific
+// run via `startedAt` (see that handler), so a completion simply stays
+// visible until it's actually been seen, however long the client was away.
+// `startedAt` is included in the response so the client can pass it back to
+// /ack. A stale pending job is lazily expired here so the UI it drives (e.g.
+// the disabled Sync button) can recover without the user needing to trigger
+// a new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
@@ -637,12 +649,8 @@ app.get('/me/gddl-sync', async (c) => {
     })
     const current = job ? await expireIfStale(job) : null
     const visible =
-      current &&
-      (current.status === 'pending' ||
-        (!current.acknowledgedAt &&
-          (!current.finishedAt ||
-            Date.now() - current.finishedAt.getTime() <=
-              GDDL_SYNC_VISIBLE_MS)))
+      current !== null &&
+      (current.status === 'pending' || !current.acknowledgedAt)
 
     return c.json(
       {
@@ -652,6 +660,7 @@ app.get('/me/gddl-sync', async (c) => {
               status: current.status,
               result: current.result,
               error: current.error,
+              startedAt: current.startedAt.toISOString(),
             }
           : null,
       },
@@ -666,22 +675,39 @@ app.get('/me/gddl-sync', async (c) => {
 
 // POST /v1/me/gddl-sync/ack — marks a completed/failed job as acknowledged
 // so GET stops returning it. Called by the client right after it shows the
-// result (toast/invalidation) for that job id. Scoped to { id, userId } and
-// a no-op if nothing matches (wrong id, already acknowledged, or the id
-// belongs to a job that's since been superseded by a new sync) — the client
-// only cares that the job is no longer visible afterward, not who won a race.
+// result (toast/invalidation) for that job/run. `id` alone can't identify
+// "this run" — it's stable forever per user, so a new sync reuses the same
+// row — so the where-clause also pins `startedAt` (echoed back from what
+// GET returned for the run being acknowledged). Without that, a delayed ack
+// for an old run could match a newer run that's since completed on the same
+// row (same id, no longer 'pending') and silently mark it acknowledged
+// before the client ever saw it; pinning startedAt makes that a guaranteed
+// no-op instead, since a new run always gets a fresh startedAt. Scoped to
+// { id, userId, startedAt } and a no-op if nothing matches (wrong id/run,
+// already acknowledged, or superseded by a new sync) — the client only
+// cares that its run is no longer visible afterward, not who won a race.
+const AckGddlSyncSchema = z.object({
+  jobId: z.string().min(1),
+  startedAt: z.string().datetime(),
+})
+
 app.post('/me/gddl-sync/ack', async (c) => {
   const userId = c.get('userId') as string
 
   try {
     const body = await c.req.json().catch(() => null)
-    const jobId = body?.jobId
-    if (typeof jobId !== 'string' || !jobId) {
-      return c.json({ error: 'jobId is required' }, 400)
+    const parsed = AckGddlSyncSchema.safeParse(body)
+    if (!parsed.success) {
+      return c.json({ error: parsed.error.flatten() }, 400)
     }
 
     await prisma.gddlSyncJob.updateMany({
-      where: { id: jobId, userId, status: { not: 'pending' } },
+      where: {
+        id: parsed.data.jobId,
+        userId,
+        status: { not: 'pending' },
+        startedAt: new Date(parsed.data.startedAt),
+      },
       data: { acknowledgedAt: new Date() },
     })
 
