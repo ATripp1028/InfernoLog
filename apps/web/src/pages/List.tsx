@@ -645,11 +645,9 @@ export function List() {
             deletingPresetId={deletingPresetId}
             overwritingPresetIds={overwritingPresetIds}
             onSelect={handleSelectPreset}
-            onSaveNew={handleSaveNewPreset}
             onOverwrite={handleOverwritePreset}
             onDelete={handleDeletePreset}
             onEdit={handleEditPreset}
-            onDiscard={handleDiscardPresetChanges}
             onClose={() => setPresetSheetOpen(false)}
           />
         </SheetContent>

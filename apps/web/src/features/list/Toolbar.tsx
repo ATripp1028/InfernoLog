@@ -79,31 +79,53 @@ export function Toolbar({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Mobile: preset trigger lives above the search bar; the desktop
-          PresetSelector below stays hidden here and reappears inline. */}
-      <button
-        type="button"
-        onClick={onOpenPresets}
-        className="flex w-full items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px] md:hidden"
-      >
-        <span className="font-medium text-text-primary">Preset</span>
-        <span className="text-[11px] text-text-tertiary">·</span>
-        {presetTriggerColor ? (
-          <span
-            className="h-2 w-2 shrink-0 rounded-full"
-            style={{ background: presetTriggerColor.hex }}
-          />
-        ) : (
-          <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
-        )}
-        <span className="min-w-0 flex-1 truncate text-left text-[12px] text-text-secondary">
-          {presetTriggerLabel}
-        </span>
+      {/* Mobile: preset trigger (+ conditional save/reset) lives above the
+          search bar; the desktop PresetSelector below stays hidden here and
+          reappears inline. */}
+      <div className="flex items-center gap-1.5 md:hidden">
+        <button
+          type="button"
+          onClick={onOpenPresets}
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px]"
+        >
+          <span className="font-medium text-text-primary">Preset</span>
+          <span className="text-[11px] text-text-tertiary">·</span>
+          {presetTriggerColor ? (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full"
+              style={{ background: presetTriggerColor.hex }}
+            />
+          ) : (
+            <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
+          )}
+          <span className="min-w-0 flex-1 truncate text-left text-[12px] text-text-secondary">
+            {presetTriggerLabel}
+          </span>
+          {isPresetModified && (
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" />
+          )}
+          <ChevronDown size={12} className="shrink-0 text-text-secondary" />
+        </button>
+
         {isPresetModified && (
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" />
+          <>
+            <button
+              type="button"
+              onClick={onSaveNewPreset}
+              className="shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px] font-medium text-text-primary"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={onDiscardPreset}
+              className="shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px] font-medium text-text-secondary"
+            >
+              Reset
+            </button>
+          </>
         )}
-        <ChevronDown size={12} className="shrink-0 text-text-secondary" />
-      </button>
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 sm:w-[260px] sm:flex-none">
