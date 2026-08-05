@@ -863,19 +863,27 @@ model ModerationAction {
   @@map("moderation_actions")
 }
 
-// Tracks an async GDDL submission-history import. The route Lambda creates a
-// pending row and returns the id immediately; the worker Lambda updates the row
-// to completed/failed when the sync finishes. One row per user — same pattern
-// as ImportJob: starting a new sync deletes the previous job first, since
-// nothing ever reads sync history beyond the latest job.
+// Tracks an async GDDL submission-history import. The route Lambda upserts a
+// pending row and returns the id immediately; the worker Lambda updates the
+// row to completed/failed when the sync finishes. One row per user (userId
+// is unique) — a new sync overwrites the previous job's fields via upsert
+// rather than inserting a fresh row, so `id` is stable for a given user for
+// the lifetime of their account (it does not change between sync runs).
+// Because `id` doesn't vary per run, the client can't dedupe "have I shown
+// this completion's toast" by id alone — `acknowledgedAt` is the per-run
+// signal instead: POST /me/gddl-sync resets it to null whenever a new sync
+// starts, and POST /me/gddl-sync/ack sets it once the client has shown the
+// result, so GET can stop returning an already-acknowledged completion
+// without any client-side storage.
 model GddlSyncJob {
-  id         String    @id @default(uuid())
-  userId     String    @unique
-  status     String    // "pending" | "completed" | "failed"
-  result     Json?
-  error      String?
-  startedAt  DateTime  @default(now())
-  finishedAt DateTime?
+  id             String    @id @default(uuid())
+  userId         String    @unique
+  status         String    // "pending" | "completed" | "failed"
+  result         Json?
+  error          String?
+  startedAt      DateTime  @default(now())
+  finishedAt     DateTime?
+  acknowledgedAt DateTime?
 
   @@map("gddl_sync_jobs")
 }

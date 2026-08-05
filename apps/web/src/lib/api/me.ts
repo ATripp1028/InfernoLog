@@ -215,6 +215,24 @@ export function useGddlSyncStatus() {
   })
 }
 
+// Marks a completed/failed job acknowledged so GET /v1/me/gddl-sync stops
+// returning it — called right after GddlSyncProvider shows the toast for it.
+// Server-side (not localStorage) so it works regardless of client storage
+// being cleared and across devices/browsers for the same account.
+export function useAckGddlSync() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (jobId: string): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/gddl-sync/ack', {
+        token,
+        method: 'POST',
+        body: { jobId },
+      })
+    },
+  })
+}
+
 // ─────────────────────────────────────────────
 // GDDL lists sync (favorites / least favorites)
 // ─────────────────────────────────────────────

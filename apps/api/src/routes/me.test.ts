@@ -562,7 +562,10 @@ describe('POST /me/gddl-sync', () => {
     expect(syncJobMock.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         create: expect.objectContaining({ status: 'pending' }),
-        update: expect.objectContaining({ status: 'pending' }),
+        update: expect.objectContaining({
+          status: 'pending',
+          acknowledgedAt: null,
+        }),
       })
     )
     expect(mockLambdaSend).toHaveBeenCalledTimes(1)
@@ -731,6 +734,84 @@ describe('GET /me/gddl-sync', () => {
 
     expect(res.status).toBe(200)
     expect(body.data?.id).toBe('job-recent')
+  })
+
+  it('returns null for a completed job that has already been acknowledged, even within the visibility window', async () => {
+    syncJobMock.findUnique.mockResolvedValueOnce({
+      id: 'job-acked',
+      status: 'completed',
+      result: { created: 1, enriched: 0, skipped: 0, errors: [] },
+      error: null,
+      startedAt: new Date(Date.now() - 60 * 1000),
+      finishedAt: new Date(Date.now() - 30 * 1000),
+      acknowledgedAt: new Date(Date.now() - 10 * 1000),
+    })
+
+    const res = await buildApp().request('/me/gddl-sync', { method: 'GET' })
+    const body = (await res.json()) as { data: null }
+
+    expect(res.status).toBe(200)
+    expect(body.data).toBeNull()
+  })
+})
+
+describe('POST /me/gddl-sync/ack', () => {
+  it('acknowledges a job by id, scoped to the current user and non-pending status', async () => {
+    syncJobMock.updateMany.mockResolvedValueOnce({ count: 1 })
+
+    const res = await buildApp().request('/me/gddl-sync/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: 'job-123' }),
+    })
+    const body = (await res.json()) as { data: { acknowledged: boolean } }
+
+    expect(res.status).toBe(200)
+    expect(body.data.acknowledged).toBe(true)
+    expect(syncJobMock.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          id: 'job-123',
+          status: { not: 'pending' },
+        }),
+        data: expect.objectContaining({ acknowledgedAt: expect.any(Date) }),
+      })
+    )
+  })
+
+  it('returns 400 when jobId is missing', async () => {
+    const res = await buildApp().request('/me/gddl-sync/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+
+    expect(res.status).toBe(400)
+    expect(syncJobMock.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('returns 200 even when no job matches (already acknowledged / superseded)', async () => {
+    syncJobMock.updateMany.mockResolvedValueOnce({ count: 0 })
+
+    const res = await buildApp().request('/me/gddl-sync/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: 'job-gone' }),
+    })
+
+    expect(res.status).toBe(200)
+  })
+
+  it('returns 500 when the DB update throws', async () => {
+    syncJobMock.updateMany.mockRejectedValueOnce(new Error('DB error'))
+
+    const res = await buildApp().request('/me/gddl-sync/ack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jobId: 'job-123' }),
+    })
+
+    expect(res.status).toBe(500)
   })
 })
 

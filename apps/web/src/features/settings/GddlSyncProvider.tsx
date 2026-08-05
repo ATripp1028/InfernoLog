@@ -1,11 +1,18 @@
-import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { toast } from '@/components/ui/sonner'
-import { useGddlSyncStatus, type GddlSyncResult } from '@/lib/api/me'
-import { useInvalidateOnWrite } from '@/lib/api/logging'
 import {
-  getHandledGddlSyncJobId,
-  setHandledGddlSyncJobId,
-} from '@/lib/gddlSyncStorage'
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  type ReactNode,
+} from 'react'
+import { toast } from '@/components/ui/sonner'
+import {
+  useGddlSyncStatus,
+  useAckGddlSync,
+  type GddlSyncResult,
+  type GddlSyncJobStatus,
+} from '@/lib/api/me'
+import { useInvalidateOnWrite } from '@/lib/api/logging'
 
 function buildSyncToast(result: GddlSyncResult): string {
   const parts: string[] = []
@@ -31,20 +38,33 @@ const GddlSyncContext = createContext<GddlSyncContextValue | null>(null)
 // needed) at the authenticated app shell — mirrors ImportStatusToast/
 // useImportStatus for spreadsheet import — so the completion toast and
 // cache invalidation fire regardless of which page is open, and survive a
-// full page reload: the server is the source of truth for
-// "the current job," not client state. The only client-side bookkeeping
-// left is which job id we've already reacted to (gddlSyncStorage), since
-// the endpoint keeps returning the latest job long after it's finished.
+// full page reload: the server is the source of truth for "the current
+// job," not client state. GddlSyncJob's id is stable per user (a new sync
+// overwrites the same row rather than inserting a fresh one), so `id`
+// alone can't distinguish one sync run's completion from the next — the
+// server tracks that per-run via `acknowledgedAt` instead: it resets to
+// null whenever a sync starts, and this effect calls POST
+// /v1/me/gddl-sync/ack right after showing the result, which GET then
+// respects to stop returning that completion. That's what actually
+// prevents a stale completion from being re-announced (e.g. after
+// localStorage is cleared or on a different device) — the `job ===
+// handledRef.current` check below is only an in-memory guard against
+// re-firing this effect for the same poll response (react-query keeps the
+// same object reference across polls via structural sharing when nothing
+// changed); it holds no state that needs to survive a reload.
 export function GddlSyncProvider({ children }: { children: ReactNode }) {
   const status = useGddlSyncStatus()
   const invalidate = useInvalidateOnWrite()
+  const ack = useAckGddlSync()
+  const handledRef = useRef<GddlSyncJobStatus | null>(null)
 
   useEffect(() => {
     const job = status.data
     if (!job || job.status === 'pending') return
-    if (job.id === getHandledGddlSyncJobId()) return
+    if (job === handledRef.current) return
+    handledRef.current = job
 
-    setHandledGddlSyncJobId(job.id)
+    ack.mutate(job.id)
 
     if (job.status === 'completed') {
       if (job.result) {

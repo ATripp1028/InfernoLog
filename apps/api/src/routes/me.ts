@@ -568,7 +568,9 @@ app.post('/me/gddl-sync', async (c) => {
 
     // One row per user (userId is unique) — a prior completed/failed job is
     // overwritten rather than left to accumulate; nothing reads sync history
-    // beyond the latest job.
+    // beyond the latest job. acknowledgedAt resets to null here so this run's
+    // eventual completion is visible via GET even though `id` doesn't change
+    // between runs (see the model's schema comment).
     const job = await prisma.gddlSyncJob.upsert({
       where: { userId },
       create: { userId, status: 'pending' },
@@ -578,6 +580,7 @@ app.post('/me/gddl-sync', async (c) => {
         error: null,
         startedAt: new Date(),
         finishedAt: null,
+        acknowledgedAt: null,
       },
       select: { id: true },
     })
@@ -599,14 +602,11 @@ app.post('/me/gddl-sync', async (c) => {
   }
 })
 
-// How long a finished job stays visible via GET after it completes/fails.
-// GddlSyncJob is one-per-user and a new sync overwrites the previous job
-// rather than accumulating history, so without a cutoff this endpoint would
-// keep reporting a months-old completion as if it just happened — which is
-// exactly what caused a stale "Sync complete" toast to re-fire on login. The
-// job row itself isn't deleted (POST still needs it for the idempotency
-// check), just hidden from GET once it's old enough that no client could
-// plausibly still be waiting on it.
+// Backstop cap on how long a finished-but-unacknowledged job stays visible
+// via GET. Acknowledgment (see POST /me/gddl-sync/ack) is the primary
+// signal — the client calls it right after showing the result — but this
+// catches the case where that call never happens (tab closed mid-toast,
+// crash, ad blocker, etc.) so an unacknowledged job doesn't linger forever.
 const GDDL_SYNC_VISIBLE_MS = 10 * 60 * 1000
 
 // GET /v1/me/gddl-sync — the user's GDDL sync job (or null), mirroring GET
@@ -615,10 +615,10 @@ const GDDL_SYNC_VISIBLE_MS = 10 * 60 * 1000
 // across navigation or a page reload. GddlSyncJob is one-per-user (like
 // ImportJob) — a new sync overwrites the previous job (see POST handler
 // above) — so this always returns the single current/most-recent job while
-// it's still relevant: pending, or finished within GDDL_SYNC_VISIBLE_MS. A
-// stale pending job is lazily expired here so the UI it drives (e.g. the
-// disabled Sync button) can recover without the user needing to trigger a
-// new sync attempt first.
+// it's still relevant: pending, or completed/failed but not yet acknowledged
+// (and within GDDL_SYNC_VISIBLE_MS as a backstop). A stale pending job is
+// lazily expired here so the UI it drives (e.g. the disabled Sync button)
+// can recover without the user needing to trigger a new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
   const userId = c.get('userId') as string
 
@@ -632,14 +632,17 @@ app.get('/me/gddl-sync', async (c) => {
         error: true,
         startedAt: true,
         finishedAt: true,
+        acknowledgedAt: true,
       },
     })
     const current = job ? await expireIfStale(job) : null
     const visible =
       current &&
       (current.status === 'pending' ||
-        !current.finishedAt ||
-        Date.now() - current.finishedAt.getTime() <= GDDL_SYNC_VISIBLE_MS)
+        (!current.acknowledgedAt &&
+          (!current.finishedAt ||
+            Date.now() - current.finishedAt.getTime() <=
+              GDDL_SYNC_VISIBLE_MS)))
 
     return c.json(
       {
@@ -656,6 +659,35 @@ app.get('/me/gddl-sync', async (c) => {
     )
   } catch (err) {
     logger.error({ userId, err }, 'GET /me/gddl-sync error')
+    Sentry.captureException(err)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+// POST /v1/me/gddl-sync/ack — marks a completed/failed job as acknowledged
+// so GET stops returning it. Called by the client right after it shows the
+// result (toast/invalidation) for that job id. Scoped to { id, userId } and
+// a no-op if nothing matches (wrong id, already acknowledged, or the id
+// belongs to a job that's since been superseded by a new sync) — the client
+// only cares that the job is no longer visible afterward, not who won a race.
+app.post('/me/gddl-sync/ack', async (c) => {
+  const userId = c.get('userId') as string
+
+  try {
+    const body = await c.req.json().catch(() => null)
+    const jobId = body?.jobId
+    if (typeof jobId !== 'string' || !jobId) {
+      return c.json({ error: 'jobId is required' }, 400)
+    }
+
+    await prisma.gddlSyncJob.updateMany({
+      where: { id: jobId, userId, status: { not: 'pending' } },
+      data: { acknowledgedAt: new Date() },
+    })
+
+    return c.json({ data: { acknowledged: true } }, 200)
+  } catch (err) {
+    logger.error({ userId, err }, 'POST /me/gddl-sync/ack error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }
