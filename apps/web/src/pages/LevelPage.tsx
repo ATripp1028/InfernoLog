@@ -1,10 +1,4 @@
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-  useRouter,
-} from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import {
   AlertCircle,
   ArrowLeft,
@@ -18,7 +12,8 @@ import {
   X,
 } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
-import { readBackOrigin } from '@/lib/backOrigin'
+import { useGoBack, type GoBack } from '@/lib/useGoBack'
+import { BackLink } from '@/components/BackLink'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/list'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
@@ -57,13 +52,7 @@ function PrivateProfile() {
   )
 }
 
-function NotFound({
-  levelId,
-  onBack,
-}: {
-  levelId: string
-  onBack: () => void
-}) {
+function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
       <AlertCircle size={36} className="text-text-tertiary" />
@@ -75,13 +64,12 @@ function NotFound({
           Level #{levelId} hasn't been logged yet.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onBack}
+      <BackLink
+        back={back}
         className="mt-2 text-sm text-[var(--color-primary-light)] hover:underline"
       >
         ← Back
-      </button>
+      </BackLink>
     </div>
   )
 }
@@ -147,8 +135,7 @@ function TimelineSkeleton() {
 export function LevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
   const navigate = useNavigate()
-  const router = useRouter()
-  const location = useLocation()
+  const back = useGoBack('/list')
   const me = useMe()
   const deleteProgress = useDeleteProgress()
   const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
@@ -172,21 +159,6 @@ export function LevelPage() {
   // Resolve error types before rendering
   const is403 = query.error instanceof ApiError && query.error.status === 403
   const is404 = query.error instanceof ApiError && query.error.status === 404
-
-  // Prefer the remembered origin (ranking, search, list, ...) — it's set
-  // whenever this page was reached via an in-app link and survives a hop
-  // through the paired Global Level Page. Otherwise pop real history, falling
-  // back to the List if there's none to pop. Mirrors GlobalLevelPage.goBack.
-  function goBack() {
-    const origin = readBackOrigin(location.state)
-    if (origin) {
-      void navigate({ href: origin.href, replace: true })
-    } else if (window.history.length > 1) {
-      router.history.back()
-    } else {
-      void navigate({ to: '/list' })
-    }
-  }
 
   function handleDeleteConfirm() {
     deleteProgress.mutate(levelId, {
@@ -319,7 +291,7 @@ export function LevelPage() {
   }
 
   if (is403) return <PrivateProfile />
-  if (is404) return <NotFound levelId={levelId} onBack={goBack} />
+  if (is404) return <NotFound levelId={levelId} back={back} />
 
   if (query.error && !query.data) {
     return (
@@ -352,14 +324,13 @@ export function LevelPage() {
     <>
       {/* Back navigation row */}
       <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3 md:mx-8 md:border-b md:px-0 md:py-4">
-        <button
-          type="button"
-          onClick={goBack}
-          aria-label="Back"
+        <BackLink
+          back={back}
+          ariaLabel="Back"
           className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
         >
           <ArrowLeft size={18} />
-        </button>
+        </BackLink>
         <span className="text-sm font-medium text-text-primary truncate">
           {levelName}
         </span>

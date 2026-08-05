@@ -250,13 +250,25 @@ export function LandingPage() {
             >
               Acknowledgments
             </Link>
-            <Link to="/terms" className="hover:text-foreground">
+            <Link
+              to="/terms"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               Terms
             </Link>
-            <Link to="/privacy" className="hover:text-foreground">
+            <Link
+              to="/privacy"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               Privacy
             </Link>
-            <Link to="/dmca" className="hover:text-foreground">
+            <Link
+              to="/dmca"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
               DMCA
             </Link>
           </nav>

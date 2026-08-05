@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Check, Loader2, Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { getPresetColor } from './presets'
+import { Loader2, RotateCcw } from 'lucide-react'
+import { PresetRow } from './PresetRow'
 import type { ListPreset } from '@/lib/api/presets'
 
 interface PresetSheetProps {
@@ -66,114 +65,37 @@ export function PresetSheet({
       </h3>
 
       {/* Default option */}
-      <button
-        type="button"
-        onClick={() => handleSelect(null)}
-        className={cn(
-          'flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-sm cursor-pointer',
-          'hover:bg-[var(--color-bg-subtle)]',
-          selectedPresetId === null && 'font-medium'
-        )}
-      >
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-border)]" />
-        <span className="min-w-0 flex-1 truncate text-left text-text-primary">
-          Default
-        </span>
-        {selectedPresetId === null && (
-          <Check size={14} className="shrink-0 text-[var(--color-primary)]" />
-        )}
-      </button>
+      <PresetRow
+        density="touch"
+        preset={null}
+        isSelected={selectedPresetId === null}
+        isPendingDelete={false}
+        isDeleting={false}
+        onSelect={() => handleSelect(null)}
+        onCancelDelete={() => {}}
+        onConfirmDelete={() => {}}
+        onDeleteClick={() => {}}
+        onEditClick={() => {}}
+      />
 
       {presets.length > 0 && (
         <>
           <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
-          {presets.map((preset) => {
-            const color = getPresetColor(preset.color)
-            const isSelected = preset.id === selectedPresetId
-            const isPendingDelete = pendingDeleteId === preset.id
-            const isDeleting = deletingPresetId === preset.id
-
-            if (isPendingDelete) {
-              return (
-                <div
-                  key={preset.id}
-                  className="flex items-center gap-2 rounded-md px-2 py-2.5"
-                >
-                  <span className="flex-1 truncate text-sm text-text-secondary">
-                    Delete "{preset.name}"?
-                  </span>
-                  {isDeleting ? (
-                    <Loader2
-                      size={14}
-                      className="shrink-0 animate-spin text-text-tertiary"
-                    />
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setPendingDeleteId(null)}
-                        className="cursor-pointer rounded px-2 py-1 text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(preset.id)}
-                        className="cursor-pointer rounded px-2 py-1 text-xs font-medium text-red-500 hover:bg-red-500/10"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              )
-            }
-
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                onClick={() => handleSelect(preset.id)}
-                className={cn(
-                  'group flex w-full items-center gap-2 rounded-md px-2 py-2.5 text-sm cursor-pointer',
-                  'hover:bg-[var(--color-bg-subtle)]',
-                  isSelected && 'font-medium'
-                )}
-              >
-                <span
-                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                  style={{ background: color.hex }}
-                />
-                <span className="min-w-0 flex-1 truncate text-left text-text-primary">
-                  {preset.name}
-                </span>
-                {isSelected && !isDeleting && (
-                  <Check
-                    size={14}
-                    className="shrink-0 text-[var(--color-primary)]"
-                  />
-                )}
-                <span className="flex shrink-0 items-center gap-1">
-                  <span
-                    role="button"
-                    onClick={(e) => handleEditClick(preset, e)}
-                    aria-label={`Edit ${preset.name}`}
-                    className="cursor-pointer rounded p-1 text-text-tertiary hover:text-text-primary"
-                  >
-                    <Pencil size={13} />
-                  </span>
-                  <span
-                    role="button"
-                    onClick={(e) => handleDeleteClick(preset.id, e)}
-                    aria-label={`Delete ${preset.name}`}
-                    className="cursor-pointer rounded p-1 text-text-tertiary hover:text-red-500"
-                  >
-                    <Trash2 size={13} />
-                  </span>
-                </span>
-              </button>
-            )
-          })}
+          {presets.map((preset) => (
+            <PresetRow
+              key={preset.id}
+              density="touch"
+              preset={preset}
+              isSelected={preset.id === selectedPresetId}
+              isPendingDelete={pendingDeleteId === preset.id}
+              isDeleting={deletingPresetId === preset.id}
+              onSelect={() => handleSelect(preset.id)}
+              onCancelDelete={() => setPendingDeleteId(null)}
+              onConfirmDelete={() => onDelete(preset.id)}
+              onDeleteClick={(e) => handleDeleteClick(preset.id, e)}
+              onEditClick={(e) => handleEditClick(preset, e)}
+            />
+          ))}
         </>
       )}
 

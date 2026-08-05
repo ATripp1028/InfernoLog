@@ -1,18 +1,13 @@
 import { useMemo, useState } from 'react'
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useParams,
-  useRouter,
-} from '@tanstack/react-router'
+import { Link, useNavigate, useParams } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight, Check, Flag, List, Star, X } from 'lucide-react'
 import {
   useGlobalLevelPage,
   levelPageErrorKind,
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
-import { readBackOrigin } from '@/lib/backOrigin'
+import { useGoBack } from '@/lib/useGoBack'
+import { BackLink } from '@/components/BackLink'
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
@@ -50,8 +45,7 @@ function DesktopSectionHeader({ children }: { children: React.ReactNode }) {
 export function GlobalLevelPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
-  const router = useRouter()
-  const location = useLocation()
+  const back = useGoBack('/list')
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -73,21 +67,6 @@ export function GlobalLevelPage() {
     () => (query.data ? collectionLevel(query.data) : undefined),
     [query.data]
   )
-
-  const goBack = () => {
-    // Prefer the remembered origin (search, ranking, list, ...) — it's set
-    // whenever this page was reached via an in-app link and survives a hop
-    // through the paired user-scoped level page. Otherwise pop real history,
-    // falling back to the List if there's none to pop.
-    const origin = readBackOrigin(location.state)
-    if (origin) {
-      void navigate({ href: origin.href, replace: true })
-    } else if (window.history.length > 1) {
-      router.history.back()
-    } else {
-      void navigate({ to: '/list' })
-    }
-  }
 
   const handleAddToWantToBeat = () => {
     if (!wtbId) return
@@ -169,7 +148,11 @@ export function GlobalLevelPage() {
   // ── Terminal / retryable error states (kept visually + textually distinct) ──
   if (errorKind === 'not_found') {
     return (
-      <NotFoundState levelId={levelId} onCheckId={goBack} onBack={goBack} />
+      <NotFoundState
+        levelId={levelId}
+        onCheckId={back.onClick}
+        onBack={() => void navigate({ to: '/list' })}
+      />
     )
   }
   // 503 — GD genuinely unreachable (a cache miss whose RobTop resolve failed).
@@ -204,14 +187,13 @@ export function GlobalLevelPage() {
         {/* BackRow — real back affordance plus the level name. Padding and
             spacing mirror the user-scoped level page's back row. */}
         <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
-          <button
-            type="button"
-            onClick={goBack}
-            aria-label="Back"
+          <BackLink
+            back={back}
+            ariaLabel="Back"
             className="text-text-secondary hover:text-text-primary"
           >
             <ArrowLeft size={18} />
-          </button>
+          </BackLink>
           <span className="truncate text-sm font-medium text-text-primary">
             {levelName}
           </span>
@@ -271,14 +253,13 @@ export function GlobalLevelPage() {
               row: back arrow + level name on the left, cross-link (when the
               user has a page for this level) right-aligned. */}
           <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
-            <button
-              type="button"
-              onClick={goBack}
-              aria-label="Back"
+            <BackLink
+              back={back}
+              ariaLabel="Back"
               className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
             >
               <ArrowLeft size={18} />
-            </button>
+            </BackLink>
             <span className="truncate text-sm font-medium text-text-primary">
               {levelName}
             </span>

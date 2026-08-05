@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  dialogContentAnimation,
+  dialogOverlayAnimation,
+} from '@/lib/dialogAnimation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -252,15 +256,18 @@ export function EditLevelModal({
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in" />
+        <Dialog.Overlay
+          className={cn(
+            'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm',
+            dialogOverlayAnimation
+          )}
+        />
         <Dialog.Content
           aria-describedby={undefined}
           className={cn(
             'fixed z-50 focus:outline-none',
-            'data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:duration-200 data-[state=open]:duration-300',
-            'data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+            dialogContentAnimation,
             'md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2',
-            'md:data-[state=closed]:slide-out-to-bottom-0 md:data-[state=open]:slide-in-from-bottom-0 md:data-[state=closed]:zoom-out-95 md:data-[state=open]:zoom-in-95 md:data-[state=closed]:fade-out-0 md:data-[state=open]:fade-in-0',
             'inset-x-0 bottom-0 w-full md:w-[540px]'
           )}
         >

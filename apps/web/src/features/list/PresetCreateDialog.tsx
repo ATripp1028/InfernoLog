@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { MobileSheetDialog } from '@/components/MobileSheetDialog'
 
 interface PresetCreateDialogProps {
   open: boolean
@@ -198,20 +199,11 @@ export function PresetCreateDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/55"
-      />
-      <div
-        className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-card border-t border-[var(--color-border)] bg-[var(--color-bg-elevated)] shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
-        onKeyDown={handleKeyDown}
-      >
-        <div className="flex justify-center pt-2">
-          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-        </div>
+    <MobileSheetDialog
+      onClose={onClose}
+      className="border-border bg-bg-surface"
+    >
+      <div className="overflow-y-auto" onKeyDown={handleKeyDown}>
         <div className="flex items-start justify-between px-5 pb-2 pt-3">
           <h2 className="text-base font-semibold text-text-primary">
             {title}
@@ -225,11 +217,9 @@ export function PresetCreateDialog({
             <X size={16} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 pb-6 pt-1">
-          {body}
-          {footer}
-        </div>
+        <div className="px-5 pt-1">{body}</div>
       </div>
-    </div>
+      <div className="px-5 pb-6">{footer}</div>
+    </MobileSheetDialog>
   )
 }

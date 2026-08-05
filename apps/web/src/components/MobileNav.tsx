@@ -35,6 +35,15 @@ export function MobileNav() {
   const search = byKey('search')
   const overflow = MOBILE_OVERFLOW_KEYS.map(byKey)
 
+  // Mirrors Sidebar's `activePrefixes` handling (e.g. Search also covers the
+  // Global Level Page at `/levels/*`) without adopting its `startsWith(to +
+  // '/')` rule — the bottom bar deliberately shows no active tab while
+  // drilled into a List/Ranking detail sub-page.
+  const isActive = (item: NavItem) =>
+    location.pathname === item.to ||
+    (item.activePrefixes?.some((p) => location.pathname.startsWith(p)) ??
+      false)
+
   return (
     <div className="md:hidden">
       <MobileActionSheet
@@ -83,8 +92,8 @@ export function MobileNav() {
         aria-label="Primary mobile"
         className="fixed inset-x-0 bottom-0 z-40 flex h-[72px] items-center justify-around border-t border-border-subtle bg-bg-surface px-2"
       >
-        <BarTab item={list} active={location.pathname === list.to} />
-        <BarTab item={ranking} active={location.pathname === ranking.to} />
+        <BarTab item={list} active={isActive(list)} />
+        <BarTab item={ranking} active={isActive(ranking)} />
         <FabSlot
           active={fabMenuOpen}
           label={primary.label}
@@ -101,7 +110,7 @@ export function MobileNav() {
             }
           }}
         />
-        <BarTab item={search} active={location.pathname === search.to} />
+        <BarTab item={search} active={isActive(search)} />
         <MoreTab
           active={overflowOpen}
           onClick={() => {

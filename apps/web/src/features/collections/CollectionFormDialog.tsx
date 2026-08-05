@@ -10,6 +10,7 @@ import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
+import { MobileSheetDialog } from '@/components/MobileSheetDialog'
 import {
   collectionErrorCode,
   useCollections,
@@ -210,28 +211,12 @@ export function CollectionFormDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-black/60"
-      />
-      <div
-        className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]"
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-        }}
-      >
-        <div className="flex justify-center pt-2">
-          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-        </div>
-        <div className="overflow-y-auto">
-          {header}
-          {body}
-        </div>
-        {footer}
+    <MobileSheetDialog onClose={onClose} className="border-border bg-bg-surface">
+      <div className="overflow-y-auto">
+        {header}
+        {body}
       </div>
-    </div>
+      {footer}
+    </MobileSheetDialog>
   )
 }
