@@ -231,7 +231,9 @@ export function useAckGddlSync() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (job: Pick<GddlSyncJobStatus, 'id' | 'startedAt'>): Promise<void> => {
+    mutationFn: async (
+      job: Pick<GddlSyncJobStatus, 'id' | 'startedAt'>
+    ): Promise<void> => {
       const token = await getIdToken()
       await apiFetch('/v1/me/gddl-sync/ack', {
         token,
