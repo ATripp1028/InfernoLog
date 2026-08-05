@@ -41,8 +41,7 @@ export function MobileNav() {
   // drilled into a List/Ranking detail sub-page.
   const isActive = (item: NavItem) =>
     location.pathname === item.to ||
-    (item.activePrefixes?.some((p) => location.pathname.startsWith(p)) ??
-      false)
+    (item.activePrefixes?.some((p) => location.pathname.startsWith(p)) ?? false)
 
   return (
     <div className="md:hidden">

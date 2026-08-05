@@ -211,7 +211,10 @@ export function CollectionFormDialog({
   }
 
   return (
-    <MobileSheetDialog onClose={onClose} className="border-border bg-bg-surface">
+    <MobileSheetDialog
+      onClose={onClose}
+      className="border-border bg-bg-surface"
+    >
       <div className="overflow-y-auto">
         {header}
         {body}

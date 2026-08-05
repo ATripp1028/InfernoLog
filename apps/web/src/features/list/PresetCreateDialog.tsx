@@ -45,9 +45,7 @@ export function PresetCreateDialog({
     !!existingNames &&
     trimmedName.length > 0 &&
     existingNames.some(
-      (n) =>
-        n.toLowerCase() === trimmedName.toLowerCase() &&
-        n !== excludeName
+      (n) => n.toLowerCase() === trimmedName.toLowerCase() && n !== excludeName
     )
 
   // Re-seed the form whenever the dialog opens (handles switching between
@@ -82,9 +80,7 @@ export function PresetCreateDialog({
     <div className="flex flex-col gap-3">
       {/* Name */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-text-secondary">
-          Name
-        </label>
+        <label className="text-xs font-medium text-text-secondary">Name</label>
         <input
           autoFocus={isDesktop}
           type="text"
@@ -100,7 +96,9 @@ export function PresetCreateDialog({
           )}
         />
         {isDuplicate && (
-          <p className="text-xs text-red-500">A preset with this name already exists.</p>
+          <p className="text-xs text-red-500">
+            A preset with this name already exists.
+          </p>
         )}
       </div>
 
@@ -122,9 +120,7 @@ export function PresetCreateDialog({
 
       {/* Color picker */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-text-secondary">
-          Color
-        </label>
+        <label className="text-xs font-medium text-text-secondary">Color</label>
         <div className="flex flex-wrap gap-2">
           {PRESET_COLORS.map((c) => {
             const isSelected = c.id === color
@@ -205,9 +201,7 @@ export function PresetCreateDialog({
     >
       <div className="overflow-y-auto" onKeyDown={handleKeyDown}>
         <div className="flex items-start justify-between px-5 pb-2 pt-3">
-          <h2 className="text-base font-semibold text-text-primary">
-            {title}
-          </h2>
+          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
           <button
             type="button"
             aria-label="Close"

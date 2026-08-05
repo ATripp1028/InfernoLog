@@ -15,7 +15,12 @@ interface BackLinkProps {
 // which has no representable URL. A plain click still routes through the
 // router (via `back.onClick`) instead of a full page load. Pairs with
 // `useGoBack`.
-export function BackLink({ back, className, ariaLabel, children }: BackLinkProps) {
+export function BackLink({
+  back,
+  className,
+  ariaLabel,
+  children,
+}: BackLinkProps) {
   if (back.href) {
     const href = back.href
     return (
@@ -24,7 +29,13 @@ export function BackLink({ back, className, ariaLabel, children }: BackLinkProps
         aria-label={ariaLabel}
         className={className}
         onClick={(e: MouseEvent<HTMLAnchorElement>) => {
-          if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+          if (
+            e.button !== 0 ||
+            e.metaKey ||
+            e.ctrlKey ||
+            e.shiftKey ||
+            e.altKey
+          ) {
             return
           }
           e.preventDefault()
