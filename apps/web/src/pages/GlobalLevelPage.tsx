@@ -266,7 +266,7 @@ export function GlobalLevelPage() {
 
       {/* ── Desktop ────────────────────────────────────────────── */}
       <div className="hidden md:block">
-        <div className="mx-8 pb-16 pt-4">
+        <div className="mx-8 pb-16">
           {/* Back row — mirrors the user-scoped level page's desktop back
               row: back arrow + level name on the left, cross-link (when the
               user has a page for this level) right-aligned. */}
