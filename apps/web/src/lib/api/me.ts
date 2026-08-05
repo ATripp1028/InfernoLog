@@ -169,6 +169,10 @@ export interface GddlSyncJobStatus {
   status: 'pending' | 'completed' | 'failed'
   result: GddlSyncResult | null
   error: string | null
+  // ISO timestamp identifying this specific sync run — `id` is stable
+  // forever per user (a new sync reuses the same row), so this is what
+  // distinguishes "this run" for acknowledgment and toast deduplication.
+  startedAt: string
 }
 
 // Starts an async sync job. Returns the jobId immediately (202); the id is
@@ -212,6 +216,38 @@ export function useGddlSyncStatus() {
     refetchInterval: (query) =>
       query.state.data?.status === 'pending' ? 2000 : false,
     retry: false,
+  })
+}
+
+// Marks a completed/failed job acknowledged so GET /v1/me/gddl-sync stops
+// returning it — called right after GddlSyncProvider shows the toast for it.
+// Server-side (not localStorage) so it works regardless of client storage
+// being cleared and across devices/browsers for the same account. `startedAt`
+// (echoed back from the job GddlSyncProvider just displayed) scopes the ack
+// to that specific run — `id` alone is stable forever per user, so without
+// it a delayed ack could land on a different, later run that reused the
+// same row. Retries a couple times since nothing else retries a failed ack.
+export function useAckGddlSync() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      job: Pick<GddlSyncJobStatus, 'id' | 'startedAt'>
+    ): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/gddl-sync/ack', {
+        token,
+        method: 'POST',
+        body: { jobId: job.id, startedAt: job.startedAt },
+      })
+    },
+    retry: 2,
+    onSettled: () => {
+      // Re-fetch rather than optimistically clear the cache: the ack may
+      // have been a no-op (superseded by a newer run), so let the server
+      // response be the source of truth for what's visible next.
+      void queryClient.invalidateQueries({ queryKey: gddlSyncStatusQueryKey })
+    },
   })
 }
 

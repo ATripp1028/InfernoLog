@@ -516,6 +516,10 @@ export default $config({
     // (no jobId path param — mirrors GET /v1/me/import/status).
     authedRoute('GET /v1/me/gddl-sync')
 
+    // POST /v1/me/gddl-sync/ack — marks a completed/failed job acknowledged
+    // so GET stops returning it once the client has shown the result.
+    authedRoute('POST /v1/me/gddl-sync/ack')
+
     // ─────────────────────────────────────────────
     // COLLECTIONS — built-in (Want to Beat / Favorites / Least Favorites)
     // and custom user collections of levels.
