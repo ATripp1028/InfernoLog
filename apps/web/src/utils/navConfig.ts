@@ -68,8 +68,8 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 export const MOBILE_OVERFLOW_KEYS = [
-  'search',
   'collections',
+  'log',
   'time',
   'stats',
   'picker',

@@ -32,7 +32,7 @@ export function MobileNav() {
   }
   const list = byKey('list')
   const ranking = byKey('ranking')
-  const log = byKey('log')
+  const search = byKey('search')
   const overflow = MOBILE_OVERFLOW_KEYS.map(byKey)
 
   return (
@@ -101,7 +101,7 @@ export function MobileNav() {
             }
           }}
         />
-        <BarTab item={log} active={location.pathname === log.to} />
+        <BarTab item={search} active={location.pathname === search.to} />
         <MoreTab
           active={overflowOpen}
           onClick={() => {
