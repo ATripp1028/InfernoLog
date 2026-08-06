@@ -11,20 +11,20 @@ import {
   truncateAll,
   seedUser,
   seedLevel,
-} from '../test/utils'
+} from '../../test/utils'
 
 // Real DB; no external HTTP in this flow, so only infra is mocked.
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { default: collectionsApp } = await import('./collections')
-const { applyCompletion } = await import('../services/progress')
+const { default: collectionsApp } = await import('./index')
+const { applyCompletion } = await import('../../services/progress')
 
 const prisma = getTestPrisma()
 
