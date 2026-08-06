@@ -6,18 +6,18 @@ import {
   seedUser,
   seedLevel,
   seedRatingCategory,
-} from '../test/utils'
+} from '../../test/utils'
 
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { default: loggingApp } = await import('./logging')
+const { default: loggingApp } = await import('./index')
 
 const prisma = getTestPrisma()
 

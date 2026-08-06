@@ -1,4 +1,4 @@
-// The three FAB logging write endpoints (me-scoped):
+// The three FAB logging write endpoints:
 //   POST /v1/me/completions
 //   POST /v1/me/progress
 //   POST /v1/me/drops
@@ -7,6 +7,10 @@
 // userId in a payload is ignored. The shared find-or-create-then-apply logic
 // lives in services/progress.ts. Each endpoint returns the full resulting
 // record so the client needn't follow up with a GET.
+//
+// Note POST /me/progress is a sibling of the GET /me/progress in list.ts —
+// same path, different verb. They were split across two route files before
+// these were merged into routes/progress/.
 
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
@@ -15,14 +19,14 @@ import {
   ProgressInputSchema,
   DropInputSchema,
 } from '@infernolog/core'
-import { logger } from '../utils/logger'
-import type { HonoVariables } from '../types/hono'
+import { logger } from '../../utils/logger'
+import type { HonoVariables } from '../../types/hono'
 import {
   applyCompletion,
   applyProgress,
   applyDrop,
   LevelNotFoundError,
-} from '../services/progress'
+} from '../../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

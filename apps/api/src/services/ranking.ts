@@ -2,7 +2,7 @@
 //
 // Reads (getClassicRanking) and the three placement writes (place / reorder /
 // unplace) live here; routes/ranking.ts stays a thin HTTP shell, mirroring the
-// logging.ts ↔ services/progress.ts split.
+// routes/progress/logging.ts ↔ services/progress.ts split.
 //
 // Ordering: ClassicRanking.rankingIndex is a fractional index — lower = easier,
 // higher = harder — so the displayed list is rankingIndex DESC (#1 = hardest).
