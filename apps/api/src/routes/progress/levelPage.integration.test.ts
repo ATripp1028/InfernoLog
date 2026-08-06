@@ -363,7 +363,7 @@ describe('GET /me/progress/:levelId — 404 cases', () => {
   })
 })
 
-describe('GET /me/progress/:levelId', () => {
+describe('GET /me/progress/:levelId — drop history', () => {
   it('shows drop history in runsGraph and top-level fields for a level that was dropped and later completed', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '400' })
