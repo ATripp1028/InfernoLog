@@ -13,10 +13,9 @@ import {
   type OverallRatingConfig,
 } from '@infernolog/core'
 import prisma from '../../utils/prisma'
-import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
 import type { HonoVariables } from '../../types/hono'
 import { toNum } from '../../utils/decimal'
-import { levelSummarySelect } from '../../services/levels/row'
+import { levelSummarySelect, mapLevel } from '../../services/levels/row'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -82,12 +81,7 @@ function serializeEntry(update: RawRow['progressUpdates'][number]) {
 
 function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
   const update = row.progressUpdates[0] ?? null
-  // Official levels (ids 1–38) aren't served by RobTop, so their release
-  // version and secret-coin count come from our data file, not the cache.
-  const official = OFFICIAL_LEVELS_BY_ID.get(row.level.inGameId)
-  const level = official
-    ? { ...row.level, gameVersion: official.gameVersion, coins: official.coins }
-    : row.level
+  const level = mapLevel(row.level)
   return {
     levelProgressId: row.id,
     status: row.status,

@@ -116,7 +116,7 @@ async function computeIndex(
 // ─────────────────────────────────────────────
 
 // Row serialization (levelSummarySelect / completionSelect / deriveBadge /
-// completionAttempts / mapLevel) is shared with collections — see levelRow.ts.
+// completionAttempts / mapLevel) is shared with collections — see levels/row.ts.
 
 export async function getClassicRanking(userId: string) {
   const [placedRows, unplacedRows] = await Promise.all([

@@ -1,6 +1,7 @@
-// Shared row-serialization pieces for level-centric views (classic ranking,
-// collections): the LevelListSummary column select, the completion-derived
-// badge/attempts, and the official-level metadata patch.
+// Shared row-serialization pieces for level-centric views — the classic
+// ranking, collections, and The List (GET /v1/me/progress): the
+// LevelListSummary column select, the completion-derived badge/attempts, and
+// the official-level metadata patch.
 
 import type { Prisma } from '@prisma/client'
 import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
@@ -54,8 +55,10 @@ export function completionAttempts(updates: CompletionRefs): number | null {
   return updates[0]?.attempts ?? null
 }
 
-// Official levels (ids 1–38) aren't served by RobTop; their version + coin
-// count come from our data file, matching the list page's treatment.
+// Official levels (ids 1–38) aren't served by RobTop, so their release version
+// and secret-coin count come from our data file rather than the cache. Every
+// view that returns a level summary applies this, so it lives here rather than
+// being repeated per call site.
 export function mapLevel(level: LevelRow) {
   const official = OFFICIAL_LEVELS_BY_ID.get(level.inGameId)
   return official
