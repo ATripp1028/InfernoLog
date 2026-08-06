@@ -11,7 +11,7 @@ import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
 import { LevelIdSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
-import { findOrResolveLevel } from '../../services/levelResolve'
+import { findOrResolveLevel } from '../../services/levels/resolve'
 import type { HonoVariables } from '../../types/hono'
 import { levelSelect, pageLevelSelect } from './selects'
 

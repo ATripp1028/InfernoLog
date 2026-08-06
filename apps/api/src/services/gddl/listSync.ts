@@ -14,17 +14,17 @@
 //   - levels in GDDL that are no longer in the top 4 are DELETEd
 //   InfernoLog itself is never truncated to 4; only the GDDL side is capped.
 
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import { Prisma } from '@prisma/client'
 import {
   fetchGddlUserInfo,
   fetchGddlList,
   addGddlListEntry,
   removeGddlListEntry,
-} from '../utils/gddl'
-import { fetchRobtopLevel, type RobtopLevel } from '../utils/robtop'
-import { bisectIndices } from '../utils/fractionalIndex'
-import { logger } from '../utils/logger'
+} from '../../utils/gddl'
+import { fetchRobtopLevel, type RobtopLevel } from '../../utils/robtop'
+import { bisectIndices } from '../../utils/fractionalIndex'
+import { logger } from '../../utils/logger'
 
 // GDDL's non-custom lists cap at 4 entries. Only the top N InfernoLog entries
 // (by display order / rankingIndex) are mirrored to GDDL.

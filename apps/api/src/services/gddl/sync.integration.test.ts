@@ -5,22 +5,27 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTestPrisma, seedUser, seedLevel, truncateAll } from '../test/utils'
-import type { GddlSubmission } from '../utils/gddl'
+import {
+  getTestPrisma,
+  seedUser,
+  seedLevel,
+  truncateAll,
+} from '../../test/utils'
+import type { GddlSubmission } from '../../utils/gddl'
 
 // ─── module mocks ─────────────────────────────────────────────────────────────
 
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-vi.mock('../utils/gddl', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../utils/gddl')>()
+vi.mock('../../utils/gddl', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/gddl')>()
   return {
     ...actual,
     fetchGddlUserInfo: vi.fn(async () => ({ id: 17251, name: 'TestUser' })),
@@ -28,18 +33,18 @@ vi.mock('../utils/gddl', async (importOriginal) => {
   }
 })
 
-vi.mock('../utils/robtop', () => ({
+vi.mock('../../utils/robtop', () => ({
   fetchRobtopLevel: vi.fn(async () => null),
 }))
 
-vi.mock('./import', () => ({
+vi.mock('../importExport/import', () => ({
   enqueueSeedIds: vi.fn(async () => {}),
 }))
 
 // Import after vi.mock so that gddlSync picks up the mocked modules.
-const { syncGddlSubmissions } = await import('./gddlSync')
-const { fetchAllGddlSubmissions } = await import('../utils/gddl')
-const { enqueueSeedIds } = await import('./import')
+const { syncGddlSubmissions } = await import('../gddl/sync')
+const { fetchAllGddlSubmissions } = await import('../../utils/gddl')
+const { enqueueSeedIds } = await import('../importExport/import')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -297,7 +302,7 @@ describe('syncGddlSubmissions', () => {
   it('propagates GddlUnavailableError when the submissions fetch fails', async () => {
     const user = await seedUser(prisma)
     const { GddlUnavailableError } =
-      (await import('../utils/gddl')) as typeof import('../utils/gddl')
+      (await import('../../utils/gddl')) as typeof import('../../utils/gddl')
     mockFetchAll.mockRejectedValueOnce(
       new GddlUnavailableError('GDDL returned 503')
     )

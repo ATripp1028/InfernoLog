@@ -11,9 +11,9 @@
 // rating category weights + mode, AREDL references, and system timestamps.
 // See docs/IMPORT_EXPORT.md.
 
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
-import { zonedDateString } from '../utils/timezone'
+import { zonedDateString } from '../../utils/timezone'
 
 export const EXPORT_DEFAULT_LIMIT = 500
 export const EXPORT_MAX_LIMIT = 1000

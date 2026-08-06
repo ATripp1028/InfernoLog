@@ -7,7 +7,7 @@
 import {
   runLevelSyncSlice,
   runDelistedReverifySlice,
-} from '../services/levelSync'
+} from '../services/levels/sync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 

@@ -16,10 +16,10 @@
 // frozen and the row is flagged so the sync skips it thereafter.
 
 import type { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
-import { fetchRobtopLevelResult } from '../utils/robtop'
-import { checkAndPersistSfhNong, sfhCheckDue } from './sfhSync'
-import { logger } from '../utils/logger'
+import prisma from '../../utils/prisma'
+import { fetchRobtopLevelResult } from '../../utils/robtop'
+import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
+import { logger } from '../../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
 // Local pacing on top of the shared rate limiter every fetchRobtopLevel call

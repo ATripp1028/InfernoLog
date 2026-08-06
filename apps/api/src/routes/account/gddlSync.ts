@@ -18,7 +18,7 @@ import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import { decryptSecret } from '../../utils/kms'
 import { GddlError } from '../../utils/gddl'
-import { syncGddlLists } from '../../services/gddlListSync'
+import { syncGddlLists } from '../../services/gddl/listSync'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()

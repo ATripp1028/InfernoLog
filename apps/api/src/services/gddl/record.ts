@@ -9,10 +9,10 @@
 // freezing the event loop after the HTTP response returns. A durable queue
 // (e.g. SQS) is the proper long-term solution; it is out of scope here.
 
-import prisma from '../utils/prisma'
-import { decryptSecret } from '../utils/kms'
-import { submitGddlRecord } from '../utils/gddl'
-import { logger } from '../utils/logger'
+import prisma from '../../utils/prisma'
+import { decryptSecret } from '../../utils/kms'
+import { submitGddlRecord } from '../../utils/gddl'
+import { logger } from '../../utils/logger'
 
 export async function submitCompletionRecordToGddl(params: {
   userId: string

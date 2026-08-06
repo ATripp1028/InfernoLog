@@ -11,15 +11,15 @@
 // integers first. See RANKING_SYSTEM.md.
 
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
-import { bisectIndices, gapTooTight } from '../utils/fractionalIndex'
+import prisma from '../../utils/prisma'
+import { bisectIndices, gapTooTight } from '../../utils/fractionalIndex'
 import {
   levelSelect,
   completionSelect,
   deriveBadge,
   completionAttempts,
   mapLevel,
-} from './levelRow'
+} from '../levels/row'
 import type { PlaceRankingInput, ReorderRankingInput } from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient

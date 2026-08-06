@@ -11,9 +11,9 @@
 // the rebalance job produces — since a full replace has no neighbours to bisect.
 
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
-import { computeListMerge } from '../utils/listMerge'
+import { computeListMerge } from '../../utils/listMerge'
 
 export interface ImportRankingResult {
   placed: number

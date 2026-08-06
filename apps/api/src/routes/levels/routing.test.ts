@@ -32,10 +32,10 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../../services/levelBrowse', () => ({
+vi.mock('../../services/levels/browse', () => ({
   browseLevels: mockBrowseLevels,
 }))
-vi.mock('../../services/gdSearch', () => ({ runGdSearch: mockRunGdSearch }))
+vi.mock('../../services/levels/gdSearch', () => ({ runGdSearch: mockRunGdSearch }))
 
 const { default: levelsApp } = await import('./index')
 

@@ -15,8 +15,8 @@ import * as Sentry from '@sentry/node'
 import { LevelBrowseQuerySchema } from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
-import { runGdSearch } from '../../services/gdSearch'
-import { browseLevels } from '../../services/levelBrowse'
+import { runGdSearch } from '../../services/levels/gdSearch'
+import { browseLevels } from '../../services/levels/browse'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()

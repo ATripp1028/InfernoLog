@@ -12,7 +12,12 @@
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { randomUUID } from 'crypto'
-import { getTestPrisma, seedUser, seedLevel, truncateAll } from '../test/utils'
+import {
+  getTestPrisma,
+  seedUser,
+  seedLevel,
+  truncateAll,
+} from '../../test/utils'
 import { Device, DifficultyOpinion, EntryVisibility } from '@infernolog/core'
 import type {
   ImportCommitRow,
@@ -22,33 +27,34 @@ import type {
   ExportResponse,
 } from '@infernolog/core'
 
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
 // No network: name search returns nothing (tests use level_ids) and GDDL
 // autofill is a no-op.
-vi.mock('../utils/robtop', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../utils/robtop')>()
+vi.mock('../../utils/robtop', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/robtop')>()
   return { ...actual, searchRobtopByName: vi.fn(async () => []) }
 })
-vi.mock('../utils/gddl', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../utils/gddl')>()
+vi.mock('../../utils/gddl', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/gddl')>()
   return { ...actual, fetchGddlTier: vi.fn(async () => null) }
 })
 
-const { commitImportBatch, checkImportConflicts } = await import('./import')
+const { commitImportBatch, checkImportConflicts } =
+  await import('../importExport/import')
 const { commitImportRanking, checkRankingMerge } =
-  await import('./importRanking')
+  await import('../importExport/ranking')
 const { commitImportCollections, checkCollectionsMerge } =
-  await import('./importCollections')
-const { commitImportRatings } = await import('./importRatings')
-const { exportSection } = await import('./exportData')
+  await import('../importExport/collections')
+const { commitImportRatings } = await import('../importExport/ratings')
+const { exportSection } = await import('../importExport/export')
 
 const prisma = getTestPrisma()
 

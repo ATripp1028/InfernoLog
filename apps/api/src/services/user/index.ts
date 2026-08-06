@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto'
-import prisma from '../utils/prisma'
-import { logger } from '../utils/logger'
+import prisma from '../../utils/prisma'
+import { logger } from '../../utils/logger'
 
 // Default weighted-mode rating categories seeded for every new user (and
 // backfilled the first time an existing SIMPLE-mode user switches to

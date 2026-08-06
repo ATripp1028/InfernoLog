@@ -21,7 +21,7 @@ import {
 import { logger } from '../../utils/logger'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
-import { checkImportConflicts } from '../../services/import'
+import { checkImportConflicts } from '../../services/importExport/import'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

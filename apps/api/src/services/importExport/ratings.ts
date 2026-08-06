@@ -11,7 +11,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type { ImportRatingEntry, ImportRatingConflict } from '@infernolog/core'
 
 export interface ImportRatingsResult {

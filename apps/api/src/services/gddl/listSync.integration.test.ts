@@ -5,35 +5,35 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTestPrisma, seedUser, truncateAll } from '../test/utils'
-import type { RobtopLevel } from '../utils/robtop'
+import { getTestPrisma, seedUser, truncateAll } from '../../test/utils'
+import type { RobtopLevel } from '../../utils/robtop'
 
 // ─── module mocks ─────────────────────────────────────────────────────────────
 
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-vi.mock('../utils/gddl', () => ({
+vi.mock('../../utils/gddl', () => ({
   fetchGddlUserInfo: vi.fn(async () => ({ id: 17251, name: 'TestUser' })),
   fetchGddlList: vi.fn(async () => [] as string[]),
   addGddlListEntry: vi.fn(async () => {}),
   removeGddlListEntry: vi.fn(async () => {}),
 }))
 
-vi.mock('../utils/robtop', () => ({
+vi.mock('../../utils/robtop', () => ({
   fetchRobtopLevel: vi.fn(async () => null),
 }))
 
 // Import after vi.mock so that gddlListSync picks up the mocked modules.
-const { syncGddlLists } = await import('./gddlListSync')
-const { fetchGddlList } = await import('../utils/gddl')
-const { fetchRobtopLevel } = await import('../utils/robtop')
+const { syncGddlLists } = await import('../gddl/listSync')
+const { fetchGddlList } = await import('../../utils/gddl')
+const { fetchRobtopLevel } = await import('../../utils/robtop')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

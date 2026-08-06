@@ -6,9 +6,9 @@
 // hasUserProgress) — this owns only the cache-or-fetch core.
 
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
-import { fetchRobtopLevelResult, type RobtopLevel } from '../utils/robtop'
-import { checkSfhNongIfDue } from './sfhSync'
+import prisma from '../../utils/prisma'
+import { fetchRobtopLevelResult, type RobtopLevel } from '../../utils/robtop'
+import { checkSfhNongIfDue } from '../levels/sfhSync'
 
 // The Level create payload for a freshly-resolved RobTop level. Shared so the
 // `/resolve` endpoint and this service write an identical snapshot. Stored

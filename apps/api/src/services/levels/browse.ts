@@ -10,7 +10,7 @@
 // the keyset comparison.
 
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type {
   LevelBrowseQuery,
   LevelBrowseResult,

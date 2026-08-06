@@ -12,9 +12,9 @@ import type {
   LevelSearchFilters,
   LevelSort,
 } from '@infernolog/core'
-import prisma from '../utils/prisma'
-import { searchRobtopByNameResult, type RobtopLevel } from '../utils/robtop'
-import { buildRobtopCreateData } from './levelResolve'
+import prisma from '../../utils/prisma'
+import { searchRobtopByNameResult, type RobtopLevel } from '../../utils/robtop'
+import { buildRobtopCreateData } from '../levels/resolve'
 
 // ── /search-page filters → getGJLevels21 params ────────────────────────────
 // Only the subset GD's schema can express is forwarded; everything else (exact

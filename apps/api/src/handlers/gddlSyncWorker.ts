@@ -1,6 +1,6 @@
 import prisma from '../utils/prisma'
 import { decryptSecret } from '../utils/kms'
-import { syncGddlSubmissions } from '../services/gddlSync'
+import { syncGddlSubmissions } from '../services/gddl/sync'
 import { logger } from '../utils/logger'
 import { GddlError, GddlInvalidKeyError } from '../utils/gddl'
 import * as Sentry from '@sentry/aws-serverless'

@@ -5,17 +5,17 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTestPrisma, truncateAll } from '../test/utils'
-import type { RobtopLevel } from '../utils/robtop'
+import { getTestPrisma, truncateAll } from '../../test/utils'
+import type { RobtopLevel } from '../../utils/robtop'
 
 // ─── module mocks ─────────────────────────────────────────────────────────────
 
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
@@ -24,15 +24,15 @@ vi.mock('@sentry/aws-serverless', () => ({
   captureMessage: vi.fn(),
 }))
 
-vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
+vi.mock('../../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 // Mock only the SFH HTTP client; the sfhSync cache write runs for real.
-vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
+vi.mock('../../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
 // Import after vi.mock so levelSync picks up the mocked modules.
 const { syncLevelBatch, runLevelSyncSlice, runDelistedReverifySlice } =
-  await import('./levelSync')
-const { fetchRobtopLevelResult } = await import('../utils/robtop')
-const { fetchSongFileHubNong } = await import('../utils/songFileHub')
+  await import('../levels/sync')
+const { fetchRobtopLevelResult } = await import('../../utils/robtop')
+const { fetchSongFileHubNong } = await import('../../utils/songFileHub')
 const Sentry = await import('@sentry/aws-serverless')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

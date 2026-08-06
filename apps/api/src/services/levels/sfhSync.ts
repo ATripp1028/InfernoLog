@@ -9,9 +9,9 @@
 //
 // Never throws — a broken SFH must never turn into a 500 or a failed batch.
 
-import prisma from '../utils/prisma'
-import { fetchSongFileHubNong } from '../utils/songFileHub'
-import { logger } from '../utils/logger'
+import prisma from '../../utils/prisma'
+import { fetchSongFileHubNong } from '../../utils/songFileHub'
+import { logger } from '../../utils/logger'
 
 // The outcome of one SFH check, so callers (the sync loop) can tally results.
 //   'found'  → a NONG was found and cached

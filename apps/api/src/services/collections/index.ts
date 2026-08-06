@@ -16,7 +16,7 @@
 // completion write paths' transactions).
 
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import {
   COLLECTION_ERRORS,
   isReservedCollectionName,
@@ -25,14 +25,14 @@ import {
   type UpdateCollectionInput,
   type ReorderCollectionEntryInput,
 } from '@infernolog/core'
-import { bisectIndices, gapTooTight } from '../utils/fractionalIndex'
+import { bisectIndices, gapTooTight } from '../../utils/fractionalIndex'
 import {
   levelSelect,
   completionSelect,
   deriveBadge,
   mapLevel,
   type CompletionRefs,
-} from './levelRow'
+} from '../levels/row'
 
 type Tx = Prisma.TransactionClient
 

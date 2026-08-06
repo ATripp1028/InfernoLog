@@ -14,11 +14,15 @@
 // without a completion; completed levels are skipped with a reason.
 
 import type { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type { ImportCollectionEntry, ImportListMerge } from '@infernolog/core'
-import { resolveNamesBatch, ensureStubLevels, enqueueSeedIds } from './import'
-import { computeListMerge } from '../utils/listMerge'
-import { logger } from '../utils/logger'
+import {
+  resolveNamesBatch,
+  ensureStubLevels,
+  enqueueSeedIds,
+} from '../importExport/import'
+import { computeListMerge } from '../../utils/listMerge'
+import { logger } from '../../utils/logger'
 
 type Tx = Prisma.TransactionClient
 type CollectionType =

@@ -3,7 +3,7 @@
 // badge/attempts, and the official-level metadata patch.
 
 import type { Prisma } from '@prisma/client'
-import { OFFICIAL_LEVELS_BY_ID } from '../data/officialLevels'
+import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
 
 // Level identity columns for a row (LevelListSummarySchema). Kept in sync with
 // the list page's levelListSelect.

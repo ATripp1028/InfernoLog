@@ -6,9 +6,9 @@
 // (findOrCreateLevelProgress) rather than being copied across the three
 // handlers. See LOGGING_FLOW.md and the ticket spec.
 
-import prisma from '../utils/prisma'
+import prisma from '../../utils/prisma'
 import type { Prisma, ProgressUpdateKind } from '@prisma/client'
-import { removeFromWantToBeat } from './collections'
+import { removeFromWantToBeat } from '../collections'
 import type {
   CompletionInput,
   ProgressInput,

@@ -44,7 +44,7 @@ const { mockSyncGddlLists } = vi.hoisted(() => ({
   mockSyncGddlLists: vi.fn(),
 }))
 
-vi.mock('../../services/gddlListSync', () => ({
+vi.mock('../../services/gddl/listSync', () => ({
   syncGddlLists: mockSyncGddlLists,
 }))
 
