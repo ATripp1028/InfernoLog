@@ -10,7 +10,6 @@ import progressRoutes from './routes/progress'
 import rankingRoutes from './routes/ranking'
 import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
-import gddlRecordsRoutes from './routes/gddlRecords'
 import importRoutes from './routes/import'
 import authRoutes from './routes/auth'
 import authOnboardingRoutes from './routes/authOnboarding'
@@ -44,7 +43,6 @@ app.route('/v1', progressRoutes)
 app.route('/v1', rankingRoutes)
 app.route('/v1', collectionsRoutes)
 app.route('/v1', presetsRoutes)
-app.route('/v1', gddlRecordsRoutes)
 app.route('/v1', importRoutes)
 
 // Catch-all for unmatched routes

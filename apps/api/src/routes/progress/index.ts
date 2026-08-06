@@ -9,6 +9,7 @@
 //   edits.ts      PATCH  /v1/me/progress/:levelId
 //                 DELETE /v1/me/progress/:levelId
 //                 DELETE /v1/me/progress/:levelId/updates/:progressUpdateId
+//   gddlRecord.ts POST   /v1/me/gddl-records/:levelId
 //
 // The reads and the writes used to live in two unrelated files (progress.ts and
 // logging.ts), which put GET /me/progress and POST /me/progress in different
@@ -25,6 +26,7 @@ import listRoutes from './list'
 import levelPageRoutes from './levelPage'
 import loggingRoutes from './logging'
 import editRoutes from './edits'
+import gddlRecordRoutes from './gddlRecord'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -32,5 +34,6 @@ app.route('/', listRoutes)
 app.route('/', levelPageRoutes)
 app.route('/', loggingRoutes)
 app.route('/', editRoutes)
+app.route('/', gddlRecordRoutes)
 
 export default app

@@ -1,14 +1,27 @@
 // POST /v1/me/gddl-records/:levelId — manually submit an existing completion
-// to GDDL. Unlike the fire-and-forget path triggered during completion logging,
-// this endpoint blocks and surfaces errors so the user gets feedback.
+// to GDDL.
+//
+// This is the blocking counterpart to the `submitToGddl` flag on
+// POST /v1/me/completions (see logging.ts): that path is fire-and-forget so a
+// GDDL outage can never fail a completion write, which means the user gets no
+// feedback when it doesn't land. This endpoint is the manual retry — it blocks
+// and surfaces GDDL's error (422) so they know what happened.
+//
+// Lives here rather than under account/ with the other GDDL routes because it
+// operates on one level's completion, reading the same LevelProgress and
+// COMPLETION rows the rest of this module writes. The account-level GDDL
+// routes (key management, bulk sync) are in routes/account/.
+//
+// Note GDDL records cannot be deleted through the GDDL API — see the caveat
+// returned by DELETE /me/progress/:levelId in edits.ts.
 
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
-import prisma from '../utils/prisma'
-import { decryptSecret } from '../utils/kms'
-import { submitGddlRecord, GddlError } from '../utils/gddl'
-import { logger } from '../utils/logger'
-import type { HonoVariables } from '../types/hono'
+import prisma from '../../utils/prisma'
+import { decryptSecret } from '../../utils/kms'
+import { submitGddlRecord, GddlError } from '../../utils/gddl'
+import { logger } from '../../utils/logger'
+import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
