@@ -1,10 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
 import type { PrismaClient } from '@prisma/client'
-import { buildApp as buildAppWith, TEST_USER_ID } from '../test/utils'
-import { mintConnectDiscordState } from './auth'
-import { encryptSecret } from '../utils/kms'
-import { verifyGddlApiKey, GddlInvalidKeyError, GddlError } from '../utils/gddl'
+import { buildApp as buildAppWith, TEST_USER_ID } from '../../test/utils'
+import { mintConnectDiscordState } from '../auth'
+import { encryptSecret } from '../../utils/kms'
+import {
+  verifyGddlApiKey,
+  GddlInvalidKeyError,
+  GddlError,
+} from '../../utils/gddl'
 
 // Mocks must be declared before the route module is imported so the route
 // picks up the mocked modules. vi.mock is hoisted, but the factory cannot
@@ -16,19 +20,19 @@ const { prismaMock } = await vi.hoisted(async () => {
   return { prismaMock: hoistedMockDeep() }
 })
 
-vi.mock('../utils/prisma', () => ({ default: prismaMock }))
+vi.mock('../../utils/prisma', () => ({ default: prismaMock }))
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('./auth', () => ({
+vi.mock('../auth', () => ({
   mintConnectDiscordState: vi.fn(() => 'signed-state'),
 }))
-vi.mock('../utils/kms', () => ({
+vi.mock('../../utils/kms', () => ({
   encryptSecret: vi.fn(async () => 'ciphertext-blob'),
   decryptSecret: vi.fn(async () => 'plaintext'),
 }))
-vi.mock('../utils/gddl', () => {
+vi.mock('../../utils/gddl', () => {
   class GddlError extends Error {}
   class GddlInvalidKeyError extends GddlError {}
   return {
@@ -46,7 +50,7 @@ const { mockSyncGddlLists } = vi.hoisted(() => ({
   mockSyncGddlLists: vi.fn(),
 }))
 
-vi.mock('../services/gddlListSync', () => ({
+vi.mock('../../services/gddlListSync', () => ({
   syncGddlLists: mockSyncGddlLists,
 }))
 
@@ -81,7 +85,7 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 })
 
 // Import after vi.mock so the route resolves the mocked modules.
-const { default: meApp } = await import('./me')
+const { default: meApp } = await import('./index')
 
 const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 

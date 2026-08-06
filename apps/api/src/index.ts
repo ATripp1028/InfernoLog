@@ -4,7 +4,7 @@ import { handle } from 'hono/aws-lambda'
 import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
 import usersRoutes from './routes/users'
-import meRoutes from './routes/me'
+import accountRoutes from './routes/account'
 import levelsRoutes from './routes/levels'
 import progressRoutes from './routes/progress'
 import rankingRoutes from './routes/ranking'
@@ -38,7 +38,7 @@ app.route('/v1', authOnboardingRoutes)
 
 // Authenticated routes
 app.use('/v1/*', authMiddleware)
-app.route('/v1', meRoutes)
+app.route('/v1', accountRoutes)
 app.route('/v1', levelsRoutes)
 app.route('/v1', progressRoutes)
 app.route('/v1', rankingRoutes)
