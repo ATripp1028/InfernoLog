@@ -5,18 +5,18 @@ import {
   truncateAll,
   seedUser,
   seedLevel,
-} from '../test/utils'
+} from '../../test/utils'
 
 // Real DB; mock ONLY the external RobTop HTTP client.
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../utils/robtop', () => ({
+vi.mock('../../utils/robtop', () => ({
   fetchRobtopLevel: vi.fn(),
   // The /page endpoint resolves via findOrResolveLevel, which uses the
   // distinction-preserving variant.
@@ -24,16 +24,16 @@ vi.mock('../utils/robtop', () => ({
   // /gd-search runs the GD-server name search via runGdSearch.
   searchRobtopByNameResult: vi.fn(),
 }))
-vi.mock('../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
+vi.mock('../../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
 // Mock only the SFH HTTP client — checkSfhNongIfDue + the cache write run for
 // real against the test DB.
-vi.mock('../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
+vi.mock('../../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
 
-const { default: levelsApp } = await import('./levels')
+const { default: levelsApp } = await import('./index')
 const { fetchRobtopLevel, fetchRobtopLevelResult, searchRobtopByNameResult } =
-  await import('../utils/robtop')
-const { fetchGddlTier } = await import('../utils/gddl')
-const { fetchSongFileHubNong } = await import('../utils/songFileHub')
+  await import('../../utils/robtop')
+const { fetchGddlTier } = await import('../../utils/gddl')
+const { fetchSongFileHubNong } = await import('../../utils/songFileHub')
 
 const prisma = getTestPrisma()
 const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
