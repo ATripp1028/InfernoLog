@@ -12,11 +12,11 @@ import {
   UserNotFoundException,
 } from '@aws-sdk/client-cognito-identity-provider'
 import * as Sentry from '@sentry/node'
-import prisma from '../utils/prisma'
-import { logger } from '../utils/logger'
-import { getVerifiedClaims } from '../middleware/auth'
-import { createUserForSignup } from '../services/user'
-import type { HonoVariables } from '../types/hono'
+import prisma from '../../utils/prisma'
+import { logger } from '../../utils/logger'
+import { getVerifiedClaims } from '../../middleware/auth'
+import { createUserForSignup } from '../../services/user'
+import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

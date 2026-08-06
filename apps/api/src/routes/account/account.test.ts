@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
 import type { PrismaClient } from '@prisma/client'
 import { buildApp as buildAppWith, TEST_USER_ID } from '../../test/utils'
-import { mintConnectDiscordState } from '../auth'
+import { mintConnectDiscordState } from '../auth/state'
 import { encryptSecret } from '../../utils/kms'
 import {
   verifyGddlApiKey,
@@ -25,7 +25,7 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../auth', () => ({
+vi.mock('../auth/state', () => ({
   mintConnectDiscordState: vi.fn(() => 'signed-state'),
 }))
 vi.mock('../../utils/kms', () => ({

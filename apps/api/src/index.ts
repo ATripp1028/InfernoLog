@@ -10,9 +10,11 @@ import progressRoutes from './routes/progress'
 import rankingRoutes from './routes/ranking'
 import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
-import importRoutes from './routes/import'
-import authRoutes from './routes/auth'
-import authOnboardingRoutes from './routes/authOnboarding'
+import importExportRoutes from './routes/importExport'
+import {
+  discordCallbackRoutes,
+  onboardingRoutes,
+} from './routes/auth'
 import type { HonoVariables } from './types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -25,7 +27,7 @@ app.use('*', async (c, next) => {
 
 // Public routes
 app.get('/health', (c) => c.json({ status: 'ok', app: 'InfernoLog' }))
-app.route('/auth', authRoutes)
+app.route('/auth', discordCallbackRoutes)
 
 // Public user routes — registered before authMiddleware so they stay reachable
 // without a token.
@@ -33,7 +35,7 @@ app.route('/v1', usersRoutes)
 
 // Claims-only routes (verified Cognito identity, no User row required) —
 // registered before authMiddleware so they never hit its Prisma-lookup-or-404.
-app.route('/v1', authOnboardingRoutes)
+app.route('/v1', onboardingRoutes)
 
 // Authenticated routes
 app.use('/v1/*', authMiddleware)
@@ -43,7 +45,7 @@ app.route('/v1', progressRoutes)
 app.route('/v1', rankingRoutes)
 app.route('/v1', collectionsRoutes)
 app.route('/v1', presetsRoutes)
-app.route('/v1', importRoutes)
+app.route('/v1', importExportRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {

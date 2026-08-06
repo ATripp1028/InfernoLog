@@ -1,17 +1,13 @@
-// Public (unauthenticated) user routes.
+// GET /v1/users/check-username — public username availability check.
 //
-// Mounted on /v1 in index.ts BEFORE authMiddleware — the username check runs
-// during sign-up, before a User row (or even a confirmed Cognito identity)
-// exists, so it must not require auth.
-//
-// This is also the future home of the planned public-profile reads
-// (GET /v1/users/{usernameOrId}) — see docs/API_DESIGN.md.
+// Unauthenticated: it runs during sign-up, before a User row exists. See
+// index.ts for the mount ordering this module depends on.
 
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
 import { UsernameSchema } from '@infernolog/core'
-import prisma from '../utils/prisma'
-import type { HonoVariables } from '../types/hono'
+import prisma from '../../utils/prisma'
+import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

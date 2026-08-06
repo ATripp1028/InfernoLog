@@ -1,9 +1,9 @@
 // List preset CRUD:
 //
-//   GET    /v1/me/list-presets         — the authed user's saved presets
-//   POST   /v1/me/list-presets         — create a new preset
-//   PATCH  /v1/me/list-presets/:id     — overwrite / rename a preset
-//   DELETE /v1/me/list-presets/:id     — delete a preset
+//   GET    /v1/me/list-presets       — the authed user's saved presets
+//   POST   /v1/me/list-presets       — create a new preset
+//   PATCH  /v1/me/list-presets/:id   — overwrite / rename a preset
+//   DELETE /v1/me/list-presets/:id   — delete a preset
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are opaque
 // JSON blobs — the API stores and returns them verbatim without deep validation.
@@ -12,14 +12,22 @@
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
 import { ListPresetInputSchema, ListPresetUpdateSchema } from '@infernolog/core'
-import prisma from '../utils/prisma'
-import type { HonoVariables } from '../types/hono'
+import prisma from '../../utils/prisma'
+import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-// ─────────────────────────────────────────────
-// GET /v1/me/list-presets
-// ─────────────────────────────────────────────
+// ListPreset.id is a bare UUID, not scoped to the user, so every by-id route
+// must confirm ownership before touching the row. A preset belonging to
+// someone else is reported as 404 rather than 403 — a stranger's preset id
+// should be indistinguishable from a nonexistent one.
+async function ownsPreset(userId: string, id: string): Promise<boolean> {
+  const existing = await prisma.listPreset.findUnique({
+    where: { id },
+    select: { userId: true },
+  })
+  return existing?.userId === userId
+}
 
 app.get('/me/list-presets', async (c) => {
   const userId = c.get('userId') as string
@@ -34,10 +42,6 @@ app.get('/me/list-presets', async (c) => {
     return c.json({ error: 'Internal server error' }, 500)
   }
 })
-
-// ─────────────────────────────────────────────
-// POST /v1/me/list-presets
-// ─────────────────────────────────────────────
 
 app.post('/me/list-presets', async (c) => {
   const userId = c.get('userId') as string
@@ -77,16 +81,11 @@ app.post('/me/list-presets', async (c) => {
   }
 })
 
-// ─────────────────────────────────────────────
-// PATCH /v1/me/list-presets/:id
-// ─────────────────────────────────────────────
-
 app.patch('/me/list-presets/:id', async (c) => {
   const userId = c.get('userId') as string
   const id = c.req.param('id')
   try {
-    const existing = await prisma.listPreset.findUnique({ where: { id } })
-    if (!existing || existing.userId !== userId) {
+    if (!(await ownsPreset(userId, id))) {
       return c.json({ error: 'Not found' }, 404)
     }
 
@@ -128,20 +127,15 @@ app.patch('/me/list-presets/:id', async (c) => {
   }
 })
 
-// ─────────────────────────────────────────────
-// DELETE /v1/me/list-presets/:id
-// ─────────────────────────────────────────────
-
 app.delete('/me/list-presets/:id', async (c) => {
   const userId = c.get('userId') as string
   const id = c.req.param('id')
   try {
-    const existing = await prisma.listPreset.findUnique({ where: { id } })
-    if (!existing || existing.userId !== userId) {
+    if (!(await ownsPreset(userId, id))) {
       return c.json({ error: 'Not found' }, 404)
     }
     await prisma.listPreset.delete({ where: { id } })
-    return new Response(null, { status: 204 })
+    return c.body(null, 204)
   } catch (error) {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)

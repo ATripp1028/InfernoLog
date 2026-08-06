@@ -5,19 +5,19 @@ import {
   truncateAll,
   seedUser,
   seedLevel,
-} from '../test/utils'
+} from '../../test/utils'
 
 // Real DB; the ranking flow has no external HTTP, so only infra is mocked.
-vi.mock('../utils/prisma', async () => {
-  const { getTestPrisma } = await import('../test/utils')
+vi.mock('../../utils/prisma', async () => {
+  const { getTestPrisma } = await import('../../test/utils')
   return { default: getTestPrisma() }
 })
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
-vi.mock('../utils/logger', () => ({
+vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { default: rankingApp } = await import('./ranking')
+const { default: rankingApp } = await import('./index')
 
 const prisma = getTestPrisma()
 

@@ -13,7 +13,7 @@ import { randomBytes } from 'crypto'
 import * as Sentry from '@sentry/node'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
-import { mintConnectDiscordState } from '../auth'
+import { mintConnectDiscordState } from '../auth/state'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -21,7 +21,7 @@ const app = new Hono<{ Variables: HonoVariables }>()
 // POST /v1/me/connect-discord
 // Returns a Discord OAuth URL with a signed state encoding the signed-in
 // user's id. The browser navigates to that URL; Discord redirects back to the
-// public callback in auth.ts, which validates the state and writes discordId.
+// public callback in auth/discord.ts, which validates the state and writes discordId.
 app.post('/me/connect-discord', async (c) => {
   const userId = c.get('userId') as string
 

@@ -1,47 +1,19 @@
+// GET /auth/discord/callback — the public OAuth redirect target.
+//
+// Mounted at /auth (NOT /v1) because the URL is registered with Discord and
+// versioning it would break the registration. Public because Discord sends the
+// browser here directly, with no Authorization header; the signed state from
+// state.ts is what proves which signed-in user started the flow.
+//
 import { Hono } from 'hono'
-import { createHmac } from 'crypto'
 import * as Sentry from '@sentry/node'
 import { Prisma } from '@prisma/client'
-import prisma from '../utils/prisma'
-import { logger } from '../utils/logger'
-import type { HonoVariables } from '../types/hono'
+import prisma from '../../utils/prisma'
+import { logger } from '../../utils/logger'
+import type { HonoVariables } from '../../types/hono'
+import { verifyConnectDiscordState } from './state'
 
 const app = new Hono<{ Variables: HonoVariables }>()
-
-const STATE_TTL_SECONDS = 10 * 60
-
-export type ConnectStatePayload = {
-  nonce: string
-  userId: string
-  exp: number
-}
-
-// State carries a signed (userId, nonce, exp) so the public callback can
-// identify the user without a Cognito JWT (the browser doesn't send one
-// during a top-level redirect from Discord).
-export function mintConnectDiscordState(userId: string, nonce: string): string {
-  const exp = Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS
-  const body = `${nonce}.${userId}.${exp}`
-  const sig = createHmac('sha256', process.env.DISCORD_CLIENT_SECRET!)
-    .update(body)
-    .digest('hex')
-  return `${body}.${sig}`
-}
-
-export function verifyConnectDiscordState(
-  state: string
-): ConnectStatePayload | null {
-  const parts = state.split('.')
-  if (parts.length !== 4) return null
-  const [nonce, userId, expStr, sig] = parts as [string, string, string, string]
-  const expected = createHmac('sha256', process.env.DISCORD_CLIENT_SECRET!)
-    .update(`${nonce}.${userId}.${expStr}`)
-    .digest('hex')
-  if (sig !== expected) return null
-  const exp = Number(expStr)
-  if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return null
-  return { nonce, userId, exp }
-}
 
 // GET /auth/discord/callback?code=...&state=...
 // Public route — Discord redirects here after the user approves. The signed

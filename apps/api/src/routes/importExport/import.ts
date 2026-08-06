@@ -1,12 +1,13 @@
-// POST /v1/me/import/check   — read-only conflict check
-// POST /v1/me/import/start   — persists the full dataset, kicks off the
-//                              background worker, returns 202 + jobId
-// GET  /v1/me/import/status  — poll the current job (survives closed tabs)
-// PATCH /v1/me/import/rows/{rowId}/resolve — mark one flagged row resolved
-// POST /v1/me/import/resolve-all           — mark all flagged rows resolved
+// Spreadsheet import — a job-based flow:
 //
-// All are own-account only: the authenticated user comes from the JWT
-// (c.get('userId')), never from the path or payload.
+//   POST  /v1/me/import/check                  — read-only conflict check
+//   POST  /v1/me/import/start                  — persist the dataset, kick off the worker
+//   GET   /v1/me/import/status                 — poll the current job
+//   PATCH /v1/me/import/rows/:rowId/resolve    — mark one flagged row reviewed
+//   POST  /v1/me/import/resolve-all            — mark all flagged rows reviewed
+//
+// One job per user: starting a new import discards the previous one entirely
+// (cascading its rows). There is no import history.
 
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
@@ -15,19 +16,12 @@ import type { Prisma } from '@prisma/client'
 import {
   ImportCheckRequestSchema,
   ImportStartRequestSchema,
-  EXPORT_SECTIONS,
-  type ExportSection,
   type ImportStatusResponse,
 } from '@infernolog/core'
-import { logger } from '../utils/logger'
-import prisma from '../utils/prisma'
-import type { HonoVariables } from '../types/hono'
-import { checkImportConflicts } from '../services/import'
-import {
-  exportSection,
-  EXPORT_DEFAULT_LIMIT,
-  EXPORT_MAX_LIMIT,
-} from '../services/exportData'
+import { logger } from '../../utils/logger'
+import prisma from '../../utils/prisma'
+import type { HonoVariables } from '../../types/hono'
+import { checkImportConflicts } from '../../services/import'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -238,46 +232,6 @@ app.post('/me/import/resolve-all', async (c) => {
     return c.json({ data: { resolved: true } }, 200)
   } catch (err) {
     logger.error({ userId, err }, 'POST /me/import/resolve-all error')
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
-
-// GET /v1/me/export?section=&offset=&limit= — one paginated section of the
-// account's data in a faithful domain form. The client fetches every section to
-// completion and stitches the import-compatible spreadsheet. Read-only.
-app.get('/me/export', async (c) => {
-  const userId = c.get('userId') as string
-
-  try {
-    const section = c.req.query('section')
-    if (!section || !(EXPORT_SECTIONS as readonly string[]).includes(section)) {
-      return c.json(
-        { error: `section must be one of: ${EXPORT_SECTIONS.join(', ')}` },
-        400
-      )
-    }
-
-    const rawOffset = Number(c.req.query('offset') ?? '0')
-    const rawLimit = Number(
-      c.req.query('limit') ?? String(EXPORT_DEFAULT_LIMIT)
-    )
-    const offset = Number.isFinite(rawOffset)
-      ? Math.max(0, Math.trunc(rawOffset))
-      : 0
-    const limit = Number.isFinite(rawLimit)
-      ? Math.min(EXPORT_MAX_LIMIT, Math.max(1, Math.trunc(rawLimit)))
-      : EXPORT_DEFAULT_LIMIT
-
-    const page = await exportSection(
-      userId,
-      section as ExportSection,
-      offset,
-      limit
-    )
-    return c.json(page, 200)
-  } catch (err) {
-    logger.error({ userId, err }, 'GET /me/export error')
     Sentry.captureException(err)
     return c.json({ error: 'Internal server error' }, 500)
   }

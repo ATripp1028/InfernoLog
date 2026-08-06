@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Hono } from 'hono'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
 import type { PrismaClient } from '@prisma/client'
-import type { HonoVariables } from '../types/hono'
+import type { HonoVariables } from '../../types/hono'
 
 // Mocks must be declared before the route module is imported. See me.test.ts
 // for why vi.hoisted is used in its async form here.
@@ -11,10 +11,10 @@ const { prismaMock } = await vi.hoisted(async () => {
   return { prismaMock: hoistedMockDeep() }
 })
 
-vi.mock('../utils/prisma', () => ({ default: prismaMock }))
+vi.mock('../../utils/prisma', () => ({ default: prismaMock }))
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 
-const { default: usersApp } = await import('./users')
+const { default: usersApp } = await import('./index')
 
 const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 
