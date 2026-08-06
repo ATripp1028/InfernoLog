@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import { handle } from 'hono/aws-lambda'
 import { logger } from './utils/logger'
 import { authMiddleware } from './middleware/auth'
+import usersRoutes from './routes/users'
 import meRoutes from './routes/me'
 import loggingRoutes from './routes/logging'
 import levelsRoutes from './routes/levels'
@@ -15,7 +16,6 @@ import importRoutes from './routes/import'
 import authRoutes from './routes/auth'
 import authOnboardingRoutes from './routes/authOnboarding'
 import type { HonoVariables } from './types/hono'
-import prisma from './utils/prisma'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -29,15 +29,9 @@ app.use('*', async (c, next) => {
 app.get('/health', (c) => c.json({ status: 'ok', app: 'InfernoLog' }))
 app.route('/auth', authRoutes)
 
-// Public user routes
-app.get('/v1/users/check-username', async (c) => {
-  const username = c.req.query('username')
-  if (!username) return c.json({ error: 'Username is required' }, 400)
-  const existing = await prisma.user.findFirst({
-    where: { username: { equals: username, mode: 'insensitive' } },
-  })
-  return c.json({ available: !existing })
-})
+// Public user routes — registered before authMiddleware so they stay reachable
+// without a token.
+app.route('/v1', usersRoutes)
 
 // Claims-only routes (verified Cognito identity, no User row required) —
 // registered before authMiddleware so they never hit its Prisma-lookup-or-404.

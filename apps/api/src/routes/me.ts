@@ -13,10 +13,11 @@ import { logger } from '../utils/logger'
 import { mintConnectDiscordState } from './auth'
 import { getVerifiedClaims } from '../middleware/auth'
 import type { HonoVariables } from '../types/hono'
-// NOTE: @infernolog/core uses zod 3 while this app uses zod 4. We import the
-// schemas at runtime (the API surface matches) but redefine the username
-// schema locally so that the inferred types compose cleanly with the local
-// zod 4 schemas (mixing instances across major versions breaks inference).
+// NOTE: @infernolog/core uses zod 3 while this app uses zod 4. Importing the
+// schemas and calling .safeParse works fine at runtime (the API surface
+// matches); what breaks is composing a core schema into a locally-declared
+// zod 4 schema, since mixing instances across major versions defeats type
+// inference. Parse with them, don't build on them.
 import {
   UpdateMeSchema,
   UpdateUsernameSchema,
@@ -55,21 +56,6 @@ function stripUndefined<T extends Record<string, unknown>>(
   }
   return out as { [K in keyof T]: Exclude<T[K], undefined> }
 }
-
-const RESERVED_USERNAMES = ['admin', 'moderator', 'infernolog']
-
-const localUsernameSchema = z
-  .string()
-  .min(2, 'Username must be at least 2 characters')
-  .max(32, 'Username must be at most 32 characters')
-  .regex(
-    /^[a-zA-Z0-9_-]+$/,
-    'Username can only contain letters, numbers, underscores, and hyphens'
-  )
-  .refine(
-    (val) => !RESERVED_USERNAMES.includes(val.toLowerCase()),
-    'This username is reserved'
-  )
 
 const meSelect = {
   id: true,
@@ -797,31 +783,6 @@ app.delete('/me/connect-discord', async (c) => {
     Sentry.captureException(error)
     return c.json({ error: 'Internal server error' }, 500)
   }
-})
-
-// GET /v1/users/check-username
-app.get('/users/check-username', async (c) => {
-  const username = c.req.query('username')
-
-  if (!username) {
-    return c.json({
-      available: false,
-      error: 'Username must be at least 2 characters',
-    })
-  }
-
-  const parsed = localUsernameSchema.safeParse(username)
-  if (!parsed.success) {
-    return c.json({ available: false, error: parsed.error.message })
-  }
-
-  const existing = await prisma.user.findFirst({
-    where: {
-      username: { equals: username, mode: 'insensitive' },
-    },
-  })
-
-  return c.json({ available: !existing })
 })
 
 // ─────────────────────────────────────────────

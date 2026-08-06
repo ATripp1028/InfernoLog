@@ -31,7 +31,7 @@ The first-party frontend passes a Cognito ID token as `Authorization: Bearer <to
 
 The middleware is mounted on `/v1/*`, so **every `/v1` route is authenticated** unless it is registered before the middleware in `src/index.ts`. Today that carve-out is exactly two things:
 
-- `GET /v1/users/check-username` — registered inline in `index.ts`
+- `GET /v1/users/check-username` — `routes/users.ts`, mounted on `/v1` ahead of the middleware
 - `POST /v1/auth/signup/start` and `POST /v1/auth/signin/reject` — "claims-only" routes that verify the Cognito token but tolerate a missing `User` row, since they run before one exists
 
 Note this means the `/v1/levels/*` read endpoints are **currently authenticated**, even though they expose no per-user data and are intended to become public reads. Opening them up is a deliberate future change, not an oversight to fix incidentally.
@@ -120,9 +120,13 @@ DELETE /v1/me/connect-discord
 GET  /v1/users/check-username?username=         (no auth)
 ```
 
-Returns `{ available: boolean }`.
+Availability check for the debounced sign-up and settings typeahead. Returns `{ available: boolean, error?: string }`.
 
-> ⚠️ **Known defect.** This path is registered **twice**: inline in `src/index.ts` (before `authMiddleware`) and again in `src/routes/me.ts`. Hono resolves to the first registration, so the `me.ts` handler is unreachable dead code. The two differ: the live one checks only case-insensitive uniqueness, while the dead one additionally validates format (2–32 chars, `[A-Za-z0-9_-]`) and rejects reserved names (`admin`, `moderator`, `infernolog`). **The reachable endpoint therefore reports reserved and malformed usernames as available.** `PATCH /v1/me/username` does enforce the full rules, so this is a client-side-hint gap rather than a data-integrity hole — but the endpoint should be deduplicated onto the stricter implementation.
+Validates against `UsernameSchema` in `@infernolog/core` — length (2–32), character set (`[A-Za-z0-9_-]`), and reserved names (`admin`, `moderator`, `infernolog`) — before the uniqueness query, so the verdict here matches what `PATCH /v1/me/username` would return on submit. Invalid input short-circuits without touching the database.
+
+Always responds `200`, including for a missing or malformed `username`. The endpoint answers "can I have this name?", and "no, because it's too short" is an answer rather than a client error; `error` carries the reason for inline display beneath the field.
+
+Lives in `src/routes/users.ts`, mounted before `authMiddleware`. It is the intended home for the planned public-profile reads below.
 
 ## Levels
 
