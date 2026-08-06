@@ -13,7 +13,10 @@ import { LevelIdSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { findOrResolveLevel } from '../../services/levels/resolve'
 import type { HonoVariables } from '../../types/hono'
-import { levelSelect, pageLevelSelect } from './selects'
+import {
+  levelDetailSelect,
+  levelPageSelect,
+} from '../../services/levels/selects'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -33,7 +36,7 @@ app.get('/levels/:levelId/page', async (c) => {
   }
 
   try {
-    const resolved = await findOrResolveLevel(levelId, pageLevelSelect)
+    const resolved = await findOrResolveLevel(levelId, levelPageSelect)
 
     if (resolved.status === 'not_found') {
       return c.json({ error: 'No such level', reason: 'not_found' }, 404)
@@ -78,7 +81,7 @@ app.get('/levels/:levelId', async (c) => {
   try {
     const level = await prisma.level.findUnique({
       where: { inGameId: levelId },
-      select: levelSelect,
+      select: levelDetailSelect,
     })
     if (!level) return c.json({ error: 'Level not found' }, 404)
     return c.json({ data: level })

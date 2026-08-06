@@ -16,7 +16,7 @@ import { fetchGddlTier } from '../../utils/gddl'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
 import { buildRobtopCreateData } from '../../services/levels/resolve'
 import type { HonoVariables } from '../../types/hono'
-import { levelSelect } from './selects'
+import { levelDetailSelect } from '../../services/levels/selects'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -91,7 +91,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
   try {
     let level = await prisma.level.findUnique({
       where: { inGameId: levelId },
-      select: levelSelect,
+      select: levelDetailSelect,
     })
 
     if (!level) {
@@ -108,7 +108,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
       }
       level = await prisma.level.create({
         data: buildRobtopCreateData(levelId, gd),
-        select: levelSelect,
+        select: levelDetailSelect,
       })
     }
 

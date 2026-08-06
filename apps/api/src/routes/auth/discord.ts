@@ -11,7 +11,7 @@ import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
-import { verifyConnectDiscordState } from './state'
+import { verifyConnectDiscordState } from '../../utils/discordState'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

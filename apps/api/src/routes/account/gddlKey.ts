@@ -16,7 +16,11 @@ import { logger } from '../../utils/logger'
 import { encryptSecret } from '../../utils/kms'
 import { verifyGddlApiKey, GddlInvalidKeyError } from '../../utils/gddl'
 import type { HonoVariables } from '../../types/hono'
-import { meWithCategoriesSelect, serializeMe, type RawUser } from './serialize'
+import {
+  meWithCategoriesSelect,
+  serializeMe,
+  type RawUser,
+} from '../../services/user/serialize'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

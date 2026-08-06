@@ -11,10 +11,7 @@ import rankingRoutes from './routes/ranking'
 import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
 import importExportRoutes from './routes/importExport'
-import {
-  discordCallbackRoutes,
-  onboardingRoutes,
-} from './routes/auth'
+import { discordCallbackRoutes, onboardingRoutes } from './routes/auth'
 import type { HonoVariables } from './types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()

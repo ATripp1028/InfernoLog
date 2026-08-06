@@ -15,34 +15,14 @@ import {
 import prisma from '../../utils/prisma'
 import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
 import type { HonoVariables } from '../../types/hono'
-import { toNum } from './shared'
+import { toNum } from '../../utils/decimal'
+import { levelSummarySelect } from '../../services/levels/row'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 // ─────────────────────────────────────────────
 // Selects
 // ─────────────────────────────────────────────
-
-// Trimmed level columns for a list row (LevelListSummarySchema). The face,
-// name/creator, type, and rated-status badge fields the list needs.
-const levelListSelect = {
-  inGameId: true,
-  name: true,
-  creator: true,
-  levelType: true,
-  inGameDifficulty: true,
-  isDemon: true,
-  isRated: true,
-  featured: true,
-  epicValue: true,
-  length: true,
-  songName: true,
-  songAuthor: true,
-  coins: true,
-  coinsVerified: true,
-  twoPlayer: true,
-  gameVersion: true,
-} satisfies Prisma.LevelSelect
 
 const levelProgressListSelect = {
   id: true,
@@ -56,7 +36,7 @@ const levelProgressListSelect = {
   userGddlTier: true,
   simpleRating: true,
   ratingScores: { select: { categoryId: true, score: true } },
-  level: { select: levelListSelect },
+  level: { select: levelSummarySelect },
   // The representative update: completion first (kind desc — see
   // ProgressUpdateKind's declaration order), else the most recent. For a
   // DROPPED level that's the drop itself, now that drops are ordinary

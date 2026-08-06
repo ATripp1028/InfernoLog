@@ -14,7 +14,7 @@ import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { bisectIndices, gapTooTight } from '../../utils/fractionalIndex'
 import {
-  levelSelect,
+  levelSummarySelect,
   completionSelect,
   deriveBadge,
   completionAttempts,
@@ -115,7 +115,7 @@ async function computeIndex(
 // Reads / serialization
 // ─────────────────────────────────────────────
 
-// Row serialization (levelSelect / completionSelect / deriveBadge /
+// Row serialization (levelSummarySelect / completionSelect / deriveBadge /
 // completionAttempts / mapLevel) is shared with collections — see levelRow.ts.
 
 export async function getClassicRanking(userId: string) {
@@ -129,7 +129,7 @@ export async function getClassicRanking(userId: string) {
           select: {
             id: true,
             userGddlTier: true,
-            level: { select: levelSelect },
+            level: { select: levelSummarySelect },
             progressUpdates: completionSelect,
           },
         },
@@ -146,7 +146,7 @@ export async function getClassicRanking(userId: string) {
       select: {
         id: true,
         userGddlTier: true,
-        level: { select: levelSelect },
+        level: { select: levelSummarySelect },
         progressUpdates: completionSelect,
       },
     }),

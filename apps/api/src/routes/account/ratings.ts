@@ -16,7 +16,11 @@ import {
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
-import { meWithCategoriesSelect, serializeMe, type RawUser } from './serialize'
+import {
+  meWithCategoriesSelect,
+  serializeMe,
+  type RawUser,
+} from '../../services/user/serialize'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

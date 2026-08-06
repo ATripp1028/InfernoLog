@@ -3,8 +3,8 @@
 //
 // Single-copy on purpose. serializeMe is the boundary that strips
 // gddlApiKeyEncrypted — a second copy that forgot to would leak the stored
-// GDDL key's ciphertext to the client, so profile.ts, gddlKey.ts and
-// ratings.ts all share this one.
+// GDDL key's ciphertext to the client, so every route that returns `me`
+// (routes/account/{profile,gddlKey,ratings}.ts) shares this one.
 
 import { Prisma } from '@prisma/client'
 

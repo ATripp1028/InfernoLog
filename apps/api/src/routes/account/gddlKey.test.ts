@@ -20,7 +20,7 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../auth/state', () => ({
+vi.mock('../../utils/discordState', () => ({
   mintConnectDiscordState: vi.fn(() => 'signed-state'),
 }))
 vi.mock('../../utils/kms', () => ({

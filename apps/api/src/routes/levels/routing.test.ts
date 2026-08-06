@@ -35,7 +35,9 @@ vi.mock('../../utils/logger', () => ({
 vi.mock('../../services/levels/browse', () => ({
   browseLevels: mockBrowseLevels,
 }))
-vi.mock('../../services/levels/gdSearch', () => ({ runGdSearch: mockRunGdSearch }))
+vi.mock('../../services/levels/gdSearch', () => ({
+  runGdSearch: mockRunGdSearch,
+}))
 
 const { default: levelsApp } = await import('./index')
 

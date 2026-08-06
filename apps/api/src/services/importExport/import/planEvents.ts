@@ -22,6 +22,7 @@ import type {
 } from '@infernolog/core'
 import { zonedDateString } from '../../../utils/timezone'
 import { PlanCtx, applyLp, getLpPlan } from './planWrites'
+import { toNum } from '../../../utils/decimal'
 
 // ── Progress/Dropped shared helpers ─────────────────────────────────────────
 //
@@ -46,10 +47,6 @@ export const isoDate = (
   d: Date | null,
   timezone: string | null
 ): string | null => (d ? zonedDateString(d, timezone) : null)
-
-type DecimalLike = { toNumber(): number }
-const toNum = (v: DecimalLike | number | null): number | null =>
-  v === null ? null : typeof v === 'number' ? v : v.toNumber()
 
 export interface ExistingEventSnapshot {
   id: string

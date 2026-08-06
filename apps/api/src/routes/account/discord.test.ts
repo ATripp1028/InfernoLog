@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
 import type { PrismaClient } from '@prisma/client'
 import { buildApp as buildAppWith, TEST_USER_ID } from '../../test/utils'
-import { mintConnectDiscordState } from '../auth/state'
+import { mintConnectDiscordState } from '../../utils/discordState'
 
 // Mocks must be declared before the route module is imported so the route
 // picks up the mocked modules. vi.mock is hoisted, but the factory cannot
@@ -19,7 +19,7 @@ vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
-vi.mock('../auth/state', () => ({
+vi.mock('../../utils/discordState', () => ({
   mintConnectDiscordState: vi.fn(() => 'signed-state'),
 }))
 vi.mock('../../utils/kms', () => ({

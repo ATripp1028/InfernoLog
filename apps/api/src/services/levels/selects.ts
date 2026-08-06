@@ -2,7 +2,7 @@
 
 // Columns returned for a cached level (the wire shape, LevelSchema). Excludes
 // internal sync/bookkeeping fields (lastCheckedAt, pending*, sfhCheckedAt).
-export const levelSelect = {
+export const levelDetailSelect = {
   inGameId: true,
   levelType: true,
   isRated: true,
@@ -54,8 +54,8 @@ export const levelSelect = {
 // The Global Level Page renders everything the logging wire shape carries plus
 // two fields the logging flow omits as internal: delistedAt (drives the amber
 // "frozen as of…" banner) and lastCheckedAt (the frozen-as-of date it shows).
-export const pageLevelSelect = {
-  ...levelSelect,
+export const levelPageSelect = {
+  ...levelDetailSelect,
   delistedAt: true,
   lastCheckedAt: true,
 } as const

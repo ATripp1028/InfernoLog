@@ -27,7 +27,7 @@ import {
 } from '@infernolog/core'
 import { bisectIndices, gapTooTight } from '../../utils/fractionalIndex'
 import {
-  levelSelect,
+  levelSummarySelect,
   completionSelect,
   deriveBadge,
   mapLevel,
@@ -153,7 +153,7 @@ export async function getCollectionDetail(
           id: true,
           rankingIndex: true,
           addedAt: true,
-          level: { select: levelSelect },
+          level: { select: levelSummarySelect },
         },
       },
     },

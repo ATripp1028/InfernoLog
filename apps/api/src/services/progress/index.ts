@@ -15,6 +15,7 @@ import type {
   DropInput,
   EditProgressInput,
 } from '@infernolog/core'
+import { toNum } from '../../utils/decimal'
 
 type Tx = Prisma.TransactionClient
 
@@ -71,10 +72,6 @@ export async function findOrCreateLevelProgress(
 // Serialization — Prisma returns Decimal instances; the wire shape uses plain
 // numbers. Dates are left as Date (Hono's c.json serializes them to ISO).
 // ─────────────────────────────────────────────
-
-type DecimalLike = { toNumber(): number }
-const toNum = (v: DecimalLike | number | null): number | null =>
-  v === null ? null : typeof v === 'number' ? v : v.toNumber()
 
 const levelProgressInclude = {
   ratingScores: { select: { categoryId: true, score: true } },

@@ -3,8 +3,10 @@
 //   discord.ts     GET  /auth/discord/callback        (public, unversioned)
 //   onboarding.ts  POST /v1/auth/signup/start         (claims-only)
 //                  POST /v1/auth/signin/reject        (claims-only)
-//   state.ts       the signed Discord connect-state, shared with
-//                  routes/account/discord.ts
+//
+// The signed connect-state helpers both Discord routes rely on live in
+// utils/discordState.ts — they are shared with routes/account/discord.ts and
+// are not route definitions.
 //
 // ⚠️ This module has NO default export, unlike every other route module.
 // Its two route groups mount at different prefixes and neither can move:
@@ -21,8 +23,3 @@
 
 export { default as discordCallbackRoutes } from './discord'
 export { default as onboardingRoutes } from './onboarding'
-export {
-  mintConnectDiscordState,
-  verifyConnectDiscordState,
-  type ConnectStatePayload,
-} from './state'

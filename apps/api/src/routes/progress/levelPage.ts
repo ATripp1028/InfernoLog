@@ -12,7 +12,7 @@ import * as Sentry from '@sentry/node'
 import prisma from '../../utils/prisma'
 import { computeRunsGraph } from '../../utils/runsGraph'
 import type { HonoVariables } from '../../types/hono'
-import { toNum } from './shared'
+import { toNum } from '../../utils/decimal'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 

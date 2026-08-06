@@ -14,6 +14,7 @@
 import prisma from '../../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
 import { zonedDateString } from '../../utils/timezone'
+import { toNum } from '../../utils/decimal'
 
 export const EXPORT_DEFAULT_LIMIT = 500
 export const EXPORT_MAX_LIMIT = 1000
@@ -24,10 +25,6 @@ export const EXPORT_MAX_LIMIT = 1000
 // recover the calendar day the user actually entered.
 const iso = (d: Date | null, timezone: string | null): string | null =>
   d ? zonedDateString(d, timezone) : null
-
-type DecimalLike = { toNumber(): number }
-const toNum = (v: DecimalLike | number | null): number | null =>
-  v === null ? null : typeof v === 'number' ? v : v.toNumber()
 
 // Reserved collection types → the import keyword; custom collections export by name.
 const LIST_KEYWORD: Record<string, string> = {

@@ -13,7 +13,7 @@ import { randomBytes } from 'crypto'
 import * as Sentry from '@sentry/node'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
-import { mintConnectDiscordState } from '../auth/state'
+import { mintConnectDiscordState } from '../../utils/discordState'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()

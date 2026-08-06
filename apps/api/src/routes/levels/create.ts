@@ -11,7 +11,7 @@ import { ManualLevelInputSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
-import { levelSelect } from './selects'
+import { levelDetailSelect } from '../../services/levels/selects'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -38,7 +38,7 @@ app.post('/levels', async (c) => {
         dataSource: 'manual',
         verified: false,
       },
-      select: levelSelect,
+      select: levelDetailSelect,
     })
 
     logger.info({ inGameId: input.inGameId }, 'Manually created level metadata')

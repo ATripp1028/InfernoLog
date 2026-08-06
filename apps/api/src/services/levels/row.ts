@@ -5,9 +5,10 @@
 import type { Prisma } from '@prisma/client'
 import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
 
-// Level identity columns for a row (LevelListSummarySchema). Kept in sync with
-// the list page's levelListSelect.
-export const levelSelect = {
+// Level identity columns for a row (LevelListSummarySchema). Shared by the
+// ranking and collections services and by GET /v1/me/progress, which all
+// return the same level summary — previously three hand-synced copies.
+export const levelSummarySelect = {
   inGameId: true,
   name: true,
   creator: true,
@@ -35,7 +36,9 @@ export const completionSelect = {
   },
 } satisfies Prisma.LevelProgress$progressUpdatesArgs
 
-export type LevelRow = Prisma.LevelGetPayload<{ select: typeof levelSelect }>
+export type LevelRow = Prisma.LevelGetPayload<{
+  select: typeof levelSummarySelect
+}>
 export type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
   select: (typeof completionSelect)['select']
 }>[]
