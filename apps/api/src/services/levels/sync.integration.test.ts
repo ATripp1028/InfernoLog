@@ -244,6 +244,56 @@ describe('syncLevelBatch — found, metadata diff', () => {
   })
 })
 
+describe('syncLevelBatch — unverified stub repair', () => {
+  it('rewrites a full snapshot for an unverified row instead of the narrow diff', async () => {
+    // A stub left behind by a GDDL sync / import that couldn't reach RobTop:
+    // it may already have picked up name/creator/difficulty from an earlier
+    // sweep, which is precisely why the narrow diff can't be trusted to notice
+    // anything is wrong with it.
+    await seedCachedLevel({
+      dataSource: 'manual',
+      verified: false,
+      length: null,
+      coins: null,
+      featureScore: null,
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ length: 'XL', coins: 3, featureScore: 1200, stars: 10 })
+    )
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    // The extended metadata the narrow diff never touches.
+    expect(after.length).toBe('XL')
+    expect(after.coins).toBe(3)
+    expect(after.featureScore).toBe(1200)
+    expect(after.stars).toBe(10)
+    // ...and the row is no longer a stub, so the next lap diffs it normally.
+    expect(after.verified).toBe(true)
+    expect(after.dataSource).toBe('robtop_autofill')
+    expect(result).toMatchObject({ processed: 1, updated: 1, repaired: 1 })
+  })
+
+  it('leaves a verified row on the narrow diff, never widening the write', async () => {
+    await seedCachedLevel({ length: null, coins: null })
+    // RobTop reports extended metadata, but a healthy row is only checked for
+    // drift — widening this write would mark nearly every level `updated`.
+    robtopMock.mockResolvedValue(makeRobtop({ length: 'XL', coins: 3 }))
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.length).toBeNull()
+    expect(after.coins).toBeNull()
+    expect(result).toMatchObject({ processed: 1, updated: 0, repaired: 0 })
+  })
+})
+
 describe('syncLevelBatch — found, rating diff', () => {
   it('stamps rating_status_since when is_rated flips', async () => {
     await seedCachedLevel({

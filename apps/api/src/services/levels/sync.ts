@@ -18,6 +18,7 @@
 import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
+import { buildRobtopRefreshData } from './robtopMapping'
 import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
 import { logger } from '../../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
@@ -67,6 +68,11 @@ export interface SyncBatchResult {
   // Subset of `updated` where is_rated / in_game_difficulty changed (stamped
   // rating_status_since).
   ratingChanged: number
+  // Subset of `updated` that were unverified rows (never given a full RobTop
+  // snapshot) rewritten wholesale rather than diffed. Steady state is 0 — a
+  // non-zero count means stubs are reaching the sweep, i.e. the seed queue
+  // didn't get to them, so it's worth watching rather than just tallying.
+  repaired: number
   // Confirmed gone (missing past the confirmation window) and delisted this run.
   delisted: number
   // Seen missing (RobTop not-found) but NOT delisted — either the first sighting
@@ -91,7 +97,8 @@ export interface SyncBatchResult {
 
 // Just the fields the diff compares against, plus the SFH-gating fields.
 // Selected up front so we compare to the pre-sync snapshot even if the row is
-// written mid-loop. sfhCheckedAt/delistedAt drive the SFH re-check filter.
+// written mid-loop. sfhCheckedAt/delistedAt drive the SFH re-check filter, and
+// `verified` selects between the drift diff and a full repair (see below).
 const compareSelect = {
   isRated: true,
   inGameDifficulty: true,
@@ -99,6 +106,7 @@ const compareSelect = {
   creator: true,
   songName: true,
   songAuthor: true,
+  verified: true,
   sfhCheckedAt: true,
   delistedAt: true,
   missingSince: true,
@@ -222,6 +230,23 @@ async function syncOneLevel(
     changed = true
   }
 
+  // A row that never received a full RobTop snapshot (verified=false — a stub
+  // left by a spreadsheet import, a GDDL sync, or manual entry) is not
+  // DRIFTING, it is INCOMPLETE, and the diff above can't fix that: it only ever
+  // touches those six fields, so length/coins/featureScore/stars/objectCount/…
+  // stay null forever while the row acquires a real name, creator, difficulty
+  // and a fresh lastCheckedAt — i.e. it comes to look healthy without being so.
+  // That is exactly how the 2026-07-21 GDDL import went unnoticed for weeks.
+  //
+  // We are already holding the full snapshot here, so write all of it. Costs no
+  // extra RobTop call, and flips the row to verified/robtop_autofill, after
+  // which it rejoins the narrow-diff regime on the next lap. The narrow diff
+  // stays the rule for healthy rows on purpose — writing everything every run
+  // would mark nearly every level `updated` (downloads and likes always move),
+  // making the drift tallies useless.
+  const repaired = !current.verified
+  if (repaired) Object.assign(data, buildRobtopRefreshData(robtop))
+
   // The level is present, so any pending "missing" mark is stale — clear it so a
   // brief disappearance never accumulates toward a delist. Bookkeeping only; not
   // counted as a metadata `changed`.
@@ -229,7 +254,8 @@ async function syncOneLevel(
 
   await prisma.level.update({ where: { inGameId: levelId }, data })
 
-  if (changed) result.updated++
+  if (changed || repaired) result.updated++
+  if (repaired) result.repaired++
   if (ratingChanged) result.ratingChanged++
 
   // Opportunistic Song File Hub NONG check — piggybacks on this batch for any
@@ -264,6 +290,7 @@ export async function syncLevelBatch(
     processed: 0,
     updated: 0,
     ratingChanged: 0,
+    repaired: 0,
     delisted: 0,
     missing: 0,
     unreachable: 0,

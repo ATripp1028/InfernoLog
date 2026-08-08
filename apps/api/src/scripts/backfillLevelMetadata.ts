@@ -3,10 +3,14 @@
 //
 // Not a one-off: `--dry-run` is a cheap health check safe to run against prod
 // any time, and the repair pass is idempotent, so this is the thing to reach
-// for whenever level data looks blank in the UI. It exists because the repair
-// is genuinely hard to reach any other way — the level-cache sync deliberately
-// refreshes only a handful of volatile fields, so nothing in the running system
-// rewrites a full snapshot onto a row that already exists.
+// for whenever level data looks blank in the UI.
+//
+// The level-cache sync now repairs unverified rows on its own (see the
+// `repaired` branch in services/levels/sync.ts), so this is no longer the ONLY
+// way out — but that sweep is a round-robin doing SYNC_SLICE_SIZE levels every
+// 6 hours, so a row can wait a full lap of the cache to be reached. This script
+// is how you fix a known-bad set now instead of eventually, and how you get a
+// count of the damage without waiting at all.
 //
 // Background: several write paths create a level row WITHOUT calling RobTop.
 // The GDDL submission sync is the big one (services/gddl/sync.ts,
@@ -28,14 +32,15 @@
 //     not-found from unreachable), so new damage of this shape should be rare;
 //     this script is what repairs the rows already in that state, plus any that
 //     slip past the DLQ.
-//   - the round-robin level sync (services/levels/sync.ts) DOES visit them, but
-//     its diff only overwrites name, creator, songName, songAuthor, isRated and
-//     inGameDifficulty. Every extended-metadata column — length, coins,
-//     coinsVerified, featureScore, featured, epicValue, stars, downloads,
-//     likes, objectCount, description, partialDiff, levelVersion, gameVersion,
-//     song* — is never backfilled, and verified/dataSource are left alone. The
-//     row ends up looking healthy (real name, creator, difficulty, a fresh
-//     lastCheckedAt) while permanently missing the rest.
+//   - the round-robin level sync (services/levels/sync.ts) DID visit them and
+//     make things worse: its diff only overwrote name, creator, songName,
+//     songAuthor, isRated and inGameDifficulty, so the row acquired a real
+//     name, creator, difficulty and a fresh lastCheckedAt — looking healthy —
+//     while every extended-metadata column (length, coins, coinsVerified,
+//     featureScore, featured, epicValue, stars, downloads, likes, objectCount,
+//     description, partialDiff, levelVersion, gameVersion, song*) stayed null.
+//     That sweep now rewrites a full snapshot for any unverified row, so it
+//     heals rather than disguises — but only when the rotation reaches the row.
 //
 // This script closes that gap: it re-fetches each affected level from RobTop
 // and writes the SAME full snapshot every healthy path writes
