@@ -85,6 +85,27 @@ export function buildRobtopCreateData(
   return { inGameId: levelId, ...robtopLevelFields(gd), ...overrides }
 }
 
+// Text fields whose null in a RobTop snapshot means "the response didn't carry
+// it", never "the level's value is empty": key 2 is always populated for a live
+// level, a creator absent from the response's creator list is an anonymized or
+// deleted account rather than a nameless one, and every level has a song even
+// when the song object is missing from the payload.
+//
+// This matters only when overwriting an existing row: the value already there
+// may be the only one anyone has — a name from GDDL metadata (see
+// {@link buildRobtopCreateData}'s `overrides`), a creator/song typed in by hand
+// on a manual level. Writing null over it trades real metadata for nothing, and
+// nothing re-derives it later. Omitting the key from an update payload leaves
+// the column as-is, which is the same "freeze the last-known value" rule the
+// level sync applies to delisted levels. Creates have nothing to preserve, so
+// this applies to the refresh payload only.
+const PRESERVE_IF_NULL = [
+  'name',
+  'creator',
+  'songName',
+  'songAuthor',
+] as const satisfies readonly (keyof RobtopLevelFields)[]
+
 /**
  * Builds the `level.update` payload that upgrades an existing stub row — one
  * created by an import or a GDDL sync that couldn't reach RobTop at the time —
@@ -95,9 +116,17 @@ export function buildRobtopCreateData(
  * of the copies this replaced set it and one (the GDDL list sync) did not,
  * leaving rows it upgraded reporting a stale "frozen as of" date on the level
  * page. Stamping it everywhere is the fix.
+ *
+ * Fields the snapshot reports as null that RobTop only ever nulls when it
+ * couldn't tell us (see PRESERVE_IF_NULL) are omitted, so the row keeps
+ * whatever it already had rather than being blanked.
  */
 export function buildRobtopRefreshData(
   gd: RobtopLevel
 ): Prisma.LevelUncheckedUpdateInput {
-  return { ...robtopLevelFields(gd), lastCheckedAt: new Date() }
+  const fields: RobtopLevelFields = robtopLevelFields(gd)
+  for (const key of PRESERVE_IF_NULL) {
+    if (fields[key] === null) delete fields[key]
+  }
+  return { ...fields, lastCheckedAt: new Date() }
 }

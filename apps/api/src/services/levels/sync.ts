@@ -212,21 +212,17 @@ async function syncOneLevel(
     data.ratingStatusSince = now
   }
 
+  // Text drift. A null from RobTop for any of these is "the response didn't
+  // carry it", not a rename to nothing (see PRESERVE_IF_NULL in
+  // robtopMapping.ts), and the cached value can be the only one that exists —
+  // a name from GDDL metadata, a creator/song typed in on a manual level. So a
+  // null is no news: keep what's there. Same rule the repair path below gets
+  // from buildRobtopRefreshData.
   let changed = ratingChanged
-  if (robtop.name !== current.name) {
-    data.name = robtop.name
-    changed = true
-  }
-  if (robtop.creator !== current.creator) {
-    data.creator = robtop.creator
-    changed = true
-  }
-  if (robtop.songName !== current.songName) {
-    data.songName = robtop.songName
-    changed = true
-  }
-  if (robtop.songAuthor !== current.songAuthor) {
-    data.songAuthor = robtop.songAuthor
+  for (const field of ['name', 'creator', 'songName', 'songAuthor'] as const) {
+    const next = robtop[field]
+    if (next === null || next === current[field]) continue
+    data[field] = next
     changed = true
   }
 
