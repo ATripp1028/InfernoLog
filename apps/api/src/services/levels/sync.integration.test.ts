@@ -244,6 +244,128 @@ describe('syncLevelBatch — found, metadata diff', () => {
   })
 })
 
+describe('syncLevelBatch — RobTop reports a null text field', () => {
+  it('keeps the cached name/creator/song rather than blanking them', async () => {
+    // GD's response can omit a name (key 2 empty) or a creator (account deleted
+    // or anonymized, so it never appears in the response's creator list). That
+    // means "not told", not "renamed to nothing" — and for a row seeded from
+    // GDDL metadata or typed in by hand, the cached value is the only one that
+    // exists.
+    await seedCachedLevel()
+    robtopMock.mockResolvedValue(
+      makeRobtop({
+        name: null,
+        creator: null,
+        songName: null,
+        songAuthor: null,
+      })
+    )
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.name).toBe('Cached Name')
+    expect(after.creator).toBe('Cached Creator')
+    expect(after.songName).toBe('Cached Song')
+    expect(after.songAuthor).toBe('Cached Author')
+    // Nothing was overwritten, so this is a last_checked_at-only write.
+    expect(after.lastCheckedAt).not.toBeNull()
+    expect(result).toMatchObject({ processed: 1, updated: 0 })
+  })
+
+  it('still writes the fields RobTop did report', async () => {
+    await seedCachedLevel()
+    robtopMock.mockResolvedValue(
+      makeRobtop({ name: null, creator: 'New Creator' })
+    )
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.name).toBe('Cached Name')
+    expect(after.creator).toBe('New Creator')
+    expect(result).toMatchObject({ processed: 1, updated: 1 })
+  })
+})
+
+describe('syncLevelBatch — unverified stub repair', () => {
+  it('rewrites a full snapshot for an unverified row instead of the narrow diff', async () => {
+    // A stub left behind by a GDDL sync / import that couldn't reach RobTop:
+    // it may already have picked up name/creator/difficulty from an earlier
+    // sweep, which is precisely why the narrow diff can't be trusted to notice
+    // anything is wrong with it.
+    await seedCachedLevel({
+      dataSource: 'manual',
+      verified: false,
+      length: null,
+      coins: null,
+      featureScore: null,
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ length: 'XL', coins: 3, featureScore: 1200, stars: 10 })
+    )
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    // The extended metadata the narrow diff never touches.
+    expect(after.length).toBe('XL')
+    expect(after.coins).toBe(3)
+    expect(after.featureScore).toBe(1200)
+    expect(after.stars).toBe(10)
+    // ...and the row is no longer a stub, so the next lap diffs it normally.
+    expect(after.verified).toBe(true)
+    expect(after.dataSource).toBe('robtop_autofill')
+    expect(result).toMatchObject({ processed: 1, updated: 1, repaired: 1 })
+  })
+
+  it('keeps the stub name when the full snapshot has none', async () => {
+    // The repair writes the whole snapshot, so a null name in it would blank
+    // the name the GDDL sync put on the stub — the one piece of metadata that
+    // row was created from.
+    await seedCachedLevel({
+      name: 'GDDL Name',
+      dataSource: 'manual',
+      verified: false,
+      length: null,
+    })
+    robtopMock.mockResolvedValue(makeRobtop({ name: null, length: 'XL' }))
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.name).toBe('GDDL Name')
+    // ...and the rest of the repair still happened.
+    expect(after.length).toBe('XL')
+    expect(after.verified).toBe(true)
+    expect(result).toMatchObject({ processed: 1, repaired: 1 })
+  })
+
+  it('leaves a verified row on the narrow diff, never widening the write', async () => {
+    await seedCachedLevel({ length: null, coins: null })
+    // RobTop reports extended metadata, but a healthy row is only checked for
+    // drift — widening this write would mark nearly every level `updated`.
+    robtopMock.mockResolvedValue(makeRobtop({ length: 'XL', coins: 3 }))
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.length).toBeNull()
+    expect(after.coins).toBeNull()
+    expect(result).toMatchObject({ processed: 1, updated: 0, repaired: 0 })
+  })
+})
+
 describe('syncLevelBatch — found, rating diff', () => {
   it('stamps rating_status_since when is_rated flips', async () => {
     await seedCachedLevel({

@@ -33,8 +33,10 @@ vi.mock('../../utils/gddl', async (importOriginal) => {
   }
 })
 
+// Defaults to 'unreachable' — the RobTop-is-down branch the stub-creation
+// tests below exercise. Tests that need the other outcomes override per call.
 vi.mock('../../utils/robtop', () => ({
-  fetchRobtopLevel: vi.fn(async () => null),
+  fetchRobtopLevelResult: vi.fn(async () => ({ status: 'unreachable' })),
 }))
 
 vi.mock('../importExport/import', () => ({
@@ -44,6 +46,7 @@ vi.mock('../importExport/import', () => ({
 // Import after vi.mock so that gddlSync picks up the mocked modules.
 const { syncGddlSubmissions } = await import('../gddl/sync')
 const { fetchAllGddlSubmissions } = await import('../../utils/gddl')
+const { fetchRobtopLevelResult } = await import('../../utils/robtop')
 const { enqueueSeedIds } = await import('../importExport/import')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -53,6 +56,9 @@ const mockFetchAll = fetchAllGddlSubmissions as unknown as ReturnType<
   typeof vi.fn
 >
 const mockEnqueueSeedIds = enqueueSeedIds as unknown as ReturnType<typeof vi.fn>
+const mockFetchRobtop = fetchRobtopLevelResult as unknown as ReturnType<
+  typeof vi.fn
+>
 
 function makeSubmission(
   overrides: Partial<GddlSubmission> = {}
@@ -156,6 +162,81 @@ describe('syncGddlSubmissions', () => {
     expect(result.created).toBe(1)
     expect(result.errors).toHaveLength(0)
     expect(mockEnqueueSeedIds).toHaveBeenCalledWith(['12345'])
+  })
+
+  it('does not enqueue a level GD reports as not-found', async () => {
+    const user = await seedUser(prisma)
+    // GD answered and has no such level (a deleted or bogus id). The
+    // GDDL-metadata stub is the best row we will ever have for it, so asking
+    // the seed worker to retry would burn a RobTop call on every future sync.
+    mockFetchRobtop.mockResolvedValueOnce({ status: 'not_found' })
+    mockFetchAll.mockResolvedValueOnce([makeSubmission()])
+
+    const result = await syncGddlSubmissions(user.id, 'api-key')
+
+    expect(result.created).toBe(1)
+    const level = await prisma.level.findUnique({
+      where: { inGameId: '12345' },
+    })
+    expect(level?.verified).toBe(false)
+    expect(mockEnqueueSeedIds).not.toHaveBeenCalled()
+  })
+
+  it('stops calling RobTop once it is unreachable repeatedly, but still stubs and enqueues every level', async () => {
+    const user = await seedUser(prisma)
+    // Eight distinct levels, RobTop unreachable throughout (the mock default).
+    // This is the 2026-07-21 shape: a bulk import that trips the shared 429
+    // cooldown, which then fails every subsequent acquire INSTANTLY.
+    const subs = Array.from({ length: 8 }, (_, i) => {
+      const base = makeSubmission()
+      return {
+        ...base,
+        Level: { ...base.Level, ID: 20000 + i },
+      }
+    })
+    mockFetchAll.mockResolvedValueOnce(subs)
+
+    const result = await syncGddlSubmissions(user.id, 'api-key')
+
+    // Every submission is still written — the completions are the user's own
+    // data and don't depend on RobTop.
+    expect(result.created).toBe(8)
+    expect(result.errors).toHaveLength(0)
+
+    // The breaker trips at 5 consecutive unreachable results and latches, so
+    // the last 3 levels never pay for a doomed call.
+    expect(mockFetchRobtop).toHaveBeenCalledTimes(5)
+
+    // ...and all 8 are still handed to the seed worker, since an unreachable
+    // RobTop says nothing about whether the level exists.
+    expect(mockEnqueueSeedIds).toHaveBeenCalledTimes(1)
+    expect(mockEnqueueSeedIds.mock.calls[0]![0].sort()).toEqual(
+      subs.map((s) => String(s.Level.ID)).sort()
+    )
+  })
+
+  it('trips the breaker even when cached levels are interleaved with the misses', async () => {
+    const user = await seedUser(prisma)
+    // Six levels already in the cache, six not, alternating — the ordinary
+    // shape of a repeat sync. A cache hit never asks RobTop anything, so it
+    // must not count as evidence that RobTop is healthy; if it resets the
+    // streak, the breaker never reaches 5 and every single miss pays for a
+    // doomed call for the whole run.
+    const subs = []
+    for (let i = 0; i < 6; i++) {
+      await seedLevel(prisma, { inGameId: String(30000 + i) })
+      for (const id of [30000 + i, 40000 + i]) {
+        const base = makeSubmission()
+        subs.push({ ...base, Level: { ...base.Level, ID: id } })
+      }
+    }
+    mockFetchAll.mockResolvedValueOnce(subs)
+
+    const result = await syncGddlSubmissions(user.id, 'api-key')
+
+    expect(result.created).toBe(12)
+    // Five misses trip the breaker; the sixth is never asked about.
+    expect(mockFetchRobtop).toHaveBeenCalledTimes(5)
   })
 
   it('does not enqueue an already-verified level', async () => {

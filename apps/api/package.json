@@ -14,6 +14,7 @@
     "postinstall": "prisma generate",
     "export-sst-env": "bash export-sst-env.sh",
     "db:backfill:sfh": "tsx src/scripts/backfillSfhData.ts",
+    "db:backfill:levels": "tsx src/scripts/backfillLevelMetadata.ts",
     "db:seed:official": "tsx src/scripts/seedOfficialLevels.ts",
     "db:studio:prod": "dotenv -e .env.production -- prisma studio",
     "test": "vitest run",
