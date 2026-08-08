@@ -37,7 +37,20 @@ levelSeedQueue.subscribe(
     environment: sharedEnvironment,
     ...sharedNodeOptions,
     timeout: '10 minutes',
-    concurrency: 5,
   },
-  { batch: { size: 1 } }
+  {
+    batch: { size: 1 },
+    // Cap in-flight seed batches at 5. This is the event source mapping's
+    // scaling config, NOT the function's reserved concurrency: this account's
+    // total concurrent-execution limit is 10, and AWS refuses any reservation
+    // that would drop unreserved concurrency below its floor of 10 — so
+    // `concurrency: { reserved: n }` cannot be used here at all. maximumConcurrency
+    // caps how many invocations this queue drives without reserving anything
+    // from the account pool. Valid range is 2–1000.
+    transform: {
+      eventSourceMapping: {
+        scalingConfig: { maximumConcurrency: 5 },
+      },
+    },
+  }
 )
