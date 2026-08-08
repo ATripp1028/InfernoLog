@@ -186,9 +186,7 @@ async function main() {
     where: damagedWhere,
     select: {
       inGameId: true,
-      name: true,
       verified: true,
-      dataSource: true,
       partialDiff: true,
       length: true,
       coins: true,
@@ -228,6 +226,7 @@ async function main() {
   // Repaired rows where RobTop itself had no coins / featureScore — these stay
   // null legitimately and will keep matching the `partial` filter on re-runs.
   let stillNullAfterRepair = 0
+  let failed = 0
   let unreachableStreak = 0
   let aborted = false
 
@@ -235,58 +234,70 @@ async function main() {
     const { inGameId } = rows[i]!
     if (i > 0 && paceMs > 0) await sleep(paceMs)
 
-    const res = await fetchRobtopLevelResult(inGameId)
+    // One bad row must not end the run: a backlog can be thousands of levels
+    // and an hour long, and a row deleted between the findMany above and this
+    // update (Prisma P2025) — or any transient DB error — would otherwise throw
+    // straight out of main(), losing every remaining repair AND the summary.
+    try {
+      const res = await fetchRobtopLevelResult(inGameId)
 
-    if (res.status === 'found') {
-      unreachableStreak = 0
-      // The level is present, so any pending "missing" mark is stale — cleared
-      // here for the same reason the sync's found path clears it. ratingStatusSince
-      // is deliberately NOT stamped: filling in a blank row is not a rating change.
-      await prisma.level.update({
-        where: { inGameId },
-        data: { ...buildRobtopRefreshData(res.level), missingSince: null },
-      })
-      repaired++
-      if (res.level.coins === null || res.level.featureScore === null) {
-        stillNullAfterRepair++
+      if (res.status === 'found') {
+        unreachableStreak = 0
+        // The level is present, so any pending "missing" mark is stale — cleared
+        // here for the same reason the sync's found path clears it. ratingStatusSince
+        // is deliberately NOT stamped: filling in a blank row is not a rating change.
+        await prisma.level.update({
+          where: { inGameId },
+          data: { ...buildRobtopRefreshData(res.level), missingSince: null },
+        })
+        repaired++
+        if (res.level.coins === null || res.level.featureScore === null) {
+          stillNullAfterRepair++
+        }
+      } else if (res.status === 'not_found') {
+        // GD has no such level (a bad id, or one deleted since it was imported).
+        // Left as-is: delisting is the sync's call, not this script's.
+        unreachableStreak = 0
+        notFound++
+      } else {
+        unreachable++
+        unreachableStreak++
+        if (unreachableStreak >= UNREACHABLE_ABORT_STREAK) {
+          aborted = true
+          console.error(
+            `Aborting: ${unreachableStreak} consecutive unreachable results — ` +
+              'RobTop is throttling us (or a shared cooldown is active). ' +
+              `Processed ${i + 1}/${rows.length}; re-run later to continue.`
+          )
+          break
+        }
       }
-    } else if (res.status === 'not_found') {
-      // GD has no such level (a bad id, or one deleted since it was imported).
-      // Left as-is: delisting is the sync's call, not this script's.
-      unreachableStreak = 0
-      notFound++
-    } else {
-      unreachable++
-      unreachableStreak++
-      if (unreachableStreak >= UNREACHABLE_ABORT_STREAK) {
-        aborted = true
-        console.error(
-          `Aborting: ${unreachableStreak} consecutive unreachable results — ` +
-            'RobTop is throttling us (or a shared cooldown is active). ' +
-            `Processed ${i + 1}/${rows.length}; re-run later to continue.`
-        )
-        break
-      }
+    } catch (err) {
+      failed++
+      console.error(`  ${inGameId}: failed —`, err)
     }
 
     const processed = i + 1
     if (processed % 50 === 0 || processed === rows.length) {
       console.log(
         `[${processed}/${rows.length}] repaired=${repaired} ` +
-          `notFound=${notFound} unreachable=${unreachable}`
+          `notFound=${notFound} unreachable=${unreachable} failed=${failed}`
       )
     }
   }
 
   console.log(
     `Done${aborted ? ' (aborted early)' : ''}. repaired=${repaired} ` +
-      `notFound=${notFound} unreachable=${unreachable}` +
+      `notFound=${notFound} unreachable=${unreachable} failed=${failed}` +
       (stillNullAfterRepair > 0
         ? `\n${stillNullAfterRepair} repaired row(s) still have a null coins/featureScore — ` +
           'RobTop reports no value for those; that is not unrepaired damage.'
         : '') +
       (unreachable > 0
         ? `\n${unreachable} row(s) left untouched (RobTop unreachable); re-run to retry.`
+        : '') +
+      (failed > 0
+        ? `\n${failed} row(s) errored (see above); re-run to retry those too.`
         : '')
   )
 }

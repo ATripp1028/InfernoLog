@@ -215,6 +215,30 @@ describe('syncGddlSubmissions', () => {
     )
   })
 
+  it('trips the breaker even when cached levels are interleaved with the misses', async () => {
+    const user = await seedUser(prisma)
+    // Six levels already in the cache, six not, alternating — the ordinary
+    // shape of a repeat sync. A cache hit never asks RobTop anything, so it
+    // must not count as evidence that RobTop is healthy; if it resets the
+    // streak, the breaker never reaches 5 and every single miss pays for a
+    // doomed call for the whole run.
+    const subs = []
+    for (let i = 0; i < 6; i++) {
+      await seedLevel(prisma, { inGameId: String(30000 + i) })
+      for (const id of [30000 + i, 40000 + i]) {
+        const base = makeSubmission()
+        subs.push({ ...base, Level: { ...base.Level, ID: id } })
+      }
+    }
+    mockFetchAll.mockResolvedValueOnce(subs)
+
+    const result = await syncGddlSubmissions(user.id, 'api-key')
+
+    expect(result.created).toBe(12)
+    // Five misses trip the breaker; the sixth is never asked about.
+    expect(mockFetchRobtop).toHaveBeenCalledTimes(5)
+  })
+
   it('does not enqueue an already-verified level', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, {

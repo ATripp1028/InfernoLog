@@ -29,11 +29,17 @@ type Tx = Prisma.TransactionClient
 // metadata and let the seed worker collect it later.
 const ROBTOP_BREAKER_STREAK = 5
 
-// A run ending with at least this many levels still awaiting a RobTop snapshot
-// is an incident, not routine: it means a bulk import hit a throttle and the
-// cache is now full of stubs that only the seed queue can repair. Surfaced to
-// Sentry so it pages instead of being found weeks later by a user noticing
+// A run that stubbed at least this many levels BECAUSE RobTop couldn't supply
+// them is an incident, not routine: it means a bulk import hit a throttle and
+// the cache is now full of stubs that only the seed queue can repair. Surfaced
+// to Sentry so it pages instead of being found weeks later by a user noticing
 // blank level data (which is exactly how the 2026-07-21 batch was found).
+//
+// Counted against `stubbedWithoutRobtop`, NOT against the seed-queue set: that
+// set also re-queues every unverified row a previous run left behind, including
+// levels GD reports as not-found and will therefore never enrich. Alerting on
+// the total would page on every single sync for any user whose cache holds ten
+// dead levels, with RobTop perfectly healthy.
 const STUB_BACKLOG_ALERT = 10
 
 // GDDL uses sequential IDs 1–3 for the three official demon main levels rather
@@ -57,11 +63,23 @@ interface LevelLookupResult {
   // stub is then the best row we will ever have, and re-asking for an id GD
   // doesn't have would burn a call on every sync, forever.
   needsSeed: boolean
-  // True when RobTop could not be REACHED for this level (rate-limiter timeout,
-  // 429 cooldown, network/timeout/parse) — as opposed to answering "no such
-  // level". Says nothing about whether the level exists; drives the caller's
-  // circuit breaker.
-  robtopUnreachable: boolean
+  // What RobTop had to say about this level on THIS call — drives the caller's
+  // circuit breaker:
+  //   'answered'      → GD responded, found or not-found. Evidence RobTop is up.
+  //   'unreachable'   → the call couldn't complete (rate-limiter timeout, 429
+  //                     cooldown, network/timeout/parse). Says nothing about
+  //                     whether the level exists, only that GD is not talking.
+  //   'not-consulted' → we never asked: a cache hit, or the breaker had already
+  //                     tripped. Evidence of NOTHING, so it must neither extend
+  //                     nor reset the streak — a run over a mostly-cached
+  //                     library is otherwise reset to 0 between every miss and
+  //                     the breaker never trips.
+  robtopOutcome: 'answered' | 'unreachable' | 'not-consulted'
+  // True when this call created a stub only because RobTop couldn't supply the
+  // level (unreachable now, or the breaker already tripped). This is the
+  // incident signal behind {@link STUB_BACKLOG_ALERT}; `needsSeed` is not, since
+  // it also covers stubs inherited from earlier runs.
+  stubbedWithoutRobtop: boolean
 }
 
 // Creates the fallback row for a level RobTop couldn't supply: GDDL's own
@@ -110,7 +128,8 @@ async function getOrCreateLevel(
     return {
       inGameDifficulty: existing.inGameDifficulty,
       needsSeed: !existing.verified,
-      robtopUnreachable: false,
+      robtopOutcome: 'not-consulted',
+      stubbedWithoutRobtop: false,
     }
   }
 
@@ -119,7 +138,10 @@ async function getOrCreateLevel(
     return {
       inGameDifficulty: null,
       needsSeed: true,
-      robtopUnreachable: true,
+      // The breaker already decided RobTop is down; this level was never asked
+      // about, so it is not fresh evidence either way.
+      robtopOutcome: 'not-consulted',
+      stubbedWithoutRobtop: true,
     }
   }
 
@@ -140,7 +162,8 @@ async function getOrCreateLevel(
     return {
       inGameDifficulty: created.inGameDifficulty,
       needsSeed: false,
-      robtopUnreachable: false,
+      robtopOutcome: 'answered',
+      stubbedWithoutRobtop: false,
     }
   }
 
@@ -149,7 +172,8 @@ async function getOrCreateLevel(
     inGameDifficulty: null,
     // Terminal on not-found; retryable on unreachable.
     needsSeed: res.status === 'unreachable',
-    robtopUnreachable: res.status === 'unreachable',
+    robtopOutcome: res.status === 'unreachable' ? 'unreachable' : 'answered',
+    stubbedWithoutRobtop: res.status === 'unreachable',
   }
 }
 
@@ -311,19 +335,31 @@ export async function syncGddlSubmissions(
   // queue is the designed retry path for everything we skip.
   let unreachableStreak = 0
   let robtopDown = false
+  // Stubs THIS run created for want of a RobTop snapshot — the alarm input; see
+  // STUB_BACKLOG_ALERT for why `seedIds.size` is the wrong number to alarm on.
+  let unreachableStubs = 0
 
   for (const sub of submissions) {
     const rawId = String(sub.Level.ID)
     const levelId = GDDL_OFFICIAL_LEVEL_ID_MAP[rawId] ?? rawId
     try {
       await prisma.$transaction(async (tx) => {
-        const { inGameDifficulty, needsSeed, robtopUnreachable } =
-          await getOrCreateLevel(tx, levelId, sub, robtopDown)
+        const {
+          inGameDifficulty,
+          needsSeed,
+          robtopOutcome,
+          stubbedWithoutRobtop,
+        } = await getOrCreateLevel(tx, levelId, sub, robtopDown)
         if (needsSeed) seedIds.add(levelId)
+        if (stubbedWithoutRobtop) unreachableStubs++
 
-        if (robtopUnreachable && !robtopDown) {
+        // Only a level we actually asked RobTop about moves the streak: a cache
+        // hit is silence, not health, and resetting on it would keep the breaker
+        // from ever tripping on a run whose misses are spread through a
+        // mostly-cached submission list.
+        if (robtopOutcome === 'unreachable') {
           unreachableStreak++
-          if (unreachableStreak >= ROBTOP_BREAKER_STREAK) {
+          if (!robtopDown && unreachableStreak >= ROBTOP_BREAKER_STREAK) {
             robtopDown = true
             logger.warn(
               { userId, streak: unreachableStreak },
@@ -331,7 +367,7 @@ export async function syncGddlSubmissions(
                 'for the rest of this run (stubs queued for the seed worker)'
             )
           }
-        } else if (!robtopUnreachable) {
+        } else if (robtopOutcome === 'answered') {
           unreachableStreak = 0
         }
 
@@ -386,16 +422,23 @@ export async function syncGddlSubmissions(
     }
   }
 
-  if (seedIds.size >= STUB_BACKLOG_ALERT) {
+  if (unreachableStubs >= STUB_BACKLOG_ALERT) {
     Sentry.captureMessage(
-      `gddlSync left ${seedIds.size} level(s) awaiting a RobTop snapshot ` +
-        `(robtopDown=${robtopDown}) — check the level-seed queue and DLQ`,
+      `gddlSync stubbed ${unreachableStubs} level(s) because RobTop was ` +
+        `unreachable (robtopDown=${robtopDown}; ${seedIds.size} queued in ` +
+        'total) — check the level-seed queue and DLQ',
       'warning'
     )
   }
 
   logger.info(
-    { userId, ...result, stubsQueued: seedIds.size, robtopDown },
+    {
+      userId,
+      ...result,
+      stubsQueued: seedIds.size,
+      unreachableStubs,
+      robtopDown,
+    },
     'gddlSync: run complete'
   )
 

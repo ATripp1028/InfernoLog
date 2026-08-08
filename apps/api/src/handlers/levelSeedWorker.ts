@@ -141,8 +141,11 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 
   // Fail the invocation so SQS makes the message visible again and redelivers
   // it (the queue is configured with retry: 3 → DLQ). The gap between attempts
-  // is the visibility timeout — minutes, not the ~4s of in-invocation retries —
-  // which is the right order of magnitude for a RobTop cooldown to clear.
+  // is the queue's visibility timeout — set to 15 minutes in infra/queue.ts
+  // precisely so this path works, rather than the ~4s of in-invocation retries
+  // — which is the right order of magnitude for a RobTop cooldown to clear.
+  // Shortening that timeout re-breaks this: all three retries would land inside
+  // a single cooldown and the message would DLQ with its stubs unenriched.
   //
   // Safe to redeliver the whole message: levels already enriched by this run
   // are skipped by the `verified` check at the top of the loop, so a retry only

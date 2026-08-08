@@ -24,6 +24,20 @@ import { sharedNodeOptions } from './defaults'
 const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
 
 export const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {
+  // MUST be >= the consumer's timeout below. SST defaults this to 30 SECONDS,
+  // which is far shorter than a batch's worst case (see the per-batch budget
+  // above) — SQS would then hand the same message to a second invocation while
+  // the first is still working, doubling RobTop calls at exactly the moment
+  // RobTop is throttling us, and burning the receive count on a message that
+  // was never actually failing.
+  //
+  // It is also the redelivery gap the worker's unreachable path relies on: it
+  // fails the batch on purpose so SQS retries it later, and "later" has to be
+  // long enough for a RobTop 429 cooldown (60s–5min) to clear. At 15 minutes
+  // the 3 retries span ~45 minutes, comfortably past any cooldown; at the
+  // 30-second default all three would be spent inside it and the message would
+  // hit the DLQ with its stubs still unenriched.
+  visibilityTimeout: '15 minutes',
   dlq: {
     queue: levelSeedDlq.arn,
     retry: 3,
