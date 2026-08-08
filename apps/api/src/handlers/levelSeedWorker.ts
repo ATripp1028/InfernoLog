@@ -12,6 +12,7 @@
 
 import prisma from '../utils/prisma'
 import { fetchRobtopLevel } from '../utils/robtop'
+import { buildRobtopRefreshData } from '../services/levels/robtopMapping'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
@@ -54,6 +55,17 @@ async function fetchRobtopLevelWithRetries(levelId: string) {
   return null
 }
 
+/**
+ * SQS consumer that enriches stub levels created during spreadsheet import.
+ *
+ * On success the stub is upgraded to a full, verified RobTop snapshot. On
+ * failure — RobTop unavailable, or the level genuinely not found — the stub
+ * stands; that is NOT an error, and the DLQ exists only as a safety net for
+ * infra failures. Per-level errors are logged and reported but never abort the
+ * rest of the batch.
+ *
+ * @param event - SQS batch whose message bodies are `{ levelIds: string[] }`.
+ */
 export const handler = async (event: SQSEvent): Promise<void> => {
   for (const record of event.Records) {
     let message: SeedMessage
@@ -90,44 +102,7 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 
         await prisma.level.update({
           where: { inGameId: levelId },
-          data: {
-            name: robtop.name,
-            creator: robtop.creator,
-            inGameDifficulty: robtop.inGameDifficulty,
-            length: robtop.length,
-            songName: robtop.songName,
-            songAuthor: robtop.songAuthor,
-            isRated: robtop.isRated,
-            isDemon: robtop.isDemon,
-            levelType: robtop.platformer ? 'PLATFORMER' : 'CLASSIC',
-            description: robtop.description,
-            creatorPlayerId: robtop.creatorPlayerId,
-            creatorAccountId: robtop.creatorAccountId,
-            stars: robtop.stars,
-            starsRequested: robtop.starsRequested,
-            partialDiff: robtop.partialDiff,
-            downloads: robtop.downloads,
-            likes: robtop.likes,
-            disliked: robtop.disliked,
-            objectCount: robtop.objectCount,
-            coins: robtop.coins,
-            coinsVerified: robtop.coinsVerified,
-            featured: robtop.featured,
-            featureScore: robtop.featureScore,
-            epicValue: robtop.epicValue,
-            twoPlayer: robtop.twoPlayer,
-            lowDetailMode: robtop.lowDetailMode,
-            copiedFromId: robtop.copiedFromId,
-            levelVersion: robtop.levelVersion,
-            gameVersion: robtop.gameVersion,
-            officialSongId: robtop.officialSongId,
-            songId: robtop.songId,
-            songLink: robtop.songLink,
-            songSize: robtop.songSize,
-            dataSource: 'robtop_autofill',
-            verified: true,
-            lastCheckedAt: new Date(),
-          },
+          data: buildRobtopRefreshData(robtop),
         })
 
         logger.info({ levelId }, 'levelSeedWorker: enriched stub level')

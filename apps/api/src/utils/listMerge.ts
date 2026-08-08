@@ -16,6 +16,7 @@
 // of where C ends up. A pure omission (an existing entry the sheet doesn't
 // mention at all) is never auto-included either — see hasConflict below.
 
+/** Outcome of merging an imported ordering into an existing one. */
 export interface ListMergeResult {
   // The backbone (LCS of the two orderings) with every unambiguous
   // imported-only run already spliced in. When hasConflict is false this
@@ -72,6 +73,25 @@ function lcs(a: string[], b: string[]): string[] {
   return result.reverse()
 }
 
+/**
+ * Merges an imported ordering into an existing one, auto-resolving everything
+ * unambiguous and reporting only genuine disagreements.
+ *
+ * The backbone is the longest common subsequence of the two orderings; any
+ * imported-only run whose position relative to the agreed entries is
+ * unambiguous is spliced straight in. A real conflict is specifically an ORDER
+ * DISAGREEMENT among entries present on both sides — see the module comment for
+ * the worked example of why a contested entry also drags its imported-side
+ * neighbours into the remainder.
+ *
+ * Pure omissions (an existing entry the sheet never mentions) are never
+ * auto-included.
+ *
+ * @param existingIds - The user's current ordering.
+ * @param importedIds - The ordering from the spreadsheet.
+ * @returns The merged seed plus the two remainders needing manual placement;
+ * `hasConflict` is false exactly when `mergedSeed` equals `importedIds`.
+ */
 export function computeListMerge(
   existingIds: string[],
   importedIds: string[]

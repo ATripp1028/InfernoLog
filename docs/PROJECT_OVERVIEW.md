@@ -126,6 +126,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `LIST_INTEGRATIONS.md`          | GDDL tier tracking (multi-list AREDL/NLW design was abandoned)                                                                                           |
 | `LOGGING_FLOW.md`               | FAB-triggered logging modal: completion / progress / drop paths                                                                                          |
 | `LEVEL_LOGGING.md`              | Progress entry model, completion flow, drop flow                                                                                                         |
+| `CODE_QUALITY.md`               | How code is written (not what it does): JSDoc rules, route error handling, logging, duplication — split by backend/frontend                              |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
 > | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |

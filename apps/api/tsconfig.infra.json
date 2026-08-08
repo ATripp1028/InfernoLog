@@ -1,0 +1,22 @@
+{
+  "extends": "@infernolog/tsconfig/api.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["node"],
+    // Nothing is emitted from infra (SST bundles sst.config.ts itself), and
+    // leaving base.json's `declaration` on would make tsc enforce
+    // declaration-emit portability — TS2742 on every exported resource whose
+    // type lives in .sst/platform/node_modules.
+    "declaration": false,
+    "declarationMap": false,
+    // The SST platform's own source (.sst/platform/src/**) is pulled into this
+    // program by sst.config.ts's /// <reference>, and it is not source-clean
+    // under the repo's extra-strict flags — skipLibCheck can't help, since
+    // those are .ts sources rather than .d.ts. Relaxed to plain `strict` so
+    // the check reports our infra code, not SST's.
+    "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
+    "noImplicitOverride": false
+  },
+  "include": ["infra", "sst.config.ts"]
+}

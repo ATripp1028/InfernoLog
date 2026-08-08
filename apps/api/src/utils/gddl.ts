@@ -11,11 +11,15 @@ const GDDL_API_BASE_URL =
 // pinning the Lambda until its own timeout.
 const VERIFY_TIMEOUT_MS = 8000
 
-// Base class for all GDDL-side errors. The worker uses this to distinguish
-// "GDDL is misbehaving" (no Sentry, user-facing message) from "our bug" (Sentry).
+/**
+ * Base class for all GDDL-side errors. The worker uses this to distinguish
+ * "GDDL is misbehaving" (no Sentry, user-facing message) from "our bug" (Sentry).
+ */
 export class GddlError extends Error {}
 
-// GDDL responded and explicitly rejected the key.
+/**
+ * GDDL responded and explicitly rejected the key.
+ */
 export class GddlInvalidKeyError extends GddlError {
   constructor(message = 'GDDL rejected the API key') {
     super(message)
@@ -23,7 +27,9 @@ export class GddlInvalidKeyError extends GddlError {
   }
 }
 
-// GDDL could not be reached, timed out, or returned a server error.
+/**
+ * GDDL could not be reached, timed out, or returned a server error.
+ */
 export class GddlUnavailableError extends GddlError {
   constructor(message = 'GDDL is unavailable') {
     super(message)
@@ -31,9 +37,11 @@ export class GddlUnavailableError extends GddlError {
   }
 }
 
-// Verifies an API key against GDDL's /user/me endpoint. Resolves with the
-// GDDL account name on success; throws GddlInvalidKeyError if GDDL says the key
-// is invalid; rethrows other errors (network, timeout) unchanged.
+/**
+ * Verifies an API key against GDDL's /user/me endpoint. Resolves with the
+ * GDDL account name on success; throws GddlInvalidKeyError if GDDL says the key
+ * is invalid; rethrows other errors (network, timeout) unchanged.
+ */
 export async function verifyGddlApiKey(
   apiKey: string
 ): Promise<{ name: string }> {
@@ -68,9 +76,11 @@ export async function verifyGddlApiKey(
   return { name: body.Name }
 }
 
-// GDDL exposes tiers as decimals (e.g. 18.43), but GDDL itself displays — and
-// treats as canonical — the tier rounded to the nearest whole number. Round at
-// every point we ingest a GDDL rating so we never store or surface the decimal.
+/**
+ * GDDL exposes tiers as decimals (e.g. 18.43), but GDDL itself displays — and
+ * treats as canonical — the tier rounded to the nearest whole number. Round at
+ * every point we ingest a GDDL rating so we never store or surface the decimal.
+ */
 export function roundGddlTier(rating: number): number {
   return Math.round(rating)
 }
@@ -79,9 +89,11 @@ export function roundGddlTier(rating: number): number {
 // level metadata autofill, this must never block the logging flow.
 const TIER_TIMEOUT_MS = 5000
 
-// Fetches GDDL's suggested tier for a level (public list data — no key needed).
-// Resolves with the numeric tier (rounded to the nearest whole number), or
-// `null` for any failure (down, timeout, not-found, malformed). Never throws.
+/**
+ * Fetches GDDL's suggested tier for a level (public list data — no key needed).
+ * Resolves with the numeric tier (rounded to the nearest whole number), or
+ * `null` for any failure (down, timeout, not-found, malformed). Never throws.
+ */
 export async function fetchGddlTier(levelId: string): Promise<number | null> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), TIER_TIMEOUT_MS)
@@ -106,9 +118,11 @@ export async function fetchGddlTier(levelId: string): Promise<number | null> {
   }
 }
 
-// Fetches the authenticated user's GDDL account info (id + name).
-// Reuses the same /user/me endpoint as verifyGddlApiKey but also extracts the
-// numeric user ID needed for the submissions endpoint.
+/**
+ * Fetches the authenticated user's GDDL account info (id + name).
+ * Reuses the same /user/me endpoint as verifyGddlApiKey but also extracts the
+ * numeric user ID needed for the submissions endpoint.
+ */
 export async function fetchGddlUserInfo(
   apiKey: string
 ): Promise<{ id: number; name: string }> {
@@ -145,6 +159,7 @@ export async function fetchGddlUserInfo(
   return { id: body.ID, name: body.Name }
 }
 
+/** GDDL's level object as embedded in a submission. Field names are GDDL's. */
 export interface GddlSubmissionLevel {
   ID: number
   Rating: number
@@ -160,6 +175,7 @@ export interface GddlSubmissionLevel {
   }
 }
 
+/** One record a user has submitted to GDDL. Field names are GDDL's. */
 export interface GddlSubmission {
   ID: number
   Rating: number
@@ -169,6 +185,7 @@ export interface GddlSubmission {
   Level: GddlSubmissionLevel
 }
 
+/** One page of GDDL's paginated submissions endpoint. */
 export interface GddlSyncResponse {
   total: number
   limit: number
@@ -178,8 +195,10 @@ export interface GddlSyncResponse {
 
 const SUBMISSIONS_PAGE_LIMIT = 25
 
-// Fetches all pages of the user's GDDL submission history. Throws on any
-// non-2xx page response so the caller can record partial progress.
+/**
+ * Fetches all pages of the user's GDDL submission history. Throws on any
+ * non-2xx page response so the caller can record partial progress.
+ */
 export async function fetchAllGddlSubmissions(
   apiKey: string,
   gddlUserId: number
@@ -236,8 +255,10 @@ export async function fetchAllGddlSubmissions(
 
 const LIST_TIMEOUT_MS = 8000
 
-// Fetches all level IDs currently in a GDDL user list.
-// Returns string-form GD level IDs (GDDL stores them as integers).
+/**
+ * Fetches all level IDs currently in a GDDL user list.
+ * Returns string-form GD level IDs (GDDL stores them as integers).
+ */
 export async function fetchGddlList(
   apiKey: string,
   gddlUserId: number,
@@ -279,7 +300,9 @@ export async function fetchGddlList(
     .filter((id): id is string => id !== null)
 }
 
-// Adds a level to a GDDL user list. The body uses `levelId` (integer).
+/**
+ * Adds a level to a GDDL user list. The body uses `levelId` (integer).
+ */
 export async function addGddlListEntry(
   apiKey: string,
   gddlUserId: number,
@@ -314,7 +337,9 @@ export async function addGddlListEntry(
   }
 }
 
-// Removes a level from a GDDL user list. The body uses `levelId` (integer).
+/**
+ * Removes a level from a GDDL user list. The body uses `levelId` (integer).
+ */
 export async function removeGddlListEntry(
   apiKey: string,
   gddlUserId: number,
@@ -355,9 +380,11 @@ export async function removeGddlListEntry(
 // fire-and-forget from the completion flow; the timeout just bounds the work.
 const SUBMIT_TIMEOUT_MS = 8000
 
-// Submits a completion record to GDDL. Resolves with whether GDDL accepted the
-// record. Throws on network/timeout/non-2xx — callers MUST treat this as
-// non-blocking (the completion has already been written) and swallow failures.
+/**
+ * Submits a completion record to GDDL. Resolves with whether GDDL accepted the
+ * record. Throws on network/timeout/non-2xx — callers MUST treat this as
+ * non-blocking (the completion has already been written) and swallow failures.
+ */
 export async function submitGddlRecord(
   apiKey: string,
   record: {

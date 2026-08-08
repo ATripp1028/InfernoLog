@@ -17,6 +17,9 @@
     "typecheck": {
       "dependsOn": ["^typecheck"]
     },
+    "typecheck:infra": {
+      "cache": false
+    },
     "test": {
       "cache": false
     }

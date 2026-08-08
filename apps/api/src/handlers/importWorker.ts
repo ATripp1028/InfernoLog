@@ -11,10 +11,10 @@ import prisma from '../utils/prisma'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
-import { processImportJobBatch } from '../services/import'
-import { commitImportRanking } from '../services/importRanking'
-import { commitImportCollections } from '../services/importCollections'
-import { commitImportRatings } from '../services/importRatings'
+import { processImportJobBatch } from '../services/importExport/import'
+import { commitImportRanking } from '../services/importExport/ranking'
+import { commitImportCollections } from '../services/importExport/collections'
+import { commitImportRatings } from '../services/importExport/ratings'
 import type { Prisma } from '@prisma/client'
 import type {
   ImportCommitRow,
@@ -53,6 +53,20 @@ async function bumpReinvokeCount(jobId: string): Promise<number> {
   return updated.reinvokeCount
 }
 
+/**
+ * Processes a spreadsheet import job to completion, resuming itself as needed.
+ *
+ * Invoked asynchronously with just `{ jobId }` — the dataset was already
+ * persisted by POST /v1/me/import/start, since async Lambda invoke payloads cap
+ * at 256KB. Rows are processed in batches of 50 with `processedRows`
+ * checkpointed to Postgres after each batch, so progress survives a closed tab
+ * or a reload. When the Lambda is about to time out it re-invokes itself with
+ * the same jobId and returns; resumability falls out of row state living in the
+ * DB rather than in Lambda memory. The ranking/collections/ratings tabs are
+ * committed once all rows are done.
+ *
+ * @param event - `{ jobId }` identifying the ImportJob.
+ */
 export const handler = async (
   event: WorkerEvent,
   context: LambdaContext

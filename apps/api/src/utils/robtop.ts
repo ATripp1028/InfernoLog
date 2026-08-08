@@ -38,9 +38,11 @@ const GETLEVELS_SECRET = 'Wmfd2893gb7'
 // Keep a hung request from pinning the Lambda until its own timeout.
 const FETCH_TIMEOUT_MS = 5000
 
-// Normalized level — a snapshot of (essentially) everything RobTop's level
-// object exposes. Field names match the `levels` cache columns 1:1, so the
-// resolve handler's persistence block is source-agnostic.
+/**
+ * Normalized level — a snapshot of (essentially) everything RobTop's level
+ * object exposes. Field names match the `levels` cache columns 1:1, so the
+ * resolve handler's persistence block is source-agnostic.
+ */
 export interface RobtopLevel {
   name: string | null
   creator: string | null
@@ -78,12 +80,14 @@ export interface RobtopLevel {
   songSize: number | null
 }
 
-// getGJLevels21 only returns song metadata for custom (Newgrounds) songs. For
-// levels on a built-in track it returns just the official-song index (key 12),
-// so we resolve name/author from this static map. Keyed by the RAW key-12 value
-// (0-based): the main-level soundtrack is 0–20, then the Meltdown / World /
-// SubZero pack tracks. Source: GDBrowser's misc/music.json. Newer tracks (the
-// 2.2 "Dash" level, vault levels) aren't indexed here → resolve to null.
+/**
+ * getGJLevels21 only returns song metadata for custom (Newgrounds) songs. For
+ * levels on a built-in track it returns just the official-song index (key 12),
+ * so we resolve name/author from this static map. Keyed by the RAW key-12 value
+ * (0-based): the main-level soundtrack is 0–20, then the Meltdown / World /
+ * SubZero pack tracks. Source: GDBrowser's misc/music.json. Newer tracks (the
+ * 2.2 "Dash" level, vault levels) aren't indexed here → resolve to null.
+ */
 export const OFFICIAL_SONGS: Record<number, { name: string; author: string }> =
   {
     0: { name: 'Stereo Madness', author: 'ForeverBound' },
@@ -329,12 +333,15 @@ function buildRobtopLevel(
   }
 }
 
+/** One level from a multi-result getGJLevels21 response, with its id. */
 export interface RobtopSearchResult {
   levelId: string
   level: RobtopLevel
 }
 
-// Parses all levels from a getGJLevels21 response body.
+/**
+ * Parses all levels from a getGJLevels21 response body.
+ */
 export function parseAllFromGetGJLevels21(body: string): RobtopSearchResult[] {
   const trimmed = body.trim()
   if (!trimmed || trimmed.startsWith('-1')) return []
@@ -353,8 +360,10 @@ export function parseAllFromGetGJLevels21(body: string): RobtopSearchResult[] {
     })
 }
 
-// Pure parser for a getGJLevels21 response. Returns the level matching `wantId`
-// (or the first level when omitted), or null for "-1"/empty/garbage.
+/**
+ * Pure parser for a getGJLevels21 response. Returns the level matching `wantId`
+ * (or the first level when omitted), or null for "-1"/empty/garbage.
+ */
 export function parseGetGJLevels21(
   body: string,
   wantId?: string
@@ -366,28 +375,32 @@ export function parseGetGJLevels21(
   return found?.level ?? null
 }
 
-// Fetches a single level by id from RobTop's getGJLevels21. We use type=0
-// (search) rather than type=10 (specific levels) because type=10 only returns
-// RATED levels — type=0 returns the exact level for rated AND unrated ids alike
-// (including community-voted difficulty for unrated levels). Resolves with the
-// normalized level, or null for any failure (down/timeout/not-found/malformed).
-// An EMPTY User-Agent is required — Cloudflare returns HTTP 1020 otherwise.
-// A RobTop fetch outcome that distinguishes the two failure modes callers may
-// need to branch on:
-//   - 'found'       → the level object
-//   - 'not_found'   → GD answered but has no such level (200 with a "-1"/empty
-//                     body). Terminal: the id does not exist.
-//   - 'unreachable' → the call itself couldn't complete (rate-limiter timeout,
-//                     non-OK response, network error, timeout, parse failure).
-//                     Retryable: says nothing about whether the level exists.
+/**
+ * Fetches a single level by id from RobTop's getGJLevels21. We use type=0
+ * (search) rather than type=10 (specific levels) because type=10 only returns
+ * RATED levels — type=0 returns the exact level for rated AND unrated ids alike
+ * (including community-voted difficulty for unrated levels). Resolves with the
+ * normalized level, or null for any failure (down/timeout/not-found/malformed).
+ * An EMPTY User-Agent is required — Cloudflare returns HTTP 1020 otherwise.
+ * A RobTop fetch outcome that distinguishes the two failure modes callers may
+ * need to branch on:
+ *   - 'found'       → the level object
+ *   - 'not_found'   → GD answered but has no such level (200 with a "-1"/empty
+ *                     body). Terminal: the id does not exist.
+ *   - 'unreachable' → the call itself couldn't complete (rate-limiter timeout,
+ *                     non-OK response, network error, timeout, parse failure).
+ *                     Retryable: says nothing about whether the level exists.
+ */
 export type RobtopFetchResult =
   | { status: 'found'; level: RobtopLevel }
   | { status: 'not_found' }
   | { status: 'unreachable' }
 
-// Lower-level fetch that preserves the not-found vs unreachable distinction.
-// `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
-// that only care whether they got a level.
+/**
+ * Lower-level fetch that preserves the not-found vs unreachable distinction.
+ * `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
+ * that only care whether they got a level.
+ */
 export async function fetchRobtopLevelResult(
   levelId: string
 ): Promise<RobtopFetchResult> {
@@ -460,6 +473,18 @@ export async function fetchRobtopLevelResult(
   }
 }
 
+/**
+ * Fetches one level from GD's servers, collapsing every failure to null.
+ *
+ * Convenience wrapper over `fetchRobtopLevelResult` for callers that cannot act
+ * on WHY the lookup failed. Note this makes "GD says no such level" and "GD was
+ * unreachable" indistinguishable — anything that must tell them apart (the
+ * level-cache sync's delisting logic, the level page's 404-vs-503) has to use
+ * `fetchRobtopLevelResult` instead.
+ *
+ * @param levelId - GD level ID.
+ * @returns The normalized level, or null if not found OR unreachable.
+ */
 export async function fetchRobtopLevel(
   levelId: string
 ): Promise<RobtopLevel | null> {
@@ -467,17 +492,21 @@ export async function fetchRobtopLevel(
   return result.status === 'found' ? result.level : null
 }
 
-// A name-search outcome that preserves the reachable/unreachable distinction,
-// mirroring RobtopFetchResult. `ok` with an empty array is a genuine "GD found
-// nothing" (a 200 with a "-1"/empty body); `unreachable` is a call that
-// couldn't complete (rate-limiter timeout, non-OK, network/timeout/parse) and
-// is retryable. The toolbar's GD escalation needs this split so a request
-// failure reads differently from a legitimate empty result set.
+/**
+ * A name-search outcome that preserves the reachable/unreachable distinction,
+ * mirroring RobtopFetchResult. `ok` with an empty array is a genuine "GD found
+ * nothing" (a 200 with a "-1"/empty body); `unreachable` is a call that
+ * couldn't complete (rate-limiter timeout, non-OK, network/timeout/parse) and
+ * is retryable. The toolbar's GD escalation needs this split so a request
+ * failure reads differently from a legitimate empty result set.
+ */
 export type RobtopSearchOutcome =
   | { status: 'ok'; results: RobtopSearchResult[] }
   | { status: 'unreachable' }
 
-// Options for a getGJLevels21 name search / browse.
+/**
+ * Options for a getGJLevels21 name search / browse.
+ */
 export interface RobtopSearchOptions {
   // Difficulty scoping (import's exact-match path uses these directly).
   diff?: string
@@ -492,9 +521,11 @@ export interface RobtopSearchOptions {
   extraParams?: Record<string, string>
 }
 
-// Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter (or the
-// wider option set) to scope results; an empty `name` with a `type` browses
-// (e.g. most-downloaded) rather than searching.
+/**
+ * Searches RobTop's getGJLevels21 by level name. Pass diff/demonFilter (or the
+ * wider option set) to scope results; an empty `name` with a `type` browses
+ * (e.g. most-downloaded) rather than searching.
+ */
 export async function searchRobtopByNameResult(
   name: string,
   options?: RobtopSearchOptions
@@ -561,8 +592,10 @@ export async function searchRobtopByNameResult(
   }
 }
 
-// Array-returning wrapper for callers that only need matches and treat any
-// failure as "no resolution" (spreadsheet import). Returns [] on unreachable.
+/**
+ * Array-returning wrapper for callers that only need matches and treat any
+ * failure as "no resolution" (spreadsheet import). Returns [] on unreachable.
+ */
 export async function searchRobtopByName(
   name: string,
   options?: RobtopSearchOptions

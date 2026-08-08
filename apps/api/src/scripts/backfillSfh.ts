@@ -76,7 +76,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function main() {
   const { default: prisma } = await import('../utils/prisma')
-  const { checkAndPersistSfhNong } = await import('../services/sfhSync')
+  const { checkAndPersistSfhNong } = await import('../services/levels/sfhSync')
 
   console.log(
     `SFH backfill → target=${target} host=${maskHost(connectionString!)} ` +

@@ -8,6 +8,7 @@
 //   `to`, emit a synthetic bar for that percentage with droppedAfter=true.
 //   Otherwise flag the most recent real update's droppedAfter=true.
 
+/** The progress_update columns the runs graph reads. */
 export type ProgressUpdateForGraph = {
   id: string
   isCompletion: boolean
@@ -19,11 +20,13 @@ export type ProgressUpdateForGraph = {
   loggedAt: Date
 }
 
+/** A drop event as the runs graph sees it — when, and the worst fail if any. */
 export type DropForGraph = {
   droppedAt: Date | null
   worstFail: number | null
 }
 
+/** One bar on the "Runs over time" chart, as a span on a 0–100% axis. */
 export type RunsGraphEntry = {
   // null for synthetic bars emitted from a drop event or worst-fail entry
   progressUpdateId: string | null
@@ -35,6 +38,7 @@ export type RunsGraphEntry = {
   droppedAfter: boolean
 }
 
+/** A standalone worst-fail entry, rendered as its own synthetic bar. */
 export type WorstFailForGraph = {
   percentage: number
   date: Date | null

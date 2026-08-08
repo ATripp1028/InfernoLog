@@ -33,6 +33,16 @@ jobs:
         env:
           DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
 
+      # apps/api/infra/** is typechecked separately: it needs the SST platform
+      # types under .sst/, which are gitignored and only exist after
+      # `sst install`. No AWS credentials required — this just downloads the
+      # platform and the aws provider.
+      - name: Install SST platform
+        run: pnpm --filter @infernolog/api exec sst install
+
+      - name: Typecheck infra
+        run: pnpm turbo run typecheck:infra
+
   test:
     runs-on: ubuntu-latest
     steps:

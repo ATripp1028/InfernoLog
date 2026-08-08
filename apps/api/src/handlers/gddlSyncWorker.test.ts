@@ -21,7 +21,7 @@ vi.mock('../utils/kms', () => ({
 }))
 
 const mockSyncGddlSubmissions = vi.fn<() => Promise<GddlSyncResult>>()
-vi.mock('../services/gddlSync', () => ({
+vi.mock('../services/gddl/sync', () => ({
   syncGddlSubmissions: mockSyncGddlSubmissions,
 }))
 

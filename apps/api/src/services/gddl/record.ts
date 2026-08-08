@@ -1,0 +1,67 @@
+// Orchestrates the OPTIONAL GDDL record submission side effect of a completion.
+//
+// This is fire-and-forget from the completion handler: the completion has
+// already been committed before this runs, and any failure here MUST NOT affect
+// the completion result. The caller invokes this without awaiting (and with a
+// .catch) so a slow/down GDDL never blocks or fails the write.
+//
+// CAVEAT (noted in the PR): true fire-and-forget on Lambda risks the runtime
+// freezing the event loop after the HTTP response returns. A durable queue
+// (e.g. SQS) is the proper long-term solution; it is out of scope here.
+
+import prisma from '../../utils/prisma'
+import { decryptSecret } from '../../utils/kms'
+import { submitGddlRecord } from '../../utils/gddl'
+import { logger } from '../../utils/logger'
+
+/**
+ * Pushes a just-logged completion to GDDL as a record submission.
+ *
+ * Best-effort and fire-and-forget: users without a configured GDDL key are a
+ * no-op, and every failure is logged rather than thrown, so a GDDL outage never
+ * fails the user's own completion write.
+ *
+ * @param params - The completion to mirror: the owning user, the
+ * progress-update and level it belongs to, and the video URL GDDL requires.
+ */
+export async function submitCompletionRecordToGddl(params: {
+  userId: string
+  progressUpdateId: string
+  levelId: string
+  videoUrl: string | null
+}): Promise<void> {
+  const { userId, progressUpdateId, levelId, videoUrl } = params
+
+  // Only users with a configured GDDL key can submit. No key → nothing to do.
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { gddlApiKeyEncrypted: true },
+  })
+  if (!user?.gddlApiKeyEncrypted) return
+
+  const update = await prisma.progressUpdate.findUnique({
+    where: { id: progressUpdateId },
+    select: {
+      attempts: true,
+      fps: true,
+      enjoyment: true,
+      device: true,
+      levelProgress: { select: { userGddlTier: true } },
+    },
+  })
+
+  const gddlTier = update?.levelProgress.userGddlTier ?? null
+
+  const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+  await submitGddlRecord(apiKey, {
+    levelId,
+    videoUrl,
+    attempts: update?.attempts ?? null,
+    fps: update?.fps ?? null,
+    enjoyment: update?.enjoyment ?? null,
+    gddlTier: Number.isNaN(gddlTier ?? NaN) ? null : gddlTier,
+    device: update?.device ?? null,
+  })
+
+  logger.info({ userId, progressUpdateId }, 'GDDL record submitted')
+}
