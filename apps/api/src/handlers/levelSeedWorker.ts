@@ -11,7 +11,10 @@
 // the real one.
 
 import prisma from '../utils/prisma'
-import { fetchRobtopLevel } from '../utils/robtop'
+import {
+  fetchRobtopLevelResult,
+  type RobtopFetchResult,
+} from '../utils/robtop'
 import { buildRobtopRefreshData } from '../services/levels/robtopMapping'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
@@ -30,13 +33,14 @@ interface SQSEvent {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
-// fetchRobtopLevel collapses "genuinely not found" and "transient network
-// failure" into the same null (see its GOLDEN RULE) — this worker can't tell
-// them apart, so a null gets a couple of re-attempts before the stub is left
-// standing. Without this, a single blip during a big import batch stranded
-// that level with no metadata until the next weekly volatile sync (which
-// doesn't run for up to a week, and only backfills a few fields even then)
-// rather than the few extra seconds retries cost here.
+// In-invocation retries for a level RobTop couldn't be REACHED for. Uses the
+// result-preserving fetch so a genuine not-found is terminal on the first
+// answer rather than being asked three times.
+//
+// These attempts span ~4 seconds, which is deliberately no match for a 429
+// cooldown (60s–5min, and acquireRobtopSlot fails instantly for its whole
+// duration). They cover the brief blip; anything longer is handed to SQS
+// redrive by the handler below, which is the retry mechanism sized for it.
 //
 // The backoff between attempts here is a distinct concern from the shared
 // rate limiter: it's not about this worker's own request rate (the limiter
@@ -46,13 +50,16 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 const FETCH_ATTEMPTS = 3
 const RETRY_BACKOFF_MS = [1000, 3000]
 
-async function fetchRobtopLevelWithRetries(levelId: string) {
+async function fetchRobtopLevelWithRetries(
+  levelId: string
+): Promise<RobtopFetchResult> {
+  let last: RobtopFetchResult = { status: 'unreachable' }
   for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 1000)
-    const robtop = await fetchRobtopLevel(levelId)
-    if (robtop) return robtop
+    last = await fetchRobtopLevelResult(levelId)
+    if (last.status !== 'unreachable') return last
   }
-  return null
+  return last
 }
 
 /**
@@ -67,6 +74,12 @@ async function fetchRobtopLevelWithRetries(levelId: string) {
  * @param event - SQS batch whose message bodies are `{ levelIds: string[] }`.
  */
 export const handler = async (event: SQSEvent): Promise<void> => {
+  // Levels this invocation could not REACH RobTop for. Collected rather than
+  // thrown on the spot so the rest of the batch still gets its chance, then
+  // rethrown at the end to fail the invocation and let SQS redeliver — see the
+  // throw below.
+  const unreachable: string[] = []
+
   for (const record of event.Records) {
     let message: SeedMessage
     try {
@@ -90,19 +103,30 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         })
         if (existing?.verified) continue
 
-        const robtop = await fetchRobtopLevelWithRetries(levelId)
-        if (!robtop) {
-          // RobTop didn't find it after retries — stub stands. Not a failure.
+        const res = await fetchRobtopLevelWithRetries(levelId)
+
+        if (res.status === 'not_found') {
+          // GD has no such level. Terminal — the stub stands, and re-queueing
+          // would just ask the same unanswerable question forever.
           logger.info(
             { levelId },
-            'levelSeedWorker: no RobTop result; stub retained'
+            'levelSeedWorker: RobTop has no such level; stub retained'
           )
+          continue
+        }
+
+        if (res.status === 'unreachable') {
+          // Says NOTHING about whether the level exists, so retaining the stub
+          // here would turn a transient throttle into permanent missing data —
+          // which is exactly what happened to the 2026-07-21 GDDL import.
+          // Defer to SQS instead of deciding now.
+          unreachable.push(levelId)
           continue
         }
 
         await prisma.level.update({
           where: { inGameId: levelId },
-          data: buildRobtopRefreshData(robtop),
+          data: buildRobtopRefreshData(res.level),
         })
 
         logger.info({ levelId }, 'levelSeedWorker: enriched stub level')
@@ -113,5 +137,20 @@ export const handler = async (event: SQSEvent): Promise<void> => {
         Sentry.captureException(err)
       }
     }
+  }
+
+  // Fail the invocation so SQS makes the message visible again and redelivers
+  // it (the queue is configured with retry: 3 → DLQ). The gap between attempts
+  // is the visibility timeout — minutes, not the ~4s of in-invocation retries —
+  // which is the right order of magnitude for a RobTop cooldown to clear.
+  //
+  // Safe to redeliver the whole message: levels already enriched by this run
+  // are skipped by the `verified` check at the top of the loop, so a retry only
+  // re-attempts what's still outstanding.
+  if (unreachable.length) {
+    throw new Error(
+      `levelSeedWorker: RobTop unreachable for ${unreachable.length} level(s) ` +
+        `(${unreachable.join(', ')}); failing the batch for SQS retry`
+    )
   }
 }
