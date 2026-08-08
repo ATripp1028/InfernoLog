@@ -7,13 +7,17 @@
 
 import { Prisma } from '@prisma/client'
 
-// Gap below which a bisect would lose precision → renormalise to integers.
+/**
+ * Gap below which a bisect would lose precision → renormalise to integers.
+ */
 export const REBALANCE_GAP = new Prisma.Decimal('0.0001')
 
-// The index for a drop between two neighbours, expressed index-agnostically:
-// `lower` is the neighbour with the smaller index, `higher` the larger. Either
-// may be null: no lower → step below the higher bound, no higher → step above
-// the lower bound, neither → first entry of an empty ordering.
+/**
+ * The index for a drop between two neighbours, expressed index-agnostically:
+ * `lower` is the neighbour with the smaller index, `higher` the larger. Either
+ * may be null: no lower → step below the higher bound, no higher → step above
+ * the lower bound, neither → first entry of an empty ordering.
+ */
 export function bisectIndices(
   lower: Prisma.Decimal | null,
   higher: Prisma.Decimal | null
@@ -24,7 +28,9 @@ export function bisectIndices(
   return new Prisma.Decimal(1)
 }
 
-// True when the neighbour gap is too tight to bisect safely.
+/**
+ * True when the neighbour gap is too tight to bisect safely.
+ */
 export function gapTooTight(
   lower: Prisma.Decimal | null,
   higher: Prisma.Decimal | null

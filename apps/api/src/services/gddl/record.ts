@@ -14,6 +14,16 @@ import { decryptSecret } from '../../utils/kms'
 import { submitGddlRecord } from '../../utils/gddl'
 import { logger } from '../../utils/logger'
 
+/**
+ * Pushes a just-logged completion to GDDL as a record submission.
+ *
+ * Best-effort and fire-and-forget: users without a configured GDDL key are a
+ * no-op, and every failure is logged rather than thrown, so a GDDL outage never
+ * fails the user's own completion write.
+ *
+ * @param params - The completion to mirror: the owning user, the
+ * progress-update and level it belongs to, and the video URL GDDL requires.
+ */
 export async function submitCompletionRecordToGddl(params: {
   userId: string
   progressUpdateId: string

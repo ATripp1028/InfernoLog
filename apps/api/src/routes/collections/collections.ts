@@ -27,12 +27,12 @@ import {
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.get('/me/collections', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   return c.json({ data: await getCollections(userId) })
 })
 
 app.post('/me/collections', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = CreateCollectionInputSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
@@ -43,13 +43,13 @@ app.post('/me/collections', async (c) => {
 })
 
 app.get('/me/collections/:collectionId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const detail = await getCollectionDetail(userId, c.req.param('collectionId'))
   return c.json({ data: detail })
 })
 
 app.patch('/me/collections/:collectionId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = UpdateCollectionInputSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
@@ -63,7 +63,7 @@ app.patch('/me/collections/:collectionId', async (c) => {
 })
 
 app.delete('/me/collections/:collectionId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   await deleteCollection(userId, c.req.param('collectionId'))
   return c.body(null, 204)
 })

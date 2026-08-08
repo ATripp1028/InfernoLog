@@ -18,10 +18,13 @@
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
+import { createErrorHandler } from '../../middleware/errors'
 import importRoutes from './import'
 import exportRoutes from './export'
 
 const app = new Hono<{ Variables: HonoVariables }>()
+
+app.onError(createErrorHandler('ImportExport'))
 
 app.route('/', importRoutes)
 app.route('/', exportRoutes)

@@ -1,5 +1,6 @@
 import type { GddlSyncResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
+import { buildRobtopCreateData } from '../levels/robtopMapping'
 import {
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
@@ -61,44 +62,7 @@ async function getOrCreateLevel(
     // (happens for deleted/anonymized levels that still exist in GD's index).
     const name = gd.name ?? submission.Level?.Meta?.Name?.trim() ?? null
     const created = await tx.level.create({
-      data: {
-        inGameId: levelId,
-        levelType: gd.platformer ? 'PLATFORMER' : 'CLASSIC',
-        name,
-        creator: gd.creator,
-        inGameDifficulty: gd.inGameDifficulty,
-        length: gd.length,
-        songName: gd.songName,
-        songAuthor: gd.songAuthor,
-        isRated: gd.isRated,
-        isDemon: gd.isDemon,
-        description: gd.description,
-        creatorPlayerId: gd.creatorPlayerId,
-        creatorAccountId: gd.creatorAccountId,
-        stars: gd.stars,
-        starsRequested: gd.starsRequested,
-        partialDiff: gd.partialDiff,
-        downloads: gd.downloads,
-        likes: gd.likes,
-        disliked: gd.disliked,
-        objectCount: gd.objectCount,
-        coins: gd.coins,
-        coinsVerified: gd.coinsVerified,
-        featured: gd.featured,
-        featureScore: gd.featureScore,
-        epicValue: gd.epicValue,
-        twoPlayer: gd.twoPlayer,
-        lowDetailMode: gd.lowDetailMode,
-        copiedFromId: gd.copiedFromId,
-        levelVersion: gd.levelVersion,
-        gameVersion: gd.gameVersion,
-        officialSongId: gd.officialSongId,
-        songId: gd.songId,
-        songLink: gd.songLink,
-        songSize: gd.songSize,
-        dataSource: 'robtop_autofill',
-        verified: true,
-      },
+      data: buildRobtopCreateData(levelId, gd, { name }),
       select: { inGameDifficulty: true },
     })
     return { inGameDifficulty: created.inGameDifficulty, needsSeed: false }
@@ -238,6 +202,20 @@ async function enrichCompletion(
   return willWrite
 }
 
+/**
+ * Imports the user's GDDL submissions as InfernoLog completions.
+ *
+ * Each submission is matched to a cached level (resolving it from RobTop, or
+ * falling back to GDDL's own metadata, on a miss), then written as a completion
+ * — enriching an existing one rather than duplicating it. Every completion
+ * written removes the level from Want to Beat in the same transaction.
+ * Per-submission failures are collected into `errors` instead of aborting the
+ * run.
+ *
+ * @param userId - Internal user UUID.
+ * @param gddlApiKey - The user's decrypted GDDL API key.
+ * @returns Counts of created/enriched/skipped submissions plus per-row errors.
+ */
 export async function syncGddlSubmissions(
   userId: string,
   gddlApiKey: string

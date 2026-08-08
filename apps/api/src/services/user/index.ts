@@ -44,4 +44,10 @@ export async function createUserForSignup(email: string, cognitoSub: string) {
   return user
 }
 
+/**
+ * Default weighted-mode rating categories (Gameplay / Decoration / Song,
+ * weights summing to exactly 1.00). Seeded for every new user, and backfilled
+ * the first time an existing SIMPLE-mode user switches to WEIGHTED — see
+ * PATCH /v1/me.
+ */
 export { DEFAULT_RATING_CATEGORIES }

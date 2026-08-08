@@ -8,6 +8,13 @@
 
 import { Prisma } from '@prisma/client'
 
+/**
+ * Columns selected for the authenticated user's own payload.
+ *
+ * Includes `gddlApiKeyEncrypted`, which {@link serializeMe} then strips — the
+ * serializer, not this select, is the boundary that keeps the stored key's
+ * ciphertext off the wire.
+ */
 export const meSelect = {
   id: true,
   username: true,
@@ -38,9 +45,11 @@ export const meSelect = {
   createdAt: true,
 } as const
 
-// meSelect plus the user's ordered rating categories. Every route that returns
-// the full `me` payload uses this; it was written out identically in six
-// places before the account routes were split across files.
+/**
+ * meSelect plus the user's ordered rating categories. Every route that returns
+ * the full `me` payload uses this; it was written out identically in six
+ * places before the account routes were split across files.
+ */
 export const meWithCategoriesSelect = {
   ...meSelect,
   ratingCategories: {
@@ -49,6 +58,7 @@ export const meWithCategoriesSelect = {
   },
 } satisfies Prisma.UserSelect
 
+/** A user row as selected by {@link meSelect}, before serialization. */
 export type RawUser = {
   enjoymentWeight: { toNumber(): number } | number
   gddlApiKeyEncrypted?: string | null
@@ -62,7 +72,9 @@ export type RawUser = {
   [key: string]: unknown
 }
 
-// Prisma returns Decimal as a Decimal instance; the wire shape uses plain numbers.
+/**
+ * Prisma returns Decimal as a Decimal instance; the wire shape uses plain numbers.
+ */
 export function serializeMe(user: RawUser) {
   // gddlApiKeyEncrypted is destructured out so it can never leak to the client;
   // we expose only whether a key is set.

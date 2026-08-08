@@ -13,12 +13,26 @@ import { createHmac } from 'crypto'
 
 const STATE_TTL_SECONDS = 10 * 60
 
+/** The signed, time-limited payload carried through Discord's OAuth `state`. */
 export type ConnectStatePayload = {
   nonce: string
   userId: string
   exp: number
 }
 
+/**
+ * Mints the signed OAuth `state` that ties a Discord callback back to the
+ * signed-in user.
+ *
+ * The browser reaches /auth/discord/callback via a top-level redirect from
+ * Discord and so sends no Cognito JWT; this HMAC'd (userId, nonce, exp) triple
+ * is what stands in for it. Called from the authenticated
+ * POST /v1/me/connect-discord.
+ *
+ * @param userId - Internal user UUID to bind the callback to.
+ * @param nonce - Per-request random value.
+ * @returns `nonce.userId.exp.signature`, valid for 10 minutes.
+ */
 export function mintConnectDiscordState(userId: string, nonce: string): string {
   const exp = Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS
   const body = `${nonce}.${userId}.${exp}`
@@ -28,6 +42,16 @@ export function mintConnectDiscordState(userId: string, nonce: string): string {
   return `${body}.${sig}`
 }
 
+/**
+ * Verifies a Discord OAuth `state` and returns its payload.
+ *
+ * Checks shape, HMAC signature, and expiry. Every failure returns null rather
+ * than throwing or distinguishing the reason — the callback treats a bad state
+ * as one indivisible "don't trust this redirect".
+ *
+ * @param state - The `state` query parameter Discord echoed back.
+ * @returns The payload, or null if malformed, mis-signed, or expired.
+ */
 export function verifyConnectDiscordState(
   state: string
 ): ConnectStatePayload | null {

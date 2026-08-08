@@ -4,15 +4,10 @@
 //   DELETE /v1/me/progress/:levelId/updates/:progressUpdateId
 
 import { Hono } from 'hono'
-import * as Sentry from '@sentry/node'
 import { EditProgressInputSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
-import {
-  applyEdit,
-  deleteProgressUpdate,
-  ProgressFieldsNotApplicableError,
-} from '../../services/progress'
+import { applyEdit, deleteProgressUpdate } from '../../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -26,27 +21,19 @@ const app = new Hono<{ Variables: HonoVariables }>()
 // ─────────────────────────────────────────────
 
 app.patch('/me/progress/:levelId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelId = c.req.param('levelId')
 
-  try {
-    const body = await c.req.json().catch(() => ({}))
-    const parsed = EditProgressInputSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const result = await applyEdit(userId, levelId, parsed.data)
-    if (!result) return c.json({ error: 'Entry not found' }, 404)
-
-    return c.json({ data: result })
-  } catch (error) {
-    if (error instanceof ProgressFieldsNotApplicableError) {
-      return c.json({ error: error.message }, 400)
-    }
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  const body = await c.req.json().catch(() => ({}))
+  const parsed = EditProgressInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
   }
+
+  const result = await applyEdit(userId, levelId, parsed.data)
+  if (!result) return c.json({ error: 'Entry not found' }, 404)
+
+  return c.json({ data: result })
 })
 
 // ─────────────────────────────────────────────
@@ -66,22 +53,17 @@ const GDDL_DELETE_CAVEAT =
   'Manage any associated GDDL record directly on the GDDL platform.'
 
 app.delete('/me/progress/:levelId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelId = c.req.param('levelId')
 
-  try {
-    const existing = await prisma.levelProgress.findUnique({
-      where: { userId_levelId: { userId, levelId } },
-      select: { id: true },
-    })
-    if (!existing) return c.json({ error: 'Entry not found' }, 404)
+  const existing = await prisma.levelProgress.findUnique({
+    where: { userId_levelId: { userId, levelId } },
+    select: { id: true },
+  })
+  if (!existing) return c.json({ error: 'Entry not found' }, 404)
 
-    await prisma.levelProgress.delete({ where: { id: existing.id } })
-    return c.json({ gddlCaveat: GDDL_DELETE_CAVEAT })
-  } catch (error) {
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  await prisma.levelProgress.delete({ where: { id: existing.id } })
+  return c.json({ gddlCaveat: GDDL_DELETE_CAVEAT })
 })
 
 // ─────────────────────────────────────────────
@@ -92,17 +74,12 @@ app.delete('/me/progress/:levelId', async (c) => {
 // ─────────────────────────────────────────────
 
 app.delete('/me/progress/:levelId/updates/:progressUpdateId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const { levelId, progressUpdateId } = c.req.param()
 
-  try {
-    const result = await deleteProgressUpdate(userId, levelId, progressUpdateId)
-    if (!result) return c.json({ error: 'Entry not found' }, 404)
-    return c.json({ data: result })
-  } catch (error) {
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  const result = await deleteProgressUpdate(userId, levelId, progressUpdateId)
+  if (!result) return c.json({ error: 'Entry not found' }, 404)
+  return c.json({ data: result })
 })
 
 export default app

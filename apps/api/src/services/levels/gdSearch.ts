@@ -14,7 +14,7 @@ import type {
 } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { searchRobtopByNameResult, type RobtopLevel } from '../../utils/robtop'
-import { buildRobtopCreateData } from '../levels/resolve'
+import { buildRobtopCreateData } from '../levels/robtopMapping'
 
 // ── /search-page filters → getGJLevels21 params ────────────────────────────
 // Only the subset GD's schema can express is forwarded; everything else (exact
@@ -97,6 +97,7 @@ function buildRobtopParams(
   return result
 }
 
+/** Result of one GD-server search escalation. */
 export type GdSearchOutcome =
   // The call succeeded and at least one not-already-cached level survived.
   | { status: 'ok'; rated: LevelSearchResult[]; unrated: LevelSearchResult[] }
@@ -124,6 +125,26 @@ function toRow(inGameId: string, level: RobtopLevel): LevelSearchResult {
   }
 }
 
+/**
+ * Escalates a search to the live GD servers, then caches the rated survivors.
+ *
+ * One getGJLevels21 query — first page only, never cursor-paginated. Results
+ * already in the cache are deduped out, the rest partitioned into rated and
+ * unrated, and rated levels are seeded into the cache so a later cache search
+ * finds them.
+ *
+ * Fired only on explicit user confirmation from the cache-search UI, never on
+ * keystroke: it costs a network call and shares the RobTop rate limiter with
+ * every other GD consumer.
+ *
+ * @param q - Search term; empty is valid when `filters`/`sort` give GD
+ * something to browse by.
+ * @param filters - Cache filters, forwarded where GD's schema has an equivalent.
+ * @param sort - Cache sort; only `downloads`/`likes` map onto GD's browse types.
+ * @returns `ok` with the partitioned rows, `nothing_new` when everything found
+ * was already cached, or `unreachable` when the GD call itself failed
+ * (retryable — distinct from "found nothing").
+ */
 export async function runGdSearch(
   q: string,
   filters: LevelSearchFilters = {},

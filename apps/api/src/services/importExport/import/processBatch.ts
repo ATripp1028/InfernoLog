@@ -17,6 +17,7 @@ import type { Prisma } from '@prisma/client'
 import type { ImportCommitRow, ImportCommitResponse } from '@infernolog/core'
 import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
+import { buildRobtopRefreshData } from '../../levels/robtopMapping'
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
 import {
@@ -49,6 +50,23 @@ import {
 // in place (update, not create) — there is no separate idempotency table
 // anymore, since only the worker (never the client) drives this.
 
+/**
+ * Processes one batch of spreadsheet rows into progress records.
+ *
+ * The whole batch is planned before anything is written: levels are resolved
+ * (by id, or by name via RobTop), existing entries are diffed to decide
+ * create-vs-overwrite-vs-skip, and the resulting writes are then flushed in one
+ * short transaction. Keeping the planning outside the transaction is what stops
+ * a batch full of network-bound level lookups from holding a DB transaction
+ * open. Rows that can't be resolved, or that conflict, are returned as outcomes
+ * for the review UI rather than failing the batch.
+ *
+ * @param userId - Internal user UUID.
+ * @param importJobId - The owning ImportJob.
+ * @param pendingRows - This batch's rows, with their DB ids for outcome writes.
+ * @returns Per-row outcomes and the ids of any stub levels created, which the
+ * worker enqueues for seeding.
+ */
 export async function processImportJobBatch(
   userId: string,
   importJobId: string,
@@ -519,44 +537,7 @@ export async function processImportJobBatch(
         if (newStubIds.includes(levelId)) {
           await tx.level.update({
             where: { inGameId: levelId },
-            data: {
-              name: rtData.name,
-              creator: rtData.creator,
-              inGameDifficulty: rtData.inGameDifficulty,
-              length: rtData.length,
-              songName: rtData.songName,
-              songAuthor: rtData.songAuthor,
-              isRated: rtData.isRated,
-              isDemon: rtData.isDemon,
-              levelType: rtData.platformer ? 'PLATFORMER' : 'CLASSIC',
-              description: rtData.description,
-              creatorPlayerId: rtData.creatorPlayerId,
-              creatorAccountId: rtData.creatorAccountId,
-              stars: rtData.stars,
-              starsRequested: rtData.starsRequested,
-              partialDiff: rtData.partialDiff,
-              downloads: rtData.downloads,
-              likes: rtData.likes,
-              disliked: rtData.disliked,
-              objectCount: rtData.objectCount,
-              coins: rtData.coins,
-              coinsVerified: rtData.coinsVerified,
-              featured: rtData.featured,
-              featureScore: rtData.featureScore,
-              epicValue: rtData.epicValue,
-              twoPlayer: rtData.twoPlayer,
-              lowDetailMode: rtData.lowDetailMode,
-              copiedFromId: rtData.copiedFromId,
-              levelVersion: rtData.levelVersion,
-              gameVersion: rtData.gameVersion,
-              officialSongId: rtData.officialSongId,
-              songId: rtData.songId,
-              songLink: rtData.songLink,
-              songSize: rtData.songSize,
-              dataSource: 'robtop_autofill',
-              verified: true,
-              lastCheckedAt: new Date(),
-            },
+            data: buildRobtopRefreshData(rtData),
           })
           // Already enriched — remove from the seed queue list.
           newStubIds = newStubIds.filter((id) => id !== levelId)
@@ -654,12 +635,14 @@ export async function processImportJobBatch(
   }
 }
 
-// Synchronous single-shot commit helper: creates the job, inserts its rows as
-// "pending", and processes them in one call via processImportJobBatch. This is
-// what the background worker's per-batch loop reduces to for a small,
-// single-batch import — used directly by tests (and any other in-process
-// caller) that want the full plan/write logic without going through
-// POST /v1/me/import/start + an async Lambda invoke.
+/**
+ * Synchronous single-shot commit helper: creates the job, inserts its rows as
+ * "pending", and processes them in one call via processImportJobBatch. This is
+ * what the background worker's per-batch loop reduces to for a small,
+ * single-batch import — used directly by tests (and any other in-process
+ * caller) that want the full plan/write logic without going through
+ * POST /v1/me/import/start + an async Lambda invoke.
+ */
 export async function commitImportBatch(
   userId: string,
   importJobId: string,

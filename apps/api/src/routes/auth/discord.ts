@@ -7,8 +7,8 @@
 //
 import { Hono } from 'hono'
 import * as Sentry from '@sentry/node'
-import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
+import { isUniqueViolation } from '../../middleware/errors'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
 import { verifyConnectDiscordState } from '../../utils/discordState'
@@ -69,10 +69,7 @@ app.get('/discord/callback', async (c) => {
       })
     } catch (err) {
       // P2002: the discordId is already attached to a different user.
-      if (
-        err instanceof Prisma.PrismaClientKnownRequestError &&
-        err.code === 'P2002'
-      ) {
+      if (isUniqueViolation(err)) {
         logger.warn(
           { userId: payload.userId, discordId: discordUser.id },
           'Discord account already linked to another user'

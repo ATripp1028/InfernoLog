@@ -50,4 +50,12 @@ app.all('*', (c) => {
   return c.json({ error: 'Not found', path: c.req.path }, 404)
 })
 
+/**
+ * The single Lambda entry point behind every API Gateway route.
+ *
+ * API Gateway declares each route individually (see infra/routes/), but they
+ * all target this handler and Hono dispatches internally — so adding an
+ * endpoint needs BOTH a Hono route here and a matching `api.route(...)` entry,
+ * or the gateway 404s before Hono ever sees the request.
+ */
 export const handler = handle(app)

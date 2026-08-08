@@ -1,5 +1,6 @@
 // Pins the service-error → HTTP mapping now that it lives in one onError for
-// the module rather than a try/catch per handler (see errors.ts).
+// the module rather than a try/catch per handler (see index.ts, which builds
+// it with the shared createErrorHandler from middleware/errors.ts).
 //
 // The integration tests cover the CollectionError codes end-to-end; these cover
 // the two branches they don't reach — the not-cached 400 and the unexpected-
@@ -37,13 +38,12 @@ const {
   CollectionNotFoundError,
 } = await import('../../services/collections')
 const { default: collectionsApp } = await import('./index')
+const { logger } = await import('../../utils/logger')
 
 const app = () => buildApp(collectionsApp, { userId: TEST_USER_ID })
 
 beforeEach(() => {
   vi.clearAllMocks()
-  // Silence the deliberate console.error on the 500 path.
-  vi.spyOn(console, 'error').mockImplementation(() => {})
 })
 
 describe('collections error mapping', () => {
@@ -100,7 +100,6 @@ describe('collections error mapping', () => {
   })
 
   it('reports the matched route pattern, not the concrete URL', async () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     mockAddEntry.mockRejectedValue(new Error('boom'))
 
     await app().request('/me/collections/abc/entries', {
@@ -109,9 +108,12 @@ describe('collections error mapping', () => {
       body: JSON.stringify({ levelId: '12345' }),
     })
 
-    expect(spy).toHaveBeenCalledWith(
-      'POST /me/collections/:collectionId/entries error:',
-      expect.any(Error)
+    expect(logger.error).toHaveBeenCalledWith(
+      {
+        path: 'POST /me/collections/:collectionId/entries',
+        err: expect.any(Error),
+      },
+      'Collections route error'
     )
   })
 })

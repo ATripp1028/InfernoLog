@@ -18,13 +18,17 @@ import { logger } from './logger'
 const SFH_API_BASE_URL =
   process.env.SFH_API_BASE_URL ?? 'https://api.songfilehub.com'
 
-// Which SFH catalog to query. Picked from the GD level's rating status.
+/**
+ * Which SFH catalog to query. Picked from the GD level's rating status.
+ */
 export type SfhState = 'rated' | 'unrated'
 
 // Keep a hung SFH request from stalling a resolve call or a sync batch.
 const FETCH_TIMEOUT_MS = 5000
 
-// Normalized SFH result — the sfh* fields written to the levels cache 1:1.
+/**
+ * Normalized SFH result — the sfh* fields written to the levels cache 1:1.
+ */
 export interface SongFileHubResult {
   sfhId: string
   sfhSongName: string
@@ -62,16 +66,18 @@ function normalize(raw: SfhSongRaw): SongFileHubResult {
   }
 }
 
-// Fetches the NONG for a level from Song File Hub, querying the catalog that
-// matches its rating status (`state`, default 'rated'). Returns:
-//   - a SongFileHubResult if a NONG exists in that catalog (highest `downloads`
-//     wins if the array has more than one entry — not expected in practice,
-//     since the query is level-scoped, but handled defensively)
-//   - null if the call succeeded but the array was empty (no NONG — a valid,
-//     cacheable "checked, none found" result)
-//   - undefined if the call itself failed (network/timeout/non-2xx) — the
-//     caller must NOT stamp sfhCheckedAt in this case
-// Never throws.
+/**
+ * Fetches the NONG for a level from Song File Hub, querying the catalog that
+ * matches its rating status (`state`, default 'rated'). Returns:
+ *   - a SongFileHubResult if a NONG exists in that catalog (highest `downloads`
+ *     wins if the array has more than one entry — not expected in practice,
+ *     since the query is level-scoped, but handled defensively)
+ *   - null if the call succeeded but the array was empty (no NONG — a valid,
+ *     cacheable "checked, none found" result)
+ *   - undefined if the call itself failed (network/timeout/non-2xx) — the
+ *     caller must NOT stamp sfhCheckedAt in this case
+ * Never throws.
+ */
 export async function fetchSongFileHubNong(
   levelId: string,
   state: SfhState = 'rated'

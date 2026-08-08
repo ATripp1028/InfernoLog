@@ -131,6 +131,19 @@ function decodeCursor(c: string): { v: number | string; id: string } | null {
   return null
 }
 
+/**
+ * The /search page's filtered, keyset-paginated search over the levels cache.
+ *
+ * Never calls the GD servers — escalating to those is the separate, opt-in
+ * {@link runGdSearch}. Pagination is keyset (sort value + inGameId tiebreak)
+ * rather than OFFSET, so deep pages stay cheap and a row inserted mid-scroll
+ * can't shift the window.
+ *
+ * @param query - Validated filters, sort, direction, and opaque cursor. A
+ * `relevance` sort with no query term falls back to `downloads`, the natural
+ * default for "browse the cache by filter".
+ * @returns One page of rows plus `nextCursor`, which is null on the last page.
+ */
 export async function browseLevels(
   query: LevelBrowseQuery
 ): Promise<{ data: LevelBrowseResult[]; nextCursor: string | null }> {

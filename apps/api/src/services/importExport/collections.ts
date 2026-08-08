@@ -37,9 +37,11 @@ interface CollectionTarget {
   name: string // display / custom-collection name
 }
 
-// Maps the sheet's `list` value to a target collection. Reserved keywords are
-// matched loosely (case / spacing / spelling); anything else is a custom
-// collection by name.
+/**
+ * Maps the sheet's `list` value to a target collection. Reserved keywords are
+ * matched loosely (case / spacing / spelling); anything else is a custom
+ * collection by name.
+ */
 export function classifyCollection(raw: string): CollectionTarget {
   const k = raw.toLowerCase().replace(/[\s_-]+/g, '')
   if (k === 'wanttobeat')
@@ -95,6 +97,7 @@ async function resolveCollectionId(
   return created.id
 }
 
+/** Per-collection outcome of committing a spreadsheet's Collections tab. */
 export interface ImportCollectionsResult {
   lists: { list: string; placed: number }[]
   skipped: { list: string; label: string; reason: string }[]
@@ -213,6 +216,18 @@ async function resolveCollectionEntries(
   return { groups, skipped }
 }
 
+/**
+ * Writes the spreadsheet's Collections tab into the user's collections.
+ *
+ * Entries are grouped by target collection (built-ins matched by name,
+ * everything else created as CUSTOM), levels resolved against the cache, and
+ * membership written in the sheet's order. Rows whose level can't be resolved,
+ * or that violate a collection's rules, are reported in `skipped` rather than
+ * failing the import.
+ *
+ * @param userId - Internal user UUID.
+ * @param entries - Validated Collections-tab rows.
+ */
 export async function commitImportCollections(
   userId: string,
   entries: ImportCollectionEntry[]
@@ -297,12 +312,14 @@ export async function commitImportCollections(
   return result
 }
 
-// Pre-commit merge check: for every collection the sheet touches that
-// already has existing membership, diffs the sheet's desired order against
-// the existing order via the git-like list merge (see utils/listMerge.ts).
-// A collection the sheet doesn't mention, or that doesn't exist yet / is
-// currently empty, has nothing to reconcile — commit proceeds with the
-// plain sheet order exactly as it does today, no entry is returned for it.
+/**
+ * Pre-commit merge check: for every collection the sheet touches that
+ * already has existing membership, diffs the sheet's desired order against
+ * the existing order via the git-like list merge (see utils/listMerge.ts).
+ * A collection the sheet doesn't mention, or that doesn't exist yet / is
+ * currently empty, has nothing to reconcile — commit proceeds with the
+ * plain sheet order exactly as it does today, no entry is returned for it.
+ */
 export async function checkCollectionsMerge(
   userId: string,
   entries: ImportCollectionEntry[]

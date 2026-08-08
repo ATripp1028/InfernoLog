@@ -22,14 +22,19 @@ import {
   addGddlListEntry,
   removeGddlListEntry,
 } from '../../utils/gddl'
-import { fetchRobtopLevel, type RobtopLevel } from '../../utils/robtop'
+import { fetchRobtopLevel } from '../../utils/robtop'
 import { bisectIndices } from '../../utils/fractionalIndex'
+import {
+  buildRobtopCreateData,
+  buildRobtopRefreshData,
+} from '../levels/robtopMapping'
 import { logger } from '../../utils/logger'
 
 // GDDL's non-custom lists cap at 4 entries. Only the top N InfernoLog entries
 // (by display order / rankingIndex) are mirrored to GDDL.
 const GDDL_LIST_MAX = 4
 
+/** What one list sync (favorites or least-favorites) changed on each side. */
 export interface ListSyncSummary {
   addedToInferno: string[] // GDDL level IDs added to the InfernoLog collection
   addedToGddl: string[] // InfernoLog level IDs pushed to GDDL
@@ -37,49 +42,10 @@ export interface ListSyncSummary {
   skipped: string[] // GDDL IDs that couldn't be cached — not added
 }
 
+/** Combined result of syncing both mirrored lists. */
 export interface GddlListSyncResult {
   favorites: ListSyncSummary
   leastFavorites: ListSyncSummary
-}
-
-function robtopLevelData(gd: RobtopLevel) {
-  return {
-    levelType: gd.platformer ? ('PLATFORMER' as const) : ('CLASSIC' as const),
-    name: gd.name,
-    creator: gd.creator,
-    inGameDifficulty: gd.inGameDifficulty,
-    length: gd.length,
-    songName: gd.songName,
-    songAuthor: gd.songAuthor,
-    isRated: gd.isRated,
-    isDemon: gd.isDemon,
-    description: gd.description,
-    creatorPlayerId: gd.creatorPlayerId,
-    creatorAccountId: gd.creatorAccountId,
-    stars: gd.stars,
-    starsRequested: gd.starsRequested,
-    partialDiff: gd.partialDiff,
-    downloads: gd.downloads,
-    likes: gd.likes,
-    disliked: gd.disliked,
-    objectCount: gd.objectCount,
-    coins: gd.coins,
-    coinsVerified: gd.coinsVerified,
-    featured: gd.featured,
-    featureScore: gd.featureScore,
-    epicValue: gd.epicValue,
-    twoPlayer: gd.twoPlayer,
-    lowDetailMode: gd.lowDetailMode,
-    copiedFromId: gd.copiedFromId,
-    levelVersion: gd.levelVersion,
-    gameVersion: gd.gameVersion,
-    officialSongId: gd.officialSongId,
-    songId: gd.songId,
-    songLink: gd.songLink,
-    songSize: gd.songSize,
-    dataSource: 'robtop_autofill' as const,
-    verified: true,
-  }
 }
 
 // Ensures a level exists in the local Level cache. On a miss, attempts to seed
@@ -104,7 +70,7 @@ async function ensureLevelCached(levelId: string): Promise<boolean> {
     if (gd) {
       await prisma.level.update({
         where: { inGameId: levelId },
-        data: robtopLevelData(gd),
+        data: buildRobtopRefreshData(gd),
       })
     }
     return true
@@ -114,7 +80,7 @@ async function ensureLevelCached(levelId: string): Promise<boolean> {
 
   try {
     await prisma.level.create({
-      data: { inGameId: levelId, ...robtopLevelData(gd) },
+      data: buildRobtopCreateData(levelId, gd),
     })
   } catch (err) {
     // P2002 = unique violation — another concurrent request already seeded it.
@@ -251,6 +217,20 @@ async function syncList(
   return summary
 }
 
+/**
+ * Bidirectionally syncs the user's Favorites and Least Favorites collections
+ * with the corresponding GDDL lists.
+ *
+ * GDDL levels missing locally are added to the InfernoLog collection (caching
+ * the level first, skipping it if that fails), and the top few local entries by
+ * display order are pushed to GDDL, with anything outside that window removed
+ * there. Synchronous, since these lists are small.
+ *
+ * @param userId - Internal user UUID.
+ * @param apiKey - The user's decrypted GDDL API key.
+ * @throws {GddlError} GDDL rejected the request or was unreachable; routes map
+ * this to a 502.
+ */
 export async function syncGddlLists(
   userId: string,
   apiKey: string

@@ -36,8 +36,10 @@ import {
 
 type Tx = Prisma.TransactionClient
 
-// Caller-fixable rule violation, carrying the machine-readable code the client
-// branches on and the HTTP status the route maps it to.
+/**
+ * Caller-fixable rule violation, carrying the machine-readable code the client
+ * branches on and the HTTP status the route maps it to.
+ */
 export class CollectionError extends Error {
   constructor(
     public code: CollectionErrorCode,
@@ -49,7 +51,9 @@ export class CollectionError extends Error {
   }
 }
 
-// 404 — the targeted collection/entry doesn't exist for this user.
+/**
+ * 404 — the targeted collection/entry doesn't exist for this user.
+ */
 export class CollectionNotFoundError extends Error {
   constructor(message: string) {
     super(message)
@@ -57,7 +61,9 @@ export class CollectionNotFoundError extends Error {
   }
 }
 
-// 400 — the level isn't cached yet; the client resolves/seeds before adding.
+/**
+ * 400 — the level isn't cached yet; the client resolves/seeds before adding.
+ */
 export class CollectionLevelNotCachedError extends Error {
   constructor(levelId: string) {
     super(`Level ${levelId} is not cached. Resolve it before adding.`)
@@ -77,10 +83,16 @@ const TYPE_ORDER: Record<string, number> = {
 // thumbnail-cluster preview (the first is the identity thumbnail).
 const PREVIEW_LEVELS = 4
 
-// ─────────────────────────────────────────────
-// Reads
-// ─────────────────────────────────────────────
-
+/**
+ * Lists the user's collections for the index page.
+ *
+ * Ordered built-ins first in a fixed order (Want to Beat, Favorites, Least
+ * Favorites), then custom collections by creation time. Each row carries an
+ * entry count and the first few level ids for the card's thumbnail cluster,
+ * rather than the entries themselves.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ */
 export async function getCollections(userId: string) {
   const rows = await prisma.collection.findMany({
     where: { userId },
@@ -135,6 +147,18 @@ async function loadCompletionsByLevel(userId: string, levelIds: string[]) {
   )
 }
 
+/**
+ * One collection with its entries in display order (rankingIndex ascending).
+ *
+ * Each entry is annotated with the viewer's own completion state: the GDDL-tier
+ * badge and a `completed` flag. This is the shared return shape of every
+ * mutating function in this module, so a write can respond with the new state
+ * without the client re-fetching.
+ *
+ * @param userId - Internal user UUID; also scopes ownership.
+ * @param collectionId - Collection to load.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ */
 export async function getCollectionDetail(
   userId: string,
   collectionId: string
@@ -221,6 +245,16 @@ async function assertNameAvailable(
   }
 }
 
+/**
+ * Creates a custom collection.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param input - Name and optional description; both are trimmed.
+ * @returns The new collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionError} `RESERVED_NAME` (422) for a built-in name, or
+ * `DUPLICATE_NAME` (409) if the user already has one by that name
+ * (case-insensitive).
+ */
 export async function createCollection(
   userId: string,
   input: CreateCollectionInput
@@ -260,6 +294,17 @@ async function requireCollection(
   return collection
 }
 
+/**
+ * Renames a custom collection and/or edits its description.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - Must be a CUSTOM collection.
+ * @param input - Sparse patch; only present keys are written.
+ * @returns The updated collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ * @throws {CollectionError} `BUILT_IN_COLLECTION` (403) for a built-in, or
+ * `RESERVED_NAME`/`DUPLICATE_NAME` on the new name.
+ */
 export async function updateCollection(
   userId: string,
   collectionId: string,
@@ -281,6 +326,14 @@ export async function updateCollection(
   return getCollectionDetail(userId, collectionId)
 }
 
+/**
+ * Deletes a custom collection; its entries cascade via the FK.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - Must be a CUSTOM collection.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ * @throws {CollectionError} `BUILT_IN_COLLECTION` (403) — built-ins can't be deleted.
+ */
 export async function deleteCollection(userId: string, collectionId: string) {
   await requireCollection(userId, collectionId, { customOnly: true })
   // Entries cascade via the FK.
@@ -291,6 +344,25 @@ export async function deleteCollection(userId: string, collectionId: string) {
 // Entries — add / remove / reorder
 // ─────────────────────────────────────────────
 
+/**
+ * Adds a level to a collection, appended at the end of the order.
+ *
+ * Idempotent per (collection, level) — re-adding an existing entry is a no-op,
+ * matching the UI, which greys duplicates out with an "Added" tag.
+ *
+ * Want to Beat is the one collection with a membership rule: it holds only
+ * levels the user has not completed.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - Any collection, built-in or custom.
+ * @param levelId - GD level ID; must already be in the levels cache.
+ * @returns The collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ * @throws {CollectionLevelNotCachedError} The level isn't cached — the client
+ * resolves it through the logging flow before adding.
+ * @throws {CollectionError} `LEVEL_ALREADY_COMPLETED` (409) when adding a
+ * beaten level to Want to Beat.
+ */
 export async function addEntry(
   userId: string,
   collectionId: string,
@@ -355,6 +427,15 @@ export async function addEntry(
   return getCollectionDetail(userId, collectionId)
 }
 
+/**
+ * Removes one entry from a collection.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - The owning collection.
+ * @param entryId - CollectionEntry id, verified to belong to that collection.
+ * @returns The collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionNotFoundError} The collection or the entry doesn't exist.
+ */
 export async function removeEntry(
   userId: string,
   collectionId: string,
@@ -406,6 +487,25 @@ async function rebalance(tx: Tx, collectionId: string): Promise<void> {
   }
 }
 
+/**
+ * Moves an entry between two neighbours by bisecting their fractional indices.
+ *
+ * The client sends the entry ids it was dropped between rather than an absolute
+ * position, so concurrent reorders don't fight over indices. When the gap
+ * between the neighbours has closed past the rebalance threshold, the whole
+ * collection is renormalised to integers first and the neighbours re-read.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - The owning collection.
+ * @param entryId - The entry being moved.
+ * @param input - `prevId` (shown above, lower index) and `nextId` (below,
+ * higher index); either may be omitted when dropping at an end.
+ * @returns The collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionError} `SELF_REFERENTIAL_NEIGHBOR` (422) when the entry is
+ * given as its own neighbour.
+ * @throws {CollectionNotFoundError} The collection, the entry, or a named
+ * neighbour isn't part of this collection.
+ */
 export async function reorderEntry(
   userId: string,
   collectionId: string,
@@ -455,12 +555,19 @@ export async function reorderEntry(
   return getCollectionDetail(userId, collectionId)
 }
 
-// ─────────────────────────────────────────────
-// Want to Beat side effect — called from every completion write path
-// (POST /v1/me/completions, spreadsheet import, GDDL sync) inside the same
-// transaction that records the completion.
-// ─────────────────────────────────────────────
-
+/**
+ * Drops levels out of the user's Want to Beat collection.
+ *
+ * Called by EVERY completion write path — POST /v1/me/completions, the
+ * spreadsheet import, and the GDDL sync — from inside the same transaction that
+ * records the completion. That is what keeps the "Want to Beat holds only
+ * unbeaten levels" invariant true; a new completion path that forgets this call
+ * silently breaks it.
+ *
+ * @param tx - The caller's transaction client; this must not open its own.
+ * @param userId - Internal user UUID.
+ * @param levelIds - One level ID or many. An empty array is a no-op.
+ */
 export async function removeFromWantToBeat(
   tx: Tx,
   userId: string,

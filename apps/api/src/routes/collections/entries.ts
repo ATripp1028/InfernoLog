@@ -24,7 +24,7 @@ import { addEntry, removeEntry, reorderEntry } from '../../services/collections'
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.post('/me/collections/:collectionId/entries', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = AddCollectionEntryInputSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
@@ -38,7 +38,7 @@ app.post('/me/collections/:collectionId/entries', async (c) => {
 })
 
 app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = ReorderCollectionEntryInputSchema.safeParse(body)
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
@@ -53,7 +53,7 @@ app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
 })
 
 app.delete('/me/collections/:collectionId/entries/:entryId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const result = await removeEntry(
     userId,
     c.req.param('collectionId'),

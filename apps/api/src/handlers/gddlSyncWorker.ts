@@ -20,6 +20,17 @@ function userMessage(err: unknown): string {
   return 'Sync failed due to an internal error.'
 }
 
+/**
+ * Runs one user's GDDL submission sync in the background.
+ *
+ * Invoked asynchronously by POST /v1/me/gddl-sync. Decrypts the user's stored
+ * GDDL key, pulls their submissions, and writes the result onto the
+ * GddlSyncJob row so the polling endpoint can report it. Failures are recorded
+ * on the job with a user-facing message rather than thrown, so the UI can
+ * explain what happened instead of spinning.
+ *
+ * @param event - `{ jobId, userId }` from the invoking route.
+ */
 export const handler = async (event: WorkerEvent): Promise<void> => {
   const { jobId, userId } = event
 

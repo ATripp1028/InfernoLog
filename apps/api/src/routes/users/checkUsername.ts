@@ -4,7 +4,6 @@
 // index.ts for the mount ordering this module depends on.
 
 import { Hono } from 'hono'
-import * as Sentry from '@sentry/node'
 import { UsernameSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
@@ -42,18 +41,12 @@ app.get('/users/check-username', async (c) => {
     })
   }
 
-  try {
-    const existing = await prisma.user.findFirst({
-      where: { username: { equals: username, mode: 'insensitive' } },
-      select: { id: true },
-    })
+  const existing = await prisma.user.findFirst({
+    where: { username: { equals: username, mode: 'insensitive' } },
+    select: { id: true },
+  })
 
-    return c.json({ available: !existing })
-  } catch (error) {
-    console.error('GET /users/check-username error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  return c.json({ available: !existing })
 })
 
 export default app

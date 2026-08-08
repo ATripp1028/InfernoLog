@@ -21,9 +21,17 @@ const REFILL_PER_SEC = 1.5 // the steady rate every path individually paced to b
 const POLL_MS = 120
 const DEFAULT_MAX_WAIT_MS = 10_000
 
-// Default backoff when RobTop 429s without a usable Retry-After, and a hard cap
-// so a bogus/huge Retry-After can't wedge every consumer for a long time.
+/**
+ * Default backoff when RobTop 429s without a usable Retry-After, and a hard cap
+ * so a bogus/huge Retry-After can't wedge every consumer for a long time.
+ */
+/** Backoff applied when RobTop 429s without a usable `Retry-After`. */
 export const DEFAULT_COOLDOWN_MS = 60_000
+
+/**
+ * Hard ceiling on any cooldown, so a bogus or huge `Retry-After` from upstream
+ * can't wedge every consumer for a long time.
+ */
 export const MAX_COOLDOWN_MS = 5 * 60_000
 
 // Outcome of one acquire attempt:
@@ -68,11 +76,13 @@ async function tryAcquire(): Promise<AcquireOutcome> {
   return row?.cooling ? 'cooling' : 'empty'
 }
 
-// Records a RobTop 429 by opening (or extending) a shared cooldown, during which
-// tryAcquire grants nothing — so the whole app stops hitting RobTop and lets the
-// per-IP block clear instead of prolonging it. Only ever pushes the cooldown
-// later, never earlier. Best-effort; callers should not let a failure here
-// change the outcome of their request.
+/**
+ * Records a RobTop 429 by opening (or extending) a shared cooldown, during which
+ * tryAcquire grants nothing — so the whole app stops hitting RobTop and lets the
+ * per-IP block clear instead of prolonging it. Only ever pushes the cooldown
+ * later, never earlier. Best-effort; callers should not let a failure here
+ * change the outcome of their request.
+ */
 export async function reportRobtopThrottled(
   cooldownMs: number = DEFAULT_COOLDOWN_MS
 ): Promise<void> {
@@ -87,14 +97,16 @@ export async function reportRobtopThrottled(
   `
 }
 
-// Blocks (polling) until a RobTop request slot is free, or gives up after
-// maxWaitMs. Returns false on timeout — fetchRobtopLevel treats that exactly
-// like any other failure (network error, non-OK status) and returns null, so no
-// caller needs special handling for "the limiter was busy" or "we're cooling
-// down after a 429". An active cooldown returns false immediately rather than
-// polling it out: a cooldown is measured in whole minutes and won't clear inside
-// this wait window, so busy-polling the DB for maxWaitMs would just add latency
-// (a user-facing /resolve or /page waiting ~10s) and wasted queries.
+/**
+ * Blocks (polling) until a RobTop request slot is free, or gives up after
+ * maxWaitMs. Returns false on timeout — fetchRobtopLevel treats that exactly
+ * like any other failure (network error, non-OK status) and returns null, so no
+ * caller needs special handling for "the limiter was busy" or "we're cooling
+ * down after a 429". An active cooldown returns false immediately rather than
+ * polling it out: a cooldown is measured in whole minutes and won't clear inside
+ * this wait window, so busy-polling the DB for maxWaitMs would just add latency
+ * (a user-facing /resolve or /page waiting ~10s) and wasted queries.
+ */
 export async function acquireRobtopSlot(
   maxWaitMs: number = DEFAULT_MAX_WAIT_MS
 ): Promise<boolean> {

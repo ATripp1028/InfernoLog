@@ -5,59 +5,18 @@
 // this (resolve adds the GDDL tier + existing completion; page adds
 // hasUserProgress) — this owns only the cache-or-fetch core.
 
-import { Prisma } from '@prisma/client'
+import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
-import { fetchRobtopLevelResult, type RobtopLevel } from '../../utils/robtop'
+import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { checkSfhNongIfDue } from '../levels/sfhSync'
+import { buildRobtopCreateData } from './robtopMapping'
 
-// The Level create payload for a freshly-resolved RobTop level. Shared so the
-// `/resolve` endpoint and this service write an identical snapshot. Stored
-// data_source=robtop_autofill, verified=true.
-export function buildRobtopCreateData(
-  levelId: string,
-  gd: RobtopLevel
-): Prisma.LevelUncheckedCreateInput {
-  return {
-    inGameId: levelId,
-    levelType: gd.platformer ? 'PLATFORMER' : 'CLASSIC',
-    name: gd.name,
-    creator: gd.creator,
-    inGameDifficulty: gd.inGameDifficulty,
-    length: gd.length,
-    songName: gd.songName,
-    songAuthor: gd.songAuthor,
-    isRated: gd.isRated,
-    isDemon: gd.isDemon,
-    // Extended RobTop metadata snapshot.
-    description: gd.description,
-    creatorPlayerId: gd.creatorPlayerId,
-    creatorAccountId: gd.creatorAccountId,
-    stars: gd.stars,
-    starsRequested: gd.starsRequested,
-    partialDiff: gd.partialDiff,
-    downloads: gd.downloads,
-    likes: gd.likes,
-    disliked: gd.disliked,
-    objectCount: gd.objectCount,
-    coins: gd.coins,
-    coinsVerified: gd.coinsVerified,
-    featured: gd.featured,
-    featureScore: gd.featureScore,
-    epicValue: gd.epicValue,
-    twoPlayer: gd.twoPlayer,
-    lowDetailMode: gd.lowDetailMode,
-    copiedFromId: gd.copiedFromId,
-    levelVersion: gd.levelVersion,
-    gameVersion: gd.gameVersion,
-    officialSongId: gd.officialSongId,
-    songId: gd.songId,
-    songLink: gd.songLink,
-    songSize: gd.songSize,
-    dataSource: 'robtop_autofill',
-    verified: true,
-  }
-}
-
+/**
+ * Outcome of a cache-or-fetch level lookup. `not_found` is terminal (GD
+ * answered; nothing was cached, so a later visit re-resolves) while
+ * `unreachable` is retryable and says nothing about whether the level exists —
+ * callers surface them as 404 and 503 respectively.
+ */
 export type FindOrResolveResult<T> =
   | { status: 'found'; level: T }
   // GD answered but has no such level — terminal, nothing is cached, so a
@@ -67,10 +26,12 @@ export type FindOrResolveResult<T> =
   // whether the level exists.
   | { status: 'unreachable' }
 
-// Find the cached level, or resolve it from GD once and persist it. On a fresh
-// resolve the SFH NONG check runs before the row is re-read, so the returned
-// row already carries any NONG data on first load. `select` is the caller's
-// Prisma select, so each endpoint gets exactly the columns it renders.
+/**
+ * Find the cached level, or resolve it from GD once and persist it. On a fresh
+ * resolve the SFH NONG check runs before the row is re-read, so the returned
+ * row already carries any NONG data on first load. `select` is the caller's
+ * Prisma select, so each endpoint gets exactly the columns it renders.
+ */
 export async function findOrResolveLevel<T extends Prisma.LevelSelect>(
   levelId: string,
   select: T

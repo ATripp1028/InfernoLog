@@ -31,13 +31,13 @@ const app = new Hono<{ Variables: HonoVariables }>()
 // Both columns in one payload — no pagination, no query params. The ranking UI
 // is a drag-and-drop board over the whole set.
 app.get('/me/ranking/classic', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const data = await getClassicRanking(userId)
   return c.json({ data })
 })
 
 app.post('/me/ranking/classic', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = PlaceRankingInputSchema.safeParse(body)
   if (!parsed.success) {
@@ -53,7 +53,7 @@ app.post('/me/ranking/classic', async (c) => {
 })
 
 app.patch('/me/ranking/classic/:levelProgressId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelProgressId = c.req.param('levelProgressId')
   const body = await c.req.json().catch(() => ({}))
   const parsed = ReorderRankingInputSchema.safeParse(body)
@@ -67,7 +67,7 @@ app.patch('/me/ranking/classic/:levelProgressId', async (c) => {
 })
 
 app.delete('/me/ranking/classic/:levelProgressId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelProgressId = c.req.param('levelProgressId')
 
   const data = await unplaceEntry(userId, levelProgressId)

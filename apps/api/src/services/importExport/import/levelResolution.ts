@@ -73,11 +73,13 @@ function demonTierPredicate(
   }
 }
 
-// Resolves a level ID from its name, checking InfernoLog's cache first then
-// falling back to a live RobTop name search. Returns:
-//   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
-//   'ambiguous'               — multiple candidates even after creator/difficulty filtering
-//   null                      — no match found anywhere
+/**
+ * Resolves a level ID from its name, checking InfernoLog's cache first then
+ * falling back to a live RobTop name search. Returns:
+ *   { levelId, robtopLevel? } — unique match (robtopLevel present when found via RobTop)
+ *   'ambiguous'               — multiple candidates even after creator/difficulty filtering
+ *   null                      — no match found anywhere
+ */
 export type ResolveResult =
   | { levelId: string; robtopLevel?: RobtopLevel }
   | 'ambiguous'
@@ -153,6 +155,17 @@ async function resolveViaRobtop(
   return null
 }
 
+/**
+ * Resolves a level from its spreadsheet name (plus optional creator and
+ * difficulty), checking the local cache before falling back to RobTop.
+ *
+ * @param name - Level name as written in the sheet.
+ * @param creator - Optional creator, used to disambiguate same-named levels.
+ * @param inGameDifficulty - Optional difficulty, used the same way.
+ * @returns The resolved level id (with RobTop data when the fallback fired),
+ * `'ambiguous'` when several candidates match equally well — the row is flagged
+ * for the user to disambiguate — or null when nothing matched.
+ */
 export async function resolveByName(
   name: string,
   creator?: string | null,
@@ -168,11 +181,13 @@ export async function resolveByName(
   return resolveViaRobtop(name, creator, inGameDifficulty)
 }
 
-// Bulk name resolution: fetches all DB candidates in a few queries (grouped by
-// lowercased name) rather than one query per name, then falls back to RobTop
-// only for the DB misses. Keeps the DB-first ordering for a large one-shot
-// import (e.g. a Lists tab with thousands of name-only rows). Returns results
-// positionally aligned with `inputs`.
+/**
+ * Bulk name resolution: fetches all DB candidates in a few queries (grouped by
+ * lowercased name) rather than one query per name, then falls back to RobTop
+ * only for the DB misses. Keeps the DB-first ordering for a large one-shot
+ * import (e.g. a Lists tab with thousands of name-only rows). Returns results
+ * positionally aligned with `inputs`.
+ */
 export async function resolveNamesBatch(
   inputs: {
     name: string
@@ -230,6 +245,19 @@ export async function resolveNamesBatch(
 
 // ── Stub level creation ────────────────────────────────────────────────────
 
+/**
+ * Creates placeholder `levels` rows for ids not yet cached, so import writes
+ * have something to FK against.
+ *
+ * Stubs are marked `data_source=manual` / `verified=false`; the seed worker
+ * later upgrades them to full RobTop snapshots (see
+ * {@link buildRobtopRefreshData}).
+ *
+ * @param tx - The caller's transaction client.
+ * @param levelIds - Ids to ensure exist; already-present ones are left alone.
+ * @returns Only the ids actually created, which is what the caller enqueues
+ * for seeding.
+ */
 export async function ensureStubLevels(
   tx: Tx,
   levelIds: string[]
@@ -259,6 +287,15 @@ export async function ensureStubLevels(
 
 // ── SQS enqueue ───────────────────────────────────────────────────────────
 
+/**
+ * Queues freshly-created stub levels for async RobTop enrichment.
+ *
+ * Sends to the level-seed SQS queue in small batches. A no-op when
+ * `LEVEL_SEED_QUEUE_URL` is unset — the stubs simply stay unenriched until the
+ * next volatile sync, which is degraded but not broken.
+ *
+ * @param levelIds - Stub level ids to enrich.
+ */
 export async function enqueueSeedIds(levelIds: string[]): Promise<void> {
   const queueUrl = process.env.LEVEL_SEED_QUEUE_URL
   if (!queueUrl || !levelIds.length) return

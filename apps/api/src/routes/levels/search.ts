@@ -11,7 +11,6 @@
 
 import { Hono } from 'hono'
 import { Prisma } from '@prisma/client'
-import * as Sentry from '@sentry/node'
 import { LevelBrowseQuerySchema } from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
@@ -68,20 +67,14 @@ app.get('/levels/search', async (c) => {
   // Escape ILIKE wildcards in user input so "100%" matches literally.
   const likePattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
-  try {
-    const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
-      SELECT "inGameId", "name", "creator", "inGameDifficulty", "stars", "featured", "epicValue", "songName", "isRated"
-      FROM "levels"
-      WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
-      ORDER BY similarity("name", ${q}) DESC, "name" ASC
-      LIMIT 20
-    `)
-    return c.json({ data: results })
-  } catch (error) {
-    console.error('GET /levels/search error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
+    SELECT "inGameId", "name", "creator", "inGameDifficulty", "stars", "featured", "epicValue", "songName", "isRated"
+    FROM "levels"
+    WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
+    ORDER BY similarity("name", ${q}) DESC, "name" ASC
+    LIMIT 20
+  `)
+  return c.json({ data: results })
 })
 
 // GET /v1/levels/browse — the /search page's cursor-paginated, filtered cache
@@ -94,14 +87,8 @@ app.get('/levels/browse', async (c) => {
     return c.json({ error: parsed.error.flatten() }, 400)
   }
 
-  try {
-    const result = await browseLevels(parsed.data)
-    return c.json(result)
-  } catch (error) {
-    console.error('GET /levels/browse error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  const result = await browseLevels(parsed.data)
+  return c.json(result)
 })
 
 // GET /v1/levels/gd-search?q= — the opt-in GD-server search escalation. One
@@ -142,22 +129,16 @@ app.get('/levels/gd-search', async (c) => {
     )
   }
 
-  try {
-    // Creator search-by has no GD equivalent, so the query term is only
-    // forwarded in name mode; a creator escalation degrades to a filter browse.
-    const gdQuery = searchBy === 'creator' ? '' : trimmed
-    const outcome = await runGdSearch(gdQuery, filters, sort)
-    // A failed RobTop call is retryable and distinct from "nothing new" — 503
-    // so the client can offer a retry rather than showing an empty result.
-    if (outcome.status === 'unreachable') {
-      return c.json({ status: 'unreachable', retryable: true }, 503)
-    }
-    return c.json(outcome)
-  } catch (error) {
-    console.error('GET /levels/gd-search error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  // Creator search-by has no GD equivalent, so the query term is only
+  // forwarded in name mode; a creator escalation degrades to a filter browse.
+  const gdQuery = searchBy === 'creator' ? '' : trimmed
+  const outcome = await runGdSearch(gdQuery, filters, sort)
+  // A failed RobTop call is retryable and distinct from "nothing new" — 503
+  // so the client can offer a retry rather than showing an empty result.
+  if (outcome.status === 'unreachable') {
+    return c.json({ status: 'unreachable', retryable: true }, 503)
   }
+  return c.json(outcome)
 })
 
 export default app

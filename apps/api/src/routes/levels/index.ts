@@ -21,12 +21,19 @@
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
+import { createErrorHandler } from '../../middleware/errors'
 import searchRoutes from './search'
 import resolveRoutes from './resolve'
 import detailRoutes from './detail'
 import createRoutes from './create'
 
 const app = new Hono<{ Variables: HonoVariables }>()
+
+// No domain error classes here — the level routes signal their expected
+// failures with explicit responses (400 non-numeric id, 404 not found, 503
+// GD unreachable), so anything that reaches this really is unexpected. The
+// one exception, POST /levels' duplicate-id 409, is local to that handler.
+app.onError(createErrorHandler('Levels'))
 
 // Literal paths first.
 app.route('/', searchRoutes)

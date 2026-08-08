@@ -8,13 +8,12 @@
 // form — "edit, not replace".
 
 import { Hono } from 'hono'
-import * as Sentry from '@sentry/node'
 import { LevelIdSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevel } from '../../utils/robtop'
 import { fetchGddlTier } from '../../utils/gddl'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
-import { buildRobtopCreateData } from '../../services/levels/resolve'
+import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
 import type { HonoVariables } from '../../types/hono'
 import { levelDetailSelect } from '../../services/levels/selects'
 
@@ -81,60 +80,54 @@ async function loadExistingCompletion(userId: string, levelId: string) {
 }
 
 app.get('/levels/:levelId/resolve', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelId = c.req.param('levelId')
 
   if (!LevelIdSchema.safeParse(levelId).success) {
     return c.json({ error: 'Level ID must be numeric' }, 400)
   }
 
-  try {
-    let level = await prisma.level.findUnique({
-      where: { inGameId: levelId },
-      select: levelDetailSelect,
-    })
+  let level = await prisma.level.findUnique({
+    where: { inGameId: levelId },
+    select: levelDetailSelect,
+  })
 
-    if (!level) {
-      // Cache miss — try RobTop's servers exactly once. Unavailability is an
-      // expected branch, NOT an error: signal the client to fall back to manual.
-      const gd = await fetchRobtopLevel(levelId)
-      if (!gd) {
-        return c.json({
-          level: null,
-          fallbackToManual: true,
-          suggestedGddlTier: null,
-          existingCompletion: await loadExistingCompletion(userId, levelId),
-        })
-      }
-      level = await prisma.level.create({
-        data: buildRobtopCreateData(levelId, gd),
-        select: levelDetailSelect,
+  if (!level) {
+    // Cache miss — try RobTop's servers exactly once. Unavailability is an
+    // expected branch, NOT an error: signal the client to fall back to manual.
+    const gd = await fetchRobtopLevel(levelId)
+    if (!gd) {
+      return c.json({
+        level: null,
+        fallbackToManual: true,
+        suggestedGddlTier: null,
+        existingCompletion: await loadExistingCompletion(userId, levelId),
       })
     }
-
-    // GDDL suggested tier autofill — only meaningful for rated levels, and must
-    // never block or fail the resolve (returns null on any failure). The Song
-    // File Hub NONG check runs alongside it: best-effort, its result is cached
-    // (not surfaced in this payload yet), and it can never fail the resolve
-    // (checkSfhNongIfDue never throws and self-gates on delisted levels and
-    // levels checked within the re-check cadence).
-    const [suggestedGddlTier, existingCompletion] = await Promise.all([
-      level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
-      loadExistingCompletion(userId, levelId),
-      checkSfhNongIfDue(levelId),
-    ])
-
-    return c.json({
-      level,
-      fallbackToManual: false,
-      suggestedGddlTier,
-      existingCompletion,
+    level = await prisma.level.create({
+      data: buildRobtopCreateData(levelId, gd),
+      select: levelDetailSelect,
     })
-  } catch (error) {
-    console.error('GET /levels/:levelId/resolve error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
   }
+
+  // GDDL suggested tier autofill — only meaningful for rated levels, and must
+  // never block or fail the resolve (returns null on any failure). The Song
+  // File Hub NONG check runs alongside it: best-effort, its result is cached
+  // (not surfaced in this payload yet), and it can never fail the resolve
+  // (checkSfhNongIfDue never throws and self-gates on delisted levels and
+  // levels checked within the re-check cadence).
+  const [suggestedGddlTier, existingCompletion] = await Promise.all([
+    level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
+    loadExistingCompletion(userId, levelId),
+    checkSfhNongIfDue(levelId),
+  ])
+
+  return c.json({
+    level,
+    fallbackToManual: false,
+    suggestedGddlTier,
+    existingCompletion,
+  })
 })
 
 export default app

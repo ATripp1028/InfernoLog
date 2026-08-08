@@ -12,7 +12,6 @@
 import { Hono } from 'hono'
 import { Prisma } from '@prisma/client'
 import { z } from 'zod'
-import * as Sentry from '@sentry/node'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
@@ -69,68 +68,62 @@ async function expireIfStale<
 // double-clicks/multiple tabs, and keeps GET /me/gddl-sync's "most recent
 // job" always the one job a client could actually be waiting on).
 app.post('/me/gddl-sync', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { id: userId },
-      select: { gddlApiKeyEncrypted: true },
-    })
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { gddlApiKeyEncrypted: true },
+  })
 
-    if (!user.gddlApiKeyEncrypted) {
-      return c.json({ error: NO_KEY_ERROR }, 400)
-    }
-
-    const existingJob = await prisma.gddlSyncJob.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        status: true,
-        startedAt: true,
-        finishedAt: true,
-        error: true,
-      },
-    })
-    const existing = existingJob ? await expireIfStale(existingJob) : null
-
-    if (existing?.status === 'pending') {
-      return c.json({ data: { jobId: existing.id } }, 202)
-    }
-
-    // One row per user (userId is unique) — a prior completed/failed job is
-    // overwritten rather than left to accumulate; nothing reads sync history
-    // beyond the latest job. acknowledgedAt resets to null here so this run's
-    // eventual completion is visible via GET even though `id` doesn't change
-    // between runs (see the model's schema comment).
-    const job = await prisma.gddlSyncJob.upsert({
-      where: { userId },
-      create: { userId, status: 'pending' },
-      update: {
-        status: 'pending',
-        result: Prisma.JsonNull,
-        error: null,
-        startedAt: new Date(),
-        finishedAt: null,
-        acknowledgedAt: null,
-      },
-      select: { id: true },
-    })
-
-    const lambda = new LambdaClient({})
-    await lambda.send(
-      new InvokeCommand({
-        FunctionName: process.env.GDDL_SYNC_WORKER_ARN!, // always set by SST
-        InvocationType: 'Event', // async — do not wait for the worker to finish
-        Payload: JSON.stringify({ jobId: job.id, userId }),
-      })
-    )
-
-    return c.json({ data: { jobId: job.id } }, 202)
-  } catch (err) {
-    logger.error({ userId, err }, 'gddl-sync: failed to create job')
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
+  if (!user.gddlApiKeyEncrypted) {
+    return c.json({ error: NO_KEY_ERROR }, 400)
   }
+
+  const existingJob = await prisma.gddlSyncJob.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      status: true,
+      startedAt: true,
+      finishedAt: true,
+      error: true,
+    },
+  })
+  const existing = existingJob ? await expireIfStale(existingJob) : null
+
+  if (existing?.status === 'pending') {
+    return c.json({ data: { jobId: existing.id } }, 202)
+  }
+
+  // One row per user (userId is unique) — a prior completed/failed job is
+  // overwritten rather than left to accumulate; nothing reads sync history
+  // beyond the latest job. acknowledgedAt resets to null here so this run's
+  // eventual completion is visible via GET even though `id` doesn't change
+  // between runs (see the model's schema comment).
+  const job = await prisma.gddlSyncJob.upsert({
+    where: { userId },
+    create: { userId, status: 'pending' },
+    update: {
+      status: 'pending',
+      result: Prisma.JsonNull,
+      error: null,
+      startedAt: new Date(),
+      finishedAt: null,
+      acknowledgedAt: null,
+    },
+    select: { id: true },
+  })
+
+  const lambda = new LambdaClient({})
+  await lambda.send(
+    new InvokeCommand({
+      FunctionName: process.env.GDDL_SYNC_WORKER_ARN!, // always set by SST
+      InvocationType: 'Event', // async — do not wait for the worker to finish
+      Payload: JSON.stringify({ jobId: job.id, userId }),
+    })
+  )
+
+  return c.json({ data: { jobId: job.id } }, 202)
 })
 
 // GET /v1/me/gddl-sync — the user's GDDL sync job (or null), mirroring GET
@@ -149,45 +142,39 @@ app.post('/me/gddl-sync', async (c) => {
 // the disabled Sync button) can recover without the user needing to trigger
 // a new sync attempt first.
 app.get('/me/gddl-sync', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const job = await prisma.gddlSyncJob.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        status: true,
-        result: true,
-        error: true,
-        startedAt: true,
-        finishedAt: true,
-        acknowledgedAt: true,
-      },
-    })
-    const current = job ? await expireIfStale(job) : null
-    const visible =
-      current !== null &&
-      (current.status === 'pending' || !current.acknowledgedAt)
+  const job = await prisma.gddlSyncJob.findUnique({
+    where: { userId },
+    select: {
+      id: true,
+      status: true,
+      result: true,
+      error: true,
+      startedAt: true,
+      finishedAt: true,
+      acknowledgedAt: true,
+    },
+  })
+  const current = job ? await expireIfStale(job) : null
+  const visible =
+    current !== null &&
+    (current.status === 'pending' || !current.acknowledgedAt)
 
-    return c.json(
-      {
-        data: visible
-          ? {
-              id: current.id,
-              status: current.status,
-              result: current.result,
-              error: current.error,
-              startedAt: current.startedAt.toISOString(),
-            }
-          : null,
-      },
-      200
-    )
-  } catch (err) {
-    logger.error({ userId, err }, 'GET /me/gddl-sync error')
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
+  return c.json(
+    {
+      data: visible
+        ? {
+            id: current.id,
+            status: current.status,
+            result: current.result,
+            error: current.error,
+            startedAt: current.startedAt.toISOString(),
+          }
+        : null,
+    },
+    200
+  )
 })
 
 // POST /v1/me/gddl-sync/ack — marks a completed/failed job as acknowledged
@@ -209,38 +196,32 @@ const AckGddlSyncSchema = z.object({
 })
 
 app.post('/me/gddl-sync/ack', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const body = await c.req.json().catch(() => null)
-    const parsed = AckGddlSyncSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    await prisma.gddlSyncJob.updateMany({
-      where: {
-        id: parsed.data.jobId,
-        userId,
-        status: { not: 'pending' },
-        startedAt: new Date(parsed.data.startedAt),
-      },
-      data: { acknowledgedAt: new Date() },
-    })
-
-    return c.json({ data: { acknowledged: true } }, 200)
-  } catch (err) {
-    logger.error({ userId, err }, 'POST /me/gddl-sync/ack error')
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
+  const body = await c.req.json().catch(() => null)
+  const parsed = AckGddlSyncSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
   }
+
+  await prisma.gddlSyncJob.updateMany({
+    where: {
+      id: parsed.data.jobId,
+      userId,
+      status: { not: 'pending' },
+      startedAt: new Date(parsed.data.startedAt),
+    },
+    data: { acknowledgedAt: new Date() },
+  })
+
+  return c.json({ data: { acknowledged: true } }, 200)
 })
 
 // POST /v1/me/gddl-lists-sync — bidirectional sync of FAVORITES and
 // LEAST_FAVORITES collections with the corresponding GDDL user lists.
 // Synchronous (lists are small); requires KMS decrypt to read the stored key.
 app.post('/me/gddl-lists-sync', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
   try {
     const user = await prisma.user.findUniqueOrThrow({
@@ -258,12 +239,11 @@ app.post('/me/gddl-lists-sync', async (c) => {
     logger.info({ userId, result }, 'gddl-lists-sync: complete')
     return c.json({ data: result })
   } catch (err) {
+    // GDDL itself refused or was unreachable — an upstream fault, not ours.
     if (err instanceof GddlError) {
       return c.json({ error: err.message }, 502)
     }
-    logger.error({ userId, err }, 'gddl-lists-sync: failed')
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
+    throw err
   }
 })
 

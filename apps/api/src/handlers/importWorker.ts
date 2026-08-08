@@ -53,6 +53,20 @@ async function bumpReinvokeCount(jobId: string): Promise<number> {
   return updated.reinvokeCount
 }
 
+/**
+ * Processes a spreadsheet import job to completion, resuming itself as needed.
+ *
+ * Invoked asynchronously with just `{ jobId }` — the dataset was already
+ * persisted by POST /v1/me/import/start, since async Lambda invoke payloads cap
+ * at 256KB. Rows are processed in batches of 50 with `processedRows`
+ * checkpointed to Postgres after each batch, so progress survives a closed tab
+ * or a reload. When the Lambda is about to time out it re-invokes itself with
+ * the same jobId and returns; resumability falls out of row state living in the
+ * DB rather than in Lambda memory. The ranking/collections/ratings tabs are
+ * committed once all rows are done.
+ *
+ * @param event - `{ jobId }` identifying the ImportJob.
+ */
 export const handler = async (
   event: WorkerEvent,
   context: LambdaContext

@@ -38,16 +38,22 @@ import { toNum } from '../../../utils/decimal'
 // commit-time fallback for rows /check couldn't pre-resolve (name-only rows
 // resolve their level too late to be pre-checked) — see matchExistingEvent.
 
-// `timezone` is the existing row's paired dateTimezone/worstFailDateTimezone
-// column — null means no time-of-day was ever entered (date is midnight UTC,
-// a raw slice is correct); non-null means the date must be read back through
-// that zone to recover the calendar day the user actually entered, since the
-// UTC calendar day can differ from it (see apps/api/src/utils/timezone.ts).
+/**
+ * `timezone` is the existing row's paired dateTimezone/worstFailDateTimezone
+ * column — null means no time-of-day was ever entered (date is midnight UTC,
+ * a raw slice is correct); non-null means the date must be read back through
+ * that zone to recover the calendar day the user actually entered, since the
+ * UTC calendar day can differ from it (see apps/api/src/utils/timezone.ts).
+ */
 export const isoDate = (
   d: Date | null,
   timezone: string | null
 ): string | null => (d ? zonedDateString(d, timezone) : null)
 
+/**
+ * The fields of an already-stored progress_update that the import diffs a
+ * spreadsheet row against, loaded once per batch.
+ */
 export interface ExistingEventSnapshot {
   id: string
   levelId: string
@@ -66,9 +72,11 @@ export interface ExistingEventSnapshot {
   device: string | null
 }
 
-// Batch-fetches every existing PROGRESS (resp. DROP) row for the given
-// levels — both checkImportConflicts (pre-check) and processImportJobBatch
-// (commit-time fallback) need the same shape, just at different call sites.
+/**
+ * Batch-fetches every existing PROGRESS (resp. DROP) row for the given
+ * levels — both checkImportConflicts (pre-check) and processImportJobBatch
+ * (commit-time fallback) need the same shape, just at different call sites.
+ */
 export async function fetchExistingEvents(
   userId: string,
   kind: 'PROGRESS' | 'DROP',
@@ -114,6 +122,10 @@ export async function fetchExistingEvents(
   }))
 }
 
+/**
+ * Buckets a batch's existing events by level id, so each row's diff is a map
+ * lookup rather than a scan.
+ */
 export function groupByLevel(
   events: ExistingEventSnapshot[]
 ): Map<string, ExistingEventSnapshot[]> {
@@ -126,11 +138,13 @@ export function groupByLevel(
   return byLevel
 }
 
-// The derived key as a plain string, for both grouping (intra-batch
-// supersession) and matching (against existing DB rows). A row with none of
-// the four fields set carries no distinguishing session data — treated as
-// "no key" so a batch of otherwise-blank rows never falsely supersedes or
-// dedupes against each other.
+/**
+ * The derived key as a plain string, for both grouping (intra-batch
+ * supersession) and matching (against existing DB rows). A row with none of
+ * the four fields set carries no distinguishing session data — treated as
+ * "no key" so a batch of otherwise-blank rows never falsely supersedes or
+ * dedupes against each other.
+ */
 export function deriveEventKey(fields: {
   date: string | null
   percentage: number | null
@@ -148,11 +162,13 @@ export function deriveEventKey(fields: {
   return `${fields.date ?? ''}|${fields.percentage ?? ''}|${fields.runFrom ?? ''}|${fields.runTo ?? ''}`
 }
 
-// A field is a diff only when the sheet actually provides a value (null
-// means "left blank" — auto-resolves to the existing value) AND that value
-// differs from what's already stored. Shared by every per-tab field-diff
-// function below (progress/dropped/completion) — the skip rule itself never
-// varies, only which fields get compared.
+/**
+ * A field is a diff only when the sheet actually provides a value (null
+ * means "left blank" — auto-resolves to the existing value) AND that value
+ * differs from what's already stored. Shared by every per-tab field-diff
+ * function below (progress/dropped/completion) — the skip rule itself never
+ * varies, only which fields get compared.
+ */
 export function createFieldPusher(diffs: ImportFieldDiff[]) {
   return (field: string, existingValue: unknown, importedValue: unknown) => {
     if (importedValue == null) return
@@ -161,6 +177,13 @@ export function createFieldPusher(diffs: ImportFieldDiff[]) {
   }
 }
 
+/**
+ * Field-by-field diff of a stored progress event against an imported progress
+ * row, for the conflict-review UI.
+ *
+ * @returns One entry per differing field; empty when the row matches what is
+ * already stored (which is what lets the import skip it as a no-op).
+ */
 export function diffProgressFields(
   existing: ExistingEventSnapshot,
   row: ImportProgressRow
@@ -186,6 +209,11 @@ export function diffProgressFields(
   return diffs
 }
 
+/**
+ * Field-by-field diff of a stored drop event against an imported dropped row.
+ *
+ * @returns One entry per differing field; empty when nothing changed.
+ */
 export function diffDroppedFields(
   existing: ExistingEventSnapshot,
   row: ImportDroppedRow
@@ -284,12 +312,14 @@ function committedDedupResult(
     : { status: 'committed' }
 }
 
-// A drop event, backed by its own progress_update (kind=DROP). Additive, like
-// Progress — a level can be dropped more than once (drop → resume → drop
-// again). Round-trips by `dropId` when present (unrelated to conflict
-// resolution — the pre-existing, unchanged behavior); otherwise resolved via
-// `resolution` (arrived from conflict review, matchedId already folded into
-// `dropId` by the frontend) or the derived-key fallback dedup above.
+/**
+ * A drop event, backed by its own progress_update (kind=DROP). Additive, like
+ * Progress — a level can be dropped more than once (drop → resume → drop
+ * again). Round-trips by `dropId` when present (unrelated to conflict
+ * resolution — the pre-existing, unchanged behavior); otherwise resolved via
+ * `resolution` (arrived from conflict review, matchedId already folded into
+ * `dropId` by the frontend) or the derived-key fallback dedup above.
+ */
 export function planDrop(
   ctx: PlanCtx,
   levelId: string,
@@ -387,14 +417,16 @@ export function planDrop(
   )
 }
 
-// A non-completion progress log. Unlike completions/drops, many rows can
-// legitimately target the same level (session history) — so there is no
-// "existing entry" to skip or overwrite by level. Round-trips by
-// `progressId` when present (unrelated to conflict resolution — the
-// pre-existing, unchanged behavior); otherwise resolved via `resolution` or
-// the derived-key fallback dedup above. Never touches LevelProgress.status —
-// completions/drops establish status, and historical progress rows must not
-// flip a dropped level back to in-progress on reimport.
+/**
+ * A non-completion progress log. Unlike completions/drops, many rows can
+ * legitimately target the same level (session history) — so there is no
+ * "existing entry" to skip or overwrite by level. Round-trips by
+ * `progressId` when present (unrelated to conflict resolution — the
+ * pre-existing, unchanged behavior); otherwise resolved via `resolution` or
+ * the derived-key fallback dedup above. Never touches LevelProgress.status —
+ * completions/drops establish status, and historical progress rows must not
+ * flip a dropped level back to in-progress on reimport.
+ */
 export function planProgress(
   ctx: PlanCtx,
   levelId: string,

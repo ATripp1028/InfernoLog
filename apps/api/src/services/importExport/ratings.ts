@@ -14,6 +14,7 @@ import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import type { ImportRatingEntry, ImportRatingConflict } from '@infernolog/core'
 
+/** Outcome of committing a spreadsheet's Ratings tab. */
 export interface ImportRatingsResult {
   scored: number
   levels: number
@@ -93,6 +94,18 @@ function resolveRatingLpId(
   return lpId ?? null
 }
 
+/**
+ * Writes the spreadsheet's Ratings tab onto the user's completions.
+ *
+ * Category columns in the sheet are matched to the user's existing rating
+ * categories by name; unrecognized ones are created and reported in
+ * `categoriesCreated`. Scores are stored as integers 0–100 regardless of the
+ * user's display scale. Rows without a resolvable completion land in `skipped`
+ * rather than failing the import.
+ *
+ * @param userId - Internal user UUID.
+ * @param entries - Validated Ratings-tab rows.
+ */
 export async function commitImportRatings(
   userId: string,
   entries: ImportRatingEntry[]
@@ -197,14 +210,16 @@ export async function commitImportRatings(
   return result
 }
 
-// Pre-commit conflict check: an entry conflicts on a given category only when
-// a score already exists for that (completion, category) pair AND differs
-// from the incoming value. No existing score → not a conflict (plain
-// create). Existing-and-equal → not a conflict (silent no-op — the client
-// sends the same value again, which commitImportRatings just rewrites
-// harmlessly). Only entries with a known level_id are checked — a name-only
-// row resolves its level too late for this pre-commit pass, same convention
-// as Completions/Progress/Dropped.
+/**
+ * Pre-commit conflict check: an entry conflicts on a given category only when
+ * a score already exists for that (completion, category) pair AND differs
+ * from the incoming value. No existing score → not a conflict (plain
+ * create). Existing-and-equal → not a conflict (silent no-op — the client
+ * sends the same value again, which commitImportRatings just rewrites
+ * harmlessly). Only entries with a known level_id are checked — a name-only
+ * row resolves its level too late for this pre-commit pass, same convention
+ * as Completions/Progress/Dropped.
+ */
 export async function checkRatingConflicts(
   userId: string,
   entries: ImportRatingEntry[]

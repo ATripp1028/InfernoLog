@@ -5,10 +5,9 @@
 // why the row is marked data_source=manual / verified=false.
 
 import { Hono } from 'hono'
-import { Prisma } from '@prisma/client'
-import * as Sentry from '@sentry/node'
 import { ManualLevelInputSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
+import { isUniqueViolation } from '../../middleware/errors'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
 import { levelDetailSelect } from '../../services/levels/selects'
@@ -16,15 +15,18 @@ import { levelDetailSelect } from '../../services/levels/selects'
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.post('/levels', async (c) => {
-  try {
-    const body = await c.req.json().catch(() => ({}))
-    const parsed = ManualLevelInputSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-    const input = parsed.data
+  const body = await c.req.json().catch(() => ({}))
+  const parsed = ManualLevelInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
+  }
+  const input = parsed.data
 
-    const level = await prisma.level.create({
+  // inGameId is the primary key, so a duplicate is a real user-facing case
+  // (someone already added this level), not a server fault.
+  let level
+  try {
+    level = await prisma.level.create({
       data: {
         inGameId: input.inGameId,
         name: input.name,
@@ -40,20 +42,15 @@ app.post('/levels', async (c) => {
       },
       select: levelDetailSelect,
     })
-
-    logger.info({ inGameId: input.inGameId }, 'Manually created level metadata')
-    return c.json({ data: level }, 201)
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
-    ) {
+    if (isUniqueViolation(error)) {
       return c.json({ error: 'Level already exists' }, 409)
     }
-    console.error('POST /levels error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+    throw error
   }
+
+  logger.info({ inGameId: input.inGameId }, 'Manually created level metadata')
+  return c.json({ data: level }, 201)
 })
 
 export default app

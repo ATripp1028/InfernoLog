@@ -16,7 +16,10 @@ import type { ExportSection } from '@infernolog/core'
 import { zonedDateString } from '../../utils/timezone'
 import { toNum } from '../../utils/decimal'
 
+/** Rows per export page when the caller doesn't ask for a specific limit. */
 export const EXPORT_DEFAULT_LIMIT = 500
+/** Hard ceiling on a caller-supplied export limit, so one request can't ask
+ * for an unbounded page. */
 export const EXPORT_MAX_LIMIT = 1000
 
 // `timezone` is the paired dateTimezone/worstFailDateTimezone column — null
@@ -352,8 +355,10 @@ async function exportCategories(userId: string): Promise<string[]> {
   return categories.map((c) => c.name)
 }
 
-// One page of a section. `hasMore` is true when a full page came back, so the
-// client keeps advancing the offset. `categories` is small and never paginated.
+/**
+ * One page of a section. `hasMore` is true when a full page came back, so the
+ * client keeps advancing the offset. `categories` is small and never paginated.
+ */
 export async function exportSection(
   userId: string,
   section: ExportSection,

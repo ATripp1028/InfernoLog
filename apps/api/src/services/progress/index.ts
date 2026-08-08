@@ -19,9 +19,11 @@ import { toNum } from '../../utils/decimal'
 
 type Tx = Prisma.TransactionClient
 
-// Thrown when a write targets a level that isn't in the `levels` cache yet.
-// The flow resolves/creates the level (autofill or manual entry) before any
-// write, so this is a client-sequencing error → surfaced as a 400, not a 500.
+/**
+ * Thrown when a write targets a level that isn't in the `levels` cache yet.
+ * The flow resolves/creates the level (autofill or manual entry) before any
+ * write, so this is a client-sequencing error → surfaced as a 400, not a 500.
+ */
 export class LevelNotFoundError extends Error {
   constructor(levelId: string) {
     super(`Level ${levelId} is not cached. Resolve it before logging.`)
@@ -29,9 +31,11 @@ export class LevelNotFoundError extends Error {
   }
 }
 
-// Thrown when an edit tries to write percentage/runFrom/runTo onto a
-// ProgressUpdate that isn't kind=PROGRESS (completions are implied 100%,
-// drops don't track a percentage) — a client-input error, so 400 not 500.
+/**
+ * Thrown when an edit tries to write percentage/runFrom/runTo onto a
+ * ProgressUpdate that isn't kind=PROGRESS (completions are implied 100%,
+ * drops don't track a percentage) — a client-input error, so 400 not 500.
+ */
 export class ProgressFieldsNotApplicableError extends Error {
   constructor(kind: string) {
     super(
@@ -49,10 +53,12 @@ async function ensureLevelExists(tx: Tx, levelId: string): Promise<void> {
   if (!level) throw new LevelNotFoundError(levelId)
 }
 
-// THE shared piece: resolve or create the level_progress for (userId, levelId).
-// `initialStatus` is only used when the row does not exist yet — notably it
-// allows direct creation straight into DROPPED (drop-from-scratch), which the
-// state diagram doesn't draw but the real flow requires.
+/**
+ * THE shared piece: resolve or create the level_progress for (userId, levelId).
+ * `initialStatus` is only used when the row does not exist yet — notably it
+ * allows direct creation straight into DROPPED (drop-from-scratch), which the
+ * state diagram doesn't draw but the real flow requires.
+ */
 export async function findOrCreateLevelProgress(
   tx: Tx,
   userId: string,
@@ -103,10 +109,25 @@ async function loadFullEntry(
   }
 }
 
-// ─────────────────────────────────────────────
-// COMPLETION — edit-not-replace, idempotent on the single completion update.
-// ─────────────────────────────────────────────
-
+/**
+ * Records (or re-records) the user's completion of a level.
+ *
+ * Edit-not-replace and idempotent: if a completion already exists it is updated
+ * in place, which is what preserves the application-level "one kind=COMPLETION
+ * per level_progress" invariant. The rating-score set is replaced wholesale on
+ * an edit. `inGameDifficulty` is snapshotted from the cached level, never taken
+ * from the client. Beating a level removes it from Want to Beat in the same
+ * transaction.
+ *
+ * `worstFail` / `worstFailDate` are written only when present — `undefined`
+ * means "I already logged my worst fail", not "clear it".
+ *
+ * @param userId - Internal user UUID from the JWT, never a Cognito sub.
+ * @param input - Validated completion payload.
+ * @returns The full level_progress + progress_update, so the caller can respond
+ * without a follow-up read.
+ * @throws {LevelNotFoundError} The level isn't in the cache yet.
+ */
 export async function applyCompletion(userId: string, input: CompletionInput) {
   return prisma.$transaction(async (tx) => {
     await ensureLevelExists(tx, input.levelId)
@@ -217,10 +238,21 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
   })
 }
 
-// ─────────────────────────────────────────────
-// PROGRESS — non-completion update.
-// ─────────────────────────────────────────────
-
+/**
+ * Logs a non-completion progress update (a run, an attempt count, a new best).
+ *
+ * Status rule: logging progress on a DROPPED level flips it back to
+ * IN_PROGRESS, since logging implies active play. COMPLETED is left alone —
+ * extra progress on a beaten level does not un-complete it.
+ *
+ * A run is recorded either as `percentage` (from_zero mode) or as a
+ * `runFrom`/`runTo` pair, never both.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param input - Validated progress payload.
+ * @returns The full level_progress + the created progress_update.
+ * @throws {LevelNotFoundError} The level isn't in the cache yet.
+ */
 export async function applyProgress(userId: string, input: ProgressInput) {
   return prisma.$transaction(async (tx) => {
     await ensureLevelExists(tx, input.levelId)
@@ -270,13 +302,25 @@ export async function applyProgress(userId: string, input: ProgressInput) {
   })
 }
 
-// ─────────────────────────────────────────────
-// EDIT — partial update on a specific (or the most recent) ProgressUpdate and/or
-// LevelProgress metadata. Only present keys are written. Returns null if no entry
-// exists. When input.progressUpdateId is provided, that specific update is targeted;
-// otherwise falls back to completion-first, then loggedAt desc.
-// ─────────────────────────────────────────────
-
+/**
+ * Partially updates one progress_update and/or the level_progress metadata.
+ *
+ * Only keys present in `input` are written; absent keys are left untouched.
+ * `percentage` and `runFrom`/`runTo` are mutually exclusive — writing one
+ * clears the other. When only one side of a run is given, the omitted side
+ * defaults rather than clearing (no `runFrom` means the run started at 0, no
+ * `runTo` means it reached 100).
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param levelId - GD level ID identifying the entry to edit.
+ * @param input - Sparse patch; `progressUpdateId` targets a specific update,
+ * otherwise the most recent one wins (completion first, then `loggedAt` desc —
+ * matching the level page's display order).
+ * @returns The full updated record, or `null` when the user has no entry for
+ * this level (or the targeted update isn't theirs) — the caller maps that to a 404.
+ * @throws {ProgressFieldsNotApplicableError} percentage/runFrom/runTo were sent
+ * for an update that isn't kind=PROGRESS.
+ */
 export async function applyEdit(
   userId: string,
   levelId: string,
@@ -414,29 +458,32 @@ export async function applyEdit(
   })
 }
 
-// ─────────────────────────────────────────────
-// DELETE PROGRESS UPDATE — removes a single logged entry (completion,
-// progress log, or drop). RatingScore rows now live on LevelProgress (one
-// current rating per level, independent of any specific event), so deleting
-// a completion does NOT clear them — only coinsCollected/completionTime,
-// which are meaningless once the level isn't marked completed.
-//
-// If it's the ONLY progress_update on the level_progress, the whole
-// level_progress is deleted instead (a level_progress is always created
-// together with at least one progress_update — see findOrCreateLevelProgress
-// — so leaving one with zero updates would violate that invariant). Deleting
-// the whole level_progress cascades RatingScore too, via the schema's
-// onDelete: Cascade.
-//
-// Otherwise, status is recomputed by replaying the remaining updates in
-// loggedAt order using the same rules the three write paths already apply on
-// create (applyCompletion/applyProgress/applyDrop): a COMPLETION or DROP sets
-// status outright, a PROGRESS only flips DROPPED back to IN_PROGRESS. If that
-// walks status away from COMPLETED (i.e. the completion itself was deleted),
-// the now-invalid classic_ranking entry is removed too — only COMPLETED
-// entries may have one.
-// ─────────────────────────────────────────────
-
+/**
+ * Deletes one logged entry — a completion, a progress log, or a drop.
+ *
+ * If it is the ONLY progress_update on the level_progress, the whole
+ * level_progress is deleted instead: a level_progress is always created
+ * together with at least one update (see {@link findOrCreateLevelProgress}), so
+ * leaving one with zero updates would break that invariant. That path cascades
+ * to RatingScore via the schema's `onDelete: Cascade`.
+ *
+ * Otherwise status is recomputed by replaying the remaining updates in
+ * `loggedAt` order under the same rules the write paths apply on create: a
+ * COMPLETION or DROP sets status outright, a PROGRESS only flips DROPPED back
+ * to IN_PROGRESS. If that walks status away from COMPLETED, the now-invalid
+ * classic_ranking entry is deleted too — only COMPLETED entries may have one.
+ *
+ * RatingScore rows live on the LevelProgress (one current rating per level,
+ * independent of any single event), so deleting a completion does NOT clear
+ * them. Only `coinsCollected`/`completionTime` are cleared, being meaningless
+ * once the level is no longer completed.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param levelId - GD level ID of the entry.
+ * @param progressUpdateId - The update to remove.
+ * @returns `deletedLevelProgress` tells the caller whether the entire entry
+ * went away, or `null` when no such entry/update exists for this user.
+ */
 export async function deleteProgressUpdate(
   userId: string,
   levelId: string,
@@ -499,13 +546,19 @@ export async function deleteProgressUpdate(
   })
 }
 
-// ─────────────────────────────────────────────
-// DROP — a status transition backed by its own progress_update (kind=DROP),
-// same as completion/progress. A level can be dropped more than once (drop →
-// resume → drop again); each drop is its own row, never overwritten.
-// Drop-from-scratch supported via findOrCreateLevelProgress(initial=DROPPED).
-// ─────────────────────────────────────────────
-
+/**
+ * Marks a level dropped, backed by its own progress_update (kind=DROP) exactly
+ * as completions and progress logs are.
+ *
+ * A level can be dropped more than once (drop → resume → drop again); each drop
+ * is its own row and is never overwritten. Dropping a level the user has no
+ * entry for is supported — the level_progress is created straight into DROPPED.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param input - Validated drop payload.
+ * @returns The full level_progress + the created drop update.
+ * @throws {LevelNotFoundError} The level isn't in the cache yet.
+ */
 export async function applyDrop(userId: string, input: DropInput) {
   return prisma.$transaction(async (tx) => {
     await ensureLevelExists(tx, input.levelId)

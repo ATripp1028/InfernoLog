@@ -58,6 +58,7 @@ const DELIST_CONFIRM_MS = 36 * 60 * 60 * 1000 // 36 hours
 // mid-run — unrelated to RobTop health) is neutral.
 type SyncOutcome = 'synced' | 'missing' | 'delisted' | 'unreachable' | 'skipped'
 
+/** Per-run tallies from one level-cache sync slice, for logging and alarms. */
 export interface SyncBatchResult {
   processed: number
   // Found rows that had at least one field overwritten (excludes last_checked_at
@@ -249,10 +250,12 @@ async function syncOneLevel(
   return 'synced'
 }
 
-// Fetch/compare/write every level in the batch, sequentially and paced. Never
-// throws: a per-level failure is logged + captured and the batch continues —
-// except the circuit breaker, which aborts the batch when RobTop is clearly
-// failing the whole run (see CIRCUIT_BREAKER_STREAK).
+/**
+ * Fetch/compare/write every level in the batch, sequentially and paced. Never
+ * throws: a per-level failure is logged + captured and the batch continues —
+ * except the circuit breaker, which aborts the batch when RobTop is clearly
+ * failing the whole run (see CIRCUIT_BREAKER_STREAK).
+ */
 export async function syncLevelBatch(
   levelIds: string[],
   paceMs: number = PACE_MS
@@ -324,12 +327,14 @@ export async function syncLevelBatch(
   return result
 }
 
-// How many levels one cron invocation processes. Deliberately well under
-// RobTop's rate-limit tolerance (the Aug 2026 incident tripped it after ~165
-// sequential requests), so a single slice can't provoke a throttle, and the
-// long gap between runs gives the egress IP ample recovery time. Bumping this
-// (or the cron frequency in sst.config.ts) tightens the re-check cadence as the
-// cache grows.
+/**
+ * How many levels one cron invocation processes. Deliberately well under
+ * RobTop's rate-limit tolerance (the Aug 2026 incident tripped it after ~165
+ * sequential requests), so a single slice can't provoke a throttle, and the
+ * long gap between runs gives the egress IP ample recovery time. Bumping this
+ * (or the cron frequency in sst.config.ts) tightens the re-check cadence as the
+ * cache grows.
+ */
 export const SYNC_SLICE_SIZE = 50
 
 // Levels the main sweep considers, in every run: cached, not delisted, and not
@@ -402,11 +407,13 @@ async function nextSlice(
   return { cursor, ids }
 }
 
-// One cron slice of the round-robin sync. Reads the cursor, syncs the next
-// `size` eligible levels (wrapping to the start when it reaches the end), and
-// advances the cursor to the last id in the slice — even if the circuit breaker
-// aborted partway, so a persistently-failing stretch can't pin the rotation and
-// starve everything after it (the skipped tail is retried on the next lap).
+/**
+ * One cron slice of the round-robin sync. Reads the cursor, syncs the next
+ * `size` eligible levels (wrapping to the start when it reaches the end), and
+ * advances the cursor to the last id in the slice — even if the circuit breaker
+ * aborted partway, so a persistently-failing stretch can't pin the rotation and
+ * starve everything after it (the skipped tail is retried on the next lap).
+ */
 export async function runLevelSyncSlice(
   size: number = SYNC_SLICE_SIZE
 ): Promise<SyncBatchResult> {
@@ -431,11 +438,14 @@ export async function runLevelSyncSlice(
   return result
 }
 
-// How many delisted levels the reverify pass re-checks per run. Smaller than the
-// main slice — the delisted set is small and reappearances are rare, so this is
-// just a slow safety net that eventually notices a reupload.
+/**
+ * How many delisted levels the reverify pass re-checks per run. Smaller than the
+ * main slice — the delisted set is small and reappearances are rare, so this is
+ * just a slow safety net that eventually notices a reupload.
+ */
 export const REVERIFY_SLICE_SIZE = 20
 
+/** Tallies from one pass over the delisted set, looking for reuploads. */
 export interface ReverifyResult {
   processed: number
   // Reappeared on RobTop → un-delisted this run.
@@ -446,13 +456,15 @@ export interface ReverifyResult {
   unreachable: number
 }
 
-// One cron slice of the delisted-reverify rotation. Re-checks a bounded slice of
-// already-delisted levels and un-delists any that RobTop now returns (reuploads
-// reuse the inGameId, so a delisted level can legitimately come back). No
-// circuit breaker: reverify makes no destructive writes — un-delisting only a
-// level RobTop actually returns is always safe — and a run of not-founds is the
-// EXPECTED case here, not a failure signal. The shared 429 cooldown still stops
-// it from hammering a rate-limited RobTop.
+/**
+ * One cron slice of the delisted-reverify rotation. Re-checks a bounded slice of
+ * already-delisted levels and un-delists any that RobTop now returns (reuploads
+ * reuse the inGameId, so a delisted level can legitimately come back). No
+ * circuit breaker: reverify makes no destructive writes — un-delisting only a
+ * level RobTop actually returns is always safe — and a run of not-founds is the
+ * EXPECTED case here, not a failure signal. The shared 429 cooldown still stops
+ * it from hammering a rate-limited RobTop.
+ */
 export async function runDelistedReverifySlice(
   size: number = REVERIFY_SLICE_SIZE,
   paceMs: number = PACE_MS

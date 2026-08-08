@@ -33,6 +33,7 @@ import type { ExistingEventSnapshot } from './planEvents'
 // handful of batched createMany/deleteMany calls plus the few genuinely per-row
 // updates (status changes and overwrites).
 
+/** The three level_progress states, mirrored from the Prisma enum. */
 export type LpStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 
 interface LpFields {
@@ -53,6 +54,14 @@ interface LpFields {
   coinsCollected?: number | null
 }
 
+/**
+ * The pending write for one level_progress, accumulated across every row in the
+ * batch that touches that level before anything is flushed.
+ *
+ * A brand-new row mutates `create` in place; an existing one accumulates into
+ * `update`. That is what lets several sheet rows for the same level collapse
+ * into a single write.
+ */
 export interface LpPlan {
   id: string
   isNew: boolean
@@ -71,6 +80,11 @@ interface BatchWrites {
   }[]
 }
 
+/**
+ * Everything the per-row planners read and mutate: the batch's accumulated
+ * writes, the plan-so-far per level, and the pre-loaded DB state they diff
+ * against. Threaded through the planners instead of re-querying per row.
+ */
 export interface PlanCtx {
   userId: string
   writes: BatchWrites
@@ -99,6 +113,7 @@ export interface PlanCtx {
   dropEventsByLevel: Map<string, ExistingEventSnapshot[]>
 }
 
+/** An empty write accumulator for a fresh batch. */
 export function newBatchWrites(): BatchWrites {
   return {
     newLevelProgress: [],
@@ -107,8 +122,10 @@ export function newBatchWrites(): BatchWrites {
   }
 }
 
-// Find-or-create the single LevelProgress plan for a level. Shared so a
-// completion row and a drop row for the same level in one batch touch one LP.
+/**
+ * Find-or-create the single LevelProgress plan for a level. Shared so a
+ * completion row and a drop row for the same level in one batch touch one LP.
+ */
 export function getLpPlan(ctx: PlanCtx, levelId: string): LpPlan {
   const existing = ctx.lpPlans.get(levelId)
   if (existing) return existing
@@ -144,8 +161,10 @@ export function getLpPlan(ctx: PlanCtx, levelId: string): LpPlan {
   return plan
 }
 
-// Apply LevelProgress field changes — folded into the queued create for new
-// rows (no extra write), accumulated into a single update for existing rows.
+/**
+ * Apply LevelProgress field changes — folded into the queued create for new
+ * rows (no extra write), accumulated into a single update for existing rows.
+ */
 export function applyLp(plan: LpPlan, fields: LpFields): void {
   if (fields.status === 'COMPLETED') plan.completed = true
   if (plan.create) {
@@ -285,7 +304,9 @@ function buildCompletionMergeLpFields(
   }
 }
 
-// Outcome-reporting text for a completion row's resolution.
+/**
+ * Outcome-reporting text for a completion row's resolution.
+ */
 export function completionOutcomeReason(
   outcomeStatus: 'committed' | 'updated' | 'skipped',
   resolution: ImportConflictAction | undefined
@@ -313,6 +334,20 @@ interface CompletionPlanResult {
   flagged?: boolean
 }
 
+/**
+ * Plans the writes for one imported completion row, without executing them.
+ *
+ * Decides create-vs-overwrite-vs-skip against the pre-loaded DB state, folds
+ * the result into the batch's accumulated writes, and returns the row's outcome
+ * for the review UI.
+ *
+ * @param ctx - The batch's shared planning context; mutated in place.
+ * @param levelId - Resolved level for this row.
+ * @param row - The validated completion row from the sheet.
+ * @param resolution - The user's choice for this row when it was previously
+ * flagged as a conflict; undefined on a first pass.
+ * @param autoGddlTier - GDDL tier looked up for the level, when available.
+ */
 export function planCompletion(
   ctx: PlanCtx,
   levelId: string,

@@ -7,7 +7,6 @@
 
 import { Hono } from 'hono'
 import { Prisma } from '@prisma/client'
-import * as Sentry from '@sentry/node'
 import {
   computeOverallRating,
   type OverallRatingConfig,
@@ -112,42 +111,37 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
 // ─────────────────────────────────────────────
 
 app.get('/me/progress', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    // Two queries: the user's rating config (to compute each row's overall
-    // rating) and the list itself.
-    const [user, rows] = await Promise.all([
-      prisma.user.findUniqueOrThrow({
-        where: { id: userId },
-        select: {
-          ratingMode: true,
-          includeEnjoyment: true,
-          enjoymentWeight: true,
-          ratingCategories: { select: { id: true, weight: true } },
-        },
-      }),
-      prisma.levelProgress.findMany({
-        where: { userId },
-        select: levelProgressListSelect,
-        orderBy: { updatedAt: 'desc' },
-      }),
-    ])
+  // Two queries: the user's rating config (to compute each row's overall
+  // rating) and the list itself.
+  const [user, rows] = await Promise.all([
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        ratingMode: true,
+        includeEnjoyment: true,
+        enjoymentWeight: true,
+        ratingCategories: { select: { id: true, weight: true } },
+      },
+    }),
+    prisma.levelProgress.findMany({
+      where: { userId },
+      select: levelProgressListSelect,
+      orderBy: { updatedAt: 'desc' },
+    }),
+  ])
 
-    const ratingConfig: OverallRatingConfig = {
-      ratingMode: user.ratingMode,
-      includeEnjoyment: user.includeEnjoyment,
-      enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
-      categoryWeights: new Map(
-        user.ratingCategories.map((cat) => [cat.id, toNum(cat.weight) ?? 0])
-      ),
-    }
-
-    return c.json({ data: rows.map((row) => serializeRow(row, ratingConfig)) })
-  } catch (error) {
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  const ratingConfig: OverallRatingConfig = {
+    ratingMode: user.ratingMode,
+    includeEnjoyment: user.includeEnjoyment,
+    enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
+    categoryWeights: new Map(
+      user.ratingCategories.map((cat) => [cat.id, toNum(cat.weight) ?? 0])
+    ),
   }
+
+  return c.json({ data: rows.map((row) => serializeRow(row, ratingConfig)) })
 })
 
 export default app

@@ -16,7 +16,6 @@
 // returned by DELETE /me/progress/:levelId in edits.ts.
 
 import { Hono } from 'hono'
-import * as Sentry from '@sentry/node'
 import prisma from '../../utils/prisma'
 import { decryptSecret } from '../../utils/kms'
 import { submitGddlRecord, GddlError } from '../../utils/gddl'
@@ -26,45 +25,47 @@ import type { HonoVariables } from '../../types/hono'
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.post('/me/gddl-records/:levelId', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
   const levelId = c.req.param('levelId')
 
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { gddlApiKeyEncrypted: true },
-    })
-    if (!user?.gddlApiKeyEncrypted) {
-      return c.json({ error: 'No GDDL API key configured' }, 400)
-    }
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { gddlApiKeyEncrypted: true },
+  })
+  if (!user?.gddlApiKeyEncrypted) {
+    return c.json({ error: 'No GDDL API key configured' }, 400)
+  }
 
-    const lp = await prisma.levelProgress.findUnique({
-      where: { userId_levelId: { userId, levelId } },
-      select: {
-        userGddlTier: true,
-        progressUpdates: {
-          where: { kind: 'COMPLETION' },
-          take: 1,
-          select: {
-            id: true,
-            videoUrl: true,
-            attempts: true,
-            fps: true,
-            enjoyment: true,
-            twoPlayerSolo: true,
-            device: true,
-          },
+  const lp = await prisma.levelProgress.findUnique({
+    where: { userId_levelId: { userId, levelId } },
+    select: {
+      userGddlTier: true,
+      progressUpdates: {
+        where: { kind: 'COMPLETION' },
+        take: 1,
+        select: {
+          id: true,
+          videoUrl: true,
+          attempts: true,
+          fps: true,
+          enjoyment: true,
+          twoPlayerSolo: true,
+          device: true,
         },
       },
-    })
-    const completion = lp?.progressUpdates[0] ?? null
-    if (!completion) {
-      return c.json({ error: 'No completion found for this level' }, 404)
-    }
+    },
+  })
+  const completion = lp?.progressUpdates[0] ?? null
+  if (!completion) {
+    return c.json({ error: 'No completion found for this level' }, 404)
+  }
 
-    const gddlTier = lp?.userGddlTier ?? null
+  const gddlTier = lp?.userGddlTier ?? null
 
-    const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+  const apiKey = await decryptSecret(user.gddlApiKeyEncrypted)
+  // GDDL rejecting the submission is a 422 the user can act on (bad video
+  // link, duplicate record); anything else is ours and goes to onError.
+  try {
     await submitGddlRecord(apiKey, {
       levelId,
       videoUrl: completion.videoUrl ?? null,
@@ -75,16 +76,15 @@ app.post('/me/gddl-records/:levelId', async (c) => {
       isSolo: completion.twoPlayerSolo ?? true,
       device: completion.device ?? null,
     })
-
-    logger.info({ userId, levelId }, 'GDDL record submitted manually')
-    return c.json({ data: { submitted: true } }, 200)
   } catch (err) {
     if (err instanceof GddlError) {
-      return c.json({ error: (err as Error).message }, 422)
+      return c.json({ error: err.message }, 422)
     }
-    Sentry.captureException(err)
-    return c.json({ error: 'Internal server error' }, 500)
+    throw err
   }
+
+  logger.info({ userId, levelId }, 'GDDL record submitted manually')
+  return c.json({ data: { submitted: true } }, 200)
 })
 
 export default app

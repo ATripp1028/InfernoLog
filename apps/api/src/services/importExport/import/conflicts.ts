@@ -209,9 +209,11 @@ function scanForConflicts<
   return { conflicts, duplicates }
 }
 
-// One synchronous pre-commit pass over every tab's parsed rows. Progress/
-// Dropped/Ratings/Collections/Ranking slices are wired in by later phases of
-// the conflict-resolution rework — until then they always report empty.
+/**
+ * One synchronous pre-commit pass over every tab's parsed rows. Progress/
+ * Dropped/Ratings/Collections/Ranking slices are wired in by later phases of
+ * the conflict-resolution rework — until then they always report empty.
+ */
 export async function checkImportConflicts(
   userId: string,
   req: ImportCheckRequest

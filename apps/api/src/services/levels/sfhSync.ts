@@ -13,36 +13,44 @@ import prisma from '../../utils/prisma'
 import { fetchSongFileHubNong } from '../../utils/songFileHub'
 import { logger } from '../../utils/logger'
 
-// The outcome of one SFH check, so callers (the sync loop) can tally results.
-//   'found'  → a NONG was found and cached
-//   'none'   → SFH answered but there's no NONG (cached as checked)
-//   'failed' → the call itself failed; nothing written, will retry
+/**
+ * The outcome of one SFH check, so callers (the sync loop) can tally results.
+ *   'found'  → a NONG was found and cached
+ *   'none'   → SFH answered but there's no NONG (cached as checked)
+ *   'failed' → the call itself failed; nothing written, will retry
+ */
 export type SfhCheckOutcome = 'found' | 'none' | 'failed'
 
 // Maps a level's rating status to the SFH catalog to query: a rated level's
 // NONG lives under states=rated, an unrated level's under states=unrated.
 const sfhStateFor = (isRated: boolean) => (isRated ? 'rated' : 'unrated')
 
-// Re-check cadence. A level's song (and thus its NONG status) changing is
-// vanishingly rare, so a successful check is trusted for ~6 months before we
-// re-query. This is a cheap safety net — it eventually catches the rare case of
-// a NONG added/removed after our first check — not a live sync. A level whose
-// check never SUCCEEDED (sfhCheckedAt null) is exempt: it stays due every run
-// until one call succeeds, so a transient SFH outage doesn't cost 6 months.
+/**
+ * Re-check cadence. A level's song (and thus its NONG status) changing is
+ * vanishingly rare, so a successful check is trusted for ~6 months before we
+ * re-query. This is a cheap safety net — it eventually catches the rare case of
+ * a NONG added/removed after our first check — not a live sync. A level whose
+ * check never SUCCEEDED (sfhCheckedAt null) is exempt: it stays due every run
+ * until one call succeeds, so a transient SFH outage doesn't cost 6 months.
+ */
 export const SFH_RECHECK_DAYS = 182
 
-// Whether a level is due for an SFH check: never successfully checked, or last
-// checked longer ago than the re-check cadence.
+/**
+ * Whether a level is due for an SFH check: never successfully checked, or last
+ * checked longer ago than the re-check cadence.
+ */
 export function sfhCheckDue(sfhCheckedAt: Date | null): boolean {
   if (sfhCheckedAt === null) return true
   const cutoff = new Date(Date.now() - SFH_RECHECK_DAYS * 24 * 60 * 60 * 1000)
   return sfhCheckedAt < cutoff
 }
 
-// Fetches SFH for a level and persists the outcome. The caller is responsible
-// for the gating decision (skip if already isNong / delisted / already checked);
-// this runs the check unconditionally and writes the result. `isRated` selects
-// which SFH catalog to query (rated vs unrated).
+/**
+ * Fetches SFH for a level and persists the outcome. The caller is responsible
+ * for the gating decision (skip if already isNong / delisted / already checked);
+ * this runs the check unconditionally and writes the result. `isRated` selects
+ * which SFH catalog to query (rated vs unrated).
+ */
 export async function checkAndPersistSfhNong(
   levelId: string,
   isRated: boolean
@@ -73,9 +81,11 @@ export async function checkAndPersistSfhNong(
   return 'found'
 }
 
-// Gated variant for the /resolve endpoint: runs the check only for a level that
-// is due (never successfully checked, or last checked past the re-check
-// cadence) and isn't delisted. Best-effort; never throws.
+/**
+ * Gated variant for the /resolve endpoint: runs the check only for a level that
+ * is due (never successfully checked, or last checked past the re-check
+ * cadence) and isn't delisted. Best-effort; never throws.
+ */
 export async function checkSfhNongIfDue(levelId: string): Promise<void> {
   try {
     const row = await prisma.level.findUnique({

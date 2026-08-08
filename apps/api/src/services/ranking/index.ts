@@ -24,7 +24,9 @@ import type { PlaceRankingInput, ReorderRankingInput } from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient
 
-// 400 — caller-fixable (e.g. placing a non-demon, neighbours out of order).
+/**
+ * 400 — caller-fixable (e.g. placing a non-demon, neighbours out of order).
+ */
 export class RankingError extends Error {
   constructor(message: string) {
     super(message)
@@ -32,7 +34,9 @@ export class RankingError extends Error {
   }
 }
 
-// 404 — the targeted entry doesn't exist for this user.
+/**
+ * 404 — the targeted entry doesn't exist for this user.
+ */
 export class RankingNotFoundError extends Error {
   constructor(message: string) {
     super(message)
@@ -111,13 +115,17 @@ async function computeIndex(
   return bisectIndices(below, above)
 }
 
-// ─────────────────────────────────────────────
-// Reads / serialization
-// ─────────────────────────────────────────────
-
-// Row serialization (levelSummarySelect / completionSelect / deriveBadge /
-// completionAttempts / mapLevel) is shared with collections — see levels/row.ts.
-
+/**
+ * The classic-ranking page: the user's placed completions in difficulty order,
+ * plus the completions still waiting to be placed.
+ *
+ * Placed rows come back rankingIndex DESC, so index 0 is #1 — the hardest.
+ *
+ * Row serialization (levelSummarySelect / completionSelect / deriveBadge /
+ * completionAttempts / mapLevel) is shared with collections — see levels/row.ts.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ */
 export async function getClassicRanking(userId: string) {
   const [placedRows, unplacedRows] = await Promise.all([
     prisma.classicRanking.findMany({
@@ -182,8 +190,10 @@ export async function getClassicRanking(userId: string) {
 // follow up with a GET (the standard "return the whole record" response).
 // ─────────────────────────────────────────────
 
-// PLACE — an unplaced completion enters the ranking. Validates the entry is the
-// caller's COMPLETED classic demon and not already placed.
+/**
+ * PLACE — an unplaced completion enters the ranking. Validates the entry is the
+ * caller's COMPLETED classic demon and not already placed.
+ */
 export async function placeCompletion(
   userId: string,
   input: PlaceRankingInput
@@ -224,7 +234,9 @@ export async function placeCompletion(
   return getClassicRanking(userId)
 }
 
-// REORDER — move an already-placed entry between new neighbours.
+/**
+ * REORDER — move an already-placed entry between new neighbours.
+ */
 export async function reorderEntry(
   userId: string,
   levelProgressId: string,
@@ -254,8 +266,10 @@ export async function reorderEntry(
   return getClassicRanking(userId)
 }
 
-// UNPLACE — remove an entry from the ranking; it returns to the Unplaced panel.
-// The completion itself is untouched (only the ClassicRanking row is deleted).
+/**
+ * UNPLACE — remove an entry from the ranking; it returns to the Unplaced panel.
+ * The completion itself is untouched (only the ClassicRanking row is deleted).
+ */
 export async function unplaceEntry(userId: string, levelProgressId: string) {
   const existing = await prisma.classicRanking.findFirst({
     where: { userId, levelProgressId },

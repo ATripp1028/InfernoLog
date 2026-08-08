@@ -18,38 +18,27 @@
 // cross-user read (GET /v1/users/{usernameOrId}/ranking/classic) will land
 // here as a public.ts sibling — see docs/API_DESIGN.md.
 
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
 import classicRoutes from './classic'
-import * as Sentry from '@sentry/node'
+import { createErrorHandler } from '../../middleware/errors'
 import { RankingError, RankingNotFoundError } from '../../services/ranking'
-import { logger } from '../../utils/logger'
-
-type Ctx = Context<{ Variables: HonoVariables }>
-
-function handleRankingError(error: Error, c: Ctx) {
-  // The targeted completion / ranking row doesn't exist for this user.
-  if (error instanceof RankingNotFoundError) {
-    return c.json({ error: error.message }, 404)
-  }
-  // Caller-fixable rule violation (already placed, bad neighbours, etc.).
-  if (error instanceof RankingError) {
-    return c.json({ error: error.message }, 400)
-  }
-
-  // routePath is the matched pattern, so the label stays correct without
-  // being hand-maintained per handler.
-  logger.error(
-    { path: `${c.req.method} ${c.req.routePath}`, err: error },
-    'Ranking route error'
-  )
-  Sentry.captureException(error)
-  return c.json({ error: 'Internal server error' }, 500)
-}
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-app.onError(handleRankingError)
+app.onError(
+  createErrorHandler('Ranking', (error, c) => {
+    // The targeted completion / ranking row doesn't exist for this user.
+    if (error instanceof RankingNotFoundError) {
+      return c.json({ error: error.message }, 404)
+    }
+    // Caller-fixable rule violation (already placed, bad neighbours, etc.).
+    if (error instanceof RankingError) {
+      return c.json({ error: error.message }, 400)
+    }
+    return undefined
+  })
+)
 
 app.route('/', classicRoutes)
 

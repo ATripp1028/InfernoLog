@@ -26,6 +26,7 @@
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
+import { createErrorHandler } from '../../middleware/errors'
 import profileRoutes from './profile'
 import ratingsRoutes from './ratings'
 import gddlKeyRoutes from './gddlKey'
@@ -33,6 +34,8 @@ import gddlSyncRoutes from './gddlSync'
 import discordRoutes from './discord'
 
 const app = new Hono<{ Variables: HonoVariables }>()
+
+app.onError(createErrorHandler('Account'))
 
 app.route('/', profileRoutes)
 app.route('/', ratingsRoutes)

@@ -14,6 +14,7 @@
 // the seed derives songName/songAuthor from it. Dash isn't in that map, so its
 // song is set inline.
 
+/** A seeded official level's metadata. */
 export interface OfficialLevel {
   inGameId: string
   name: string
@@ -426,6 +427,13 @@ function coinCount(id: number): number {
   return 3
 }
 
+/**
+ * The official levels, with song name/author derived from `officialSongId`.
+ *
+ * RobTop's getGJLevels21 doesn't serve these, so they can never enter the cache
+ * via autofill — the seed script writes them from here so they turn up in name
+ * search and resolve as cache hits.
+ */
 export const OFFICIAL_LEVELS: OfficialLevel[] = RAW_OFFICIAL_LEVELS.map(
   (l) => ({
     ...l,
@@ -434,8 +442,10 @@ export const OFFICIAL_LEVELS: OfficialLevel[] = RAW_OFFICIAL_LEVELS.map(
   })
 )
 
-// Lookup for serialization-time overrides (the list endpoint fills in the
-// version/coins official levels don't get from RobTop).
+/**
+ * Lookup for serialization-time overrides (the list endpoint fills in the
+ * version/coins official levels don't get from RobTop).
+ */
 export const OFFICIAL_LEVELS_BY_ID = new Map(
   OFFICIAL_LEVELS.map((l) => [l.inGameId, l])
 )

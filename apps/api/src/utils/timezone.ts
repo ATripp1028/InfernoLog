@@ -24,11 +24,13 @@ function partsFormatter(timeZone: string): Intl.DateTimeFormat {
   return fmt
 }
 
-// yyyy-MM-dd calendar date of `date`. When `timezone` is null (no time-of-day
-// was entered), this is a plain UTC slice — correct, since the stored instant
-// is midnight UTC by convention. When `timezone` is set, the date is derived
-// in THAT zone instead, since the stored instant may have rolled into a
-// different UTC calendar day than the one the user experienced/entered.
+/**
+ * yyyy-MM-dd calendar date of `date`. When `timezone` is null (no time-of-day
+ * was entered), this is a plain UTC slice — correct, since the stored instant
+ * is midnight UTC by convention. When `timezone` is set, the date is derived
+ * in THAT zone instead, since the stored instant may have rolled into a
+ * different UTC calendar day than the one the user experienced/entered.
+ */
 export function zonedDateString(date: Date, timezone: string | null): string {
   if (!timezone) return date.toISOString().slice(0, 10)
   try {

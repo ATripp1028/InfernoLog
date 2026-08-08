@@ -24,43 +24,36 @@
 // (GET /v1/users/{usernameOrId}/collections) will land here as a public.ts
 // sibling, sharing this module's serialization — see docs/API_DESIGN.md.
 
-import { Hono, type Context } from 'hono'
+import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
 import collectionRoutes from './collections'
 import entryRoutes from './entries'
-import * as Sentry from '@sentry/node'
+import { createErrorHandler } from '../../middleware/errors'
 import {
   CollectionError,
   CollectionLevelNotCachedError,
   CollectionNotFoundError,
 } from '../../services/collections'
 
-type Ctx = Context<{ Variables: HonoVariables }>
-
-function handleCollectionsError(error: Error, c: Ctx) {
-  // Caller-fixable rule violation — carries the machine-readable code the
-  // client branches on (DUPLICATE_NAME, RESERVED_NAME, BUILT_IN_COLLECTION,
-  // LEVEL_ALREADY_COMPLETED) and the status the service chose for it.
-  if (error instanceof CollectionError) {
-    return c.json({ error: error.code, message: error.message }, error.status)
-  }
-  if (error instanceof CollectionNotFoundError) {
-    return c.json({ error: error.message }, 404)
-  }
-  if (error instanceof CollectionLevelNotCachedError) {
-    return c.json({ error: error.message }, 400)
-  }
-
-  // routePath is the matched pattern (e.g. /me/collections/:collectionId),
-  // so the label stays correct without being hand-maintained per handler.
-  console.error(`${c.req.method} ${c.req.routePath} error:`, error)
-  Sentry.captureException(error)
-  return c.json({ error: 'Internal server error' }, 500)
-}
-
 const app = new Hono<{ Variables: HonoVariables }>()
 
-app.onError(handleCollectionsError)
+app.onError(
+  createErrorHandler('Collections', (error, c) => {
+    // Caller-fixable rule violation — carries the machine-readable code the
+    // client branches on (DUPLICATE_NAME, RESERVED_NAME, BUILT_IN_COLLECTION,
+    // LEVEL_ALREADY_COMPLETED) and the status the service chose for it.
+    if (error instanceof CollectionError) {
+      return c.json({ error: error.code, message: error.message }, error.status)
+    }
+    if (error instanceof CollectionNotFoundError) {
+      return c.json({ error: error.message }, 404)
+    }
+    if (error instanceof CollectionLevelNotCachedError) {
+      return c.json({ error: error.message }, 400)
+    }
+    return undefined
+  })
+)
 
 app.route('/', collectionRoutes)
 app.route('/', entryRoutes)

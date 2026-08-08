@@ -1,7 +1,9 @@
 // Prisma selects for the cached-level wire shape.
 
-// Columns returned for a cached level (the wire shape, LevelSchema). Excludes
-// internal sync/bookkeeping fields (lastCheckedAt, pending*, sfhCheckedAt).
+/**
+ * Columns returned for a cached level (the wire shape, LevelSchema). Excludes
+ * internal sync/bookkeeping fields (lastCheckedAt, pending*, sfhCheckedAt).
+ */
 export const levelDetailSelect = {
   inGameId: true,
   levelType: true,
@@ -51,9 +53,11 @@ export const levelDetailSelect = {
   verified: true,
 } as const
 
-// The Global Level Page renders everything the logging wire shape carries plus
-// two fields the logging flow omits as internal: delistedAt (drives the amber
-// "frozen as of…" banner) and lastCheckedAt (the frozen-as-of date it shows).
+/**
+ * The Global Level Page renders everything the logging wire shape carries plus
+ * two fields the logging flow omits as internal: delistedAt (drives the amber
+ * "frozen as of…" banner) and lastCheckedAt (the frozen-as-of date it shows).
+ */
 export const levelPageSelect = {
   ...levelDetailSelect,
   delistedAt: true,

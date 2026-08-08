@@ -11,9 +11,11 @@
 // Note POST /me/progress is a sibling of the GET /me/progress in list.ts —
 // same path, different verb. They were split across two route files before
 // these were merged into routes/progress/.
+//
+// A write against a level that isn't cached throws LevelNotFoundError; the
+// module's onError maps it to a 400 (see index.ts), so nothing is caught here.
 
 import { Hono } from 'hono'
-import * as Sentry from '@sentry/node'
 import {
   CompletionInputSchema,
   ProgressInputSchema,
@@ -25,82 +27,54 @@ import {
   applyCompletion,
   applyProgress,
   applyDrop,
-  LevelNotFoundError,
 } from '../../services/progress'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 // POST /v1/me/completions — create OR edit (idempotent) the user's completion.
 app.post('/me/completions', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const body = await c.req.json().catch(() => ({}))
-    const parsed = CompletionInputSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const result = await applyCompletion(userId, parsed.data)
-
-    logger.info({ userId, levelId: parsed.data.levelId }, 'Logged completion')
-    return c.json({ data: result }, 201)
-  } catch (error) {
-    if (error instanceof LevelNotFoundError) {
-      return c.json({ error: error.message }, 400)
-    }
-    console.error('POST /me/completions error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  const body = await c.req.json().catch(() => ({}))
+  const parsed = CompletionInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
   }
+
+  const result = await applyCompletion(userId, parsed.data)
+
+  logger.info({ userId, levelId: parsed.data.levelId }, 'Logged completion')
+  return c.json({ data: result }, 201)
 })
 
 // POST /v1/me/progress — create a non-completion progress update.
 app.post('/me/progress', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const body = await c.req.json().catch(() => ({}))
-    const parsed = ProgressInputSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const result = await applyProgress(userId, parsed.data)
-    logger.info({ userId, levelId: parsed.data.levelId }, 'Logged progress')
-    return c.json({ data: result }, 201)
-  } catch (error) {
-    if (error instanceof LevelNotFoundError) {
-      return c.json({ error: error.message }, 400)
-    }
-    console.error('POST /me/progress error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  const body = await c.req.json().catch(() => ({}))
+  const parsed = ProgressInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
   }
+
+  const result = await applyProgress(userId, parsed.data)
+  logger.info({ userId, levelId: parsed.data.levelId }, 'Logged progress')
+  return c.json({ data: result }, 201)
 })
 
 // POST /v1/me/drops — set the level_progress to dropped (drop-from-scratch ok).
 app.post('/me/drops', async (c) => {
-  const userId = c.get('userId') as string
+  const userId = c.get('userId')
 
-  try {
-    const body = await c.req.json().catch(() => ({}))
-    const parsed = DropInputSchema.safeParse(body)
-    if (!parsed.success) {
-      return c.json({ error: parsed.error.flatten() }, 400)
-    }
-
-    const result = await applyDrop(userId, parsed.data)
-    logger.info({ userId, levelId: parsed.data.levelId }, 'Logged drop')
-    return c.json({ data: result }, 201)
-  } catch (error) {
-    if (error instanceof LevelNotFoundError) {
-      return c.json({ error: error.message }, 400)
-    }
-    console.error('POST /me/drops error:', error)
-    Sentry.captureException(error)
-    return c.json({ error: 'Internal server error' }, 500)
+  const body = await c.req.json().catch(() => ({}))
+  const parsed = DropInputSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400)
   }
+
+  const result = await applyDrop(userId, parsed.data)
+  logger.info({ userId, levelId: parsed.data.levelId }, 'Logged drop')
+  return c.json({ data: result }, 201)
 })
 
 export default app

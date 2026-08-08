@@ -13,6 +13,10 @@ const { prismaMock } = await vi.hoisted(async () => {
 
 vi.mock('../../utils/prisma', () => ({ default: prismaMock }))
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
+// The 500-path test deliberately throws; silence the real logger's output.
+vi.mock('../../utils/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 const { default: usersApp } = await import('./index')
 

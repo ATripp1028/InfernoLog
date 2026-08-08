@@ -22,6 +22,11 @@
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
+import { createErrorHandler } from '../../middleware/errors'
+import {
+  LevelNotFoundError,
+  ProgressFieldsNotApplicableError,
+} from '../../services/progress'
 import listRoutes from './list'
 import levelPageRoutes from './levelPage'
 import loggingRoutes from './logging'
@@ -29,6 +34,21 @@ import editRoutes from './edits'
 import gddlRecordRoutes from './gddlRecord'
 
 const app = new Hono<{ Variables: HonoVariables }>()
+
+app.onError(
+  createErrorHandler('Progress', (error, c) => {
+    // Both are client-sequencing / client-input errors, not server faults:
+    // writing against a level that was never resolved into the cache, and
+    // putting percentage/runFrom/runTo on an update that isn't kind=PROGRESS.
+    if (
+      error instanceof LevelNotFoundError ||
+      error instanceof ProgressFieldsNotApplicableError
+    ) {
+      return c.json({ error: error.message }, 400)
+    }
+    return undefined
+  })
+)
 
 app.route('/', listRoutes)
 app.route('/', levelPageRoutes)

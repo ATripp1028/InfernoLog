@@ -15,6 +15,7 @@ import prisma from '../../utils/prisma'
 import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
 import { computeListMerge } from '../../utils/listMerge'
 
+/** Outcome of committing a spreadsheet's Ranking tab. */
 export interface ImportRankingResult {
   placed: number
   skipped: { rank: number; label: string; reason: string }[]
@@ -106,6 +107,18 @@ function resolveRankingOrder(
   return { orderedLpIds, skipped }
 }
 
+/**
+ * Replaces the user's classic ranking with the spreadsheet's ordering.
+ *
+ * Each sheet row is resolved to one of the user's completions; rows with no
+ * matching completion are reported in `skipped` rather than failing the import.
+ * Because a full replace has no neighbours to bisect against, indices are
+ * written as evenly spaced integers — the same normalized state the rebalance
+ * job produces.
+ *
+ * @param userId - Internal user UUID.
+ * @param entries - Validated Ranking-tab rows, hardest first.
+ */
 export async function commitImportRanking(
   userId: string,
   entries: ImportRankingEntry[]
@@ -133,13 +146,15 @@ export async function commitImportRanking(
   return { placed: n, skipped }
 }
 
-// Pre-commit merge check: diffs the sheet's resolvable order (hardest →
-// easiest, same rules commitImportRanking applies) against the user's
-// existing ranking via the git-like list merge (see utils/listMerge.ts).
-// Returns null whenever there's nothing to reconcile — no ranking tab, no
-// entries resolved, no existing ranking to conflict with, or the two orders
-// already agree — mirroring checkCollectionsMerge's "only surface a genuine
-// conflict" contract.
+/**
+ * Pre-commit merge check: diffs the sheet's resolvable order (hardest →
+ * easiest, same rules commitImportRanking applies) against the user's
+ * existing ranking via the git-like list merge (see utils/listMerge.ts).
+ * Returns null whenever there's nothing to reconcile — no ranking tab, no
+ * entries resolved, no existing ranking to conflict with, or the two orders
+ * already agree — mirroring checkCollectionsMerge's "only surface a genuine
+ * conflict" contract.
+ */
 export async function checkRankingMerge(
   userId: string,
   entries: ImportRankingEntry[]

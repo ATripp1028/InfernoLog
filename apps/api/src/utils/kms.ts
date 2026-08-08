@@ -21,7 +21,9 @@ function keyId(): string {
   return id
 }
 
-// Encrypts a plaintext secret and returns the ciphertext as base64.
+/**
+ * Encrypts a plaintext secret and returns the ciphertext as base64.
+ */
 export async function encryptSecret(plaintext: string): Promise<string> {
   const res = await client.send(
     new EncryptCommand({
@@ -35,7 +37,9 @@ export async function encryptSecret(plaintext: string): Promise<string> {
   return Buffer.from(res.CiphertextBlob).toString('base64')
 }
 
-// Decrypts a base64 ciphertext blob produced by encryptSecret.
+/**
+ * Decrypts a base64 ciphertext blob produced by encryptSecret.
+ */
 export async function decryptSecret(ciphertextBase64: string): Promise<string> {
   const res = await client.send(
     new DecryptCommand({
