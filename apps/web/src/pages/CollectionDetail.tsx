@@ -1,43 +1,17 @@
 // Collection detail — identity hero, drag-to-reorder member rows with
 // per-row remove and GDDL/AREDL badges, and the context-scoped FAB menu
-// (Add levels / Edit / Delete; built-ins keep only Add levels).
+// (Add levels / Edit / Delete; built-ins keep only Add levels). All logic
+// lives in useCollectionDetailPage.
 // Mocks: desktop 1206:164, tablet 1212:2, mobile 1213:2; empty 1241:3;
 // built-in variant 1256:2 / 1257:2.
 
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
-import {
-  DndContext,
-  DragOverlay,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { ChevronLeft, GripVertical, Loader2, Plus, X } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
+import { Link } from '@tanstack/react-router'
+import { DndContext, DragOverlay } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/PageLoading'
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { RankingBadge } from '@/features/ranking/RankingBadge'
-import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
-import { useMutationState } from '@tanstack/react-query'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
-import { ApiError } from '@/lib/api/client'
-import {
-  useCollection,
-  useDeleteCollection,
-  useRemoveCollectionEntry,
-  useReorderCollectionEntry,
-  useUpdateCollection,
-  type CollectionDetail as CollectionDetailData,
-  type CollectionEntry,
-} from '@/lib/api/collections'
+import type { CollectionDetail as CollectionDetailData } from '@/lib/api/collections'
 import {
   collectionIdentity,
   isBuiltIn,
@@ -45,38 +19,21 @@ import {
 } from '@/features/collections/identity'
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
-import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
-import { useFabActions } from '@/context/FabActionsContext'
+import { Row, SortableRow } from '@/features/collections/CollectionEntryRow'
+import {
+  useCollectionDetailPage,
+  useLoadedCollection,
+} from '@/features/collections/useCollectionDetailPage'
 
 export function CollectionDetail({ collectionId }: { collectionId: string }) {
-  const collection = useCollection(collectionId)
-  const [addOpen, setAddOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
+  const page = useCollectionDetailPage(collectionId)
 
-  // Registered unconditionally (like LevelPage's owner-actions override) so
-  // the FAB switches to this collection's actions in the same commit data
-  // arrives, rather than showing the unrelated global default (logging)
-  // actions for the entire loading window — collection pages used to
-  // suppress that default FAB outright while loading.
-  useFabActions(
-    collection.data
-      ? collectionDetailActions({
-          isCustom: !isBuiltIn(collection.data.type),
-          onAddLevels: () => setAddOpen(true),
-          onEdit: () => setEditOpen(true),
-          onDelete: () => setConfirmDelete(true),
-        })
-      : null
-  )
-
-  if (collection.isPending) return <PageLoading />
-  if (collection.error || !collection.data) {
+  if (page.isLoading) return <PageLoading />
+  if (page.failed || !page.data) {
     return (
       <div className="p-8">
         <p className="text-sm text-red-500">
-          {collection.error instanceof ApiError &&
-          collection.error.status === 404
+          {page.isMissing
             ? 'This collection does not exist.'
             : 'Could not load this collection. Refresh to try again.'}
         </p>
@@ -92,13 +49,13 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
 
   return (
     <Loaded
-      collection={collection.data}
-      addOpen={addOpen}
-      setAddOpen={setAddOpen}
-      editOpen={editOpen}
-      setEditOpen={setEditOpen}
-      confirmDelete={confirmDelete}
-      setConfirmDelete={setConfirmDelete}
+      collection={page.data}
+      addOpen={page.addOpen}
+      setAddOpen={page.setAddOpen}
+      editOpen={page.editOpen}
+      setEditOpen={page.setEditOpen}
+      confirmDelete={page.confirmDelete}
+      setConfirmDelete={page.setConfirmDelete}
     />
   )
 }
@@ -120,85 +77,22 @@ function Loaded({
   confirmDelete: boolean
   setConfirmDelete: (v: boolean) => void
 }) {
-  const navigate = useNavigate()
-
-  const updateCollection = useUpdateCollection()
-  const deleteCollection = useDeleteCollection()
-  const removeEntry = useRemoveCollectionEntry()
-  const reorderEntry = useReorderCollectionEntry()
-  const removingEntryIds = useMutationState({
-    filters: { mutationKey: ['removeCollectionEntry'], status: 'pending' },
-    select: (mutation) =>
-      (mutation.state.variables as { entryId: string } | undefined)?.entryId,
-  })
-
-  const [activeId, setActiveId] = useState<string | null>(null)
-
-  const sensors = useSortableSensors()
-
-  // Locally-controlled entry order so drag-end re-renders are immediate rather
-  // than waiting for the async onMutate cache update (mirrors RankingBoard's
-  // containers pattern). Sync back from the cache only when the queue is idle.
-  const pendingCollectionsCount = useMutationState({
-    filters: { mutationKey: ['collectionReorder'], status: 'pending' },
-  }).length
-  const [displayEntries, setDisplayEntries] = useState(collection.entries)
-  useEffect(() => {
-    if (activeId) return
-    if (pendingCollectionsCount > 0) return
-    setDisplayEntries(collection.entries)
-  }, [collection.entries, activeId, pendingCollectionsCount])
-
-  function handleDragStart(e: DragStartEvent) {
-    setActiveId(String(e.active.id))
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    setActiveId(null)
-    const { active, over } = e
-    if (!over || active.id === over.id) return
-    const from = displayEntries.findIndex((x) => x.id === active.id)
-    const to = displayEntries.findIndex((x) => x.id === over.id)
-    if (from < 0 || to < 0) return
-    setDisplayEntries((cur) => arrayMove(cur, from, to))
-    // Neighbours at the drop slot AFTER the moved row leaves its old spot.
-    // Whether moving up or down, the landing index within the remaining rows
-    // equals the over-row's index in the original array.
-    const without = displayEntries.filter((x) => x.id !== active.id)
-    const prev = without[to - 1]
-    const next = without[to]
-    reorderEntry.mutate(
-      {
-        collectionId: collection.id,
-        entryId: String(active.id),
-        prevId: prev?.id,
-        nextId: next?.id,
-      },
-      {
-        onError: (err) =>
-          toast.error(
-            err instanceof ApiError ? err.message : 'Could not reorder'
-          ),
-      }
-    )
-  }
-
-  async function handleDelete() {
-    try {
-      await deleteCollection.mutateAsync(collection.id)
-      toast.success(`Deleted ${collection.name}`)
-      void navigate({ to: '/collections' })
-    } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not delete collection'
-      )
-    }
-  }
-
-  const activeIndex = activeId
-    ? displayEntries.findIndex((x) => x.id === activeId)
-    : -1
-  const activeEntry = activeIndex >= 0 ? displayEntries[activeIndex] : null
+  const {
+    displayEntries,
+    removingEntryIds,
+    handleRemoveEntry,
+    sensors,
+    activeId,
+    activeIndex,
+    activeEntry,
+    handleDragStart,
+    handleDragEnd,
+    handleDragCancel,
+    handleSaveEdit,
+    isSaving,
+    handleDelete,
+    isDeleting,
+  } = useLoadedCollection(collection, () => setEditOpen(false))
 
   return (
     <div className="mx-auto flex max-w-[1136px] flex-col gap-5 p-4 pb-24 md:p-8 md:pt-5">
@@ -223,7 +117,7 @@ function Loaded({
             sensors={sensors}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onDragCancel={() => setActiveId(null)}
+            onDragCancel={handleDragCancel}
           >
             <SortableContext
               items={displayEntries.map((x) => x.id)}
@@ -237,19 +131,7 @@ function Loaded({
                     entry={entry}
                     dimmed={entry.id === activeId}
                     removing={removingEntryIds.includes(entry.id)}
-                    onRemove={() =>
-                      removeEntry.mutate(
-                        { collectionId: collection.id, entryId: entry.id },
-                        {
-                          onError: (err) =>
-                            toast.error(
-                              err instanceof ApiError
-                                ? err.message
-                                : 'Could not remove that level'
-                            ),
-                        }
-                      )
-                    }
+                    onRemove={() => handleRemoveEntry(entry.id)}
                   />
                 ))}
               </div>
@@ -272,16 +154,9 @@ function Loaded({
       <CollectionFormDialog
         open={editOpen}
         onClose={() => setEditOpen(false)}
-        isSaving={updateCollection.isPending}
+        isSaving={isSaving}
         editing={collection}
-        onSave={async (input) => {
-          await updateCollection.mutateAsync({
-            collectionId: collection.id,
-            input,
-          })
-          toast.success('Collection updated')
-          setEditOpen(false)
-        }}
+        onSave={handleSaveEdit}
       />
 
       {confirmDelete && (
@@ -306,10 +181,10 @@ function Loaded({
               </Button>
               <Button
                 onClick={() => void handleDelete()}
-                disabled={deleteCollection.isPending}
+                disabled={isDeleting}
                 className="bg-red-600 hover:bg-red-500"
               >
-                {deleteCollection.isPending ? 'Deleting…' : 'Delete collection'}
+                {isDeleting ? 'Deleting…' : 'Delete collection'}
               </Button>
             </div>
           </div>
@@ -377,122 +252,6 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
         <Plus size={16} className="mr-1.5" />
         Add levels
       </Button>
-    </div>
-  )
-}
-
-function SortableRow({
-  position,
-  entry,
-  dimmed,
-  removing,
-  onRemove,
-}: {
-  position: number
-  entry: CollectionEntry
-  dimmed: boolean
-  removing: boolean
-  onRemove: () => void
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: entry.id })
-  return (
-    <div
-      ref={setNodeRef}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition: isDragging ? undefined : transition,
-      }}
-      className={dimmed ? 'opacity-40' : undefined}
-    >
-      <Row
-        position={position}
-        entry={entry}
-        removing={removing}
-        onRemove={onRemove}
-        handleProps={{ ...attributes, ...listeners }}
-      />
-    </div>
-  )
-}
-
-function Row({
-  position,
-  entry,
-  removing = false,
-  onRemove,
-  handleProps,
-  overlay = false,
-}: {
-  position: number
-  entry: CollectionEntry
-  removing?: boolean
-  onRemove?: () => void
-  handleProps?: Record<string, unknown>
-  overlay?: boolean
-}) {
-  const { level } = entry
-  return (
-    <div
-      className={[
-        'relative h-[72px] overflow-hidden rounded-card border border-border-subtle bg-bg-surface',
-        overlay ? 'shadow-[0_8px_24px_rgba(0,0,0,0.6)]' : '',
-      ].join(' ')}
-    >
-      <ThumbnailWash levelId={level.inGameId} />
-      <div className="relative z-10 flex h-full items-center gap-3 pl-2 pr-3 md:pr-4">
-        <button
-          type="button"
-          aria-label={`Reorder ${level.name ?? 'level'}`}
-          className="flex h-full w-5 shrink-0 cursor-grab touch-none items-center justify-center text-text-tertiary active:cursor-grabbing"
-          {...handleProps}
-        >
-          <GripVertical size={16} />
-        </button>
-        <span className="w-6 shrink-0 text-right text-sm font-bold tabular-nums text-text-secondary">
-          {position}
-        </span>
-        <DifficultyFace
-          difficulty={level.inGameDifficulty}
-          featured={level.featured}
-          epicValue={level.epicValue}
-          rated={level.isRated}
-          size={80}
-          className="shrink-0"
-        />
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-text-primary">
-            {level.name ?? `Level #${level.inGameId}`}
-          </p>
-          <p className="truncate text-xs text-text-secondary">
-            {level.creator
-              ? `Published by ${level.creator}`
-              : 'Unknown creator'}
-          </p>
-        </div>
-        <RankingBadge badge={entry.badge} />
-        {onRemove && (
-          <button
-            type="button"
-            aria-label={`Remove ${level.name ?? 'level'} from collection`}
-            onClick={onRemove}
-            disabled={removing}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {removing ? (
-              <Loader2 size={14} className="animate-spin" />
-            ) : (
-              <X size={14} />
-            )}
-          </button>
-        )}
-      </div>
     </div>
   )
 }

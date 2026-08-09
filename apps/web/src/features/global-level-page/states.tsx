@@ -1,5 +1,6 @@
-import { SearchX, ServerCrash, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, SearchX, ServerCrash, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DesktopSectionHeader } from '@/features/global-level-page/CollapsibleSection'
 
 // The amber "this level is delisted" banner. Delisting is a fact about GD's
 // servers, not the user's history, so the copy says so and logging stays fully
@@ -153,5 +154,94 @@ export function GenericErrorState({
         Search the cache
       </Button>
     </CenteredState>
+  )
+}
+
+// ── Loading skeleton ──────────────────────────────────────────────────────
+// Mirrors the resolved page's geometry (same columns, same thumbnail box, same
+// stat grid, real section headers) so nothing shifts when data lands. No
+// cross-link — a LevelProgress row can't exist for an uncached level.
+function Pulse({ className }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded bg-bg-surface ${className ?? ''}`} />
+  )
+}
+
+export function PageSkeleton() {
+  return (
+    <>
+      {/* Mobile */}
+      <div className="md:hidden">
+        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
+          <ArrowLeft size={18} className="text-text-tertiary" />
+          <Pulse className="h-4 w-40" />
+        </div>
+        <div className="aspect-video w-full animate-pulse bg-bg-surface" />
+        <div className="border-b border-border-subtle px-4 py-4">
+          <div className="flex gap-4">
+            <Pulse className="size-[76px] shrink-0 rounded-card" />
+            <div className="flex-1 space-y-2">
+              <Pulse className="h-5 w-2/3" />
+              <Pulse className="h-4 w-1/3" />
+              <Pulse className="h-6 w-3/4 rounded-md" />
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Pulse key={i} className="h-[52px] rounded-card" />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop */}
+      <div className="hidden md:block">
+        <div className="mx-8 pb-16 pt-4">
+          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+            <ArrowLeft size={18} className="text-text-tertiary" />
+            <Pulse className="h-4 w-40" />
+          </div>
+          <div className="flex gap-8">
+            <div className="min-w-0 flex-1">
+              <Pulse className="aspect-video w-full rounded-card" />
+              <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">
+                <div className="flex gap-4">
+                  <Pulse className="size-[104px] shrink-0 rounded-card" />
+                  <div className="flex-1 space-y-2">
+                    <Pulse className="h-6 w-1/2" />
+                    <Pulse className="h-4 w-1/4" />
+                    <Pulse className="h-6 w-2/3 rounded-md" />
+                  </div>
+                </div>
+                <div className="mt-5 grid grid-cols-3 gap-2 border-t border-border-subtle pt-5">
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Pulse key={i} className="h-16 rounded-card" />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="w-[424px] shrink-0">
+              <DesktopSectionHeader>Song</DesktopSectionHeader>
+              <div className="flex gap-3">
+                <Pulse className="size-14 shrink-0 rounded-card" />
+                <div className="flex-1 space-y-2">
+                  <Pulse className="h-4 w-1/2" />
+                  <Pulse className="h-3 w-1/3" />
+                  <Pulse className="h-6 w-24 rounded-md" />
+                </div>
+              </div>
+              <div className="mt-7">
+                <DesktopSectionHeader>Links</DesktopSectionHeader>
+                <div className="space-y-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Pulse key={i} className="h-4 w-2/3" />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   )
 }

@@ -39,3 +39,18 @@ export function CollapsibleSection({
     </section>
   )
 }
+
+// Desktop counterpart to CollapsibleSection's header: small uppercase grey,
+// the desktop convention (mobile uses the 13px white label above instead).
+// Desktop sections never collapse, so this is a header, not a wrapper.
+export function DesktopSectionHeader({
+  children,
+}: {
+  children: React.ReactNode
+}) {
+  return (
+    <h2 className="mb-3 text-[11px] font-medium uppercase tracking-wider text-text-tertiary">
+      {children}
+    </h2>
+  )
+}

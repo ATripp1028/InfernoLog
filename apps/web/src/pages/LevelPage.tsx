@@ -1,311 +1,66 @@
-import { Link, useNavigate, useParams } from '@tanstack/react-router'
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  Flag,
-  Lock,
-  List,
-  Pencil,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide-react'
-import { useMe } from '@/lib/api/me'
-import { useGoBack, type GoBack } from '@/lib/useGoBack'
+import { Link } from '@tanstack/react-router'
+import { ArrowLeft } from 'lucide-react'
 import { BackLink } from '@/components/BackLink'
-import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
-import { useDeleteProgress } from '@/lib/api/list'
-import { useSubmitGddlRecord } from '@/lib/api/logging'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
-import { ApiError } from '@/lib/api/client'
 import { AlertDialog } from '@/components/ui/alert-dialog'
-import { toast } from '@/components/ui/sonner'
 import { HeroVideo } from '@/features/level-page/HeroVideo'
 import { IdentityStrip } from '@/features/level-page/IdentityStrip'
 import { StatGrid } from '@/features/level-page/StatGrid'
 import { LevelNotes } from '@/features/level-page/LevelNotes'
 import { Timeline } from '@/features/level-page/Timeline'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
-import { useFabActions } from '@/context/FabActionsContext'
 import { EditRunModal } from '@/features/level-page/EditRunModal'
 import { EditLevelModal } from '@/features/level-page/EditLevelModal'
-import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
-import { useState } from 'react'
-
-// ─── Error states ──────────────────────────────────────────────────
-
-function PrivateProfile() {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-      <Lock size={36} className="text-text-tertiary" />
-      <div>
-        <p className="text-base font-medium text-text-primary">
-          This profile is private
-        </p>
-        <p className="mt-1 text-sm text-text-secondary">
-          Only the account owner can view this page.
-        </p>
-      </div>
-    </div>
-  )
-}
-
-function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
-  return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
-      <AlertCircle size={36} className="text-text-tertiary" />
-      <div>
-        <p className="text-base font-medium text-text-primary">
-          Level not found
-        </p>
-        <p className="mt-1 text-sm text-text-secondary">
-          Level #{levelId} hasn't been logged yet.
-        </p>
-      </div>
-      <BackLink
-        back={back}
-        className="mt-2 text-sm text-[var(--color-primary-light)] hover:underline"
-      >
-        ← Back
-      </BackLink>
-    </div>
-  )
-}
-
-// ─── Loading skeletons ─────────────────────────────────────────────
-
-function HeroSkeleton({ desktop }: { desktop?: boolean }) {
-  return (
-    <div
-      className={[
-        'animate-pulse rounded-card bg-bg-surface',
-        desktop ? 'h-[383px]' : 'h-[219px]',
-      ].join(' ')}
-    />
-  )
-}
-
-function IdentitySkeleton() {
-  return (
-    <div className="animate-pulse space-y-2 px-4 py-4 md:px-5 md:py-5">
-      <div className="flex items-center gap-3">
-        <div className="size-14 rounded-card bg-bg-subtle" />
-        <div className="flex-1 space-y-2">
-          <div className="h-5 w-48 rounded bg-bg-subtle" />
-          <div className="h-4 w-32 rounded bg-bg-subtle" />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function StatGridSkeleton() {
-  return (
-    <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-3 md:px-0 md:py-0">
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-[52px] animate-pulse rounded-card bg-bg-surface md:h-[64px]"
-        />
-      ))}
-    </div>
-  )
-}
-
-function TimelineSkeleton() {
-  return (
-    <div className="space-y-2 py-2 pl-8">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div
-          key={i}
-          className={[
-            'animate-pulse rounded-card bg-bg-surface',
-            i === 0 ? 'h-[140px]' : 'h-[46px]',
-          ].join(' ')}
-        />
-      ))}
-    </div>
-  )
-}
-
-// ─── Main page ─────────────────────────────────────────────────────
+import {
+  LevelPageSkeleton,
+  LoadFailed,
+  NotFound,
+  PrivateProfile,
+} from '@/features/level-page/states'
+import { useLevelDetailPage } from '@/features/level-page/useLevelDetailPage'
 
 export function LevelPage() {
-  const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
-  const navigate = useNavigate()
-  const back = useGoBack('/list')
-  const me = useMe()
-  const deleteProgress = useDeleteProgress()
-  const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
-
-  const [pendingDelete, setPendingDelete] = useState(false)
-  const [pendingDeleteUpdateId, setPendingDeleteUpdateId] = useState<
-    string | null
-  >(null)
-  const [pendingGddlSubmit, setPendingGddlSubmit] = useState(false)
-  const [editRunOpen, setEditRunOpen] = useState(false)
-  const [editRunProgressUpdateId, setEditRunProgressUpdateId] = useState<
-    string | null
-  >(null)
-  const [editLevelOpen, setEditLevelOpen] = useState(false)
-  const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
-  const submitGddlRecord = useSubmitGddlRecord()
-  const { openForEdit } = useLoggingFlow()
-
-  const query = useLevelPage(levelId)
-
-  // Resolve error types before rendering
-  const is403 = query.error instanceof ApiError && query.error.status === 403
-  const is404 = query.error instanceof ApiError && query.error.status === 404
-
-  function handleDeleteConfirm() {
-    deleteProgress.mutate(levelId, {
-      onSuccess: () => {
-        toast.success('Level deleted')
-        setPendingDelete(false)
-        void navigate({ to: '/list' })
-      },
-      onError: () => {
-        toast.error('Failed to delete level')
-      },
-    })
-  }
-
-  function handleDeleteEntryConfirm() {
-    if (!pendingDeleteUpdateId) return
-    deleteProgressUpdate.mutate(pendingDeleteUpdateId, {
-      onSuccess: (result) => {
-        toast.success('Entry deleted')
-        setPendingDeleteUpdateId(null)
-        if (result.deletedLevelProgress) void navigate({ to: '/list' })
-      },
-      onError: () => {
-        toast.error('Failed to delete entry')
-      },
-    })
-  }
-
-  // FAB's "Edit this entry" — resolves the primary entry (completion-first,
-  // else newest) since the FAB isn't scoped to any one Timeline card. Uses
-  // `query.data` directly (rather than the destructured `data` below) since
-  // this runs before the loading/error early returns, same reason
-  // `isOwner`/`hasCompletion` above do.
-  function handleEditRun() {
-    if (!query.data) return
-    const id = findPrimaryProgressUpdateId(query.data)
-    if (!id) return
-    setEditRunProgressUpdateId(id)
-    setEditRunOpen(true)
-  }
-
-  function handleEditLevelDetails() {
-    setEditLevelOpen(true)
-  }
-
-  function handleGddlSubmitConfirm() {
-    submitGddlRecord.mutate(levelId, {
-      onSuccess: () => {
-        toast.success('Submitted to GDDL')
-        setPendingGddlSubmit(false)
-      },
-      onError: () => toast.error('Failed to submit to GDDL'),
-    })
-  }
-
-  // Computed with optional chaining (rather than the destructured `data`/
-  // `me.data` below) so this — and the useFabActions call — can run
-  // unconditionally, before the loading/error early returns.
-  const isOwner = query.data?.levelProgressId != null
-  const hasCompletion =
-    query.data?.progressUpdates.some((u) => u.kind === 'COMPLETION') ?? false
-  const canSubmitToGddl =
-    isOwner && hasCompletion && (me.data?.hasGddlApiKey ?? false)
-
-  // FAB — shown for owned entries; falls back to the default (logging)
-  // actions for everyone else. Delete is listed farthest from the FAB.
-  useFabActions(
-    isOwner
-      ? [
-          {
-            key: 'edit',
-            label: 'Edit this entry',
-            icon: Pencil,
-            onClick: handleEditRun,
-          },
-          // A level can only hold one completion — once it's beaten there's
-          // nothing new left to log.
-          ...(!hasCompletion
-            ? [
-                {
-                  key: 'log-completion',
-                  label: 'Log a completion',
-                  icon: Check,
-                  onClick: () => openForEdit(levelId, 'completion'),
-                },
-                {
-                  key: 'log-progress',
-                  label: 'Log progress',
-                  icon: Flag,
-                  onClick: () => openForEdit(levelId, 'progress'),
-                },
-                {
-                  key: 'log-drop',
-                  label: 'Drop this level',
-                  icon: X,
-                  onClick: () => openForEdit(levelId, 'drop'),
-                },
-              ]
-            : []),
-          {
-            key: 'add-collection',
-            label: 'Add to a Collection',
-            icon: List,
-            onClick: () => setAddToCollectionOpen(true),
-          },
-          ...(canSubmitToGddl
-            ? [
-                {
-                  key: 'gddl-submit',
-                  label: 'Submit to GDDL',
-                  icon: Upload,
-                  onClick: () => setPendingGddlSubmit(true),
-                },
-              ]
-            : []),
-          {
-            key: 'delete',
-            label: 'Delete this level',
-            icon: Trash2,
-            danger: true,
-            onClick: () => setPendingDelete(true),
-          },
-        ]
-      : null
-  )
+  const {
+    levelId,
+    back,
+    status,
+    data,
+    user,
+    isOwner,
+    levelName,
+    hasVideo,
+    hasGraph,
+    totalEntries,
+    editRunOpen,
+    editRunProgressUpdateId,
+    openEditRun,
+    closeEditRun,
+    editLevelOpen,
+    openEditLevel,
+    closeEditLevel,
+    addToCollectionOpen,
+    setAddToCollectionOpen,
+    pendingDelete,
+    setPendingDelete,
+    handleDeleteConfirm,
+    isDeletingLevel,
+    pendingDeleteUpdateId,
+    setPendingDeleteUpdateId,
+    handleDeleteEntryConfirm,
+    isDeletingEntry,
+    pendingGddlSubmit,
+    setPendingGddlSubmit,
+    handleGddlSubmitConfirm,
+    isSubmittingGddl,
+  } = useLevelDetailPage()
 
   // ── Loading / error states ──
-  if (me.isPending || (query.isPending && !is403 && !is404)) {
-    return <LevelPageSkeleton />
-  }
+  if (status === 'loading') return <LevelPageSkeleton />
+  if (status === 'private') return <PrivateProfile />
+  if (status === 'not-found') return <NotFound levelId={levelId} back={back} />
+  if (status === 'error') return <LoadFailed />
+  if (!data || !user) return null
 
-  if (is403) return <PrivateProfile />
-  if (is404) return <NotFound levelId={levelId} back={back} />
-
-  if (query.error && !query.data) {
-    return (
-      <div className="flex flex-1 items-center justify-center py-16">
-        <p className="text-sm text-text-secondary">
-          Something went wrong loading this level.
-        </p>
-      </div>
-    )
-  }
-
-  if (!query.data || !me.data) return null
-
-  const { data } = query
   const {
     ratingDisplayScale,
     dateFormatPreference,
@@ -313,12 +68,7 @@ export function LevelPage() {
     includeEnjoyment,
     enjoymentWeight,
     ratingCategories,
-  } = me.data
-  const levelName = data.level.name ?? `Level #${levelId}`
-
-  const hasVideo = !!data.completionVideoUrl
-  const hasGraph = data.runsGraph.length > 0
-  const totalEntries = data.progressUpdates.length
+  } = user
 
   return (
     <>
@@ -376,7 +126,7 @@ export function LevelPage() {
           <LevelNotes
             notes={data.levelNotes}
             isOwner={isOwner}
-            onEdit={handleEditLevelDetails}
+            onEdit={openEditLevel}
           />
         </div>
 
@@ -394,11 +144,8 @@ export function LevelPage() {
               data={data}
               datePref={dateFormatPreference}
               isOwner={isOwner}
-              onEdit={(id) => {
-                setEditRunProgressUpdateId(id)
-                setEditRunOpen(true)
-              }}
-              onDelete={(id) => setPendingDeleteUpdateId(id)}
+              onEdit={openEditRun}
+              onDelete={setPendingDeleteUpdateId}
             />
           </div>
         </div>
@@ -451,7 +198,7 @@ export function LevelPage() {
               <LevelNotes
                 notes={data.levelNotes}
                 isOwner={isOwner}
-                onEdit={handleEditLevelDetails}
+                onEdit={openEditLevel}
               />
             </div>
 
@@ -472,11 +219,8 @@ export function LevelPage() {
                     data={data}
                     datePref={dateFormatPreference}
                     isOwner={isOwner}
-                    onEdit={(id) => {
-                      setEditRunProgressUpdateId(id)
-                      setEditRunOpen(true)
-                    }}
-                    onDelete={(id) => setPendingDeleteUpdateId(id)}
+                    onEdit={openEditRun}
+                    onDelete={setPendingDeleteUpdateId}
                   />
                 </div>
               </div>
@@ -506,10 +250,7 @@ export function LevelPage() {
       {isOwner && (
         <EditRunModal
           open={editRunOpen}
-          onClose={() => {
-            setEditRunOpen(false)
-            setEditRunProgressUpdateId(null)
-          }}
+          onClose={closeEditRun}
           data={data}
           levelId={levelId}
           scale={ratingDisplayScale}
@@ -522,7 +263,7 @@ export function LevelPage() {
       {isOwner && (
         <EditLevelModal
           open={editLevelOpen}
-          onClose={() => setEditLevelOpen(false)}
+          onClose={closeEditLevel}
           data={data}
           levelId={levelId}
           scale={ratingDisplayScale}
@@ -544,7 +285,7 @@ export function LevelPage() {
         description={`This removes "${levelName}" and all its logged progress permanently. This can't be undone.`}
         confirmLabel="Delete"
         destructive
-        isPending={deleteProgress.isPending}
+        isPending={isDeletingLevel}
         onConfirm={handleDeleteConfirm}
       />
 
@@ -560,7 +301,7 @@ export function LevelPage() {
         }
         confirmLabel="Delete"
         destructive
-        isPending={deleteProgressUpdate.isPending}
+        isPending={isDeletingEntry}
         onConfirm={handleDeleteEntryConfirm}
       />
 
@@ -571,57 +312,9 @@ export function LevelPage() {
         title="Submit to GDDL?"
         description="Sends your completion to the GD Ladder using your connected API key."
         confirmLabel="Submit"
-        isPending={submitGddlRecord.isPending}
+        isPending={isSubmittingGddl}
         onConfirm={handleGddlSubmitConfirm}
       />
-    </>
-  )
-}
-
-// ─── Loading skeleton layout ───────────────────────────────────────
-
-function LevelPageSkeleton() {
-  return (
-    <>
-      {/* Back row skeleton */}
-      <div className="border-b border-border-subtle px-4 py-3 md:mx-8 md:px-0 md:py-4">
-        <div className="h-5 w-40 animate-pulse rounded bg-bg-subtle" />
-      </div>
-
-      {/* Mobile skeleton */}
-      <div className="md:hidden">
-        <HeroSkeleton />
-        <IdentitySkeleton />
-        <StatGridSkeleton />
-        <div className="mt-4 border-t border-border-subtle px-4 py-4">
-          <div className="h-28 animate-pulse rounded-card bg-bg-surface" />
-        </div>
-        <div className="border-t border-border-subtle px-4 py-4">
-          <TimelineSkeleton />
-        </div>
-      </div>
-
-      {/* Desktop skeleton */}
-      <div className="hidden md:block">
-        <div className="mx-8 pb-16 pt-4">
-          <div className="flex gap-6">
-            <div className="min-w-0 flex-1 space-y-4">
-              <HeroSkeleton desktop />
-              <div className="animate-pulse rounded-card bg-bg-surface p-4">
-                <IdentitySkeleton />
-                <StatGridSkeleton />
-              </div>
-              <div className="h-32 animate-pulse rounded-card bg-bg-surface" />
-            </div>
-            <div className="w-[428px] shrink-0 space-y-4">
-              <div className="animate-pulse rounded-card bg-bg-surface">
-                <div className="h-12 border-b border-border-subtle" />
-                <TimelineSkeleton />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
     </>
   )
 }
