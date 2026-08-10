@@ -6,30 +6,19 @@
 //   Unknown numeric ID — "Fetch from GD servers" seeds the level from RobTop,
 //   then shows a confirmation card before adding, since the user typed a raw ID
 //   with no name visible.
+//
+// Both paths and all of their state live in useAddLevelsDialog.
 
-import { useEffect, useState } from 'react'
 import { Loader2, Search, X } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DifficultyFace } from '@/components/DifficultyFace'
-import { ApiError } from '@/lib/api/client'
-import {
-  useLevelById,
-  useLevelSearch,
-  useResolveLevel,
-} from '@/lib/api/logging'
-import {
-  collectionErrorCode,
-  useAddCollectionEntry,
-  type CollectionDetail,
-} from '@/lib/api/collections'
+import { type CollectionDetail } from '@/lib/api/collections'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
-import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
-import { useEscalation } from '@/features/search/useEscalation'
 import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
+import { useAddLevelsDialog } from './useAddLevelsDialog'
 
 interface AddLevelsDialogProps {
   open: boolean
@@ -40,18 +29,6 @@ interface AddLevelsDialogProps {
   completedIds?: Set<string>
 }
 
-// Holds a level resolved from RobTop for the seeded confirmation step.
-interface SeededLevel {
-  inGameId: string
-  name: string | null
-  creator: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-  completed: boolean
-}
-
 export function AddLevelsDialog({
   open,
   onClose,
@@ -59,150 +36,37 @@ export function AddLevelsDialog({
   completedIds,
 }: AddLevelsDialogProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)')
-  const [query, setQuery] = useState('')
-  const [seeded, setSeeded] = useState<SeededLevel | null>(null)
-  const [addAnother, setAddAnother] = useState(false)
-  const [seedingId, setSeedingId] = useState<string | null>(null)
-  const [addingId, setAddingId] = useState<string | null>(null)
-
-  const resolveLevel = useResolveLevel()
-  const addEntry = useAddCollectionEntry()
-  const escalation = useEscalation()
-
-  const trimmed = query.trim()
-  const isNumeric = /^\d+$/.test(trimmed)
-  const search = useLevelSearch(query)
-  const cachedLevel = useLevelById(trimmed)
-
-  const inCollection = new Set(collection.entries.map((e) => e.level.inGameId))
-  const isWantToBeat = collection.type === 'WANT_TO_BEAT'
-
-  useEffect(() => {
-    if (open) {
-      setQuery('')
-      setSeeded(null)
-      setAddAnother(false)
-      setSeedingId(null)
-      setAddingId(null)
-      escalation.clear()
-    }
-    // escalation is stable enough; re-running only on `open` is intentional.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open])
-
-  // Editing the query drops any prior GD escalation (fresh confirm required).
-  function updateQuery(value: string) {
-    setQuery(value)
-    escalation.clear()
-  }
+  const {
+    query,
+    trimmed,
+    updateQuery,
+    submitQuery,
+    escalation,
+    searchPending,
+    results,
+    cachedLevel,
+    showResults,
+    showCachedPreview,
+    showSeedHint,
+    showEmptyPrompt,
+    isInCollection,
+    isBeaten,
+    addingId,
+    isAdding,
+    addLevel,
+    seedAndSelect,
+    seedingId,
+    seeded,
+    clearSeeded,
+    seededAlreadyAdded,
+    seededBlocked,
+    confirmSeeded,
+    canConfirm,
+    addAnother,
+    setAddAnother,
+  } = useAddLevelsDialog({ open, onClose, collection, completedIds })
 
   if (!open) return null
-
-  // Direct add — for name-search results and known cached IDs where the user
-  // can see exactly what they're clicking.
-  async function handleDirectAdd(levelId: string, levelName: string | null) {
-    setAddingId(levelId)
-    try {
-      await addEntry.mutateAsync({ collectionId: collection.id, levelId })
-      toast.success(`Added ${levelName ?? 'level'} to ${collection.name}`)
-      setQuery('')
-      if (!addAnother) onClose()
-    } catch (err) {
-      const code = collectionErrorCode(err)
-      toast.error(
-        code === 'LEVEL_ALREADY_COMPLETED'
-          ? 'Already completed — Want to Beat only holds unbeaten levels'
-          : err instanceof ApiError
-            ? err.message
-            : 'Could not add that level'
-      )
-    } finally {
-      setAddingId(null)
-    }
-  }
-
-  // Seeded add — fetch an unknown ID from RobTop, then hold for confirmation.
-  async function seedAndSelect(levelId: string) {
-    setSeedingId(levelId)
-    try {
-      const res = await resolveLevel.mutateAsync(levelId)
-      if (!res.level) {
-        toast.error(
-          'That level could not be fetched from the GD servers. Log it once to add it manually.'
-        )
-        return
-      }
-      setSeeded({
-        inGameId: res.level.inGameId,
-        name: res.level.name,
-        creator: res.level.creator,
-        inGameDifficulty: res.level.inGameDifficulty,
-        featured: res.level.featured,
-        epicValue: res.level.epicValue,
-        isRated: res.level.isRated,
-        completed: res.existingCompletion !== null,
-      })
-      setQuery('')
-    } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not look up that level'
-      )
-    } finally {
-      setSeedingId(null)
-    }
-  }
-
-  // Confirm add after seeding.
-  async function handleSeededAdd() {
-    if (!seeded || seeded.completed) return
-    try {
-      await addEntry.mutateAsync({
-        collectionId: collection.id,
-        levelId: seeded.inGameId,
-      })
-      toast.success(`Added ${seeded.name ?? 'level'} to ${collection.name}`)
-      if (addAnother) {
-        setSeeded(null)
-        setQuery('')
-      } else {
-        onClose()
-      }
-    } catch (err) {
-      const code = collectionErrorCode(err)
-      toast.error(
-        code === 'LEVEL_ALREADY_COMPLETED'
-          ? 'Already completed — Want to Beat only holds unbeaten levels'
-          : err instanceof ApiError
-            ? err.message
-            : 'Could not add that level'
-      )
-    }
-  }
-
-  const seededAlreadyAdded = !!seeded && inCollection.has(seeded.inGameId)
-  const seededBlocked = !!seeded && isWantToBeat && seeded.completed
-  const canConfirm = !!seeded && !seededBlocked && !addEntry.isPending
-
-  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
-  const showCachedPreview =
-    isNumeric &&
-    trimmed.length >= 4 &&
-    !!cachedLevel.data &&
-    !seedingId &&
-    !seeded
-  const showSeedHint =
-    isNumeric &&
-    trimmed.length >= 4 &&
-    !cachedLevel.data &&
-    !cachedLevel.isFetching &&
-    !seedingId &&
-    !seeded
-
-  const results = sortAndCapSearchResults(
-    search.data ?? [],
-    (r) =>
-      inCollection.has(r.inGameId) || (completedIds?.has(r.inGameId) ?? false)
-  )
 
   const body = (
     <>
@@ -225,14 +89,7 @@ export function AddLevelsDialog({
               value={query}
               onChange={(e) => updateQuery(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && isNumeric) {
-                  if (cachedLevel.data)
-                    void handleDirectAdd(
-                      cachedLevel.data.inGameId,
-                      cachedLevel.data.name
-                    )
-                  else void seedAndSelect(trimmed)
-                }
+                if (e.key === 'Enter') submitQuery()
               }}
               placeholder="Search by name or paste a level ID"
               className="h-12 pl-9 text-base"
@@ -267,7 +124,7 @@ export function AddLevelsDialog({
                   : null
             }
             dimmed={seededBlocked || seededAlreadyAdded}
-            onChange={() => setSeeded(null)}
+            onChange={clearSeeded}
             description={
               seededBlocked
                 ? 'You already beat this level — Want to Beat only holds unbeaten levels.'
@@ -279,28 +136,25 @@ export function AddLevelsDialog({
         )}
 
         {/* Cached preview for a typed numeric ID — direct add on click. */}
-        {showCachedPreview && cachedLevel.data && (
+        {showCachedPreview && cachedLevel && (
           <div>
             <SectionLabel>Results</SectionLabel>
             <div className="overflow-hidden rounded-md border border-border">
               <ResultRow
-                levelId={cachedLevel.data.inGameId}
-                name={cachedLevel.data.name}
-                creator={cachedLevel.data.creator}
-                songName={cachedLevel.data.songName}
-                inGameDifficulty={cachedLevel.data.inGameDifficulty}
-                featured={cachedLevel.data.featured}
-                epicValue={cachedLevel.data.epicValue}
-                isRated={cachedLevel.data.isRated}
-                added={inCollection.has(cachedLevel.data.inGameId)}
-                beaten={completedIds?.has(cachedLevel.data.inGameId) ?? false}
-                loading={addingId === cachedLevel.data.inGameId}
-                disabled={addEntry.isPending}
+                levelId={cachedLevel.inGameId}
+                name={cachedLevel.name}
+                creator={cachedLevel.creator}
+                songName={cachedLevel.songName}
+                inGameDifficulty={cachedLevel.inGameDifficulty}
+                featured={cachedLevel.featured}
+                epicValue={cachedLevel.epicValue}
+                isRated={cachedLevel.isRated}
+                added={isInCollection(cachedLevel.inGameId)}
+                beaten={isBeaten(cachedLevel.inGameId)}
+                loading={addingId === cachedLevel.inGameId}
+                disabled={isAdding}
                 onSelect={() =>
-                  void handleDirectAdd(
-                    cachedLevel.data!.inGameId,
-                    cachedLevel.data!.name
-                  )
+                  addLevel(cachedLevel.inGameId, cachedLevel.name)
                 }
               />
             </div>
@@ -313,7 +167,7 @@ export function AddLevelsDialog({
             <SectionLabel>Results</SectionLabel>
             <button
               type="button"
-              onClick={() => void seedAndSelect(trimmed)}
+              onClick={() => seedAndSelect(trimmed)}
               className="flex h-12 w-full items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-left text-sm text-text-primary transition-colors hover:bg-bg-subtle"
             >
               <Search size={16} className="text-text-tertiary" />
@@ -326,7 +180,7 @@ export function AddLevelsDialog({
         {showResults && (
           <div>
             <SectionLabel>Results</SectionLabel>
-            {search.isPending ? (
+            {searchPending ? (
               <p className="px-1 text-sm text-text-tertiary">Searching…</p>
             ) : results.length === 0 ? (
               <div className="py-8 text-center">
@@ -351,11 +205,11 @@ export function AddLevelsDialog({
                     featured={r.featured}
                     epicValue={r.epicValue}
                     isRated={r.isRated}
-                    added={inCollection.has(r.inGameId)}
-                    beaten={completedIds?.has(r.inGameId) ?? false}
+                    added={isInCollection(r.inGameId)}
+                    beaten={isBeaten(r.inGameId)}
                     loading={addingId === r.inGameId}
-                    disabled={addEntry.isPending}
-                    onSelect={() => void handleDirectAdd(r.inGameId, r.name)}
+                    disabled={isAdding}
+                    onSelect={() => addLevel(r.inGameId, r.name)}
                   />
                 ))}
               </div>
@@ -365,12 +219,12 @@ export function AddLevelsDialog({
               we&apos;ll fetch it from the GD servers.
             </p>
 
-            {!search.isPending && (
+            {!searchPending && (
               <div className="mt-3 overflow-hidden rounded-md border border-border">
                 <GdSearchSection
                   escalation={escalation}
                   query={trimmed}
-                  onSelect={(levelId) => void seedAndSelect(levelId)}
+                  onSelect={(levelId) => seedAndSelect(levelId)}
                   offer={{
                     title: `Search GD's servers for "${trimmed}"`,
                     subtitle:
@@ -383,24 +237,20 @@ export function AddLevelsDialog({
         )}
 
         {/* Empty prompt. */}
-        {!seeded &&
-          !showResults &&
-          !showCachedPreview &&
-          !showSeedHint &&
-          !seedingId && (
-            <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-              <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
-                <Search size={18} />
-              </span>
-              <p className="text-base font-semibold text-text-primary">
-                Find a level to add
-              </p>
-              <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
-                Search your cache by name, or paste any level ID to pull it from
-                the GD servers.
-              </p>
-            </div>
-          )}
+        {showEmptyPrompt && (
+          <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+            <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
+              <Search size={18} />
+            </span>
+            <p className="text-base font-semibold text-text-primary">
+              Find a level to add
+            </p>
+            <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
+              Search your cache by name, or paste any level ID to pull it from
+              the GD servers.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Footer — checkbox always visible; confirm button only for seeded path. */}
@@ -416,11 +266,11 @@ export function AddLevelsDialog({
         </label>
         {seeded && (
           <Button
-            onClick={() => void handleSeededAdd()}
+            onClick={confirmSeeded}
             disabled={!canConfirm}
             className="min-w-[150px]"
           >
-            {addEntry.isPending ? 'Adding…' : 'Add to collection'}
+            {isAdding ? 'Adding…' : 'Add to collection'}
           </Button>
         )}
       </div>

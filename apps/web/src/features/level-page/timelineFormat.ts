@@ -1,0 +1,60 @@
+// Logic for Timeline: the per-entry labels its cards render — the
+// percentage/run label, and the date/time/zone triple resolved against the
+// viewer's own timezone.
+
+import { formatEntryDateTime } from '@/lib/dateFormat'
+import { getViewerTimezone } from '@/lib/timezone'
+import type { DateFormatPreference } from '@/lib/api/me'
+import type { ProgressUpdate } from './types'
+
+const VIEWER_TZ = getViewerTimezone()
+
+// Percentage / run label for a progress update
+export function rangeLabel(update: ProgressUpdate): string {
+  if (update.kind === 'COMPLETION') return '100%'
+  if (update.runFrom != null && update.runTo != null) {
+    return `run ${update.runFrom} → ${update.runTo}%`
+  }
+  if (update.percentage != null) return `${update.percentage}%`
+  return '—'
+}
+
+export function formatEntryDate(
+  dateStr: string | null,
+  dateTimezone: string | null,
+  loggedAt: string,
+  uncertain: boolean,
+  datePref: DateFormatPreference
+): {
+  text: string
+  timeText: string | null
+  zoneSuffix: string | null
+  uncertain: boolean
+} {
+  if (!dateStr) {
+    const { dateText } = formatEntryDateTime(
+      loggedAt,
+      null,
+      datePref,
+      VIEWER_TZ
+    )
+    return {
+      text: dateText,
+      timeText: null,
+      zoneSuffix: null,
+      uncertain: false,
+    }
+  }
+  const { dateText, timeText, showZoneBadge, zoneLabel } = formatEntryDateTime(
+    dateStr,
+    dateTimezone,
+    datePref,
+    VIEWER_TZ
+  )
+  return {
+    text: dateText,
+    timeText,
+    zoneSuffix: showZoneBadge ? zoneLabel : null,
+    uncertain,
+  }
+}
