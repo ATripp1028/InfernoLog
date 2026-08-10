@@ -9,18 +9,14 @@
 // Steps only ever move forward automatically; the sole backward moves are
 // explicit user actions (a cancel, or "Back to review" after an error).
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useImportApi,
   useImportStatus,
   importStatusQueryKey,
 } from '@/lib/api/import'
-import type {
-  ImportRowConflict,
-  ImportRatingConflict,
-  ImportListMerge,
-} from '@/lib/api/import'
+import type { ImportRowConflict } from '@/lib/api/import'
 import type { GroupResolution } from './FieldConflictMerge'
 import type {
   DateFormat,
@@ -31,11 +27,8 @@ import type {
 } from './parseSpreadsheet'
 import type { MeData } from '@/lib/api/me'
 import {
-  CONFLICT_SUB_STEP_ORDER,
   EMPTY_CHECK_RESULT,
   EMPTY_ROW_RESOLUTIONS,
-  RANKING_MERGE_KEY,
-  getValidRatingRows,
   overwriteListOrders,
   overwriteRatingResolutions,
   overwriteRowResolutions,
@@ -45,6 +38,9 @@ import {
   type WizardStep,
 } from './importWizardModel'
 import { buildImportPayload } from './buildImportPayload'
+import { buildCheckRequest } from './buildCheckRequest'
+import { useConflictResolution } from './useConflictResolution'
+import { useListMergeResolution } from './useListMergeResolution'
 
 export function useImportFlowState({
   me,
@@ -71,40 +67,9 @@ export function useImportFlowState({
     ratings: [],
     duplicates: [],
   })
-  const [completionConflicts, setCompletionConflicts] = useState<
-    ImportRowConflict[]
-  >([])
-  const [progressConflicts, setProgressConflicts] = useState<
-    ImportRowConflict[]
-  >([])
-  const [droppedConflicts, setDroppedConflicts] = useState<ImportRowConflict[]>(
-    []
-  )
-  const [ratingConflicts, setRatingConflicts] = useState<
-    ImportRatingConflict[]
-  >([])
-  const [conflictSubStep, setConflictSubStep] =
-    useState<ConflictSubStep>('completions')
-  const [completionResolutions, setCompletionResolutions] = useState<
-    Map<string, GroupResolution>
-  >(new Map())
-  const [progressResolutions, setProgressResolutions] = useState<
-    Map<string, GroupResolution>
-  >(new Map())
-  const [droppedResolutions, setDroppedResolutions] = useState<
-    Map<string, GroupResolution>
-  >(new Map())
-  const [ratingResolutions, setRatingResolutions] = useState<
-    Map<string, GroupResolution>
-  >(new Map())
-  const [collectionsMerge, setCollectionsMerge] = useState<ImportListMerge[]>(
-    []
-  )
-  const [rankingMerge, setRankingMerge] = useState<ImportListMerge | null>(null)
-  const [listMergeIndex, setListMergeIndex] = useState(0)
-  const [resolvedListOrders, setResolvedListOrders] = useState<
-    Map<string, string[]>
-  >(new Map())
+  const conflicts = useConflictResolution()
+  const listMerges = useListMergeResolution()
+
   const [progressLabel, setProgressLabel] = useState('')
   const [commitError, setCommitError] = useState<string | null>(null)
   // Review step's "imported data always wins" checkbox — when set, every
@@ -112,21 +77,6 @@ export function useImportFlowState({
   // list merge auto-picks the spreadsheet's order, skipping resolve-conflicts
   // / resolve-lists entirely rather than presenting them for manual review.
   const [blanketOverride, setBlanketOverride] = useState(false)
-
-  // The resolve-lists step's linear sequence — one sub-step per touched
-  // collection (from the check response, already filtered to hasConflict
-  // ones only), plus Ranking last if present. Derived rather than stored:
-  // collectionsMerge/rankingMerge only change once, right after the check
-  // call, and stay fixed for the rest of the resolve-lists sub-flow.
-  const listMergeQueue = useMemo(
-    () => [
-      ...collectionsMerge.map((m) => ({ key: m.list!, merge: m })),
-      ...(rankingMerge
-        ? [{ key: RANKING_MERGE_KEY, merge: rankingMerge }]
-        : []),
-    ],
-    [collectionsMerge, rankingMerge]
-  )
 
   // Progress bar during `committing` is driven by the polled job status once
   // the job exists; before that (while startImport is still being called),
@@ -244,21 +194,6 @@ export function useImportFlowState({
 
   // ── Step: review → conflict check / commit ─────────────────────────────
 
-  // First non-empty sub-step in CONFLICT_SUB_STEP_ORDER, or null if every
-  // conflict list is empty (nothing to resolve at all).
-  const firstConflictSubStep = (
-    completion: ImportRowConflict[],
-    progress: ImportRowConflict[],
-    dropped: ImportRowConflict[],
-    ratings: ImportRatingConflict[]
-  ): ConflictSubStep | null => {
-    if (completion.length > 0) return 'completions'
-    if (progress.length > 0) return 'progress'
-    if (dropped.length > 0) return 'dropped'
-    if (ratings.length > 0) return 'ratings'
-    return null
-  }
-
   const handleSkipFlagged = useCallback(async () => {
     if (!parseResult) return
 
@@ -267,18 +202,6 @@ export function useImportFlowState({
       progress: progressRows,
       dropped,
     } = validRows(parseResult)
-    const ratingRows = getValidRatingRows(parseResult)
-    const rankingRows = (parseResult.ranking ?? []).filter(
-      (r) =>
-        !r.flags.some((f) => f.severity === 'error') &&
-        (r.levelId || r.levelName)
-    )
-    const listRows = (parseResult.lists ?? []).filter(
-      (r) =>
-        !r.flags.some((f) => f.severity === 'error') &&
-        r.list &&
-        (r.levelId || r.levelName)
-    )
 
     if (skipConflictCheck) {
       // New account (onboarding) — there can be no existing completions to
@@ -300,55 +223,18 @@ export function useImportFlowState({
     setCommitError(null)
 
     try {
-      const hasRows =
-        completions.length > 0 ||
-        dropped.length > 0 ||
-        progressRows.length > 0 ||
-        ratingRows.length > 0 ||
-        rankingRows.length > 0 ||
-        listRows.length > 0
+      const { request, hasRows } = buildCheckRequest({
+        parseResult,
+        completions,
+        progressRows,
+        dropped,
+      })
       const checkResult = hasRows
-        ? await checkConflicts({
-            completions: completions.map((r) => ({
-              rowIndex: r.rowIndex,
-              data: r.data,
-            })),
-            dropped: dropped.map((r) => ({
-              rowIndex: r.rowIndex,
-              data: r.data,
-            })),
-            progress: progressRows.map((r) => ({
-              rowIndex: r.rowIndex,
-              data: r.data,
-            })),
-            ratings: ratingRows.map((r) => ({
-              levelId: r.levelId,
-              levelName: r.levelName,
-              creator: r.creator,
-              inGameDifficulty: r.inGameDifficulty,
-              scores: r.scores,
-            })),
-            ranking: rankingRows.map((r) => ({
-              levelId: r.levelId,
-              levelName: r.levelName,
-            })),
-            collections: listRows.map((r) => ({
-              list: r.list as string,
-              levelId: r.levelId,
-              levelName: r.levelName,
-              creator: r.creator,
-              inGameDifficulty: r.inGameDifficulty,
-              position: r.position,
-            })),
-          })
+        ? await checkConflicts(request)
         : EMPTY_CHECK_RESULT
 
-      setCompletionConflicts(checkResult.completionConflicts)
-      setProgressConflicts(checkResult.progressConflicts)
-      setDroppedConflicts(checkResult.droppedConflicts)
-      setRatingConflicts(checkResult.ratingConflicts)
-      setCollectionsMerge(checkResult.collectionsMerge)
-      setRankingMerge(checkResult.rankingMerge)
+      conflicts.store(checkResult)
+      listMerges.store(checkResult)
 
       if (blanketOverride) {
         setStep('committing')
@@ -374,26 +260,14 @@ export function useImportFlowState({
         return
       }
 
-      const firstSubStep = firstConflictSubStep(
-        checkResult.completionConflicts,
-        checkResult.progressConflicts,
-        checkResult.droppedConflicts,
-        checkResult.ratingConflicts
-      )
       const hasListMerges =
         checkResult.collectionsMerge.length > 0 ||
         checkResult.rankingMerge != null
 
-      if (firstSubStep) {
-        setConflictSubStep(firstSubStep)
-        setCompletionResolutions(new Map())
-        setProgressResolutions(new Map())
-        setDroppedResolutions(new Map())
-        setRatingResolutions(new Map())
+      if (conflicts.begin(checkResult)) {
         setStep('resolve-conflicts')
       } else if (hasListMerges) {
-        setListMergeIndex(0)
-        setResolvedListOrders(new Map())
+        listMerges.begin()
         setStep('resolve-lists')
       } else {
         setStep('committing')
@@ -421,28 +295,24 @@ export function useImportFlowState({
     startImportJob,
     skipConflictCheck,
     blanketOverride,
+    conflicts,
+    listMerges,
   ])
 
-  // ── Step: resolve-conflicts sub-steps → commit ─────────────────────────
+  // ── Hand-offs out of the two resolution sub-flows ──────────────────────
   //
-  // Each sub-step's onResolved stores its resolutions, then either advances
-  // to the next non-empty sub-step or — if it was the last one — commits
-  // with everything accumulated so far. Reads sibling resolutions from
-  // component state rather than a param: by the time the LAST sub-step's
-  // handler fires, every earlier sub-step has already gone through its own
-  // setState + re-render, so the values are current.
+  // Each sub-hook walks its own sequence and hands back a completed bundle
+  // when it reaches the end; deciding what that means — another sub-flow, or
+  // the commit — is this hook's job.
 
+  // Field conflicts are done. A list merge may still be pending, in which
+  // case resolve-lists runs next and commits on ITS completion instead,
+  // reading these resolutions back from the conflicts hook.
   const finishConflictResolution = useCallback(
     async (resolutions: RowResolutions) => {
       if (!parseResult) return
-      // A list merge still needs resolving — hand off to resolve-lists
-      // rather than committing yet. That step reads these four resolutions
-      // back from state once IT finishes (see finishListMergeResolution) —
-      // by then they've long since landed via the setState calls the
-      // sub-step handlers below already made before calling this function.
-      if (listMergeQueue.length > 0) {
-        setListMergeIndex(0)
-        setResolvedListOrders(new Map())
+      if (listMerges.hasMerges) {
+        listMerges.begin()
         setStep('resolve-lists')
         return
       }
@@ -458,22 +328,14 @@ export function useImportFlowState({
         dropped,
         resolutions,
         new Map(),
-        progressConflicts,
-        droppedConflicts
+        conflicts.progressConflicts,
+        conflicts.droppedConflicts
       )
     },
-    [
-      parseResult,
-      validRows,
-      startImportJob,
-      listMergeQueue,
-      progressConflicts,
-      droppedConflicts,
-    ]
+    [parseResult, validRows, startImportJob, listMerges, conflicts]
   )
 
-  // ── Step: resolve-lists sub-steps → commit ─────────────────────────────
-
+  // Every list merge is resolved — commit with both sets of decisions.
   const finishListMergeResolution = useCallback(
     async (listOrders: Map<string, string[]>) => {
       if (!parseResult) return
@@ -487,170 +349,45 @@ export function useImportFlowState({
         completions,
         progressRows,
         dropped,
-        {
-          completion: completionResolutions,
-          progress: progressResolutions,
-          dropped: droppedResolutions,
-          rating: ratingResolutions,
-        },
+        conflicts.resolutions,
         listOrders,
-        progressConflicts,
-        droppedConflicts
+        conflicts.progressConflicts,
+        conflicts.droppedConflicts
       )
     },
-    [
-      parseResult,
-      validRows,
-      startImportJob,
-      progressConflicts,
-      droppedConflicts,
-      completionResolutions,
-      progressResolutions,
-      droppedResolutions,
-      ratingResolutions,
-    ]
+    [parseResult, validRows, startImportJob, conflicts]
+  )
+
+  // One resolver callback per tab. The sub-hook stores and advances; a
+  // non-null return means that was the last tab.
+  const resolveConflictTab = useCallback(
+    (tab: ConflictSubStep) => (resolved: Map<string, GroupResolution>) => {
+      const done = conflicts.resolveAndAdvance(tab, resolved)
+      if (done) void finishConflictResolution(done)
+    },
+    [conflicts, finishConflictResolution]
   )
 
   const handleListMergeConfirmed = useCallback(
     (finalOrder: string[]) => {
-      const current = listMergeQueue[listMergeIndex]
-      if (!current) return
-      const nextOrders = new Map(resolvedListOrders).set(
-        current.key,
-        finalOrder
-      )
-      setResolvedListOrders(nextOrders)
-      if (listMergeIndex + 1 < listMergeQueue.length) {
-        setListMergeIndex((i) => i + 1)
-      } else {
-        void finishListMergeResolution(nextOrders)
-      }
+      const done = listMerges.confirmAndAdvance(finalOrder)
+      if (done) void finishListMergeResolution(done)
     },
-    [
-      listMergeQueue,
-      listMergeIndex,
-      resolvedListOrders,
-      finishListMergeResolution,
-    ]
+    [listMerges, finishListMergeResolution]
   )
+
+  // Cancelling either sub-flow drops what the check found and returns to
+  // review — the only backward moves in the wizard, both user-initiated.
+  const handleConflictsCancelled = useCallback(() => {
+    conflicts.reset()
+    listMerges.reset()
+    setStep('review')
+  }, [conflicts, listMerges])
 
   const handleListMergeCancelled = useCallback(() => {
-    setCollectionsMerge([])
-    setRankingMerge(null)
-    setListMergeIndex(0)
-    setResolvedListOrders(new Map())
+    listMerges.reset()
     setStep('review')
-  }, [])
-
-  const nextConflictSubStep = useCallback(
-    (from: ConflictSubStep): ConflictSubStep | null => {
-      const idx = CONFLICT_SUB_STEP_ORDER.indexOf(from)
-      for (let i = idx + 1; i < CONFLICT_SUB_STEP_ORDER.length; i++) {
-        const step = CONFLICT_SUB_STEP_ORDER[i]!
-        if (step === 'progress' && progressConflicts.length > 0) return step
-        if (step === 'dropped' && droppedConflicts.length > 0) return step
-        if (step === 'ratings' && ratingConflicts.length > 0) return step
-      }
-      return null
-    },
-    [progressConflicts, droppedConflicts, ratingConflicts]
-  )
-
-  const handleCompletionConflictsResolved = useCallback(
-    (resolved: Map<string, GroupResolution>) => {
-      setCompletionResolutions(resolved)
-      const next = nextConflictSubStep('completions')
-      if (next) setConflictSubStep(next)
-      else
-        void finishConflictResolution({
-          completion: resolved,
-          progress: progressResolutions,
-          dropped: droppedResolutions,
-          rating: ratingResolutions,
-        })
-    },
-    [
-      nextConflictSubStep,
-      progressResolutions,
-      droppedResolutions,
-      ratingResolutions,
-      finishConflictResolution,
-    ]
-  )
-
-  const handleProgressConflictsResolved = useCallback(
-    (resolved: Map<string, GroupResolution>) => {
-      setProgressResolutions(resolved)
-      const next = nextConflictSubStep('progress')
-      if (next) setConflictSubStep(next)
-      else
-        void finishConflictResolution({
-          completion: completionResolutions,
-          progress: resolved,
-          dropped: droppedResolutions,
-          rating: ratingResolutions,
-        })
-    },
-    [
-      nextConflictSubStep,
-      completionResolutions,
-      droppedResolutions,
-      ratingResolutions,
-      finishConflictResolution,
-    ]
-  )
-
-  const handleDroppedConflictsResolved = useCallback(
-    (resolved: Map<string, GroupResolution>) => {
-      setDroppedResolutions(resolved)
-      const next = nextConflictSubStep('dropped')
-      if (next) setConflictSubStep(next)
-      else
-        void finishConflictResolution({
-          completion: completionResolutions,
-          progress: progressResolutions,
-          dropped: resolved,
-          rating: ratingResolutions,
-        })
-    },
-    [
-      nextConflictSubStep,
-      completionResolutions,
-      progressResolutions,
-      ratingResolutions,
-      finishConflictResolution,
-    ]
-  )
-
-  const handleRatingConflictsResolved = useCallback(
-    (resolved: Map<string, GroupResolution>) => {
-      // 'ratings' is always last in CONFLICT_SUB_STEP_ORDER — nothing to
-      // advance to.
-      setRatingResolutions(resolved)
-      void finishConflictResolution({
-        completion: completionResolutions,
-        progress: progressResolutions,
-        dropped: droppedResolutions,
-        rating: resolved,
-      })
-    },
-    [
-      completionResolutions,
-      progressResolutions,
-      droppedResolutions,
-      finishConflictResolution,
-    ]
-  )
-
-  const handleConflictsCancelled = useCallback(() => {
-    setCompletionConflicts([])
-    setProgressConflicts([])
-    setDroppedConflicts([])
-    setRatingConflicts([])
-    setCollectionsMerge([])
-    setRankingMerge(null)
-    setStep('review')
-  }, [])
+  }, [listMerges])
 
   return {
     step,
@@ -669,19 +406,19 @@ export function useImportFlowState({
     setBlanketOverride,
 
     // Field conflicts
-    conflictSubStep,
-    completionConflicts,
-    progressConflicts,
-    droppedConflicts,
-    ratingConflicts,
-    handleCompletionConflictsResolved,
-    handleProgressConflictsResolved,
-    handleDroppedConflictsResolved,
-    handleRatingConflictsResolved,
+    conflictSubStep: conflicts.conflictSubStep,
+    completionConflicts: conflicts.completionConflicts,
+    progressConflicts: conflicts.progressConflicts,
+    droppedConflicts: conflicts.droppedConflicts,
+    ratingConflicts: conflicts.ratingConflicts,
+    handleCompletionConflictsResolved: resolveConflictTab('completions'),
+    handleProgressConflictsResolved: resolveConflictTab('progress'),
+    handleDroppedConflictsResolved: resolveConflictTab('dropped'),
+    handleRatingConflictsResolved: resolveConflictTab('ratings'),
     handleConflictsCancelled,
 
     // List merges
-    currentListMerge: listMergeQueue[listMergeIndex] ?? null,
+    currentListMerge: listMerges.current,
     handleListMergeConfirmed,
     handleListMergeCancelled,
 

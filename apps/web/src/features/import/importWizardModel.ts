@@ -238,3 +238,18 @@ export const STEP_ORDER: Record<WizardStep | 'done', number> = {
   success: 5,
   done: 6,
 }
+
+// First non-empty sub-step in CONFLICT_SUB_STEP_ORDER, or null when every
+// conflict list is empty — i.e. the check found nothing to resolve by hand.
+export function firstConflictSubStep(
+  completion: ImportRowConflict[],
+  progress: ImportRowConflict[],
+  dropped: ImportRowConflict[],
+  ratings: ImportRatingConflict[]
+): ConflictSubStep | null {
+  if (completion.length > 0) return 'completions'
+  if (progress.length > 0) return 'progress'
+  if (dropped.length > 0) return 'dropped'
+  if (ratings.length > 0) return 'ratings'
+  return null
+}
