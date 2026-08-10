@@ -12,7 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import { cn } from '@/lib/utils'
 import { LIST_SORT_OPTIONS, defaultDir, getSortLabel } from './sortMeta'
 import type { SortKey, SortSpec } from './types'

@@ -1,10 +1,10 @@
 import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Card } from '@/components/ui/card'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Card } from '@/components/generic/card'
+import { Switch } from '@/components/generic/switch'
+import { Label } from '@/components/generic/label'
 import {
   DateTimeField,
   FieldError,
@@ -18,7 +18,7 @@ import { clampPercent, digitsOnly } from '../format'
 import { GdVersionPicker, GdVersionInfoButton } from '../pickers'
 import { useCompletionBasicsStep } from './useCompletionBasicsStep'
 import { CoinsSection, TwoPlayerSection } from './CompletionBasicsFields'
-import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
+import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'
 
 /**
  * Completion step 1: date, attempts, worst fail, coins, and 2-player.

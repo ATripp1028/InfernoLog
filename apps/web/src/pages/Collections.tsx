@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { toast } from '@/components/ui/sonner'
-import { PageLoading } from '@/components/PageLoading'
+import { toast } from '@/components/generic/sonner'
+import { PageLoading } from '@/components/shell/PageLoading'
 import { useCollections, useCreateCollection } from '@/lib/api/collections'
 import {
   CollectionCard,
@@ -9,7 +9,7 @@ import {
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { useFabActions } from '@/context/FabActionsContext'
 import { Plus } from 'lucide-react'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**
  * Collections index — built-ins pinned above a labeled "Your collections"

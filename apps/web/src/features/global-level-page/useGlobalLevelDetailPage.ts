@@ -20,7 +20,7 @@ import {
   collectionErrorCode,
 } from '@/lib/api/collections'
 import { ApiError } from '@/lib/api/client'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 
 /**
  * Data and status for the Global Level Page.

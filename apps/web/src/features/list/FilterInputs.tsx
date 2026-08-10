@@ -3,7 +3,7 @@
 // and clamping live in useFilterInputs.
 
 import { Calendar, X } from 'lucide-react'
-import { RangeSlider } from '@/components/ui/range-slider'
+import { RangeSlider } from '@/components/generic/range-slider'
 import { formatDate } from '@/lib/dateFormat'
 import { cn } from '@/lib/utils'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'

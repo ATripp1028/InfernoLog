@@ -3,7 +3,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import { formatNumber } from '@/features/logging/format'
 import {
   gdStatIconSrc,

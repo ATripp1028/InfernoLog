@@ -1,12 +1,12 @@
 import { useId } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/generic/select'
 import { cn } from '@/lib/utils'
 import { downloadTemplate } from '../generateTemplate'
 import type { DateFormat } from '../parseSpreadsheet'

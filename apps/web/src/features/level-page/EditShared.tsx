@@ -3,9 +3,9 @@
 // the other's. Controls that the LOGGING flow also renders live in
 // src/components/ instead — see CoinPicker and TwoPlayerPicker, re-exported
 // here only so the modals keep one import.
-import { SectionLabel } from '@/components/SectionLabel'
-import { RatingRow as SharedRatingRow } from '@/components/RatingRow'
-import { FieldLabel as SharedFieldLabel } from '@/components/FieldLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
+import { RatingRow as SharedRatingRow } from '@/components/data/RatingRow'
+import { FieldLabel as SharedFieldLabel } from '@/components/inputs/FieldLabel'
 
 /** The edit modals' label — {@link SharedFieldLabel} in its muted treatment. */
 export function FieldLabel(
@@ -14,9 +14,9 @@ export function FieldLabel(
   return <SharedFieldLabel {...props} muted />
 }
 
-export { Textarea } from '@/components/ui/textarea'
-export { CoinPicker } from '@/components/CoinPicker'
-export { TwoPlayerPicker } from '@/components/TwoPlayerPicker'
+export { Textarea } from '@/components/generic/textarea'
+export { CoinPicker } from '@/components/inputs/CoinPicker'
+export { TwoPlayerPicker } from '@/components/inputs/TwoPlayerPicker'
 
 /** A titled group of fields within an edit modal. */
 export function Section({

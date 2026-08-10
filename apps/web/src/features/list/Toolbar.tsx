@@ -1,5 +1,5 @@
 import { ArrowUpDown, ChevronDown, Search, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Input } from '@/components/generic/input'
 import { SortChips } from './SortChips'
 import { ColumnsMenu } from './ColumnsMenu'
 import { PresetSelector } from './PresetSelector'

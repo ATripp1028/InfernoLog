@@ -6,7 +6,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { cn } from '@/lib/utils'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { levelThumbnailUrl } from '@/lib/gdAssets'

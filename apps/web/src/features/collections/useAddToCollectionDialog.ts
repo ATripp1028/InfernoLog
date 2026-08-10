@@ -3,7 +3,7 @@
 // and the parallel add on confirm. The component renders what this returns.
 
 import { useEffect, useMemo, useState } from 'react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import {
   useLevelById,

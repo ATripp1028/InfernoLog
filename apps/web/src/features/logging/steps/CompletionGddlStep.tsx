@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'

@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import {
   useLevelById,
@@ -11,7 +11,7 @@ import {
 } from '@/lib/api/logging'
 import { useMyProgress } from '@/lib/api/list'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
-import { LevelResultRow } from '@/components/LevelResultRow'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { useEscalation } from '@/features/search/useEscalation'
 import { useLoggingFlow } from '../LoggingFlowProvider'

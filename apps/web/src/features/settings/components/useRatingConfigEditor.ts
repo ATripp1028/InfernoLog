@@ -6,7 +6,7 @@ import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import type { Ref } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { DragEndEvent } from '@dnd-kit/core'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import {
   RATING_WEIGHT_SUM_TARGET_CENTS,
   useUpdateRatingConfig,

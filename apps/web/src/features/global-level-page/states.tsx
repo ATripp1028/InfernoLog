@@ -1,5 +1,5 @@
 import { ArrowLeft, SearchX, ServerCrash, AlertTriangle } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { DesktopSectionHeader } from '@/features/global-level-page/CollapsibleSection'
 
 /**

@@ -1,5 +1,5 @@
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { CopyableId } from '@/components/CopyableId'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { CopyableId } from '@/components/data/CopyableId'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import type { LevelMeta } from './types'
 

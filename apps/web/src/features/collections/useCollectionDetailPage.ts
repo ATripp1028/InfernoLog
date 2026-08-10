@@ -9,7 +9,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useMutationState } from '@tanstack/react-query'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { ApiError } from '@/lib/api/client'
 import {

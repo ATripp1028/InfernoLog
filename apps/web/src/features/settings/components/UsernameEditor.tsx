@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { toast } from '@/components/ui/sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { toast } from '@/components/generic/sonner'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
 import {
   ApiError,
   checkUsernameAvailable,

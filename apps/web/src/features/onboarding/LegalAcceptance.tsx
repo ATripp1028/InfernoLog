@@ -2,9 +2,9 @@ import { useState } from 'react'
 import Markdown from 'react-markdown'
 import termsAndConditions from '../../../../../legal/TERMS_AND_CONDITIONS.md?raw'
 import privacyPolicy from '../../../../../legal/PRIVACY_POLICY.md?raw'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/generic/button'
+import { Switch } from '@/components/generic/switch'
+import { Label } from '@/components/generic/label'
 
 interface LegalAcceptanceProps {
   onContinue: () => void

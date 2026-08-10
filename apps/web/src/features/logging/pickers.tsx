@@ -3,12 +3,12 @@
 // which five other modules had to reach into to get at them.
 
 import { Info } from 'lucide-react'
-import { Segmented } from '@/components/ui/segmented'
+import { Segmented } from '@/components/generic/segmented'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import type { Device, GdVersion } from '@/lib/api/wireEnums'
 
 const DEVICE_OPTIONS = [

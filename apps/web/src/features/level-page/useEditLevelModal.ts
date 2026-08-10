@@ -3,7 +3,7 @@
 // tier hint, and the save payload. The component renders what this returns.
 
 import { useEffect, useState } from 'react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { maxValueError, MAX_GDDL_TIER } from '@/features/logging/format'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe, type RatingCategory } from '@/lib/api/me'

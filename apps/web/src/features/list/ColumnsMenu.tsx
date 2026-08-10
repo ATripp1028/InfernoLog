@@ -3,11 +3,11 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { Switch } from '@/components/ui/switch'
+} from '@/components/generic/popover'
+import { Switch } from '@/components/generic/switch'
 import type { ColumnDef, ColumnVisibility, ColumnId } from './columns'
 import { COLUMNS } from './columns'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**
  * Column visibility and order for the List table.

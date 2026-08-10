@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { ReactNode } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { cn } from '@/lib/utils'
 import { backOriginState } from '@/lib/backOrigin'
 import { EmberBackground } from './EmberBackground'

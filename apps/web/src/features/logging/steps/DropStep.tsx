@@ -1,8 +1,8 @@
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { Textarea } from '@/components/generic/textarea'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
+import { toast } from '@/components/generic/sonner'
 import { useLogDrop } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {

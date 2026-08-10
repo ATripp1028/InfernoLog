@@ -1,13 +1,13 @@
 import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { LevelResultRow } from '@/components/LevelResultRow'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 import {
   useAddToCollectionDialog,
   type PickedLevel,

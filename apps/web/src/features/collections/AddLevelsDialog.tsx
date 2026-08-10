@@ -1,12 +1,12 @@
 import { Loader2, Search, X } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { LevelResultRow } from '@/components/LevelResultRow'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { type CollectionDetail } from '@/lib/api/collections'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 import { useAddLevelsDialog } from './useAddLevelsDialog'
 
 interface AddLevelsDialogProps {

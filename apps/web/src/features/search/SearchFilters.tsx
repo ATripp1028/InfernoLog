@@ -1,6 +1,6 @@
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { Chip } from '@/components/ui/chip'
-import { Segmented } from '@/components/ui/segmented'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { Chip } from '@/components/generic/chip'
+import { Segmented } from '@/components/generic/segmented'
 import { cn } from '@/lib/utils'
 import {
   DIFFICULTY_FACE,

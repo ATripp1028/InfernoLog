@@ -12,7 +12,7 @@
 // genuinely different (shorter, ThumbnailWash-based, listbox-option) design.
 
 import { Loader2 } from 'lucide-react'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 
 /**

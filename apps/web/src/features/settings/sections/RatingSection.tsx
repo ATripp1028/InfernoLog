@@ -4,8 +4,8 @@ import {
   RatingConfigEditor,
   type RatingConfigEditorHandle,
 } from '../components/RatingConfigEditor'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'
 import { useUpdateMe, type MeData } from '@/lib/api/me'
 import type { RatingDisplayScale, RatingMode } from '@/lib/api/wireEnums'

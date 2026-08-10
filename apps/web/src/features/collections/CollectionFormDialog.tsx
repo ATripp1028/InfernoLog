@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/generic/button'
+import { Textarea } from '@/components/generic/textarea'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/MobileSheetDialog'
+import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
 import {
   collectionErrorCode,
   useCollections,

@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { ImportStatusPanel } from '../ImportStatusPanel'
 import { useImportFlow } from '../ImportFlowProvider'
 

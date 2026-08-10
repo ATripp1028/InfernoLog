@@ -13,7 +13,7 @@ import { useDeleteProgress } from '@/lib/api/list'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { useFabActions } from '@/context/FabActionsContext'
 import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
 

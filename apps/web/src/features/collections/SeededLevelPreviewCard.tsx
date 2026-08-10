@@ -2,11 +2,11 @@
 // numeric ID — AddLevelsDialog and AddToCollectionDialog both hold the
 // fetched level for confirmation (rather than adding/picking it immediately)
 // since the user typed a raw ID with no name visible yet.
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**
  * The level fields the preview card renders. A subset of `Level`, so a search result satisfies it too.

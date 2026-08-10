@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { useImportStatus, type ImportStatusResponse } from '@/lib/api/import'
 import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
 

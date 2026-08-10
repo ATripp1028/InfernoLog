@@ -4,7 +4,7 @@ import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import { Chip } from '@/components/ui/chip'
+import { Chip } from '@/components/generic/chip'
 import { cn } from '@/lib/utils'
 import { difficultyFaceSrc } from '@/lib/gdAssets'
 import { formatNumber } from '@/features/logging/format'

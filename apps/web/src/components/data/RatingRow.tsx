@@ -3,8 +3,8 @@
 // drifted in label width, vertical padding, and slider step, and — the trap —
 // one spoke internal 0–100 while the other spoke display units.
 
-import { Slider } from '@/components/ui/slider'
-import { StepperInput } from '@/components/ui/stepper-input'
+import { Slider } from '@/components/generic/slider'
+import { StepperInput } from '@/components/generic/stepper-input'
 import { displayMax } from '@/lib/ratingScale'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 

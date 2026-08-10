@@ -1,5 +1,5 @@
 import { cn } from '@/lib/utils'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { ListItem } from './types'
 
 /**

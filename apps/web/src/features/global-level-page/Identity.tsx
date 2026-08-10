@@ -1,5 +1,5 @@
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { CopyableId } from '@/components/CopyableId'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { CopyableId } from '@/components/data/CopyableId'
 import { ratedStarSrc } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'

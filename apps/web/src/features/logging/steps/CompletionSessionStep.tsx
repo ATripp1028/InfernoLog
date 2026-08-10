@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Textarea } from '@/components/generic/textarea'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {

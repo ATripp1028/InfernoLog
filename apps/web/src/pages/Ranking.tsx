@@ -1,14 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearch } from '@tanstack/react-router'
-import { TooltipProvider } from '@/components/ui/tooltip'
-import { PageLoading } from '@/components/PageLoading'
+import { TooltipProvider } from '@/components/generic/tooltip'
+import { PageLoading } from '@/components/shell/PageLoading'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { useClassicRanking } from '@/lib/api/ranking'
 import { RankingToolbar } from '@/features/ranking/RankingToolbar'
 import { RankingBoard } from '@/features/ranking/RankingBoard'
 import { MobileRankingList } from '@/features/ranking/MobileRankingList'
 import { preScrollIndex } from '@/features/ranking/placement'
-import { EmptyState } from '@/components/EmptyState'
+import { EmptyState } from '@/components/data/EmptyState'
 
 /**
  * The personal classic ranking — every completion ordered by how hard the user found it.

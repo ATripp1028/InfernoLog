@@ -2,7 +2,7 @@
 // stored instant + IANA zone into the values the DateTimeField inputs show,
 // and composing those inputs back into what the API stores.
 
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import {
   getZonedParts,
   zonedTimeToUtc,

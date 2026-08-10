@@ -1,9 +1,9 @@
 import { Music } from 'lucide-react'
-import { CopyableId } from '@/components/CopyableId'
+import { CopyableId } from '@/components/data/CopyableId'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { formatSongSize } from './format'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 // Desktop renders the song inside a bordered card ('card'); mobile renders it
 // bare inside the collapsible section ('plain'). Only the outer chrome and the

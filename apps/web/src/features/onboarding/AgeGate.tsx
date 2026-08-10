@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Label } from '@/components/generic/label'
 import { useAuth } from '@/context/AuthContext'
 import {
   hasActiveAgeGateFailureCookie,

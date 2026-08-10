@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button'
-import { RatingRow } from '@/components/RatingRow'
+import { Button } from '@/components/generic/button'
+import { RatingRow } from '@/components/data/RatingRow'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'

@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { FlagList } from '../WizardChrome'
 import { FLAG_TABS, type FlagsByTab } from '../importWizardModel'
 import { useReviewStep } from './useReviewStep'

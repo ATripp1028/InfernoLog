@@ -12,7 +12,7 @@ import {
   NOT_DEMON_OPINION_VALUES,
 } from '@infernolog/core'
 import { cn } from '@/lib/utils'
-import { segmentedItemVariants } from '@/components/ui/segmented'
+import { segmentedItemVariants } from '@/components/generic/segmented'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
 import type { DifficultyOpinion } from '@/lib/api/wireEnums'
 

@@ -10,7 +10,7 @@ import {
   useResolvedFabActions,
   type FabAction,
 } from '@/context/FabActionsContext'
-import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
 import { cn } from '@/lib/utils'
 
 /**

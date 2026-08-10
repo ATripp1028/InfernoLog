@@ -3,7 +3,7 @@ import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { LevelPageData, ProgressUpdate } from './types'
 import { formatEntryDate, rangeLabel } from './timelineFormat'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 function EntryTimeSuffix({
   timeText,

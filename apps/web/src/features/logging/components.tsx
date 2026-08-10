@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { Button } from '@/components/generic/button'
+import { Switch } from '@/components/generic/switch'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { Level } from '@/lib/api/logging'
 import { supportedTimeZones } from '@/lib/timezone'
 import { useLoggingFlow } from './LoggingFlowProvider'
@@ -10,9 +10,9 @@ import { useLoggingFlow } from './LoggingFlowProvider'
 // Computed once — Intl.supportedValuesOf('timeZone') is static per browser session.
 const TIME_ZONES = supportedTimeZones()
 
-export { FieldError } from '@/components/ui/field-error'
-export { SectionLabel } from '@/components/SectionLabel'
-export { FieldLabel } from '@/components/FieldLabel'
+export { FieldError } from '@/components/generic/field-error'
+export { SectionLabel } from '@/components/inputs/SectionLabel'
+export { FieldLabel } from '@/components/inputs/FieldLabel'
 
 /**
  * Scrollable content region of a step. The panel is a flex column; this grows

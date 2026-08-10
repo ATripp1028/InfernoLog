@@ -3,7 +3,7 @@
 // the save payload. The component renders fields against what this returns.
 
 import { useEffect, useState } from 'react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/features/logging/format'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe } from '@/lib/api/me'

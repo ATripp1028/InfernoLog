@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Card } from '@/components/ui/card'
+import { Card } from '@/components/generic/card'
 
 interface ConnectedAccountRowProps {
   icon: ReactNode

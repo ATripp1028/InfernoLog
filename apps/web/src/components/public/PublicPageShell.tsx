@@ -2,7 +2,7 @@ import { ArrowLeft } from 'lucide-react'
 import { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { useGoBack } from '@/lib/useGoBack'
-import { BackLink } from '@/components/BackLink'
+import { BackLink } from '@/components/shell/BackLink'
 
 /**
  * Shared shell for standalone public pages that sit outside the authenticated

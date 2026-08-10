@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Label } from '@/components/generic/label'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -19,7 +19,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import { Info } from 'lucide-react'
 import { RunInput, formatRunInputValue, type ParsedRun } from '../RunInput'
 

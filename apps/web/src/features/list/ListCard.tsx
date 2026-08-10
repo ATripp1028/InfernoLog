@@ -3,7 +3,7 @@ import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
 import { formatRating } from '@/lib/ratingScale'
 import { formatEntryDateTime } from '@/lib/dateFormat'

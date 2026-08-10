@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useIsMutating, useQueryClient } from '@tanstack/react-query'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 
 /**
  * Shows one success toast per "burst" of mutations sharing one of the given

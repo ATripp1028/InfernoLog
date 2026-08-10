@@ -8,7 +8,7 @@ import type {
 } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 
 export type {
   ClassicRankingResponse,

@@ -3,7 +3,7 @@
 // so both level pages keep their error + skeleton markup out of the page file.
 
 import { AlertCircle, Lock } from 'lucide-react'
-import { BackLink } from '@/components/BackLink'
+import { BackLink } from '@/components/shell/BackLink'
 import type { GoBack } from '@/lib/useGoBack'
 
 /**

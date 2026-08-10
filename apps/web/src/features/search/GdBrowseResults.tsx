@@ -3,7 +3,7 @@ import type { LevelSearchResult } from '@/lib/api/logging'
 import { backOriginState } from '@/lib/backOrigin'
 import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**
  * The GD-server escalation outcome, rendered as a trailing section under the

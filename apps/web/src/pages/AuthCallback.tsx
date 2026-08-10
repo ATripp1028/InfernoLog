@@ -10,7 +10,7 @@ import {
 import { signupStart, signinReject } from '@/lib/api/authOnboarding'
 import { apiFetch, ApiError } from '@/lib/api/client'
 import type { MeData } from '@/lib/api/me'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 
 /**
  * Sign In and Sign Up both land here after Google OAuth completes — Cognito

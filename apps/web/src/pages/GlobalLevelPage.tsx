@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { BackLink } from '@/components/BackLink'
+import { BackLink } from '@/components/shell/BackLink'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { Thumbnail } from '@/features/global-level-page/Thumbnail'
 import { Identity } from '@/features/global-level-page/Identity'

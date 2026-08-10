@@ -8,19 +8,19 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/generic/select'
 import {
   SEARCH_BY_OPTIONS,
   effectiveSortDir,

@@ -20,7 +20,7 @@ import {
 import { useLevelPage } from '@/lib/api/levelPage'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import type { FlowPath } from '@/features/logging/types'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { tableMinWidth } from '@/features/list/ListTable'
 import {

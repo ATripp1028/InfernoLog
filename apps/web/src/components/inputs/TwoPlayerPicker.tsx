@@ -2,8 +2,8 @@
 // field. Shared by the completion-logging step and the edit-level modal,
 // which had byte-identical copies down to the button class strings.
 
-import { Input } from '@/components/ui/input'
-import { Segmented } from '@/components/ui/segmented'
+import { Input } from '@/components/generic/input'
+import { Segmented } from '@/components/generic/segmented'
 
 const OPTIONS = [
   { value: 'solo', label: 'Beat it solo' },

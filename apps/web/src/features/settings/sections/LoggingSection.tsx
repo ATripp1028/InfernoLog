@@ -8,11 +8,11 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/sonner'
+} from '@/components/generic/select'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
+import { Button } from '@/components/generic/button'
+import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'
 import { useUpdateMe, type MeData } from '@/lib/api/me'
 import type {

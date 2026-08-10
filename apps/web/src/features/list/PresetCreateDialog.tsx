@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
-import { Textarea } from '@/components/ui/textarea'
+import { Textarea } from '@/components/generic/textarea'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/MobileSheetDialog'
+import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
 
 interface PresetCreateDialogProps {
   open: boolean

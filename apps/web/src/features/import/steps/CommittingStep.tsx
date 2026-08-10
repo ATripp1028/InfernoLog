@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { ProgressBar } from '../WizardChrome'
 import { useImportFlow } from '../ImportFlowProvider'
 

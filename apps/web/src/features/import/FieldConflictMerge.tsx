@@ -1,15 +1,15 @@
-import { Button } from '@/components/ui/button'
-import { Segmented } from '@/components/ui/segmented'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/generic/button'
+import { Segmented } from '@/components/generic/segmented'
+import { Input } from '@/components/generic/input'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
-import { FieldError } from '@/components/ui/field-error'
+} from '@/components/generic/select'
+import { Switch } from '@/components/generic/switch'
+import { FieldError } from '@/components/generic/field-error'
 import { describeField, type FieldDescriptor } from './fieldDescriptors'
 import {
   formatDisplayValue,

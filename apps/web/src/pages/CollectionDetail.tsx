@@ -2,9 +2,9 @@ import { Link } from '@tanstack/react-router'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ChevronLeft, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { AlertDialog } from '@/components/ui/alert-dialog'
-import { PageLoading } from '@/components/PageLoading'
+import { Button } from '@/components/generic/button'
+import { AlertDialog } from '@/components/generic/alert-dialog'
+import { PageLoading } from '@/components/shell/PageLoading'
 import type { CollectionDetail as CollectionDetailData } from '@/lib/api/collections'
 import {
   collectionIdentity,
@@ -14,8 +14,8 @@ import {
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
 import { Row, SortableRow } from '@/features/collections/CollectionEntryRow'
-import { EmptyState } from '@/components/EmptyState'
-import { SectionLabel } from '@/components/SectionLabel'
+import { EmptyState } from '@/components/data/EmptyState'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 import {
   useCollectionDetailPage,
   useLoadedCollection,

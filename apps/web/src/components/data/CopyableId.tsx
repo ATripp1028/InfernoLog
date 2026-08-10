@@ -1,5 +1,5 @@
 import { Copy } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'
 
 interface CopyableIdProps {

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { toast } from '@/components/ui/sonner'
-import { AlertDialog } from '@/components/ui/alert-dialog'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { toast } from '@/components/generic/sonner'
+import { AlertDialog } from '@/components/generic/alert-dialog'
 import {
   useRemoveGddlApiKey,
   useSetGddlApiKey,

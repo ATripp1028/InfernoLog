@@ -1,9 +1,9 @@
-import { Switch } from '@/components/ui/switch'
+import { Switch } from '@/components/generic/switch'
 import { SortChips } from './SortChips'
 import type { ColumnDef, ColumnVisibility, ColumnId } from './columns'
 import { COLUMNS } from './columns'
 import type { SortKey, SortSpec } from './types'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**
  * Content for the mobile "Controls" bottom sheet: sort + column toggles, which

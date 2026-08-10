@@ -5,10 +5,10 @@ import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { FieldError } from '@/components/ui/field-error'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
+import { FieldError } from '@/components/generic/field-error'
 import { digitsOnly } from '@/features/logging/format'
 import type {
   DateFormatPreference,
@@ -27,7 +27,7 @@ import {
   RatingRow,
   TwoPlayerPicker,
 } from './EditShared'
-import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
+import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'
 import { RunInput, formatRunInputValue } from '@/features/logging/RunInput'
 import type { LevelPageData } from './types'
 import { useEditRunModal } from './useEditRunModal'

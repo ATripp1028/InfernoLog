@@ -6,7 +6,7 @@ import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
@@ -23,7 +23,7 @@ import { CompletionSuccessStep } from './steps/CompletionSuccessStep'
 import { ProgressStep } from './steps/ProgressStep'
 import { ProgressSessionStep } from './steps/ProgressSessionStep'
 import { DropStep } from './steps/DropStep'
-import { SectionLabel } from '@/components/SectionLabel'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 const EYEBROW_BASE: Record<FlowPath, string> = {
   completion: 'Log a completion',

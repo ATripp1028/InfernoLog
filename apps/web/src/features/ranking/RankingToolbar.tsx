@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
 
 interface RankingToolbarProps {
   search: string

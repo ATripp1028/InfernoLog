@@ -5,7 +5,7 @@ import {
   useRef,
   type ReactNode,
 } from 'react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import {
   useGddlSyncStatus,
   useAckGddlSync,

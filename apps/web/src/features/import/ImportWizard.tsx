@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { StepIndicator } from './WizardChrome'
 import { ImportFlowProvider, useImportFlow } from './ImportFlowProvider'
 import { UploadStep } from './steps/UploadStep'

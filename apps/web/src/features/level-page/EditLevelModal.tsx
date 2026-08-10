@@ -5,11 +5,11 @@ import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { FieldError } from '@/components/ui/field-error'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Label } from '@/components/generic/label'
+import { Switch } from '@/components/generic/switch'
+import { FieldError } from '@/components/generic/field-error'
 import { clampPercent, digitsOnly } from '@/features/logging/format'
 import { formatDisplayRating } from '@/lib/ratingScale'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'

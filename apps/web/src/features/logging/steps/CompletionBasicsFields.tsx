@@ -3,8 +3,8 @@
 // controls themselves live in src/components/ because the edit-level modal
 // renders the same ones.
 
-import { CoinPicker } from '@/components/CoinPicker'
-import { TwoPlayerPicker } from '@/components/TwoPlayerPicker'
+import { CoinPicker } from '@/components/inputs/CoinPicker'
+import { TwoPlayerPicker } from '@/components/inputs/TwoPlayerPicker'
 import type { Level } from '@/lib/api/logging'
 import { FieldHint, FieldLabel } from '../components'
 

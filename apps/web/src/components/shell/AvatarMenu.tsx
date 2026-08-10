@@ -4,7 +4,7 @@ import { LogOut, Settings, User } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useNavigate, UseNavigateResult } from '@tanstack/react-router'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
 
 function handleNavigate(
   navigate: UseNavigateResult<string>,

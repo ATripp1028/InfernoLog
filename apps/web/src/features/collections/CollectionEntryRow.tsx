@@ -5,7 +5,7 @@
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Loader2, X } from 'lucide-react'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { RankingBadge } from '@/features/ranking/RankingBadge'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import type { CollectionEntry } from '@/lib/api/collections'
