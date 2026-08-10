@@ -16,7 +16,7 @@ import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { formatRating } from '@/lib/ratingScale'
 
 /**
- * The colour a saved view is tagged with. A fixed palette, so a preset's colour survives a theme change.
+ * The color a saved view is tagged with. A fixed palette, so a preset's color survives a theme change.
  */
 export type PresetColorId =
   | 'red'
@@ -37,7 +37,7 @@ export type PresetColorId =
   | 'slate'
 
 /**
- * One entry in the preset colour palette.
+ * One entry in the preset color palette.
  */
 export interface PresetColor {
   id: PresetColorId
@@ -46,7 +46,7 @@ export interface PresetColor {
 }
 
 /**
- * The preset colour palette, in swatch order.
+ * The preset color palette, in swatch order.
  */
 export const PRESET_COLORS: PresetColor[] = [
   { id: 'red', hex: '#EF4444', label: 'Red' },
@@ -68,7 +68,7 @@ export const PRESET_COLORS: PresetColor[] = [
 ]
 
 /**
- * The palette entry for an id, falling back to the first colour so an unknown stored id still renders.
+ * The palette entry for an id, falling back to the first color so an unknown stored id still renders.
  */
 export function getPresetColor(id: PresetColorId): PresetColor {
   return (

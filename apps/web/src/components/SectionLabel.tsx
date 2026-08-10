@@ -1,6 +1,6 @@
 // The small uppercase heading that titles a group of fields, rows, or cards.
 // Five features had grown their own copy, each with a slightly different size,
-// tracking, weight, and colour for what is visually one element; the variants
+// tracking, weight, and color for what is visually one element; the variants
 // below are the two sizes and three tones those five collapsed into.
 
 import { cva, type VariantProps } from 'class-variance-authority'

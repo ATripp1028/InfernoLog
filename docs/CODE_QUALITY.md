@@ -366,12 +366,12 @@ result rows were.
 
 ### 6. Styling: tokens, not values
 
-**Colour comes from `src/styles/tokens.css`, through a Tailwind utility.**
+**Color comes from `src/styles/tokens.css`, through a Tailwind utility.**
 
 Tailwind v4 exposes every `@theme` token as a utility, so `bg-bg-surface` and
 `bg-[var(--color-bg-surface)]` are the same class written two ways. Both were
 in use — 134 `border-border` against 53 `border-[var(--color-border)]` — which
-is enough spelling variation to defeat a grep when a colour needs changing.
+is enough spelling variation to defeat a grep when a color needs changing.
 Use the utility form.
 
 **No raw hex, and no raw Tailwind palette colours.** `text-[#212121]` is
@@ -379,13 +379,24 @@ Use the utility form.
 with the design system bypassed. Three concrete failures came out of this:
 
 - `text-[var(--color-main)]` named a token that does not exist, so that badge
-  rendered with an inherited colour.
+  rendered with an inherited color.
 - The import wizard styled itself entirely in raw `amber-*`/`red-*` with
   `dark:` variants. The app is dark-only and never sets a `dark` class, so in
   Tailwind v4 those variants keyed off the _viewer's OS preference_ — a user on
   a light OS got `amber-600` text on a near-black panel.
 - Four badges used `bg-[rgba(34,197,94,0.1)]`-style literals that were, to the
   byte, the existing `--color-success-dim` and `--color-danger-dim`.
+
+**One token name means one thing.** `index.css`'s shadcn compatibility layer
+used to remap `--color-accent` onto its own "hover surface" value, shadowing
+the brand amber that `tokens.css` defines under that name — so every
+`text-accent`/`bg-accent`/`border-accent` in the app rendered dark grey. It
+took out the completed-level name color, the "amber-tracked" slider's range,
+and the GDDL accent button, each of which looked deliberate in source. shadcn's
+`accent` was only ever the hover/focus surface, so the three components that
+wanted it now say `bg-bg-elevated` outright and `--color-accent` is
+unambiguously the brand. Do not add a shadcn alias whose name collides with a
+`tokens.css` token.
 
 When a value genuinely has no token and recurs, add one with a comment saying
 what it is for — that pass added `--color-bg-inset`, `--color-text-body`, and

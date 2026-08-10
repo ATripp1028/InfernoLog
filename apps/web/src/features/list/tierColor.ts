@@ -36,7 +36,7 @@ function tierRgb(tier: number): [number, number, number] {
 }
 
 /**
- * The badge colour for a GDDL tier, interpolated along the difficulty gradient.
+ * The badge color for a GDDL tier, interpolated along the difficulty gradient.
  *
  * Tiers 1–15 land on light backgrounds, so callers render their number in
  * black; the palette only darkens from 16 up.

@@ -156,30 +156,17 @@ export const uncollectedCoinSrc = `${GD_ASSET_BASE}/coin-uncollected.png`
  * Whether a level is one of RobTop's official levels, whose coins are gold
  * secret coins rather than silver user coins.
  *
- * Reads `officialSongId` when the caller's payload carries it (the full
- * `Level`, the edit modals' `LevelMeta`) and falls back to the creator name
- * otherwise. The fallback exists because `LevelListSummary` — what the list
- * and ranking rows hold — deliberately omits `officialSongId`; before this
- * was one function the two readings lived in three modules and disagreed.
- *
- * @param level - Any level-ish object. A missing `officialSongId` means "not
- * carried by this payload", not "not official", which is why it falls through
- * to the creator rather than answering `false`.
+ * Decided by the creator name alone. `officialSongId` is NOT a proxy for
+ * this — an ordinary online level may perfectly well use one of the built-in
+ * songs, so that field says something about the song and nothing about who
+ * made the level.
  */
-export function isOfficialLevel(level: {
-  officialSongId?: number | null
-  creator?: string | null
-}): boolean {
-  if (level.officialSongId != null) return true
-  if (level.officialSongId === null) return false
+export function isOfficialLevel(level: { creator?: string | null }): boolean {
   return level.creator?.toLowerCase() === 'robtop'
 }
 
 /** The sprite for a COLLECTED coin on `level` — gold for official, silver otherwise. */
-export function collectedCoinSrc(level: {
-  officialSongId?: number | null
-  creator?: string | null
-}): string {
+export function collectedCoinSrc(level: { creator?: string | null }): string {
   return isOfficialLevel(level) ? officialCoinSrc : userCoinSilverSrc
 }
 

@@ -80,8 +80,8 @@ export function UploadStep() {
           className={cn(
             'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed',
             'border-border bg-bg-surface p-10 cursor-pointer',
-            'hover:border-primary hover:bg-accent transition-colors text-center',
-            isDragging && 'border-primary bg-accent',
+            'hover:border-primary hover:bg-bg-elevated transition-colors text-center',
+            isDragging && 'border-primary bg-bg-elevated',
             parsing && 'pointer-events-none opacity-60'
           )}
         >

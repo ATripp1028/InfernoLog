@@ -15,8 +15,7 @@ import {
 export interface CoinPickerLevel {
   coins: number | null
   coinsVerified: boolean | null
-  officialSongId?: number | null
-  creator?: string | null
+  creator: string | null
 }
 
 /**
@@ -64,7 +63,8 @@ export function CoinPicker({
             alt=""
             className={cn(
               'size-7 drop-shadow transition-all',
-              !isCollected && (variant === 'framed' ? 'opacity-60' : 'opacity-40 grayscale'),
+              !isCollected &&
+                (variant === 'framed' ? 'opacity-60' : 'opacity-40 grayscale'),
               isCollected && unverifiedTint
             )}
           />

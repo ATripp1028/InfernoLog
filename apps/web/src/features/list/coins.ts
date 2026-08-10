@@ -14,10 +14,6 @@ export interface CoinDisplay {
  * levels / Meltdown / SubZero, 0 for World. Official levels render the gold
  * secret-coin sprite; user levels the silver-or-uncollected user-coin sprite,
  * which doubles as the "are these coins silver-verified?" signal.
- *
- * `ListItem['level']` carries no `officialSongId`, so
- * {@link isOfficialLevel} falls back to the creator name here. That is the
- * whole reason it takes a partial level rather than a `Level`.
  */
 export function coinDisplay(level: ListItem['level']): CoinDisplay | null {
   const count = level.coins ?? 0

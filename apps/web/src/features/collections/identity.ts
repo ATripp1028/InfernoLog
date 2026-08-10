@@ -6,7 +6,7 @@ import { Heart, HeartCrack, List, Star, type LucideIcon } from 'lucide-react'
 import type { CollectionType } from '@infernolog/core'
 
 /**
- * A collection's display identity: icon, accent colour, and the copy that goes with its type.
+ * A collection's display identity: icon, accent color, and the copy that goes with its type.
  */
 export interface CollectionIdentity {
   icon: LucideIcon
@@ -38,10 +38,10 @@ function hashString(s: string): number {
 }
 
 /**
- * The icon, colour, and copy for a collection.
+ * The icon, color, and copy for a collection.
  *
  * Built-ins each get their own fixed identity; custom collections derive
- * theirs from the stored colour.
+ * theirs from the stored color.
  */
 export function collectionIdentity(
   type: CollectionType | string,

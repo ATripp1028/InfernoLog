@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 // Minimal "bordered surface" wrapper used by list rows, settings rows, and
 // status callouts. Just the visual surface (border + background + radius);
 // layout (flex / padding / gap) is up to the consumer's className. Variants
-// switch the border + tint colour for semantic emphasis.
+// switch the border + tint color for semantic emphasis.
 const cardVariants = cva('rounded-md border', {
   variants: {
     variant: {

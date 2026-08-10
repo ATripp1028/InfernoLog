@@ -9,7 +9,7 @@ import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
 
 /**
- * One collection tile on the Collections index: its identity colour, entry count, and level previews.
+ * One collection tile on the Collections index: its identity color, entry count, and level previews.
  */
 export function CollectionCard({
   collection,
