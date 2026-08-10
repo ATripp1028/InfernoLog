@@ -7,14 +7,11 @@
 
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function CheckingConflictsStep({
-  commitError,
-  onBackToReview,
-}: {
-  commitError: string | null
-  onBackToReview: () => void
-}) {
+export function CheckingConflictsStep() {
+  const { commitError, backToReview } = useImportFlow()
+
   return (
     <div className="space-y-3 py-4">
       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -24,7 +21,7 @@ export function CheckingConflictsStep({
       {commitError && (
         <div className="space-y-2 text-center">
           <p className="text-xs text-[var(--color-danger)]">{commitError}</p>
-          <Button variant="outline" size="sm" onClick={onBackToReview}>
+          <Button variant="outline" size="sm" onClick={backToReview}>
             Back to review
           </Button>
         </div>

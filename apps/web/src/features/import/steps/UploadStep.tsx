@@ -12,26 +12,21 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { downloadTemplate } from '../generateTemplate'
-import type { DateFormat, ParseResult } from '../parseSpreadsheet'
-import { DATE_OPTIONS, type AllFlags } from '../importWizardModel'
+import type { DateFormat } from '../parseSpreadsheet'
+import { DATE_OPTIONS } from '../importWizardModel'
 import { useUploadStep } from './useUploadStep'
 
-interface UploadStepProps {
-  dateFormat: DateFormat
-  onDateFormatChange: (f: DateFormat) => void
-  onParsed: (result: ParseResult, flags: AllFlags) => void
-}
-
-export function UploadStep({
-  dateFormat,
-  onDateFormatChange,
-  onParsed,
-}: UploadStepProps) {
+export function UploadStep() {
   const fileId = useId()
-  const { error, parsing, isDragging, dropZone, handleFile } = useUploadStep({
+  const {
     dateFormat,
-    onParsed,
-  })
+    setDateFormat,
+    error,
+    parsing,
+    isDragging,
+    dropZone,
+    handleFile,
+  } = useUploadStep()
 
   return (
     <div className="space-y-6">
@@ -59,7 +54,7 @@ export function UploadStep({
         </p>
         <Select
           value={dateFormat}
-          onValueChange={(v) => onDateFormatChange(v as DateFormat)}
+          onValueChange={(v) => setDateFormat(v as DateFormat)}
         >
           <SelectTrigger className="w-64">
             <SelectValue />

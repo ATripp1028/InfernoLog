@@ -5,25 +5,14 @@
 
 import { Button } from '@/components/ui/button'
 import { ProgressBar } from '../WizardChrome'
-import type { ImportStatusResponse } from '@/lib/api/import'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function CommittingStep({
-  progress,
-  progressLabel,
-  status,
-  commitError,
-  onBackToReview,
-  onClose,
-}: {
-  progress: number
-  // Shown before the job exists (while /start is still in flight), after
-  // which the polled row counts take over.
-  progressLabel: string
-  status: ImportStatusResponse | null | undefined
-  commitError: string | null
-  onBackToReview: () => void
-  onClose: () => void
-}) {
+export function CommittingStep() {
+  // `progressLabel` carries the message before the job exists (while /start
+  // is still in flight); after that the polled row counts take over.
+  const { progress, progressLabel, status, commitError, backToReview, close } =
+    useImportFlow()
+
   return (
     <div className="space-y-3 py-4">
       <ProgressBar value={progress} />
@@ -35,13 +24,13 @@ export function CommittingStep({
       {commitError && (
         <div className="space-y-2 text-center">
           <p className="text-xs text-[var(--color-danger)]">{commitError}</p>
-          <Button variant="outline" size="sm" onClick={onBackToReview}>
+          <Button variant="outline" size="sm" onClick={backToReview}>
             Back to review
           </Button>
         </div>
       )}
       <div className="pt-2 border-t border-[var(--color-border)]">
-        <Button variant="ghost" size="sm" onClick={onClose}>
+        <Button variant="ghost" size="sm" onClick={close}>
           Close
         </Button>
       </div>

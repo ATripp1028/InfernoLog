@@ -2,17 +2,11 @@
 // ParseResult, and the drag-and-drop bookkeeping around the drop zone.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { parseSpreadsheet, type DateFormat } from '../parseSpreadsheet'
-import type { ParseResult } from '../parseSpreadsheet'
-import type { AllFlags } from '../importWizardModel'
+import { parseSpreadsheet } from '../parseSpreadsheet'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function useUploadStep({
-  dateFormat,
-  onParsed,
-}: {
-  dateFormat: DateFormat
-  onParsed: (result: ParseResult, flags: AllFlags) => void
-}) {
+export function useUploadStep() {
+  const { dateFormat, setDateFormat, handleParsed: onParsed } = useImportFlow()
   const [error, setError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
@@ -91,5 +85,13 @@ export function useUploadStep({
     },
   }
 
-  return { error, parsing, isDragging, dropZone, handleFile }
+  return {
+    dateFormat,
+    setDateFormat,
+    error,
+    parsing,
+    isDragging,
+    dropZone,
+    handleFile,
+  }
 }

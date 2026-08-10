@@ -1,7 +1,10 @@
-// Logic for ImportWizard: the whole step machine. Owns the parsed sheet, the
-// conflict/list-merge results from /check and the resolutions the user makes
-// against them, the commit call, and the job-status polling that drives the
-// progress bar. The component only picks which step to render.
+// The import flow's whole step machine, held by ImportFlowProvider. Owns the
+// parsed sheet, the conflict/list-merge results from /check and the
+// resolutions the user makes against them, the commit call, and the
+// job-status polling that drives the progress bar.
+//
+// Every step reads this through useImportFlow() rather than props — same
+// shape as the logging flow's LoggingFlowProvider.
 //
 // Steps only ever move forward automatically; the sole backward moves are
 // explicit user actions (a cancel, or "Back to review" after an error).
@@ -43,7 +46,7 @@ import {
 } from './importWizardModel'
 import { buildImportPayload } from './buildImportPayload'
 
-export function useImportWizard({
+export function useImportFlowState({
   me,
   skipConflictCheck,
 }: {

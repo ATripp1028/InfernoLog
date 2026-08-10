@@ -7,44 +7,33 @@
 // useImportWizard; this only maps the sub-step to its resolver.
 
 import { FieldConflictMerge } from '../FieldConflictMerge'
-import type { GroupResolution } from '../FieldConflictMerge'
-import type { ImportRatingConflict, ImportRowConflict } from '@/lib/api/import'
 import {
   conflictsToGroups,
   ratingConflictsToGroups,
-  type ConflictSubStep,
 } from '../importWizardModel'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function ResolveConflictsStep({
-  subStep,
-  completionConflicts,
-  progressConflicts,
-  droppedConflicts,
-  ratingConflicts,
-  onCompletionsResolved,
-  onProgressResolved,
-  onDroppedResolved,
-  onRatingsResolved,
-  onCancel,
-}: {
-  subStep: ConflictSubStep
-  completionConflicts: ImportRowConflict[]
-  progressConflicts: ImportRowConflict[]
-  droppedConflicts: ImportRowConflict[]
-  ratingConflicts: ImportRatingConflict[]
-  onCompletionsResolved: (resolved: Map<string, GroupResolution>) => void
-  onProgressResolved: (resolved: Map<string, GroupResolution>) => void
-  onDroppedResolved: (resolved: Map<string, GroupResolution>) => void
-  onRatingsResolved: (resolved: Map<string, GroupResolution>) => void
-  onCancel: () => void
-}) {
-  switch (subStep) {
+export function ResolveConflictsStep() {
+  const {
+    conflictSubStep,
+    completionConflicts,
+    progressConflicts,
+    droppedConflicts,
+    ratingConflicts,
+    handleCompletionConflictsResolved,
+    handleProgressConflictsResolved,
+    handleDroppedConflictsResolved,
+    handleRatingConflictsResolved,
+    handleConflictsCancelled: onCancel,
+  } = useImportFlow()
+
+  switch (conflictSubStep) {
     case 'completions':
       return (
         <FieldConflictMerge
           tab="completion"
           groups={conflictsToGroups(completionConflicts)}
-          onResolved={onCompletionsResolved}
+          onResolved={handleCompletionConflictsResolved}
           onCancel={onCancel}
         />
       )
@@ -53,7 +42,7 @@ export function ResolveConflictsStep({
         <FieldConflictMerge
           tab="progress"
           groups={conflictsToGroups(progressConflicts)}
-          onResolved={onProgressResolved}
+          onResolved={handleProgressConflictsResolved}
           onCancel={onCancel}
         />
       )
@@ -62,7 +51,7 @@ export function ResolveConflictsStep({
         <FieldConflictMerge
           tab="dropped"
           groups={conflictsToGroups(droppedConflicts)}
-          onResolved={onDroppedResolved}
+          onResolved={handleDroppedConflictsResolved}
           onCancel={onCancel}
         />
       )
@@ -71,7 +60,7 @@ export function ResolveConflictsStep({
         <FieldConflictMerge
           tab="rating"
           groups={ratingConflictsToGroups(ratingConflicts)}
-          onResolved={onRatingsResolved}
+          onResolved={handleRatingConflictsResolved}
           onCancel={onCancel}
         />
       )

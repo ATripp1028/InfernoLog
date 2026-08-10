@@ -4,14 +4,12 @@
 
 import { Button } from '@/components/ui/button'
 import { ImportStatusPanel } from '../ImportStatusPanel'
-import type { ImportStatusResponse } from '@/lib/api/import'
+import { useImportFlow } from '../ImportFlowProvider'
 
-interface SuccessStepProps {
-  status: ImportStatusResponse
-  onClose: () => void
-}
+export function SuccessStep() {
+  const { status, close } = useImportFlow()
+  if (!status) return null
 
-export function SuccessStep({ status, onClose }: SuccessStepProps) {
   const { committed, updated, skipped, failed } = status.outcomeCounts
   const {
     rankingResult,
@@ -108,7 +106,7 @@ export function SuccessStep({ status, onClose }: SuccessStepProps) {
         </p>
       )}
 
-      <Button onClick={onClose} className="w-full">
+      <Button onClick={close} className="w-full">
         Done
       </Button>
     </div>

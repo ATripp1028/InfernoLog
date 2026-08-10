@@ -11,13 +11,14 @@
 // re-upload" from the review step, or "Cancel" out of conflict/list
 // resolution).
 //
-// Structured like the logging flow: every step is its own component under
-// steps/, StepView maps the current step to one, and this file is only the
-// shell — title, step indicator, and the shared cancel row. Every transition
-// between steps is decided in useImportWizard.
+// Structured like the logging flow: the step machine lives in
+// ImportFlowProvider, every step is its own component under steps/ reading
+// that context directly, StepView maps the current step to one, and this file
+// is only the shell — title, step indicator, and the shared cancel row.
 
 import { Button } from '@/components/ui/button'
 import { StepIndicator } from './WizardChrome'
+import { ImportFlowProvider, useImportFlow } from './ImportFlowProvider'
 import { UploadStep } from './steps/UploadStep'
 import { ReviewStep } from './steps/ReviewStep'
 import { CheckingConflictsStep } from './steps/CheckingConflictsStep'
@@ -25,7 +26,6 @@ import { ResolveConflictsStep } from './steps/ResolveConflictsStep'
 import { ResolveListsStep } from './steps/ResolveListsStep'
 import { CommittingStep } from './steps/CommittingStep'
 import { SuccessStep } from './steps/SuccessStep'
-import { useImportWizard } from './useImportWizard'
 import type { MeData } from '@/lib/api/me'
 
 interface ImportWizardProps {
@@ -43,8 +43,19 @@ export function ImportWizard({
   onClose,
   skipConflictCheck = false,
 }: ImportWizardProps) {
-  const wizard = useImportWizard({ me, skipConflictCheck })
-  const { step } = wizard
+  return (
+    <ImportFlowProvider
+      me={me}
+      onClose={onClose}
+      skipConflictCheck={skipConflictCheck}
+    >
+      <WizardShell />
+    </ImportFlowProvider>
+  )
+}
+
+function WizardShell() {
+  const { step, skipConflictCheck, close } = useImportFlow()
 
   return (
     <div className="space-y-6">
@@ -58,11 +69,7 @@ export function ImportWizard({
 
       <StepIndicator step={step} skipConflictCheck={skipConflictCheck} />
 
-      <StepView
-        wizard={wizard}
-        skipConflictCheck={skipConflictCheck}
-        onClose={onClose}
-      />
+      <StepView />
 
       {/* resolve-conflicts/resolve-lists each have their own Cancel (back to
           review) inside FieldConflictMerge/ListMergeBoard, and committing has
@@ -73,7 +80,7 @@ export function ImportWizard({
         step !== 'resolve-conflicts' &&
         step !== 'resolve-lists' && (
           <div className="pt-2 border-t border-[var(--color-border)]">
-            <Button variant="ghost" size="sm" onClick={onClose}>
+            <Button variant="ghost" size="sm" onClick={close}>
               Cancel
             </Button>
           </div>
@@ -82,81 +89,24 @@ export function ImportWizard({
   )
 }
 
-function StepView({
-  wizard,
-  skipConflictCheck,
-  onClose,
-}: {
-  wizard: ReturnType<typeof useImportWizard>
-  skipConflictCheck: boolean
-  onClose: () => void
-}) {
-  switch (wizard.step) {
+function StepView() {
+  const { step } = useImportFlow()
+
+  switch (step) {
     case 'upload':
-      return (
-        <UploadStep
-          dateFormat={wizard.dateFormat}
-          onDateFormatChange={wizard.setDateFormat}
-          onParsed={wizard.handleParsed}
-        />
-      )
+      return <UploadStep />
     case 'review':
-      return wizard.parseResult ? (
-        <ReviewStep
-          parseResult={wizard.parseResult}
-          flags={wizard.allFlags}
-          onSkipFlagged={wizard.handleSkipFlagged}
-          onReUpload={() => wizard.setStep('upload')}
-          showOverrideOption={!skipConflictCheck}
-          blanketOverride={wizard.blanketOverride}
-          onBlanketOverrideChange={wizard.setBlanketOverride}
-        />
-      ) : null
+      return <ReviewStep />
     case 'checking-conflicts':
-      return (
-        <CheckingConflictsStep
-          commitError={wizard.commitError}
-          onBackToReview={wizard.backToReview}
-        />
-      )
+      return <CheckingConflictsStep />
     case 'resolve-conflicts':
-      return (
-        <ResolveConflictsStep
-          subStep={wizard.conflictSubStep}
-          completionConflicts={wizard.completionConflicts}
-          progressConflicts={wizard.progressConflicts}
-          droppedConflicts={wizard.droppedConflicts}
-          ratingConflicts={wizard.ratingConflicts}
-          onCompletionsResolved={wizard.handleCompletionConflictsResolved}
-          onProgressResolved={wizard.handleProgressConflictsResolved}
-          onDroppedResolved={wizard.handleDroppedConflictsResolved}
-          onRatingsResolved={wizard.handleRatingConflictsResolved}
-          onCancel={wizard.handleConflictsCancelled}
-        />
-      )
+      return <ResolveConflictsStep />
     case 'resolve-lists':
-      return wizard.currentListMerge ? (
-        <ResolveListsStep
-          current={wizard.currentListMerge}
-          onConfirm={wizard.handleListMergeConfirmed}
-          onCancel={wizard.handleListMergeCancelled}
-        />
-      ) : null
+      return <ResolveListsStep />
     case 'committing':
-      return (
-        <CommittingStep
-          progress={wizard.progress}
-          progressLabel={wizard.progressLabel}
-          status={wizard.status}
-          commitError={wizard.commitError}
-          onBackToReview={wizard.backToReview}
-          onClose={onClose}
-        />
-      )
+      return <CommittingStep />
     case 'success':
-      return wizard.status ? (
-        <SuccessStep status={wizard.status} onClose={onClose} />
-      ) : null
+      return <SuccessStep />
     default:
       return null
   }

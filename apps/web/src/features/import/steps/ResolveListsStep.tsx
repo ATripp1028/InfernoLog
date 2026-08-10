@@ -7,18 +7,17 @@
 
 import { ListMergeBoard } from '../listMerge/ListMergeBoard'
 import { RANKING_MERGE_KEY } from '../importWizardModel'
-import type { ImportListMerge } from '@/lib/api/import'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function ResolveListsStep({
-  current,
-  onConfirm,
-  onCancel,
-}: {
-  // Collection display name (or RANKING_MERGE_KEY) plus the merge to resolve.
-  current: { key: string; merge: ImportListMerge }
-  onConfirm: (finalOrder: string[]) => void
-  onCancel: () => void
-}) {
+export function ResolveListsStep() {
+  const {
+    currentListMerge: current,
+    handleListMergeConfirmed,
+    handleListMergeCancelled,
+  } = useImportFlow()
+
+  if (!current) return null
+
   return (
     <ListMergeBoard
       key={current.key}
@@ -28,8 +27,8 @@ export function ResolveListsStep({
       existingRemainder={current.merge.existingRemainder}
       importedOrder={current.merge.importedOrder}
       existingOrder={current.merge.existingOrder}
-      onConfirm={onConfirm}
-      onCancel={onCancel}
+      onConfirm={handleListMergeConfirmed}
+      onCancel={handleListMergeCancelled}
     />
   )
 }

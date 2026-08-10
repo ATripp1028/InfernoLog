@@ -4,32 +4,9 @@
 
 import { Button } from '@/components/ui/button'
 import { FlagList } from '../WizardChrome'
-import type { ParseResult } from '../parseSpreadsheet'
-import type { AllFlags } from '../importWizardModel'
 import { useReviewStep } from './useReviewStep'
 
-interface ReviewStepProps {
-  parseResult: ParseResult
-  flags: AllFlags
-  onSkipFlagged: () => void
-  onReUpload: () => void
-  // Onboarding: a brand-new account has nothing to conflict with, so the
-  // override checkbox would have nothing to do — hidden rather than shown
-  // disabled.
-  showOverrideOption: boolean
-  blanketOverride: boolean
-  onBlanketOverrideChange: (v: boolean) => void
-}
-
-export function ReviewStep({
-  parseResult,
-  flags,
-  onSkipFlagged,
-  onReUpload,
-  showOverrideOption,
-  blanketOverride,
-  onBlanketOverrideChange,
-}: ReviewStepProps) {
+export function ReviewStep() {
   const {
     errorFlags,
     errorFlagsByTab,
@@ -45,7 +22,13 @@ export function ReviewStep({
     totalRated,
     totalValid,
     totalSkipped,
-  } = useReviewStep(parseResult, flags)
+    flags,
+    handleSkipFlagged,
+    onReUpload,
+    showOverrideOption,
+    blanketOverride,
+    setBlanketOverride,
+  } = useReviewStep()
 
   return (
     <div className="space-y-5">
@@ -281,7 +264,7 @@ export function ReviewStep({
             type="checkbox"
             className="mt-0.5"
             checked={blanketOverride}
-            onChange={(e) => onBlanketOverrideChange(e.target.checked)}
+            onChange={(e) => setBlanketOverride(e.target.checked)}
           />
           <span>
             <span className="font-medium">Imported data always wins</span>
@@ -299,7 +282,7 @@ export function ReviewStep({
         <Button variant="outline" onClick={onReUpload}>
           Fix and re-upload
         </Button>
-        <Button onClick={onSkipFlagged} disabled={totalValid === 0}>
+        <Button onClick={handleSkipFlagged} disabled={totalValid === 0}>
           Import {totalValid} row{totalValid !== 1 ? 's' : ''}
           {totalSkipped > 0 ? `, skip ${totalSkipped}` : ''}
         </Button>

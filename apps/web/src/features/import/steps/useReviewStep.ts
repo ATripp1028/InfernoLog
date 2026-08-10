@@ -3,15 +3,29 @@
 // merely "we'll resolve this level by name" versus a dropped field value.
 
 import { useMemo } from 'react'
-import type { ParseFlag, ParseResult } from '../parseSpreadsheet'
-import type { AllFlags } from '../importWizardModel'
+import type { ParseFlag } from '../parseSpreadsheet'
+import { useImportFlow } from '../ImportFlowProvider'
 
-export function useReviewStep(parseResult: ParseResult, flags: AllFlags) {
+export function useReviewStep() {
+  const {
+    parseResult,
+    allFlags: flags,
+    handleSkipFlagged,
+    setStep,
+    skipConflictCheck,
+    blanketOverride,
+    setBlanketOverride,
+  } = useImportFlow()
+
   // Recomputed only when the parsed data or its flags actually change —
   // otherwise unrelated re-renders (e.g. toggling the override checkbox)
   // would re-run every filter/reduce pass over the full row set for no
   // reason.
-  return useMemo(() => {
+  //
+  // parseResult is always set by the time this step renders (the flow only
+  // enters `review` after a successful parse); the `?? []` fallbacks keep the
+  // memo total rather than making every count optional downstream.
+  const counts = useMemo(() => {
     const allFlags = [
       ...flags.completions,
       ...flags.progress,
@@ -78,33 +92,33 @@ export function useReviewStep(parseResult: ParseResult, flags: AllFlags) {
     const totalNameOnly = sumTab(nameOnlyByTab)
     const totalDataWarn = sumTab(dataWarnByTab)
 
-    const validCompletions = parseResult.completions.filter(
+    const validCompletions = (parseResult?.completions ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         (r.data.levelId || r.data.levelName)
     )
-    const validProgress = parseResult.progress.filter(
+    const validProgress = (parseResult?.progress ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         (r.data.levelId || r.data.levelName)
     )
-    const validDropped = parseResult.dropped.filter(
+    const validDropped = (parseResult?.dropped ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         (r.data.levelId || r.data.levelName)
     )
-    const totalRanked = parseResult.ranking.filter(
+    const totalRanked = (parseResult?.ranking ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         (r.levelId || r.levelName)
     ).length
-    const totalListed = parseResult.lists.filter(
+    const totalListed = (parseResult?.lists ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         r.list &&
         (r.levelId || r.levelName)
     ).length
-    const totalRated = parseResult.ratings.filter(
+    const totalRated = (parseResult?.ratings ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
         (r.levelId || r.levelName) &&
@@ -131,4 +145,17 @@ export function useReviewStep(parseResult: ParseResult, flags: AllFlags) {
       totalSkipped,
     }
   }, [parseResult, flags])
+
+  return {
+    ...counts,
+    flags,
+    handleSkipFlagged,
+    onReUpload: () => setStep('upload'),
+    // Onboarding: a brand-new account has nothing to conflict with, so the
+    // override checkbox would have nothing to do — hidden rather than shown
+    // disabled.
+    showOverrideOption: !skipConflictCheck,
+    blanketOverride,
+    setBlanketOverride,
+  }
 }
