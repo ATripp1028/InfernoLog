@@ -211,9 +211,14 @@ export function useAddLevelsDialog({
       !showSeedHint &&
       !seedingId,
 
-    // Row state
-    isInCollection: (levelId: string) => inCollection.has(levelId),
-    isBeaten: (levelId: string) => completedIds?.has(levelId) ?? false,
+    // Row state. A badge means the row can't be picked: already a member of
+    // this collection, or (Want to Beat only, via completedIds) already beaten.
+    rowBadge: (levelId: string): string | null =>
+      inCollection.has(levelId)
+        ? 'Added'
+        : (completedIds?.has(levelId) ?? false)
+          ? 'Already beaten'
+          : null,
     addingId,
     isAdding: addEntry.isPending,
 

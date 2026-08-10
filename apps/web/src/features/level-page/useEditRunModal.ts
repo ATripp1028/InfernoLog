@@ -17,9 +17,8 @@ import { useEditProgress } from '@/lib/api/levelPage'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { isPreTwoTwo } from '@/features/logging/steps/CompletionSessionStep'
 import { getViewerTimezone } from '@/lib/timezone'
-import type { Device } from '@/lib/api/logging'
+import type { Device, DifficultyOpinion } from '@/lib/api/logging'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
-import type { DifficultyOpinion } from './EditShared'
 import {
   formatRunInputValue,
   parseRunInput,

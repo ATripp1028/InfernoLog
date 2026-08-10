@@ -17,11 +17,8 @@ import {
 import { clampPercent, digitsOnly } from '../format'
 import { GdVersionPicker, GdVersionInfoButton } from './CompletionSessionStep'
 import { useCompletionBasicsStep } from './useCompletionBasicsStep'
-import {
-  CoinsSection,
-  DifficultyOpinionSelect,
-  TwoPlayerSection,
-} from './CompletionBasicsFields'
+import { CoinsSection, TwoPlayerSection } from './CompletionBasicsFields'
+import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
 
 export function CompletionBasicsStep() {
   const {

@@ -8,13 +8,10 @@ import {
   useLevelById,
   useLevelSearch,
   useResolveLevel,
-  type Level,
-  type LevelSearchResult,
 } from '@/lib/api/logging'
 import { useMyProgress } from '@/lib/api/list'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { LevelResultRow } from '@/components/LevelResultRow'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { useEscalation } from '@/features/search/useEscalation'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -167,7 +164,11 @@ export function FindLevelStep() {
           <div className="overflow-hidden rounded-md border border-border">
             <LevelResultRow
               level={seeded.level}
-              alreadyLogged={completedIds.has(seeded.level.inGameId)}
+              badge={
+                completedIds.has(seeded.level.inGameId)
+                  ? 'Already logged'
+                  : null
+              }
               disabled={resolveLevel.isPending}
               onSelect={() => applyResolved(seeded)}
             />
@@ -178,7 +179,11 @@ export function FindLevelStep() {
           <div className="overflow-hidden rounded-md border border-border">
             <LevelResultRow
               level={cachedLevel.data}
-              alreadyLogged={completedIds.has(cachedLevel.data.inGameId)}
+              badge={
+                completedIds.has(cachedLevel.data.inGameId)
+                  ? 'Already logged'
+                  : null
+              }
               disabled={resolveLevel.isPending}
               onSelect={() => resolve(cachedLevel.data!.inGameId)}
             />
@@ -208,10 +213,12 @@ export function FindLevelStep() {
             ) : (
               <div className="overflow-hidden rounded-md border border-border">
                 {results.map((r) => (
-                  <ResultRow
+                  <LevelResultRow
                     key={r.inGameId}
-                    result={r}
-                    alreadyLogged={completedIds.has(r.inGameId)}
+                    level={r}
+                    badge={
+                      completedIds.has(r.inGameId) ? 'Already logged' : null
+                    }
                     disabled={resolveLevel.isPending}
                     onSelect={() => resolve(r.inGameId)}
                   />
@@ -248,137 +255,5 @@ export function FindLevelStep() {
         </Button>
       </StepFooter>
     </>
-  )
-}
-
-// Variant of ResultRow for a full Level object (from the cached DB lookup).
-function LevelResultRow({
-  level,
-  onSelect,
-  alreadyLogged = false,
-  disabled,
-}: {
-  level: Level
-  onSelect: () => void
-  alreadyLogged?: boolean
-  disabled: boolean
-}) {
-  const meta = [level.creator ? `by ${level.creator}` : null, level.songName]
-    .filter(Boolean)
-    .join(' · ')
-  return (
-    <button
-      type="button"
-      disabled={alreadyLogged || disabled}
-      onClick={onSelect}
-      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
-    >
-      <img
-        src={levelThumbnailUrl(level.inGameId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="absolute inset-0 size-full object-cover"
-      />
-      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
-      <span className="relative flex items-center gap-3">
-        <DifficultyFace
-          difficulty={level.inGameDifficulty}
-          featured={level.featured}
-          epicValue={level.epicValue}
-          rated={level.isRated}
-          size={100}
-          className="translate-y-[3px] drop-shadow"
-        />
-        <span>
-          <span className="block font-medium leading-tight text-text-primary">
-            {level.name ?? `Level #${level.inGameId}`}
-          </span>
-          {meta && (
-            <span className="block text-xs text-text-secondary">{meta}</span>
-          )}
-        </span>
-      </span>
-      {alreadyLogged ? (
-        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-          Already logged
-        </span>
-      ) : (
-        <span className="relative font-mono text-xs text-text-secondary">
-          #{level.inGameId}
-        </span>
-      )}
-    </button>
-  )
-}
-
-function ResultRow({
-  result,
-  onSelect,
-  alreadyLogged = false,
-  disabled,
-}: {
-  result: LevelSearchResult
-  onSelect: () => void
-  alreadyLogged?: boolean
-  disabled: boolean
-}) {
-  const meta = [result.creator ? `by ${result.creator}` : null, result.songName]
-    .filter(Boolean)
-    .join(' · ')
-  return (
-    <button
-      type="button"
-      disabled={alreadyLogged || disabled}
-      onClick={onSelect}
-      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
-    >
-      {/* Level thumbnail backdrop; hidden if it fails to load. */}
-      <img
-        src={levelThumbnailUrl(result.inGameId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="absolute inset-0 size-full object-cover"
-      />
-      {/* Scrim for legibility + a subtle hover lift. */}
-      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
-
-      <span className="relative flex items-center gap-3">
-        <DifficultyFace
-          difficulty={result.inGameDifficulty}
-          featured={result.featured}
-          epicValue={result.epicValue}
-          rated={result.isRated}
-          size={100}
-          className="translate-y-[3px] drop-shadow"
-        />
-        <span>
-          <span className="block font-medium leading-tight text-text-primary">
-            {result.name ?? `Level #${result.inGameId}`}
-          </span>
-          {meta && (
-            <span className="block text-xs text-text-secondary">{meta}</span>
-          )}
-        </span>
-      </span>
-      {alreadyLogged ? (
-        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-          Already logged
-        </span>
-      ) : (
-        <span className="relative font-mono text-xs text-text-secondary">
-          #{result.inGameId}
-        </span>
-      )}
-    </button>
   )
 }

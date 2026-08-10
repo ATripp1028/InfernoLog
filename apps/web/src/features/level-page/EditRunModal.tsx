@@ -22,9 +22,9 @@ import {
   FieldLabel,
   Textarea,
   RatingRow,
-  DifficultyOpinionSelect,
   EditTwoPlayerSection,
 } from './EditShared'
+import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
 import { RunInput, formatRunInputValue } from '@/features/logging/RunInput'
 import type { LevelPageData } from './types'
 import { useEditRunModal } from './useEditRunModal'

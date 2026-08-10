@@ -12,9 +12,8 @@
 import { Loader2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { LevelResultRow } from '@/components/LevelResultRow'
 import { type CollectionDetail } from '@/lib/api/collections'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
@@ -49,8 +48,7 @@ export function AddLevelsDialog({
     showCachedPreview,
     showSeedHint,
     showEmptyPrompt,
-    isInCollection,
-    isBeaten,
+    rowBadge,
     addingId,
     isAdding,
     addLevel,
@@ -140,17 +138,9 @@ export function AddLevelsDialog({
           <div>
             <SectionLabel>Results</SectionLabel>
             <div className="overflow-hidden rounded-md border border-border">
-              <ResultRow
-                levelId={cachedLevel.inGameId}
-                name={cachedLevel.name}
-                creator={cachedLevel.creator}
-                songName={cachedLevel.songName}
-                inGameDifficulty={cachedLevel.inGameDifficulty}
-                featured={cachedLevel.featured}
-                epicValue={cachedLevel.epicValue}
-                isRated={cachedLevel.isRated}
-                added={isInCollection(cachedLevel.inGameId)}
-                beaten={isBeaten(cachedLevel.inGameId)}
+              <LevelResultRow
+                level={cachedLevel}
+                badge={rowBadge(cachedLevel.inGameId)}
                 loading={addingId === cachedLevel.inGameId}
                 disabled={isAdding}
                 onSelect={() =>
@@ -195,18 +185,10 @@ export function AddLevelsDialog({
             ) : (
               <div className="overflow-hidden rounded-md border border-border">
                 {results.map((r) => (
-                  <ResultRow
+                  <LevelResultRow
                     key={r.inGameId}
-                    levelId={r.inGameId}
-                    name={r.name}
-                    creator={r.creator}
-                    songName={r.songName}
-                    inGameDifficulty={r.inGameDifficulty}
-                    featured={r.featured}
-                    epicValue={r.epicValue}
-                    isRated={r.isRated}
-                    added={isInCollection(r.inGameId)}
-                    beaten={isBeaten(r.inGameId)}
+                    level={r}
+                    badge={rowBadge(r.inGameId)}
                     loading={addingId === r.inGameId}
                     disabled={isAdding}
                     onSelect={() => addLevel(r.inGameId, r.name)}
@@ -333,99 +315,5 @@ export function AddLevelsDialog({
         {body}
       </div>
     </div>
-  )
-}
-
-// Shared result row — matches the logging flow's FindLevelStep visual style.
-// Thumbnail backdrop, gradient scrim, difficulty face, name/meta, ID on right.
-// "Added" / "Already beaten" rows show a tag and are not clickable.
-function ResultRow({
-  levelId,
-  name,
-  creator,
-  songName,
-  inGameDifficulty,
-  featured,
-  epicValue,
-  isRated,
-  added,
-  beaten = false,
-  loading = false,
-  disabled,
-  onSelect,
-}: {
-  levelId: string
-  name: string | null
-  creator: string | null
-  songName: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-  added: boolean
-  beaten?: boolean
-  loading?: boolean
-  disabled: boolean
-  onSelect: () => void
-}) {
-  const meta = [creator ? `by ${creator}` : null, songName]
-    .filter(Boolean)
-    .join(' · ')
-  return (
-    <button
-      type="button"
-      disabled={added || beaten || disabled}
-      onClick={onSelect}
-      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
-    >
-      <img
-        src={levelThumbnailUrl(levelId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="absolute inset-0 size-full object-cover"
-      />
-      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
-      <span className="relative flex items-center gap-3">
-        <DifficultyFace
-          difficulty={inGameDifficulty}
-          featured={featured}
-          epicValue={epicValue}
-          rated={isRated}
-          size={100}
-          className="translate-y-[3px] drop-shadow"
-        />
-        <span>
-          <span className="block font-medium leading-tight text-text-primary">
-            {name ?? `Level #${levelId}`}
-          </span>
-          {meta && (
-            <span className="block text-xs text-text-secondary">{meta}</span>
-          )}
-        </span>
-      </span>
-      {loading ? (
-        <Loader2
-          size={16}
-          className="relative animate-spin text-text-tertiary"
-        />
-      ) : added ? (
-        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-          Added
-        </span>
-      ) : beaten ? (
-        <span className="relative rounded bg-bg-subtle px-2 py-1 text-[11px] font-medium text-text-tertiary">
-          Already beaten
-        </span>
-      ) : (
-        <span className="relative font-mono text-xs text-text-secondary">
-          #{levelId}
-        </span>
-      )}
-    </button>
   )
 }
