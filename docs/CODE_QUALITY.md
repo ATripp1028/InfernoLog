@@ -5,10 +5,12 @@ it does. Everything here is enforced by review, not by a linter, unless a rule
 says otherwise.
 
 The document is split by surface. A rule stated under **Backend** governs
-`apps/api` only; the **Frontend** section is a placeholder until the equivalent
-pass lands for `apps/web`. Rules that would genuinely apply everywhere still
-belong to a surface section for now — promote them to a shared section only when
-a second surface has actually adopted them, not in anticipation.
+`apps/api` only, and one stated under **Frontend** governs `apps/web` only —
+neither surface's rules should be assumed to apply to the other, since several
+on each side are specific to its stack. Rules that would genuinely apply
+everywhere still belong to a surface section for now — promote them to a shared
+section only when a second surface has actually adopted them, not in
+anticipation.
 
 ---
 
@@ -214,9 +216,149 @@ JSDoc — it is the kind of thing a caller gets wrong exactly once, expensively.
 
 ## Frontend (`apps/web`)
 
-Not yet established. The frontend has not had an equivalent pass, and no rule
-above should be assumed to apply to it by default — several are specific to
-Hono, Prisma, or Lambda.
+Established by the frontend logic-extraction pass on 2026-08-09/10. Same
+convention as above: where a rule exists because a specific failure happened,
+the failure is named.
 
-When that pass happens, mirror this structure here rather than editing the
-backend rules to be surface-neutral.
+These rules govern how a component is _organized_. Styling, data-fetching
+conventions, and the documentation-comment question are not settled yet — see
+"Not covered yet" at the end rather than assuming the backend's answer.
+
+### 1. Component files render; logic lives beside them
+
+**Every component keeps its logic in a sibling file — one file per component.**
+
+The component file holds JSX and nothing else: no queries, no mutations, no
+`useState`/`useEffect`, no handlers, no derived values. All of it moves to a
+sibling that the component calls once.
+
+- Stateful logic → a hook named for the component: `useListPage.ts`,
+  `useAddLevelsDialog.ts`, `useRatingConfigEditor.ts`.
+- Pure logic → a plain module named for its content, no hook wrapper:
+  `buildImportPayload.ts`, `timelineFormat.ts`, `editDateTime.ts`.
+
+Pages count as components and follow the same rule. The naming exception is
+worth knowing: the page hook cannot reuse a name already taken by its API
+query hook, which is why the level pages use `useLevelDetailPage` /
+`useGlobalLevelDetailPage` rather than shadowing `useLevelPage` /
+`useGlobalLevelPage` from `lib/api/`.
+
+This pass started at seventeen components over 400 lines, topping out at
+`ImportWizard.tsx` at 2053 — a file whose step machine, commit-payload
+construction, and seven steps' worth of markup all had to be held at once to
+change any of it. The split is what makes the logic reachable by a test at all;
+`buildImportPayload` is now a pure function taking an input object, where
+before it was ~170 lines buried inside an async callback.
+
+**A hook returns data, not JSX.** Loading and error branching stays in the
+component — a hook cannot early-return markup, and pushing the branch inside
+just means returning components from a logic file. Hooks expose a status
+instead:
+
+```ts
+// useLevelDetailPage.ts
+export type LevelDetailStatus =
+  | 'loading'
+  | 'private'
+  | 'not-found'
+  | 'error'
+  | 'ready'
+```
+
+```tsx
+// LevelPage.tsx — the component still picks the render.
+if (status === 'loading') return <LevelPageSkeleton />
+if (status === 'private') return <PrivateProfile />
+```
+
+**When a component splits on data availability, split the hook the same way.**
+`CollectionDetail` renders a shell until its query resolves, then a `Loaded`
+subtree — so its logic file exports `useCollectionDetailPage` (query, dialog
+state, FAB) and `useLoadedCollection` (everything needing a resolved
+collection). Merging them would mean seeding `displayEntries` empty and filling
+it from an effect, which flashes the "No levels yet" empty state for a frame
+before the rows land.
+
+### 2. Multi-step flows: one component per step, plus a flow context
+
+**A step is a component in `steps/`, never a branch of JSX in the parent.**
+
+The logging flow is the reference example, and the import wizard was rebuilt to
+match it. The shape:
+
+- One file per step under `steps/`, including transient ones. A step that only
+  shows a spinner still gets a file when it is the state that decides where the
+  flow goes next — `ResolvingStep` and `CheckingConflictsStep` both exist for
+  that reason.
+- A `StepView` switch with exactly one line per step, and no other logic.
+- A flow provider (`LoggingFlowProvider`, `ImportFlowProvider`) holding the step
+  machine, so **steps take zero props** and read what they need via
+  `useLoggingFlow()` / `useImportFlow()`. A step's own logic hook reads the
+  context too, rather than accepting the flow as arguments.
+- The parent file is then only a shell: chrome, step indicator, and whatever
+  affordance is genuinely shared across steps.
+
+Where a step owns an affordance the shell cannot explain, it keeps it. The
+import wizard's `CommittingStep` renders its own Close button, because closing
+there abandons the view and not the server-side job — that caveat belongs next
+to the button, not in the shell's generic cancel row.
+
+A provider does not have to be app-global. `LoggingFlowProvider` is mounted once
+in the shell because the FAB opens it from anywhere; `ImportFlowProvider` is
+mounted by `ImportWizard` itself, which scopes the flow's state to one open
+wizard and makes close-then-reopen start clean without a reset path to
+maintain.
+
+### 3. Shared components live in `src/components/`
+
+**A component used by two features belongs to neither.**
+
+`ResultRow` had been re-typed four times across three files — twice in the
+logging flow's `FindLevelStep`, once in each collections dialog. Two of the four
+were identical apart from the name and type of their one prop; a third had grown
+`added`/`beaten`/`loading` while the others had not. The same happened to
+`DifficultyOpinionSelect`, which existed twice byte-identical (comments aside),
+each copy dragging its own `DEMON_OPINIONS` table, and one of them also carrying
+a hand-written `DifficultyOpinion` union that restated the one in
+`lib/api/logging.ts`. Nobody duplicated those deliberately — it is what copies
+do, and the drift is the cost.
+
+Both now live in `src/components/` with the per-caller differences expressed as
+props (`badge`, `loading`, `disabled`), not as separate copies. Before writing a
+row, picker, or dialog chrome, check there.
+
+This is not a blanket ban on similar-looking components. `SearchResultRow` looks
+like it belongs to the `LevelResultRow` family and deliberately does not: it is
+a shorter row with a different thumbnail treatment, meta format, and listbox
+semantics, answering to the search surface rather than to a "pick a level"
+prompt. The rule targets **one component re-typed**, which is what the four
+result rows were.
+
+### 4. Feature layout
+
+Feature code lives under `src/features/<feature>/`, with the component, its
+logic file, and its feature-local helpers together. Steps go in a `steps/`
+subdirectory; anything shared across features moves to `src/components/` (see
+§3) or `src/lib/`.
+
+Files that are neither component nor hook are named for what they hold —
+`filtering.ts`, `columns.ts`, `identity.ts`, `importWizardModel.ts` — and a
+state machine's model (its step union, its shared transforms) belongs in one of
+those rather than in the component that happens to render it first.
+
+### Not covered yet
+
+Deliberately unsettled, so nothing here is mistaken for a rule:
+
+- **Documentation comments.** The frontend uses `//` module headers and inline
+  comments explaining non-obvious decisions. The backend's "JSDoc on every
+  exported symbol" rule (§1 above) has _not_ been adopted here; applying it
+  would make the whole surface non-compliant overnight, so it needs its own
+  decision rather than an assumption.
+- **Styling and Tailwind conventions**, including when a class string earns a
+  `cn()` helper or a shared variant.
+- **Data fetching** — query key shape, cache invalidation, and where a
+  `lib/api/` hook ends and feature logic begins.
+- **Testing.** `apps/web` has no test suite. The logic files above exist partly
+  to make one possible; pure modules like `buildImportPayload` are the natural
+  first targets.

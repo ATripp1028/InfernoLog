@@ -21,33 +21,6 @@ function EntryTimeSuffix({
   )
 }
 
-// ─── Timeline dot ────────────────────────────────────────────────
-// type DotColor = 'green' | 'grey' | 'red'
-
-// function TimelineDot({ color }: { color: DotColor }) {
-//   const outerClass =
-//     color === 'green'
-//       ? 'border-[var(--color-success)]'
-//       : color === 'red'
-//         ? 'border-[var(--color-danger)]'
-//         : 'border-[#333]'
-//   const innerClass =
-//     color === 'green'
-//       ? 'bg-[var(--color-success)]'
-//       : color === 'red'
-//         ? 'bg-[var(--color-danger)]'
-//         : 'bg-[#555]'
-
-//   return (
-//     <div
-//       className={`absolute left-[22px] flex size-5 -translate-x-1/2 items-center justify-center rounded-full border-2 bg-bg-base ${outerClass}`}
-//       aria-hidden
-//     >
-//       <div className={`size-2 rounded-full ${innerClass}`} />
-//     </div>
-//   )
-// }
-
 // ─── Completion entry card ────────────────────────────────────────
 function CompletionEntry({
   update,
