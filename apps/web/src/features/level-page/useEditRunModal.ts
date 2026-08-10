@@ -4,20 +4,16 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/ui/sonner'
-import {
-  maxValueError,
-  toDisplay,
-  toInternal,
-  MAX_ATTEMPTS,
-  MAX_FPS,
-} from '@/features/logging/format'
-import { useMe, type RatingDisplayScale } from '@/lib/api/me'
-import type { DateFormatPreference } from '@/lib/api/me'
+import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/features/logging/format'
+import { toDisplay, toInternal } from '@/lib/ratingScale'
+import { useMe } from '@/lib/api/me'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { formatEntryDateTime } from '@/lib/dateFormat'
-import { isPreTwoTwo } from '@/features/logging/steps/CompletionSessionStep'
+import { isPreTwoTwo } from '@/features/logging/gdVersion'
 import { getViewerTimezone } from '@/lib/timezone'
-import type { Device, DifficultyOpinion } from '@/lib/api/logging'
+import type { Device, DifficultyOpinion } from '@/lib/api/wireEnums'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
 import {
   formatRunInputValue,
@@ -26,6 +22,9 @@ import {
 } from '@/features/logging/RunInput'
 import type { LevelPageData, ProgressUpdate } from './types'
 
+/**
+ * The edit-run form state. Ratings are held in DISPLAY units and converted on save.
+ */
 export interface EditRunForm {
   date: string
   time: string
@@ -92,6 +91,9 @@ function initForm(
   }
 }
 
+/**
+ * Form state, validation, and the save mutation for one logged update.
+ */
 export function useEditRunModal({
   open,
   onClose,

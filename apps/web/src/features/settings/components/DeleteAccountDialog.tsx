@@ -16,6 +16,9 @@ interface DeleteAccountDialogProps {
   isDeleting: boolean
 }
 
+/**
+ * Account deletion confirmation. Requires the exact `DELETE_ACCOUNT_CONFIRMATION` phrase.
+ */
 export function DeleteAccountDialog({
   open,
   onOpenChange,
@@ -41,7 +44,7 @@ export function DeleteAccountDialog({
         />
         <Dialog.Content
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 pb-6 shadow-xl focus:outline-none',
+            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-border bg-bg-surface p-5 pb-6 shadow-xl focus:outline-none',
             dialogContentAnimation,
             'md:inset-auto md:left-1/2 md:top-1/2 md:bottom-auto md:w-[calc(100vw-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:border md:pb-5'
           )}

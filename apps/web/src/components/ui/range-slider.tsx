@@ -16,6 +16,9 @@ interface RangeSliderProps extends React.ComponentPropsWithoutRef<
   trackStyle?: React.CSSProperties | undefined
 }
 
+/**
+ * A two-thumb slider for a `[min, max]` filter range.
+ */
 export const RangeSlider = forwardRef<
   React.ElementRef<typeof SliderPrimitive.Root>,
   RangeSliderProps
@@ -32,14 +35,11 @@ export const RangeSlider = forwardRef<
       {...props}
     >
       <SliderPrimitive.Track
-        className="relative h-1 w-full grow overflow-hidden rounded-full bg-[var(--color-bg-subtle)]"
+        className="relative h-1 w-full grow overflow-hidden rounded-full bg-bg-subtle"
         style={trackStyle}
       >
         <SliderPrimitive.Range
-          className={cn(
-            'absolute h-full bg-[var(--color-primary)]',
-            trackClassName
-          )}
+          className={cn('absolute h-full bg-primary', trackClassName)}
         />
       </SliderPrimitive.Track>
       {Array.from({ length: count }).map((_, i) => (

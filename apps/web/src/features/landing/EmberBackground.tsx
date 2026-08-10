@@ -44,6 +44,9 @@ function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
 }
 
+/**
+ * The landing page's drifting ember canvas. Purely decorative and `aria-hidden`.
+ */
 export function EmberBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 

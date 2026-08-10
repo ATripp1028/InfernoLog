@@ -17,9 +17,11 @@ import { toast } from '@/components/ui/sonner'
 import { useFabActions } from '@/context/FabActionsContext'
 import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
 
-// Which of the page's mutually exclusive top-level renders applies.
-// 'ready' still requires `data` and `user` to be present before use — see
-// the page's final guard.
+/**
+ * Which of the page's mutually exclusive top-level renders applies.
+ * 'ready' still requires `data` and `user` to be present before use — see
+ * the page's final guard.
+ */
 export type LevelDetailStatus =
   | 'loading'
   | 'private'
@@ -27,6 +29,12 @@ export type LevelDetailStatus =
   | 'error'
   | 'ready'
 
+/**
+ * Data, status, and modal state for the level page.
+ *
+ * Named for the page rather than the query it wraps, since `useLevelPage` is
+ * already taken by `lib/api/levelPage.ts`.
+ */
 export function useLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
   const navigate = useNavigate()

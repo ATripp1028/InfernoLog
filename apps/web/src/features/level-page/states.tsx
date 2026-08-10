@@ -6,6 +6,9 @@ import { AlertCircle, Lock } from 'lucide-react'
 import { BackLink } from '@/components/BackLink'
 import type { GoBack } from '@/lib/useGoBack'
 
+/**
+ * Shown when the level belongs to a profile the viewer cannot see.
+ */
 export function PrivateProfile() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
@@ -22,6 +25,9 @@ export function PrivateProfile() {
   )
 }
 
+/**
+ * Shown when the user has no entry for this level.
+ */
 export function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-16 text-center">
@@ -36,7 +42,7 @@ export function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
       </div>
       <BackLink
         back={back}
-        className="mt-2 text-sm text-[var(--color-primary-light)] hover:underline"
+        className="mt-2 text-sm text-primary-light hover:underline"
       >
         ← Back
       </BackLink>
@@ -44,6 +50,9 @@ export function NotFound({ levelId, back }: { levelId: string; back: GoBack }) {
   )
 }
 
+/**
+ * Shown when the page query failed for any other reason. Offers a retry.
+ */
 export function LoadFailed() {
   return (
     <div className="flex flex-1 items-center justify-center py-16">
@@ -110,6 +119,9 @@ function TimelineSkeleton() {
   )
 }
 
+/**
+ * Loading skeleton for the level page.
+ */
 export function LevelPageSkeleton() {
   return (
     <>

@@ -13,6 +13,9 @@ import {
 
 type NavStatus = 'enabled' | 'disabled'
 
+/**
+ * One navigation destination. A `disabled` item renders greyed out rather than being hidden, so planned tabs stay visible.
+ */
 export interface NavItem {
   key: string
   label: string
@@ -25,6 +28,9 @@ export interface NavItem {
   activePrefixes?: string[]
 }
 
+/**
+ * Every navigation destination, in display order. Shared by the sidebar and the mobile tab bar.
+ */
 export const NAV_ITEMS: NavItem[] = [
   {
     key: 'search',
@@ -67,6 +73,9 @@ export const NAV_ITEMS: NavItem[] = [
   },
 ]
 
+/**
+ * The {@link NAV_ITEMS} keys that move behind the mobile "More" sheet instead of getting their own tab.
+ */
 export const MOBILE_OVERFLOW_KEYS = [
   'collections',
   'log',

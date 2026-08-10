@@ -42,6 +42,9 @@ function isPlaceholderUsername(username: string, email: string): boolean {
   return new RegExp(`^${localPart}_[0-9a-f]{8}$`).test(username)
 }
 
+/**
+ * First-run setup: legal acceptance, rating configuration, logging defaults, and the optional spreadsheet import.
+ */
 export function OnboardingWizard() {
   const me = useMe()
   const update = useUpdateMe()
@@ -107,7 +110,7 @@ export function OnboardingWizard() {
           <div
             key={s}
             className={`h-1 flex-1 rounded-full ${
-              i <= index ? 'bg-primary' : 'bg-[var(--color-bg-elevated)]'
+              i <= index ? 'bg-primary' : 'bg-bg-elevated'
             }`}
             aria-label={STEP_LABELS[s]}
           />

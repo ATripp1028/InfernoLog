@@ -24,8 +24,10 @@ import { isBuiltIn } from '@/features/collections/identity'
 import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
 import { useFabActions } from '@/context/FabActionsContext'
 
-// Page shell: the collection query, the three dialogs' open state, and the
-// collection-scoped FAB.
+/**
+ * Page shell: the collection query, the three dialogs' open state, and the
+ * collection-scoped FAB.
+ */
 export function useCollectionDetailPage(collectionId: string) {
   const collection = useCollection(collectionId)
   const [addOpen, setAddOpen] = useState(false)
@@ -65,7 +67,9 @@ export function useCollectionDetailPage(collectionId: string) {
   }
 }
 
-// Everything that needs a resolved collection.
+/**
+ * Everything that needs a resolved collection.
+ */
 export function useLoadedCollection(
   collection: CollectionDetailData,
   // Called after a rename saves, so the page can close its edit dialog.

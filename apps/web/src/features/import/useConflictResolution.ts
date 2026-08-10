@@ -23,6 +23,9 @@ import {
   type RowResolutions,
 } from './importWizardModel'
 
+/**
+ * Sub-step sequencing for the resolve-conflicts step — which tabs actually have conflicts, and where 'next' goes.
+ */
 export function useConflictResolution() {
   const [completionConflicts, setCompletionConflicts] = useState<
     ImportRowConflict[]

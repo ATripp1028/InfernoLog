@@ -46,9 +46,11 @@ function buildListSyncToast(result: GddlListSyncResult): string {
     : `Lists synced — ${summary}`
 }
 
-// GDDL connection, presented like the Google/Discord rows. Connecting requires
-// pasting an API key (verified server-side); the key is write-only and never
-// sent back. When connected we show the confirmed GDDL username.
+/**
+ * GDDL connection, presented like the Google/Discord rows. Connecting requires
+ * pasting an API key (verified server-side); the key is write-only and never
+ * sent back. When connected we show the confirmed GDDL username.
+ */
 export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
   const setKey = useSetGddlApiKey()
   const removeKey = useRemoveGddlApiKey()
@@ -136,7 +138,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                className="border border-orange-500 bg-transparent text-orange-500 hover:bg-orange-500/10"
+                className="border border-accent bg-transparent text-accent hover:bg-accent/10"
                 onClick={() => void runSync()}
                 disabled={isSyncing}
               >

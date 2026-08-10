@@ -2,11 +2,20 @@ import { useEffect, useState } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
+/**
+ * A run's start and end percentage, both 0–100 with `from < to`.
+ */
 export interface ParsedRun {
   from: number
   to: number
 }
 
+/**
+ * The outcome of parsing a run string.
+ *
+ * `error` carries a user-facing message and, where the mistake has an obvious
+ * correction (high-to-low bounds), a one-click `fix`.
+ */
 export type RunParseResult =
   | { kind: 'empty' }
   | { kind: 'error'; message: string; fix?: { label: string; value: string } }
@@ -18,6 +27,14 @@ export type RunParseResult =
 const RANGE_RE = /^\s*(\d{1,3})\s*%?\s*[-–—]\s*(\d{1,3})\s*%?\s*$/
 const SINGLE_RE = /^\s*(\d{1,3})\s*%?\s*$/
 
+/**
+ * Parses the community shorthand for a run: `N`/`N%` for a run from 0%, or
+ * `A-B` for one that started partway through.
+ *
+ * Hyphen, en-dash, and em-dash all work, and spaces are tolerated. Never
+ * throws — every rejection comes back as an `error` result with copy the
+ * field can render.
+ */
 export function parseRunInput(raw: string): RunParseResult {
   if (raw.trim() === '') return { kind: 'empty' }
 
@@ -67,7 +84,9 @@ export function parseRunInput(raw: string): RunParseResult {
   }
 }
 
-// Seeds the box from an existing entry's stored fields.
+/**
+ * Seeds the box from an existing entry's stored fields.
+ */
 export function formatRunInputValue(
   percentage: number | null,
   runFrom: number | null,
@@ -78,14 +97,19 @@ export function formatRunInputValue(
   return ''
 }
 
+/**
+ * Props for the run input. See {@link parseRunInput} for the accepted syntax.
+ */
 export interface RunInputProps {
   id?: string
   initialValue: string
   onParsedChange: (result: ParsedRun | null) => void
 }
 
-// Free-text run percentage input — parses as you type instead of a mode
-// toggle + separate from/to fields. See parseRunInput for the grammar.
+/**
+ * Free-text run percentage input — parses as you type instead of a mode
+ * toggle + separate from/to fields. See parseRunInput for the grammar.
+ */
 export function RunInput({ id, initialValue, onParsedChange }: RunInputProps) {
   const [text, setText] = useState(initialValue)
   const result = parseRunInput(text)

@@ -1,20 +1,21 @@
 import type {
   CompletionInput,
-  Device,
   DropInput,
-  GdVersion,
   Level,
   ProgressInput,
 } from '@/lib/api/logging'
+import type { Device, GdVersion } from '@/lib/api/wireEnums'
 import type { MeData } from '@/lib/api/me'
 import { ApiError } from '@/lib/api/client'
 import { zonedTimeToUtc, NonexistentLocalTimeError } from '@/lib/timezone'
 import type { FlowDraft } from './types'
 
-// Shared submit-error → toast message mapping for the completion/drop/progress
-// steps below — a NonexistentLocalTimeError means the entered date/time falls
-// in a DST "spring forward" gap for the selected zone (see zonedTimeToUtc);
-// anything else falls back to the ApiError message or a generic fallback.
+/**
+ * Shared submit-error → toast message mapping for the completion/drop/progress
+ * steps below — a NonexistentLocalTimeError means the entered date/time falls
+ * in a DST "spring forward" gap for the selected zone (see zonedTimeToUtc);
+ * anything else falls back to the ApiError message or a generic fallback.
+ */
 export function loggingErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof NonexistentLocalTimeError) {
     return "That time doesn't exist in the selected time zone (daylight saving change) — pick a different time."
@@ -78,6 +79,13 @@ function worstFailDateFields(draft: FlowDraft): {
   }
 }
 
+/**
+ * Turns the flow draft into a completion write payload.
+ *
+ * Applies the user's defaults for anything left blank (FPS, percentage
+ * version, device) and converts the string-backed numeric fields, so the
+ * draft can stay text-shaped while the wire type stays numeric.
+ */
 export function buildCompletionInput(
   level: Level,
   draft: FlowDraft,
@@ -130,6 +138,9 @@ export function buildCompletionInput(
   }
 }
 
+/**
+ * Turns the flow draft into a progress write payload, discriminated on the from-zero vs from-a-run mode.
+ */
 export function buildProgressInput(
   level: Level,
   draft: FlowDraft,
@@ -167,6 +178,9 @@ export function buildProgressInput(
   }
 }
 
+/**
+ * Turns the flow draft into a drop write payload.
+ */
 export function buildDropInput(level: Level, draft: FlowDraft): DropInput {
   const worstFailFields = draft.worstFailAlreadyLogged
     ? {}

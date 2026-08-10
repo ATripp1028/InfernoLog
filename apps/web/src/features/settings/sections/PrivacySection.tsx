@@ -7,6 +7,9 @@ interface PrivacySectionProps {
   me: MeData
 }
 
+/**
+ * Profile and Discord visibility.
+ */
 export function PrivacySection({ me }: PrivacySectionProps) {
   const update = useUpdateMe()
 

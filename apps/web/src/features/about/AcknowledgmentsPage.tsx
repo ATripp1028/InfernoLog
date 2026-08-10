@@ -70,6 +70,9 @@ function Entry({
   )
 }
 
+/**
+ * Credits for the community data sources and assets InfernoLog builds on.
+ */
 export function AcknowledgmentsPage() {
   return (
     <PublicPageShell maxWidthClassName="max-w-[720px]">

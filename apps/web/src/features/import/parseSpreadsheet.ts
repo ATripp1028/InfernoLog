@@ -10,15 +10,21 @@ import type {
   ImportCompletionRow,
   ImportProgressRow,
   ImportDroppedRow,
-  DifficultyOpinion,
-  Device,
-  EntryVisibility,
 } from '@/lib/api/import'
+import type {
+  DateFormatPreference,
+  Device,
+  DifficultyOpinion,
+  EntryVisibility,
+} from '@/lib/api/wireEnums'
 import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
 
-// ── Date format ────────────────────────────────────────────────────────────
-
-export type DateFormat = 'MDY' | 'DMY' | 'YMD' | 'ISO'
+/**
+ * How dates in the uploaded sheet are ordered. The parser cannot infer this,
+ * so the user states it on upload — seeded from their `dateFormatPreference`,
+ * which is why this is that same union rather than a parallel one.
+ */
+export type DateFormat = DateFormatPreference
 
 // Result of parsing a single date cell.
 type DateParseResult =
@@ -153,8 +159,12 @@ function toStr(v: unknown): string | null {
   return String(v).trim() || null
 }
 
-// ── Validation flags ───────────────────────────────────────────────────────
-
+/**
+ * One problem found while parsing a row.
+ *
+ * `severity` decides what happens to the row: `error` skips it entirely,
+ * `warning` drops just the flagged value and imports the rest.
+ */
 export interface ParseFlag {
   rowIndex: number // 0-based within the tab
   // Human-friendly row identity for display — the level name when present,
@@ -180,24 +190,36 @@ function rowLabelFor(
   return `row ${rowIndex + 2}`
 }
 
+/**
+ * One Completions row with the flags raised while parsing it.
+ */
 export interface ParsedCompletionRow {
   rowIndex: number
   data: ImportCompletionRow
   flags: ParseFlag[]
 }
 
+/**
+ * One Dropped row with its flags.
+ */
 export interface ParsedDroppedRow {
   rowIndex: number
   data: ImportDroppedRow
   flags: ParseFlag[]
 }
 
+/**
+ * One Progress row with its flags.
+ */
 export interface ParsedProgressRow {
   rowIndex: number
   data: ImportProgressRow
   flags: ParseFlag[]
 }
 
+/**
+ * One Ranking row with its flags. Sheet order is authoritative; `rank` is only present when the sheet has a rank column.
+ */
 export interface ParsedRankingRow {
   rowIndex: number
   levelId: string | null
@@ -207,6 +229,9 @@ export interface ParsedRankingRow {
   flags: ParseFlag[]
 }
 
+/**
+ * One Lists row with its flags.
+ */
 export interface ParsedListRow {
   rowIndex: number
   list: string | null
@@ -218,6 +243,9 @@ export interface ParsedListRow {
   flags: ParseFlag[]
 }
 
+/**
+ * One Ratings row with its flags. Scores are keyed by category NAME — the sheet has no ids.
+ */
 export interface ParsedRatingRow {
   rowIndex: number
   levelId: string | null
@@ -229,6 +257,9 @@ export interface ParsedRatingRow {
   flags: ParseFlag[]
 }
 
+/**
+ * Everything parsed out of the workbook, tab by tab, plus the cross-row duplicate report.
+ */
 export interface ParseResult {
   completions: ParsedCompletionRow[]
   /** Progress tab entries — non-completion session logs, unordered. */
@@ -1066,8 +1097,16 @@ function parseRatingRow(
   }
 }
 
-// ── Main parse function ────────────────────────────────────────────────────
-
+/**
+ * Parses an uploaded workbook into rows and flags.
+ *
+ * Never throws on bad data: a malformed value becomes a {@link ParseFlag} so
+ * the review step can show the user exactly what will be skipped and why. It
+ * only throws when the file itself cannot be read as a workbook.
+ *
+ * @param dateFormat - How to read date cells. The sheet carries no format
+ * marker, so this comes from the user's choice on the upload step.
+ */
 export function parseSpreadsheet(
   buffer: ArrayBuffer,
   dateFormat: DateFormat

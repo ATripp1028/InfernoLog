@@ -1,13 +1,14 @@
 import { X } from 'lucide-react'
+import type { RatingCategory } from '@/lib/api/me'
 import type {
   DateFormatPreference,
-  RatingCategory,
   RatingDisplayScale,
-} from '@/lib/api/me'
+} from '@/lib/api/wireEnums'
 import { Chip } from '@/components/ui/chip'
 import { cn } from '@/lib/utils'
 import { difficultyFaceSrc } from '@/lib/gdAssets'
-import { formatRating, formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/features/logging/format'
+import { formatRating } from '@/lib/ratingScale'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from './tierColor'
 import { RangeRow, DatePickersRow } from './FilterInputs'
@@ -47,6 +48,9 @@ interface FilterPanelProps {
   onClose?: () => void
 }
 
+/**
+ * Every List filter. Fully controlled — it holds no state of its own.
+ */
 export function FilterPanel({
   filters,
   onChange,
@@ -75,9 +79,9 @@ export function FilterPanel({
   } = useFilterPanel({ filters, onChange, scale, maxAttempts })
 
   return (
-    <div className="flex h-full flex-col bg-[var(--color-bg-surface)]">
+    <div className="flex h-full flex-col bg-bg-surface">
       {/* Header */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-3">
+      <div className="flex h-12 shrink-0 items-center justify-between border-b border-border-subtle px-3">
         {hasActiveFilters ? (
           <button
             type="button"
@@ -258,8 +262,8 @@ export function FilterPanel({
                   className={cn(
                     'flex flex-col items-center gap-0.5 rounded-md p-1 cursor-pointer transition-colors',
                     filters.difficulties.includes(d)
-                      ? 'bg-[var(--color-primary)] text-white'
-                      : 'border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-text-secondary hover:text-text-primary'
+                      ? 'bg-primary text-white'
+                      : 'border border-border bg-bg-elevated text-text-secondary hover:text-text-primary'
                   )}
                 >
                   <img
@@ -360,14 +364,14 @@ export function FilterPanel({
       </div>
 
       {/* Footer */}
-      <div className="flex h-12 shrink-0 items-center justify-between border-t border-[var(--color-border-subtle)] px-4">
+      <div className="flex h-12 shrink-0 items-center justify-between border-t border-border-subtle px-4">
         <p className="text-xs font-medium text-text-secondary">
           {matchCount} of {totalCount} levels match
         </p>
         <button
           type="button"
           onClick={clearAll}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-3 py-1.5 text-xs font-medium text-text-primary cursor-pointer"
+          className="rounded-md border border-border bg-bg-elevated px-3 py-1.5 text-xs font-medium text-text-primary cursor-pointer"
         >
           Reset
         </button>

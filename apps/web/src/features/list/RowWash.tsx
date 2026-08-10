@@ -1,8 +1,10 @@
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import type { ListItem } from './types'
 
-// The level thumbnail as a row background, with a dark left→right overlay so
-// the cells stay legible. Thumbnails 404 for some levels — hide on error.
+/**
+ * The level thumbnail as a row background, with a dark left→right overlay so
+ * the cells stay legible. Thumbnails 404 for some levels — hide on error.
+ */
 export function RowWash({ item }: { item: ListItem }) {
   return (
     <>

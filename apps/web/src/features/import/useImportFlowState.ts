@@ -42,6 +42,9 @@ import { buildCheckRequest } from './buildCheckRequest'
 import { useConflictResolution } from './useConflictResolution'
 import { useListMergeResolution } from './useListMergeResolution'
 
+/**
+ * Builds the value {@link ImportFlowProvider} provides: the step machine, the parsed workbook, and every resolution map.
+ */
 export function useImportFlowState({
   me,
   skipConflictCheck,
@@ -55,7 +58,7 @@ export function useImportFlowState({
 
   const [step, setStep] = useState<WizardStep>('upload')
   const [dateFormat, setDateFormat] = useState<DateFormat>(
-    me.dateFormatPreference as DateFormat
+    me.dateFormatPreference
   )
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [allFlags, setAllFlags] = useState<AllFlags>({

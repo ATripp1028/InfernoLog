@@ -7,11 +7,13 @@ import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
 
 const TOAST_ID = 'import-status'
 
-// Persistent (non-auto-dismissing) toast for the background import job.
-// Mounted once at the authenticated app shell so it's driven purely by
-// server state (useImportStatus) — it reappears on login/reload if a job is
-// still active, regardless of which page or drawer state started it, and
-// updates in place as processedRows changes / the job completes.
+/**
+ * Persistent (non-auto-dismissing) toast for the background import job.
+ * Mounted once at the authenticated app shell so it's driven purely by
+ * server state (useImportStatus) — it reappears on login/reload if a job is
+ * still active, regardless of which page or drawer state started it, and
+ * updates in place as processedRows changes / the job completes.
+ */
 export function ImportStatusToast() {
   const importStatus = useImportStatus()
   const navigate = useNavigate()
@@ -66,7 +68,7 @@ export function ImportStatusToast() {
           onClick={() =>
             navigate({ to: '/settings', search: { importStatus: true } })
           }
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 text-left text-sm text-foreground shadow-lg"
+          className="w-full rounded-lg border border-border bg-bg-elevated px-4 py-3 text-left text-sm text-foreground shadow-lg"
         >
           {message}
         </button>

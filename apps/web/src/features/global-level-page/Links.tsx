@@ -99,7 +99,7 @@ function InternalRow({
       params={{ levelId: to }}
       state={backOriginState(location.href)}
       className={cn(
-        'flex items-center justify-between py-2.5 text-sm text-[var(--color-primary-light)] transition hover:brightness-110',
+        'flex items-center justify-between py-2.5 text-sm text-primary-light transition hover:brightness-110',
         pad
       )}
     >
@@ -115,9 +115,11 @@ interface LinksProps {
   variant?: LinksVariant
 }
 
-// The LINKS section — external destinations plus the one internal one. Named
-// LINKS, not "External links": Newgrounds / Song File Hub belong to the Song
-// card only and are deliberately NOT duplicated here.
+/**
+ * The LINKS section — external destinations plus the one internal one. Named
+ * LINKS, not "External links": Newgrounds / Song File Hub belong to the Song
+ * card only and are deliberately NOT duplicated here.
+ */
 export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
   const pad = variant === 'card' ? 'px-4' : ''
   const creatorLabel = level.creator

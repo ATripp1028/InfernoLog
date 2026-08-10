@@ -19,6 +19,9 @@ import {
 } from '@/features/level-page/states'
 import { useLevelDetailPage } from '@/features/level-page/useLevelDetailPage'
 
+/**
+ * The user's own page for one level: their stats, notes, runs graph, and full timeline.
+ */
 export function LevelPage() {
   const {
     levelId,
@@ -92,7 +95,7 @@ export function LevelPage() {
           to="/levels/$levelId"
           params={{ levelId }}
           state={true}
-          className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+          className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
         >
           Global level page
           <span aria-hidden>→</span>

@@ -8,12 +8,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          'bg-primary text-primary-foreground hover:bg-[var(--color-primary-hover)]',
+        default: 'bg-primary text-primary-foreground hover:bg-primary-hover',
         outline:
-          'border border-[var(--color-border)] bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground',
+          'border border-border bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground',
         secondary:
-          'bg-secondary text-secondary-foreground hover:bg-[var(--color-bg-elevated)]',
+          'bg-secondary text-secondary-foreground hover:bg-bg-elevated',
         ghost: 'text-foreground hover:bg-accent hover:text-accent-foreground',
         destructive:
           'bg-destructive text-destructive-foreground hover:opacity-90',
@@ -30,6 +29,9 @@ const buttonVariants = cva(
   }
 )
 
+/**
+ * Button props. `asChild` renders the variants onto the single child element instead of a `<button>`.
+ */
 export interface ButtonProps
   extends
     React.ButtonHTMLAttributes<HTMLButtonElement>,
@@ -37,6 +39,9 @@ export interface ButtonProps
   asChild?: boolean
 }
 
+/**
+ * The app's button. See {@link ButtonProps} for the variant and size axes.
+ */
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button'

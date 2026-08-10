@@ -1,14 +1,15 @@
-// Ordering resolution for whichever lists the check found genuinely
-// order-conflicting — one ListMergeBoard per touched collection (plus
-// Ranking), walked as a linear sub-sequence like the field-conflict step.
-//
-// Keyed on the current merge so moving to the next one remounts the board
-// rather than carrying the previous list's drag state into it.
-
 import { ListMergeBoard } from '../listMerge/ListMergeBoard'
 import { RANKING_MERGE_KEY } from '../importWizardModel'
 import { useImportFlow } from '../ImportFlowProvider'
 
+/**
+ * Ordering resolution for whichever lists the check found genuinely
+ * order-conflicting — one ListMergeBoard per touched collection (plus
+ * Ranking), walked as a linear sub-sequence like the field-conflict step.
+ *
+ * Keyed on the current merge so moving to the next one remounts the board
+ * rather than carrying the previous list's drag state into it.
+ */
 export function ResolveListsStep() {
   const {
     currentListMerge: current,

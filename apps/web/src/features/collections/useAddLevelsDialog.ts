@@ -18,18 +18,13 @@ import {
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useEscalation } from '@/features/search/useEscalation'
 
-// Holds a level resolved from RobTop for the seeded confirmation step.
-export interface SeededLevel {
-  inGameId: string
-  name: string | null
-  creator: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-  completed: boolean
-}
+import type { SeededLevel } from './SeededLevelPreviewCard'
 
+export type { SeededLevel }
+
+/**
+ * State for AddLevelsDialog: the level search, the by-id seed and its confirmation, and the add mutation.
+ */
 export function useAddLevelsDialog({
   open,
   onClose,

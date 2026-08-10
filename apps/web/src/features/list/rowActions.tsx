@@ -21,6 +21,9 @@ import {
 } from '@/components/ui/popover'
 import type { FlowPath } from '@/features/logging/types'
 
+/**
+ * The actions a List row can trigger, passed down so the row itself stays presentational.
+ */
 export interface RowActionHandlers {
   onEditRun: () => void
   onEditLevel: () => void
@@ -31,8 +34,10 @@ export interface RowActionHandlers {
   onLog?: (path: FlowPath) => void
 }
 
-// Right-click context menu wrapping a desktop row. The trigger child must be a
-// DOM element (asChild), so callers pass a wrapping <div>.
+/**
+ * Right-click context menu wrapping a desktop row. The trigger child must be a
+ * DOM element (asChild), so callers pass a wrapping <div>.
+ */
 export function RowContextMenu({
   handlers,
   children,
@@ -49,7 +54,7 @@ export function RowContextMenu({
         </ContextMenuItem>
         {handlers.onLog && (
           <>
-            <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+            <div className="my-1 h-px bg-border-subtle" />
             <ContextMenuItem onSelect={() => handlers.onLog!('completion')}>
               <Check size={14} /> Log a completion
             </ContextMenuItem>
@@ -61,7 +66,7 @@ export function RowContextMenu({
             </ContextMenuItem>
           </>
         )}
-        <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+        <div className="my-1 h-px bg-border-subtle" />
         <ContextMenuItem onSelect={handlers.onEditRun}>
           <Pencil size={14} /> Edit most recent run
         </ContextMenuItem>
@@ -76,9 +81,11 @@ export function RowContextMenu({
   )
 }
 
-// Hover-revealed kebab opening the same actions via a popover. For discovery /
-// mouse-only users alongside the right-click menu. Controlled by the parent so
-// opening one row's menu closes any other that's open.
+/**
+ * Hover-revealed kebab opening the same actions via a popover. For discovery /
+ * mouse-only users alongside the right-click menu. Controlled by the parent so
+ * opening one row's menu closes any other that's open.
+ */
 export function RowActionsKebab({
   handlers,
   open,
@@ -95,7 +102,7 @@ export function RowActionsKebab({
           type="button"
           aria-label="Row actions"
           onClick={(e) => e.stopPropagation()}
-          className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-bg-elevated)]/80 text-text-secondary opacity-0 backdrop-blur transition-opacity hover:text-text-primary focus-visible:opacity-100 group-hover:opacity-100"
+          className="flex h-7 w-7 items-center justify-center rounded-md bg-bg-elevated/80 text-text-secondary opacity-0 backdrop-blur transition-opacity hover:text-text-primary focus-visible:opacity-100 group-hover:opacity-100"
         >
           <MoreVertical size={16} />
         </button>
@@ -108,7 +115,7 @@ export function RowActionsKebab({
         />
         {handlers.onLog && (
           <>
-            <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+            <div className="my-1 h-px bg-border-subtle" />
             <MenuButton
               icon={Check}
               label="Log a completion"
@@ -126,7 +133,7 @@ export function RowActionsKebab({
             />
           </>
         )}
-        <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+        <div className="my-1 h-px bg-border-subtle" />
         <MenuButton
           icon={Pencil}
           label="Edit most recent run"
@@ -167,7 +174,7 @@ function MenuButton({
         onClick()
       }}
       className={
-        'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-[var(--color-bg-subtle)] ' +
+        'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-bg-subtle ' +
         (destructive ? 'text-danger' : 'text-text-primary')
       }
     >

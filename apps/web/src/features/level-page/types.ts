@@ -1,3 +1,6 @@
+/**
+ * Everything the level page renders: the level, the user's LevelProgress fields, and every logged update.
+ */
 export interface LevelPageData {
   levelProgressId: string
   status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
@@ -23,6 +26,9 @@ export interface LevelPageData {
   runsGraph: RunsGraphEntry[]
 }
 
+/**
+ * The level fields the page and its edit modals need. Narrower than the full `Level`.
+ */
 export interface LevelMeta {
   inGameId: string
   name: string | null
@@ -42,6 +48,9 @@ export interface LevelMeta {
   officialSongId: number | null
 }
 
+/**
+ * One logged event — a progress session, a drop, or the completion.
+ */
 export interface ProgressUpdate {
   progressUpdateId: string
   kind: 'PROGRESS' | 'DROP' | 'COMPLETION'
@@ -66,11 +75,17 @@ export interface ProgressUpdate {
   device: 'pc' | 'mobile' | null
 }
 
+/**
+ * One category score on a level, in the internal 0–100 scale.
+ */
 export interface RatingScore {
   categoryId: string
   score: number
 }
 
+/**
+ * A single point on the runs graph: one logged attempt range.
+ */
 export interface RunsGraphEntry {
   progressUpdateId: string | null
   kind: 'from_zero' | 'from_run' | 'completion' | 'worst_fail'

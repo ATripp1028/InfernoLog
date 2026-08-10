@@ -16,6 +16,9 @@ interface AccountSectionProps {
   me: MeData
 }
 
+/**
+ * Account settings: username, connected accounts, GDDL API key.
+ */
 export function AccountSection({ me }: AccountSectionProps) {
   const connect = useConnectDiscord()
   const disconnect = useDisconnectDiscord()

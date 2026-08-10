@@ -24,7 +24,9 @@ interface RankedRowProps {
   domId?: string
 }
 
-// Presentational ranked row. The sortable wrapper below feeds it a ref + style.
+/**
+ * Presentational ranked row. The sortable wrapper below feeds it a ref + style.
+ */
 export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
   ({ rank, item, handle, highlight, isDragging, style, domId }, ref) => {
     const { level, badge, attempts } = item
@@ -35,10 +37,10 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
         id={domId}
         style={style}
         className={[
-          'group relative h-[72px] overflow-hidden rounded-card border bg-[var(--color-bg-surface)]',
+          'group relative h-[72px] overflow-hidden rounded-card border bg-bg-surface',
           highlight
-            ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
-            : 'border-[var(--color-border-subtle)]',
+            ? 'border-primary ring-1 ring-primary'
+            : 'border-border-subtle',
           isDragging ? 'opacity-50' : '',
         ].join(' ')}
       >
@@ -95,7 +97,9 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
 )
 RankedRow.displayName = 'RankedRow'
 
-// Sortable ranked row — used when the list is interactive (not filtered).
+/**
+ * Sortable ranked row — used when the list is interactive (not filtered).
+ */
 export function SortableRankedRow({
   rank,
   item,

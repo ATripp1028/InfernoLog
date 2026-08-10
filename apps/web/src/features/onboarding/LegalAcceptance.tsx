@@ -11,9 +11,11 @@ interface LegalAcceptanceProps {
   pending?: boolean
 }
 
-// Combined ToS + Privacy Policy view, per spec: a single scrollable
-// markdown-rendered document rather than two separate pages, with Continue
-// disabled until the checkbox is checked.
+/**
+ * Combined ToS + Privacy Policy view, per spec: a single scrollable
+ * markdown-rendered document rather than two separate pages, with Continue
+ * disabled until the checkbox is checked.
+ */
 export function LegalAcceptance({ onContinue, pending }: LegalAcceptanceProps) {
   const [agreed, setAgreed] = useState(false)
 
@@ -27,8 +29,8 @@ export function LegalAcceptance({ onContinue, pending }: LegalAcceptanceProps) {
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-[var(--color-border)] p-4">
-        <div className="space-y-3 text-sm leading-relaxed text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h2]:font-medium [&_h2]:text-foreground [&_hr]:my-4 [&_hr]:border-[var(--color-border)]">
+      <div className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-border p-4">
+        <div className="space-y-3 text-sm leading-relaxed text-muted-foreground [&_h1]:text-base [&_h1]:font-semibold [&_h1]:text-foreground [&_h2]:font-medium [&_h2]:text-foreground [&_hr]:my-4 [&_hr]:border-border">
           <Markdown>{termsAndConditions}</Markdown>
           <hr />
           <Markdown>{privacyPolicy}</Markdown>

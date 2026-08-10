@@ -9,6 +9,9 @@ import { useCallback, useMemo, useState } from 'react'
 import type { ImportCheckResponse, ImportListMerge } from '@/lib/api/import'
 import { RANKING_MERGE_KEY } from './importWizardModel'
 
+/**
+ * Sequencing for the resolve-lists step: one merge board per conflicting collection, plus the ranking merge.
+ */
 export function useListMergeResolution() {
   const [collectionsMerge, setCollectionsMerge] = useState<ImportListMerge[]>(
     []

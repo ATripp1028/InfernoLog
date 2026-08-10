@@ -1,8 +1,7 @@
 import type { ReactNode } from 'react'
-import { Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import type { Level } from '@/lib/api/logging'
 import { supportedTimeZones } from '@/lib/timezone'
@@ -12,9 +11,13 @@ import { useLoggingFlow } from './LoggingFlowProvider'
 const TIME_ZONES = supportedTimeZones()
 
 export { FieldError } from '@/components/ui/field-error'
+export { SectionLabel } from '@/components/SectionLabel'
+export { FieldLabel } from '@/components/FieldLabel'
 
-// Scrollable content region of a step. The panel is a flex column; this grows
-// to fill the space between the fixed header and the sticky footer.
+/**
+ * Scrollable content region of a step. The panel is a flex column; this grows
+ * to fill the space between the fixed header and the sticky footer.
+ */
 export function StepBody({
   children,
   className,
@@ -31,7 +34,9 @@ export function StepBody({
   )
 }
 
-// Sticky bottom action bar (Back on the left, primary action on the right).
+/**
+ * Sticky bottom action bar (Back on the left, primary action on the right).
+ */
 export function StepFooter({ children }: { children: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
@@ -40,45 +45,45 @@ export function StepFooter({ children }: { children: ReactNode }) {
   )
 }
 
-export function FieldLabel({
-  children,
-  hint,
-  htmlFor,
-  className,
-}: {
-  children: ReactNode
-  hint?: string
-  htmlFor?: string
-  className?: string
-}) {
-  return (
-    <div className={cn('mb-1.5 flex items-center gap-1.5', className)}>
-      <Label htmlFor={htmlFor}>{children}</Label>
-      {hint && (
-        <span title={hint} className="text-text-tertiary">
-          <Info size={13} />
-        </span>
-      )}
-    </div>
-  )
-}
-
+/**
+ * Muted helper text under a field.
+ */
 export function FieldHint({ children }: { children: ReactNode }) {
   return <p className="mt-1.5 text-xs text-text-tertiary">{children}</p>
 }
 
-// Small uppercase divider used inside the session/list steps (STATS, FLAGS…).
-export function SectionLabel({ children }: { children: ReactNode }) {
+/**
+ * A labelled switch row (STATS/FLAGS toggles: "Played on stream", "Keep this
+ * private"). Both session steps had their own copy; the completion step's had
+ * grown a `subtitle` the progress step's had not.
+ */
+export function ToggleRow({
+  title,
+  subtitle,
+  checked,
+  onChange,
+}: {
+  title: string
+  subtitle?: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
   return (
-    <p className="text-xs font-semibold uppercase tracking-wide text-text-tertiary">
-      {children}
-    </p>
+    <div className="flex items-center justify-between gap-4">
+      <div>
+        <p className="text-sm font-medium text-text-primary">{title}</p>
+        {subtitle && <p className="text-xs text-text-tertiary">{subtitle}</p>}
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
   )
 }
 
-// The "Bloodbath · by Riot · At the Speed of Light  [Change]" row that sits atop
-// every post-resolve step. No surrounding box — it reads against the modal's
-// level-thumbnail backdrop. "Change" returns to the find step.
+/**
+ * The "Bloodbath · by Riot · At the Speed of Light  [Change]" row that sits atop
+ * every post-resolve step. No surrounding box — it reads against the modal's
+ * level-thumbnail backdrop. "Change" returns to the find step.
+ */
 export function LevelHeader({ level }: { level: Level }) {
   const { setStep } = useLoggingFlow()
   const subtitle = [
@@ -112,7 +117,7 @@ export function LevelHeader({ level }: { level: Level }) {
         variant="ghost"
         size="sm"
         onClick={() => setStep('find')}
-        className="text-primary hover:bg-[var(--color-primary-dim)] hover:text-primary"
+        className="text-primary hover:bg-primary-dim hover:text-primary"
       >
         Change
       </Button>
@@ -120,11 +125,13 @@ export function LevelHeader({ level }: { level: Level }) {
   )
 }
 
-// A time input merged into the same visual field as a date input (time on
-// the left), plus an IANA timezone select that only appears once a time is
-// entered — keeps the common no-time case uncluttered. `dateValue`/
-// `timeValue` are native `<input>` value strings (`yyyy-MM-dd`/`HH:mm`, or
-// `''`); `timezoneValue` is only meaningful once `timeValue !== ''`.
+/**
+ * A time input merged into the same visual field as a date input (time on
+ * the left), plus an IANA timezone select that only appears once a time is
+ * entered — keeps the common no-time case uncluttered. `dateValue`/
+ * `timeValue` are native `<input>` value strings (`yyyy-MM-dd`/`HH:mm`, or
+ * `''`); `timezoneValue` is only meaningful once `timeValue !== ''`.
+ */
 export function DateTimeField({
   dateId,
   dateValue,
@@ -146,7 +153,7 @@ export function DateTimeField({
 }) {
   return (
     <div>
-      <div className="flex h-9 w-full overflow-hidden rounded-md border border-input bg-[var(--color-bg-surface)] shadow-sm transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
+      <div className="flex h-9 w-full overflow-hidden rounded-md border border-input bg-bg-surface shadow-sm transition-colors focus-within:outline-none focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background">
         <input
           type="time"
           aria-label="Time (optional)"
@@ -175,7 +182,7 @@ export function DateTimeField({
           value={timezoneValue}
           disabled={disabled}
           onChange={(e) => onTimezoneChange(e.target.value)}
-          className="mt-2 h-8 w-full rounded-md border border-input bg-[var(--color-bg-surface)] px-2 text-xs text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-2 h-8 w-full rounded-md border border-input bg-bg-surface px-2 text-xs text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
         >
           {TIME_ZONES.map((tz) => (
             <option key={tz} value={tz}>

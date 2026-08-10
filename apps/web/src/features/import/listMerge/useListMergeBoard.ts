@@ -14,13 +14,25 @@ import { arrayMove } from '@dnd-kit/sortable'
 import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 
+/**
+ * One level in a merge board column.
+ */
 export interface ListMergeEntry {
   levelId: string
   levelName: string | null
 }
 
+/**
+ * Which of the merge board's three columns an entry is in.
+ *
+ * Unrelated to the ranking board's `ContainerId`, which names a placed/unplaced
+ * pile rather than a column.
+ */
 export type ContainerId = 'left' | 'middle' | 'right'
 
+/**
+ * Drag state and the resulting order for the three-column list-merge board.
+ */
 export function useListMergeBoard({
   mergedSeed,
   importedRemainder,

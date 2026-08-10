@@ -5,11 +5,13 @@ import {
   type GdSearchResponse,
 } from '@/lib/api/logging'
 
-// Shared GD-server escalation state, reused by every cache-search call site
-// (toolbar, logging-flow entry, collections add). Tracks *which* query was
-// escalated so that editing the query after an escalated search drops the
-// result and re-requires an explicit confirm — escalation is an action, never
-// a mode the user is left "in" (locked decision 2.3).
+/**
+ * Shared GD-server escalation state, reused by every cache-search call site
+ * (toolbar, logging-flow entry, collections add). Tracks *which* query was
+ * escalated so that editing the query after an escalated search drops the
+ * result and re-requires an explicit confirm — escalation is an action, never
+ * a mode the user is left "in" (locked decision 2.3).
+ */
 export function useEscalation() {
   const gdSearch = useGdSearch()
   const [escalatedQuery, setEscalatedQuery] = useState<string | null>(null)

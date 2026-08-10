@@ -15,15 +15,17 @@ interface StepperInputProps {
   'aria-label'?: string
 }
 
-// A controlled numeric input with explicit step buttons on either side.
-//
-// The native `<input type="number">` step widget only supports one increment
-// and forces decimal precision into the value at all times. This component:
-//   - keeps the field as a free-form string while focused so the user can
-//     clear it and type;
-//   - parses + clamps + rounds on blur (and on step-button click);
-//   - exposes any number of step deltas (e.g. 0.1 and 0.01) as flanking
-//     buttons rather than browser spinner chrome.
+/**
+ * A controlled numeric input with explicit step buttons on either side.
+ *
+ * The native `<input type="number">` step widget only supports one increment
+ * and forces decimal precision into the value at all times. This component:
+ *   - keeps the field as a free-form string while focused so the user can
+ *     clear it and type;
+ *   - parses + clamps + rounds on blur (and on step-button click);
+ *   - exposes any number of step deltas (e.g. 0.1 and 0.01) as flanking
+ *     buttons rather than browser spinner chrome.
+ */
 export function StepperInput({
   value,
   onChange,
@@ -71,7 +73,7 @@ export function StepperInput({
   return (
     <div
       className={cn(
-        'inline-flex items-stretch overflow-hidden rounded-md border border-input bg-[var(--color-bg-surface)] shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background',
+        'inline-flex items-stretch overflow-hidden rounded-md border border-input bg-bg-surface shadow-sm focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background',
         className
       )}
     >
@@ -110,7 +112,7 @@ export function StepperInput({
         }}
         aria-label={ariaLabel}
         className={cn(
-          'w-16 border-x border-[var(--color-border-subtle)] bg-transparent px-2 text-center text-sm text-foreground placeholder:text-muted-foreground focus:outline-none',
+          'w-16 border-x border-border-subtle bg-transparent px-2 text-center text-sm text-foreground placeholder:text-muted-foreground focus:outline-none',
           inputClassName
         )}
       />
@@ -142,7 +144,7 @@ function StepButton({ label, onClick, disabled }: StepButtonProps) {
       onClick={onClick}
       disabled={disabled}
       tabIndex={-1}
-      className="flex w-10 shrink-0 items-center justify-center bg-[var(--color-bg-elevated)] text-xs font-medium text-muted-foreground transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+      className="flex w-10 shrink-0 items-center justify-center bg-bg-elevated text-xs font-medium text-muted-foreground transition-colors hover:bg-bg-subtle hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
     >
       {label}
     </button>

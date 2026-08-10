@@ -21,22 +21,19 @@ import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useEscalation } from '@/features/search/useEscalation'
 import { isBuiltIn } from './identity'
 
-export interface PickedLevel {
-  inGameId: string
-  name: string | null
-  creator: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-}
+import type {
+  SeededLevel,
+  SeededLevelPreviewData,
+} from './SeededLevelPreviewCard'
 
-// Holds a level resolved from RobTop, pending confirmation before it's used
-// as the pick for step 2. Mirrors AddLevelsDialog's seeded-confirmation step.
-export interface SeededLevel extends PickedLevel {
-  completed: boolean
-}
+/** The level the dialog is adding — enough to render it and to write the entry. */
+export type PickedLevel = SeededLevelPreviewData
 
+export type { SeededLevel }
+
+/**
+ * State for AddToCollectionDialog: which collections the level is already in, the search/seed flow, and the add and remove writes.
+ */
 export function useAddToCollectionDialog({
   open,
   onClose,

@@ -28,6 +28,9 @@ interface MobileRankingListProps {
   highlightId?: string | undefined
 }
 
+/**
+ * The ranking board below the md breakpoint: one list, with placement through a sheet rather than drag-and-drop.
+ */
 export function MobileRankingList({
   data,
   search,
@@ -117,7 +120,7 @@ export function MobileRankingList({
           title="Coming in v2"
         >
           Non-completions
-          <span className="rounded bg-[var(--color-bg-subtle)] px-1 text-[10px] font-bold uppercase">
+          <span className="rounded bg-bg-subtle px-1 text-[10px] font-bold uppercase">
             v2
           </span>
         </Chip>
@@ -135,7 +138,7 @@ export function MobileRankingList({
       )}
 
       {view.length === 0 ? (
-        <p className="rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-6 text-center text-sm text-text-tertiary">
+        <p className="rounded-card border border-border-subtle bg-bg-surface p-6 text-center text-sm text-text-tertiary">
           {data.placed.length === 0
             ? 'No ranked levels yet.'
             : 'No ranked levels match.'}
@@ -167,13 +170,13 @@ export function MobileRankingList({
       <button
         type="button"
         onClick={() => setUnplacedOpen(true)}
-        className="fixed inset-x-4 bottom-[80px] z-10 flex items-center justify-between rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-4 py-3 text-sm shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
+        className="fixed inset-x-4 bottom-[80px] z-10 flex items-center justify-between rounded-card border border-border-subtle bg-bg-surface px-4 py-3 text-sm shadow-[0_4px_12px_rgba(0,0,0,0.4)]"
       >
         <span className="text-text-secondary">
           {data.unplaced.length} unplaced{' '}
           {data.unplaced.length === 1 ? 'level' : 'levels'}
         </span>
-        <span className="text-[var(--color-primary)]">View →</span>
+        <span className="text-primary">View →</span>
       </button>
 
       <Sheet open={unplacedOpen} onOpenChange={setUnplacedOpen}>
@@ -196,7 +199,7 @@ export function MobileRankingList({
                   key={entry.levelProgressId}
                   type="button"
                   onClick={() => placeFromUnplaced(entry.levelProgressId)}
-                  className="relative w-full overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] text-left"
+                  className="relative w-full overflow-hidden rounded-card border border-border-subtle bg-bg-elevated text-left"
                 >
                   <ThumbnailWash
                     levelId={entry.level.inGameId}
@@ -315,10 +318,10 @@ function MobileRow({
   return (
     <div
       className={[
-        'relative overflow-hidden rounded-card border bg-[var(--color-bg-surface)]',
+        'relative overflow-hidden rounded-card border bg-bg-surface',
         highlight
-          ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
-          : 'border-[var(--color-border-subtle)]',
+          ? 'border-primary ring-1 ring-primary'
+          : 'border-border-subtle',
       ].join(' ')}
     >
       <ThumbnailWash levelId={item.level.inGameId} />
@@ -382,7 +385,7 @@ function IconBtn({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="flex size-7 items-center justify-center rounded hover:bg-[var(--color-bg-elevated)] hover:text-text-primary"
+      className="flex size-7 items-center justify-center rounded hover:bg-bg-elevated hover:text-text-primary"
     >
       {children}
     </button>

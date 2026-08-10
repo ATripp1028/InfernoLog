@@ -8,6 +8,7 @@ import * as XLSX from 'xlsx'
 import type { ExportResponse } from '@/lib/api/import'
 import type { DateFormat } from './parseSpreadsheet'
 import { opinionToStars } from '@infernolog/core'
+import { formatDate } from '@/lib/dateFormat'
 import {
   COMPLETION_HEADERS,
   PROGRESS_HEADERS,
@@ -20,15 +21,12 @@ import {
 
 type Cell = string | number | boolean
 
-// ISO (YYYY-MM-DD) → the user's chosen display format.
-function formatDate(isoStr: string | null, fmt: DateFormat): string {
+// ISO (YYYY-MM-DD) → the user's chosen display format, blank for a missing
+// date. The blank is the sheet's own convention and the only reason this
+// wraps lib/dateFormat's formatDate rather than calling it directly.
+function dateCell(isoStr: string | null, fmt: DateFormat): string {
   if (!isoStr) return ''
-  const [y, m, d] = isoStr.split('-')
-  if (!y || !m || !d) return isoStr
-  if (fmt === 'MDY') return `${m}/${d}/${y}`
-  if (fmt === 'DMY') return `${d}/${m}/${y}`
-  if (fmt === 'YMD') return `${y}/${m}/${d}`
-  return isoStr // ISO
+  return formatDate(isoStr, fmt)
 }
 
 // Internal 0-100 → the 0-10 sheet scale (round-trips through the importer's
@@ -73,7 +71,7 @@ function completionRecord(
     level_id: c.levelId,
     level_name: c.levelName ?? '',
     creator: c.creator ?? '',
-    date: formatDate(c.date, fmt),
+    date: dateCell(c.date, fmt),
     date_uncertain: c.dateUncertain,
     attempts: c.attempts ?? '',
     percentage: c.percentage ?? '',
@@ -112,7 +110,7 @@ function progressRecord(
     level_id: p.levelId,
     level_name: p.levelName ?? '',
     creator: p.creator ?? '',
-    date: formatDate(p.date, fmt),
+    date: dateCell(p.date, fmt),
     date_uncertain: p.dateUncertain,
     attempts: p.attempts ?? '',
     percentage: p.percentage ?? '',
@@ -151,6 +149,9 @@ function rows(headers: string[], records: Record<string, Cell>[]): Cell[][] {
   return [headers, ...records.map((rec) => headers.map((h) => rec[h] ?? ''))]
 }
 
+/**
+ * Builds the account-export .xlsx from the server's export JSON and triggers the download. The workbook re-imports cleanly.
+ */
 export function downloadExport(
   data: ExportResponse,
   dateFormat: DateFormat
@@ -180,7 +181,7 @@ export function downloadExport(
   // Dropped
   const droppedRecords = data.dropped.map((d) => {
     const rec = droppedRecord(d)
-    rec.dropped_at = formatDate(d.droppedAt, dateFormat)
+    rec.dropped_at = dateCell(d.droppedAt, dateFormat)
     return rec
   })
   XLSX.utils.book_append_sheet(

@@ -24,6 +24,13 @@ interface ImportFlowContextValue extends ReturnType<typeof useImportFlowState> {
 
 const ImportFlowContext = createContext<ImportFlowContextValue | null>(null)
 
+/**
+ * Holds the import wizard's step machine and every resolution the user makes.
+ *
+ * Mounted by `ImportWizard` itself rather than app-wide, which scopes the state
+ * to one open wizard and makes close-then-reopen start clean with no reset path
+ * to maintain.
+ */
 export function ImportFlowProvider({
   me,
   onClose,
@@ -49,6 +56,9 @@ export function ImportFlowProvider({
   )
 }
 
+/**
+ * The import wizard flow. Throws outside an {@link ImportFlowProvider}.
+ */
 export function useImportFlow(): ImportFlowContextValue {
   const ctx = useContext(ImportFlowContext)
   if (!ctx) {

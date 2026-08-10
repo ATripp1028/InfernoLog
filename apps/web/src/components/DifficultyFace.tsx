@@ -33,10 +33,12 @@ interface DifficultyFaceProps {
 // therefore keeps the glow sitting the same way behind all of them.
 const FACE_REFERENCE_WIDTH = 160
 
-// The canonical way to render a GD difficulty face with its showcase glow
-// (feature circle / epic / legendary / mythic fire) behind it. Reused anywhere
-// a level's difficulty is shown — search results, the logging header, lists,
-// rankings, etc.
+/**
+ * The canonical way to render a GD difficulty face with its showcase glow
+ * (feature circle / epic / legendary / mythic fire) behind it. Reused anywhere
+ * a level's difficulty is shown — search results, the logging header, lists,
+ * rankings, etc.
+ */
 export function DifficultyFace({
   difficulty,
   featured,

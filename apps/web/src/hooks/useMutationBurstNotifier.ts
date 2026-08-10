@@ -2,17 +2,19 @@ import { useEffect, useRef } from 'react'
 import { useIsMutating, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/ui/sonner'
 
-// Shows one success toast per "burst" of mutations sharing one of the given
-// keys, rather than one toast per mutation — for pages that fire many small
-// mutations in quick succession (every toggle, every drag) where a toast per
-// mutation would be noisy. A burst starts when the tracked pending count
-// rises above zero and ends when it falls back to zero; the toast is
-// skipped if anything in the burst errored, since the per-mutation onError
-// already toasted.
-//
-// `mutationKeys` should be a stable (module-level) array — it's used as an
-// effect dependency, and a fresh array literal on every render would tear
-// down and resubscribe the mutation cache listener each time.
+/**
+ * Shows one success toast per "burst" of mutations sharing one of the given
+ * keys, rather than one toast per mutation — for pages that fire many small
+ * mutations in quick succession (every toggle, every drag) where a toast per
+ * mutation would be noisy. A burst starts when the tracked pending count
+ * rises above zero and ends when it falls back to zero; the toast is
+ * skipped if anything in the burst errored, since the per-mutation onError
+ * already toasted.
+ *
+ * `mutationKeys` should be a stable (module-level) array — it's used as an
+ * effect dependency, and a fresh array literal on every render would tear
+ * down and resubscribe the mutation cache listener each time.
+ */
 export function useMutationBurstNotifier(
   mutationKeys: ReadonlyArray<readonly string[]>,
   successMessage: string

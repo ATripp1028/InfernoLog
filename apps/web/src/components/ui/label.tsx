@@ -2,6 +2,9 @@ import { forwardRef } from 'react'
 import * as LabelPrimitive from '@radix-ui/react-label'
 import { cn } from '@/lib/utils'
 
+/**
+ * A Radix form label. Prefer `FieldLabel`, which adds spacing and the optional hint icon.
+ */
 export const Label = forwardRef<
   React.ElementRef<typeof LabelPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof LabelPrimitive.Root>

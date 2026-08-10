@@ -7,6 +7,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { getPresetColor } from './presets'
 import type { ListPreset } from '@/lib/api/presets'
 
+/**
+ * State for the preset selector: which preset is active, unsaved-change detection, and the save/rename/delete writes.
+ */
 export function usePresetSelector({
   presets,
   selectedPresetId,

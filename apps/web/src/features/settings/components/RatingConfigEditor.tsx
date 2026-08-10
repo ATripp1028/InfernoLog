@@ -32,6 +32,9 @@ interface RatingConfigEditorProps {
   hideActions?: boolean
 }
 
+/**
+ * The weighted-rating category editor: names, weights, and drag-to-reorder priority.
+ */
 export const RatingConfigEditor = forwardRef<
   RatingConfigEditorHandle,
   RatingConfigEditorProps
@@ -149,14 +152,14 @@ export const RatingConfigEditor = forwardRef<
           <span className="font-mono">1.00</span>
         </div>
         {!sumValid && (
-          <div className="text-xs text-[var(--color-danger)]">
+          <div className="text-xs text-danger">
             Must equal exactly 1.00 to save.
           </div>
         )}
       </Card>
 
       {(hasEmptyName || hasDuplicateName) && (
-        <p className="text-xs text-[var(--color-danger)]">
+        <p className="text-xs text-danger">
           {hasEmptyName
             ? 'Every category needs a name.'
             : 'Category names must be unique.'}
@@ -282,7 +285,7 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
       <div className="flex items-center gap-2 sm:contents">
         <DragHandle listeners={listeners} attributes={attributes} />
         <div className="flex flex-1 flex-wrap items-center gap-2">
-          <span className="rounded bg-[var(--color-bg-elevated)] px-2 py-0.5 text-xs font-medium tracking-wide text-[var(--color-main)]">
+          <span className="rounded bg-bg-elevated px-2 py-0.5 text-xs font-medium tracking-wide text-text-primary">
             Enjoyment
           </span>
           <span className="text-xs text-muted-foreground">

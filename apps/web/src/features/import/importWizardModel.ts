@@ -17,10 +17,12 @@ import type {
   ParsedRatingRow,
 } from './parseSpreadsheet'
 
-// checking-conflicts is a distinct state from committing (see StepIndicator's
-// ORDER map) — it's the network round trip that decides where the wizard
-// goes next, so it must sit between review and resolve-conflicts/resolve-lists,
-// never share committing's step slot.
+/**
+ * checking-conflicts is a distinct state from committing (see StepIndicator's
+ * ORDER map) — it's the network round trip that decides where the wizard
+ * goes next, so it must sit between review and resolve-conflicts/resolve-lists,
+ * never share committing's step slot.
+ */
 export type WizardStep =
   | 'upload'
   | 'review'
@@ -30,23 +32,30 @@ export type WizardStep =
   | 'committing'
   | 'success'
 
-// The resolve-conflicts step's internal sequence — a sub-step is skipped
-// when its conflict list is empty, same "skip what's empty" rule as the
-// top-level wizard steps.
+/**
+ * The resolve-conflicts step's internal sequence — a sub-step is skipped
+ * when its conflict list is empty, same "skip what's empty" rule as the
+ * top-level wizard steps.
+ */
 export const CONFLICT_SUB_STEP_ORDER = [
   'completions',
   'progress',
   'dropped',
   'ratings',
 ] as const
+/**
+ * One sub-step of the resolve-conflicts step. See {@link CONFLICT_SUB_STEP_ORDER}.
+ */
 export type ConflictSubStep = (typeof CONFLICT_SUB_STEP_ORDER)[number]
 
-// The four per-tab resolution maps, keyed by tab rather than passed as
-// separate same-typed positional arguments — every one of these is a
-// Map<string, GroupResolution>, so positional params gave TypeScript nothing
-// to catch a caller accidentally swapping two of them (e.g. passing
-// `dropped` where `progress` belongs) — a keyed object makes a swap
-// self-evident at the call site instead of a silent data-corruption bug.
+/**
+ * The four per-tab resolution maps, keyed by tab rather than passed as
+ * separate same-typed positional arguments — every one of these is a
+ * Map<string, GroupResolution>, so positional params gave TypeScript nothing
+ * to catch a caller accidentally swapping two of them (e.g. passing
+ * `dropped` where `progress` belongs) — a keyed object makes a swap
+ * self-evident at the call site instead of a silent data-corruption bug.
+ */
 export interface RowResolutions {
   completion: Map<string, GroupResolution>
   progress: Map<string, GroupResolution>
@@ -54,6 +63,9 @@ export interface RowResolutions {
   rating: Map<string, GroupResolution>
 }
 
+/**
+ * A fresh, empty per-tab resolution map. Keyed by tab so a mis-keyed write cannot silently land in the wrong one.
+ */
 export const EMPTY_ROW_RESOLUTIONS: RowResolutions = {
   completion: new Map(),
   progress: new Map(),
@@ -61,16 +73,20 @@ export const EMPTY_ROW_RESOLUTIONS: RowResolutions = {
   rating: new Map(),
 }
 
-// resolvedListOrders key for the single global ranking merge (once Phase 5
-// populates rankingMerge) — collections are keyed by their own display name,
-// which can never collide with this sentinel.
+/**
+ * resolvedListOrders key for the single global ranking merge (once Phase 5
+ * populates rankingMerge) — collections are keyed by their own display name,
+ * which can never collide with this sentinel.
+ */
 export const RANKING_MERGE_KEY = '__ranking__'
 
-// Mirrors apps/api/src/services/importCollections.ts's classifyCollection —
-// only the display-name half, since the wizard just needs to know which raw
-// sheet rows belong to the same target collection as an already-resolved
-// merge result (matched against ImportListMerge.list), not the full
-// key/type/create-on-demand logic the backend owns.
+/**
+ * Mirrors apps/api/src/services/importCollections.ts's classifyCollection —
+ * only the display-name half, since the wizard just needs to know which raw
+ * sheet rows belong to the same target collection as an already-resolved
+ * merge result (matched against ImportListMerge.list), not the full
+ * key/type/create-on-demand logic the backend owns.
+ */
 export function classifyCollectionName(raw: string): string {
   const k = raw.toLowerCase().replace(/[\s_-]+/g, '')
   if (k === 'wanttobeat') return 'Want to Beat'
@@ -88,8 +104,10 @@ export function classifyCollectionName(raw: string): string {
   return raw.trim()
 }
 
-// checkConflicts is skipped entirely when there's nothing to check (e.g. an
-// import with no Completions/Progress/Dropped rows at all).
+/**
+ * checkConflicts is skipped entirely when there's nothing to check (e.g. an
+ * import with no Completions/Progress/Dropped rows at all).
+ */
 export const EMPTY_CHECK_RESULT: ImportCheckResponse = {
   completionConflicts: [],
   progressConflicts: [],
@@ -101,8 +119,10 @@ export const EMPTY_CHECK_RESULT: ImportCheckResponse = {
   rankingMerge: null,
 }
 
-// Shared shape between Completions/Progress/Dropped conflicts — FieldConflictMerge
-// only needs the group scaffolding, not the levelId/matchedId bookkeeping.
+/**
+ * Shared shape between Completions/Progress/Dropped conflicts — FieldConflictMerge
+ * only needs the group scaffolding, not the levelId/matchedId bookkeeping.
+ */
 export function conflictsToGroups(conflicts: ImportRowConflict[]) {
   return conflicts.map((c) => ({
     groupId: String(c.rowIndex),
@@ -116,14 +136,19 @@ export function conflictsToGroups(conflicts: ImportRowConflict[]) {
   }))
 }
 
-// Ratings conflicts are keyed by (levelId, categoryName) rather than
-// rowIndex — a rating "row" in the sheet bundles every category for one
-// level into a single scores map, so a conflict on one category doesn't
-// correspond to a whole row the way it does for the other three tabs.
+/**
+ * Ratings conflicts are keyed by (levelId, categoryName) rather than
+ * rowIndex — a rating "row" in the sheet bundles every category for one
+ * level into a single scores map, so a conflict on one category doesn't
+ * correspond to a whole row the way it does for the other three tabs.
+ */
 export function ratingConflictGroupId(conflict: ImportRatingConflict): string {
   return `${conflict.levelId}::${conflict.categoryName}`
 }
 
+/**
+ * Turns the /check response's rating conflicts into the group shape the field resolver renders.
+ */
 export function ratingConflictsToGroups(conflicts: ImportRatingConflict[]) {
   return conflicts.map((c) => ({
     groupId: ratingConflictGroupId(c),
@@ -139,12 +164,14 @@ export function ratingConflictsToGroups(conflicts: ImportRatingConflict[]) {
   }))
 }
 
-// Blanket-override mode ("imported data always wins"): synthesizes the exact
-// same resolutions a user would produce by clicking "Use imported for all" on
-// every conflict step and "Use spreadsheet order" on every list merge board —
-// reusing the established resolution vocabulary instead of a separate commit
-// path, so the backend sees no difference between this and a manually
-// resolved import.
+/**
+ * Blanket-override mode ("imported data always wins"): synthesizes the exact
+ * same resolutions a user would produce by clicking "Use imported for all" on
+ * every conflict step and "Use spreadsheet order" on every list merge board —
+ * reusing the established resolution vocabulary instead of a separate commit
+ * path, so the backend sees no difference between this and a manually
+ * resolved import.
+ */
 export function overwriteRowResolutions(
   conflicts: ImportRowConflict[]
 ): Map<string, GroupResolution> {
@@ -156,6 +183,9 @@ export function overwriteRowResolutions(
   )
 }
 
+/**
+ * Resolves every rating conflict to the imported value — the blanket-override path, which skips the resolver entirely.
+ */
 export function overwriteRatingResolutions(
   conflicts: ImportRatingConflict[]
 ): Map<string, GroupResolution> {
@@ -167,6 +197,9 @@ export function overwriteRatingResolutions(
   )
 }
 
+/**
+ * Resolves every list merge to the spreadsheet's order — the blanket-override path for Ranking and collections.
+ */
 export function overwriteListOrders(
   collectionsMerge: ImportListMerge[],
   rankingMerge: ImportListMerge | null
@@ -187,8 +220,10 @@ export function overwriteListOrders(
   return map
 }
 
-// Shared between the /check request and the final /start payload — both need
-// the same "which rating rows are actually importable" filter.
+/**
+ * Shared between the /check request and the final /start payload — both need
+ * the same "which rating rows are actually importable" filter.
+ */
 export function getValidRatingRows(
   parseResult: ParseResult | null
 ): ParsedRatingRow[] {
@@ -200,18 +235,41 @@ export function getValidRatingRows(
   )
 }
 
-export interface AllFlags {
-  completions: ParseFlag[]
-  progress: ParseFlag[]
-  dropped: ParseFlag[]
-  ranking: ParseFlag[]
-  lists: ParseFlag[]
-  ratings: ParseFlag[]
+/**
+ * The spreadsheet tabs that carry rows, in the order the review step lists
+ * them. Anything iterating tabs — grouping flags, rendering per-tab
+ * breakdowns — reads this rather than re-typing the six names; the review
+ * step used to enumerate them by hand in six places.
+ */
+export const FLAG_TABS = [
+  { key: 'completions', label: 'Completions tab' },
+  { key: 'progress', label: 'Progress tab' },
+  { key: 'dropped', label: 'Dropped tab' },
+  { key: 'ranking', label: 'Ranking tab' },
+  { key: 'lists', label: 'Lists tab' },
+  { key: 'ratings', label: 'Ratings tab' },
+] as const
+
+/** One of {@link FLAG_TABS}' keys. */
+export type FlagTab = (typeof FLAG_TABS)[number]['key']
+
+/** Flags grouped by the tab they came from. */
+export type FlagsByTab = Record<FlagTab, ParseFlag[]>
+
+/**
+ * Every parse flag from every tab, plus the cross-row duplicate report.
+ *
+ * `duplicates` is deliberately not a {@link FlagTab} — it is a whole-workbook
+ * finding rather than a per-row flag, so it never appears in a per-tab
+ * breakdown.
+ */
+export interface AllFlags extends FlagsByTab {
   duplicates: ParseResult['duplicateLevelIds']
 }
 
-// ── Date format labels ─────────────────────────────────────────────────────
-
+/**
+ * The date-format choices offered on upload. The parser cannot infer the format, so the user states it.
+ */
 export const DATE_OPTIONS: { value: DateFormat; label: string }[] = [
   { value: 'MDY', label: 'MM/DD/YYYY (US)' },
   { value: 'DMY', label: 'DD/MM/YYYY (International)' },
@@ -219,15 +277,17 @@ export const DATE_OPTIONS: { value: DateFormat; label: string }[] = [
   { value: 'YMD', label: 'YYYY/MM/DD (ISO slashes)' },
 ]
 
-// Display position of each step in StepIndicator. checking-conflicts shares
-// the "Conflicts" slot with resolve-conflicts itself — it's the in-flight
-// check that decides whether the resolve step is needed at all, so it must
-// render as the same indicator position rather than briefly flashing
-// "Import" as current before possibly stepping back. resolve-lists gets its
-// own slot: it's reachable either directly from checking-conflicts (no field
-// conflicts, but a list merge is needed) or after resolve-conflicts
-// finishes — both are forward moves since its order (3) is greater than
-// checking-conflicts/resolve-conflicts's (2).
+/**
+ * Display position of each step in StepIndicator. checking-conflicts shares
+ * the "Conflicts" slot with resolve-conflicts itself — it's the in-flight
+ * check that decides whether the resolve step is needed at all, so it must
+ * render as the same indicator position rather than briefly flashing
+ * "Import" as current before possibly stepping back. resolve-lists gets its
+ * own slot: it's reachable either directly from checking-conflicts (no field
+ * conflicts, but a list merge is needed) or after resolve-conflicts
+ * finishes — both are forward moves since its order (3) is greater than
+ * checking-conflicts/resolve-conflicts's (2).
+ */
 export const STEP_ORDER: Record<WizardStep | 'done', number> = {
   upload: 0,
   review: 1,
@@ -239,8 +299,10 @@ export const STEP_ORDER: Record<WizardStep | 'done', number> = {
   done: 6,
 }
 
-// First non-empty sub-step in CONFLICT_SUB_STEP_ORDER, or null when every
-// conflict list is empty — i.e. the check found nothing to resolve by hand.
+/**
+ * First non-empty sub-step in CONFLICT_SUB_STEP_ORDER, or null when every
+ * conflict list is empty — i.e. the check found nothing to resolve by hand.
+ */
 export function firstConflictSubStep(
   completion: ImportRowConflict[],
   progress: ImportRowConflict[],

@@ -6,7 +6,6 @@ import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
 import { Segmented } from '@/components/ui/segmented'
 import { toast } from '@/components/ui/sonner'
-import { cn } from '@/lib/utils'
 import { ApiError } from '@/lib/api/client'
 import { useCreateManualLevel } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
@@ -31,6 +30,9 @@ const NON_DEMON_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'Insane', label: 'Insane' },
 ]
 
+/**
+ * Hand-enters a level when RobTop can't be reached or has no such id. Stored unverified until a sync confirms it.
+ */
 export function ManualLevelStep() {
   const { manualLevelId, setStep, applyManualLevel } = useLoggingFlow()
   const createLevel = useCreateManualLevel()
@@ -133,27 +135,13 @@ export function ManualLevelStep() {
             <p className="mb-2 text-xs text-text-tertiary">
               Not a demon? Pick its difficulty instead.
             </p>
-            <div className="flex flex-wrap gap-2">
-              {NON_DEMON_OPTIONS.map((opt) => {
-                const active = difficulty === opt.value
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => setDifficulty(opt.value)}
-                    className={cn(
-                      'h-8 rounded-md border px-3 text-xs font-medium transition-colors',
-                      active
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                )
-              })}
-            </div>
+            <Segmented
+              options={NON_DEMON_OPTIONS}
+              value={difficulty}
+              onChange={setDifficulty}
+              size="sm"
+              fill={false}
+            />
             <label className="mt-3 flex items-center gap-2 text-xs text-text-secondary">
               <Switch
                 checked={effectiveRated}

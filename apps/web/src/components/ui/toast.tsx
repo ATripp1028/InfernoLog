@@ -148,7 +148,7 @@ function LoadingToast({ message }: { message: string }) {
   return (
     <div
       role="status"
-      className="flex w-[356px] max-[600px]:w-full items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-4 py-3 text-foreground shadow-lg"
+      className="flex w-[356px] max-[600px]:w-full items-center gap-2.5 rounded-lg border border-border bg-bg-elevated px-4 py-3 text-foreground shadow-lg"
     >
       <Loader2
         className="size-4 shrink-0 animate-spin text-info"
@@ -205,6 +205,12 @@ interface AppToast {
   dismiss: (id?: string | number) => string | number
 }
 
+/**
+ * The app's toast API, wrapping sonner with the InfernoLog variants.
+ *
+ * Each toast renders its own countdown bar, paused in step with the JS
+ * dismiss timer so the bar never disagrees with when the toast disappears.
+ */
 export const toast: AppToast = {
   success: showToast('success'),
   error: showToast('error'),

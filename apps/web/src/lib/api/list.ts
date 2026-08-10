@@ -1,15 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { LevelProgressListItem } from '@infernolog/core'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
 import { INVALIDATE_ON_WRITE } from './logging'
 
 export type { LevelProgressListItem }
 
-// The List. Key matches the ['list'] entry in logging.ts's
-// INVALIDATE_ON_WRITE so completion/progress/drop writes refetch this view.
+/**
+ * The List. Key matches the ['list'] entry in logging.ts's
+ * INVALIDATE_ON_WRITE so completion/progress/drop writes refetch this view.
+ */
 export const listQueryKey = ['list'] as const
 
+/**
+ * Every level the user has logged — the List page's single query.
+ */
 export function useMyProgress() {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
@@ -26,8 +31,10 @@ export function useMyProgress() {
   })
 }
 
-// Delete a level entry entirely (cascades server-side). Optimistically removes
-// the row, then refetches the list to reconcile.
+/**
+ * Delete a level entry entirely (cascades server-side). Optimistically removes
+ * the row, then refetches the list to reconcile.
+ */
 export function useDeleteProgress() {
   const { getIdToken } = useAuth()
   const queryClient = useQueryClient()

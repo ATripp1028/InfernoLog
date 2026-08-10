@@ -1,7 +1,11 @@
 import { cn } from '@/lib/utils'
-import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import { DifficultyFace } from '@/components/DifficultyFace'
-import { formatRating, formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/features/logging/format'
+import { formatRating } from '@/lib/ratingScale'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
 import { gddlTier } from './filtering'
@@ -15,8 +19,10 @@ import type { ListItem } from './types'
 
 const VIEWER_TZ = getViewerTimezone()
 
-// Mobile card. Face, tier badge, and status icons are vertically centered in a
-// single row; the stats line reflects the enabled column toggles.
+/**
+ * Mobile card. Face, tier badge, and status icons are vertically centered in a
+ * single row; the stats line reflects the enabled column toggles.
+ */
 export function ListCard({
   item,
   columns,
@@ -63,7 +69,7 @@ export function ListCard({
   const coins = columns.coins ? coinDisplay(level) : null
 
   return (
-    <div className="relative overflow-hidden rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-3 py-3">
+    <div className="relative overflow-hidden rounded-card border border-border-subtle bg-bg-surface px-3 py-3">
       <RowWash item={item} />
       <div className="relative flex items-center gap-3">
         <DifficultyFace
@@ -84,7 +90,7 @@ export function ListCard({
               {level.name ?? 'Unknown level'}
             </p>
             {level.twoPlayer && (
-              <span className="shrink-0 rounded bg-[var(--color-bg-elevated)] px-1 text-[9px] font-bold text-text-secondary">
+              <span className="shrink-0 rounded bg-bg-elevated px-1 text-[9px] font-bold text-text-secondary">
                 2P
               </span>
             )}

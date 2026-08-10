@@ -13,19 +13,28 @@ import type {
   CreateCollectionInput,
   UpdateCollectionInput,
 } from '@infernolog/core'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { apiFetch, ApiError } from './client'
 
 export type { CollectionSummary, CollectionDetail, CollectionEntry }
 
-// Machine-readable error codes the collections API returns in `error`.
-// Mirrors COLLECTION_ERRORS in @infernolog/core.
+/**
+ * Machine-readable error codes the collections API returns in `error`.
+ * Mirrors COLLECTION_ERRORS in @infernolog/core.
+ */
 export type CollectionErrorCode =
   | 'DUPLICATE_NAME'
   | 'RESERVED_NAME'
   | 'BUILT_IN_COLLECTION'
   | 'LEVEL_ALREADY_COMPLETED'
 
+/**
+ * The machine-readable code from a failed collections request, or `null`.
+ *
+ * Returns `null` for anything that is not an {@link ApiError} carrying one of
+ * the four known codes, so a caller can fall back to the generic message
+ * rather than branching on a string it does not recognize.
+ */
 export function collectionErrorCode(err: unknown): CollectionErrorCode | null {
   if (!(err instanceof ApiError)) return null
   const body = err.body as { error?: unknown } | null
@@ -38,9 +47,18 @@ export function collectionErrorCode(err: unknown): CollectionErrorCode | null {
     : null
 }
 
+/**
+ * Cache key for the collections index (names, counts, previews).
+ */
 export const collectionsQueryKey = ['collections'] as const
+/**
+ * Cache key for one collection's full detail, including its entries.
+ */
 export const collectionQueryKey = (id: string) => ['collections', id] as const
 
+/**
+ * The collections index. Built-ins and custom collections come back together.
+ */
 export function useCollections() {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
@@ -60,6 +78,9 @@ export function useCollections() {
   })
 }
 
+/**
+ * One collection with its entries.
+ */
 export function useCollection(collectionId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
@@ -76,9 +97,11 @@ export function useCollection(collectionId: string) {
   })
 }
 
-// Batch-load multiple collection details in parallel, sharing the same cache
-// keys as useCollection. Pass enabled=false to defer loading (e.g. until a
-// dialog step is reached).
+/**
+ * Batch-load multiple collection details in parallel, sharing the same cache
+ * keys as useCollection. Pass enabled=false to defer loading (e.g. until a
+ * dialog step is reached).
+ */
 export function useCollectionDetails(ids: string[], enabled = true) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQueries({
@@ -106,6 +129,9 @@ function useApplyDetail() {
   }
 }
 
+/**
+ * Creates a custom collection. Fails with `DUPLICATE_NAME` or `RESERVED_NAME`; see {@link collectionErrorCode}.
+ */
 export function useCreateCollection() {
   const { getIdToken } = useAuth()
   const applyDetail = useApplyDetail()
@@ -128,6 +154,9 @@ export function useCreateCollection() {
   })
 }
 
+/**
+ * Renames or re-describes a collection. Fails with `BUILT_IN_COLLECTION` for Want to Beat and friends.
+ */
 export function useUpdateCollection() {
   const { getIdToken } = useAuth()
   const applyDetail = useApplyDetail()
@@ -147,6 +176,9 @@ export function useUpdateCollection() {
   })
 }
 
+/**
+ * Deletes a custom collection. Built-ins cannot be deleted.
+ */
 export function useDeleteCollection() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
@@ -165,6 +197,12 @@ export function useDeleteCollection() {
   })
 }
 
+/**
+ * Adds a level to a collection.
+ *
+ * Fails with `LEVEL_ALREADY_COMPLETED` when the target is Want to Beat, which
+ * only ever holds unbeaten levels.
+ */
 export function useAddCollectionEntry() {
   const { getIdToken } = useAuth()
   const applyDetail = useApplyDetail()
@@ -184,6 +222,9 @@ export function useAddCollectionEntry() {
   })
 }
 
+/**
+ * Removes one entry from a collection.
+ */
 export function useRemoveCollectionEntry() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
@@ -223,6 +264,9 @@ export function useRemoveCollectionEntry() {
   })
 }
 
+/**
+ * Where an entry lands. Both neighbours omitted is not meaningful — a one-entry list has nothing to reorder.
+ */
 export interface ReorderEntryVars {
   collectionId: string
   entryId: string
@@ -232,6 +276,12 @@ export interface ReorderEntryVars {
   nextId?: string | undefined
 }
 
+/**
+ * Moves an entry between two neighbours, optimistically.
+ *
+ * Serialized under one mutation scope so two quick drags cannot interleave
+ * and land the server on the loser's fractional index.
+ */
 export function useReorderCollectionEntry() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()

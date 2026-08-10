@@ -1,11 +1,3 @@
-// Field-level conflict resolution. One FieldConflictMerge per tab, walked as
-// a linear sub-sequence (Completions → Progress → Dropped → Ratings, empty
-// ones skipped) rather than free-roaming tabs — consistent with the wizard's
-// own forward-only step model.
-//
-// Which sub-step is current, and what "resolved" advances to, are decided in
-// useImportWizard; this only maps the sub-step to its resolver.
-
 import { FieldConflictMerge } from '../FieldConflictMerge'
 import {
   conflictsToGroups,
@@ -13,6 +5,15 @@ import {
 } from '../importWizardModel'
 import { useImportFlow } from '../ImportFlowProvider'
 
+/**
+ * Field-level conflict resolution. One FieldConflictMerge per tab, walked as
+ * a linear sub-sequence (Completions → Progress → Dropped → Ratings, empty
+ * ones skipped) rather than free-roaming tabs — consistent with the wizard's
+ * own forward-only step model.
+ *
+ * Which sub-step is current, and what "resolved" advances to, are decided in
+ * useImportWizard; this only maps the sub-step to its resolver.
+ */
 export function ResolveConflictsStep() {
   const {
     conflictSubStep,

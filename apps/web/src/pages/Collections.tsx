@@ -1,7 +1,3 @@
-// Collections index — built-ins pinned above a labeled "Your collections"
-// section of custom collections, plus the dashed create card and the
-// create-direct FAB. Mocks: desktop 1168:2, tablet 1214:2, mobile 1215:2.
-
 import { useState } from 'react'
 import { toast } from '@/components/ui/sonner'
 import { PageLoading } from '@/components/PageLoading'
@@ -13,7 +9,13 @@ import {
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { useFabActions } from '@/context/FabActionsContext'
 import { Plus } from 'lucide-react'
+import { SectionLabel } from '@/components/SectionLabel'
 
+/**
+ * Collections index — built-ins pinned above a labeled "Your collections"
+ * section of custom collections, plus the dashed create card and the
+ * create-direct FAB. Mocks: desktop 1168:2, tablet 1214:2, mobile 1215:2.
+ */
 export function Collections() {
   const collections = useCollections()
   const createCollection = useCreateCollection()
@@ -31,7 +33,7 @@ export function Collections() {
   if (collections.isPending) return <PageLoading />
   if (collections.error) {
     return (
-      <div className="p-8 text-sm text-red-500">
+      <div className="p-8 text-sm text-danger">
         Could not load your collections. Refresh to try again.
       </div>
     )
@@ -50,7 +52,9 @@ export function Collections() {
       </header>
 
       <section aria-label="Pinned collections">
-        <SectionLabel>Pinned</SectionLabel>
+        <SectionLabel tone="secondary" className="mb-4">
+          Pinned
+        </SectionLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {builtIns.map((c) => (
             <CollectionCard key={c.id} collection={c} />
@@ -59,7 +63,9 @@ export function Collections() {
       </section>
 
       <section aria-label="Your collections">
-        <SectionLabel>Your collections</SectionLabel>
+        <SectionLabel tone="secondary" className="mb-4">
+          Your collections
+        </SectionLabel>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
           {customs.map((c) => (
             <CollectionCard key={c.id} collection={c} />
@@ -79,13 +85,5 @@ export function Collections() {
         }}
       />
     </div>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-      {children}
-    </p>
   )
 }

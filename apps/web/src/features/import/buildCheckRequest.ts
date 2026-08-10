@@ -13,6 +13,9 @@ import type {
 } from './parseSpreadsheet'
 import { getValidRatingRows } from './importWizardModel'
 
+/**
+ * Everything {@link buildCheckRequest} needs. Pure input — no hooks, no context.
+ */
 export interface CheckRequestInput {
   parseResult: ParseResult
   completions: ParsedCompletionRow[]
@@ -20,6 +23,9 @@ export interface CheckRequestInput {
   dropped: ParsedDroppedRow[]
 }
 
+/**
+ * Turns the parsed workbook into the /check request body, dropping rows that cannot be identified.
+ */
 export function buildCheckRequest({
   parseResult,
   completions,

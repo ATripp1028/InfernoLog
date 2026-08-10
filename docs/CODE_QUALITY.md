@@ -216,15 +216,45 @@ JSDoc — it is the kind of thing a caller gets wrong exactly once, expensively.
 
 ## Frontend (`apps/web`)
 
-Established by the frontend logic-extraction pass on 2026-08-09/10. Same
+Established by the frontend logic-extraction pass on 2026-08-09/10 and
+extended by the frontend tech-debt pass on 2026-08-10, which settled the
+documentation-comment and styling questions §1 and §6 now answer. Same
 convention as above: where a rule exists because a specific failure happened,
 the failure is named.
 
-These rules govern how a component is _organized_. Styling, data-fetching
-conventions, and the documentation-comment question are not settled yet — see
-"Not covered yet" at the end rather than assuming the backend's answer.
+### 1. Documentation comments
 
-### 1. Component files render; logic lives beside them
+**Every exported symbol carries a JSDoc block, not `//` comments.** Same rule
+as the backend's §1, adopted here by the 2026-08-10 pass, and for the same
+reason: a `//` comment above an export is invisible on IDE hover, which is the
+one moment a reader needs it. Read that section for what a block must contain
+and what it must not become — none of it is backend-specific.
+
+Frontend-specific points:
+
+- **Components are documented like functions.** The block says what the
+  component _is_ on the surface it appears on, and `@param` earns its place for
+  a prop whose meaning is not obvious from its name and type — a `variant` that
+  changes semantics rather than pixels, a `value` that is `null` for a reason, a
+  unit the type cannot express. `children: ReactNode` needs no gloss.
+- **State units belong in the block.** Ratings travel as internal 0–100 in some
+  places and display units in others; `RatingRow` and `lib/ratingScale.ts` say
+  which, at the boundary, because the type is `number` either way. Before this
+  pass the logging flow's rating row and the edit modals' spoke different units
+  under the same name.
+- **Module headers stay `//`.** A file's header explains its role and its
+  relationship to siblings; nothing hovers over a file. Where a single-export
+  file's header was really describing that export, it became the export's JSDoc
+  — check which one you are writing.
+- **Section-divider banners are gone.** A `// ─────` rule above a group of
+  exports is a layout device that reads as documentation. `lib/api/me.ts` had
+  seven of them, and the prose inside two was the only place a real caveat was
+  written down. That prose now lives on the symbol it warns about.
+- **`src/routes/*` is exempt.** Those files are TanStack Router glue whose only
+  export is a `Route` from `createFileRoute`; a doc block on it says nothing the
+  filename does not.
+
+### 2. Component files render; logic lives beside them
 
 **Every component keeps its logic in a sibling file — one file per component.**
 
@@ -279,7 +309,7 @@ collection). Merging them would mean seeding `displayEntries` empty and filling
 it from an effect, which flashes the "No levels yet" empty state for a frame
 before the rows land.
 
-### 2. Multi-step flows: one component per step, plus a flow context
+### 3. Multi-step flows: one component per step, plus a flow context
 
 **A step is a component in `steps/`, never a branch of JSX in the parent.**
 
@@ -309,7 +339,7 @@ mounted by `ImportWizard` itself, which scopes the flow's state to one open
 wizard and makes close-then-reopen start clean without a reset path to
 maintain.
 
-### 3. Shared components live in `src/components/`
+### 4. Shared components live in `src/components/`
 
 **A component used by two features belongs to neither.**
 
@@ -334,29 +364,81 @@ semantics, answering to the search surface rather than to a "pick a level"
 prompt. The rule targets **one component re-typed**, which is what the four
 result rows were.
 
-### 4. Feature layout
+### 6. Styling: tokens, not values
+
+**Colour comes from `src/styles/tokens.css`, through a Tailwind utility.**
+
+Tailwind v4 exposes every `@theme` token as a utility, so `bg-bg-surface` and
+`bg-[var(--color-bg-surface)]` are the same class written two ways. Both were
+in use — 134 `border-border` against 53 `border-[var(--color-border)]` — which
+is enough spelling variation to defeat a grep when a colour needs changing.
+Use the utility form.
+
+**No raw hex, and no raw Tailwind palette colours.** `text-[#212121]` is
+`bg-elevated` with the token filed off; `text-amber-600` is `text-warning-soft`
+with the design system bypassed. Three concrete failures came out of this:
+
+- `text-[var(--color-main)]` named a token that does not exist, so that badge
+  rendered with an inherited colour.
+- The import wizard styled itself entirely in raw `amber-*`/`red-*` with
+  `dark:` variants. The app is dark-only and never sets a `dark` class, so in
+  Tailwind v4 those variants keyed off the _viewer's OS preference_ — a user on
+  a light OS got `amber-600` text on a near-black panel.
+- Four badges used `bg-[rgba(34,197,94,0.1)]`-style literals that were, to the
+  byte, the existing `--color-success-dim` and `--color-danger-dim`.
+
+When a value genuinely has no token and recurs, add one with a comment saying
+what it is for — that pass added `--color-bg-inset`, `--color-text-body`, and
+the `-soft` text family that pairs with the existing `-dim` backgrounds.
+
+**A class string written three times wants a component or a variant.** Use
+`cva` for a control with real axes (`Segmented`, `SectionLabel`) and a plain
+component for a fixed shape (`EmptyState`, `Textarea`). The pill-button styling
+behind every mutually-exclusive picker had been open-coded seven times in three
+sizes before `segmentedItemVariants`; the small uppercase section heading
+existed five times in five sizes and colours.
+
+**Per-caller differences are props, not copies** — the same rule as §4, applied
+to the class string rather than the component.
+
+### 7. Feature layout
 
 Feature code lives under `src/features/<feature>/`, with the component, its
 logic file, and its feature-local helpers together. Steps go in a `steps/`
 subdirectory; anything shared across features moves to `src/components/` (see
-§3) or `src/lib/`.
+§4) or `src/lib/`.
 
 Files that are neither component nor hook are named for what they hold —
 `filtering.ts`, `columns.ts`, `identity.ts`, `importWizardModel.ts` — and a
 state machine's model (its step union, its shared transforms) belongs in one of
 those rather than in the component that happens to render it first.
 
+### 8. Imports and shared vocabulary
+
+**Cross-directory imports use the `@/` alias.** A relative path is for a
+sibling or a file inside the same feature (`./sortMeta`, `../components`);
+anything reaching into another top-level directory uses `@/`, so a moved file
+does not rewrite a chain of `../../`.
+
+**A domain enum is declared once, in `lib/api/wireEnums.ts`.** The wire enums
+are mirrored from `packages/core` as string-literal unions rather than imported
+— core pins zod@3 while the API validates on zod@4, and core's nominal `enum`
+types do not narrow from the plain strings `JSON.parse` returns.
+`packages/core/src/difficultyOpinion.ts` documents the same decision from the
+other side. That mirroring is fine; doing it once per endpoint module was not.
+`Device` had three declarations and `DifficultyOpinion` two, and a settings
+screen and a logging step imported the same enum from different files.
+
+**Two unrelated things must not share a name.** `SORT_OPTIONS` meant "List
+columns" in one module and "level browse orderings" in another; they are now
+`LIST_SORT_OPTIONS` and `LEVEL_SORT_OPTIONS`. Where two similar components
+genuinely both earn their place — the settings toggle group beside
+`components/ui/segmented` — rename one and say in a comment why both exist.
+
 ### Not covered yet
 
 Deliberately unsettled, so nothing here is mistaken for a rule:
 
-- **Documentation comments.** The frontend uses `//` module headers and inline
-  comments explaining non-obvious decisions. The backend's "JSDoc on every
-  exported symbol" rule (§1 above) has _not_ been adopted here; applying it
-  would make the whole surface non-compliant overnight, so it needs its own
-  decision rather than an assumption.
-- **Styling and Tailwind conventions**, including when a class string earns a
-  `cn()` helper or a shared variant.
 - **Data fetching** — query key shape, cache invalidation, and where a
   `lib/api/` hook ends and feature logic begins.
 - **Testing.** `apps/web` has no test suite. The logic files above exist partly

@@ -14,13 +14,12 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/sonner'
 import { cn } from '@/lib/utils'
-import {
+import { useUpdateMe, type MeData } from '@/lib/api/me'
+import type {
   DateFormatPreference,
-  type GdVersion,
-  type Device,
-  useUpdateMe,
-  type MeData,
-} from '@/lib/api/me'
+  Device,
+  GdVersion,
+} from '@/lib/api/wireEnums'
 import { ImportWizard } from '@/features/import/ImportWizard'
 import { useImportApi, useImportStatus } from '@/lib/api/import'
 import { downloadExport } from '@/features/import/generateExport'
@@ -36,10 +35,12 @@ const DATE_OPTIONS: { value: DateFormatPreference; label: string }[] = [
   { value: 'YMD', label: 'YYYY/MM/DD' },
 ]
 
-// The four logging-preference rows (date format / % version / FPS / highlight
-// toggle) — extracted so the onboarding wizard's Logging step can reuse them
-// exactly, without Settings-only rows (Import/Export) that don't belong there
-// (Import is its own onboarding step; Export doesn't apply pre-onboarding).
+/**
+ * The four logging-preference rows (date format / % version / FPS / highlight
+ * toggle) — extracted so the onboarding wizard's Logging step can reuse them
+ * exactly, without Settings-only rows (Import/Export) that don't belong there
+ * (Import is its own onboarding step; Export doesn't apply pre-onboarding).
+ */
 export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
   const update = useUpdateMe()
 
@@ -199,6 +200,9 @@ export function LoggingPreferencesFields({ me }: LoggingSectionProps) {
   )
 }
 
+/**
+ * Logging defaults (FPS, device, percentage version) plus the import/export entry points.
+ */
 export function LoggingSection({ me }: LoggingSectionProps) {
   const [importOpen, setImportOpen] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -240,8 +244,8 @@ export function LoggingSection({ me }: LoggingSectionProps) {
           >
             <div
               className={cn(
-                'flex h-full w-full flex-col overflow-y-auto bg-[var(--color-bg-surface)] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]',
-                'md:h-auto md:max-h-[calc(100vh-4rem)] md:w-[760px] md:max-w-[calc(100vw-2rem)] md:rounded-card md:border md:border-[var(--color-border-subtle)]'
+                'flex h-full w-full flex-col overflow-y-auto bg-bg-surface p-6 shadow-[0_24px_64px_rgba(0,0,0,0.6)]',
+                'md:h-auto md:max-h-[calc(100vh-4rem)] md:w-[760px] md:max-w-[calc(100vw-2rem)] md:rounded-card md:border md:border-border-subtle'
               )}
             >
               <Dialog.Title className="sr-only">
@@ -266,7 +270,7 @@ export function LoggingSection({ me }: LoggingSectionProps) {
               Bring your existing completion history into InfernoLog from an
               xlsx spreadsheet.
               {importStatusLine && (
-                <span className="mt-1 block font-medium text-amber-600 dark:text-amber-400">
+                <span className="mt-1 block font-medium text-warning-soft">
                   {importStatusLine}
                 </span>
               )}

@@ -46,7 +46,7 @@ function AuthenticatedLayout() {
   if (me.error) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-sm text-red-500">
+        <p className="text-sm text-danger">
           Something went wrong. Please refresh the page.
         </p>
       </div>

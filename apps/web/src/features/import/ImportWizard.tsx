@@ -1,21 +1,3 @@
-// Spreadsheet import wizard. WizardStep values are strictly ordered (see
-// STEP_ORDER in importWizardModel) and only ever move forward automatically —
-// upload → review → checking-conflicts → resolve-conflicts → resolve-lists →
-// committing → success. checking-conflicts and resolve-conflicts share a
-// display slot ("Conflicts"), so finding no field conflicts shows as that
-// step being skipped, never revisited; resolve-lists has its own slot
-// ("Lists") since it's reachable either directly from checking-conflicts
-// (no field conflicts, but a list merge is needed) or after resolve-conflicts
-// finishes — either way it's a forward move. The only backward moves are
-// explicit user actions (e.g. "Back to review" after an error, "Fix and
-// re-upload" from the review step, or "Cancel" out of conflict/list
-// resolution).
-//
-// Structured like the logging flow: the step machine lives in
-// ImportFlowProvider, every step is its own component under steps/ reading
-// that context directly, StepView maps the current step to one, and this file
-// is only the shell — title, step indicator, and the shared cancel row.
-
 import { Button } from '@/components/ui/button'
 import { StepIndicator } from './WizardChrome'
 import { ImportFlowProvider, useImportFlow } from './ImportFlowProvider'
@@ -38,6 +20,25 @@ interface ImportWizardProps {
   skipConflictCheck?: boolean
 }
 
+/**
+ * Spreadsheet import wizard. WizardStep values are strictly ordered (see
+ * STEP_ORDER in importWizardModel) and only ever move forward automatically —
+ * upload → review → checking-conflicts → resolve-conflicts → resolve-lists →
+ * committing → success. checking-conflicts and resolve-conflicts share a
+ * display slot ("Conflicts"), so finding no field conflicts shows as that
+ * step being skipped, never revisited; resolve-lists has its own slot
+ * ("Lists") since it's reachable either directly from checking-conflicts
+ * (no field conflicts, but a list merge is needed) or after resolve-conflicts
+ * finishes — either way it's a forward move. The only backward moves are
+ * explicit user actions (e.g. "Back to review" after an error, "Fix and
+ * re-upload" from the review step, or "Cancel" out of conflict/list
+ * resolution).
+ *
+ * Structured like the logging flow: the step machine lives in
+ * ImportFlowProvider, every step is its own component under steps/ reading
+ * that context directly, StepView maps the current step to one, and this file
+ * is only the shell — title, step indicator, and the shared cancel row.
+ */
 export function ImportWizard({
   me,
   onClose,
@@ -79,7 +80,7 @@ function WizardShell() {
         step !== 'committing' &&
         step !== 'resolve-conflicts' &&
         step !== 'resolve-lists' && (
-          <div className="pt-2 border-t border-[var(--color-border)]">
+          <div className="pt-2 border-t border-border">
             <Button variant="ghost" size="sm" onClick={close}>
               Cancel
             </Button>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { LogOut, Settings, User } from 'lucide-react'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { useNavigate, UseNavigateResult } from '@tanstack/react-router'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { MobileActionSheet } from '@/components/MobileActionSheet'
@@ -15,6 +15,9 @@ function handleNavigate(
   setOpen(false)
 }
 
+/**
+ * The header avatar and its account menu (settings, sign out).
+ */
 export function AvatarMenu() {
   const { signOut } = useAuth()
   const isDesktop = useMediaQuery('(min-width: 768px)')

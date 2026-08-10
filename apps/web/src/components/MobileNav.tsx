@@ -5,7 +5,7 @@ import {
   NAV_ITEMS,
   MOBILE_OVERFLOW_KEYS,
   type NavItem,
-} from '../utils/navConfig'
+} from '@/utils/navConfig'
 import {
   useResolvedFabActions,
   type FabAction,
@@ -13,6 +13,9 @@ import {
 import { MobileActionSheet } from '@/components/MobileActionSheet'
 import { cn } from '@/lib/utils'
 
+/**
+ * The bottom tab bar shown below the md breakpoint. Overflow tabs live behind the More sheet — see `MOBILE_OVERFLOW_KEYS`.
+ */
 export function MobileNav() {
   const [overflowOpen, setOverflowOpen] = useState(false)
   const [fabMenuOpen, setFabMenuOpen] = useState(false)
@@ -228,7 +231,7 @@ function FabSheetItem({
       className={cn(
         'flex h-12 w-full items-center gap-3 rounded-btn px-3 text-left text-sm font-medium transition-colors',
         action.danger
-          ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]'
+          ? 'text-danger hover:bg-danger-dim'
           : 'text-text-primary hover:bg-bg-subtle'
       )}
     >

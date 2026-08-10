@@ -9,6 +9,9 @@ interface IdentityStripProps {
   variant?: 'mobile' | 'desktop'
 }
 
+/**
+ * The level page's identity row: difficulty face, name, creator, and copyable id.
+ */
 export function IdentityStrip({
   level,
   variant = 'mobile',
@@ -18,7 +21,7 @@ export function IdentityStrip({
   return (
     <div className="relative overflow-hidden">
       {/* Thumbnail background — constructed URL, may 404 (img hides on error) */}
-      <div className="absolute inset-0 bg-[var(--color-bg-base)]" />
+      <div className="absolute inset-0 bg-bg-base" />
       <img
         src={levelThumbnailUrl(level.inGameId)}
         alt=""

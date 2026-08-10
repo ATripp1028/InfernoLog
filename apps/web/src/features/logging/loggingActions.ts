@@ -1,10 +1,12 @@
 import { Check, Flag, List, Star, X, type LucideIcon } from 'lucide-react'
 import type { FlowPath } from './types'
 
-// Source data for the default FAB action set (see useDefaultFabActions) —
-// shown on pages that don't override the FAB (List, Ranking, etc). The two
-// list-related actions are deferred — shown but disabled — until those
-// workflows are built.
+/**
+ * Source data for the default FAB action set (see useDefaultFabActions) —
+ * shown on pages that don't override the FAB (List, Ranking, etc). The two
+ * list-related actions are deferred — shown but disabled — until those
+ * workflows are built.
+ */
 export interface LoggingAction {
   key: string
   label: string
@@ -13,7 +15,9 @@ export interface LoggingAction {
   disabled?: boolean
 }
 
-// completion is first — the FAB treats actions[0] as the primary action.
+/**
+ * completion is first — the FAB treats actions[0] as the primary action.
+ */
 export const LOGGING_ACTIONS: LoggingAction[] = [
   {
     key: 'completion',

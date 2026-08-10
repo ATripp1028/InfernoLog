@@ -13,14 +13,16 @@ interface CopyableIdProps {
   className?: string
 }
 
-// A monospace id pill that copies its value to the clipboard on click and
-// confirms via the app's single toast channel — no inline "Copied" swap, no
-// icon-state change. Auto-sizes to its content, so a 6- and an 8-digit id
-// render at different widths. Keyboard-accessible and announced: it is a real
-// interactive control, not decoration.
-//
-// New in the Global Level Page PR; used here only. Migrating the app's other
-// id spots onto it is a separate PR.
+/**
+ * A monospace id pill that copies its value to the clipboard on click and
+ * confirms via the app's single toast channel — no inline "Copied" swap, no
+ * icon-state change. Auto-sizes to its content, so a 6- and an 8-digit id
+ * render at different widths. Keyboard-accessible and announced: it is a real
+ * interactive control, not decoration.
+ *
+ * New in the Global Level Page PR; used here only. Migrating the app's other
+ * id spots onto it is a separate PR.
+ */
 export function CopyableId({ id, label = 'ID', className }: CopyableIdProps) {
   async function handleCopy(e: React.MouseEvent) {
     // Stop the click from reaching a clickable ancestor (e.g. a list row that
@@ -44,7 +46,7 @@ export function CopyableId({ id, label = 'ID', className }: CopyableIdProps) {
         'inline-flex items-center gap-1.5 rounded-md px-2 py-1 leading-none',
         'text-[11px] font-medium',
         'transition-opacity hover:opacity-90 focus-visible:outline-none',
-        'focus-visible:ring-2 focus-visible:ring-[#ff8a8a]/50',
+        'focus-visible:ring-2 focus-visible:ring-danger-soft/50',
         className
       )}
       style={{

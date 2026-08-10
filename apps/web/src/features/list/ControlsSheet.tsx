@@ -3,9 +3,12 @@ import { SortChips } from './SortChips'
 import type { ColumnDef, ColumnVisibility, ColumnId } from './columns'
 import { COLUMNS } from './columns'
 import type { SortKey, SortSpec } from './types'
+import { SectionLabel } from '@/components/SectionLabel'
 
-// Content for the mobile "Controls" bottom sheet: sort + column toggles, which
-// live inline in the toolbar on larger screens.
+/**
+ * Content for the mobile "Controls" bottom sheet: sort + column toggles, which
+ * live inline in the toolbar on larger screens.
+ */
 export function ControlsSheet({
   sorts,
   onSorts,
@@ -57,9 +60,9 @@ export function ControlsSheet({
         ))}
         {catCols.length > 0 && (
           <>
-            <p className="pt-2 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+            <SectionLabel size="xs" className="pt-2">
               Rating Categories
-            </p>
+            </SectionLabel>
             {catCols.map((col) => (
               <label
                 key={col.id}

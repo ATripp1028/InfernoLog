@@ -15,9 +15,11 @@ import { Loader2 } from 'lucide-react'
 import { DifficultyFace } from '@/components/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 
-// The subset of a level this row renders. Structural on purpose: `Level`,
-// `LevelSearchResult` and the collections dialogs' own picked-level shapes
-// all satisfy it without conversion.
+/**
+ * The subset of a level this row renders. Structural on purpose: `Level`,
+ * `LevelSearchResult` and the collections dialogs' own picked-level shapes
+ * all satisfy it without conversion.
+ */
 export interface LevelResultRowLevel {
   inGameId: string
   name: string | null
@@ -29,6 +31,16 @@ export interface LevelResultRowLevel {
   isRated: boolean
 }
 
+/**
+ * A selectable level row for any "pick a level" prompt — the logging flow's
+ * find step and both collection dialogs.
+ *
+ * Per-caller differences are props, not copies: `badge` labels a blocked
+ * state ("Added", "Already completed"), `loading` and `disabled` grey the row
+ * out while a write is in flight. Deliberately distinct from
+ * `SearchResultRow`, which answers to the search surface rather than a
+ * picker; see docs/CODE_QUALITY.md §3.
+ */
 export function LevelResultRow({
   level,
   onSelect,

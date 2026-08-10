@@ -1,13 +1,14 @@
 import { Button } from '@/components/ui/button'
-import { Slider } from '@/components/ui/slider'
-import { StepperInput } from '@/components/ui/stepper-input'
+import { RatingRow } from '@/components/RatingRow'
 import { useMe } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
-import { displayMax, formatRating, toDisplay, toInternal } from '../format'
+import { formatRating, toDisplay, toInternal } from '@/lib/ratingScale'
 import { computeWeightedAvg } from '@/utils/weightHandling'
 
+/**
+ * Completion step 2: enjoyment and the rating, simple or per category.
+ */
 export function CompletionRatingStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
@@ -28,7 +29,7 @@ export function CompletionRatingStep() {
 
         <div>
           <SectionLabel>Enjoyment</SectionLabel>
-          <RatingRow
+          <InternalRatingRow
             label="Score"
             value={draft.enjoyment}
             scale={scale}
@@ -57,7 +58,7 @@ export function CompletionRatingStep() {
               </p>
             ) : (
               categories.map((cat) => (
-                <RatingRow
+                <InternalRatingRow
                   key={cat.id}
                   label={cat.name}
                   sublabel={`weight ${Math.round(cat.weight * 100)}%`}
@@ -72,7 +73,7 @@ export function CompletionRatingStep() {
               ))
             )
           ) : (
-            <RatingRow
+            <InternalRatingRow
               label="Score"
               value={draft.simpleRating}
               scale={scale}
@@ -92,58 +93,22 @@ export function CompletionRatingStep() {
   )
 }
 
-function RatingRow({
-  label,
-  sublabel,
+/**
+ * {@link RatingRow} for a draft field held in internal 0–100 units, which is
+ * how the logging draft stores every rating before it is submitted.
+ */
+function InternalRatingRow({
   value,
   scale,
   onChange,
-}: {
-  label: string
-  sublabel?: string
-  value: number | null
-  scale: RatingDisplayScale
-  onChange: (internal: number) => void
-}) {
-  const isTen = scale === 'ZERO_TO_TEN'
-  const max = displayMax(scale)
-  const display = value != null ? toDisplay(value, scale) : 0
+  ...rest
+}: Omit<React.ComponentProps<typeof RatingRow>, 'sliderStep' | 'labelWidth'>) {
   return (
-    // Mobile: label sits above a full-width slider+stepper row, so the slider
-    // isn't squeezed. Desktop (sm+): label | slider | stepper on one line — the
-    // `sm:contents` wrapper dissolves so the slider/stepper rejoin the flex row.
-    <div className="flex flex-col gap-2 py-2 sm:flex-row sm:items-center sm:gap-4">
-      <div className="flex items-baseline justify-between gap-2 sm:block sm:w-28 sm:shrink-0">
-        <p className="text-sm font-medium text-text-primary">{label}</p>
-        {sublabel && <p className="text-xs text-text-tertiary">{sublabel}</p>}
-      </div>
-      {/* Mobile: slider on top, stepper full-width beneath it. Desktop (sm+):
-          `sm:contents` dissolves this wrapper so slider + stepper rejoin the
-          label on one line. The slider sets whole-unit breakpoints; the stepper
-          buttons jump by larger amounts (0.5/1 on the 0–10 scale, 5/10 on
-          0–100) while the text field still accepts any value. Both edit the
-          same 0–100 internal value. */}
-      <div className="flex flex-col gap-2 sm:contents">
-        <Slider
-          className="w-full sm:flex-1"
-          min={0}
-          max={max}
-          step={1}
-          value={[display]}
-          onValueChange={(vals) => onChange(toInternal(vals[0] ?? 0, scale))}
-        />
-        <StepperInput
-          value={display}
-          onChange={(d) => onChange(toInternal(d, scale))}
-          min={0}
-          max={max}
-          precision={isTen ? 1 : 0}
-          deltas={isTen ? [0.5, 1] : [5, 10]}
-          aria-label={label}
-          className="w-full sm:w-auto"
-          inputClassName="min-w-0 flex-1 sm:w-12 sm:flex-none"
-        />
-      </div>
-    </div>
+    <InternalRatingRow
+      {...rest}
+      scale={scale}
+      value={value != null ? toDisplay(value, scale) : null}
+      onChange={(display) => onChange(toInternal(display, scale))}
+    />
   )
 }

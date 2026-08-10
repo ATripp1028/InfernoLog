@@ -7,6 +7,9 @@ interface DesignSectionProps {
   me: MeData
 }
 
+/**
+ * Display preferences: rating scale, date format, FAB labels.
+ */
 export function DesignSection({ me }: DesignSectionProps) {
   const update = useUpdateMe()
 

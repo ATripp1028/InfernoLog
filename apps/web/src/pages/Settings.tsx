@@ -26,6 +26,9 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 
+/**
+ * Account, privacy, display, logging, rating, and danger-zone settings.
+ */
 export function Settings() {
   // One "Saved" toast per burst of mutations — see the hook for details.
   useSettingsSaveNotifier()
@@ -97,7 +100,7 @@ export function Settings() {
       <DesignSection me={me.data} />
       <DangerZoneSection />
 
-      <footer className="mt-8 border-t border-[var(--color-border)] pt-6 text-sm text-muted-foreground">
+      <footer className="mt-8 border-t border-border pt-6 text-sm text-muted-foreground">
         <Link
           to="/about"
           state={backOriginState(location.href)}

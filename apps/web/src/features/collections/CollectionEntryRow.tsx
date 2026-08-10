@@ -10,6 +10,9 @@ import { RankingBadge } from '@/features/ranking/RankingBadge'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import type { CollectionEntry } from '@/lib/api/collections'
 
+/**
+ * Draggable entry row, for the reorderable custom-collection view.
+ */
 export function SortableRow({
   position,
   entry,
@@ -51,6 +54,9 @@ export function SortableRow({
   )
 }
 
+/**
+ * Presentational entry row. The sortable wrapper below feeds it a ref and drag style.
+ */
 export function Row({
   position,
   entry,

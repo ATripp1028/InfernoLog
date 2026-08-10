@@ -41,6 +41,9 @@ interface RankingBoardProps {
 const sameOrder = (a: string[], b: string[]) =>
   a.length === b.length && a.every((x, i) => x === b[i])
 
+/**
+ * The desktop ranking board: the placed list beside the unplaced panel, with drag-and-drop between them.
+ */
 export function RankingBoard({
   data,
   search,
@@ -315,9 +318,7 @@ function PlacedDroppable({ children }: { children: React.ReactNode }) {
       ref={setNodeRef}
       className={[
         'h-full min-h-[160px] rounded-card',
-        isOver
-          ? 'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
-          : '',
+        isOver ? 'bg-primary-dim ring-1 ring-primary' : '',
       ].join(' ')}
     >
       {children}
@@ -378,7 +379,7 @@ function StaticPlaced({
 
 function EmptyRanked() {
   return (
-    <div className="flex min-h-[160px] items-center justify-center rounded-card border border-dashed border-[var(--color-border-subtle)] px-6 text-center text-sm text-text-tertiary">
+    <div className="flex min-h-[160px] items-center justify-center rounded-card border border-dashed border-border-subtle px-6 text-center text-sm text-text-tertiary">
       Drag a level here from Unplaced to start your ranking.
     </div>
   )

@@ -8,6 +8,9 @@ import { toast } from '@/components/ui/sonner'
 import { useDeleteAccount } from '@/lib/api/me'
 import { clearAllAppCookies } from '@/lib/cookies'
 
+/**
+ * Irreversible account actions.
+ */
 export function DangerZoneSection() {
   const [open, setOpen] = useState(false)
   const deleteAccount = useDeleteAccount()
@@ -36,7 +39,7 @@ export function DangerZoneSection() {
       description="Irreversible account actions."
       showSeparator={false}
     >
-      <div className="flex items-start justify-between gap-6 rounded-card border border-[var(--color-danger)]/40 p-4">
+      <div className="flex items-start justify-between gap-6 rounded-card border border-danger/40 p-4">
         <div className="flex-1 space-y-1">
           <div className="text-sm font-medium text-foreground">
             Delete account

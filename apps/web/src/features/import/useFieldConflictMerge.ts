@@ -24,6 +24,15 @@ import {
 // eventually written to.
 const MAX_NUMBER_FIELD = MAX_ATTEMPTS
 
+/**
+ * The upper bound a `number`-format field's manual entry accepts.
+ *
+ * Falls back to a generic loose bound for a field whose descriptor has not
+ * catalogued one, rather than blocking a legitimate value — see
+ * `FieldDescriptor.max`.
+ *
+ * @returns `null` for formats that are not numeric.
+ */
 export function numericMax(descriptor: FieldDescriptor): number | null {
   if (descriptor.format === 'percent') return 100
   if (descriptor.format === 'rating10') return 10
@@ -31,10 +40,12 @@ export function numericMax(descriptor: FieldDescriptor): number | null {
   return null
 }
 
-// Manual-entry validation error for this field, or null when the value is
-// valid — shares format.ts's numberExceedsMax/maxValueError (the logging
-// wizard's own numeric-field validator) rather than a second copy of the
-// same "exceeds max" rule and message.
+/**
+ * Manual-entry validation error for this field, or null when the value is
+ * valid — shares format.ts's numberExceedsMax/maxValueError (the logging
+ * wizard's own numeric-field validator) rather than a second copy of the
+ * same "exceeds max" rule and message.
+ */
 export function manualValueError(
   descriptor: FieldDescriptor,
   value: unknown
@@ -54,12 +65,18 @@ function manualValueExceedsMax(
   return manualValueError(descriptor, value) != null
 }
 
+/**
+ * One field inside a conflict group: its descriptor plus the two competing values.
+ */
 export interface ConflictGroupField {
   field: string
   existingValue: unknown
   importedValue: unknown
 }
 
+/**
+ * One conflicting row, presented as a set of fields to resolve.
+ */
 export interface ConflictGroup {
   groupId: string
   title: string
@@ -67,6 +84,9 @@ export interface ConflictGroup {
   fields: ConflictGroupField[]
 }
 
+/**
+ * How one group was resolved — dropped, or a per-field set of choices reported as `overwrite`/`merge`.
+ */
 export interface GroupResolution {
   resolution: 'drop' | 'overwrite' | 'merge'
   // Only fields whose winner isn't "imported" — a field left at "imported"
@@ -75,12 +95,21 @@ export interface GroupResolution {
   values: Record<string, unknown>
 }
 
+/**
+ * Which side a field resolved to: the existing value, the imported one, or a hand-typed replacement.
+ */
 export type ChoiceKind = 'imported' | 'existing' | 'manual'
+/**
+ * The chosen value for one field, with the {@link ChoiceKind} that produced it.
+ */
 export interface FieldChoice {
   kind: ChoiceKind
   manualValue?: unknown
 }
 
+/**
+ * Renders a conflict value for display according to its field's format. Handles the null/blank case so rows do not print `null`.
+ */
 export function formatDisplayValue(
   value: unknown,
   format: FieldFormatType
@@ -92,6 +121,9 @@ export function formatDisplayValue(
   return String(value)
 }
 
+/**
+ * Per-group resolution state, the bulk apply/drop actions, and the submit gate for the field-conflict resolver.
+ */
 export function useFieldConflictMerge({
   tab,
   groups,

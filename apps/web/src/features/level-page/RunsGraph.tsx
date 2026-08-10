@@ -42,6 +42,9 @@ function entryKey(entry: RunsGraphEntry): string {
   return `drop-${entry.to}-${entry.date ?? 'no-date'}`
 }
 
+/**
+ * Every logged run as a horizontal span, showing where attempts clustered and how far they reached.
+ */
 export function RunsGraph({ entries }: RunsGraphProps) {
   if (entries.length === 0) return null
 
@@ -115,7 +118,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                     </span>
 
                     {entry.droppedAfter && (
-                      <span className="inline-flex h-[17px] items-center rounded bg-[rgba(226,74,74,0.14)] px-1.5 text-[9px] font-medium text-[#ff8a8a]">
+                      <span className="inline-flex h-[17px] items-center rounded bg-danger-dim px-1.5 text-[9px] font-medium text-danger-soft">
                         ⚑ dropped
                       </span>
                     )}
@@ -124,7 +127,7 @@ export function RunsGraph({ entries }: RunsGraphProps) {
                   {/* Track + bar */}
                   <div className="relative mt-1.5" style={{ height: 8 }}>
                     {/* Track (grey background) */}
-                    <div className="absolute inset-0 rounded-full bg-[rgba(42,42,42,0.5)]" />
+                    <div className="absolute inset-0 rounded-full bg-bg-subtle/50" />
                     {/* Colored bar */}
                     <div
                       className="absolute top-0 h-full rounded-full"

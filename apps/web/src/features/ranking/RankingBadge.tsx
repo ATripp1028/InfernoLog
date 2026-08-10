@@ -1,6 +1,9 @@
 import type { RankingBadge as RankingBadgeData } from '@infernolog/core'
 import { gddlTierColor } from '@/features/list/tierColor'
 
+/**
+ * The GDDL tier badge on a ranking row, or nothing when the user has logged no tier for the level.
+ */
 export function RankingBadge({ badge }: { badge: RankingBadgeData }) {
   if (!badge) return null
 

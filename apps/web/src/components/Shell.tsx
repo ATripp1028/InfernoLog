@@ -9,6 +9,13 @@ interface ShellProps {
   children: ReactNode
 }
 
+/**
+ * The authenticated app frame: sidebar or bottom nav, header, FAB, and the
+ * app-global logging flow provider.
+ *
+ * The logging provider is mounted here, not per page, because the FAB opens
+ * it from anywhere.
+ */
 export function Shell({ children }: ShellProps) {
   return (
     <FabActionsProvider>

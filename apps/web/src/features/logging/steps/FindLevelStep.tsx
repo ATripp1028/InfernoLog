@@ -18,6 +18,9 @@ import { useLoggingFlow } from '../LoggingFlowProvider'
 import type { ResolvedLevel } from '../types'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 
+/**
+ * The entry step: find a level by name or id, with the option to escalate to a GD-server search.
+ */
 export function FindLevelStep() {
   const { close, applyResolved, goManual } = useLoggingFlow()
   const [query, setQuery] = useState('')

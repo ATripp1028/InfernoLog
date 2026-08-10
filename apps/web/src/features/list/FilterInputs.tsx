@@ -6,13 +6,16 @@ import { Calendar, X } from 'lucide-react'
 import { RangeSlider } from '@/components/ui/range-slider'
 import { formatDate } from '@/lib/dateFormat'
 import { cn } from '@/lib/utils'
-import type { DateFormatPreference } from '@/lib/api/me'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { DateBounds, Range } from '@/features/list/types'
 import { toIso, useDateField, useRangeDrafts } from './useFilterInputs'
 
 const inputCls =
-  'w-full rounded border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-1.5 py-0.5 text-[11px] text-center text-text-primary outline-none focus:border-primary transition-colors'
+  'w-full rounded border border-border bg-bg-elevated px-1.5 py-0.5 text-[11px] text-center text-text-primary outline-none focus:border-primary transition-colors'
 
+/**
+ * A labelled two-thumb range filter with numeric entry on both ends.
+ */
 export function RangeRow({
   label,
   min,
@@ -155,6 +158,9 @@ function DatePickerField({
   )
 }
 
+/**
+ * The date-beaten bounds. Either end may be left open, so an unset upper bound never silently means 'today'.
+ */
 export function DatePickersRow({
   value,
   onChange,

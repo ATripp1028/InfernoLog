@@ -21,6 +21,9 @@ import {
 } from '@/features/global-level-page/states'
 import { useGlobalLevelDetailPage } from '@/features/global-level-page/useGlobalLevelDetailPage'
 
+/**
+ * A level's public page — its RobTop metadata, song, and links — independent of whether the viewer has logged it.
+ */
 export function GlobalLevelPage() {
   const {
     levelId,
@@ -88,7 +91,7 @@ export function GlobalLevelPage() {
               to="/list/$levelId"
               params={{ levelId }}
               state={true}
-              className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+              className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
             >
               Your page for this level
               <ArrowRight size={14} />
@@ -152,7 +155,7 @@ export function GlobalLevelPage() {
                 to="/list/$levelId"
                 params={{ levelId }}
                 state={true}
-                className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+                className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
               >
                 Your page for this level
                 <span aria-hidden>→</span>

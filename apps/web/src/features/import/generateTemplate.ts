@@ -4,6 +4,9 @@
 
 import * as XLSX from 'xlsx'
 
+/**
+ * The Completions tab column headers, in order. The importer matches on these exact strings.
+ */
 export const COMPLETION_HEADERS = [
   'level_id',
   'level_name',
@@ -36,9 +39,11 @@ export const COMPLETION_HEADERS = [
   'visibility',
 ]
 
-// Progress tab: non-completion session logs. `progress_id` round-trips an
-// exact entry on reimport (auto-filled on export) — leave blank when adding a
-// new session log by hand.
+/**
+ * Progress tab: non-completion session logs. `progress_id` round-trips an
+ * exact entry on reimport (auto-filled on export) — leave blank when adding a
+ * new session log by hand.
+ */
 export const PROGRESS_HEADERS = [
   'progress_id',
   'level_id',
@@ -59,9 +64,11 @@ export const PROGRESS_HEADERS = [
   'visibility',
 ]
 
-// Dropped tab: a level can be dropped more than once (drop → resume → drop
-// again). `drop_id` round-trips an exact drop entry on reimport (auto-filled
-// on export) — leave blank when adding a new drop by hand.
+/**
+ * Dropped tab: a level can be dropped more than once (drop → resume → drop
+ * again). `drop_id` round-trips an exact drop entry on reimport (auto-filled
+ * on export) — leave blank when adding a new drop by hand.
+ */
 export const DROPPED_HEADERS = [
   'drop_id',
   'level_id',
@@ -144,8 +151,10 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
   gddl_tier_at_drop: 55,
 }
 
-// Ranking tab: your personal difficulty order of levels you've completed.
-// Order is what matters (top = hardest); the rank number is just a convenience.
+/**
+ * Ranking tab: your personal difficulty order of levels you've completed.
+ * Order is what matters (top = hardest); the rank number is just a convenience.
+ */
 export const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
 
 const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
@@ -153,8 +162,10 @@ const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
   [2, '', 'Acheron'],
 ]
 
-// Lists tab: membership of your want-to-beat / favorites / least-favorites and
-// any custom lists. `list` is a reserved keyword or a custom list name.
+/**
+ * Lists tab: membership of your want-to-beat / favorites / least-favorites and
+ * any custom lists. `list` is a reserved keyword or a custom list name.
+ */
 export const LIST_HEADERS = [
   'list',
   'level_id',
@@ -170,10 +181,12 @@ const LIST_EXAMPLE_ROWS: (string | number)[][] = [
   ['My Custom List', '', 'Bloodbath', 'Riot', 'Extreme Demon', 1],
 ]
 
-// Ratings tab: weighted category scores. Identity columns first, then one column
-// per rating category (headers named after your categories). The category
-// columns here are just the seeded defaults — rename / add / remove to match yours.
-// Identity columns shared by the Ratings tab; the category columns follow.
+/**
+ * Ratings tab: weighted category scores. Identity columns first, then one column
+ * per rating category (headers named after your categories). The category
+ * columns here are just the seeded defaults — rename / add / remove to match yours.
+ * Identity columns shared by the Ratings tab; the category columns follow.
+ */
 export const RATING_IDENTITY_HEADERS = [
   'level_id',
   'level_name',
@@ -192,6 +205,9 @@ const RATING_EXAMPLE_ROWS: (string | number)[][] = [
   ['', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 9, 7],
 ]
 
+/**
+ * Per-column help text written into the template's instructions.
+ */
 export const FIELD_DESCRIPTIONS = [
   ['Tab', 'Field', 'Required', 'Format / Notes'],
   [
@@ -580,6 +596,9 @@ export const FIELD_DESCRIPTIONS = [
   ],
 ]
 
+/**
+ * Builds the blank import template .xlsx and triggers the download.
+ */
 export function downloadTemplate(): void {
   const wb = XLSX.utils.book_new()
 

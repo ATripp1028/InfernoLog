@@ -8,6 +8,9 @@ import type { CollectionSummary } from '@/lib/api/collections'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
 
+/**
+ * One collection tile on the Collections index: its identity colour, entry count, and level previews.
+ */
 export function CollectionCard({
   collection,
 }: {
@@ -76,7 +79,9 @@ export function CollectionCard({
   )
 }
 
-// The dashed "New collection" card at the end of the customs grid.
+/**
+ * The dashed "New collection" card at the end of the customs grid.
+ */
 export function CreateCollectionCard({ onClick }: { onClick: () => void }) {
   return (
     <button

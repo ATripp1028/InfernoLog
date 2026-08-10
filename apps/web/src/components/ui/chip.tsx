@@ -8,6 +8,9 @@ interface ChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   selected?: boolean
 }
 
+/**
+ * A small toggleable filter pill.
+ */
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
   ({ className, selected = false, children, ...props }, ref) => (
     <button
@@ -17,8 +20,8 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(
       className={cn(
         'inline-flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         selected
-          ? 'bg-[var(--color-primary)] text-white'
-          : 'border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-text-secondary hover:text-text-primary',
+          ? 'bg-primary text-white'
+          : 'border border-border bg-bg-elevated text-text-secondary hover:text-text-primary',
         className
       )}
       {...props}

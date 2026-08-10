@@ -3,10 +3,12 @@
 // rules that turn a draft into a filter value, and the date parsing they share.
 
 import { useRef, useState } from 'react'
-import type { DateFormatPreference } from '@/lib/api/me'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { Range } from '@/features/list/types'
 
-// Parses a date string in the user's preferred format to epoch ms.
+/**
+ * Parses a date string in the user's preferred format to epoch ms.
+ */
 export function parseFilterDate(
   text: string,
   pref: DateFormatPreference
@@ -40,7 +42,9 @@ export function parseFilterDate(
   return date.getTime()
 }
 
-// Epoch ms → YYYY-MM-DD for <input type="date"> value prop.
+/**
+ * Epoch ms → YYYY-MM-DD for <input type="date"> value prop.
+ */
 export function toIso(ms: number): string {
   const d = new Date(ms)
   return [
@@ -50,9 +54,11 @@ export function toIso(ms: number): string {
   ].join('-')
 }
 
-// The two number boxes under a range slider. While the user types, the draft
-// string is shown verbatim; on blur/Enter it is parsed, clamped against both
-// the domain and the opposite end, and only then written back.
+/**
+ * The two number boxes under a range slider. While the user types, the draft
+ * string is shown verbatim; on blur/Enter it is parsed, clamped against both
+ * the domain and the opposite end, and only then written back.
+ */
 export function useRangeDrafts({
   min,
   max,
@@ -88,8 +94,10 @@ export function useRangeDrafts({
   return { minDraft, setMinDraft, commitMin, maxDraft, setMaxDraft, commitMax }
 }
 
-// A single date box: typed draft, the hidden native date input it drives, and
-// the clamping applied to whichever of the two the user used.
+/**
+ * A single date box: typed draft, the hidden native date input it drives, and
+ * the clamping applied to whichever of the two the user used.
+ */
 export function useDateField({
   onChange,
   datePref,

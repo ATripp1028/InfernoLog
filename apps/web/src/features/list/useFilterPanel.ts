@@ -7,7 +7,6 @@ import {
   RATING_DOMAIN,
   TIER_DOMAIN,
   defaultFilterState,
-  type DeviceFilter,
   type FilterState,
   type LevelTypeFilter,
   type ProgressStatus,
@@ -15,22 +14,34 @@ import {
   type StatusFlag,
 } from '@/features/list/types'
 import { countActiveFilters } from '@/features/list/filtering'
-import { displayMax, toInternal } from '@/features/logging/format'
-import type { RatingDisplayScale } from '@/lib/api/me'
+import { displayMax, toInternal } from '@/lib/ratingScale'
+import type { Device, RatingDisplayScale } from '@/lib/api/wireEnums'
 
+/**
+ * Progress-status filter chips.
+ */
 export const PROGRESS: { value: ProgressStatus; label: string }[] = [
   { value: 'COMPLETED', label: 'Completed' },
   { value: 'IN_PROGRESS', label: 'In Progress' },
   { value: 'DROPPED', label: 'Dropped' },
 ]
+/**
+ * Classic/Platformer filter chips.
+ */
 export const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
 ]
-export const DEVICES: { value: DeviceFilter; label: string }[] = [
+/**
+ * Device filter chips.
+ */
+export const DEVICES: { value: Device; label: string }[] = [
   { value: 'pc', label: 'PC' },
   { value: 'mobile', label: 'Mobile' },
 ]
+/**
+ * Rated-status filter values, in ascending showcase order.
+ */
 export const RATED_STATUSES: RatedStatusFilter[] = [
   'ALL',
   'UNRATED',
@@ -40,25 +51,34 @@ export const RATED_STATUSES: RatedStatusFilter[] = [
   'LEGENDARY',
   'MYTHIC',
 ]
-// Flags that describe the user's run.
+/**
+ * Flags that describe the user's run.
+ */
 export const FLAGS: { value: StatusFlag; label: string }[] = [
   { value: 'hasVideo', label: 'Has video' },
   { value: 'onStream', label: 'On stream' },
   { value: 'uncertainDate', label: 'Uncertain date' },
   { value: 'needsPlacement', label: 'Needs placement' },
 ]
-// Flags that describe the level itself.
+/**
+ * Flags that describe the level itself.
+ */
 export const LEVEL_FLAGS: { value: StatusFlag; label: string }[] = [
   { value: 'twoPlayer', label: 'Two player' },
   { value: 'hasCoins', label: 'Has coins' },
   { value: 'verifiedCoins', label: 'Verified coins' },
 ]
 
-// Add/remove one value in a multi-select filter field.
+/**
+ * Add/remove one value in a multi-select filter field.
+ */
 export function toggle<T>(arr: T[], value: T): T[] {
   return arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value]
 }
 
+/**
+ * Option tables and patch helpers for FilterPanel. The panel is fully controlled and holds no filter state itself.
+ */
 export function useFilterPanel({
   filters,
   onChange,

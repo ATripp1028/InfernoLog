@@ -1,11 +1,12 @@
-// Final report for a finished import: outcome counts plus whatever the
-// ranking / collections / ratings passes reported. Purely a read of the
-// import job's status payload.
-
 import { Button } from '@/components/ui/button'
 import { ImportStatusPanel } from '../ImportStatusPanel'
 import { useImportFlow } from '../ImportFlowProvider'
 
+/**
+ * Final report for a finished import: outcome counts plus whatever the
+ * ranking / collections / ratings passes reported. Purely a read of the
+ * import job's status payload.
+ */
 export function SuccessStep() {
   const { status, close } = useImportFlow()
   if (!status) return null
@@ -59,12 +60,10 @@ export function SuccessStep() {
       </div>
 
       {rankingResult && rankingResult.skipped.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
-          <p className="font-medium text-amber-700 dark:text-amber-400">
-            Not ranked
-          </p>
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-warning-soft">Not ranked</p>
           {rankingResult.skipped.map((s, i) => (
-            <div key={i} className="text-amber-700 dark:text-amber-400">
+            <div key={i} className="text-warning-soft">
               {s.label} — {s.reason}
             </div>
           ))}
@@ -72,12 +71,10 @@ export function SuccessStep() {
       )}
 
       {listsResult && listsResult.skipped.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
-          <p className="font-medium text-amber-700 dark:text-amber-400">
-            List entries skipped
-          </p>
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-warning-soft">List entries skipped</p>
           {listsResult.skipped.map((s, i) => (
-            <div key={i} className="text-amber-700 dark:text-amber-400">
+            <div key={i} className="text-warning-soft">
               {s.label} — {s.reason}
             </div>
           ))}
@@ -85,12 +82,10 @@ export function SuccessStep() {
       )}
 
       {ratingsResult && ratingsResult.skipped.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
-          <p className="font-medium text-amber-700 dark:text-amber-400">
-            Ratings skipped
-          </p>
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-warning-soft">Ratings skipped</p>
           {ratingsResult.skipped.map((s, i) => (
-            <div key={i} className="text-amber-700 dark:text-amber-400">
+            <div key={i} className="text-warning-soft">
               {s.label} — {s.reason}
             </div>
           ))}

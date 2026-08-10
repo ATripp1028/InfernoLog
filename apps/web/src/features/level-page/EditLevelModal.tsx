@@ -10,19 +10,16 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { FieldError } from '@/components/ui/field-error'
-import {
-  clampPercent,
-  digitsOnly,
-  formatDisplayRating,
-} from '@/features/logging/format'
-import type { RatingDisplayScale } from '@/lib/api/me'
+import { clampPercent, digitsOnly } from '@/features/logging/format'
+import { formatDisplayRating } from '@/lib/ratingScale'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { DateTimeField } from '@/features/logging/components'
 import {
   Section,
   FieldLabel,
   Textarea,
   RatingRow,
-  EditCoinsSection,
+  CoinPicker,
 } from './EditShared'
 import type { LevelPageData } from './types'
 import { useEditLevelModal } from './useEditLevelModal'
@@ -35,6 +32,9 @@ interface EditLevelModalProps {
   scale: RatingDisplayScale
 }
 
+/**
+ * Edits the level-scoped fields — the ones with one value per level rather than per logged event.
+ */
 export function EditLevelModal({
   open,
   onClose,
@@ -158,11 +158,13 @@ export function EditLevelModal({
               </Section>
 
               {isCompleted && hasCoins && (
-                <EditCoinsSection
-                  level={data.level}
-                  collected={form.coinsCollected}
-                  onChange={(v) => patch({ coinsCollected: v })}
-                />
+                <Section label="Coins">
+                  <CoinPicker
+                    level={data.level}
+                    collected={form.coinsCollected}
+                    onChange={(v) => patch({ coinsCollected: v })}
+                  />
+                </Section>
               )}
 
               <Section label="Rating">

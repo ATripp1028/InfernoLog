@@ -1,14 +1,3 @@
-// Two-step flow for adding a level to one or more collections.
-//
-//   Step 1 (level search) — skipped when preselectedLevel is provided.
-//     Name search / cached ID → click to proceed to step 2.
-//     Unknown numeric ID → seed from RobTop → proceed to step 2.
-//
-//   Step 2 (collection picker) — searchable list with checkboxes.
-//     Confirm adds the level to all selected collections in parallel.
-//
-// All of that state lives in useAddToCollectionDialog; this file is markup.
-
 import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,7 +6,8 @@ import { LevelResultRow } from '@/components/LevelResultRow'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
-import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
+import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
+import { SectionLabel } from '@/components/SectionLabel'
 import {
   useAddToCollectionDialog,
   type PickedLevel,
@@ -30,6 +20,18 @@ interface AddToCollectionDialogProps {
   preselectedLevel?: PickedLevel
 }
 
+/**
+ * Two-step flow for adding a level to one or more collections.
+ *
+ *   Step 1 (level search) — skipped when preselectedLevel is provided.
+ *     Name search / cached ID → click to proceed to step 2.
+ *     Unknown numeric ID → seed from RobTop → proceed to step 2.
+ *
+ *   Step 2 (collection picker) — searchable list with checkboxes.
+ *     Confirm adds the level to all selected collections in parallel.
+ *
+ * All of that state lives in useAddToCollectionDialog; this file is markup.
+ */
 export function AddToCollectionDialog({
   open,
   onClose,
@@ -105,7 +107,9 @@ export function AddToCollectionDialog({
 
       {seedingId && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <div className="flex h-12 items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-sm text-text-secondary">
             <Loader2 size={16} className="animate-spin text-primary" />
             Fetching level {seedingId} from the GD servers…
@@ -130,7 +134,9 @@ export function AddToCollectionDialog({
 
       {showCachedPreview && cachedLevel && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <div className="overflow-hidden rounded-md border border-border">
             <LevelResultRow
               level={cachedLevel}
@@ -142,7 +148,9 @@ export function AddToCollectionDialog({
 
       {showSeedHint && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <button
             type="button"
             onClick={() => seedAndPick(trimmed)}
@@ -156,7 +164,9 @@ export function AddToCollectionDialog({
 
       {showResults && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           {searchPending ? (
             <p className="px-1 text-sm text-text-tertiary">Searching…</p>
           ) : results.length === 0 ? (
@@ -348,13 +358,13 @@ export function AddToCollectionDialog({
   const header = (
     <div className="flex items-start justify-between border-b border-border px-6 pb-3 pt-3.5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.4px] text-primary">
+        <SectionLabel tone="primary">
           {step === 'search'
             ? 'Step 1 · Level'
             : !preselectedLevel
               ? 'Step 2 · Collections'
               : 'Collections'}
-        </p>
+        </SectionLabel>
         <h2 className="mt-0.5 text-lg font-bold text-text-primary">
           Add to a Collection
         </h2>

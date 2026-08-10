@@ -4,17 +4,10 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/ui/sonner'
-import {
-  toDisplay,
-  toInternal,
-  maxValueError,
-  MAX_GDDL_TIER,
-} from '@/features/logging/format'
-import {
-  useMe,
-  type RatingDisplayScale,
-  type RatingCategory,
-} from '@/lib/api/me'
+import { maxValueError, MAX_GDDL_TIER } from '@/features/logging/format'
+import { toDisplay, toInternal } from '@/lib/ratingScale'
+import { useMe, type RatingCategory } from '@/lib/api/me'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { useResolveLevel } from '@/lib/api/logging'
 import { computeWeightedAvg } from '@/utils/weightHandling'
@@ -23,6 +16,9 @@ import { getViewerTimezone } from '@/lib/timezone'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
 import type { LevelPageData, ProgressUpdate } from './types'
 
+/**
+ * The edit-level form state. Ratings are held in DISPLAY units and converted on save.
+ */
 export interface EditLevelForm {
   levelNotes: string
   simpleRating: number | null
@@ -93,6 +89,9 @@ function initForm(
   }
 }
 
+/**
+ * Form state, validation, and the save mutation for the level-scoped edit modal.
+ */
 export function useEditLevelModal({
   open,
   onClose,

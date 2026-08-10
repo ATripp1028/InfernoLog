@@ -1,3 +1,6 @@
+/**
+ * The logging entry point. Opens the logging flow and renders nothing of its own.
+ */
 export function Log() {
   return (
     <div className="p-6">

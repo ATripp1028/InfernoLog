@@ -17,6 +17,9 @@ import {
   type RowResolutions,
 } from './importWizardModel'
 
+/**
+ * Everything {@link buildImportPayload} needs: the parsed rows plus every resolution the user made.
+ */
 export interface BuildImportPayloadInput {
   completions: ParsedCompletionRow[]
   progressRows: ParsedProgressRow[]
@@ -33,6 +36,13 @@ export interface BuildImportPayloadInput {
   parseResult: ParseResult | null
 }
 
+/**
+ * Turns the parsed workbook and the user's conflict resolutions into the
+ * /start request body.
+ *
+ * Pure, and the natural first target for a test — it was ~170 lines inside an
+ * async callback before the wizard was split up.
+ */
 export function buildImportPayload({
   completions,
   progressRows,

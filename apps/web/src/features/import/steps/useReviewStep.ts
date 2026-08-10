@@ -5,7 +5,11 @@
 import { useMemo } from 'react'
 import type { ParseFlag } from '../parseSpreadsheet'
 import { useImportFlow } from '../ImportFlowProvider'
+import { FLAG_TABS, type FlagsByTab } from '../importWizardModel'
 
+/**
+ * Counts and per-tab flag groupings for the review summary — what will import, what will be skipped, and why.
+ */
 export function useReviewStep() {
   const {
     parseResult,
@@ -26,68 +30,27 @@ export function useReviewStep() {
   // enters `review` after a successful parse); the `?? []` fallbacks keep the
   // memo total rather than making every count optional downstream.
   const counts = useMemo(() => {
-    const allFlags = [
-      ...flags.completions,
-      ...flags.progress,
-      ...flags.dropped,
-      ...flags.ranking,
-      ...flags.lists,
-      ...flags.ratings,
-    ]
+    const allFlags = FLAG_TABS.flatMap((t) => flags[t.key])
     const errorFlags = allFlags.filter((f) => f.severity === 'error')
-    const errorFlagsByTab = {
-      completions: flags.completions.filter((f) => f.severity === 'error'),
-      progress: flags.progress.filter((f) => f.severity === 'error'),
-      dropped: flags.dropped.filter((f) => f.severity === 'error'),
-      ranking: flags.ranking.filter((f) => f.severity === 'error'),
-      lists: flags.lists.filter((f) => f.severity === 'error'),
-      ratings: flags.ratings.filter((f) => f.severity === 'error'),
-    }
-    // Two flavors of warning: a missing level_id we'll resolve by name (the
+
+    const groupByTab = (keep: (f: ParseFlag) => boolean): FlagsByTab =>
+      Object.fromEntries(
+        FLAG_TABS.map((t) => [t.key, flags[t.key].filter(keep)])
+      ) as FlagsByTab
+
+    // Two flavours of warning: a missing level_id we'll resolve by name (the
     // row is fine), and a bad field value we've dropped (the rest of the row
     // imports).
     const isNameOnly = (f: ParseFlag) => f.field === 'level_id'
-    const nameOnlyByTab = {
-      completions: flags.completions.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-      progress: flags.progress.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-      dropped: flags.dropped.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-      ranking: flags.ranking.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-      lists: flags.lists.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-      ratings: flags.ratings.filter(
-        (f) => f.severity === 'warning' && isNameOnly(f)
-      ),
-    }
-    const dataWarnByTab = {
-      completions: flags.completions.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-      progress: flags.progress.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-      dropped: flags.dropped.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-      ranking: flags.ranking.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-      lists: flags.lists.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-      ratings: flags.ratings.filter(
-        (f) => f.severity === 'warning' && !isNameOnly(f)
-      ),
-    }
-    const sumTab = (o: Record<string, ParseFlag[]>) =>
+    const errorFlagsByTab = groupByTab((f) => f.severity === 'error')
+    const nameOnlyByTab = groupByTab(
+      (f) => f.severity === 'warning' && isNameOnly(f)
+    )
+    const dataWarnByTab = groupByTab(
+      (f) => f.severity === 'warning' && !isNameOnly(f)
+    )
+
+    const sumTab = (o: FlagsByTab) =>
       Object.values(o).reduce((n, arr) => n + arr.length, 0)
     const totalNameOnly = sumTab(nameOnlyByTab)
     const totalDataWarn = sumTab(dataWarnByTab)

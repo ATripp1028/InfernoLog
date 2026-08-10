@@ -1,18 +1,3 @@
-// Canonical git-merge-style conflict resolver. Given a set of conflicting
-// "groups" (one per row that has field-level diffs — a completion, a matched
-// progress/dropped entry, or a rating), each group is resolved one of three
-// ways: drop the imported row entirely, keep resolving field-by-field
-// (produces 'overwrite' or 'merge' depending on the mix of choices — see
-// below), per group or across every group at once.
-//
-// Every group must be either dropped or have every field explicitly chosen
-// before submitting — mirrors the old ConflictStep's `unresolvedCount > 0`
-// gate. A non-dropped group whose every field resolved to "imported" (zero
-// existing/manual picks) reports as 'overwrite'; any mix reports as 'merge'
-// — this is purely a label for outcome-reporting text, computed from the
-// actual choices rather than tracked separately, since "every field is the
-// imported value" and "a true overwrite" are the same outcome.
-
 import { Button } from '@/components/ui/button'
 import { Segmented } from '@/components/ui/segmented'
 import { Input } from '@/components/ui/input'
@@ -116,6 +101,22 @@ function ManualEntry({
   )
 }
 
+/**
+ * Canonical git-merge-style conflict resolver. Given a set of conflicting
+ * "groups" (one per row that has field-level diffs — a completion, a matched
+ * progress/dropped entry, or a rating), each group is resolved one of three
+ * ways: drop the imported row entirely, keep resolving field-by-field
+ * (produces 'overwrite' or 'merge' depending on the mix of choices — see
+ * below), per group or across every group at once.
+ *
+ * Every group must be either dropped or have every field explicitly chosen
+ * before submitting — mirrors the old ConflictStep's `unresolvedCount > 0`
+ * gate. A non-dropped group whose every field resolved to "imported" (zero
+ * existing/manual picks) reports as 'overwrite'; any mix reports as 'merge'
+ * — this is purely a label for outcome-reporting text, computed from the
+ * actual choices rather than tracked separately, since "every field is the
+ * imported value" and "a true overwrite" are the same outcome.
+ */
 export function FieldConflictMerge({
   tab,
   groups,
@@ -170,7 +171,7 @@ export function FieldConflictMerge({
           return (
             <div
               key={group.groupId}
-              className="rounded-lg border border-[var(--color-border)] p-4 space-y-3"
+              className="rounded-lg border border-border p-4 space-y-3"
             >
               <div className="flex items-center justify-between gap-2">
                 <div>
@@ -223,7 +224,7 @@ export function FieldConflictMerge({
                   This row will be discarded — the existing data stays as-is.
                 </p>
               ) : (
-                <div className="divide-y divide-[var(--color-border)]">
+                <div className="divide-y divide-border">
                   {group.fields.map((f) => {
                     const descriptor = describeField(tab, f.field)
                     const choice = choices[group.groupId]?.[f.field]
@@ -278,7 +279,7 @@ export function FieldConflictMerge({
         })}
       </div>
 
-      <div className="flex gap-3 border-t border-[var(--color-border)] pt-4">
+      <div className="flex gap-3 border-t border-border pt-4">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

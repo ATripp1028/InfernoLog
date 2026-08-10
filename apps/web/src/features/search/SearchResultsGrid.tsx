@@ -15,9 +15,11 @@ function RowSkeleton() {
   return <div className="h-[68px] animate-pulse rounded-card bg-bg-surface" />
 }
 
-// The cache-browse results list: rows, an IntersectionObserver sentinel that
-// auto-loads the next keyset page (infinite scroll), and the loading/empty/error
-// states. Escalation results are appended via `trailing`.
+/**
+ * The cache-browse results list: rows, an IntersectionObserver sentinel that
+ * auto-loads the next keyset page (infinite scroll), and the loading/empty/error
+ * states. Escalation results are appended via `trailing`.
+ */
 export function SearchResultsGrid({
   query,
   enabled,

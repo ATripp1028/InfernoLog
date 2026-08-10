@@ -15,11 +15,14 @@ import {
   StepFooter,
 } from '../components'
 import { clampPercent, digitsOnly } from '../format'
-import { GdVersionPicker, GdVersionInfoButton } from './CompletionSessionStep'
+import { GdVersionPicker, GdVersionInfoButton } from '../pickers'
 import { useCompletionBasicsStep } from './useCompletionBasicsStep'
 import { CoinsSection, TwoPlayerSection } from './CompletionBasicsFields'
 import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
 
+/**
+ * Completion step 1: date, attempts, worst fail, coins, and 2-player.
+ */
 export function CompletionBasicsStep() {
   const {
     level,

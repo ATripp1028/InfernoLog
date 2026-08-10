@@ -9,20 +9,26 @@ import { cn } from '@/lib/utils'
 const cardVariants = cva('rounded-md border', {
   variants: {
     variant: {
-      default: 'border-[var(--color-border-subtle)] bg-card',
-      accent: 'border-[var(--color-accent)]/40 bg-[var(--color-accent-dim)]',
-      success: 'border-[var(--color-success)]/40 bg-[var(--color-success-dim)]',
-      danger: 'border-[var(--color-danger)]/40 bg-[var(--color-danger-dim)]',
+      default: 'border-border-subtle bg-card',
+      accent: 'border-accent/40 bg-accent-dim',
+      success: 'border-success/40 bg-success-dim',
+      danger: 'border-danger/40 bg-danger-dim',
     },
   },
   defaultVariants: { variant: 'default' },
 })
 
+/**
+ * Card props, including its variant axis.
+ */
 export interface CardProps
   extends
     React.HTMLAttributes<HTMLDivElement>,
     VariantProps<typeof cardVariants> {}
 
+/**
+ * A surface panel.
+ */
 export const Card = forwardRef<HTMLDivElement, CardProps>(
   ({ className, variant, ...props }, ref) => (
     <div

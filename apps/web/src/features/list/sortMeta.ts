@@ -1,6 +1,9 @@
 import type { StaticSortKey, SortKey, SortSpec } from './types'
 
-export const SORT_OPTIONS: { key: StaticSortKey; label: string }[] = [
+/**
+ * The List's sortable columns. Distinct from `LEVEL_SORT_OPTIONS`, which sorts levels on the search page rather than logged rows.
+ */
+export const LIST_SORT_OPTIONS: { key: StaticSortKey; label: string }[] = [
   { key: 'date', label: 'Date' },
   { key: 'rating', label: 'Rating' },
   { key: 'enjoyment', label: 'Enjoyment' },
@@ -19,13 +22,17 @@ export const SORT_OPTIONS: { key: StaticSortKey; label: string }[] = [
   { key: 'twoPlayer', label: 'Two player' },
 ]
 
-// Record only covers static sort keys; dynamic cat keys are looked up via
-// getSortLabel which accepts an extra list of dynamic options.
+/**
+ * Record only covers static sort keys; dynamic cat keys are looked up via
+ * getSortLabel which accepts an extra list of dynamic options.
+ */
 export const SORT_LABEL: Partial<Record<string, string>> = Object.fromEntries(
-  SORT_OPTIONS.map((o) => [o.key, o.label])
+  LIST_SORT_OPTIONS.map((o) => [o.key, o.label])
 )
 
-// Returns the display label for any sort key, including dynamic cat keys.
+/**
+ * Returns the display label for any sort key, including dynamic cat keys.
+ */
 export function getSortLabel(
   key: SortKey,
   dynamicOptions: { key: SortKey; label: string }[]
@@ -35,8 +42,10 @@ export function getSortLabel(
   return SORT_LABEL[key] ?? key
 }
 
-// Sensible default direction when a sort is first added: names read A→Z,
-// everything else newest/highest first.
+/**
+ * Sensible default direction when a sort is first added: names read A→Z,
+ * everything else newest/highest first.
+ */
 export function defaultDir(key: SortKey): SortSpec['dir'] {
   const ascFirst: string[] = [
     'name',

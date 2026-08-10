@@ -7,14 +7,16 @@ import {
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
 
-// A small centered confirm dialog over Radix Dialog (no extra dep). Used for
-// destructive confirmations like deleting a list entry.
-//
-// The dialog does NOT close itself on confirm — `onConfirm` is expected to
-// kick off a mutation whose pending state is passed back in as `isPending`.
-// While pending, the confirm/cancel buttons are disabled and dismissal
-// (escape/overlay click) is blocked; the caller closes the dialog (typically
-// on mutation success) via `onOpenChange`.
+/**
+ * A small centered confirm dialog over Radix Dialog (no extra dep). Used for
+ * destructive confirmations like deleting a list entry.
+ *
+ * The dialog does NOT close itself on confirm — `onConfirm` is expected to
+ * kick off a mutation whose pending state is passed back in as `isPending`.
+ * While pending, the confirm/cancel buttons are disabled and dismissal
+ * (escape/overlay click) is blocked; the caller closes the dialog (typically
+ * on mutation success) via `onOpenChange`.
+ */
 export function AlertDialog({
   open,
   onOpenChange,
@@ -54,7 +56,7 @@ export function AlertDialog({
         <Dialog.Content
           {...(description ? {} : { 'aria-describedby': undefined })}
           className={cn(
-            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-[var(--color-border)] bg-[var(--color-bg-surface)] p-5 pb-6 shadow-xl focus:outline-none',
+            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-border bg-bg-surface p-5 pb-6 shadow-xl focus:outline-none',
             dialogContentAnimation,
             'md:inset-auto md:left-1/2 md:top-1/2 md:bottom-auto md:w-[calc(100vw-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:border md:pb-5'
           )}

@@ -1,14 +1,3 @@
-// Add-levels-to-collection flow. Two distinct paths:
-//
-//   Name search / cached ID — clicking a result adds immediately (no confirmation
-//   needed — the user can see exactly what they're clicking).
-//
-//   Unknown numeric ID — "Fetch from GD servers" seeds the level from RobTop,
-//   then shows a confirmation card before adding, since the user typed a raw ID
-//   with no name visible.
-//
-// Both paths and all of their state live in useAddLevelsDialog.
-
 import { Loader2, Search, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,7 +5,8 @@ import { LevelResultRow } from '@/components/LevelResultRow'
 import { type CollectionDetail } from '@/lib/api/collections'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
-import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
+import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
+import { SectionLabel } from '@/components/SectionLabel'
 import { useAddLevelsDialog } from './useAddLevelsDialog'
 
 interface AddLevelsDialogProps {
@@ -28,6 +18,18 @@ interface AddLevelsDialogProps {
   completedIds?: Set<string>
 }
 
+/**
+ * Add-levels-to-collection flow. Two distinct paths:
+ *
+ *   Name search / cached ID — clicking a result adds immediately (no confirmation
+ *   needed — the user can see exactly what they're clicking).
+ *
+ *   Unknown numeric ID — "Fetch from GD servers" seeds the level from RobTop,
+ *   then shows a confirmation card before adding, since the user typed a raw ID
+ *   with no name visible.
+ *
+ * Both paths and all of their state live in useAddLevelsDialog.
+ */
 export function AddLevelsDialog({
   open,
   onClose,
@@ -98,7 +100,9 @@ export function AddLevelsDialog({
         {/* Fetching an unknown ID from RobTop. */}
         {seedingId && (
           <div>
-            <SectionLabel>Results</SectionLabel>
+            <SectionLabel tone="secondary" className="mb-2">
+              Results
+            </SectionLabel>
             <div className="flex h-12 items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-sm text-text-secondary">
               <Loader2 size={16} className="animate-spin text-primary" />
               Fetching level {seedingId} from the GD servers…
@@ -136,7 +140,9 @@ export function AddLevelsDialog({
         {/* Cached preview for a typed numeric ID — direct add on click. */}
         {showCachedPreview && cachedLevel && (
           <div>
-            <SectionLabel>Results</SectionLabel>
+            <SectionLabel tone="secondary" className="mb-2">
+              Results
+            </SectionLabel>
             <div className="overflow-hidden rounded-md border border-border">
               <LevelResultRow
                 level={cachedLevel}
@@ -154,7 +160,9 @@ export function AddLevelsDialog({
         {/* Unknown numeric ID — offer to seed from RobTop. */}
         {showSeedHint && (
           <div>
-            <SectionLabel>Results</SectionLabel>
+            <SectionLabel tone="secondary" className="mb-2">
+              Results
+            </SectionLabel>
             <button
               type="button"
               onClick={() => seedAndSelect(trimmed)}
@@ -169,7 +177,9 @@ export function AddLevelsDialog({
         {/* Name search results — direct add on click. */}
         {showResults && (
           <div>
-            <SectionLabel>Results</SectionLabel>
+            <SectionLabel tone="secondary" className="mb-2">
+              Results
+            </SectionLabel>
             {searchPending ? (
               <p className="px-1 text-sm text-text-tertiary">Searching…</p>
             ) : results.length === 0 ? (
@@ -262,9 +272,9 @@ export function AddLevelsDialog({
   const header = (
     <div className="flex items-start justify-between border-b border-border px-6 pb-3 pt-3.5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.4px] text-primary">
+        <SectionLabel tone="primary">
           Collection · {collection.name}
-        </p>
+        </SectionLabel>
         <h2 className="mt-0.5 text-lg font-bold text-text-primary">
           Add levels
         </h2>

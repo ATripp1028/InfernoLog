@@ -1,40 +1,33 @@
+// Logging flow API client — the level-resolve reads and the
+// completion/progress/drop writes, plus their cache invalidation.
+//
+// Wire types mirror packages/core's Zod schemas as plain TS rather than
+// importing them: apps/web pins zod@3 while core is on zod@4, and the server
+// is the source of truth for validation. The enums shared with other
+// endpoints live in ./wireEnums. (Same convention as lib/api/me.ts.)
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import {
   browseApiQueryString,
   type SearchPageState,
 } from '../levelSearchParams'
+import type {
+  Device,
+  DifficultyOpinion,
+  EntryVisibility,
+  GdVersion,
+} from './wireEnums'
 
-// ─────────────────────────────────────────────
-// Logging flow — wire types. We mirror packages/core's Zod schemas as plain TS
-// here rather than importing them: apps/web pins zod@3 while core is on zod@4,
-// and the server is the source of truth for validation. (Same convention as
-// lib/api/me.ts.)
-// ─────────────────────────────────────────────
-
-export type DifficultyOpinion =
-  | 'AUTO'
-  | 'TWO_STAR'
-  | 'THREE_STAR'
-  | 'FOUR_STAR'
-  | 'FIVE_STAR'
-  | 'SIX_STAR'
-  | 'SEVEN_STAR'
-  | 'EIGHT_STAR'
-  | 'NINE_STAR'
-  | 'EASY'
-  | 'MEDIUM'
-  | 'HARD'
-  | 'INSANE'
-  | 'EXTREME'
-
-export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
-
-export type Device = 'pc' | 'mobile'
-
-export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
-
+/**
+ * A level as InfernoLog has it cached — RobTop's metadata plus the Song File
+ * Hub NONG fields and the extended snapshot.
+ *
+ * `inGameId` is the primary key, not a UUID: reuploads share it. Almost
+ * everything else is nullable, since a level can be seeded from a search
+ * result long before a full resolve fills the rest in.
+ */
 export interface Level {
   inGameId: string
   levelType: 'CLASSIC' | 'PLATFORMER'
@@ -86,6 +79,9 @@ export interface Level {
   verified: boolean
 }
 
+/**
+ * The trimmed level shape a search returns — enough to render a result row and nothing more.
+ */
 export interface LevelSearchResult {
   inGameId: string
   name: string | null
@@ -98,6 +94,13 @@ export interface LevelSearchResult {
   isRated: boolean
 }
 
+/**
+ * The user's existing completion for a level, returned by the resolve so the
+ * logging flow can pre-fill an edit rather than start blank.
+ *
+ * The fields below the divider are `LevelProgress`-scoped — one current value
+ * per level — while the ones above belong to the completion event itself.
+ */
 export interface ExistingCompletion {
   progressUpdateId: string
   date: string | null
@@ -127,6 +130,13 @@ export interface ExistingCompletion {
   twoPlayerPartner: string | null
 }
 
+/**
+ * What resolving a level id yields.
+ *
+ * @remarks `level` is `null` and `fallbackToManual` true when RobTop has no
+ * such level and the user should be offered the manual-entry step instead;
+ * `existingCompletion` is non-null when they have already beaten it.
+ */
 export interface ResolveLevelResponse {
   level: Level | null
   fallbackToManual: boolean
@@ -134,6 +144,9 @@ export interface ResolveLevelResponse {
   existingCompletion: ExistingCompletion | null
 }
 
+/**
+ * A level typed in by hand when RobTop can't be reached or has no such id. Stored unverified until a later sync confirms it.
+ */
 export interface ManualLevelInput {
   inGameId: string
   name: string
@@ -146,6 +159,12 @@ export interface ManualLevelInput {
   length?: string | null
 }
 
+/**
+ * The completion write payload. Everything but `levelId` is optional — the
+ * flow lets a user log a bare completion and fill in detail later.
+ *
+ * Ratings and enjoyment are internal 0–100 integers, not display units.
+ */
 export interface CompletionInput {
   levelId: string
   date?: string | null
@@ -174,6 +193,14 @@ export interface CompletionInput {
   device?: Device | null
 }
 
+/**
+ * A non-completion progress write, discriminated by `mode`.
+ *
+ * `from_zero` carries a single `percentage` reached from the start;
+ * `from_run` carries the `runFrom`/`runTo` bounds of a partial run. The two
+ * are mutually exclusive, which is why this is a union rather than three
+ * optional fields.
+ */
 export type ProgressInput = { levelId: string } & (
   | { mode: 'from_zero'; percentage: number }
   | { mode: 'from_run'; runFrom: number; runTo: number }
@@ -192,6 +219,9 @@ export type ProgressInput = { levelId: string } & (
     device?: Device | null
   }
 
+/**
+ * The drop write payload — setting a level aside, with an optional reason in `notes`.
+ */
 export interface DropInput {
   levelId: string
   date?: string | null
@@ -204,17 +234,21 @@ export interface DropInput {
   visibility?: EntryVisibility
 }
 
-// The write endpoints echo back the resulting records; the flow only needs to
-// know the call succeeded, so the result shape is intentionally loose.
+/**
+ * The write endpoints echo back the resulting records; the flow only needs to
+ * know the call succeeded, so the result shape is intentionally loose.
+ */
 export interface LogResult {
   levelProgress: { id: string; status: string }
   progressUpdate: { id: string } | null
 }
 
-// Every view that can be affected by a completion/progress/drop write.
-// Exported so other flows that write the same underlying data (edit/delete
-// on the Level Page, bulk GDDL/spreadsheet import, GDDL auto-sync) can
-// invalidate the same set instead of duplicating — and drifting from — it.
+/**
+ * Every view that can be affected by a completion/progress/drop write.
+ * Exported so other flows that write the same underlying data (edit/delete
+ * on the Level Page, bulk GDDL/spreadsheet import, GDDL auto-sync) can
+ * invalidate the same set instead of duplicating — and drifting from — it.
+ */
 export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   ['list'],
   ['ranking'],
@@ -225,12 +259,12 @@ export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   ['level-page'],
 ]
 
-// ─────────────────────────────────────────────
 // Level entry support
-// ─────────────────────────────────────────────
 
-// Cached-only DB lookup by numeric level ID — used to preview already-seeded
-// levels as the user types a numeric ID. Does NOT call RobTop.
+/**
+ * Cached-only DB lookup by numeric level ID — used to preview already-seeded
+ * levels as the user types a numeric ID. Does NOT call RobTop.
+ */
 export function useLevelById(levelId: string) {
   const { getIdToken } = useAuth()
   const enabled = /^\d{4,}$/.test(levelId.trim())
@@ -253,8 +287,10 @@ export function useLevelById(levelId: string) {
   })
 }
 
-// Fuzzy name search. Enabled only for text queries of length >= 2 — numeric
-// inputs are level IDs and resolve directly, never search.
+/**
+ * Fuzzy name search. Enabled only for text queries of length >= 2 — numeric
+ * inputs are level IDs and resolve directly, never search.
+ */
 export function useLevelSearch(query: string) {
   const { getIdToken } = useAuth()
   const q = query.trim()
@@ -274,25 +310,31 @@ export function useLevelSearch(query: string) {
   })
 }
 
-// GD-server escalation response. Three outcomes the UI branches on — see the
-// gd-search endpoint. `unreachable` also covers a rejected request (mapped
-// below) so the hook always resolves to one of these rather than throwing for
-// the expected network-failure case.
+/**
+ * GD-server escalation response. Three outcomes the UI branches on — see the
+ * gd-search endpoint. `unreachable` also covers a rejected request (mapped
+ * below) so the hook always resolves to one of these rather than throwing for
+ * the expected network-failure case.
+ */
 export type GdSearchResponse =
   | { status: 'ok'; rated: LevelSearchResult[]; unrated: LevelSearchResult[] }
   | { status: 'nothing_new'; totalFound: number }
   | { status: 'unreachable' }
 
-// Input to an escalation. The bare-string form (`q`) is the legacy call from the
-// toolbar/logging/collections cache-search surfaces; the /search page passes a
-// full state so its filters/sort are forwarded to GD where the schema permits.
+/**
+ * Input to an escalation. The bare-string form (`q`) is the legacy call from the
+ * toolbar/logging/collections cache-search surfaces; the /search page passes a
+ * full state so its filters/sort are forwarded to GD where the schema permits.
+ */
 export type GdSearchInput = string | SearchPageState
 
-// The opt-in escalation call. A mutation (not a query) because it fires only on
-// explicit confirmation and each call is independent — there is no "escalated
-// mode" to keep in sync. A 503 is the expected RobTop-unreachable branch and
-// resolves to { status: 'unreachable' } rather than rejecting; other failures
-// reject (surfaced as the hook's error state).
+/**
+ * The opt-in escalation call. A mutation (not a query) because it fires only on
+ * explicit confirmation and each call is independent — there is no "escalated
+ * mode" to keep in sync. A 503 is the expected RobTop-unreachable branch and
+ * resolves to { status: 'unreachable' } rather than rejecting; other failures
+ * reject (surfaced as the hook's error state).
+ */
 export function useGdSearch() {
   const { getIdToken } = useAuth()
   return useMutation({
@@ -317,6 +359,12 @@ export function useGdSearch() {
   })
 }
 
+/**
+ * Resolves a level id against the cache, falling back to RobTop.
+ *
+ * Returns a {@link ResolveLevelResponse} rather than throwing when the level
+ * does not exist — check `fallbackToManual`.
+ */
 export function useResolveLevel() {
   const { getIdToken } = useAuth()
   return useMutation({
@@ -330,6 +378,9 @@ export function useResolveLevel() {
   })
 }
 
+/**
+ * Creates a hand-entered level. See {@link ManualLevelInput}.
+ */
 export function useCreateManualLevel() {
   const { getIdToken } = useAuth()
   return useMutation({
@@ -345,16 +396,16 @@ export function useCreateManualLevel() {
   })
 }
 
-// ─────────────────────────────────────────────
 // Logging writes
-// ─────────────────────────────────────────────
 
-// Awaited by every mutation's onSuccess below (react-query awaits whatever
-// onSuccess returns before resolving mutate/mutateAsync) — so callers stay in
-// their pending state until the affected views have actually refetched,
-// rather than closing/navigating while the UI still shows stale data with no
-// indication a refetch is even happening. allSettled so a single failed
-// refetch can't surface as a false "write failed" error.
+/**
+ * Awaited by every mutation's onSuccess below (react-query awaits whatever
+ * onSuccess returns before resolving mutate/mutateAsync) — so callers stay in
+ * their pending state until the affected views have actually refetched,
+ * rather than closing/navigating while the UI still shows stale data with no
+ * indication a refetch is even happening. allSettled so a single failed
+ * refetch can't surface as a false "write failed" error.
+ */
 export function useInvalidateOnWrite() {
   const queryClient = useQueryClient()
   return async () => {
@@ -366,6 +417,9 @@ export function useInvalidateOnWrite() {
   }
 }
 
+/**
+ * Logs a completion, then invalidates every view a completion can change.
+ */
 export function useLogCompletion() {
   const { getIdToken } = useAuth()
   const invalidate = useInvalidateOnWrite()
@@ -382,6 +436,9 @@ export function useLogCompletion() {
   })
 }
 
+/**
+ * Logs a progress session, then invalidates every view it can change.
+ */
 export function useLogProgress() {
   const { getIdToken } = useAuth()
   const invalidate = useInvalidateOnWrite()
@@ -399,6 +456,9 @@ export function useLogProgress() {
   })
 }
 
+/**
+ * Logs a drop, then invalidates every view it can change.
+ */
 export function useLogDrop() {
   const { getIdToken } = useAuth()
   const invalidate = useInvalidateOnWrite()
@@ -416,6 +476,12 @@ export function useLogDrop() {
   })
 }
 
+/**
+ * Submits the user's completion of a level to GDDL as a record.
+ *
+ * Requires a connected GDDL API key; the server holds the key, so nothing
+ * about it passes through here.
+ */
 export function useSubmitGddlRecord() {
   const { getIdToken } = useAuth()
   return useMutation({

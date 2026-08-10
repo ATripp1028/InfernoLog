@@ -9,16 +9,18 @@ interface MobileSheetDialogProps {
   className?: string
 }
 
-// Shared mobile bottom-sheet shell for form dialogs that also render a
-// centered desktop modal (CollectionFormDialog, PresetCreateDialog). Unlike
-// `MobileActionSheet` (nav-list menus), these need a header/scrollable-body/
-// sticky-footer layout and a desktop fallback the caller supplies itself —
-// this component owns only the mobile shell.
-//
-// Focuses the sheet itself on mount so Escape-to-close works: these dialogs
-// intentionally skip `autoFocus` on their inputs on mobile (to avoid popping
-// the keyboard immediately), so without this, keyboard focus stays on the
-// trigger button outside the sheet's DOM subtree and Escape never bubbles in.
+/**
+ * Shared mobile bottom-sheet shell for form dialogs that also render a
+ * centered desktop modal (CollectionFormDialog, PresetCreateDialog). Unlike
+ * `MobileActionSheet` (nav-list menus), these need a header/scrollable-body/
+ * sticky-footer layout and a desktop fallback the caller supplies itself —
+ * this component owns only the mobile shell.
+ *
+ * Focuses the sheet itself on mount so Escape-to-close works: these dialogs
+ * intentionally skip `autoFocus` on their inputs on mobile (to avoid popping
+ * the keyboard immediately), so without this, keyboard focus stays on the
+ * trigger button outside the sheet's DOM subtree and Escape never bubbles in.
+ */
 export function MobileSheetDialog({
   onClose,
   children,

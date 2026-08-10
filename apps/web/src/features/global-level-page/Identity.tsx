@@ -17,6 +17,9 @@ interface IdentityProps {
   variant: 'mobile' | 'desktop'
 }
 
+/**
+ * The level's name, creator, difficulty face, and id — the page's masthead.
+ */
 export function Identity({ level, variant }: IdentityProps) {
   const isMobile = variant === 'mobile'
   const showStarCount = level.isRated && level.stars != null && level.stars > 0

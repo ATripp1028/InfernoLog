@@ -10,10 +10,12 @@ interface ImportStatusPanelProps {
   status: ImportStatusResponse
 }
 
-// The "X rows need review" expandable list + per-row resolve + "mark all
-// resolved" bulk action. Shared: this is both the section the live Done
-// screen gains when the job has flagged rows, and the standalone view opened
-// from the persistent toast / Settings subline — same data, same component.
+/**
+ * The "X rows need review" expandable list + per-row resolve + "mark all
+ * resolved" bulk action. Shared: this is both the section the live Done
+ * screen gains when the job has flagged rows, and the standalone view opened
+ * from the persistent toast / Settings subline — same data, same component.
+ */
 export function ImportStatusPanel({ status }: ImportStatusPanelProps) {
   const [expanded, setExpanded] = useState(false)
   const resolveRow = useResolveImportRow()
@@ -24,11 +26,11 @@ export function ImportStatusPanel({ status }: ImportStatusPanelProps) {
   const unresolved = status.flaggedRows.filter((r) => !r.resolved)
 
   return (
-    <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 text-sm">
+    <div className="rounded-lg border border-warning/40 bg-warning/5 text-sm">
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
-        className="flex w-full items-center justify-between px-3 py-2 font-medium text-amber-700 dark:text-amber-400"
+        className="flex w-full items-center justify-between px-3 py-2 font-medium text-warning-soft"
       >
         <span>
           {unresolved.length > 0
@@ -39,7 +41,7 @@ export function ImportStatusPanel({ status }: ImportStatusPanelProps) {
       </button>
 
       {expanded && (
-        <div className="border-t border-amber-500/40">
+        <div className="border-t border-warning/40">
           <div className="flex justify-end px-3 py-2">
             <Button
               size="sm"
@@ -50,7 +52,7 @@ export function ImportStatusPanel({ status }: ImportStatusPanelProps) {
               Mark all resolved
             </Button>
           </div>
-          <div className="max-h-64 divide-y divide-[var(--color-border)] overflow-y-auto text-xs">
+          <div className="max-h-64 divide-y divide-border overflow-y-auto text-xs">
             {status.flaggedRows.map((row) => (
               <div
                 key={row.id}

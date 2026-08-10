@@ -14,10 +14,12 @@ import {
 } from '@/lib/api/me'
 import { useSortableSensors } from '../hooks/useSortableSensors'
 
-// The editor renders a single unified list where categories and (optionally)
-// "Enjoyment" share the same priority order. The first item in the list is
-// the highest priority — it receives the rounding remainder when
-// distributing weights equally and is what the user can drag to reorder.
+/**
+ * The editor renders a single unified list where categories and (optionally)
+ * "Enjoyment" share the same priority order. The first item in the list is
+ * the highest priority — it receives the rounding remainder when
+ * distributing weights equally and is what the user can drag to reorder.
+ */
 export type EditableItem =
   | {
       kind: 'category'
@@ -32,10 +34,19 @@ export type EditableItem =
       weight: number
     }
 
+/**
+ * One row of the rating-config editor: a category, or the Enjoyment pseudo-category.
+ */
 export type CategoryItem = Extract<EditableItem, { kind: 'category' }>
 
+/**
+ * The reserved key standing in for Enjoyment in the unified priority list. Not a category id — no category may use it.
+ */
 export const ENJOYMENT_KEY = 'ENJOYMENT' as const
 
+/**
+ * Imperative handle the settings page uses to save or reset the editor from outside it.
+ */
 export interface RatingConfigEditorHandle {
   // Saves if dirty (no-op returning true otherwise). Returns false when
   // there's nothing to save yet because the current state is invalid (bad
@@ -45,6 +56,9 @@ export interface RatingConfigEditorHandle {
   save: () => Promise<boolean>
 }
 
+/**
+ * The unified category + enjoyment priority list, its weight validation, the bulk weight operations, and the save/reset writers.
+ */
 export function useRatingConfigEditor(
   me: MeData,
   ref: Ref<RatingConfigEditorHandle>

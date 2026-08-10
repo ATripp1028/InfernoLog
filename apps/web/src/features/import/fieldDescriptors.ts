@@ -3,6 +3,9 @@
 
 import { MAX_ATTEMPTS, MAX_FPS, MAX_GDDL_TIER } from '@infernolog/core'
 
+/**
+ * How a conflictable field's value is rendered and how its manual-entry control behaves.
+ */
 export type FieldFormatType =
   | 'text'
   | 'number'
@@ -12,6 +15,9 @@ export type FieldFormatType =
   | 'rating10'
   | 'enum'
 
+/**
+ * Label, format, and bounds for one conflictable field.
+ */
 export interface FieldDescriptor {
   field: string
   label: string
@@ -55,6 +61,9 @@ const VISIBILITY_OPTIONS = [
   { value: 'PRIVATE', label: 'Private' },
 ]
 
+/**
+ * Conflictable fields on a Completions row, in resolver display order.
+ */
 export const COMPLETION_FIELDS: FieldDescriptor[] = [
   { field: 'date', label: 'Date', format: 'date' },
   { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
@@ -104,6 +113,9 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
   },
 ]
 
+/**
+ * Conflictable fields on a Progress row.
+ */
 export const PROGRESS_FIELDS: FieldDescriptor[] = [
   { field: 'date', label: 'Date', format: 'date' },
   { field: 'dateUncertain', label: 'Date uncertain', format: 'boolean' },
@@ -119,6 +131,9 @@ export const PROGRESS_FIELDS: FieldDescriptor[] = [
   { field: 'device', label: 'Device', format: 'enum', options: DEVICE_OPTIONS },
 ]
 
+/**
+ * Conflictable fields on a Dropped row.
+ */
 export const DROPPED_FIELDS: FieldDescriptor[] = [
   { field: 'droppedAt', label: 'Dropped at', format: 'date' },
   { field: 'bestProgress', label: 'Best progress %', format: 'percent' },
@@ -133,10 +148,12 @@ export const DROPPED_FIELDS: FieldDescriptor[] = [
   { field: 'reason', label: 'Reason', format: 'text' },
 ]
 
-// 'percent' (0-100), not 'rating10' — unlike completion enjoyment/simpleRating
-// (0-10 on the wire), ImportRatingEntry.scores is already 0-100 on the wire,
-// and existing/importedScore in ImportRatingConflict match that convention
-// so a resolved value drops straight into the payload with no conversion.
+/**
+ * 'percent' (0-100), not 'rating10' — unlike completion enjoyment/simpleRating
+ * (0-10 on the wire), ImportRatingEntry.scores is already 0-100 on the wire,
+ * and existing/importedScore in ImportRatingConflict match that convention
+ * so a resolved value drops straight into the payload with no conversion.
+ */
 export const RATING_FIELDS: FieldDescriptor[] = [
   { field: 'score', label: 'Score', format: 'percent' },
 ]
@@ -159,9 +176,11 @@ const FIELD_MAPS_BY_TAB: Record<string, Map<string, FieldDescriptor>> = {
   rating: RATING_FIELD_MAP,
 }
 
-// Falls back to a title-cased version of the raw field key for any field the
-// descriptor table doesn't know about, so an unexpected diff still renders
-// something reasonable instead of crashing.
+/**
+ * Falls back to a title-cased version of the raw field key for any field the
+ * descriptor table doesn't know about, so an unexpected diff still renders
+ * something reasonable instead of crashing.
+ */
 export function describeField(
   tab: keyof typeof FIELD_MAPS_BY_TAB,
   field: string

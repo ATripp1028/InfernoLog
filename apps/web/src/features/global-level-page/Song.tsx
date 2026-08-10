@@ -3,6 +3,7 @@ import { CopyableId } from '@/components/CopyableId'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { formatSongSize } from './format'
+import { SectionLabel } from '@/components/SectionLabel'
 
 // Desktop renders the song inside a bordered card ('card'); mobile renders it
 // bare inside the collapsible section ('plain'). Only the outer chrome and the
@@ -22,19 +23,11 @@ function EmberLink({
       href={href}
       target="_blank"
       rel="noreferrer noopener"
-      className="inline-flex items-center gap-1 text-[13px] font-medium text-[var(--color-primary-light)] transition hover:brightness-110"
+      className="inline-flex items-center gap-1 text-[13px] font-medium text-primary-light transition hover:brightness-110"
     >
       {children}
       <span aria-hidden>↗</span>
     </a>
-  )
-}
-
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-text-tertiary">
-      {children}
-    </p>
   )
 }
 
@@ -121,7 +114,7 @@ function NongSong({ level, pad }: { level: GlobalLevelPageData; pad: string }) {
           <p className="text-[15px] font-semibold leading-snug text-text-primary">
             {level.sfhSongName ?? 'NONG song'}
           </p>
-          <span className="mt-1 inline-flex items-center rounded bg-[var(--color-warning-dim)] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)]">
+          <span className="mt-1 inline-flex items-center rounded bg-warning-dim px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-warning">
             NONG
           </span>
         </div>
@@ -143,7 +136,9 @@ function NongSong({ level, pad }: { level: GlobalLevelPageData; pad: string }) {
 
       {/* NONG · VIA SONG FILE HUB — the replacement song's own details. */}
       <div className={cn('border-t border-border-subtle', pad, 'py-3')}>
-        <SectionLabel>NONG · via Song File Hub</SectionLabel>
+        <SectionLabel size="xs" className="mb-2">
+          NONG · via Song File Hub
+        </SectionLabel>
         {level.sfhFileType && (
           <KVRow label="File type" value={level.sfhFileType.toUpperCase()} />
         )}
@@ -169,7 +164,9 @@ function NongSong({ level, pad }: { level: GlobalLevelPageData; pad: string }) {
           These come from the level fetch, not SFH (a two-source card). Players
           sometimes use this Newgrounds song even when a NONG exists. */}
       <div className={cn('border-t border-border-subtle', pad, 'py-3')}>
-        <SectionLabel>In-game song · Newgrounds</SectionLabel>
+        <SectionLabel size="xs" className="mb-2">
+          In-game song · Newgrounds
+        </SectionLabel>
         <p className="truncate text-sm font-semibold text-text-primary">
           {level.songName ?? 'Unknown song'}
         </p>
@@ -187,6 +184,9 @@ function NongSong({ level, pad }: { level: GlobalLevelPageData; pad: string }) {
   )
 }
 
+/**
+ * The level's song card: the in-game track, or the NONG with its Song File Hub details.
+ */
 export function Song({
   level,
   variant = 'plain',

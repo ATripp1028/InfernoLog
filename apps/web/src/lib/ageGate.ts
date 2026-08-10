@@ -9,12 +9,18 @@
 const COOKIE_NAME = 'il_agegate_failed'
 const COOKIE_MAX_AGE_SECONDS = 30 * 24 * 60 * 60 // 30 days
 
+/**
+ * Whether this browser failed the age gate within the cooldown window.
+ */
 export function hasActiveAgeGateFailureCookie(): boolean {
   return document.cookie
     .split('; ')
     .some((c) => c.startsWith(`${COOKIE_NAME}=`))
 }
 
+/**
+ * Starts the 30-day age-gate cooldown for this browser.
+ */
 export function setAgeGateFailureCookie(): void {
   document.cookie = `${COOKIE_NAME}=1; max-age=${COOKIE_MAX_AGE_SECONDS}; path=/; samesite=lax`
 }

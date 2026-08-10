@@ -24,6 +24,9 @@ interface UsernameEditorProps {
   onSaved?: () => void
 }
 
+/**
+ * Username field with availability checking and the rename-cooldown message.
+ */
 export function UsernameEditor({
   me,
   startInEditing,
@@ -201,7 +204,7 @@ export function UsernameEditor({
           </Button>
         )}
       </div>
-      {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
       <p className="text-xs text-muted-foreground">
         2–32 characters, letters / numbers / underscores / hyphens. Username
         changes are locked for {COOLDOWN_DAYS} days after each change.

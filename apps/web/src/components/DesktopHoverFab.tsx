@@ -27,9 +27,11 @@ interface DesktopHoverFabProps {
   autoExpandLabels?: boolean
 }
 
-// A hover-activated speed dial: hovering the group fans secondary actions
-// out above the FAB; hovering any single button expands it into an
-// icon+label pill.
+/**
+ * A hover-activated speed dial: hovering the group fans secondary actions
+ * out above the FAB; hovering any single button expands it into an
+ * icon+label pill.
+ */
 export function DesktopHoverFab({
   primary,
   restIcon,
@@ -158,9 +160,7 @@ function FabActionButton({
         primary
           ? 'h-14 min-w-14 bg-primary text-text-primary hover:bg-primary-hover'
           : 'h-11 min-w-11 bg-bg-elevated text-text-primary hover:bg-bg-subtle',
-        !disabled &&
-          danger &&
-          'text-[var(--color-danger)] hover:bg-[var(--color-danger-dim)]',
+        !disabled && danger && 'text-danger hover:bg-danger-dim',
         disabled && 'cursor-not-allowed opacity-50'
       )}
     >

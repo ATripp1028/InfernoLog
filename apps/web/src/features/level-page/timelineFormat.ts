@@ -4,12 +4,14 @@
 
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
-import type { DateFormatPreference } from '@/lib/api/me'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { ProgressUpdate } from './types'
 
 const VIEWER_TZ = getViewerTimezone()
 
-// Percentage / run label for a progress update
+/**
+ * Percentage / run label for a progress update
+ */
 export function rangeLabel(update: ProgressUpdate): string {
   if (update.kind === 'COMPLETION') return '100%'
   if (update.runFrom != null && update.runTo != null) {
@@ -19,6 +21,13 @@ export function rangeLabel(update: ProgressUpdate): string {
   return '—'
 }
 
+/**
+ * A timeline entry's date, in the user's format, with its time and zone badge
+ * when the entry carries one.
+ *
+ * A `null` timezone means no time-of-day was ever entered, which is the common
+ * case and renders as a bare date.
+ */
 export function formatEntryDate(
   dateStr: string | null,
   dateTimezone: string | null,

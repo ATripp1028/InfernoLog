@@ -14,11 +14,13 @@ interface RobtopSearchOfferProps {
   disabled: boolean
 }
 
-// The floating "search GD's servers" affordance, pinned to the bottom center of
-// the /search page. Shown only when the current search is a browsable GD
-// operation (see SearchPage). One request, first page only — never automatic.
-// Once escalated, the results/errors render in the grid (GdBrowseResults) and
-// this collapses to nothing but the in-flight spinner.
+/**
+ * The floating "search GD's servers" affordance, pinned to the bottom center of
+ * the /search page. Shown only when the current search is a browsable GD
+ * operation (see SearchPage). One request, first page only — never automatic.
+ * Once escalated, the results/errors render in the grid (GdBrowseResults) and
+ * this collapses to nothing but the in-flight spinner.
+ */
 export function RobtopSearchOffer({
   escalation,
   state,
@@ -30,7 +32,7 @@ export function RobtopSearchOffer({
   if (escalation.isPending) {
     return (
       <div className={wrapper}>
-        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-[#333333] bg-[#212121] px-4 py-2.5 text-sm text-text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
+        <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border bg-bg-elevated px-4 py-2.5 text-sm text-text-secondary shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
           <Loader2 size={16} className="animate-spin text-primary" />
           Searching GD’s servers…
         </div>
@@ -55,8 +57,8 @@ export function RobtopSearchOffer({
         className={cn(
           'pointer-events-auto flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-medium shadow-[0_8px_24px_rgba(0,0,0,0.45)] transition-colors',
           disabled
-            ? 'cursor-not-allowed border-[#2a2a2a] bg-[#1a1a1a] text-text-tertiary'
-            : 'border-primary/50 bg-[#212121] text-text-primary hover:border-primary'
+            ? 'cursor-not-allowed border-bg-subtle bg-bg-inset text-text-tertiary'
+            : 'border-primary/50 bg-bg-elevated text-text-primary hover:border-primary'
         )}
       >
         <Server size={16} className={disabled ? '' : 'text-primary'} />

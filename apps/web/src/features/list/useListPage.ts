@@ -64,9 +64,14 @@ import { getPresetCookie, setPresetCookie } from '@/lib/presetCookie'
 const PANEL_WIDTH = 320
 const CONTENT_PADDING = 48
 
-// Which edit modal the list opened for the level being edited.
+/**
+ * Which edit modal the list opened for the level being edited.
+ */
 export type ListEditMode = 'run' | 'level' | null
 
+/**
+ * Everything the List page renders from: the query, the active view, sorting and filtering, and every dialog and sheet it can open.
+ */
 export function useListPage() {
   const me = useMe()
   const progress = useMyProgress()

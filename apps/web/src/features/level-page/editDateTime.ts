@@ -9,11 +9,13 @@ import {
   NonexistentLocalTimeError,
 } from '@/lib/timezone'
 
-// Serialized ISO date (+ optional IANA zone it was entered in) → the date/time
-// input values that pre-populate a DateTimeField. When a zone is present, the
-// date is derived in THAT zone rather than sliced from raw UTC — an entry
-// logged at 11:58 PM America/New_York is already the next day in UTC, so a
-// naive slice would show the wrong calendar date back to the user.
+/**
+ * Serialized ISO date (+ optional IANA zone it was entered in) → the date/time
+ * input values that pre-populate a DateTimeField. When a zone is present, the
+ * date is derived in THAT zone rather than sliced from raw UTC — an entry
+ * logged at 11:58 PM America/New_York is already the next day in UTC, so a
+ * naive slice would show the wrong calendar date back to the user.
+ */
 export function zonedDateTimeInput(
   iso: string | null,
   timezone: string | null
@@ -28,11 +30,13 @@ export function zonedDateTimeInput(
   return { date, time }
 }
 
-// Inverse of zonedDateTimeInput — date/time/timezone form fields → the
-// {date, dateTimezone} pair the API expects (date as an ISO string, or null
-// when the field was cleared). Returns 'invalid' (after toasting) when the
-// entered time doesn't exist in that zone due to a DST transition; the
-// caller should bail out of its save handler in that case.
+/**
+ * Inverse of zonedDateTimeInput — date/time/timezone form fields → the
+ * {date, dateTimezone} pair the API expects (date as an ISO string, or null
+ * when the field was cleared). Returns 'invalid' (after toasting) when the
+ * entered time doesn't exist in that zone due to a DST transition; the
+ * caller should bail out of its save handler in that case.
+ */
 export function composeZonedDate(
   date: string | null,
   time: string,

@@ -1,6 +1,9 @@
 import { useLocation, useNavigate, useRouter } from '@tanstack/react-router'
 import { readBackOrigin } from './backOrigin'
 
+/**
+ * What a back affordance should render and do. See {@link useGoBack}.
+ */
 export interface GoBack {
   // Set whenever the destination is a real URL (the remembered origin, or the
   // fallback route) so callers can render an actual `Link` — preserving
@@ -16,10 +19,12 @@ export interface GoBack {
   isOrigin: boolean
 }
 
-// Where a page's back affordance should go: the remembered origin if this
-// page was reached via an in-app link, otherwise real browser history,
-// otherwise `fallbackTo`. Shared by GlobalLevelPage, LevelPage, and
-// PublicPageShell, which all need the same three-way fallback.
+/**
+ * Where a page's back affordance should go: the remembered origin if this
+ * page was reached via an in-app link, otherwise real browser history,
+ * otherwise `fallbackTo`. Shared by GlobalLevelPage, LevelPage, and
+ * PublicPageShell, which all need the same three-way fallback.
+ */
 export function useGoBack(fallbackTo: string): GoBack {
   const location = useLocation()
   const navigate = useNavigate()

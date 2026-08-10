@@ -5,10 +5,12 @@ import type { FabAction } from '@/context/FabActionsContext'
 import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
-// The FAB's default action set — shown on any page that doesn't register
-// its own actions via useFabActions (List, Ranking, etc). Called
-// independently by the desktop Fab and MobileNav, each getting its own
-// dialog state — the two breakpoints are never both visible at once.
+/**
+ * The FAB's default action set — shown on any page that doesn't register
+ * its own actions via useFabActions (List, Ranking, etc). Called
+ * independently by the desktop Fab and MobileNav, each getting its own
+ * dialog state — the two breakpoints are never both visible at once.
+ */
 export function useDefaultFabActions(): {
   actions: FabAction[]
   dialogs: ReactNode

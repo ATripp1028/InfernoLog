@@ -23,6 +23,7 @@ import { CompletionSuccessStep } from './steps/CompletionSuccessStep'
 import { ProgressStep } from './steps/ProgressStep'
 import { ProgressSessionStep } from './steps/ProgressSessionStep'
 import { DropStep } from './steps/DropStep'
+import { SectionLabel } from '@/components/SectionLabel'
 
 const EYEBROW_BASE: Record<FlowPath, string> = {
   completion: 'Log a completion',
@@ -124,6 +125,9 @@ function StepView({ step }: { step: FlowStep }) {
   }
 }
 
+/**
+ * The logging flow's shell: the level backdrop, the step indicator, and the current step. Steps render themselves.
+ */
 export function LoggingModal() {
   const { isOpen, path, step, level, close } = useLoggingFlow()
   const [confirmingClose, setConfirmingClose] = useState(false)
@@ -216,9 +220,7 @@ export function LoggingModal() {
 
               <div className="relative z-10 flex min-h-0 flex-1 flex-col [&_input]:bg-[color-mix(in_oklab,var(--color-bg-surface)_70%,transparent)] [&_textarea]:bg-[color-mix(in_oklab,var(--color-bg-surface)_70%,transparent)]">
                 <div className="relative px-6 pb-0 pt-5">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                    {header.eyebrow}
-                  </p>
+                  <SectionLabel tone="primary">{header.eyebrow}</SectionLabel>
                   <Dialog.Title className="mt-1 text-2xl font-semibold text-text-primary">
                     {header.title}
                   </Dialog.Title>

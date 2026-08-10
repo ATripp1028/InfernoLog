@@ -9,6 +9,9 @@ const MEDAL_COLORS: Record<number, string> = {
   5: '#8ec5ff', // azure
 }
 
+/**
+ * The medal colour for a rank, or `null` past the podium.
+ */
 export function medalColor(rank: number): string | undefined {
   return MEDAL_COLORS[rank]
 }

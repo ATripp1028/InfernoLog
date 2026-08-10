@@ -70,10 +70,13 @@ function CtaRow({ align = 'start' }: { align?: 'start' | 'center' }) {
 const portraitShot =
   'mx-auto max-h-[450px] w-auto rounded-lg lg:max-h-none lg:w-full'
 
+/**
+ * The signed-out marketing page and its sign-in / sign-up entry points.
+ */
 export function LandingPage() {
   const location = useLocation()
   return (
-    <div className="relative min-h-screen bg-[var(--color-bg-base)] text-foreground">
+    <div className="relative min-h-screen bg-bg-base text-foreground">
       <EmberBackground />
 
       <div className="relative z-10 mx-auto max-w-[1440px]">
@@ -211,7 +214,7 @@ export function LandingPage() {
               own privacy toggle.
             </LandingBody>
           </div>
-          <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-[var(--color-border)]">
+          <div className="w-full max-w-[640px] overflow-hidden rounded-lg border border-border">
             <picture>
               <source
                 media="(max-width: 767px)"
@@ -272,7 +275,7 @@ export function LandingPage() {
               DMCA
             </Link>
           </nav>
-          <p className="max-w-[652px] text-xs text-[var(--color-text-tertiary)]">
+          <p className="max-w-[652px] text-xs text-text-tertiary">
             Site made by MrSp0rkMan (Alex). InfernoLog is an unofficial fan
             project, not affiliated with RobTop Games.
           </p>

@@ -8,13 +8,15 @@ interface BackLinkProps {
   children: ReactNode
 }
 
-// Renders a real `<a href>` whenever `back` has a known destination —
-// preserving native anchor behavior (middle/ctrl/cmd-click to open in a new
-// tab, right-click to copy the link, the assistive-tech "link" role) — and
-// falls back to a plain button only for the true browser-history-pop case,
-// which has no representable URL. A plain click still routes through the
-// router (via `back.onClick`) instead of a full page load. Pairs with
-// `useGoBack`.
+/**
+ * Renders a real `<a href>` whenever `back` has a known destination —
+ * preserving native anchor behavior (middle/ctrl/cmd-click to open in a new
+ * tab, right-click to copy the link, the assistive-tech "link" role) — and
+ * falls back to a plain button only for the true browser-history-pop case,
+ * which has no representable URL. A plain click still routes through the
+ * router (via `back.onClick`) instead of a full page load. Pairs with
+ * `useGoBack`.
+ */
 export function BackLink({
   back,
   className,

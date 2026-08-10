@@ -5,6 +5,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { parseSpreadsheet } from '../parseSpreadsheet'
 import { useImportFlow } from '../ImportFlowProvider'
 
+/**
+ * Parsing and drag bookkeeping for the upload step.
+ */
 export function useUploadStep() {
   const { dateFormat, setDateFormat, handleParsed: onParsed } = useImportFlow()
   const [error, setError] = useState<string | null>(null)

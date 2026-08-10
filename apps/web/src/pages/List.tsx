@@ -1,24 +1,28 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
-import { PageLoading } from '../components/PageLoading'
-import { TooltipProvider } from '../components/ui/tooltip'
-import { Sheet, SheetContent, SheetTitle } from '../components/ui/sheet'
-import { MobileActionSheet } from '../components/MobileActionSheet'
-import { AlertDialog } from '../components/ui/alert-dialog'
-import { EditRunModal } from '../features/level-page/EditRunModal'
-import { EditLevelModal } from '../features/level-page/EditLevelModal'
-import { findPrimaryProgressUpdateId } from '../features/level-page/primaryEntry'
-import { AddToCollectionDialog } from '../features/collections/AddToCollectionDialog'
-import { Toolbar } from '../features/list/Toolbar'
-import { ListTable } from '../features/list/ListTable'
-import { MobilePager } from '../features/list/MobilePager'
-import { FilterPanel } from '../features/list/FilterPanel'
-import { ControlsSheet } from '../features/list/ControlsSheet'
-import { PresetSheet } from '../features/list/PresetSheet'
-import { PresetCreateDialog } from '../features/list/PresetCreateDialog'
-import { useListPage } from '../features/list/useListPage'
+import { PageLoading } from '@/components/PageLoading'
+import { TooltipProvider } from '@/components/ui/tooltip'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
+import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { AlertDialog } from '@/components/ui/alert-dialog'
+import { EditRunModal } from '@/features/level-page/EditRunModal'
+import { EditLevelModal } from '@/features/level-page/EditLevelModal'
+import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
+import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+import { Toolbar } from '@/features/list/Toolbar'
+import { ListTable } from '@/features/list/ListTable'
+import { MobilePager } from '@/features/list/MobilePager'
+import { FilterPanel } from '@/features/list/FilterPanel'
+import { ControlsSheet } from '@/features/list/ControlsSheet'
+import { PresetSheet } from '@/features/list/PresetSheet'
+import { PresetCreateDialog } from '@/features/list/PresetCreateDialog'
+import { useListPage } from '@/features/list/useListPage'
+import { EmptyState } from '@/components/EmptyState'
 
+/**
+ * The List — every level the user has logged, with saved views, filters, and sorts.
+ */
 export function List() {
   const {
     isLoading,
@@ -155,9 +159,12 @@ export function List() {
           />
 
           {items.length === 0 ? (
-            <EmptyState />
+            <EmptyState
+              title="No levels logged yet."
+              description="Log a completion or progress with the + button to start your list."
+            />
           ) : visible.length === 0 ? (
-            <NoMatches />
+            <EmptyState title="No levels match your filters." />
           ) : (
             <>
               <ListTable
@@ -200,7 +207,7 @@ export function List() {
               animate={{ width: 320 }}
               exit={{ width: 0 }}
               transition={{ duration: 0.28, ease: 'easeInOut' }}
-              className="shrink-0 overflow-hidden border-l border-[var(--color-border-subtle)]"
+              className="shrink-0 overflow-hidden border-l border-border-subtle"
             >
               <div className="sticky top-0 h-[calc(100dvh-64px)] w-[320px] overflow-hidden">
                 {filterPanel}
@@ -354,24 +361,5 @@ export function List() {
         })}
       />
     </TooltipProvider>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-10 text-center">
-      <p className="text-text-primary">No levels logged yet.</p>
-      <p className="mt-1 text-sm text-text-secondary">
-        Log a completion or progress with the + button to start your list.
-      </p>
-    </div>
-  )
-}
-
-function NoMatches() {
-  return (
-    <div className="rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-10 text-center text-text-secondary">
-      No levels match your filters.
-    </div>
   )
 }

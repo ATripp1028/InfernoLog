@@ -69,6 +69,13 @@ const CLOSED: FlowState = {
   draft: emptyDraft(),
 }
 
+/**
+ * Holds the logging flow's step machine and draft.
+ *
+ * Mounted once in the app shell rather than per page, because the FAB opens
+ * the flow from anywhere. Steps take zero props and read what they need from
+ * this.
+ */
 export function LoggingFlowProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<FlowState>(CLOSED)
 
@@ -192,6 +199,9 @@ export function LoggingFlowProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * The logging flow. Throws outside a {@link LoggingFlowProvider}.
+ */
 export function useLoggingFlow(): FlowContextValue {
   const ctx = useContext(FlowContext)
   if (!ctx) {

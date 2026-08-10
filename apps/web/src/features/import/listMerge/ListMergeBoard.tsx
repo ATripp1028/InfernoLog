@@ -1,22 +1,3 @@
-// Three-column git-merge-style board for reconciling two orderings (an
-// existing DB order vs. an imported sheet order) — used by Collections and
-// Ranking. Only ever rendered when the backend's computeListMerge found a
-// genuine conflict (see apps/api/src/utils/listMerge.ts); when it didn't,
-// the wizard uses mergedSeed directly and skips this component entirely.
-//
-// Left column ("Imported") and right column ("Existing") are the source
-// pools — entries still needing a decision. Middle column ("Merged") is the
-// working result, pre-seeded from mergedSeed. A levelId present in both
-// importedRemainder and existingRemainder is ONE contested entry: the
-// interactive, draggable card lives in the left column; the right column
-// shows a non-interactive reference card at the same identity so the user
-// can see "this used to be here" without a second, independently-draggable
-// copy of the same id (dnd-kit requires unique ids per drag context).
-//
-// Confirming never requires every entry to be placed — an entry left in
-// either source column is voided (excluded from the final order), gated by
-// a required acknowledgement checkbox once anything would be lost.
-
 import { forwardRef } from 'react'
 import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import {
@@ -71,8 +52,8 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
       className={cn(
         'relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-2 text-sm',
         muted
-          ? 'border-dashed border-[var(--color-border-subtle)] text-muted-foreground'
-          : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]',
+          ? 'border-dashed border-border-subtle text-muted-foreground'
+          : 'border-border bg-bg-surface',
         isDragging && 'opacity-50'
       )}
     >
@@ -93,7 +74,7 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
           muted ? 'opacity-20' : 'opacity-35'
         )}
       />
-      <div className="pointer-events-none absolute inset-0 bg-[var(--color-bg-surface)]/70" />
+      <div className="pointer-events-none absolute inset-0 bg-bg-surface/70" />
       {handle && <span className="relative z-10">{handle}</span>}
       <span className="relative z-10 min-w-0 flex-1 truncate">
         {entryLabel(entry)}
@@ -165,9 +146,8 @@ function Column({
       <div
         ref={setNodeRef}
         className={cn(
-          'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-[var(--color-border)] p-2',
-          isOver &&
-            'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
+          'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-border p-2',
+          isOver && 'bg-primary-dim ring-1 ring-primary'
         )}
       >
         {children}
@@ -176,6 +156,26 @@ function Column({
   )
 }
 
+/**
+ * Three-column git-merge-style board for reconciling two orderings (an
+ * existing DB order vs. an imported sheet order) — used by Collections and
+ * Ranking. Only ever rendered when the backend's computeListMerge found a
+ * genuine conflict (see apps/api/src/utils/listMerge.ts); when it didn't,
+ * the wizard uses mergedSeed directly and skips this component entirely.
+ *
+ * Left column ("Imported") and right column ("Existing") are the source
+ * pools — entries still needing a decision. Middle column ("Merged") is the
+ * working result, pre-seeded from mergedSeed. A levelId present in both
+ * importedRemainder and existingRemainder is ONE contested entry: the
+ * interactive, draggable card lives in the left column; the right column
+ * shows a non-interactive reference card at the same identity so the user
+ * can see "this used to be here" without a second, independently-draggable
+ * copy of the same id (dnd-kit requires unique ids per drag context).
+ *
+ * Confirming never requires every entry to be placed — an entry left in
+ * either source column is voided (excluded from the final order), gated by
+ * a required acknowledgement checkbox once anything would be lost.
+ */
 export function ListMergeBoard({
   title,
   mergedSeed,
@@ -309,7 +309,7 @@ export function ListMergeBoard({
       </DndContext>
 
       {unplacedCount > 0 && (
-        <label className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
+        <label className="flex items-start gap-2 text-xs text-warning-soft">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -321,7 +321,7 @@ export function ListMergeBoard({
         </label>
       )}
 
-      <div className="flex gap-3 border-t border-[var(--color-border)] pt-4">
+      <div className="flex gap-3 border-t border-border pt-4">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>

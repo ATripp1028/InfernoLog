@@ -47,6 +47,9 @@ function YouTubePoster({ videoId }: { videoId: string }) {
   )
 }
 
+/**
+ * The completion video embed at the top of the level page, or the thumbnail when there is none.
+ */
 export function HeroVideo({
   url,
   className,
@@ -120,7 +123,9 @@ export function HeroVideo({
             className="ml-1 md:size-[26px]"
           />
         </div>
-        <span className="text-xs text-[#ccc] md:text-sm">Completion video</span>
+        <span className="text-xs text-text-body md:text-sm">
+          Completion video
+        </span>
       </div>
 
       {/* Source chip */}

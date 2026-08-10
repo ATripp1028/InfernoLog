@@ -1,10 +1,3 @@
-// Collection detail — identity hero, drag-to-reorder member rows with
-// per-row remove and GDDL/AREDL badges, and the context-scoped FAB menu
-// (Add levels / Edit / Delete; built-ins keep only Add levels). All logic
-// lives in useCollectionDetailPage.
-// Mocks: desktop 1206:164, tablet 1212:2, mobile 1213:2; empty 1241:3;
-// built-in variant 1256:2 / 1257:2.
-
 import { Link } from '@tanstack/react-router'
 import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
@@ -21,11 +14,21 @@ import {
 import { CollectionFormDialog } from '@/features/collections/CollectionFormDialog'
 import { AddLevelsDialog } from '@/features/collections/AddLevelsDialog'
 import { Row, SortableRow } from '@/features/collections/CollectionEntryRow'
+import { EmptyState } from '@/components/EmptyState'
+import { SectionLabel } from '@/components/SectionLabel'
 import {
   useCollectionDetailPage,
   useLoadedCollection,
 } from '@/features/collections/useCollectionDetailPage'
 
+/**
+ * Collection detail — identity hero, drag-to-reorder member rows with
+ * per-row remove and GDDL/AREDL badges, and the context-scoped FAB menu
+ * (Add levels / Edit / Delete; built-ins keep only Add levels). All logic
+ * lives in useCollectionDetailPage.
+ * Mocks: desktop 1206:164, tablet 1212:2, mobile 1213:2; empty 1241:3;
+ * built-in variant 1256:2 / 1257:2.
+ */
 export function CollectionDetail({ collectionId }: { collectionId: string }) {
   const page = useCollectionDetailPage(collectionId)
 
@@ -33,7 +36,7 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
   if (page.failed || !page.data) {
     return (
       <div className="p-8">
-        <p className="text-sm text-red-500">
+        <p className="text-sm text-danger">
           {page.isMissing
             ? 'This collection does not exist.'
             : 'Could not load this collection. Refresh to try again.'}
@@ -108,12 +111,22 @@ function Loaded({
       <Hero collection={collection} />
 
       {displayEntries.length === 0 ? (
-        <EmptyState onAdd={() => setAddOpen(true)} />
+        <EmptyState
+          variant="dashed"
+          title="No levels yet"
+          description="Add levels to start building this collection."
+          action={
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus size={16} className="mr-1.5" />
+              Add levels
+            </Button>
+          }
+        />
       ) : (
         <section aria-label="Collection levels">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          <SectionLabel tone="secondary" className="mb-3">
             Levels · drag to reorder
-          </p>
+          </SectionLabel>
           <DndContext
             sensors={sensors}
             onDragStart={handleDragStart}
@@ -222,21 +235,6 @@ function Hero({ collection }: { collection: CollectionDetailData }) {
           {count} {count === 1 ? 'level' : 'levels'}
         </p>
       </div>
-    </div>
-  )
-}
-
-function EmptyState({ onAdd }: { onAdd: () => void }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-card border-2 border-dashed border-border py-16 text-center">
-      <p className="text-base font-semibold text-text-primary">No levels yet</p>
-      <p className="mt-1 text-sm text-text-secondary">
-        Add levels to start building this collection.
-      </p>
-      <Button onClick={onAdd} className="mt-4">
-        <Plus size={16} className="mr-1.5" />
-        Add levels
-      </Button>
     </div>
   )
 }

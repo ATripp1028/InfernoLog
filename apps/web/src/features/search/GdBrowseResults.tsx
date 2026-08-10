@@ -1,14 +1,16 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
-import { cn } from '@/lib/utils'
 import type { LevelSearchResult } from '@/lib/api/logging'
 import { backOriginState } from '@/lib/backOrigin'
 import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
+import { SectionLabel } from '@/components/SectionLabel'
 
-// The GD-server escalation outcome, rendered as a trailing section under the
-// cache results on the /search page (first page only — GD search is never
-// cursor-paginated). Rated survivors are already seeded; picking an unrated one
-// seeds just that level (via its Global Level Page on navigation).
+/**
+ * The GD-server escalation outcome, rendered as a trailing section under the
+ * cache results on the /search page (first page only — GD search is never
+ * cursor-paginated). Rated survivors are already seeded; picking an unrated one
+ * seeds just that level (via its Global Level Page on navigation).
+ */
 export function GdBrowseResults({
   escalation,
 }: {
@@ -31,7 +33,9 @@ export function GdBrowseResults({
   if (result?.status === 'ok') {
     return (
       <div className="mt-4 border-t border-border-subtle pt-3">
-        <SectionLabel accent>From GD’s servers · rated (cached)</SectionLabel>
+        <SectionLabel size="xs" tone="accent" className="mb-2">
+          From GD’s servers · rated (cached)
+        </SectionLabel>
         <div className="overflow-hidden rounded-card border border-border-subtle">
           {result.rated.map((level: LevelSearchResult) => (
             <SearchResultRow
@@ -84,24 +88,5 @@ export function GdBrowseResults({
         level exists.
       </p>
     </div>
-  )
-}
-
-function SectionLabel({
-  children,
-  accent = false,
-}: {
-  children: React.ReactNode
-  accent?: boolean
-}) {
-  return (
-    <p
-      className={cn(
-        'mb-2 text-[10px] font-medium uppercase tracking-wide',
-        accent ? 'text-[#ffb347]' : 'text-text-secondary'
-      )}
-    >
-      {children}
-    </p>
   )
 }

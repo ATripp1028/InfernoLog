@@ -5,6 +5,9 @@ import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
 
+/**
+ * Optional post-completion step: submit the completion to GDDL as a record.
+ */
 export function CompletionGddlStep() {
   const { level, setStep } = useLoggingFlow()
   const submitGddl = useSubmitGddlRecord()
@@ -28,7 +31,7 @@ export function CompletionGddlStep() {
   if (done) {
     return (
       <div className="p-6">
-        <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-[var(--color-success-dim)] text-success">
+        <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-success-dim text-success">
           <Check size={22} strokeWidth={3} />
         </div>
         <p className="text-base font-semibold text-text-primary">
@@ -52,7 +55,7 @@ export function CompletionGddlStep() {
       </p>
 
       {submitGddl.error && (
-        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-[var(--color-danger-dim)] bg-[var(--color-danger-dim)]/40 px-3 py-2.5 text-sm text-[var(--color-danger)]">
+        <div className="mt-4 flex items-start gap-2.5 rounded-md border border-danger-dim bg-danger-dim/40 px-3 py-2.5 text-sm text-danger">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>
             {submitGddl.error instanceof ApiError

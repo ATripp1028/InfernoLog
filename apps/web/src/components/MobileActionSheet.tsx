@@ -13,9 +13,11 @@ interface MobileActionSheetProps {
   children: ReactNode
 }
 
-// Bottom sheet shared by the mobile action menus (MobileNav's Log/More
-// sheets, LevelFab, CollectionsFab): backdrop fade, slide-up-from-the-nav-bar
-// entrance, and a drag handle that can be pulled down to dismiss.
+/**
+ * Bottom sheet shared by the mobile action menus (MobileNav's Log/More
+ * sheets, LevelFab, CollectionsFab): backdrop fade, slide-up-from-the-nav-bar
+ * entrance, and a drag handle that can be pulled down to dismiss.
+ */
 export function MobileActionSheet({
   open,
   onClose,

@@ -4,6 +4,13 @@
 // lib/api/logging.ts — apps/web pins zod@3 while core is on zod@4, and the
 // server is the source of truth for validation).
 
+import type { LevelTypeFilter } from './api/wireEnums'
+
+export type { LevelTypeFilter }
+
+/**
+ * In-game difficulty as the browse endpoint filters on it — lowercase and hyphenated, unlike the display strings on a `Level`.
+ */
 export type LevelDifficulty =
   | 'auto'
   | 'easy'
@@ -17,6 +24,9 @@ export type LevelDifficulty =
   | 'demon-insane'
   | 'demon-extreme'
 
+/**
+ * A level's showcase rating, from plain unrated up through mythic.
+ */
 export type LevelRateStatus =
   | 'unrated'
   | 'rated'
@@ -25,10 +35,21 @@ export type LevelRateStatus =
   | 'legendary'
   | 'mythic'
 
+/**
+ * RobTop's five level-length buckets.
+ */
 export type LevelLength = 'tiny' | 'short' | 'medium' | 'long' | 'xl'
+/**
+ * Where a level's song comes from: a built-in official track, a Newgrounds custom, or a NONG.
+ */
 export type LevelSongType = 'official' | 'custom' | 'nong'
-export type LevelTypeFilter = 'CLASSIC' | 'PLATFORMER'
+/**
+ * Whether a text query matches level names or creator names. Never both — RobTop searches one field at a time.
+ */
 export type LevelSearchBy = 'name' | 'creator'
+/**
+ * Browse orderings. `relevance` is the server's default and is only meaningful with a text query.
+ */
 export type LevelSort =
   | 'relevance'
   | 'likes'
@@ -37,10 +58,15 @@ export type LevelSort =
   | 'objectCount'
   | 'recentlyRated'
   | 'name'
+/**
+ * Sort direction. Usually left unset so each sort uses its {@link naturalSortDir}.
+ */
 export type LevelSortDir = 'asc' | 'desc'
 
-// Optionals are explicitly `| undefined` so a filter can be cleared by merging
-// `{ key: undefined }` into the state (exactOptionalPropertyTypes is on).
+/**
+ * Optionals are explicitly `| undefined` so a filter can be cleared by merging
+ * `{ key: undefined }` into the state (exactOptionalPropertyTypes is on).
+ */
 export interface LevelSearchFilters {
   difficulty?: LevelDifficulty[] | undefined
   rateStatus?: LevelRateStatus[] | undefined
@@ -52,7 +78,9 @@ export interface LevelSearchFilters {
   songType?: LevelSongType | undefined
 }
 
-// A results-grid row — mirrors LevelBrowseResultSchema.
+/**
+ * A results-grid row — mirrors LevelBrowseResultSchema.
+ */
 export interface LevelBrowseResult {
   inGameId: string
   name: string | null
@@ -73,13 +101,18 @@ export interface LevelBrowseResult {
   levelType: LevelTypeFilter
 }
 
+/**
+ * One page of browse results plus the keyset cursor for the next, or `null` at the end.
+ */
 export interface LevelBrowseResponse {
   data: LevelBrowseResult[]
   nextCursor: string | null
 }
 
-// The full /search URL state (the route's search params). `query` empty ⇒ a
-// filter-only browse. `searchBy`/`sort` always have a concrete value.
+/**
+ * The full /search URL state (the route's search params). `query` empty ⇒ a
+ * filter-only browse. `searchBy`/`sort` always have a concrete value.
+ */
 export interface SearchPageState extends LevelSearchFilters {
   query?: string | undefined
   searchBy: LevelSearchBy
@@ -87,21 +120,31 @@ export interface SearchPageState extends LevelSearchFilters {
   sortDir?: LevelSortDir | undefined
 }
 
+/**
+ * The /search page with nothing chosen: no query, no filters, relevance order.
+ */
 export const DEFAULT_SEARCH_STATE: SearchPageState = {
   searchBy: 'name',
   sort: 'relevance',
 }
 
-// Each sort's default direction; the UI toggle overrides it via `sortDir`.
+/**
+ * Each sort's default direction; the UI toggle overrides it via `sortDir`.
+ */
 export function naturalSortDir(sort: LevelSort): LevelSortDir {
   return sort === 'name' ? 'asc' : 'desc'
 }
 
+/**
+ * The direction actually in force — the explicit `sortDir` if the user toggled it, otherwise the sort's {@link naturalSortDir}.
+ */
 export function effectiveSortDir(s: SearchPageState): LevelSortDir {
   return s.sortDir ?? naturalSortDir(s.sort)
 }
 
-// True when any level-independent filter is set (ignores query/searchBy/sort).
+/**
+ * True when any level-independent filter is set (ignores query/searchBy/sort).
+ */
 export function hasActiveFilters(s: LevelSearchFilters): boolean {
   return (
     !!s.difficulty?.length ||
@@ -115,14 +158,16 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
   )
 }
 
-// Whether an escalation to GD's servers can actually be forwarded — mirrors the
-// API's browse-intent gate in GET /v1/levels/gd-search (which rejects anything
-// else with a 400). Only the subset getGJLevels21 can express counts: a name
-// query, a difficulty / rate-status / length / two-player / has-coins /
-// Newgrounds-song filter, or a downloads/likes sort. Creator queries aren't
-// forwardable (GD has no creator search), so in creator mode only the
-// filters/sort count. Cache-only refinements (exact coin count, coinsVerified,
-// levelType, official/NONG song) do NOT make an escalation forwardable.
+/**
+ * Whether an escalation to GD's servers can actually be forwarded — mirrors the
+ * API's browse-intent gate in GET /v1/levels/gd-search (which rejects anything
+ * else with a 400). Only the subset getGJLevels21 can express counts: a name
+ * query, a difficulty / rate-status / length / two-player / has-coins /
+ * Newgrounds-song filter, or a downloads/likes sort. Creator queries aren't
+ * forwardable (GD has no creator search), so in creator mode only the
+ * filters/sort count. Cache-only refinements (exact coin count, coinsVerified,
+ * levelType, official/NONG song) do NOT make an escalation forwardable.
+ */
 export function canEscalateToGd(s: SearchPageState): boolean {
   const hasNameQuery = s.searchBy === 'name' && !!s.query?.trim()
   return (
@@ -138,8 +183,9 @@ export function canEscalateToGd(s: SearchPageState): boolean {
   )
 }
 
-// ── Labeled options for the filter/sort UI ─────────────────────────────────
-
+/**
+ * Difficulty filter chips, in in-game order.
+ */
 export const DIFFICULTY_OPTIONS: { value: LevelDifficulty; label: string }[] = [
   { value: 'auto', label: 'Auto' },
   { value: 'easy', label: 'Easy' },
@@ -154,6 +200,9 @@ export const DIFFICULTY_OPTIONS: { value: LevelDifficulty; label: string }[] = [
   { value: 'demon-extreme', label: 'Extreme Demon' },
 ]
 
+/**
+ * Rate-status filter chips, in ascending showcase order.
+ */
 export const RATE_STATUS_OPTIONS: { value: LevelRateStatus; label: string }[] =
   [
     { value: 'unrated', label: 'Unrated' },
@@ -164,6 +213,9 @@ export const RATE_STATUS_OPTIONS: { value: LevelRateStatus; label: string }[] =
     { value: 'mythic', label: 'Mythic' },
   ]
 
+/**
+ * Length filter chips, shortest first.
+ */
 export const LENGTH_OPTIONS: { value: LevelLength; label: string }[] = [
   { value: 'tiny', label: 'Tiny' },
   { value: 'short', label: 'Short' },
@@ -172,18 +224,27 @@ export const LENGTH_OPTIONS: { value: LevelLength; label: string }[] = [
   { value: 'xl', label: 'XL' },
 ]
 
+/**
+ * Song-type filter chips.
+ */
 export const SONG_TYPE_OPTIONS: { value: LevelSongType; label: string }[] = [
   { value: 'official', label: 'Official' },
   { value: 'custom', label: 'Newgrounds' },
   { value: 'nong', label: 'NONG' },
 ]
 
+/**
+ * Classic/Platformer filter chips.
+ */
 export const LEVEL_TYPE_OPTIONS: { value: LevelTypeFilter; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
 ]
 
-export const SORT_OPTIONS: { value: LevelSort; label: string }[] = [
+/**
+ * The browse sort menu. Distinct from the List page's `LIST_SORT_OPTIONS`, which sorts logged rows rather than levels.
+ */
+export const LEVEL_SORT_OPTIONS: { value: LevelSort; label: string }[] = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'downloads', label: 'Downloads' },
   { value: 'likes', label: 'Likes' },
@@ -193,8 +254,10 @@ export const SORT_OPTIONS: { value: LevelSort; label: string }[] = [
   { value: 'name', label: 'Name' },
 ]
 
-// The DifficultyFace inputs (difficulty label + glow) representing each
-// difficulty filter token — the filter panel renders faces, not text.
+/**
+ * The DifficultyFace inputs (difficulty label + glow) representing each
+ * difficulty filter token — the filter panel renders faces, not text.
+ */
 export const DIFFICULTY_FACE: Record<LevelDifficulty, { difficulty: string }> =
   {
     auto: { difficulty: 'Auto' },
@@ -210,8 +273,10 @@ export const DIFFICULTY_FACE: Record<LevelDifficulty, { difficulty: string }> =
     'demon-extreme': { difficulty: 'Extreme Demon' },
   }
 
-// Rate status as a DifficultyFace: unrated is a plain Insane face (no glow);
-// every rated tier is a Hard Demon face carrying the matching showcase glow.
+/**
+ * Rate status as a DifficultyFace: unrated is a plain Insane face (no glow);
+ * every rated tier is a Hard Demon face carrying the matching showcase glow.
+ */
 export const RATE_STATUS_FACE: Record<
   LevelRateStatus,
   { difficulty: string; featured?: boolean; epicValue?: number }
@@ -224,6 +289,9 @@ export const RATE_STATUS_FACE: Record<
   mythic: { difficulty: 'Hard Demon', epicValue: 3 },
 }
 
+/**
+ * The name/creator toggle beside the search box.
+ */
 export const SEARCH_BY_OPTIONS: { value: LevelSearchBy; label: string }[] = [
   { value: 'name', label: 'Level name' },
   { value: 'creator', label: 'Creator' },
@@ -234,7 +302,7 @@ const RATE_STATUS_VALUES = RATE_STATUS_OPTIONS.map((o) => o.value)
 const LENGTH_VALUES = LENGTH_OPTIONS.map((o) => o.value)
 const SONG_TYPE_VALUES = SONG_TYPE_OPTIONS.map((o) => o.value)
 const LEVEL_TYPE_VALUES = LEVEL_TYPE_OPTIONS.map((o) => o.value)
-const SORT_VALUES = SORT_OPTIONS.map((o) => o.value)
+const SORT_VALUES = LEVEL_SORT_OPTIONS.map((o) => o.value)
 const SEARCH_BY_VALUES = SEARCH_BY_OPTIONS.map((o) => o.value)
 
 function arrOf<T>(v: unknown, allowed: readonly T[]): T[] | undefined {
@@ -251,9 +319,11 @@ function boolOf(v: unknown): boolean | undefined {
   return undefined
 }
 
-// Coerces the router's raw search object into a well-formed SearchPageState,
-// dropping anything unrecognized. Used by the route's validateSearch so the URL
-// is always the source of truth and a hand-edited URL can't crash the page.
+/**
+ * Coerces the router's raw search object into a well-formed SearchPageState,
+ * dropping anything unrecognized. Used by the route's validateSearch so the URL
+ * is always the source of truth and a hand-edited URL can't crash the page.
+ */
 export function validateSearchState(
   raw: Record<string, unknown>
 ): SearchPageState {
@@ -281,9 +351,11 @@ export function validateSearchState(
   }
 }
 
-// Serializes the search state into the query string GET /v1/levels/browse (and
-// /v1/levels/gd-search) expect: arrays as repeated params, booleans as
-// "true"/"false". `cursor` is the keyset page token (browse only).
+/**
+ * Serializes the search state into the query string GET /v1/levels/browse (and
+ * /v1/levels/gd-search) expect: arrays as repeated params, booleans as
+ * "true"/"false". `cursor` is the keyset page token (browse only).
+ */
 export function browseApiQueryString(
   s: SearchPageState,
   cursor?: string

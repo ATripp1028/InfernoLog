@@ -22,6 +22,12 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { toast } from '@/components/ui/sonner'
 
+/**
+ * Data and status for the Global Level Page.
+ *
+ * Named for the page rather than the query it wraps, since `useGlobalLevelPage`
+ * is already taken by `lib/api/globalLevelPage.ts`.
+ */
 export function useGlobalLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()

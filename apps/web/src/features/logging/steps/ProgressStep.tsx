@@ -13,11 +13,8 @@ import {
   StepFooter,
 } from '../components'
 import { digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
-import {
-  GdVersionPicker,
-  GdVersionInfoButton,
-  isPreTwoTwo,
-} from './CompletionSessionStep'
+import { GdVersionPicker, GdVersionInfoButton } from '../pickers'
+import { isPreTwoTwo } from '../gdVersion'
 import {
   Popover,
   PopoverContent,
@@ -26,6 +23,9 @@ import {
 import { Info } from 'lucide-react'
 import { RunInput, formatRunInputValue, type ParsedRun } from '../RunInput'
 
+/**
+ * Progress step 1: how far the run got, from 0% or from partway through.
+ */
 export function ProgressStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()

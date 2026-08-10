@@ -12,9 +12,13 @@ import {
   NOT_DEMON_OPINION_VALUES,
 } from '@infernolog/core'
 import { cn } from '@/lib/utils'
+import { segmentedItemVariants } from '@/components/ui/segmented'
 import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
-import type { DifficultyOpinion } from '@/lib/api/logging'
+import type { DifficultyOpinion } from '@/lib/api/wireEnums'
 
+/**
+ * The five demon tiers as face buttons, easiest first.
+ */
 export const DEMON_OPINIONS: ReadonlyArray<{
   value: DifficultyOpinion
   label: string
@@ -39,17 +43,28 @@ export const DEMON_OPINIONS: ReadonlyArray<{
   },
 ]
 
-// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
-// rather than a separate paired field — shared table, see
-// packages/core/src/difficultyOpinion.ts.
+/**
+ * The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
+ * rather than a separate paired field — shared table, see
+ * packages/core/src/difficultyOpinion.ts.
+ */
 export const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
   number,
   DifficultyOpinion
 >
+/**
+ * The opinion values that mean "not demon-worthy" — the star tiers, as a membership set.
+ */
 export const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
   NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
 )
 
+/**
+ * The difficulty-opinion picker.
+ *
+ * @param value - `null` when the user has not answered. Selecting a demon
+ * tier clears any star value and vice versa; the two are one field.
+ */
 export function DifficultyOpinionSelect({
   value,
   onChange,
@@ -91,10 +106,8 @@ export function DifficultyOpinionSelect({
         aria-pressed={notWorthy}
         onClick={() => onChange(STAR_TO_OPINION[1]!)}
         className={cn(
-          'h-10 w-full rounded-md border px-4 text-sm font-medium transition-colors',
-          notWorthy
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-bg-surface/60 text-text-secondary hover:text-text-primary'
+          segmentedItemVariants({ active: notWorthy }),
+          'h-10 w-full'
         )}
       >
         Not demon-worthy

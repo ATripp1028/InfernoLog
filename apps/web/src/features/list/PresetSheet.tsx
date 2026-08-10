@@ -16,10 +16,12 @@ interface PresetSheetProps {
   onClose: () => void
 }
 
-// Content for the mobile "Presets" bottom sheet — the same preset list and
-// actions PresetSelector renders in its popover on desktop, laid out for touch.
-// "Save as new preset" and "Reset"/"Discard changes" live in the Toolbar row
-// next to the preset trigger instead — see Toolbar.tsx.
+/**
+ * Content for the mobile "Presets" bottom sheet — the same preset list and
+ * actions PresetSelector renders in its popover on desktop, laid out for touch.
+ * "Save as new preset" and "Reset"/"Discard changes" live in the Toolbar row
+ * next to the preset trigger instead — see Toolbar.tsx.
+ */
 export function PresetSheet({
   presets,
   selectedPresetId,
@@ -80,7 +82,7 @@ export function PresetSheet({
 
       {presets.length > 0 && (
         <>
-          <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+          <div className="my-1 h-px bg-border-subtle" />
           {presets.map((preset) => (
             <PresetRow
               key={preset.id}
@@ -103,7 +105,7 @@ export function PresetSheet({
           Overwrite (only meaningful with a preset selected) stays here. */}
       {isModified && selectedPresetId !== null && (
         <>
-          <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+          <div className="my-1 h-px bg-border-subtle" />
           <button
             type="button"
             onClick={() => {
@@ -111,7 +113,7 @@ export function PresetSheet({
               onClose()
             }}
             disabled={isOverwriting}
-            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-2.5 text-sm text-text-secondary hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isOverwriting ? (
               <Loader2 size={14} className="animate-spin" />

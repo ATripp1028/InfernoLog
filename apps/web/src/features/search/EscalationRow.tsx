@@ -16,8 +16,10 @@ interface EscalationRowProps {
   compact?: boolean
 }
 
-// The accent-tinted "search GD's servers" offer. Visually distinct from a
-// result row so escalating always reads as a deliberate, one-request action.
+/**
+ * The accent-tinted "search GD's servers" offer. Visually distinct from a
+ * result row so escalating always reads as a deliberate, one-request action.
+ */
 export function EscalationRow({
   title,
   subtitle,
@@ -46,9 +48,9 @@ export function EscalationRow({
   )
 
   const className = cn(
-    'flex w-full items-center gap-3 bg-[rgba(232,57,14,0.08)] text-left',
+    'flex w-full items-center gap-3 bg-primary-dim text-left',
     compact ? 'min-h-16 px-4 py-2' : 'h-14 px-5',
-    onConfirm && 'transition-colors hover:bg-[rgba(232,57,14,0.14)]'
+    onConfirm && 'transition-colors hover:bg-primary/15'
   )
 
   if (!onConfirm) {

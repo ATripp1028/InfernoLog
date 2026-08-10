@@ -1,6 +1,3 @@
-// Upload step: template download, the date-format selector the parser needs,
-// and the drop zone. Parsing and drag bookkeeping live in useUploadStep.
-
 import { useId } from 'react'
 import { Button } from '@/components/ui/button'
 import {
@@ -16,6 +13,10 @@ import type { DateFormat } from '../parseSpreadsheet'
 import { DATE_OPTIONS } from '../importWizardModel'
 import { useUploadStep } from './useUploadStep'
 
+/**
+ * Upload step: template download, the date-format selector the parser needs,
+ * and the drop zone. Parsing and drag bookkeeping live in useUploadStep.
+ */
 export function UploadStep() {
   const fileId = useId()
   const {
@@ -78,9 +79,9 @@ export function UploadStep() {
           {...dropZone}
           className={cn(
             'flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed',
-            'border-[var(--color-border)] bg-[var(--color-bg-surface)] p-10 cursor-pointer',
-            'hover:border-[var(--color-primary)] hover:bg-accent transition-colors text-center',
-            isDragging && 'border-[var(--color-primary)] bg-accent',
+            'border-border bg-bg-surface p-10 cursor-pointer',
+            'hover:border-primary hover:bg-accent transition-colors text-center',
+            isDragging && 'border-primary bg-accent',
             parsing && 'pointer-events-none opacity-60'
           )}
         >
@@ -107,9 +108,7 @@ export function UploadStep() {
             }}
           />
         </label>
-        {error && (
-          <p className="mt-2 text-xs text-[var(--color-danger)]">{error}</p>
-        )}
+        {error && <p className="mt-2 text-xs text-danger">{error}</p>}
       </div>
     </div>
   )

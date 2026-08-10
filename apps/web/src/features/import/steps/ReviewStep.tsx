@@ -1,11 +1,13 @@
-// Review step: what parsed, what will be skipped, and the per-tab flag
-// breakdown — plus the blanket-override opt-in. Every count it renders is
-// derived in useReviewStep.
-
 import { Button } from '@/components/ui/button'
 import { FlagList } from '../WizardChrome'
+import { FLAG_TABS, type FlagsByTab } from '../importWizardModel'
 import { useReviewStep } from './useReviewStep'
 
+/**
+ * Review step: what parsed, what will be skipped, and the per-tab flag
+ * breakdown — plus the blanket-override opt-in. Every count it renders is
+ * derived in useReviewStep.
+ */
 export function ReviewStep() {
   const {
     errorFlags,
@@ -32,21 +34,18 @@ export function ReviewStep() {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-lg border border-[var(--color-border)] p-4 bg-[var(--color-bg-surface)]">
+      <div className="rounded-lg border border-border p-4 bg-bg-surface">
         <p className="text-sm font-medium">
           {totalValid} row{totalValid !== 1 ? 's' : ''} ready
           {totalSkipped > 0 && (
             <>
-              ,{' '}
-              <span className="text-[var(--color-danger)]">
-                {totalSkipped} skipped
-              </span>
+              , <span className="text-danger">{totalSkipped} skipped</span>
             </>
           )}
           {totalNameOnly > 0 && (
             <>
               ,{' '}
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-warning-soft">
                 {totalNameOnly} name-only
               </span>
             </>
@@ -54,7 +53,7 @@ export function ReviewStep() {
           {totalDataWarn > 0 && (
             <>
               ,{' '}
-              <span className="text-amber-600 dark:text-amber-400">
+              <span className="text-warning-soft">
                 {totalDataWarn} with dropped value
                 {totalDataWarn !== 1 ? 's' : ''}
               </span>
@@ -75,11 +74,11 @@ export function ReviewStep() {
       </div>
 
       {flags.duplicates.length > 0 && (
-        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-4">
-          <p className="text-sm font-medium text-amber-700 dark:text-amber-400 mb-2">
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <p className="text-sm font-medium text-warning-soft mb-2">
             Duplicate level IDs in same tab
           </p>
-          <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
+          <ul className="text-xs text-warning-soft space-y-1">
             {flags.duplicates.map((d) => (
               <li key={`${d.tab}-${d.levelId}`}>
                 Level {d.levelId} appears {d.rows.length}× in Completions (rows{' '}
@@ -92,174 +91,33 @@ export function ReviewStep() {
 
       {errorFlags.length > 0 && (
         <div>
-          <p className="text-sm font-medium text-[var(--color-danger)] mb-1">
+          <p className="text-sm font-medium text-danger mb-1">
             Rows that will be skipped
           </p>
-          {errorFlagsByTab.completions.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Completions tab
-              </p>
-              <FlagList flags={errorFlagsByTab.completions} />
-            </>
-          )}
-          {errorFlagsByTab.progress.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Progress tab
-              </p>
-              <FlagList flags={errorFlagsByTab.progress} />
-            </>
-          )}
-          {errorFlagsByTab.dropped.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Dropped tab
-              </p>
-              <FlagList flags={errorFlagsByTab.dropped} />
-            </>
-          )}
-          {errorFlagsByTab.ranking.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ranking tab
-              </p>
-              <FlagList flags={errorFlagsByTab.ranking} />
-            </>
-          )}
-          {errorFlagsByTab.lists.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Lists tab
-              </p>
-              <FlagList flags={errorFlagsByTab.lists} />
-            </>
-          )}
-          {errorFlagsByTab.ratings.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ratings tab
-              </p>
-              <FlagList flags={errorFlagsByTab.ratings} />
-            </>
-          )}
+          <FlagsByTabList groups={errorFlagsByTab} />
         </div>
       )}
 
       {totalDataWarn > 0 && (
         <div>
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
+          <p className="text-sm font-medium text-warning-soft mb-1">
             Bad values (dropped — the rest of the row still imports)
           </p>
-          {dataWarnByTab.completions.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Completions tab
-              </p>
-              <FlagList flags={dataWarnByTab.completions} />
-            </>
-          )}
-          {dataWarnByTab.progress.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Progress tab
-              </p>
-              <FlagList flags={dataWarnByTab.progress} />
-            </>
-          )}
-          {dataWarnByTab.dropped.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Dropped tab
-              </p>
-              <FlagList flags={dataWarnByTab.dropped} />
-            </>
-          )}
-          {dataWarnByTab.ranking.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ranking tab
-              </p>
-              <FlagList flags={dataWarnByTab.ranking} />
-            </>
-          )}
-          {dataWarnByTab.lists.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Lists tab
-              </p>
-              <FlagList flags={dataWarnByTab.lists} />
-            </>
-          )}
-          {dataWarnByTab.ratings.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ratings tab
-              </p>
-              <FlagList flags={dataWarnByTab.ratings} />
-            </>
-          )}
+          <FlagsByTabList groups={dataWarnByTab} />
         </div>
       )}
 
       {totalNameOnly > 0 && (
         <div>
-          <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
+          <p className="text-sm font-medium text-warning-soft mb-1">
             Name-only rows (ID resolved during import)
           </p>
-          {nameOnlyByTab.completions.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Completions tab
-              </p>
-              <FlagList flags={nameOnlyByTab.completions} />
-            </>
-          )}
-          {nameOnlyByTab.progress.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Progress tab
-              </p>
-              <FlagList flags={nameOnlyByTab.progress} />
-            </>
-          )}
-          {nameOnlyByTab.dropped.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Dropped tab
-              </p>
-              <FlagList flags={nameOnlyByTab.dropped} />
-            </>
-          )}
-          {nameOnlyByTab.ranking.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ranking tab
-              </p>
-              <FlagList flags={nameOnlyByTab.ranking} />
-            </>
-          )}
-          {nameOnlyByTab.lists.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Lists tab
-              </p>
-              <FlagList flags={nameOnlyByTab.lists} />
-            </>
-          )}
-          {nameOnlyByTab.ratings.length > 0 && (
-            <>
-              <p className="text-xs text-muted-foreground font-medium mt-2">
-                Ratings tab
-              </p>
-              <FlagList flags={nameOnlyByTab.ratings} />
-            </>
-          )}
+          <FlagsByTabList groups={nameOnlyByTab} />
         </div>
       )}
 
       {showOverrideOption && (
-        <label className="flex items-start gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-surface)] p-3 text-sm">
+        <label className="flex items-start gap-2 rounded-lg border border-border bg-bg-surface p-3 text-sm">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -295,3 +153,28 @@ export function ReviewStep() {
 // completionConflicts by the wizard root — no dedicated wrapper component
 // needed (unlike the old ConflictStep, there's no bespoke per-row UI left to
 // own here; see the wizard root's render for the props it's given).
+
+/**
+ * The per-tab flag breakdown under a heading — one labelled {@link FlagList}
+ * per tab that actually has flags, in {@link FLAG_TABS} order.
+ *
+ * The review step renders three of these (skipped rows, dropped values,
+ * name-only rows) and each used to spell out all six tabs by hand, so adding
+ * a seventh tab meant finding eighteen places.
+ */
+function FlagsByTabList({ groups }: { groups: FlagsByTab }) {
+  return (
+    <>
+      {FLAG_TABS.map(({ key, label }) =>
+        groups[key].length > 0 ? (
+          <div key={key}>
+            <p className="mt-2 text-xs font-medium text-muted-foreground">
+              {label}
+            </p>
+            <FlagList flags={groups[key]} />
+          </div>
+        ) : null
+      )}
+    </>
+  )
+}

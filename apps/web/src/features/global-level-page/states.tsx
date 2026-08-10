@@ -2,9 +2,11 @@ import { ArrowLeft, SearchX, ServerCrash, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DesktopSectionHeader } from '@/features/global-level-page/CollapsibleSection'
 
-// The amber "this level is delisted" banner. Delisting is a fact about GD's
-// servers, not the user's history, so the copy says so and logging stays fully
-// enabled (the FAB is untouched). The frozen-as-of date comes from lastCheckedAt.
+/**
+ * The amber "this level is delisted" banner. Delisting is a fact about GD's
+ * servers, not the user's history, so the copy says so and logging stays fully
+ * enabled (the FAB is untouched). The frozen-as-of date comes from lastCheckedAt.
+ */
 export function DelistedBanner({
   lastCheckedAt,
 }: {
@@ -21,15 +23,15 @@ export function DelistedBanner({
   return (
     <div
       role="status"
-      className="flex items-start gap-2.5 rounded-card border border-[var(--color-warning)]/40 bg-[var(--color-warning-dim)] px-3.5 py-3"
+      className="flex items-start gap-2.5 rounded-card border border-warning/40 bg-warning-dim px-3.5 py-3"
     >
       <AlertTriangle
         size={16}
-        className="mt-0.5 shrink-0 text-[var(--color-warning)]"
+        className="mt-0.5 shrink-0 text-warning"
         aria-hidden
       />
       <div className="text-[13px] leading-relaxed text-text-secondary">
-        <span className="font-medium text-[var(--color-warning)]">
+        <span className="font-medium text-warning">
           No longer on GD&rsquo;s servers.
         </span>{' '}
         Data frozen{asOf ? ` as of ${asOf}` : ''}. Logging still works — your
@@ -72,9 +74,11 @@ function CenteredState({
   )
 }
 
-// "No such level" — terminal. Nothing was cached, so revisiting re-resolves.
-// Deliberately does NOT offer name search: search is cache-backed (a subset of
-// GD), so it cannot surface a level GD itself says doesn't exist.
+/**
+ * "No such level" — terminal. Nothing was cached, so revisiting re-resolves.
+ * Deliberately does NOT offer name search: search is cache-backed (a subset of
+ * GD), so it cannot surface a level GD itself says doesn't exist.
+ */
 export function NotFoundState({
   levelId,
   onCheckId,
@@ -101,11 +105,13 @@ export function NotFoundState({
   )
 }
 
-// "Resolve failed" — retryable, and deliberately distinct from not-found:
-// "this doesn't exist" and "we couldn't check" are different facts. Reserved for
-// the 503 case ONLY, where GD genuinely couldn't be reached (a cache miss whose
-// RobTop resolve failed); the copy blames GD's servers, so it must not be shown
-// for errors GD had no part in. Copy states plainly that it isn't the user's fault.
+/**
+ * "Resolve failed" — retryable, and deliberately distinct from not-found:
+ * "this doesn't exist" and "we couldn't check" are different facts. Reserved for
+ * the 503 case ONLY, where GD genuinely couldn't be reached (a cache miss whose
+ * RobTop resolve failed); the copy blames GD's servers, so it must not be shown
+ * for errors GD had no part in. Copy states plainly that it isn't the user's fault.
+ */
 export function ResolveFailedState({
   onRetry,
   onSearch,
@@ -129,11 +135,13 @@ export function ResolveFailedState({
   )
 }
 
-// Generic failure — a 500, a network blip, anything that isn't a clean
-// not-found (404) or GD-unreachable (503). Crucially this covers cached levels,
-// whose /page request never touches GD, so the copy must NOT blame GD's servers
-// (the old catch-all did, which was actively misleading). Retryable, since these
-// are usually transient (e.g. a DB cold start).
+/**
+ * Generic failure — a 500, a network blip, anything that isn't a clean
+ * not-found (404) or GD-unreachable (503). Crucially this covers cached levels,
+ * whose /page request never touches GD, so the copy must NOT blame GD's servers
+ * (the old catch-all did, which was actively misleading). Retryable, since these
+ * are usually transient (e.g. a DB cold start).
+ */
 export function GenericErrorState({
   onRetry,
   onSearch,
@@ -167,6 +175,9 @@ function Pulse({ className }: { className?: string }) {
   )
 }
 
+/**
+ * Loading skeleton for the Global Level Page, sized to the real layout so nothing shifts when data lands.
+ */
 export function PageSkeleton() {
   return (
     <>

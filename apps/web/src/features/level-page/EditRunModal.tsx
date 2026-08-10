@@ -10,19 +10,22 @@ import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { FieldError } from '@/components/ui/field-error'
 import { digitsOnly } from '@/features/logging/format'
-import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import {
   DevicePicker,
   GdVersionPicker,
   GdVersionInfoButton,
-} from '@/features/logging/steps/CompletionSessionStep'
+} from '@/features/logging/pickers'
 import { DateTimeField } from '@/features/logging/components'
 import {
   Section,
   FieldLabel,
   Textarea,
   RatingRow,
-  EditTwoPlayerSection,
+  TwoPlayerPicker,
 } from './EditShared'
 import { DifficultyOpinionSelect } from '@/components/DifficultyOpinionSelect'
 import { RunInput, formatRunInputValue } from '@/features/logging/RunInput'
@@ -42,6 +45,9 @@ interface EditRunModalProps {
   progressUpdateId: string | null
 }
 
+/**
+ * Edits one logged update. Completion-only fields appear only when the update is the completion.
+ */
 export function EditRunModal({
   open,
   onClose,
@@ -228,14 +234,22 @@ export function EditRunModal({
               )}
 
               {isCompletion && data.level.twoPlayer && (
-                <EditTwoPlayerSection
-                  solo={form.twoPlayerSolo}
-                  partner={form.twoPlayerPartner}
-                  onSoloChange={(v) =>
-                    patch({ twoPlayerSolo: v, twoPlayerPartner: '' })
-                  }
-                  onPartnerChange={(v) => patch({ twoPlayerPartner: v })}
-                />
+                <Section label="2-Player">
+                  <TwoPlayerPicker
+                    solo={form.twoPlayerSolo}
+                    partner={form.twoPlayerPartner}
+                    onSoloChange={(v) =>
+                      patch({ twoPlayerSolo: v, twoPlayerPartner: '' })
+                    }
+                    onPartnerChange={(v) => patch({ twoPlayerPartner: v })}
+                    partnerInputId="edit-run-partner"
+                    partnerLabel={
+                      <FieldLabel htmlFor="edit-run-partner">
+                        Partner
+                      </FieldLabel>
+                    }
+                  />
+                </Section>
               )}
 
               <Section label="Rating">

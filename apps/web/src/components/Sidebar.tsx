@@ -1,6 +1,9 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { NAV_ITEMS, type NavItem } from '../utils/navConfig'
+import { NAV_ITEMS, type NavItem } from '@/utils/navConfig'
 
+/**
+ * The desktop navigation rail (md+). Its mobile counterpart is `MobileNav`.
+ */
 export function Sidebar() {
   const location = useLocation()
 

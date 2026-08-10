@@ -5,6 +5,9 @@
 import { Heart, HeartCrack, List, Star, type LucideIcon } from 'lucide-react'
 import type { CollectionType } from '@infernolog/core'
 
+/**
+ * A collection's display identity: icon, accent colour, and the copy that goes with its type.
+ */
 export interface CollectionIdentity {
   icon: LucideIcon
   // Accent hex — used at full strength on the glyph badge and identity
@@ -34,6 +37,12 @@ function hashString(s: string): number {
   return Math.abs(h)
 }
 
+/**
+ * The icon, colour, and copy for a collection.
+ *
+ * Built-ins each get their own fixed identity; custom collections derive
+ * theirs from the stored colour.
+ */
 export function collectionIdentity(
   type: CollectionType | string,
   id: string
@@ -46,7 +55,9 @@ export function collectionIdentity(
   }
 }
 
-// rgba() for an accent hex at the given alpha (identity strips, tints).
+/**
+ * rgba() for an accent hex at the given alpha (identity strips, tints).
+ */
 export function withAlpha(hex: string, alpha: number): string {
   const n = parseInt(hex.slice(1), 16)
   const r = (n >> 16) & 255
@@ -55,6 +66,9 @@ export function withAlpha(hex: string, alpha: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+/**
+ * Whether this collection is one of the three built-ins. Built-ins cannot be renamed or deleted.
+ */
 export function isBuiltIn(type: CollectionType | string): boolean {
   return type !== 'CUSTOM'
 }

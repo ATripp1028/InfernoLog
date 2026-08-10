@@ -1,29 +1,16 @@
-// Logic for CompletionBasicsStep: the option tables its difficulty and coin
-// controls render from, and the draft rules the step enforces while open
-// (seeding the percentage basis, and forcing 2.1 for a pre-2.2 date).
+// Logic for CompletionBasicsStep: the draft rules the step enforces while
+// open — seeding the percentage basis from the user's default, and forcing
+// 2.1 for a pre-2.2 date.
 
 import { useEffect } from 'react'
-import type { Level } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { maxValueError, MAX_ATTEMPTS } from '../format'
-import { isPreTwoTwo } from './CompletionSessionStep'
+import { isPreTwoTwo } from '../gdVersion'
 
-// Official levels are those with an officialSongId (the built-in GD song set).
-export function isOfficialLevel(level: Level): boolean {
-  return level.officialSongId != null
-}
-
-export function coinSrc(level: Level): string {
-  return isOfficialLevel(level)
-    ? '/assets/gd/coin-official.png'
-    : '/assets/gd/coin-user.png'
-}
-
-export function coinUncollectedSrc(): string {
-  return '/assets/gd/coin-uncollected.png'
-}
-
+/**
+ * Draft rules the completion-basics step enforces while open: seeding the percentage basis, and pinning it to 2.1 for a pre-2.2 date.
+ */
 export function useCompletionBasicsStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()

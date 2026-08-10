@@ -7,6 +7,9 @@ import { cn } from '@/lib/utils'
 import type { ParseFlag } from './parseSpreadsheet'
 import { STEP_ORDER, type WizardStep } from './importWizardModel'
 
+/**
+ * The wizard's step rail. Steps that will be skipped for this workbook are not shown.
+ */
 export function StepIndicator({
   step,
   skipConflictCheck,
@@ -57,6 +60,9 @@ export function StepIndicator({
   )
 }
 
+/**
+ * A list of parse flags with their row numbers.
+ */
 export function FlagList({
   flags,
   limit = 10,
@@ -74,9 +80,7 @@ export function FlagList({
         <li
           key={`${f.rowIndex}-${f.field}`}
           className={
-            f.severity === 'warning'
-              ? 'text-amber-600 dark:text-amber-400'
-              : 'text-[var(--color-danger)]'
+            f.severity === 'warning' ? 'text-warning-soft' : 'text-danger'
           }
         >
           {f.rowLabel} · {f.field} — {f.message}
@@ -96,9 +100,12 @@ export function FlagList({
   )
 }
 
+/**
+ * Determinate progress bar for the commit step.
+ */
 export function ProgressBar({ value }: { value: number }) {
   return (
-    <div className="h-2 bg-[var(--color-bg-elevated)] rounded-full overflow-hidden">
+    <div className="h-2 bg-bg-elevated rounded-full overflow-hidden">
       <div
         className="h-full bg-primary transition-all duration-300"
         style={{ width: `${Math.min(100, value)}%` }}

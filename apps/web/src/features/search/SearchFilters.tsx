@@ -102,8 +102,10 @@ function FilterGroup({
   )
 }
 
-// The /search filter panel (rendered inside a popover). Every change navigates
-// (via onChange → replace) so the URL stays the source of truth for the grid.
+/**
+ * The /search filter panel (rendered inside a popover). Every change navigates
+ * (via onChange → replace) so the URL stays the source of truth for the grid.
+ */
 export function SearchFilters({
   state,
   onChange,
