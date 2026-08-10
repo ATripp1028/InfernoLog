@@ -190,7 +190,7 @@ export function useLoadedCollection(
     // Rename / delete
     handleSaveEdit,
     isSaving: updateCollection.isPending,
-    handleDelete,
+    handleDelete: () => void handleDelete(),
     isDeleting: deleteCollection.isPending,
   }
 }

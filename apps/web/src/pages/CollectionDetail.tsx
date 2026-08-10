@@ -10,6 +10,7 @@ import { DndContext, DragOverlay } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { ChevronLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AlertDialog } from '@/components/ui/alert-dialog'
 import { PageLoading } from '@/components/PageLoading'
 import type { CollectionDetail as CollectionDetailData } from '@/lib/api/collections'
 import {
@@ -159,37 +160,21 @@ function Loaded({
         onSave={handleSaveEdit}
       />
 
-      {confirmDelete && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setConfirmDelete(false)
-          }}
-        >
-          <div className="w-full max-w-[420px] rounded-xl border border-border bg-bg-surface p-6 shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-            <h2 className="text-lg font-semibold text-text-primary">
-              Delete {collection.name}?
-            </h2>
-            <p className="mt-2 text-sm text-text-secondary">
-              The collection and its {collection.entries.length}{' '}
-              {collection.entries.length === 1 ? 'entry' : 'entries'} will be
-              removed. Your logged progress on those levels is untouched.
-            </p>
-            <div className="mt-5 flex justify-end gap-3">
-              <Button variant="outline" onClick={() => setConfirmDelete(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => void handleDelete()}
-                disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-500"
-              >
-                {isDeleting ? 'Deleting…' : 'Delete collection'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Deleting navigates to /collections on success, which unmounts this
+          page — so nothing closes the dialog on the happy path. A failure
+          toasts and leaves it open to retry. */}
+      <AlertDialog
+        open={confirmDelete}
+        onOpenChange={(o) => !o && setConfirmDelete(false)}
+        title={`Delete ${collection.name}?`}
+        description={`The collection and its ${collection.entries.length} ${
+          collection.entries.length === 1 ? 'entry' : 'entries'
+        } will be removed. Your logged progress on those levels is untouched.`}
+        confirmLabel="Delete collection"
+        destructive
+        isPending={isDeleting}
+        onConfirm={handleDelete}
+      />
     </div>
   )
 }
