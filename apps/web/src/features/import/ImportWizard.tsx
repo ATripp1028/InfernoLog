@@ -11,39 +11,20 @@
 // re-upload" from the review step, or "Cancel" out of conflict/list
 // resolution).
 //
-// Upload — file picker + date format selector + client validation.
-// Review — flags/counts from parsing.
-// Checking-conflicts — one network round trip for every tab's conflict
-//   detection (field-level AND list-merge — see /me/import/check).
-// Resolve-conflicts — canonical git-merge-style resolution (drop / overwrite
-//   / merge, per field or in bulk — see FieldConflictMerge) for whichever
-//   rows the check above found conflicting. Internally a linear sequence of
-//   sub-steps (Completions → Progress → Dropped → Ratings, empty ones
-//   skipped) rather than free-roaming tabs — consistent with the wizard's
-//   own top-level "forward only" step model.
-// Resolve-lists — three-column git-merge-style ordering resolution (see
-//   ListMergeBoard) for whichever collections (and, in a later phase,
-//   Ranking) the check found genuinely order-conflicting. Also a linear
-//   sequence of sub-steps, one per touched collection.
-// Committing — progress bar while batches are sent.
-// Success — final report.
-//
-// Every one of those transitions is decided in useImportWizard; this file
-// only picks which step's component to render.
+// Structured like the logging flow: every step is its own component under
+// steps/, StepView maps the current step to one, and this file is only the
+// shell — title, step indicator, and the shared cancel row. Every transition
+// between steps is decided in useImportWizard.
 
-import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { FieldConflictMerge } from './FieldConflictMerge'
-import { ListMergeBoard } from './listMerge/ListMergeBoard'
-import { ProgressBar, StepIndicator } from './WizardChrome'
-import { UploadStep } from './UploadStep'
-import { ReviewStep } from './ReviewStep'
-import { SuccessStep } from './SuccessStep'
-import {
-  RANKING_MERGE_KEY,
-  conflictsToGroups,
-  ratingConflictsToGroups,
-} from './importWizardModel'
+import { StepIndicator } from './WizardChrome'
+import { UploadStep } from './steps/UploadStep'
+import { ReviewStep } from './steps/ReviewStep'
+import { CheckingConflictsStep } from './steps/CheckingConflictsStep'
+import { ResolveConflictsStep } from './steps/ResolveConflictsStep'
+import { ResolveListsStep } from './steps/ResolveListsStep'
+import { CommittingStep } from './steps/CommittingStep'
+import { SuccessStep } from './steps/SuccessStep'
 import { useImportWizard } from './useImportWizard'
 import type { MeData } from '@/lib/api/me'
 
@@ -62,36 +43,8 @@ export function ImportWizard({
   onClose,
   skipConflictCheck = false,
 }: ImportWizardProps) {
-  const {
-    step,
-    setStep,
-    dateFormat,
-    setDateFormat,
-    handleParsed,
-    parseResult,
-    allFlags,
-    handleSkipFlagged,
-    blanketOverride,
-    setBlanketOverride,
-    conflictSubStep,
-    completionConflicts,
-    progressConflicts,
-    droppedConflicts,
-    ratingConflicts,
-    handleCompletionConflictsResolved,
-    handleProgressConflictsResolved,
-    handleDroppedConflictsResolved,
-    handleRatingConflictsResolved,
-    handleConflictsCancelled,
-    currentListMerge,
-    handleListMergeConfirmed,
-    handleListMergeCancelled,
-    progress,
-    progressLabel,
-    commitError,
-    backToReview,
-    status,
-  } = useImportWizard({ me, skipConflictCheck })
+  const wizard = useImportWizard({ me, skipConflictCheck })
+  const { step } = wizard
 
   return (
     <div className="space-y-6">
@@ -105,136 +58,16 @@ export function ImportWizard({
 
       <StepIndicator step={step} skipConflictCheck={skipConflictCheck} />
 
-      {step === 'upload' && (
-        <UploadStep
-          dateFormat={dateFormat}
-          onDateFormatChange={setDateFormat}
-          onParsed={handleParsed}
-        />
-      )}
-
-      {step === 'review' && parseResult && (
-        <ReviewStep
-          parseResult={parseResult}
-          flags={allFlags}
-          onSkipFlagged={handleSkipFlagged}
-          onReUpload={() => setStep('upload')}
-          showOverrideOption={!skipConflictCheck}
-          blanketOverride={blanketOverride}
-          onBlanketOverrideChange={setBlanketOverride}
-        />
-      )}
-
-      {step === 'checking-conflicts' && (
-        <div className="space-y-3 py-4">
-          <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Checking for conflicts…
-          </div>
-          {commitError && (
-            <div className="space-y-2 text-center">
-              <p className="text-xs text-[var(--color-danger)]">
-                {commitError}
-              </p>
-              <Button variant="outline" size="sm" onClick={backToReview}>
-                Back to review
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {step === 'resolve-conflicts' && conflictSubStep === 'completions' && (
-        <FieldConflictMerge
-          tab="completion"
-          groups={conflictsToGroups(completionConflicts)}
-          onResolved={handleCompletionConflictsResolved}
-          onCancel={handleConflictsCancelled}
-        />
-      )}
-
-      {step === 'resolve-conflicts' && conflictSubStep === 'progress' && (
-        <FieldConflictMerge
-          tab="progress"
-          groups={conflictsToGroups(progressConflicts)}
-          onResolved={handleProgressConflictsResolved}
-          onCancel={handleConflictsCancelled}
-        />
-      )}
-
-      {step === 'resolve-conflicts' && conflictSubStep === 'dropped' && (
-        <FieldConflictMerge
-          tab="dropped"
-          groups={conflictsToGroups(droppedConflicts)}
-          onResolved={handleDroppedConflictsResolved}
-          onCancel={handleConflictsCancelled}
-        />
-      )}
-
-      {step === 'resolve-conflicts' && conflictSubStep === 'ratings' && (
-        <FieldConflictMerge
-          tab="rating"
-          groups={ratingConflictsToGroups(ratingConflicts)}
-          onResolved={handleRatingConflictsResolved}
-          onCancel={handleConflictsCancelled}
-        />
-      )}
-
-      {step === 'resolve-lists' && currentListMerge && (
-        <ListMergeBoard
-          key={currentListMerge.key}
-          title={
-            currentListMerge.key === RANKING_MERGE_KEY
-              ? 'Ranking'
-              : currentListMerge.key
-          }
-          mergedSeed={currentListMerge.merge.mergedSeed}
-          importedRemainder={currentListMerge.merge.importedRemainder}
-          existingRemainder={currentListMerge.merge.existingRemainder}
-          importedOrder={currentListMerge.merge.importedOrder}
-          existingOrder={currentListMerge.merge.existingOrder}
-          onConfirm={handleListMergeConfirmed}
-          onCancel={handleListMergeCancelled}
-        />
-      )}
-
-      {step === 'committing' && (
-        <div className="space-y-3 py-4">
-          <ProgressBar value={progress} />
-          <p className="text-sm text-muted-foreground text-center">
-            {status?.status === 'running'
-              ? `Importing… ${status.processedRows} / ${status.totalRows} rows`
-              : progressLabel}
-          </p>
-          {commitError && (
-            <div className="space-y-2 text-center">
-              <p className="text-xs text-[var(--color-danger)]">
-                {commitError}
-              </p>
-              <Button variant="outline" size="sm" onClick={backToReview}>
-                Back to review
-              </Button>
-            </div>
-          )}
-          {/* The job runs server-side once started — closing here doesn't
-              cancel it; progress remains visible via the persistent toast and
-              Settings. */}
-          <div className="pt-2 border-t border-[var(--color-border)]">
-            <Button variant="ghost" size="sm" onClick={onClose}>
-              Close
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {step === 'success' && status && (
-        <SuccessStep status={status} onClose={onClose} />
-      )}
+      <StepView
+        wizard={wizard}
+        skipConflictCheck={skipConflictCheck}
+        onClose={onClose}
+      />
 
       {/* resolve-conflicts/resolve-lists each have their own Cancel (back to
-          review) inside FieldConflictMerge/ListMergeBoard — showing this
-          generic one too would put two differently-behaving "Cancel"
-          buttons next to each other. */}
+          review) inside FieldConflictMerge/ListMergeBoard, and committing has
+          its own Close — showing this generic one too would put two
+          differently-behaving buttons next to each other. */}
       {step !== 'success' &&
         step !== 'committing' &&
         step !== 'resolve-conflicts' &&
@@ -247,4 +80,84 @@ export function ImportWizard({
         )}
     </div>
   )
+}
+
+function StepView({
+  wizard,
+  skipConflictCheck,
+  onClose,
+}: {
+  wizard: ReturnType<typeof useImportWizard>
+  skipConflictCheck: boolean
+  onClose: () => void
+}) {
+  switch (wizard.step) {
+    case 'upload':
+      return (
+        <UploadStep
+          dateFormat={wizard.dateFormat}
+          onDateFormatChange={wizard.setDateFormat}
+          onParsed={wizard.handleParsed}
+        />
+      )
+    case 'review':
+      return wizard.parseResult ? (
+        <ReviewStep
+          parseResult={wizard.parseResult}
+          flags={wizard.allFlags}
+          onSkipFlagged={wizard.handleSkipFlagged}
+          onReUpload={() => wizard.setStep('upload')}
+          showOverrideOption={!skipConflictCheck}
+          blanketOverride={wizard.blanketOverride}
+          onBlanketOverrideChange={wizard.setBlanketOverride}
+        />
+      ) : null
+    case 'checking-conflicts':
+      return (
+        <CheckingConflictsStep
+          commitError={wizard.commitError}
+          onBackToReview={wizard.backToReview}
+        />
+      )
+    case 'resolve-conflicts':
+      return (
+        <ResolveConflictsStep
+          subStep={wizard.conflictSubStep}
+          completionConflicts={wizard.completionConflicts}
+          progressConflicts={wizard.progressConflicts}
+          droppedConflicts={wizard.droppedConflicts}
+          ratingConflicts={wizard.ratingConflicts}
+          onCompletionsResolved={wizard.handleCompletionConflictsResolved}
+          onProgressResolved={wizard.handleProgressConflictsResolved}
+          onDroppedResolved={wizard.handleDroppedConflictsResolved}
+          onRatingsResolved={wizard.handleRatingConflictsResolved}
+          onCancel={wizard.handleConflictsCancelled}
+        />
+      )
+    case 'resolve-lists':
+      return wizard.currentListMerge ? (
+        <ResolveListsStep
+          current={wizard.currentListMerge}
+          onConfirm={wizard.handleListMergeConfirmed}
+          onCancel={wizard.handleListMergeCancelled}
+        />
+      ) : null
+    case 'committing':
+      return (
+        <CommittingStep
+          progress={wizard.progress}
+          progressLabel={wizard.progressLabel}
+          status={wizard.status}
+          commitError={wizard.commitError}
+          onBackToReview={wizard.backToReview}
+          onClose={onClose}
+        />
+      )
+    case 'success':
+      return wizard.status ? (
+        <SuccessStep status={wizard.status} onClose={onClose} />
+      ) : null
+    default:
+      return null
+  }
 }

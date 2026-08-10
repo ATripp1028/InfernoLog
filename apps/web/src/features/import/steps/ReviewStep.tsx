@@ -3,9 +3,9 @@
 // derived in useReviewStep.
 
 import { Button } from '@/components/ui/button'
-import { FlagList } from './WizardChrome'
-import type { ParseResult } from './parseSpreadsheet'
-import type { AllFlags } from './importWizardModel'
+import { FlagList } from '../WizardChrome'
+import type { ParseResult } from '../parseSpreadsheet'
+import type { AllFlags } from '../importWizardModel'
 import { useReviewStep } from './useReviewStep'
 
 interface ReviewStepProps {

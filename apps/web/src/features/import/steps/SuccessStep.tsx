@@ -3,7 +3,7 @@
 // import job's status payload.
 
 import { Button } from '@/components/ui/button'
-import { ImportStatusPanel } from './ImportStatusPanel'
+import { ImportStatusPanel } from '../ImportStatusPanel'
 import type { ImportStatusResponse } from '@/lib/api/import'
 
 interface SuccessStepProps {

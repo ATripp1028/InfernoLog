@@ -2,9 +2,9 @@
 // ParseResult, and the drag-and-drop bookkeeping around the drop zone.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { parseSpreadsheet, type DateFormat } from './parseSpreadsheet'
-import type { ParseResult } from './parseSpreadsheet'
-import type { AllFlags } from './importWizardModel'
+import { parseSpreadsheet, type DateFormat } from '../parseSpreadsheet'
+import type { ParseResult } from '../parseSpreadsheet'
+import type { AllFlags } from '../importWizardModel'
 
 export function useUploadStep({
   dateFormat,

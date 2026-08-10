@@ -3,8 +3,8 @@
 // merely "we'll resolve this level by name" versus a dropped field value.
 
 import { useMemo } from 'react'
-import type { ParseFlag, ParseResult } from './parseSpreadsheet'
-import type { AllFlags } from './importWizardModel'
+import type { ParseFlag, ParseResult } from '../parseSpreadsheet'
+import type { AllFlags } from '../importWizardModel'
 
 export function useReviewStep(parseResult: ParseResult, flags: AllFlags) {
   // Recomputed only when the parsed data or its flags actually change —

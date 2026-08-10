@@ -11,9 +11,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { downloadTemplate } from './generateTemplate'
-import type { DateFormat, ParseResult } from './parseSpreadsheet'
-import { DATE_OPTIONS, type AllFlags } from './importWizardModel'
+import { downloadTemplate } from '../generateTemplate'
+import type { DateFormat, ParseResult } from '../parseSpreadsheet'
+import { DATE_OPTIONS, type AllFlags } from '../importWizardModel'
 import { useUploadStep } from './useUploadStep'
 
 interface UploadStepProps {
