@@ -22,6 +22,7 @@ import type {
   LevelSearchResult,
   ResolveLevelResponse,
 } from '@/lib/api/logging'
+import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 
 type Escalation = ReturnType<typeof useEscalation>
 
@@ -53,7 +54,15 @@ export function queryWrapper() {
  * with the settled-and-empty values.
  */
 export function stubQuery<T>(
-  overrides: Partial<UseQueryResult<T>> = {}
+  // `data` keeps its real type (and drives inference); everything else takes
+  // an untyped value, since a bare `vi.fn()` does not satisfy react-query's
+  // precise `refetch` signature and making tests satisfy it buys nothing.
+  // Keys are still constrained, so a typo'd flag is caught.
+  overrides: Partial<Record<keyof UseQueryResult<T>, unknown>> & {
+    // Explicitly `| undefined`: the repo runs exactOptionalPropertyTypes, and
+    // spelling out `data: undefined` is how a test says "not loaded yet".
+    data?: T | undefined
+  } = {}
 ): UseQueryResult<T> {
   return {
     data: undefined,
@@ -156,6 +165,22 @@ export function makeLevel(
  */
 export function makeCachedLevel(overrides: Partial<Level> = {}): Level {
   return { ...makeLevel(), ...overrides } as unknown as Level
+}
+
+/**
+ * A `GlobalLevelPageData` — the cached level plus the three fields the Global
+ * Level Page adds. Same elision as {@link makeCachedLevel}.
+ */
+export function makeGlobalLevel(
+  overrides: Partial<GlobalLevelPageData> = {}
+): GlobalLevelPageData {
+  return {
+    ...makeCachedLevel(),
+    delistedAt: null,
+    lastCheckedAt: '2026-01-01T00:00:00.000Z',
+    hasUserProgress: false,
+    ...overrides,
+  } as GlobalLevelPageData
 }
 
 /**

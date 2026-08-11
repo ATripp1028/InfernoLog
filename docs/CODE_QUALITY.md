@@ -491,6 +491,21 @@ what the assertion is claiming.
 and the fixture builders (`makeCollectionDetail`, `makeSearchResult`, …). Reach
 for it the second a shape is built in two spec files.
 
+**The suite runs in a fixed environment, not a fixed moment.** `TZ=UTC` is
+pinned in `vitest.config.ts` because `toLocaleDateString` resolves a UTC
+instant against the runner's zone — `2026-01-01T02:00Z` is Jan 1 in UTC and
+Dec 31 2025 across the Americas, so an unpinned zone makes date assertions
+mean different things on a laptop and in CI. The clock is deliberately _not_
+faked: nothing under test reads it, and global fake timers would interfere
+with react-query and `waitFor`. Fake time per-test with `vi.useFakeTimers()`
+if a future module does read `Date.now()`.
+
+**Locale is not pinned, so never assert a locale-formatted string.** Date and
+number formatting follows the reader's locale by design; asserting `'Mar 14,
+2026'` tests `Intl`, not us, and breaks on a runner set to `de_DE`. Assert the
+surrounding structure (which segments appear, the prefix, that two different
+inputs differ) instead.
+
 ### Not covered yet
 
 Deliberately unsettled, so nothing here is mistaken for a rule:

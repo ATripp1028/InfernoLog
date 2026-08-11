@@ -12,6 +12,12 @@ import {
 } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
+import {
+  coinDisplay,
+  knownObjectCount,
+  likeDisplay,
+  statFlags,
+} from './display'
 
 function StatCard({
   label,
@@ -98,32 +104,21 @@ function FlagChip({ label }: { label: string }) {
 // secret-coin, custom levels the user coin — silver when verified, bronze-tinted
 // when not. Count is implied by how many render.
 function CoinValue({ level }: { level: GlobalLevelPageData }) {
-  const count = level.coins ?? 0
-  if (count <= 0) return <>—</>
-
-  const isOfficial = level.creator?.toLowerCase() === 'robtop'
-  const src = isOfficial ? officialCoinSrc : userCoinSilverSrc
-  // Unverified custom coins are bronze in-game; tint the silver sprite rather
-  // than swap to the greyed "uncollected" one.
-  const bronze = !isOfficial && !level.coinsVerified
-  const coinLabel = isOfficial
-    ? 'Secret coin'
-    : bronze
-      ? 'Unverified (bronze) user coin'
-      : 'Verified (silver) user coin'
+  const coins = coinDisplay(level)
+  if (!coins) return <>—</>
 
   return (
     <span className="flex items-center gap-1">
-      {Array.from({ length: count }).map((_, i) => (
+      {Array.from({ length: coins.count }).map((_, i) => (
         <img
           key={i}
-          src={src}
+          src={coins.official ? officialCoinSrc : userCoinSilverSrc}
           alt=""
-          title={coinLabel}
+          title={coins.label}
           aria-hidden
           className="size-[18px] shrink-0 object-contain"
           style={
-            bronze
+            coins.bronze
               ? {
                   filter:
                     'sepia(1) saturate(1.9) hue-rotate(-22deg) brightness(0.9)',
@@ -142,9 +137,9 @@ function CoinValue({ level }: { level: GlobalLevelPageData }) {
  * take the chips with it (orphaned chips under a collapsed header look broken).
  */
 export function Stats({ level }: { level: GlobalLevelPageData }) {
-  const hasFlags = level.twoPlayer === true || level.lowDetailMode === true
-  const likes = level.likes ?? 0
-  const hasObjects = !!level.objectCount
+  const flags = statFlags(level)
+  const likes = likeDisplay(level)
+  const objects = knownObjectCount(level)
 
   return (
     <div>
@@ -166,10 +161,12 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
           value={
             <>
               <GdIcon
-                src={likes < 0 ? gdStatIconSrc.dislike : gdStatIconSrc.like}
-                ariaLabel={likes < 0 ? 'Dislikes' : 'Likes'}
+                src={
+                  likes.negative ? gdStatIconSrc.dislike : gdStatIconSrc.like
+                }
+                ariaLabel={likes.negative ? 'Dislikes' : 'Likes'}
               />
-              {formatNumber(Math.abs(likes))}
+              {formatNumber(likes.value)}
             </>
           }
         />
@@ -191,10 +188,10 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
           value={
             <>
               <GdIcon src={gdStatIconSrc.spike} ariaLabel="Objects" />
-              {hasObjects ? formatNumber(level.objectCount!) : '—'}
+              {objects != null ? formatNumber(objects) : '—'}
             </>
           }
-          info={hasObjects ? undefined : <ObjectsInfoButton />}
+          info={objects != null ? undefined : <ObjectsInfoButton />}
         />
         <StatCard label="Coins" value={<CoinValue level={level} />} />
         {/* Info glyph for the game version, edit (build-tools) glyph for the
@@ -220,10 +217,11 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
 
       {/* Only rendered when at least one flag is true — a level with neither
           shows no row at all (never "TWO PLAYER: No"). */}
-      {hasFlags && (
+      {flags.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {level.twoPlayer === true && <FlagChip label="2-Player" />}
-          {level.lowDetailMode === true && <FlagChip label="Low Detail Mode" />}
+          {flags.map((label) => (
+            <FlagChip key={label} label={label} />
+          ))}
         </div>
       )}
     </div>
