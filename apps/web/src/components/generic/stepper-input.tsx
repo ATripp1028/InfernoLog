@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
+import {
+  commitValue,
+  formatDelta,
+  formatValue,
+  orderedDeltas,
+  stepValue,
+} from './stepperValue'
 
 interface StepperInputProps {
   value: number
@@ -37,12 +44,8 @@ export function StepperInput({
   inputClassName,
   'aria-label': ariaLabel,
 }: StepperInputProps) {
-  const factor = 10 ** precision
-
-  const round = (n: number) => Math.round(n * factor) / factor
-  const clamp = (n: number) => Math.min(max, Math.max(min, n))
-  const format = (n: number) =>
-    Number.isFinite(n) ? n.toFixed(precision) : (0).toFixed(precision)
+  const bounds = { min, max, precision }
+  const format = (n: number) => formatValue(n, precision)
 
   // String shown in the input. When the user focuses, we let them type
   // freely; only on blur do we parse/clamp/round and call onChange.
@@ -56,19 +59,12 @@ export function StepperInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, precision])
 
-  const commit = (raw: string) => {
-    const trimmed = raw.trim()
-    const parsed = trimmed === '' ? 0 : Number(trimmed)
-    const next = Number.isFinite(parsed) ? clamp(round(parsed)) : value
+  const apply = (next: number) => {
     setDraft(format(next))
     if (next !== value) onChange(next)
   }
-
-  const step = (delta: number) => {
-    const next = clamp(round(value + delta))
-    setDraft(format(next))
-    if (next !== value) onChange(next)
-  }
+  const commit = (raw: string) => apply(commitValue(raw, value, bounds))
+  const step = (delta: number) => apply(stepValue(value, delta, bounds))
 
   return (
     <div
@@ -78,16 +74,14 @@ export function StepperInput({
       )}
     >
       {/* Negative deltas on the left, smallest delta closest to the input. */}
-      {[...deltas]
-        .sort((a, b) => b - a)
-        .map((d) => (
-          <StepButton
-            key={`minus-${d}`}
-            label={`−${formatDelta(d)}`}
-            onClick={() => step(-d)}
-            disabled={value <= min}
-          />
-        ))}
+      {orderedDeltas(deltas, 'minus').map((d) => (
+        <StepButton
+          key={`minus-${d}`}
+          label={`−${formatDelta(d)}`}
+          onClick={() => step(-d)}
+          disabled={value <= min}
+        />
+      ))}
       <input
         type="text"
         inputMode="decimal"
@@ -117,16 +111,14 @@ export function StepperInput({
         )}
       />
       {/* Positive deltas on the right, smallest delta closest to the input. */}
-      {[...deltas]
-        .sort((a, b) => a - b)
-        .map((d) => (
-          <StepButton
-            key={`plus-${d}`}
-            label={`+${formatDelta(d)}`}
-            onClick={() => step(d)}
-            disabled={value >= max}
-          />
-        ))}
+      {orderedDeltas(deltas, 'plus').map((d) => (
+        <StepButton
+          key={`plus-${d}`}
+          label={`+${formatDelta(d)}`}
+          onClick={() => step(d)}
+          disabled={value >= max}
+        />
+      ))}
     </div>
   )
 }
@@ -149,11 +141,4 @@ function StepButton({ label, onClick, disabled }: StepButtonProps) {
       {label}
     </button>
   )
-}
-
-// Strip trailing zeros from the button label for readability:
-// 0.1 → ".1", 0.01 → ".01". Compact and avoids 0.10 vs 0.1 confusion.
-function formatDelta(d: number): string {
-  const s = d.toString()
-  return s.startsWith('0.') ? s.slice(1) : s
 }

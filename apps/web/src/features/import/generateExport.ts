@@ -18,6 +18,7 @@ import {
   RATING_IDENTITY_HEADERS,
   FIELD_DESCRIPTIONS,
 } from './generateTemplate'
+import { coinIsCollected } from '@/lib/coinBitmask'
 
 type Cell = string | number | boolean
 
@@ -39,7 +40,7 @@ function toTenScale(v: number | null): Cell {
 
 function coinBit(mask: number | null, bit: number): Cell {
   if (mask == null) return ''
-  return (mask & (1 << bit)) !== 0
+  return coinIsCollected(mask, bit)
 }
 
 // The wire format merges "not demon-worthy" + a star count into one enum

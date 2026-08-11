@@ -10,6 +10,7 @@ import {
   isOfficialLevel,
   uncollectedCoinSrc,
 } from '@/lib/gdAssets'
+import { coinIsCollected, toggleCoin } from '@/lib/coinBitmask'
 
 /** The level fields the coin sprites are chosen from. */
 export interface CoinPickerLevel {
@@ -55,8 +56,7 @@ export function CoinPicker({
   return (
     <div className="flex gap-3">
       {Array.from({ length: count }, (_, i) => {
-        const bit = 1 << i
-        const isCollected = (collected & bit) !== 0
+        const isCollected = coinIsCollected(collected, i)
         const image = (
           <img
             src={isCollected ? src : uncollectedCoinSrc}
@@ -75,7 +75,7 @@ export function CoinPicker({
             type="button"
             aria-label={`Coin ${i + 1} ${isCollected ? '(collected)' : '(not collected)'}`}
             aria-pressed={isCollected}
-            onClick={() => onChange(collected ^ bit)}
+            onClick={() => onChange(toggleCoin(collected, i))}
             className="flex flex-col items-center gap-1"
           >
             {variant === 'framed' ? (

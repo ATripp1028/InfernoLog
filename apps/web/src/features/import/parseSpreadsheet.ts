@@ -18,6 +18,7 @@ import type {
   EntryVisibility,
 } from '@/lib/api/wireEnums'
 import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
+import { coinMaskFromFlags } from '@/lib/coinBitmask'
 
 /**
  * How dates in the uploaded sheet are ordered. The parser cannot infer this,
@@ -487,10 +488,7 @@ function parseCompletionRow(
   const coin1 = toBool(getField(raw, 'coin_1'))
   const coin2 = toBool(getField(raw, 'coin_2'))
   const coin3 = toBool(getField(raw, 'coin_3'))
-  const coinsCollected =
-    coin1 != null || coin2 != null || coin3 != null
-      ? (coin1 ? 1 : 0) | (coin2 ? 2 : 0) | (coin3 ? 4 : 0)
-      : null
+  const coinsCollected = coinMaskFromFlags([coin1, coin2, coin3])
 
   // Device beaten on — 'pc' or 'mobile'.
   const rawDevice = toStr(getField(raw, 'device'))

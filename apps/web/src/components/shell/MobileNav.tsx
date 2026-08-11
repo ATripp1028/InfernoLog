@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, Plus, type LucideIcon } from 'lucide-react'
 import {
-  NAV_ITEMS,
   MOBILE_OVERFLOW_KEYS,
+  isBarItemActive,
+  navItemByKey,
   type NavItem,
 } from '@/utils/navConfig'
 import {
@@ -11,6 +12,7 @@ import {
   type FabAction,
 } from '@/context/FabActionsContext'
 import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
+import { opensSheet, sheetActionOrder } from './fabSheetOrder'
 import { cn } from '@/lib/utils'
 
 /**
@@ -22,29 +24,14 @@ export function MobileNav() {
   const location = useLocation()
   const { primary, secondaryActions, sheetHeader } = useResolvedFabActions()
 
-  // secondaryActions is farthest-from-FAB-first (desktop fan-out order —
-  // see FabActionsContext). The mobile sheet is a plain top-to-bottom list,
-  // so undo that reversal to read primary first, most consequential/
-  // least-common action last (e.g. Delete at the bottom).
-  const orderedActions = [primary, ...secondaryActions.slice().reverse()]
+  const orderedActions = sheetActionOrder(primary, secondaryActions)
 
-  const byKey = (key: string): NavItem => {
-    const item = NAV_ITEMS.find((n) => n.key === key)
-    if (!item) throw new Error(`Unknown nav key: ${key}`)
-    return item
-  }
-  const list = byKey('list')
-  const ranking = byKey('ranking')
-  const search = byKey('search')
-  const overflow = MOBILE_OVERFLOW_KEYS.map(byKey)
+  const list = navItemByKey('list')
+  const ranking = navItemByKey('ranking')
+  const search = navItemByKey('search')
+  const overflow = MOBILE_OVERFLOW_KEYS.map(navItemByKey)
 
-  // Mirrors Sidebar's `activePrefixes` handling (e.g. Search also covers the
-  // Global Level Page at `/levels/*`) without adopting its `startsWith(to +
-  // '/')` rule — the bottom bar deliberately shows no active tab while
-  // drilled into a List/Ranking detail sub-page.
-  const isActive = (item: NavItem) =>
-    location.pathname === item.to ||
-    (item.activePrefixes?.some((p) => location.pathname.startsWith(p)) ?? false)
+  const isActive = (item: NavItem) => isBarItemActive(item, location.pathname)
 
   return (
     <div className="md:hidden">
@@ -102,13 +89,10 @@ export function MobileNav() {
           icon={Plus}
           onClick={() => {
             setOverflowOpen(false)
-            // A single registered action (e.g. Collections index's "New
-            // collection") triggers directly — no point opening a sheet
-            // with one row in it.
-            if (secondaryActions.length === 0) {
-              primary.onClick()
-            } else {
+            if (opensSheet(secondaryActions)) {
               setFabMenuOpen((v) => !v)
+            } else {
+              primary.onClick()
             }
           }}
         />
