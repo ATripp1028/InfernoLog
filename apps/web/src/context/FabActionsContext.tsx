@@ -8,6 +8,7 @@ import {
 } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useDefaultFabActions } from '@/features/logging/useDefaultFabActions'
+import { actionsSignature, resolveFabActions } from './fabActionResolution'
 
 /**
  * The one action shape shared by every page's FAB: an icon, a name, and a
@@ -63,11 +64,9 @@ export function FabActionsProvider({ children }: { children: ReactNode }) {
     []
   )
 
-  const actions = override ?? defaultActions
-  // Every actions array (default or registered via useFabActions) has at
-  // least one entry.
-  const primary = actions[0]!
-  const secondaryActions = actions.slice(1).reverse()
+  const { primary, secondaryActions } = resolveFabActions(
+    override ?? defaultActions
+  )
 
   return (
     <FabActionsContext.Provider
@@ -110,14 +109,7 @@ export function useFabActions(
   sheetHeader?: string | null
 ) {
   const { setOverride } = useFabActionsContext()
-  // Actions arrays are rebuilt every render (fresh onClick closures) — key
-  // the effect on a cheap signature instead of the array reference so we
-  // don't re-register (and re-render every FAB consumer) on every render of
-  // the calling page. The signature only needs to catch changes that affect
-  // *which* actions are shown, not closure identity.
-  const signature = actions
-    ? actions.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|')
-    : null
+  const signature = actionsSignature(actions)
 
   useEffect(() => {
     setOverride(actions, sheetHeader ?? null)
