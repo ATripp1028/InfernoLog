@@ -7,6 +7,16 @@ import { cleanup } from '@testing-library/react'
 // (useFabActions' unregister, react-query subscriptions) before the next one.
 afterEach(cleanup)
 
+// The unit suite must run with no network and no backend. Every `lib/api/`
+// hook a spec touches is stubbed, so a real request means a mock was missed —
+// fail loudly at the call site rather than hanging until the test times out.
+globalThis.fetch = (input: RequestInfo | URL) => {
+  throw new Error(
+    `Unit tests must not make network requests (attempted: ${String(input)}). ` +
+      `Stub the lib/api hook the code under test calls.`
+  )
+}
+
 // jsdom implements neither, and dnd-kit's sensors touch both on mount.
 if (!window.matchMedia) {
   window.matchMedia = ((query: string) => ({

@@ -476,15 +476,55 @@ describe('useAddLevelsDialog', () => {
       expect(result.current.canConfirm).toBe(true)
     })
 
-    // The confirm handler's own guard is stricter than `seededBlocked`: it
-    // refuses any beaten level. So an ordinary collection shows an enabled
-    // button that silently does nothing.
-    it('does not add a beaten level even when the button is enabled', async () => {
-      const { result } = await seed({ completed: true })
+    // Being beaten is only disqualifying for Want to Beat. The confirm
+    // handler used to refuse any beaten level, leaving an ordinary
+    // collection with an enabled button that silently did nothing.
+    it('adds a beaten level to an ordinary collection', async () => {
+      const { result, onClose } = await seed({ completed: true })
+
+      await act(async () => result.current.confirmSeeded())
+
+      expect(addAsync).toHaveBeenCalledWith({
+        collectionId: 'collection-1',
+        levelId: '12345',
+      })
+      expect(onClose).toHaveBeenCalledOnce()
+    })
+
+    it('refuses to add a beaten level to Want to Beat', async () => {
+      const { result, onClose } = await seed({
+        completed: true,
+        collection: makeCollectionDetail({
+          ...collection,
+          type: CollectionType.WANT_TO_BEAT,
+        }),
+      })
 
       await act(async () => result.current.confirmSeeded())
 
       expect(addAsync).not.toHaveBeenCalled()
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    // A level has to be seeded before it can be logged, so a freshly-resolved
+    // id normally has no completion at all — the guard only bites for an id
+    // the user seeded and beat in an earlier session.
+    it('adds an unbeaten seeded level to Want to Beat', async () => {
+      const { result } = await seed({
+        collection: makeCollectionDetail({
+          ...collection,
+          type: CollectionType.WANT_TO_BEAT,
+        }),
+      })
+
+      expect(result.current.canConfirm).toBe(true)
+
+      await act(async () => result.current.confirmSeeded())
+
+      expect(addAsync).toHaveBeenCalledWith({
+        collectionId: 'collection-1',
+        levelId: '12345',
+      })
     })
 
     it('flags a seeded level that is already in the collection', async () => {
