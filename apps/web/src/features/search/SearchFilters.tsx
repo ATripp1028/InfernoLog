@@ -14,35 +14,13 @@ import {
   type LevelSongType,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
+import { TRISTATE, fromTri, toggle, triValue } from './filterControls'
 
 interface SearchFiltersProps {
   state: SearchPageState
   onChange: (patch: Partial<SearchPageState>) => void
   onReset: () => void
   hasFilters: boolean
-}
-
-// Toggles membership of `v` in a filter array, collapsing an emptied array back
-// to undefined so the URL/query stays clean.
-function toggle<T>(arr: T[] | undefined, v: T): T[] | undefined {
-  const set = new Set(arr ?? [])
-  if (set.has(v)) set.delete(v)
-  else set.add(v)
-  const out = [...set]
-  return out.length ? out : undefined
-}
-
-// Maps a nullable-boolean filter onto a three-way segmented control.
-const TRISTATE = [
-  { value: 'any', label: 'Any' },
-  { value: 'yes', label: 'Yes' },
-  { value: 'no', label: 'No' },
-] as const
-function triValue(b: boolean | undefined): 'any' | 'yes' | 'no' {
-  return b === undefined ? 'any' : b ? 'yes' : 'no'
-}
-function fromTri(v: 'any' | 'yes' | 'no'): boolean | undefined {
-  return v === 'any' ? undefined : v === 'yes'
 }
 
 // A difficulty/rate-status face rendered as a toggle button.
