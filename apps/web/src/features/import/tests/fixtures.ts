@@ -1,10 +1,14 @@
 // Builders for the import wizard's own shapes — parsed sheet rows, /check
-// conflicts, list merges. Feature-local rather than in utils/testUtils
-// because nothing outside the import specs has a use for them; the generic
-// react-query stubs and level fixtures still come from there.
+// conflicts, list merges, and the flow-context stub. Feature-local rather
+// than in utils/testUtils because nothing outside the import specs has a use
+// for them; the generic react-query stubs and level fixtures still come from
+// there.
 //
-// Not a spec file, so the `src/**/tests/*.spec.ts` glob does not collect it.
+// Shared by every `tests/` directory under features/import — the feature root
+// is the one place all three can reach. Not a spec file, so the
+// `src/**/tests/*.spec.ts` glob does not collect it.
 
+import { vi } from 'vitest'
 import type {
   ImportListEntry,
   ImportListMerge,
@@ -21,6 +25,7 @@ import type {
   ParsedRankingRow,
   ParsedRatingRow,
 } from '../parseSpreadsheet'
+import type { AllFlags } from '../importWizardModel'
 
 /**
  * A parse flag. `severity: 'error'` is what excludes a row from every payload.
@@ -177,6 +182,45 @@ export function listMerge(
     hasConflict: true,
     importedOrder: [listEntry('1'), listEntry('2')],
     existingOrder: [listEntry('2'), listEntry('1')],
+    ...overrides,
+  }
+}
+
+/**
+ * Every tab's flag list, empty. What a clean parse produces.
+ */
+export const EMPTY_FLAGS: AllFlags = {
+  completions: [],
+  progress: [],
+  dropped: [],
+  ranking: [],
+  lists: [],
+  ratings: [],
+  duplicates: [],
+}
+
+/**
+ * A stand-in for the import flow context, which is the only thing the step
+ * hooks read. Every callback is a spy; override whichever fields the test
+ * under way depends on.
+ *
+ * Returned as a mutable object so a test can adjust a field before rendering
+ * (`flow.skipConflictCheck = true`) without re-stubbing the whole module.
+ */
+export function importFlowStub(
+  overrides: Record<string, unknown> = {}
+): Record<string, unknown> {
+  return {
+    dateFormat: 'MDY',
+    setDateFormat: vi.fn(),
+    handleParsed: vi.fn(),
+    parseResult: parseResult(),
+    allFlags: EMPTY_FLAGS,
+    handleSkipFlagged: vi.fn(),
+    setStep: vi.fn(),
+    skipConflictCheck: false,
+    blanketOverride: false,
+    setBlanketOverride: vi.fn(),
     ...overrides,
   }
 }

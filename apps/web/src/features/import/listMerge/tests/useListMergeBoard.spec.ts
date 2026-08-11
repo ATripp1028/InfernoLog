@@ -1,10 +1,7 @@
 import { act, renderHook } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
-import {
-  useListMergeBoard,
-  type ListMergeEntry,
-} from '../listMerge/useListMergeBoard'
+import { useListMergeBoard, type ListMergeEntry } from '../useListMergeBoard'
 
 const entry = (levelId: string): ListMergeEntry => ({
   levelId,
