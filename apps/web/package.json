@@ -8,6 +8,8 @@
     "lint": "eslint src",
     "typecheck": "tsr generate && tsc --noEmit",
     "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest --watch",
     "deploy:staging": "sst deploy --stage staging",
     "deploy:prod": "sst deploy --stage production",
     "remove:staging": "sst remove --stage staging"
@@ -56,6 +58,8 @@
     "@tailwindcss/postcss": "^4.2.2",
     "@tanstack/router-cli": "^1.166.40",
     "@tanstack/router-plugin": "^1.167.32",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@typescript-eslint/eslint-plugin": "^8.59.0",
@@ -66,11 +70,13 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
+    "jsdom": "^26.1.0",
     "postcss": "^8.5.23",
     "sst": "4.7.9",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.59.0",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "^4.1.7"
   }
 }

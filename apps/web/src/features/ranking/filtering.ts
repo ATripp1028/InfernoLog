@@ -4,9 +4,13 @@ import type {
   LevelListSummary,
 } from '@infernolog/core'
 
-// Search matches level name, creator, or in-game id — same fields the list
-// page searches.
-function matchesLevel(level: LevelListSummary, q: string): boolean {
+/**
+ * Whether a level matches a search box — name, creator, or in-game id, the
+ * same fields the list page searches.
+ *
+ * @param q - Already lowercased and trimmed by the caller.
+ */
+export function matchesLevel(level: LevelListSummary, q: string): boolean {
   return (
     (level.name?.toLowerCase().includes(q) ?? false) ||
     (level.creator?.toLowerCase().includes(q) ?? false) ||

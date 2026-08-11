@@ -84,3 +84,46 @@ export const MOBILE_OVERFLOW_KEYS = [
   'picker',
   'moderation',
 ] as const
+
+/**
+ * The {@link NAV_ITEMS} entry with this key.
+ *
+ * @throws If no item has the key — the nav is a fixed table, so a miss is a
+ * typo in the caller rather than a runtime condition to handle.
+ */
+export function navItemByKey(key: string): NavItem {
+  const item = NAV_ITEMS.find((n) => n.key === key)
+  if (!item) throw new Error(`Unknown nav key: ${key}`)
+  return item
+}
+
+/**
+ * Whether the desktop rail should highlight `item` for this path.
+ *
+ * The rail stays lit while the user is drilled into a sub-page (a collection's
+ * detail, a level's log), so `/list/abc` keeps List highlighted.
+ */
+export function isRailItemActive(item: NavItem, pathname: string): boolean {
+  if (!item.to) return false
+  return (
+    pathname === item.to ||
+    pathname.startsWith(`${item.to}/`) ||
+    matchesActivePrefix(item, pathname)
+  )
+}
+
+/**
+ * Whether the mobile tab bar should highlight `item` for this path.
+ *
+ * Deliberately stricter than {@link isRailItemActive}: the bottom bar shows no
+ * active tab at all once drilled into a detail sub-page, because that page's
+ * own back affordance — not a lit tab — is what tells the user where they are.
+ * `activePrefixes` still counts, so the Global Level Page lights up Search.
+ */
+export function isBarItemActive(item: NavItem, pathname: string): boolean {
+  return pathname === item.to || matchesActivePrefix(item, pathname)
+}
+
+function matchesActivePrefix(item: NavItem, pathname: string): boolean {
+  return item.activePrefixes?.some((p) => pathname.startsWith(p)) ?? false
+}

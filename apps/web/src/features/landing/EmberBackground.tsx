@@ -1,4 +1,18 @@
 import { useEffect, useRef } from 'react'
+import {
+  COUNT_MAX_DESKTOP,
+  COUNT_MIN,
+  backgroundColor,
+  emberCeiling,
+  emberCount,
+  emberOpacity,
+  emberSpeed,
+  emberX,
+  scrollFraction as scrollFractionOf,
+  spawnEmber,
+  stepEmber,
+  type Ember,
+} from './emberField'
 
 // Scroll-linked ember background. Landing-page only — never mount on
 // authenticated app pages. See docs/DESIGN_LANGUAGE.md § Ember Background System.
@@ -12,37 +26,6 @@ import { useEffect, useRef } from 'react'
 // prefers-reduced-motion freezes a static low field and drops all
 // scroll-linked changes. The preference is watched live (not just read once
 // at mount) so toggling it in OS settings takes effect immediately.
-
-const EMBER_COLORS = ['#e8390e', '#ff9f1c', '#ff6b35', '#ff4d1f']
-
-// Background interpolation endpoints (RGB channels lerped by scroll fraction).
-const BG_BASE = { r: 0x0d, g: 0x0d, b: 0x0d } // #0d0d0d
-const BG_WARM = { r: 0x3a, g: 0x15, b: 0x08 } // #3a1508
-
-const COUNT_MIN = 20
-const COUNT_MAX_DESKTOP = 70
-const COUNT_MAX_MOBILE = 35
-const SPEED_MIN = 1
-const SPEED_MAX = 2.2
-const MOBILE_BREAKPOINT = 768
-
-interface Ember {
-  x: number
-  y: number
-  size: number
-  drift: number // horizontal wander amplitude (px)
-  driftPhase: number
-  driftSpeed: number
-  rise: number // base upward speed (px/frame at 1x)
-  baseOpacity: number
-  flickerPhase: number
-  flickerSpeed: number
-  color: string
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t
-}
 
 /**
  * The landing page's drifting ember canvas. Purely decorative and `aria-hidden`.
@@ -66,23 +49,8 @@ export function EmberBackground() {
     // the rAF loop (never do layout-reading work in the scroll handler itself).
     let scrollFraction = 0
 
-    function spawn(atBottom: boolean): Ember {
-      return {
-        x: Math.random() * width,
-        y: atBottom ? height + Math.random() * 40 : Math.random() * height,
-        size: 1 + Math.random() * 2.5,
-        drift: 8 + Math.random() * 22,
-        driftPhase: Math.random() * Math.PI * 2,
-        driftSpeed: 0.005 + Math.random() * 0.02,
-        rise: 0.3 + Math.random() * 0.8,
-        baseOpacity: 0.3 + Math.random() * 0.5,
-        flickerPhase: Math.random() * Math.PI * 2,
-        flickerSpeed: 0.02 + Math.random() * 0.06,
-        color:
-          EMBER_COLORS[Math.floor(Math.random() * EMBER_COLORS.length)] ??
-          '#ff6b35',
-      }
-    }
+    const spawn = (atBottom: boolean): Ember =>
+      spawnEmber(width, height, atBottom)
 
     function resize() {
       dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -93,23 +61,19 @@ export function EmberBackground() {
       canvas!.style.width = `${width}px`
       canvas!.style.height = `${height}px`
       ctx!.setTransform(dpr, 0, 0, dpr, 0, 0)
-      ceiling = width < MOBILE_BREAKPOINT ? COUNT_MAX_MOBILE : COUNT_MAX_DESKTOP
+      ceiling = emberCeiling(width)
     }
 
     function paintBackground(fraction: number) {
-      const r = Math.round(lerp(BG_BASE.r, BG_WARM.r, fraction))
-      const g = Math.round(lerp(BG_BASE.g, BG_WARM.g, fraction))
-      const b = Math.round(lerp(BG_BASE.b, BG_WARM.b, fraction))
-      ctx!.fillStyle = `rgb(${r}, ${g}, ${b})`
+      ctx!.fillStyle = backgroundColor(fraction)
       ctx!.fillRect(0, 0, width, height)
     }
 
     function drawEmber(e: Ember, opacity: number) {
       ctx!.globalAlpha = Math.max(0, Math.min(1, opacity))
       ctx!.fillStyle = e.color
-      const wobble = Math.sin(e.driftPhase) * e.drift
       ctx!.beginPath()
-      ctx!.arc(e.x + wobble, e.y, e.size, 0, Math.PI * 2)
+      ctx!.arc(emberX(e), e.y, e.size, 0, Math.PI * 2)
       ctx!.fill()
     }
 
@@ -153,9 +117,11 @@ export function EmberBackground() {
         // Read scroll position inside rAF, not in the passive handler.
         requestAnimationFrame(() => {
           const doc = document.documentElement
-          const max = doc.scrollHeight - doc.clientHeight
-          scrollFraction =
-            max > 0 ? Math.min(1, Math.max(0, doc.scrollTop / max)) : 0
+          scrollFraction = scrollFractionOf(
+            doc.scrollTop,
+            doc.scrollHeight,
+            doc.clientHeight
+          )
           ticking = false
         })
       }
@@ -165,8 +131,8 @@ export function EmberBackground() {
       scrollHandler()
 
       function frame() {
-        const speed = lerp(SPEED_MIN, SPEED_MAX, scrollFraction)
-        const target = Math.round(lerp(COUNT_MIN, ceiling, scrollFraction))
+        const speed = emberSpeed(scrollFraction)
+        const target = emberCount(scrollFraction, ceiling)
 
         while (embers.length < target) embers.push(spawn(true))
         if (embers.length > target) embers.length = target
@@ -174,15 +140,8 @@ export function EmberBackground() {
         paintBackground(scrollFraction)
 
         for (const e of embers) {
-          e.y -= e.rise * speed
-          e.driftPhase += e.driftSpeed
-          e.flickerPhase += e.flickerSpeed
-          if (e.y < -10) {
-            e.y = height + Math.random() * 40
-            e.x = Math.random() * width
-          }
-          const flicker = 0.65 + 0.35 * Math.sin(e.flickerPhase)
-          drawEmber(e, e.baseOpacity * flicker)
+          stepEmber(e, speed, width, height)
+          drawEmber(e, emberOpacity(e))
         }
         ctx!.globalAlpha = 1
 

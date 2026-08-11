@@ -19,29 +19,20 @@ import type { DifficultyOpinion } from '@/lib/api/wireEnums'
 /**
  * The five demon tiers as face buttons, easiest first.
  */
-export const DEMON_OPINIONS: ReadonlyArray<{
+// Faces come from the shared label→asset mapping rather than hardcoded paths,
+// so a renamed sprite cannot leave this picker pointing at a 404 while every
+// other difficulty face in the app moves.
+export const DEMON_OPINIONS = [
+  { value: 'EASY', label: 'Easy Demon' },
+  { value: 'MEDIUM', label: 'Medium Demon' },
+  { value: 'HARD', label: 'Hard Demon' },
+  { value: 'INSANE', label: 'Insane Demon' },
+  { value: 'EXTREME', label: 'Extreme Demon' },
+].map((o) => ({ ...o, face: difficultyFaceSrc(o.label) })) as ReadonlyArray<{
   value: DifficultyOpinion
   label: string
   face: string
-}> = [
-  { value: 'EASY', label: 'Easy Demon', face: '/assets/gd/demon-easy.png' },
-  {
-    value: 'MEDIUM',
-    label: 'Medium Demon',
-    face: '/assets/gd/demon-medium.png',
-  },
-  { value: 'HARD', label: 'Hard Demon', face: '/assets/gd/demon-hard.png' },
-  {
-    value: 'INSANE',
-    label: 'Insane Demon',
-    face: '/assets/gd/demon-insane.png',
-  },
-  {
-    value: 'EXTREME',
-    label: 'Extreme Demon',
-    face: '/assets/gd/demon-extreme.png',
-  },
-]
+}>
 
 /**
  * The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)

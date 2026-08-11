@@ -13,34 +13,13 @@ import { GddlApiKeyEditor } from '@/features/settings/components/GddlApiKeyEdito
 import { SettingsSection } from '@/features/settings/components/SettingsSection'
 import { ImportWizard } from '@/features/import/ImportWizard'
 import { LegalAcceptance } from './LegalAcceptance'
-
-const STEPS = [
-  'legal',
-  'username',
-  'logging',
-  'rating',
-  'import',
-  'gddl',
-] as const
-type Step = (typeof STEPS)[number]
-
-const STEP_LABELS: Record<Step, string> = {
-  legal: 'Terms',
-  username: 'Username',
-  logging: 'Logging',
-  rating: 'Rating',
-  import: 'Import',
-  gddl: 'GDDL',
-}
-
-// The placeholder username postAuthentication/signup seeds is
-// `<email-localpart>_<8 hex chars>` — used only to decide whether a returning
-// (mid-onboarding) user still needs the Username step, so a closed tab
-// mid-wizard resumes where it left off instead of redoing completed steps.
-function isPlaceholderUsername(username: string, email: string): boolean {
-  const localPart = email.split('@')[0]?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`^${localPart}_[0-9a-f]{8}$`).test(username)
-}
+import {
+  STEPS,
+  STEP_LABELS,
+  initialStep,
+  nextStep,
+  type Step,
+} from './wizardSteps'
 
 /**
  * First-run setup: legal acceptance, rating configuration, logging defaults, and the optional spreadsheet import.
@@ -63,10 +42,7 @@ export function OnboardingWizard() {
       return
     }
     if (step !== null) return
-    if (!me.data.legalAcceptedAt) setStep('legal')
-    else if (isPlaceholderUsername(me.data.username, me.data.email))
-      setStep('username')
-    else setStep('logging')
+    setStep(initialStep(me.data))
   }, [me.data, step, navigate])
 
   if (!me.data || me.data.onboardingCompleted || step === null) {
@@ -76,7 +52,7 @@ export function OnboardingWizard() {
   const index = STEPS.indexOf(step)
 
   const goNext = () => {
-    const next = STEPS[index + 1]
+    const next = nextStep(step)
     if (next) {
       setStep(next)
     } else {

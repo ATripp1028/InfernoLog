@@ -3,31 +3,14 @@ import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { backOriginState } from '@/lib/backOrigin'
 import { isExtremeDemon } from './format'
-
-// External link builders. AREDL's public level URL isn't pinned in the docs
-// yet (the acknowledgments page still lists it as pending); aredl.net is the
-// current home, so we point there.
-const gdBrowserLevel = (id: string) => `https://gdbrowser.com/${id}`
-const gdBrowserUser = (accountId: string) =>
-  `https://gdbrowser.com/u/${accountId}`
-const gddlLevel = (id: string) => `https://gdladder.com/level/${id}`
-const aredlLevel = (id: string) => `https://aredl.net/list/${id}`
-
-// A YouTube search scoped to this exact level — "Geometry Dash {name} by
-// {creator} {id}" — which surfaces gameplay/verification videos far more
-// reliably than any single canonical link. Missing name/creator are simply
-// dropped from the query. Spaces render as '+' to match YouTube's own URLs.
-function youtubeSearch(level: GlobalLevelPageData): string {
-  const query = [
-    'Geometry Dash',
-    level.name,
-    level.creator && `by ${level.creator}`,
-    level.inGameId,
-  ]
-    .filter(Boolean)
-    .join(' ')
-  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query).replace(/%20/g, '+')}`
-}
+import {
+  aredlLevelUrl,
+  copiedFromLevelId,
+  gdBrowserLevelUrl,
+  gdBrowserUserUrl,
+  gddlLevelUrl,
+  youtubeSearchUrl,
+} from './linkTargets'
 
 type LinksVariant = 'card' | 'plain'
 
@@ -125,43 +108,42 @@ export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
   const creatorLabel = level.creator
     ? `${level.creator}'s profile on GDBrowser`
     : 'Creator profile on GDBrowser'
+  const copiedFrom = copiedFromLevelId(level)
 
   const rows = (
     <div className="flex flex-col">
       <ExternalRow
-        href={gdBrowserLevel(level.inGameId)}
+        href={gdBrowserLevelUrl(level.inGameId)}
         label="Level on GDBrowser"
         pad={pad}
         dead={delisted}
       />
       {level.creatorAccountId && (
         <ExternalRow
-          href={gdBrowserUser(level.creatorAccountId)}
+          href={gdBrowserUserUrl(level.creatorAccountId)}
           label={creatorLabel}
           pad={pad}
         />
       )}
       <ExternalRow
-        href={gddlLevel(level.inGameId)}
+        href={gddlLevelUrl(level.inGameId)}
         label="Tier page on GDDL"
         pad={pad}
       />
       {isExtremeDemon(level) && (
         <ExternalRow
-          href={aredlLevel(level.inGameId)}
+          href={aredlLevelUrl(level.inGameId)}
           label="Page on AREDL"
           pad={pad}
         />
       )}
       <ExternalRow
-        href={youtubeSearch(level)}
+        href={youtubeSearchUrl(level)}
         label="Search on YouTube"
         pad={pad}
       />
 
-      {/* Omit when the copy-source is this level itself (a reupload shares the
-          in-game id) — a "Copied from" pointing at the same page is noise. */}
-      {level.copiedFromId != null && level.copiedFromId !== level.inGameId && (
+      {copiedFrom && (
         <>
           <p
             className={cn(
@@ -172,8 +154,8 @@ export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
             In InfernoLog
           </p>
           <InternalRow
-            to={level.copiedFromId}
-            label={`Copied from ${level.copiedFromId}`}
+            to={copiedFrom}
+            label={`Copied from ${copiedFrom}`}
             pad={pad}
           />
         </>

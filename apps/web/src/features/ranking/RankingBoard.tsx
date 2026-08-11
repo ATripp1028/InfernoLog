@@ -1,32 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useMutationState } from '@tanstack/react-query'
-import {
-  DndContext,
-  DragOverlay,
-  useDroppable,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
-import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
+import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import type { ClassicRankingResponse } from '@infernolog/core'
-import {
-  usePlaceRanking,
-  useReorderRanking,
-  useUnplaceRanking,
-} from '@/lib/api/ranking'
-import { neighboursAround } from './neighbours'
-import { filterPlaced, filterUnplaced, reorderDisabled } from './filtering'
 import { SortableRankedRow, RankedRow } from './RankedRow'
 import { SortableUnplacedCard, UnplacedCard } from './UnplacedCard'
 import { UnplacedPanel } from './UnplacedPanel'
-import type { ContainerId, RankingItem } from './types'
+import { useRankingBoard } from './useRankingBoard'
 
 interface RankingBoardProps {
   data: ClassicRankingResponse
@@ -37,9 +15,6 @@ interface RankingBoardProps {
   // levelProgressId to highlight (post-log handoff).
   highlightId?: string | undefined
 }
-
-const sameOrder = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((x, i) => x === b[i])
 
 /**
  * The desktop ranking board: the placed list beside the unplaced panel, with drag-and-drop between them.
@@ -52,139 +27,25 @@ export function RankingBoard({
   onSearchUnplaced,
   highlightId,
 }: RankingBoardProps) {
-  const sensors = useSortableSensors()
-  const place = usePlaceRanking()
-  const reorder = useReorderRanking()
-  const unplace = useUnplaceRanking()
-
-  const pendingRankingCount = useMutationState({
-    filters: { mutationKey: ['rankingReorder'], status: 'pending' },
-  }).length
-
-  // Common level data for any id, in either container.
-  const itemsById = useMemo(() => {
-    const m = new Map<string, RankingItem>()
-    for (const e of data.placed) m.set(e.levelProgressId, e)
-    for (const e of data.unplaced) m.set(e.levelProgressId, e)
-    return m
-  }, [data])
-
-  // Live, locally-controlled ordering during a drag; otherwise mirrors `data`.
-  const [containers, setContainers] = useState<Record<ContainerId, string[]>>({
-    placed: data.placed.map((e) => e.levelProgressId),
-    unplaced: data.unplaced.map((e) => e.levelProgressId),
-  })
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const startContainer = useRef<ContainerId | null>(null)
-
-  // See collisionDetection.ts for why this needs to be more than
-  // pointerWithin/rectIntersection alone.
-  const { collisionDetection, markCrossContainerMove } =
-    useMultiContainerCollisionDetection(['placed', 'unplaced'])
-
-  useEffect(() => {
-    if (activeId) return // don't clobber the in-flight drag
-    if (pendingRankingCount > 0) return // don't overwrite optimistic state
-    setContainers({
-      placed: data.placed.map((e) => e.levelProgressId),
-      unplaced: data.unplaced.map((e) => e.levelProgressId),
-    })
-  }, [data, activeId, pendingRankingCount])
-
-  const findContainer = (id: string): ContainerId | null => {
-    if (id === 'placed' || id === 'unplaced') return id
-    if (containers.placed.includes(id)) return 'placed'
-    if (containers.unplaced.includes(id)) return 'unplaced'
-    return null
-  }
-
-  // ── Read-only (filtered) view: no DnD, recomputed ranks ──────────────────
-  const filtering = reorderDisabled(
-    data.placed.length,
-    filterPlaced(data.placed, search, showUnrated).length,
-    search
-  )
-
-  function handleDragStart(e: DragStartEvent) {
-    const id = String(e.active.id)
-    setActiveId(id)
-    startContainer.current = findContainer(id)
-  }
-
-  function handleDragOver(e: DragOverEvent) {
-    const { active, over } = e
-    if (!over) return
-    const activeC = findContainer(String(active.id))
-    const overC = findContainer(String(over.id))
-    if (!activeC || !overC || activeC === overC) return
-
-    markCrossContainerMove()
-    setContainers((prev) => {
-      const activeItems = prev[activeC]
-      const overItems = prev[overC]
-      const overIsContainer = over.id === 'placed' || over.id === 'unplaced'
-      const overIndex = overIsContainer
-        ? overItems.length
-        : overItems.indexOf(String(over.id))
-      const insertAt = overIndex < 0 ? overItems.length : overIndex
-      return {
-        ...prev,
-        [activeC]: activeItems.filter((id) => id !== String(active.id)),
-        [overC]: [
-          ...overItems.slice(0, insertAt),
-          String(active.id),
-          ...overItems.slice(insertAt),
-        ],
-      }
-    })
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    const { active, over } = e
-    const id = String(active.id)
-    const start = startContainer.current
-    setActiveId(null)
-    startContainer.current = null
-    if (!over || !start) return
-
-    const end = findContainer(id)
-    if (!end) return
-
-    // Final within-placed reorder relative to the row we dropped over.
-    let placedIds = containers.placed
-    if (end === 'placed') {
-      const overC = findContainer(String(over.id))
-      if (overC === 'placed' && String(over.id) !== id) {
-        const from = placedIds.indexOf(id)
-        const to = placedIds.indexOf(String(over.id))
-        if (from >= 0 && to >= 0) placedIds = arrayMove(placedIds, from, to)
-      }
-      setContainers((prev) => ({ ...prev, placed: placedIds }))
-    }
-
-    if (end === 'placed') {
-      const index = placedIds.indexOf(id)
-      const neighbours = neighboursAround(placedIds, index)
-      if (start === 'unplaced') {
-        place.mutate({ levelProgressId: id, ...neighbours })
-      } else {
-        const original = data.placed.map((x) => x.levelProgressId)
-        if (!sameOrder(placedIds, original)) {
-          reorder.mutate({ levelProgressId: id, ...neighbours })
-        }
-      }
-    } else if (end === 'unplaced' && start === 'placed') {
-      unplace.mutate(id)
-    }
-    // unplaced → unplaced: nothing to persist.
-  }
+  const {
+    sensors,
+    collisionDetection,
+    containers,
+    itemsById,
+    activeItem,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    clearActive,
+    filtering,
+    placedView,
+    unplacedView,
+  } = useRankingBoard({ data, search, showUnrated, unplacedSearch })
 
   const PlacedColumn = (
     <PlacedDroppable>
       {filtering ? (
-        <StaticPlaced
-          entries={filterPlaced(data.placed, search, showUnrated)}
-        />
+        <StaticPlaced entries={placedView} />
       ) : containers.placed.length === 0 ? (
         <EmptyRanked />
       ) : (
@@ -209,22 +70,6 @@ export function RankingBoard({
       )}
     </PlacedDroppable>
   )
-
-  const unplacedView = filtering
-    ? filterUnplaced(data.unplaced, unplacedSearch).map(
-        (e) => e.levelProgressId
-      )
-    : containers.unplaced.filter((id) => {
-        const item = itemsById.get(id)
-        if (!item) return false
-        const q = unplacedSearch.trim().toLowerCase()
-        if (!q) return true
-        return (
-          (item.level.name?.toLowerCase().includes(q) ?? false) ||
-          (item.level.creator?.toLowerCase().includes(q) ?? false) ||
-          item.level.inGameId.toLowerCase().includes(q)
-        )
-      })
 
   const UnplacedColumn = (
     <UnplacedDroppable
@@ -277,8 +122,6 @@ export function RankingBoard({
     return layout
   }
 
-  const activeItem = activeId ? itemsById.get(activeId) : null
-
   return (
     <DndContext
       sensors={sensors}
@@ -286,15 +129,12 @@ export function RankingBoard({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
-      onDragCancel={() => {
-        setActiveId(null)
-        startContainer.current = null
-      }}
+      onDragCancel={clearActive}
     >
       {layout}
       <DragOverlay>
         {activeItem ? (
-          findContainer(activeItem.levelProgressId) === 'unplaced' ? (
+          containers.unplaced.includes(activeItem.levelProgressId) ? (
             <UnplacedCard item={activeItem} />
           ) : (
             <RankedRow

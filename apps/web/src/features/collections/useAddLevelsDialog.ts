@@ -54,6 +54,12 @@ export function useAddLevelsDialog({
   const inCollection = new Set(collection.entries.map((e) => e.level.inGameId))
   const isWantToBeat = collection.type === 'WANT_TO_BEAT'
 
+  const seededAlreadyAdded = !!seeded && inCollection.has(seeded.inGameId)
+  // Being beaten only disqualifies a level from Want to Beat. Every other
+  // collection takes it — declared up here so the confirm handler and the
+  // button's own enabled state cannot drift apart.
+  const seededBlocked = !!seeded && isWantToBeat && seeded.completed
+
   useEffect(() => {
     if (open) {
       setQuery('')
@@ -134,7 +140,7 @@ export function useAddLevelsDialog({
 
   // Confirm add after seeding.
   async function handleSeededAdd() {
-    if (!seeded || seeded.completed) return
+    if (!seeded || seededBlocked) return
     try {
       await addEntry.mutateAsync({
         collectionId: collection.id,
@@ -161,9 +167,6 @@ export function useAddLevelsDialog({
       void seedAndSelect(trimmed)
     }
   }
-
-  const seededAlreadyAdded = !!seeded && inCollection.has(seeded.inGameId)
-  const seededBlocked = !!seeded && isWantToBeat && seeded.completed
 
   const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
   const showCachedPreview =

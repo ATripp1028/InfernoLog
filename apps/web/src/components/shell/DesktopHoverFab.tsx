@@ -1,13 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FabAction } from '@/context/FabActionsContext'
-
-// How long the group stays expanded after the pointer leaves it. Gives the
-// cursor room to cross gaps between buttons (or overshoot briefly) without
-// the stack collapsing back into the FAB.
-const CLOSE_DELAY_MS = 350
+import { useDesktopHoverFab } from './useDesktopHoverFab'
 
 interface DesktopHoverFabProps {
   primary: FabAction
@@ -41,47 +37,8 @@ export function DesktopHoverFab({
   style,
   autoExpandLabels = true,
 }: DesktopHoverFabProps) {
-  const [expanded, setExpanded] = useState(false)
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  )
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  function cancelClose() {
-    clearTimeout(closeTimer.current)
-  }
-
-  function openGroup() {
-    cancelClose()
-    setExpanded(true)
-  }
-
-  function scheduleClose() {
-    cancelClose()
-    closeTimer.current = setTimeout(() => setExpanded(false), CLOSE_DELAY_MS)
-  }
-
-  // Escape and clicks outside the group close it immediately, regardless of
-  // whether it was opened via hover (no focus involved) or keyboard focus —
-  // the container's own onKeyDown/onBlur only fire when focus is inside it,
-  // which hover-only expansion never establishes.
-  useEffect(() => {
-    if (!expanded) return
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setExpanded(false)
-    }
-    function onPointerDown(e: MouseEvent) {
-      if (!containerRef.current?.contains(e.target as Node)) setExpanded(false)
-    }
-    document.addEventListener('keydown', onKeyDown)
-    document.addEventListener('mousedown', onPointerDown)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown)
-      document.removeEventListener('mousedown', onPointerDown)
-    }
-  }, [expanded])
-
-  useEffect(() => () => cancelClose(), [])
+  const { expanded, containerRef, openGroup, scheduleClose, handleBlur } =
+    useDesktopHoverFab()
 
   return (
     <div
@@ -94,10 +51,7 @@ export function DesktopHoverFab({
       onMouseEnter={openGroup}
       onMouseLeave={scheduleClose}
       onFocus={openGroup}
-      onBlur={(e) => {
-        if (!containerRef.current?.contains(e.relatedTarget as Node))
-          scheduleClose()
-      }}
+      onBlur={(e) => handleBlur(e.relatedTarget as Node | null)}
     >
       <AnimatePresence>
         {expanded &&

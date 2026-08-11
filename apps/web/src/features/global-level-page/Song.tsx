@@ -3,6 +3,7 @@ import { CopyableId } from '@/components/data/CopyableId'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { formatSongSize } from './format'
+import { songSource } from './display'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 // Desktop renders the song inside a bordered card ('card'); mobile renders it
@@ -64,7 +65,7 @@ function StandardSong({
   pad: string
 }) {
   const size = formatSongSize(level.songSize)
-  const source = level.officialSongId != null ? 'In-game track' : 'Newgrounds'
+  const source = songSource(level)
 
   return (
     <>

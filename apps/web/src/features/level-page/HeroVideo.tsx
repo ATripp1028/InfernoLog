@@ -1,33 +1,11 @@
 import { useState } from 'react'
 import { Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-function extractYouTubeId(url: string): string | null {
-  const patterns = [
-    /[?&]v=([A-Za-z0-9_-]{11})/,
-    /youtu\.be\/([A-Za-z0-9_-]{11})/,
-    /\/shorts\/([A-Za-z0-9_-]{11})/,
-    /\/embed\/([A-Za-z0-9_-]{11})/,
-  ]
-  for (const p of patterns) {
-    const m = url.match(p)
-    if (m?.[1]) return m[1]
-  }
-  return null
-}
-
-function extractTwitchClipSlug(url: string): string | null {
-  const m = url.match(/clips\.twitch\.tv\/([A-Za-z0-9_-]+)/)
-  return m?.[1] ?? null
-}
-
-type VideoSource = 'youtube' | 'twitch-clip' | 'unknown'
-
-function detectSource(url: string): VideoSource {
-  if (/youtube\.com|youtu\.be/.test(url)) return 'youtube'
-  if (/twitch\.tv/.test(url)) return 'twitch-clip'
-  return 'unknown'
-}
+import {
+  detectSource,
+  extractTwitchClipSlug,
+  extractYouTubeId,
+} from './videoEmbed'
 
 // Poster falls back from maxres → hq when maxres 404s (some older videos).
 function YouTubePoster({ videoId }: { videoId: string }) {

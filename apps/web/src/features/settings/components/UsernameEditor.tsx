@@ -9,9 +9,7 @@ import {
   type MeData,
 } from '@/lib/api/me'
 import { formatDate } from '@/lib/dateFormat'
-
-const COOLDOWN_DAYS = 30
-const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000
+import { COOLDOWN_DAYS, cooldownEnd, usernameError } from '../usernameRules'
 
 interface UsernameEditorProps {
   me: MeData
@@ -45,7 +43,7 @@ export function UsernameEditor({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const update = useUpdateUsername()
 
-  const lockedUntil = computeCooldownEnd(me.usernameChangedAt)
+  const lockedUntil = cooldownEnd(me.usernameChangedAt)
   const isLocked = lockedUntil !== null
 
   // Only re-sync from the server value while not actively editing (Cancel
@@ -96,7 +94,11 @@ export function UsernameEditor({
       setEditing(false)
       return
     }
-    if (!validateUsername(value, setValidationError)) return
+    const problem = usernameError(value)
+    if (problem) {
+      setValidationError(problem)
+      return
+    }
     if (availabilityError) return
 
     try {
@@ -211,33 +213,4 @@ export function UsernameEditor({
       </p>
     </div>
   )
-}
-
-function validateUsername(
-  value: string,
-  setError: (s: string | null) => void
-): boolean {
-  if (value.length < 2) {
-    setError('Username must be at least 2 characters')
-    return false
-  }
-  if (value.length > 32) {
-    setError('Username must be at most 32 characters')
-    return false
-  }
-  if (!/^[a-zA-Z0-9_-]+$/.test(value)) {
-    setError(
-      'Username can only contain letters, numbers, underscores, and hyphens'
-    )
-    return false
-  }
-  return true
-}
-
-function computeCooldownEnd(usernameChangedAt: string | null): Date | null {
-  if (!usernameChangedAt) return null
-  const changed = new Date(usernameChangedAt).getTime()
-  const end = changed + COOLDOWN_MS
-  if (Date.now() >= end) return null
-  return new Date(end)
 }

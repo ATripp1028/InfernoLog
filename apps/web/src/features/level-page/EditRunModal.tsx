@@ -28,7 +28,8 @@ import {
   TwoPlayerPicker,
 } from './EditShared'
 import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'
-import { RunInput, formatRunInputValue } from '@/features/logging/RunInput'
+import { RunInput } from '@/features/logging/RunInput'
+import { formatRunInputValue } from '@/features/logging/runParsing'
 import type { LevelPageData } from './types'
 import { useEditRunModal } from './useEditRunModal'
 

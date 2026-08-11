@@ -1,7 +1,5 @@
 import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
-import { formatEntryDateTime } from '@/lib/dateFormat'
-import { getViewerTimezone } from '@/lib/timezone'
 import { formatNumber } from '@/features/logging/format'
 import { formatRating } from '@/lib/ratingScale'
 import type { RatingCategory } from '@/lib/api/me'
@@ -9,41 +7,11 @@ import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import type { LevelPageData, ProgressUpdate } from './types'
-
-const VIEWER_TZ = getViewerTimezone()
+import type { LevelPageData } from './types'
+import { formatEntryDate } from './timelineFormat'
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-}
-
-function getDateDisplay(
-  update: ProgressUpdate | undefined,
-  fallbackIso: string,
-  datePref: DateFormatPreference
-): {
-  text: string
-  timeText: string | null
-  zoneSuffix: string | null
-  uncertain: boolean
-} {
-  if (update?.date) {
-    const { dateText, timeText, showZoneBadge, zoneLabel } =
-      formatEntryDateTime(update.date, update.dateTimezone, datePref, VIEWER_TZ)
-    return {
-      text: dateText,
-      timeText,
-      zoneSuffix: showZoneBadge ? zoneLabel : null,
-      uncertain: update.dateUncertain,
-    }
-  }
-  const { dateText } = formatEntryDateTime(
-    fallbackIso,
-    null,
-    datePref,
-    VIEWER_TZ
-  )
-  return { text: dateText, timeText: null, zoneSuffix: null, uncertain: false }
 }
 
 interface StatBoxProps {
@@ -93,13 +61,23 @@ export function StatGrid({
   // progress_updates now, so no special-casing is needed here.
   const latestUpdate = progressUpdates[0]
 
-  // DATE: completion date → most recent update date → last-updated
+  // DATE: completion date → most recent update date → last-updated.
+  // Shares Timeline's formatter rather than a second copy of it — this used
+  // to be a local `getDateDisplay` that was the same function with the
+  // arguments packed differently.
+  const dated = completion ?? latestUpdate
   const {
     text: dateText,
     timeText,
     zoneSuffix,
     uncertain,
-  } = getDateDisplay(completion ?? latestUpdate, data.updatedAt, datePref)
+  } = formatEntryDate(
+    dated?.date ?? null,
+    dated?.dateTimezone ?? null,
+    data.updatedAt,
+    dated?.dateUncertain ?? false,
+    datePref
+  )
 
   // ATTEMPTS: completion → latest update (the drop, if dropped) → null
   const attempts = completion?.attempts ?? latestUpdate?.attempts ?? null

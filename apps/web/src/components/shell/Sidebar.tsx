@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { NAV_ITEMS, type NavItem } from '@/utils/navConfig'
+import { NAV_ITEMS, isRailItemActive, type NavItem } from '@/utils/navConfig'
 
 /**
  * The desktop navigation rail (md+). Its mobile counterpart is `MobileNav`.
@@ -16,16 +16,7 @@ export function Sidebar() {
         <SidebarItem
           key={item.key}
           item={item}
-          active={
-            item.to
-              ? location.pathname === item.to ||
-                location.pathname.startsWith(`${item.to}/`) ||
-                (item.activePrefixes?.some((p) =>
-                  location.pathname.startsWith(p)
-                ) ??
-                  false)
-              : false
-          }
+          active={isRailItemActive(item, location.pathname)}
         />
       ))}
     </nav>

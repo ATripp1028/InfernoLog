@@ -26,8 +26,14 @@ import type {
   SeededLevelPreviewData,
 } from './SeededLevelPreviewCard'
 
-/** The level the dialog is adding — enough to render it and to write the entry. */
-export type PickedLevel = SeededLevelPreviewData
+/**
+ * The level the dialog is adding — enough to render it and to write the entry.
+ *
+ * `completed` is optional because only some sources know it: a level resolved
+ * from RobTop reports its own completion, while a search result or a cached
+ * level carries no viewer state at all. See `pickedIsCompleted`.
+ */
+export type PickedLevel = SeededLevelPreviewData & { completed?: boolean }
 
 export type { SeededLevel }
 
@@ -247,8 +253,13 @@ export function useAddToCollectionDialog({
 
   // ── Step 2: collection picker ──────────────────────────────────────
 
+  // The level's own flag wins where it exists — a level just resolved from
+  // RobTop reports its completion directly, and one the user has never logged
+  // is absent from the progress list entirely. Search results and cached
+  // levels carry no viewer state, so those still resolve against the list.
   const pickedIsCompleted =
-    !!pickedLevel && completedIds.has(pickedLevel.inGameId)
+    pickedLevel?.completed ??
+    (!!pickedLevel && completedIds.has(pickedLevel.inGameId))
   const allCollections = (collections.data ?? []).filter(
     (c) => !(pickedIsCompleted && c.type === 'WANT_TO_BEAT')
   )

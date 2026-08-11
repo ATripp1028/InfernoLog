@@ -18,6 +18,7 @@ import type {
   EntryVisibility,
 } from '@/lib/api/wireEnums'
 import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
+import { coinMaskFromFlags } from '@/lib/coinBitmask'
 
 /**
  * How dates in the uploaded sheet are ordered. The parser cannot infer this,
@@ -110,11 +111,17 @@ function parseDate(raw: unknown, format: DateFormat): DateParseResult {
 
 // ── Column name normalisation ──────────────────────────────────────────────
 
+// Collapses a header cell to a comparable snake_case key. Surrounding
+// separators are stripped AFTER the collapse, not before: a trailing space is
+// already a '_' by then, so trimming first (as this used to) left '_level_id_'
+// and silently failed to match 'level_id' — which read as an absent column and
+// failed the whole row. Excel does not render trailing spaces, so that was
+// invisible to the user who authored the sheet.
 function normalizeKey(k: string): string {
   return k
     .toLowerCase()
     .replace(/[\s_-]+/g, '_')
-    .trim()
+    .replace(/^_+|_+$/g, '')
 }
 
 function getField(row: Record<string, unknown>, ...keys: string[]): unknown {
@@ -481,10 +488,7 @@ function parseCompletionRow(
   const coin1 = toBool(getField(raw, 'coin_1'))
   const coin2 = toBool(getField(raw, 'coin_2'))
   const coin3 = toBool(getField(raw, 'coin_3'))
-  const coinsCollected =
-    coin1 != null || coin2 != null || coin3 != null
-      ? (coin1 ? 1 : 0) | (coin2 ? 2 : 0) | (coin3 ? 4 : 0)
-      : null
+  const coinsCollected = coinMaskFromFlags([coin1, coin2, coin3])
 
   // Device beaten on — 'pc' or 'mobile'.
   const rawDevice = toStr(getField(raw, 'device'))
