@@ -466,12 +466,36 @@ columns" in one module and "level browse orderings" in another; they are now
 genuinely both earn their place — the settings toggle group beside
 `components/ui/segmented` — rename one and say in a comment why both exist.
 
+### 7. Tests sit in a `tests/` directory beside what they cover
+
+Vitest + jsdom, run with `pnpm test` from `apps/web`. A spec lives in a `tests/`
+subdirectory at the same level as its subject and is named after it:
+`features/collections/identity.ts` is covered by
+`features/collections/tests/identity.spec.ts`. A feature folder therefore reads
+as its own source files first, with the suite tucked underneath, and the
+`*.spec.ts` suffix keeps specs distinct from the API's colocated `*.test.ts`.
+
+**Test the logic files, not the components.** §1's split exists so that what is
+worth asserting — the flag matrices, the neighbour arithmetic, the error copy —
+is reachable without rendering anything. Hooks go through `renderHook`; the
+component beside them is presentational and, for now, untested.
+
+**Mock at the module boundary, never the logic under test.** A spec stubs the
+`lib/api/` hooks it consumes and leaves everything else real: the react-query
+provider (`useMutationState` cannot be stubbed), and pure helpers like
+`collectionErrorCode` and `sortAndCapSearchResults`, whose behaviour is half of
+what the assertion is claiming.
+
+**Shared helpers live in `src/utils/testUtils.tsx`,** which holds the
+`renderHook` query wrapper, the `stubQuery`/`stubMutation` result stands-in,
+and the fixture builders (`makeCollectionDetail`, `makeSearchResult`, …). Reach
+for it the second a shape is built in two spec files.
+
 ### Not covered yet
 
 Deliberately unsettled, so nothing here is mistaken for a rule:
 
 - **Data fetching** — query key shape, cache invalidation, and where a
   `lib/api/` hook ends and feature logic begins.
-- **Testing.** `apps/web` has no test suite. The logic files above exist partly
-  to make one possible; pure modules like `buildImportPayload` are the natural
-  first targets.
+- **Component and end-to-end tests.** §7 covers unit tests only. Nothing
+  renders a component or drives a browser yet; Playwright is not set up.
