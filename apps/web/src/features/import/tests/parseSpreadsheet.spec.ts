@@ -127,18 +127,25 @@ describe('column name normalisation', () => {
     )
   })
 
-  // KNOWN LIMITATION, pinned so a fix is a deliberate change rather than a
-  // surprise. normalizeKey collapses whitespace to '_' BEFORE calling trim(),
-  // so a padded header becomes '_level_id_' and never matches 'level_id' —
-  // the trim() is dead code. A header with a leading or trailing space (which
-  // Excel does not render) therefore reads as an absent column, and for
-  // level_id that fails the whole row with "Missing level_id and level_name".
-  it.each([' level_id', 'level_id ', '  level   id  '])(
-    'does NOT yet match the padded header %p',
-    (header) => {
-      expect(oneCompletion([header], ['128']).data.levelId).toBeNull()
-    }
-  )
+  // Regression: normalizeKey used to collapse whitespace to '_' before
+  // trimming, so a padded header became '_level_id_' and never matched
+  // 'level_id'. Excel does not render a trailing space, so the column read as
+  // absent and the row failed with "Missing level_id and level_name" — with
+  // nothing on screen to explain why.
+  it.each([
+    ' level_id',
+    'level_id ',
+    '  level   id  ',
+    '\tlevel_id\n',
+    '_level_id_',
+    '-level-id-',
+  ])('matches the padded header %p', (header) => {
+    expect(oneCompletion([header], ['128']).data.levelId).toBe('128')
+  })
+
+  it('raises no flag for a row whose header was padded', () => {
+    expect(oneCompletion([' level_id '], ['128']).flags).toEqual([])
+  })
 })
 
 describe('level identity', () => {
@@ -452,6 +459,21 @@ describe('the ratings tab', () => {
     })
 
     expect(result.ratingCategories).toEqual(['Gameplay'])
+  })
+
+  // Same normalizeKey regression, seen from the other side: a padded reserved
+  // column used to fall through the filter and be imported as a rating
+  // category named " level_id ".
+  it('does not turn a padded reserved column into a category', () => {
+    const result = parse({
+      Ratings: [
+        [' level_id ', 'Gameplay'],
+        ['128', 9],
+      ],
+    })
+
+    expect(result.ratingCategories).toEqual(['Gameplay'])
+    expect(result.ratings[0]!.levelId).toBe('128')
   })
 
   // The sheet may hold either scale; both normalize to the internal 0-100.

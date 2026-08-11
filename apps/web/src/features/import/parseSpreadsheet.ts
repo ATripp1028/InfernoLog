@@ -110,11 +110,17 @@ function parseDate(raw: unknown, format: DateFormat): DateParseResult {
 
 // ── Column name normalisation ──────────────────────────────────────────────
 
+// Collapses a header cell to a comparable snake_case key. Surrounding
+// separators are stripped AFTER the collapse, not before: a trailing space is
+// already a '_' by then, so trimming first (as this used to) left '_level_id_'
+// and silently failed to match 'level_id' — which read as an absent column and
+// failed the whole row. Excel does not render trailing spaces, so that was
+// invisible to the user who authored the sheet.
 function normalizeKey(k: string): string {
   return k
     .toLowerCase()
     .replace(/[\s_-]+/g, '_')
-    .trim()
+    .replace(/^_+|_+$/g, '')
 }
 
 function getField(row: Record<string, unknown>, ...keys: string[]): unknown {
