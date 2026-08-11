@@ -197,7 +197,13 @@ export function useRankingBoard({
     handleDragStart,
     handleDragOver,
     handleDragEnd,
-    clearActive: () => setActiveId(null),
+    // Cancelling must also forget where the drag began — a stale
+    // startContainer would make the next drag end read as a place/reorder
+    // from a container the item never left.
+    clearActive: () => {
+      setActiveId(null)
+      startContainer.current = null
+    },
 
     // Filtered (read-only) view
     filtering,

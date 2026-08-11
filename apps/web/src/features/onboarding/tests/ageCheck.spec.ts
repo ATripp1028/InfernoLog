@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { MIN_AGE, calculateAge, isOldEnough } from '../ageCheck'
+import {
+  MIN_AGE,
+  calculateAge,
+  isOldEnough,
+  parseBirthDateInput,
+} from '../ageCheck'
 
 /** A local date, avoiding the UTC-parsing of a bare 'yyyy-mm-dd' string. */
 const on = (y: number, m: number, d: number) => new Date(y, m - 1, d)
@@ -69,5 +74,45 @@ describe('isOldEnough', () => {
 
   it('rejects a future birthdate', () => {
     expect(isOldEnough(on(2030, 1, 1), today)).toBe(false)
+  })
+})
+
+// The gate is handed the raw `<input type="date">` value, and `new Date(str)`
+// parses the bare date form as UTC midnight — a day early west of Greenwich,
+// which is exactly enough to admit someone one day short of the minimum.
+describe('parseBirthDateInput', () => {
+  it('reads the value as a local calendar date', () => {
+    const d = parseBirthDateInput('2013-03-15')
+
+    expect(d.getFullYear()).toBe(2013)
+    expect(d.getMonth()).toBe(2)
+    expect(d.getDate()).toBe(15)
+  })
+
+  it('keeps someone one day short of the minimum out', () => {
+    const dayShort = `${2026 - MIN_AGE}-03-15`
+
+    expect(isOldEnough(parseBirthDateInput(dayShort), on(2026, 3, 14))).toBe(
+      false
+    )
+  })
+
+  it('lets someone through on their qualifying birthday', () => {
+    const exactly = `${2026 - MIN_AGE}-03-14`
+
+    expect(isOldEnough(parseBirthDateInput(exactly), on(2026, 3, 14))).toBe(
+      true
+    )
+  })
+
+  // An unparseable value yields an invalid Date, which fails every comparison
+  // in calculateAge — so a malformed field rejects rather than admits.
+  it.each([
+    ['empty', ''],
+    ['not a date', 'tomorrow'],
+    ['partial', '2013-03'],
+  ])('rejects an %s value', (_label, value) => {
+    expect(Number.isNaN(parseBirthDateInput(value).getTime())).toBe(true)
+    expect(isOldEnough(parseBirthDateInput(value), on(2026, 3, 14))).toBe(false)
   })
 })

@@ -343,6 +343,19 @@ describe('useRankingBoard', () => {
 
       expect(result.current.activeId).toBeNull()
     })
+
+    // A cancel must also forget the container the drag began in, or the next
+    // drop would be attributed to a drag that never finished.
+    it('forgets where a cancelled drag began', () => {
+      const { result } = render({ data: board(['a', 'b', 'c']) })
+      act(() => result.current.handleDragStart(dragStart('a')))
+      act(() => result.current.clearActive())
+
+      act(() => result.current.handleDragEnd(dragEnd('a', 'c')))
+
+      expect(reorderMutate).not.toHaveBeenCalled()
+      expect(placeMutate).not.toHaveBeenCalled()
+    })
   })
 
   // Dragging is disabled whenever rows are hidden, because a row's position

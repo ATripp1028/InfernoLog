@@ -35,3 +35,29 @@ export function calculateAge(birthDate: Date, today: Date): number {
 export function isOldEnough(birthDate: Date, today: Date): boolean {
   return calculateAge(birthDate, today) >= MIN_AGE
 }
+
+/**
+ * Parses an `<input type="date">` value ('YYYY-MM-DD') as a LOCAL calendar date.
+ *
+ * `new Date('2013-03-15')` parses the bare date form as UTC midnight, which in
+ * any negative-UTC zone reads back as the previous calendar day — and
+ * {@link calculateAge} compares it against a local `new Date()`. That
+ * one-day slip is enough to admit someone exactly one day short of
+ * {@link MIN_AGE}, so the value is split by hand instead.
+ *
+ * @returns An invalid Date for anything that is not a 'YYYY-MM-DD' value, which
+ * {@link isOldEnough} rejects (NaN comparisons are false).
+ */
+export function parseBirthDateInput(value: string): Date {
+  const parts = value.split('-')
+  if (parts.length !== 3) return new Date(NaN)
+  const [year, month, day] = parts.map(Number)
+  if (year == null || month == null || day == null) return new Date(NaN)
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day)
+  )
+    return new Date(NaN)
+  return new Date(year, month - 1, day)
+}

@@ -7,7 +7,7 @@ import {
   hasActiveAgeGateFailureCookie,
   setAgeGateFailureCookie,
 } from '@/lib/ageGate'
-import { MIN_AGE, isOldEnough } from './ageCheck'
+import { MIN_AGE, isOldEnough, parseBirthDateInput } from './ageCheck'
 
 /**
  * Gates Sign Up on age BEFORE Google OAuth starts — Cognito creates a
@@ -40,7 +40,10 @@ export function AgeGate() {
     e.preventDefault()
     if (!birthDate) return
 
-    if (!isOldEnough(new Date(birthDate), new Date())) {
+    // parseBirthDateInput, not `new Date(birthDate)`: the bare 'YYYY-MM-DD'
+    // form parses as UTC midnight and would read back a day early west of
+    // Greenwich, letting someone one day short of MIN_AGE through.
+    if (!isOldEnough(parseBirthDateInput(birthDate), new Date())) {
       setAgeGateFailureCookie()
       setRejected(true)
       return
