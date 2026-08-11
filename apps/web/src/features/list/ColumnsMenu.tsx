@@ -3,11 +3,15 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
-import { Switch } from '@/components/ui/switch'
+} from '@/components/generic/popover'
+import { Switch } from '@/components/generic/switch'
 import type { ColumnDef, ColumnVisibility, ColumnId } from './columns'
 import { COLUMNS } from './columns'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
+/**
+ * Column visibility and order for the List table.
+ */
 export function ColumnsMenu({
   columns,
   onChange,
@@ -33,7 +37,7 @@ export function ColumnsMenu({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-3 pr-2.5 text-[13px] font-medium text-text-primary cursor-pointer"
+          className="flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated py-1.5 pl-3 pr-2.5 text-[13px] font-medium text-text-primary cursor-pointer"
         >
           Columns <ChevronDown size={12} className="text-text-secondary" />
         </button>
@@ -42,7 +46,7 @@ export function ColumnsMenu({
         {staticCols.map((col) => (
           <label
             key={col.id}
-            className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+            className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-bg-subtle"
           >
             {col.label}
             <Switch
@@ -53,14 +57,14 @@ export function ColumnsMenu({
         ))}
         {catCols.length > 0 && (
           <>
-            <div className="mx-2 my-1 border-t border-[var(--color-border-subtle)]" />
-            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+            <div className="mx-2 my-1 border-t border-border-subtle" />
+            <SectionLabel size="xs" className="px-2 pb-1">
               Rating Categories
-            </p>
+            </SectionLabel>
             {catCols.map((col) => (
               <label
                 key={col.id}
-                className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+                className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-bg-subtle"
               >
                 {col.label}
                 <Switch
@@ -71,11 +75,11 @@ export function ColumnsMenu({
             ))}
           </>
         )}
-        <div className="mx-2 my-1 border-t border-[var(--color-border-subtle)]" />
-        <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wide text-text-tertiary">
+        <div className="mx-2 my-1 border-t border-border-subtle" />
+        <SectionLabel size="xs" className="px-2 pb-1">
           Display
-        </p>
-        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]">
+        </SectionLabel>
+        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-bg-subtle">
           Hide time
           <Switch checked={hideTime} onCheckedChange={onHideTime} />
         </label>

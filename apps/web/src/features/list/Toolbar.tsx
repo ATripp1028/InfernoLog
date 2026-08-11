@@ -1,5 +1,5 @@
 import { ArrowUpDown, ChevronDown, Search, X } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Input } from '@/components/generic/input'
 import { SortChips } from './SortChips'
 import { ColumnsMenu } from './ColumnsMenu'
 import { PresetSelector } from './PresetSelector'
@@ -41,6 +41,9 @@ interface ToolbarProps {
   onDiscardPreset: () => void
 }
 
+/**
+ * The List's toolbar: search, preset selector, sorts, columns, and filters.
+ */
 export function Toolbar({
   search,
   onSearch,
@@ -86,7 +89,7 @@ export function Toolbar({
         <button
           type="button"
           onClick={onOpenPresets}
-          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px]"
+          className="flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-border bg-bg-elevated px-2.5 py-2 text-[13px]"
         >
           <span className="font-medium text-text-primary">Preset</span>
           <span className="text-[11px] text-text-tertiary">·</span>
@@ -96,13 +99,13 @@ export function Toolbar({
               style={{ background: presetTriggerColor.hex }}
             />
           ) : (
-            <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
+            <span className="h-2 w-2 shrink-0 rounded-full border border-border" />
           )}
           <span className="min-w-0 flex-1 truncate text-left text-[12px] text-text-secondary">
             {presetTriggerLabel}
           </span>
           {isPresetModified && (
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
           )}
           <ChevronDown size={12} className="shrink-0 text-text-secondary" />
         </button>
@@ -112,14 +115,14 @@ export function Toolbar({
             <button
               type="button"
               onClick={onSaveNewPreset}
-              className="shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px] font-medium text-text-primary"
+              className="shrink-0 rounded-md border border-border bg-bg-elevated px-2.5 py-2 text-[13px] font-medium text-text-primary"
             >
               Save
             </button>
             <button
               type="button"
               onClick={onDiscardPreset}
-              className="shrink-0 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] px-2.5 py-2 text-[13px] font-medium text-text-secondary"
+              className="shrink-0 rounded-md border border-border bg-bg-elevated px-2.5 py-2 text-[13px] font-medium text-text-secondary"
             >
               Reset
             </button>
@@ -172,7 +175,7 @@ export function Toolbar({
             type="button"
             onClick={onOpenControls}
             aria-label="Sort and columns"
-            className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-text-secondary md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-bg-elevated text-text-secondary md:hidden"
           >
             <ArrowUpDown size={14} />
           </button>
@@ -192,7 +195,7 @@ export function Toolbar({
               type="button"
               onClick={onReset}
               aria-label="Reset filters and sort"
-              className="flex h-8 w-8 items-center justify-center rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] text-primary"
+              className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-bg-elevated text-primary"
             >
               <X size={14} />
             </button>

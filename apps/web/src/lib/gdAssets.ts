@@ -2,9 +2,11 @@
 
 const GD_ASSET_BASE = '/assets/gd'
 
-// Maps an in-game difficulty label (e.g. "Extreme Demon", "Insane", "Auto")
-// onto its difficulty-face asset in public/assets/gd. Search results only carry
-// the difficulty string, so demon-ness is inferred from the label itself.
+/**
+ * Maps an in-game difficulty label (e.g. "Extreme Demon", "Insane", "Auto")
+ * onto its difficulty-face asset in public/assets/gd. Search results only carry
+ * the difficulty string, so demon-ness is inferred from the label itself.
+ */
 export function difficultyFaceSrc(inGameDifficulty: string | null): string {
   return `${GD_ASSET_BASE}/${difficultyFaceName(inGameDifficulty)}.png`
 }
@@ -40,6 +42,13 @@ const STARABLE_FACES = new Set([
   'difficulty-insane',
 ])
 
+/**
+ * Whether the rated-star badge belongs on this difficulty face.
+ *
+ * Only the non-demon, non-auto faces need it: those are visually identical
+ * rated or not, while demons and autos are always rated and NA is always
+ * unrated.
+ */
 export function showsRatedStar(
   inGameDifficulty: string | null,
   rated: boolean | null | undefined
@@ -47,10 +56,15 @@ export function showsRatedStar(
   return !!rated && STARABLE_FACES.has(difficultyFaceName(inGameDifficulty))
 }
 
+/**
+ * The rated-star badge sprite. See {@link showsRatedStar} for when it applies.
+ */
 export const ratedStarSrc = `${GD_ASSET_BASE}/star.png`
 
-// Standard GD non-demon difficulty by star count (1–9). Used by the non-demon
-// difficulty-opinion picker, where each button is a star count.
+/**
+ * Standard GD non-demon difficulty by star count (1–9). Used by the non-demon
+ * difficulty-opinion picker, where each button is a star count.
+ */
 export function starCountToDifficulty(stars: number): string {
   if (stars <= 1) return 'Auto'
   if (stars === 2) return 'Easy'
@@ -60,10 +74,18 @@ export function starCountToDifficulty(stars: number): string {
   return 'Insane'
 }
 
-// The "fire"/glow that sits behind a difficulty face, by showcase rating.
-// Mythic > legendary > epic outrank a plain feature; unrated/rated-only → none.
+/**
+ * The "fire"/glow that sits behind a difficulty face, by showcase rating.
+ * Mythic > legendary > epic outrank a plain feature; unrated/rated-only → none.
+ */
 export type LevelGlow = 'mythic' | 'legendary' | 'epic' | 'featured'
 
+/**
+ * The showcase glow behind a difficulty face, or `null` for none.
+ *
+ * Mythic outranks legendary outranks epic outranks a plain feature; merely
+ * rated earns no glow.
+ */
 export function levelGlow(
   epicValue: number | null | undefined,
   featured: boolean | null | undefined
@@ -75,6 +97,9 @@ export function levelGlow(
   return null
 }
 
+/**
+ * The sprite for {@link levelGlow}, or `null` when the level has no glow.
+ */
 export function levelGlowSrc(
   epicValue: number | null | undefined,
   featured: boolean | null | undefined
@@ -85,33 +110,69 @@ export function levelGlowSrc(
   return `${GD_ASSET_BASE}/bg-${glow === 'featured' ? 'feature' : glow}.png`
 }
 
-// Community-hosted level thumbnail (Prevter's levelthumbs). May 404 for levels
-// without a generated thumbnail — callers should degrade gracefully.
+/**
+ * Community-hosted level thumbnail (Prevter's levelthumbs). May 404 for levels
+ * without a generated thumbnail — callers should degrade gracefully.
+ */
 export function levelThumbnailUrl(levelId: string): string {
   return `https://levelthumbs.prevter.me/thumbnail/${levelId}`
 }
 
-// Local fallback shown when a level has no community thumbnail (or the fetch
-// fails, or the level is delisted). Ships in public/ at a 16:9 ratio so it
-// slots into the thumbnail box without shifting layout.
+/**
+ * Local fallback shown when a level has no community thumbnail (or the fetch
+ * fails, or the level is delisted). Ships in public/ at a 16:9 ratio so it
+ * slots into the thumbnail box without shifting layout.
+ */
 export const levelThumbnailPlaceholder =
   '/assets/infernolog/placeholder-level.png'
 
-// User-coin icon: silver (verified) vs uncollected (unverified) so the list can
-// show whether a level's coins are silver-rated.
+/**
+ * User-coin icon: silver (verified) vs the greyed uncollected sprite
+ * (unverified), so the list can show whether a level's coins are silver-rated.
+ *
+ * This is the LIST's reading, where "unverified" and "not collected" share a
+ * sprite. Where an unverified coin should instead be the silver sprite
+ * bronze-tinted, use {@link userCoinSilverSrc} and apply the tint yourself —
+ * {@link CoinPicker} does.
+ */
 export function userCoinSrc(verified: boolean | null | undefined): string {
   return `${GD_ASSET_BASE}/${verified ? 'coin-user' : 'coin-uncollected'}.png`
 }
 
-// The gold "secret coin" sprite used by the official main levels.
+/** The gold "secret coin" sprite used by the official main levels. */
 export const officialCoinSrc = `${GD_ASSET_BASE}/coin-official.png`
 
-// The silver user-coin sprite (verified). Rendered directly (rather than via
-// userCoinSrc) where an unverified coin should be the SAME sprite bronze-tinted,
-// not the greyed "uncollected" sprite.
+/**
+ * The silver user-coin sprite (verified). Rendered directly (rather than via
+ * {@link userCoinSrc}) where an unverified coin should be the SAME sprite
+ * bronze-tinted, not the greyed "uncollected" sprite.
+ */
 export const userCoinSilverSrc = `${GD_ASSET_BASE}/coin-user.png`
 
-// GDBrowser-style stat glyphs shown on the Global Level Page's stat cards.
+/** The greyed-out sprite for a coin the user has not collected. */
+export const uncollectedCoinSrc = `${GD_ASSET_BASE}/coin-uncollected.png`
+
+/**
+ * Whether a level is one of RobTop's official levels, whose coins are gold
+ * secret coins rather than silver user coins.
+ *
+ * Decided by the creator name alone. `officialSongId` is NOT a proxy for
+ * this — an ordinary online level may perfectly well use one of the built-in
+ * songs, so that field says something about the song and nothing about who
+ * made the level.
+ */
+export function isOfficialLevel(level: { creator?: string | null }): boolean {
+  return level.creator?.toLowerCase() === 'robtop'
+}
+
+/** The sprite for a COLLECTED coin on `level` — gold for official, silver otherwise. */
+export function collectedCoinSrc(level: { creator?: string | null }): string {
+  return isOfficialLevel(level) ? officialCoinSrc : userCoinSilverSrc
+}
+
+/**
+ * GDBrowser-style stat glyphs shown on the Global Level Page's stat cards.
+ */
 export const gdStatIconSrc = {
   download: `${GD_ASSET_BASE}/downloadicon.png`,
   like: `${GD_ASSET_BASE}/likeicon.png`,

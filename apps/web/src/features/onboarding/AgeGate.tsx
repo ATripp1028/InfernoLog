@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Label } from '@/components/generic/label'
 import { useAuth } from '@/context/AuthContext'
 import {
   hasActiveAgeGateFailureCookie,
@@ -22,13 +22,15 @@ function calculateAge(birthDate: Date, today: Date): number {
   return age
 }
 
-// Gates Sign Up on age BEFORE Google OAuth starts — Cognito creates a
-// federated identity on the OAuth callback regardless of path, so gating
-// after OAuth would mean a child's data already round-tripped through
-// Cognito before rejection. Nothing here is ever sent to the server: a
-// failed attempt only sets a client-side cookie so a retry with a different
-// birthdate doesn't work — no fingerprinting, no server-side record of
-// anyone who hasn't actually signed up.
+/**
+ * Gates Sign Up on age BEFORE Google OAuth starts — Cognito creates a
+ * federated identity on the OAuth callback regardless of path, so gating
+ * after OAuth would mean a child's data already round-tripped through
+ * Cognito before rejection. Nothing here is ever sent to the server: a
+ * failed attempt only sets a client-side cookie so a retry with a different
+ * birthdate doesn't work — no fingerprinting, no server-side record of
+ * anyone who hasn't actually signed up.
+ */
 export function AgeGate() {
   const { signUp } = useAuth()
   const [birthDate, setBirthDate] = useState('')

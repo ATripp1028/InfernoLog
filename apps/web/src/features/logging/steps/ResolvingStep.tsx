@@ -1,14 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useResolveLevel } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import { StepBody } from '../components'
 
-// Auto-resolves a pre-targeted level when editing (openForEdit), then hands off
-// to applyResolved/goManual — the same transition FindLevelStep performs after
-// the user picks a level. Renders only a brief loading state.
+/**
+ * Auto-resolves a pre-targeted level when editing (openForEdit), then hands off
+ * to applyResolved/goManual — the same transition FindLevelStep performs after
+ * the user picks a level. Renders only a brief loading state.
+ */
 export function ResolvingStep() {
   const { pendingEditLevelId, applyResolved, goManual, close } =
     useLoggingFlow()

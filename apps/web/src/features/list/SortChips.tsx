@@ -12,9 +12,9 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import { cn } from '@/lib/utils'
-import { SORT_OPTIONS, defaultDir, getSortLabel } from './sortMeta'
+import { LIST_SORT_OPTIONS, defaultDir, getSortLabel } from './sortMeta'
 import type { SortKey, SortSpec } from './types'
 
 interface SortChipsProps {
@@ -47,7 +47,7 @@ function Chip({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        'flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-subtle)] py-1.5 pl-2 pr-2 text-xs',
+        'flex items-center gap-1.5 rounded-md border border-border bg-bg-subtle py-1.5 pl-2 pr-2 text-xs',
         isDragging && 'opacity-60'
       )}
     >
@@ -84,6 +84,9 @@ function Chip({
   )
 }
 
+/**
+ * The active sort stack as removable chips, in priority order.
+ */
 export function SortChips({
   sorts,
   onChange,
@@ -91,7 +94,7 @@ export function SortChips({
 }: SortChipsProps) {
   const sensors = useSortableSensors()
   const activeKeys = new Set(sorts.map((s) => s.key))
-  const allOptions = [...SORT_OPTIONS, ...extraSortOptions]
+  const allOptions = [...LIST_SORT_OPTIONS, ...extraSortOptions]
   const available = allOptions.filter((o) => !activeKeys.has(o.key))
 
   function handleDragEnd(e: DragEndEvent) {
@@ -147,7 +150,7 @@ export function SortChips({
           <PopoverTrigger asChild>
             <button
               type="button"
-              className="flex items-center gap-1 rounded-md border border-dashed border-[var(--color-border)] px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer"
+              className="flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1.5 text-xs text-text-secondary hover:text-text-primary cursor-pointer"
             >
               <Plus size={12} /> Sort
             </button>
@@ -158,7 +161,7 @@ export function SortChips({
                 key={o.key}
                 type="button"
                 onClick={() => add(o.key)}
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)] cursor-pointer"
+                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-bg-subtle cursor-pointer"
               >
                 {o.label}
               </button>

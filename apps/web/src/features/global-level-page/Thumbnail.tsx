@@ -14,11 +14,13 @@ interface ThumbnailProps {
   className?: string
 }
 
-// The page's hero image (NOT a backdrop) — the community thumbnail at a fixed
-// 16:9 box, falling back to the local placeholder on 404/error without shifting
-// layout. Deliberately no dark scrim: that treatment is for the logging modal's
-// background, a different job. Keeps the small levelthumbs attribution chip
-// (Apache-2.0, hotlinking permitted within rate limits).
+/**
+ * The page's hero image (NOT a backdrop) — the community thumbnail at a fixed
+ * 16:9 box, falling back to the local placeholder on 404/error without shifting
+ * layout. Deliberately no dark scrim: that treatment is for the logging modal's
+ * background, a different job. Keeps the small levelthumbs attribution chip
+ * (Apache-2.0, hotlinking permitted within rate limits).
+ */
 export function Thumbnail({
   levelId,
   levelName,

@@ -16,11 +16,13 @@ interface GdSearchSectionProps {
   showEnterHint?: boolean
 }
 
-// The escalation portion shared across the toolbar, logging-flow entry, and
-// collections add: the opt-in offer, then (on confirm) the GD-server results
-// grouped rated/unrated, the "nothing new" state, or a retryable failure.
-// Every result row is a brand-new-to-cache level (already-cached levels are
-// deduped server-side), so no already-logged greying is needed here.
+/**
+ * The escalation portion shared across the toolbar, logging-flow entry, and
+ * collections add: the opt-in offer, then (on confirm) the GD-server results
+ * grouped rated/unrated, the "nothing new" state, or a retryable failure.
+ * Every result row is a brand-new-to-cache level (already-cached levels are
+ * deduped server-side), so no already-logged greying is needed here.
+ */
 export function GdSearchSection({
   escalation,
   query,
@@ -126,7 +128,7 @@ function GroupHeader({
       className={cn(
         'pb-1 pt-2.5 text-[10px] font-medium uppercase tracking-wide',
         compact ? 'px-4' : 'px-5',
-        accent ? 'text-[#ffb347]' : 'text-text-secondary'
+        accent ? 'text-accent-hover' : 'text-text-secondary'
       )}
     >
       {children}

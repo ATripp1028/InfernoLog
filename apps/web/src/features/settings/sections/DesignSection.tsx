@@ -1,12 +1,15 @@
 import { SettingsSection, SettingRow } from '../components/SettingsSection'
-import { Switch } from '@/components/ui/switch'
-import { toast } from '@/components/ui/sonner'
+import { Switch } from '@/components/generic/switch'
+import { toast } from '@/components/generic/sonner'
 import { useUpdateMe, type MeData } from '@/lib/api/me'
 
 interface DesignSectionProps {
   me: MeData
 }
 
+/**
+ * Display preferences: rating scale, date format, FAB labels.
+ */
 export function DesignSection({ me }: DesignSectionProps) {
   const update = useUpdateMe()
 

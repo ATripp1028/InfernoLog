@@ -17,8 +17,9 @@ import {
   TIER_DOMAIN,
 } from './types'
 
-// ── Row value extractors ─────────────────────────────────────────────────────
-
+/**
+ * A row's GDDL tier, or `null` when the user has logged no tier opinion for it.
+ */
 export function gddlTier(item: ListItem): number | null {
   return item.userGddlTier ?? null
 }
@@ -98,13 +99,17 @@ const DIFFICULTY_ORDER: Record<string, number> = {
   'Extreme Demon': 10,
 }
 
+/**
+ * A sortable rank for an in-game difficulty string, since the labels do not sort alphabetically into game order.
+ */
 export function difficultyRank(difficulty: string | null): number | null {
   if (!difficulty) return null
   return DIFFICULTY_ORDER[difficulty] ?? null
 }
 
-// ── Range helpers ────────────────────────────────────────────────────────────
-
+/**
+ * Whether a range actually constrains anything — `false` when it still equals its full domain.
+ */
 export function isRangeActive(range: Range, domain: Range): boolean {
   return range[0] > domain[0] || range[1] < domain[1]
 }
@@ -116,8 +121,9 @@ function inRange(value: number, [min, max]: Range): boolean {
 const clamp = (v: number, [min, max]: Range): number =>
   Math.min(max, Math.max(min, v))
 
-// ── Filtering ────────────────────────────────────────────────────────────────
-
+/**
+ * Every filter in {@link FilterState} applied to the rows, in one pass.
+ */
 export function applyFilters(
   items: ListItem[],
   filters: FilterState,
@@ -233,7 +239,9 @@ export function applyFilters(
   })
 }
 
-// Number of constraining filter groups — drives the "Filters · N" badge.
+/**
+ * Number of constraining filter groups — drives the "Filters · N" badge.
+ */
 export function countActiveFilters(filters: FilterState): number {
   let n = 0
   if (filters.statuses.length) n++
@@ -331,15 +339,19 @@ function compareValues(
   return dir === 'asc' ? cmp : -cmp
 }
 
-// Minimal category info needed for tie-breaking; avoids importing API types.
+/**
+ * Minimal category info needed for tie-breaking; avoids importing API types.
+ */
 export interface RatingCategoryTiebreaker {
   id: string
   sortOrder: number
 }
 
-// Stable multi-key sort: specs are applied in priority order.
-// When sorting by 'rating' with ratingCategories provided, ties in the weighted
-// average are broken by category score in priority order (lowest sortOrder first).
+/**
+ * Stable multi-key sort: specs are applied in priority order.
+ * When sorting by 'rating' with ratingCategories provided, ties in the weighted
+ * average are broken by category score in priority order (lowest sortOrder first).
+ */
 export function sortItems(
   items: ListItem[],
   sorts: SortSpec[],

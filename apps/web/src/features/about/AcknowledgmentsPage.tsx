@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { PublicPageShell } from '@/components/PublicPageShell'
+import { PublicPageShell } from '@/components/public/PublicPageShell'
 
 // Public acknowledgments page (route `/about`). Structure follows
 // docs/ACKNOWLEDGMENTS_TEMPLATE.md. Entries the template still leaves as
@@ -70,6 +70,9 @@ function Entry({
   )
 }
 
+/**
+ * Credits for the community data sources and assets InfernoLog builds on.
+ */
 export function AcknowledgmentsPage() {
   return (
     <PublicPageShell maxWidthClassName="max-w-[720px]">

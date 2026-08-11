@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { formatNumber } from '@/features/logging/format'
 import { gdStatIconSrc } from '@/lib/gdAssets'
@@ -26,10 +26,12 @@ function Stat({
   )
 }
 
-// A results-grid row: the level's thumbnail wash under its difficulty face, the
-// load-bearing name + `creator · ID · difficulty` triple, and the
-// user-independent stats (downloads / likes / length). Links to the level's
-// Global Level Page.
+/**
+ * A results-grid row: the level's thumbnail wash under its difficulty face, the
+ * load-bearing name + `creator · ID · difficulty` triple, and the
+ * user-independent stats (downloads / likes / length). Links to the level's
+ * Global Level Page.
+ */
 export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
   const difficulty = level.inGameDifficulty ?? 'Unrated'
   const likes = level.likes ?? 0

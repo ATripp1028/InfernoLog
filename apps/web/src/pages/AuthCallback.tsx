@@ -6,20 +6,22 @@ import {
   useAuth,
   AUTH_INTENT_KEY,
   type AuthIntent,
-} from '../context/AuthContext'
-import { signupStart, signinReject } from '../lib/api/authOnboarding'
-import { apiFetch, ApiError } from '../lib/api/client'
-import type { MeData } from '../lib/api/me'
-import { Button } from '@/components/ui/button'
+} from '@/context/AuthContext'
+import { signupStart, signinReject } from '@/lib/api/authOnboarding'
+import { apiFetch, ApiError } from '@/lib/api/client'
+import type { MeData } from '@/lib/api/me'
+import { Button } from '@/components/generic/button'
 
-// Sign In and Sign Up both land here after Google OAuth completes — Cognito
-// itself makes no distinction between the two. AUTH_INTENT_KEY (set before
-// the redirect, in AuthContext) is how we tell them apart:
-//   - signup: age gate already passed pre-OAuth — create the users row and
-//     head into onboarding.
-//   - signin: check for a matching users row. No match means this Google
-//     account never signed up — synchronously discard the Cognito identity
-//     (no InfernoLog row is ever created for this path) and bounce out.
+/**
+ * Sign In and Sign Up both land here after Google OAuth completes — Cognito
+ * itself makes no distinction between the two. AUTH_INTENT_KEY (set before
+ * the redirect, in AuthContext) is how we tell them apart:
+ *   - signup: age gate already passed pre-OAuth — create the users row and
+ *     head into onboarding.
+ *   - signin: check for a matching users row. No match means this Google
+ *     account never signed up — synchronously discard the Cognito identity
+ *     (no InfernoLog row is ever created for this path) and bounce out.
+ */
 export function AuthCallback() {
   const navigate = useNavigate()
   const { isAuthenticated, getIdToken } = useAuth()
@@ -91,7 +93,7 @@ export function AuthCallback() {
   if (error) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-sm text-[var(--color-danger)]">{error}</p>
+        <p className="text-sm text-danger">{error}</p>
         <Button variant="outline" onClick={() => navigate({ to: '/' })}>
           Back to sign in
         </Button>

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { toast } from '@/components/generic/sonner'
 import { useLogCompletion } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
@@ -8,7 +8,8 @@ import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty } from '@/lib/gdAssets'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
-import { formatNumber, formatRating } from '../format'
+import { formatNumber } from '../format'
+import { formatRating } from '@/lib/ratingScale'
 import { opinionToStars } from '@infernolog/core'
 
 const OPINION_LABELS: Record<string, string> = {
@@ -29,6 +30,9 @@ function opinionLabel(opinion: string): string {
   return OPINION_LABELS[opinion] ?? opinion
 }
 
+/**
+ * Completion step 5: everything about to be written, and the submit.
+ */
 export function CompletionReviewStep() {
   const { level, draft, setStep, setLastCompletion } = useLoggingFlow()
   const me = useMe()

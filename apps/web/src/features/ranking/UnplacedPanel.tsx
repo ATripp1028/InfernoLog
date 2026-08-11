@@ -1,6 +1,6 @@
 import { forwardRef } from 'react'
 import { Search, PanelRight } from 'lucide-react'
-import { Input } from '@/components/ui/input'
+import { Input } from '@/components/generic/input'
 
 interface UnplacedPanelProps {
   count: number
@@ -10,21 +10,21 @@ interface UnplacedPanelProps {
   children: React.ReactNode
 }
 
-// Presentational shell for the Unplaced side panel (and the mobile sheet). The
-// droppable ref + over-state are wired by the board; the panel itself is
-// layout-only so it can be reused outside the DnD context.
+/**
+ * Presentational shell for the Unplaced side panel (and the mobile sheet). The
+ * droppable ref + over-state are wired by the board; the panel itself is
+ * layout-only so it can be reused outside the DnD context.
+ */
 export const UnplacedPanel = forwardRef<HTMLDivElement, UnplacedPanelProps>(
   ({ count, search, onSearch, isOver, children }, ref) => (
     <div
       ref={ref}
       className={[
-        'flex h-full flex-col rounded-card border bg-[var(--color-bg-surface)]',
-        isOver
-          ? 'border-[var(--color-primary)]'
-          : 'border-[var(--color-border-subtle)]',
+        'flex h-full flex-col rounded-card border bg-bg-surface',
+        isOver ? 'border-primary' : 'border-border-subtle',
       ].join(' ')}
     >
-      <div className="flex items-center gap-2 border-b border-[var(--color-border-subtle)] px-3 py-3">
+      <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-3">
         <PanelRight className="size-4 text-text-secondary" />
         <span className="text-sm font-semibold text-text-primary">
           Unplaced

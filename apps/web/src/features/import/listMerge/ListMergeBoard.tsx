@@ -1,50 +1,22 @@
-// Three-column git-merge-style board for reconciling two orderings (an
-// existing DB order vs. an imported sheet order) — used by Collections and
-// Ranking. Only ever rendered when the backend's computeListMerge found a
-// genuine conflict (see apps/api/src/utils/listMerge.ts); when it didn't,
-// the wizard uses mergedSeed directly and skips this component entirely.
-//
-// Left column ("Imported") and right column ("Existing") are the source
-// pools — entries still needing a decision. Middle column ("Merged") is the
-// working result, pre-seeded from mergedSeed. A levelId present in both
-// importedRemainder and existingRemainder is ONE contested entry: the
-// interactive, draggable card lives in the left column; the right column
-// shows a non-interactive reference card at the same identity so the user
-// can see "this used to be here" without a second, independently-draggable
-// copy of the same id (dnd-kit requires unique ids per drag context).
-//
-// Confirming never requires every entry to be placed — an entry left in
-// either source column is voided (excluded from the final order), gated by
-// a required acknowledgement checkbox once anything would be lost.
-
-import { useState, useMemo } from 'react'
 import { forwardRef } from 'react'
-import {
-  DndContext,
-  DragOverlay,
-  useDroppable,
-  type DragEndEvent,
-  type DragOverEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core'
+import { DndContext, DragOverlay, useDroppable } from '@dnd-kit/core'
 import {
   SortableContext,
-  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { cn } from '@/lib/utils'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
 import { DragHandle } from '@/features/settings/components/DragHandle'
-import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import {
+  useListMergeBoard,
+  type ContainerId,
+  type ListMergeEntry,
+} from './useListMergeBoard'
 
-export interface ListMergeEntry {
-  levelId: string
-  levelName: string | null
-}
+export type { ListMergeEntry }
 
 interface ListMergeBoardProps {
   title: string
@@ -59,8 +31,6 @@ interface ListMergeBoardProps {
   onConfirm: (finalOrder: string[]) => void
   onCancel: () => void
 }
-
-type ContainerId = 'left' | 'middle' | 'right'
 
 function entryLabel(entry: ListMergeEntry): string {
   return entry.levelName ?? `Level ${entry.levelId}`
@@ -82,8 +52,8 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
       className={cn(
         'relative flex items-center gap-2 overflow-hidden rounded-md border px-2 py-2 text-sm',
         muted
-          ? 'border-dashed border-[var(--color-border-subtle)] text-muted-foreground'
-          : 'border-[var(--color-border)] bg-[var(--color-bg-surface)]',
+          ? 'border-dashed border-border-subtle text-muted-foreground'
+          : 'border-border bg-bg-surface',
         isDragging && 'opacity-50'
       )}
     >
@@ -104,7 +74,7 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
           muted ? 'opacity-20' : 'opacity-35'
         )}
       />
-      <div className="pointer-events-none absolute inset-0 bg-[var(--color-bg-surface)]/70" />
+      <div className="pointer-events-none absolute inset-0 bg-bg-surface/70" />
       {handle && <span className="relative z-10">{handle}</span>}
       <span className="relative z-10 min-w-0 flex-1 truncate">
         {entryLabel(entry)}
@@ -176,9 +146,8 @@ function Column({
       <div
         ref={setNodeRef}
         className={cn(
-          'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-[var(--color-border)] p-2',
-          isOver &&
-            'bg-[var(--color-primary-dim)] ring-1 ring-[var(--color-primary)]'
+          'max-h-[360px] min-h-[240px] space-y-1.5 overflow-y-auto rounded-lg border border-border p-2',
+          isOver && 'bg-primary-dim ring-1 ring-primary'
         )}
       >
         {children}
@@ -187,6 +156,26 @@ function Column({
   )
 }
 
+/**
+ * Three-column git-merge-style board for reconciling two orderings (an
+ * existing DB order vs. an imported sheet order) — used by Collections and
+ * Ranking. Only ever rendered when the backend's computeListMerge found a
+ * genuine conflict (see apps/api/src/utils/listMerge.ts); when it didn't,
+ * the wizard uses mergedSeed directly and skips this component entirely.
+ *
+ * Left column ("Imported") and right column ("Existing") are the source
+ * pools — entries still needing a decision. Middle column ("Merged") is the
+ * working result, pre-seeded from mergedSeed. A levelId present in both
+ * importedRemainder and existingRemainder is ONE contested entry: the
+ * interactive, draggable card lives in the left column; the right column
+ * shows a non-interactive reference card at the same identity so the user
+ * can see "this used to be here" without a second, independently-draggable
+ * copy of the same id (dnd-kit requires unique ids per drag context).
+ *
+ * Confirming never requires every entry to be placed — an entry left in
+ * either source column is voided (excluded from the final order), gated by
+ * a required acknowledgement checkbox once anything would be lost.
+ */
 export function ListMergeBoard({
   title,
   mergedSeed,
@@ -197,130 +186,30 @@ export function ListMergeBoard({
   onConfirm,
   onCancel,
 }: ListMergeBoardProps) {
-  const sensors = useSortableSensors()
-
-  const entriesById = useState(() => {
-    const m = new Map<string, ListMergeEntry>()
-    for (const e of [
-      ...mergedSeed,
-      ...importedRemainder,
-      ...existingRemainder,
-      ...importedOrder,
-      ...existingOrder,
-    ]) {
-      m.set(e.levelId, e)
-    }
-    return m
-  })[0]
-
-  const contestedIds = useState(() => {
-    const importedIds = new Set(importedRemainder.map((e) => e.levelId))
-    return new Set(
-      existingRemainder
-        .map((e) => e.levelId)
-        .filter((id) => importedIds.has(id))
-    )
-  })[0]
-
-  const [containers, setContainers] = useState<Record<ContainerId, string[]>>({
-    left: importedRemainder.map((e) => e.levelId),
-    middle: mergedSeed.map((e) => e.levelId),
-    // The right column's interactive set excludes contested ids — those are
-    // shown as read-only reference cards instead (see below).
-    right: existingRemainder
-      .map((e) => e.levelId)
-      .filter((id) => !contestedIds.has(id)),
+  const {
+    sensors,
+    collisionDetection,
+    containers,
+    entriesById,
+    contestedReferenceCards,
+    activeEntry,
+    handleDragStart,
+    handleDragOver,
+    handleDragEnd,
+    clearActive,
+    applyWholeOrder,
+    unplacedCount,
+    acknowledgeVoid,
+    setAcknowledgeVoid,
+    canConfirm,
+    finalOrder,
+  } = useListMergeBoard({
+    mergedSeed,
+    importedRemainder,
+    existingRemainder,
+    importedOrder,
+    existingOrder,
   })
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [acknowledgeVoid, setAcknowledgeVoid] = useState(false)
-
-  // See collisionDetection.ts for why this needs to be more than
-  // pointerWithin/rectIntersection alone.
-  const { collisionDetection, markCrossContainerMove } =
-    useMultiContainerCollisionDetection(['left', 'middle', 'right'])
-
-  const findContainer = (id: string): ContainerId | null => {
-    if (id === 'left' || id === 'middle' || id === 'right') return id
-    if (containers.left.includes(id)) return 'left'
-    if (containers.middle.includes(id)) return 'middle'
-    if (containers.right.includes(id)) return 'right'
-    return null
-  }
-
-  function handleDragStart(e: DragStartEvent) {
-    setActiveId(String(e.active.id))
-  }
-
-  function handleDragOver(e: DragOverEvent) {
-    const { active, over } = e
-    if (!over) return
-    const activeC = findContainer(String(active.id))
-    const overC = findContainer(String(over.id))
-    if (!activeC || !overC || activeC === overC) return
-
-    markCrossContainerMove()
-    setContainers((prev) => {
-      const activeItems = prev[activeC]
-      const overItems = prev[overC]
-      const overIsContainer =
-        over.id === 'left' || over.id === 'middle' || over.id === 'right'
-      const overIndex = overIsContainer
-        ? overItems.length
-        : overItems.indexOf(String(over.id))
-      const insertAt = overIndex < 0 ? overItems.length : overIndex
-      return {
-        ...prev,
-        [activeC]: activeItems.filter((id) => id !== String(active.id)),
-        [overC]: [
-          ...overItems.slice(0, insertAt),
-          String(active.id),
-          ...overItems.slice(insertAt),
-        ],
-      }
-    })
-  }
-
-  function handleDragEnd(e: DragEndEvent) {
-    const { active, over } = e
-    const id = String(active.id)
-    setActiveId(null)
-    if (!over) return
-
-    const end = findContainer(id)
-    if (end !== 'middle') return
-    const overC = findContainer(String(over.id))
-    if (overC !== 'middle' || String(over.id) === id) return
-
-    setContainers((prev) => {
-      const from = prev.middle.indexOf(id)
-      const to = prev.middle.indexOf(String(over.id))
-      if (from < 0 || to < 0) return prev
-      return { ...prev, middle: arrayMove(prev.middle, from, to) }
-    })
-  }
-
-  // Bulk escape hatches: pick one side's order wholesale instead of
-  // reconciling by hand — the manual drag flow requires holding both orders
-  // in your head at once to notice where they actually disagree, which gets
-  // impractical past a handful of entries.
-  const applyWholeOrder = (order: ListMergeEntry[]) => {
-    setContainers({ left: [], middle: order.map((e) => e.levelId), right: [] })
-    setAcknowledgeVoid(false)
-  }
-
-  const unplacedCount = containers.left.length + containers.right.length
-  const canConfirm = unplacedCount === 0 || acknowledgeVoid
-  const activeEntry = activeId ? entriesById.get(activeId) : null
-
-  // existingRemainder/contestedIds are both stable after mount (contestedIds
-  // is itself a lazy-initialized useState — see above), but handleDragOver
-  // calls setContainers on every cross-container pointer move, re-rendering
-  // this component constantly during a drag — memoized so that doesn't
-  // re-filter the full existing-list remainder on every pointer move.
-  const contestedReferenceCards = useMemo(
-    () => existingRemainder.filter((e) => contestedIds.has(e.levelId)),
-    [existingRemainder, contestedIds]
-  )
 
   return (
     <div className="space-y-4">
@@ -354,7 +243,7 @@ export function ListMergeBoard({
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setActiveId(null)}
+        onDragCancel={clearActive}
       >
         <div className="flex gap-3 overflow-x-auto pb-1">
           <Column id="left" title="Imported" count={containers.left.length}>
@@ -420,7 +309,7 @@ export function ListMergeBoard({
       </DndContext>
 
       {unplacedCount > 0 && (
-        <label className="flex items-start gap-2 text-xs text-amber-600 dark:text-amber-400">
+        <label className="flex items-start gap-2 text-xs text-warning-soft">
           <input
             type="checkbox"
             className="mt-0.5"
@@ -432,14 +321,11 @@ export function ListMergeBoard({
         </label>
       )}
 
-      <div className="flex gap-3 border-t border-[var(--color-border)] pt-4">
+      <div className="flex gap-3 border-t border-border pt-4">
         <Button variant="outline" onClick={onCancel}>
           Cancel
         </Button>
-        <Button
-          onClick={() => onConfirm(containers.middle)}
-          disabled={!canConfirm}
-        >
+        <Button onClick={() => onConfirm(finalOrder)} disabled={!canConfirm}>
           Confirm order
         </Button>
       </div>

@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// A collapsible filter section: header row with a chevron, content below.
+/**
+ * A collapsible filter section: header row with a chevron, content below.
+ */
 export function FilterSection({
   title,
   children,
@@ -14,7 +16,7 @@ export function FilterSection({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="border-b border-[var(--color-border-subtle)]">
+    <div className="border-b border-border-subtle">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}

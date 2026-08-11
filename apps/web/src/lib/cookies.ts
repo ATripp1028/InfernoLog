@@ -2,6 +2,12 @@
 // this prefix. Deleting an account should leave no trace of them behind.
 const APP_COOKIE_PREFIX = 'il_'
 
+/**
+ * Deletes every cookie InfernoLog set, identified by the `il_` prefix.
+ *
+ * Called on account deletion so nothing about the account survives locally —
+ * the preset selection and the age-gate cooldown both live in cookies.
+ */
 export function clearAllAppCookies(): void {
   const names = document.cookie
     .split('; ')

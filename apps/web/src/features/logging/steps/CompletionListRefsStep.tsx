@@ -1,5 +1,5 @@
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldError,
@@ -11,6 +11,9 @@ import {
 } from '../components'
 import { digitsOnly, maxValueError, MAX_GDDL_TIER } from '../format'
 
+/**
+ * Completion step 3: the community difficulty-list tiers for this completion.
+ */
 export function CompletionListRefsStep() {
   const { level, draft, suggestedGddlTier, patchDraft, setStep } =
     useLoggingFlow()

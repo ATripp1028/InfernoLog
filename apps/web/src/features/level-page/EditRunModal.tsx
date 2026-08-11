@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -6,116 +5,32 @@ import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { FieldError } from '@/components/ui/field-error'
-import { toast } from '@/components/ui/sonner'
-import {
-  digitsOnly,
-  maxValueError,
-  toDisplay,
-  toInternal,
-  MAX_ATTEMPTS,
-  MAX_FPS,
-} from '@/features/logging/format'
-import { useMe, type RatingDisplayScale } from '@/lib/api/me'
-import type { DateFormatPreference } from '@/lib/api/me'
-import { useEditProgress } from '@/lib/api/levelPage'
-import { formatEntryDateTime } from '@/lib/dateFormat'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
+import { FieldError } from '@/components/generic/field-error'
+import { digitsOnly } from '@/features/logging/format'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import {
   DevicePicker,
   GdVersionPicker,
   GdVersionInfoButton,
-  isPreTwoTwo,
-} from '@/features/logging/steps/CompletionSessionStep'
+} from '@/features/logging/pickers'
 import { DateTimeField } from '@/features/logging/components'
-import { getViewerTimezone } from '@/lib/timezone'
-import type { Device } from '@/lib/api/logging'
 import {
   Section,
   FieldLabel,
   Textarea,
   RatingRow,
-  DifficultyOpinionSelect,
-  EditTwoPlayerSection,
-  zonedDateTimeInput,
-  composeZonedDate,
-  type DifficultyOpinion,
+  TwoPlayerPicker,
 } from './EditShared'
-import {
-  RunInput,
-  formatRunInputValue,
-  parseRunInput,
-  type ParsedRun,
-} from '@/features/logging/RunInput'
-import type { LevelPageData, ProgressUpdate } from './types'
-
-interface EditRunForm {
-  date: string
-  time: string
-  timezone: string
-  dateUncertain: boolean
-  attempts: string
-  fps: string
-  percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
-  onStream: boolean
-  difficultyOpinion: DifficultyOpinion | null
-  enjoyment: number | null
-  videoUrl: string
-  highlightUrl: string
-  notes: string
-  twoPlayerSolo: boolean | null
-  twoPlayerPartner: string
-  device: Device | null
-}
-
-function initForm(
-  update: ProgressUpdate,
-  scale: RatingDisplayScale
-): EditRunForm {
-  const session = zonedDateTimeInput(update.date, update.dateTimezone)
-  return {
-    date: session.date,
-    time: session.time,
-    timezone: update.dateTimezone ?? getViewerTimezone(),
-    dateUncertain: update.dateUncertain,
-    attempts: update.attempts != null ? String(update.attempts) : '',
-    fps: update.fps != null ? String(update.fps) : '',
-    percentageVersion:
-      (update.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ?? 'TWO_TWO',
-    onStream: update.onStream,
-    difficultyOpinion:
-      (update.difficultyOpinion as DifficultyOpinion | null) ?? null,
-    enjoyment:
-      update.enjoyment != null ? toDisplay(update.enjoyment, scale) : null,
-    videoUrl: update.videoUrl ?? '',
-    highlightUrl: update.highlightUrl ?? '',
-    notes: update.notes ?? '',
-    twoPlayerSolo: update.twoPlayerSolo ?? null,
-    twoPlayerPartner: update.twoPlayerPartner ?? '',
-    device: (update.device as Device | null | undefined) ?? null,
-  }
-}
-
-const EMPTY_FORM: EditRunForm = {
-  date: '',
-  time: '',
-  timezone: getViewerTimezone(),
-  dateUncertain: false,
-  attempts: '',
-  fps: '',
-  percentageVersion: 'TWO_TWO',
-  onStream: false,
-  difficultyOpinion: null,
-  enjoyment: null,
-  videoUrl: '',
-  highlightUrl: '',
-  notes: '',
-  twoPlayerSolo: null,
-  twoPlayerPartner: '',
-  device: null,
-}
+import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'
+import { RunInput, formatRunInputValue } from '@/features/logging/RunInput'
+import type { LevelPageData } from './types'
+import { useEditRunModal } from './useEditRunModal'
 
 interface EditRunModalProps {
   open: boolean
@@ -130,6 +45,9 @@ interface EditRunModalProps {
   progressUpdateId: string | null
 }
 
+/**
+ * Edits one logged update. Completion-only fields appear only when the update is the completion.
+ */
 export function EditRunModal({
   open,
   onClose,
@@ -139,121 +57,33 @@ export function EditRunModal({
   datePref,
   progressUpdateId,
 }: EditRunModalProps) {
-  const update = progressUpdateId
-    ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
-    : undefined
-  const me = useMe()
-  const editProgress = useEditProgress(levelId)
+  const {
+    ready,
+    update,
+    form,
+    patch,
+    setParsedRun,
+    isCompletion,
+    isProgress,
+    showHighlightUrl,
+    showVersionPicker,
+    attemptsError,
+    fpsError,
+    entryLabel,
+    hasFieldError,
+    handleSave,
+    isSaving,
+  } = useEditRunModal({
+    open,
+    onClose,
+    data,
+    levelId,
+    scale,
+    datePref,
+    progressUpdateId,
+  })
 
-  const [form, setForm] = useState<EditRunForm>(EMPTY_FORM)
-  const [parsedRun, setParsedRun] = useState<ParsedRun | null>(null)
-
-  // Reset from server data every time the dialog opens (or the target
-  // entry changes while open) — mirrors the original combined modal's
-  // reset-on-open effect, so a cancel-then-reopen never shows stale edits.
-  useEffect(() => {
-    if (!open || !update) return
-    setForm(initForm(update, scale))
-    const initialText = formatRunInputValue(
-      update.percentage,
-      update.runFrom,
-      update.runTo
-    )
-    const result = parseRunInput(initialText)
-    setParsedRun(
-      result.kind === 'ok' ? { from: result.from, to: result.to } : null
-    )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, progressUpdateId, scale])
-
-  if (!update || !me.data) return null
-
-  const isCompletion = update.kind === 'COMPLETION'
-  const isDrop = update.kind === 'DROP'
-  const isProgress = update.kind === 'PROGRESS'
-  const showHighlightUrl = me.data.showHighlightUrl
-  const completionUpdate = data.progressUpdates.find(
-    (u) => u.kind === 'COMPLETION'
-  )
-  const showVersionPicker =
-    data.level.levelType === 'CLASSIC' &&
-    !(
-      completionUpdate?.date != null &&
-      isPreTwoTwo(String(completionUpdate.date))
-    )
-
-  const attemptsError = maxValueError(form.attempts, MAX_ATTEMPTS)
-  const fpsError = maxValueError(form.fps, MAX_FPS)
-  const runInputMissing = isProgress && parsedRun == null
-  const hasFieldError =
-    attemptsError != null || fpsError != null || runInputMissing
-
-  function patch(updates: Partial<EditRunForm>) {
-    setForm((prev) => ({ ...prev, ...updates }))
-  }
-
-  const entryLabel = isCompletion
-    ? 'your completion'
-    : isDrop
-      ? 'your drop'
-      : `progress from ${
-          formatEntryDateTime(
-            update.date ?? update.loggedAt,
-            update.dateTimezone,
-            datePref,
-            getViewerTimezone()
-          ).dateText
-        }`
-
-  function handleSave() {
-    if (!update) return
-    const session = composeZonedDate(form.date, form.time, form.timezone)
-    if (session === 'invalid') return
-
-    const payload: Record<string, unknown> = {
-      progressUpdateId: update.progressUpdateId,
-      ...session,
-      dateUncertain: form.dateUncertain,
-      attempts: form.attempts !== '' ? parseInt(form.attempts, 10) : null,
-      fps: form.fps !== '' ? parseInt(form.fps, 10) : null,
-      percentageVersion: form.percentageVersion,
-      onStream: form.onStream,
-      notes: form.notes || null,
-      device: form.device,
-      enjoyment:
-        form.enjoyment != null ? toInternal(form.enjoyment, scale) : null,
-    }
-
-    if (isProgress && parsedRun) {
-      if (parsedRun.from === 0) {
-        payload.percentage = parsedRun.to
-      } else {
-        payload.runFrom = parsedRun.from
-        payload.runTo = parsedRun.to
-      }
-    }
-
-    if (isCompletion) {
-      payload.difficultyOpinion = form.difficultyOpinion
-      payload.videoUrl = form.videoUrl || null
-      payload.highlightUrl = form.highlightUrl || null
-      if (data.level.twoPlayer) {
-        payload.twoPlayerSolo = form.twoPlayerSolo
-        payload.twoPlayerPartner =
-          form.twoPlayerSolo === false ? form.twoPlayerPartner || null : null
-      }
-    }
-
-    editProgress.mutate(payload, {
-      onSuccess: () => {
-        toast.success('Changes saved')
-        onClose()
-      },
-      onError: () => {
-        toast.error('Failed to save changes')
-      },
-    })
-  }
+  if (!ready || !update) return null
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
@@ -404,14 +234,22 @@ export function EditRunModal({
               )}
 
               {isCompletion && data.level.twoPlayer && (
-                <EditTwoPlayerSection
-                  solo={form.twoPlayerSolo}
-                  partner={form.twoPlayerPartner}
-                  onSoloChange={(v) =>
-                    patch({ twoPlayerSolo: v, twoPlayerPartner: '' })
-                  }
-                  onPartnerChange={(v) => patch({ twoPlayerPartner: v })}
-                />
+                <Section label="2-Player">
+                  <TwoPlayerPicker
+                    solo={form.twoPlayerSolo}
+                    partner={form.twoPlayerPartner}
+                    onSoloChange={(v) =>
+                      patch({ twoPlayerSolo: v, twoPlayerPartner: '' })
+                    }
+                    onPartnerChange={(v) => patch({ twoPlayerPartner: v })}
+                    partnerInputId="edit-run-partner"
+                    partnerLabel={
+                      <FieldLabel htmlFor="edit-run-partner">
+                        Partner
+                      </FieldLabel>
+                    }
+                  />
+                </Section>
               )}
 
               <Section label="Rating">
@@ -474,11 +312,8 @@ export function EditRunModal({
               <Button variant="outline" onClick={onClose}>
                 Cancel
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={editProgress.isPending || hasFieldError}
-              >
-                {editProgress.isPending ? 'Saving…' : 'Save changes'}
+              <Button onClick={handleSave} disabled={isSaving || hasFieldError}>
+                {isSaving ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
           </div>

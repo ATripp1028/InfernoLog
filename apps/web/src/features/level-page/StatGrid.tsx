@@ -2,12 +2,13 @@ import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
-import { formatRating, formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/features/logging/format'
+import { formatRating } from '@/lib/ratingScale'
+import type { RatingCategory } from '@/lib/api/me'
 import type {
   DateFormatPreference,
   RatingDisplayScale,
-  RatingCategory,
-} from '@/lib/api/me'
+} from '@/lib/api/wireEnums'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 const VIEWER_TZ = getViewerTimezone()
@@ -73,6 +74,9 @@ interface StatGridProps {
   ratingCategories: RatingCategory[]
 }
 
+/**
+ * The level page's headline stats: attempts, ratings, worst fail, and the rest.
+ */
 export function StatGrid({
   data,
   datePref,
@@ -155,7 +159,7 @@ export function StatGrid({
             {uncertain && (
               <HelpCircle
                 size={13}
-                className="shrink-0 text-[var(--color-warning)]"
+                className="shrink-0 text-warning"
                 aria-label="Date uncertain"
               />
             )}

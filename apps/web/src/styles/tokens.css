@@ -19,90 +19,102 @@
 @theme {
   /* ── Fonts ─────────────────────────────────────────────────────────── */
   --font-display: 'Fredoka One', 'Nunito', sans-serif;
-  --font-sans:    'Inter', sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  --font-sans: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
 
   /* ── Type scale ────────────────────────────────────────────────────── */
-  --text-xs:   0.75rem;    /* 12px */
-  --text-sm:   0.875rem;   /* 14px */
-  --text-base: 1rem;       /* 16px */
-  --text-lg:   1.125rem;   /* 18px */
-  --text-xl:   1.25rem;    /* 20px */
-  --text-2xl:  1.5rem;     /* 24px */
-  --text-3xl:  1.875rem;   /* 30px */
-  --text-4xl:  2.25rem;    /* 36px */
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem; /* 20px */
+  --text-2xl: 1.5rem; /* 24px */
+  --text-3xl: 1.875rem; /* 30px */
+  --text-4xl: 2.25rem; /* 36px */
 
   /* ── Spacing ───────────────────────────────────────────────────────── */
-  --spacing-1:  4px;
-  --spacing-2:  8px;
-  --spacing-3:  12px;
-  --spacing-4:  16px;
-  --spacing-5:  20px;
-  --spacing-6:  24px;
-  --spacing-8:  32px;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 20px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
   --spacing-10: 40px;
   --spacing-12: 48px;
   --spacing-16: 64px;
 
   /* ── Border radius ─────────────────────────────────────────────────── */
-  --radius-badge:  4px;
-  --radius-btn:    6px;
-  --radius-card:   8px;
-  --radius-fab:    9999px;
+  --radius-badge: 4px;
+  --radius-btn: 6px;
+  --radius-card: 8px;
+  --radius-fab: 9999px;
 
   /* ── Transitions ───────────────────────────────────────────────────── */
   --duration-micro: 150ms;
   --duration-panel: 250ms;
-  --duration-page:  350ms;
-  --ease-enter:     ease-out;
-  --ease-leave:     ease-in;
-  --ease-move:      ease-in-out;
+  --duration-page: 350ms;
+  --ease-enter: ease-out;
+  --ease-leave: ease-in;
+  --ease-move: ease-in-out;
 
   /* ── Background colors ─────────────────────────────────────────────── */
-  --color-bg-base:     #0d0d0d;
-  --color-bg-surface:  #171717;
+  --color-bg-base: #0d0d0d;
+  /* An inset well *below* the surface it sits in — the level page's note and
+     timeline cards. Darker than bg-base on purpose. */
+  --color-bg-inset: #141414;
+  --color-bg-surface: #171717;
   --color-bg-elevated: #212121;
-  --color-bg-subtle:   #2a2a2a;
+  --color-bg-subtle: #2a2a2a;
 
   /* ── Border colors ─────────────────────────────────────────────────── */
-  --color-border:        #333333;
+  --color-border: #333333;
   --color-border-subtle: #242424;
 
   /* ── Primary — Inferno Red/Orange ──────────────────────────────────── */
-  --color-primary:       #e8390e;
+  --color-primary: #e8390e;
   --color-primary-hover: #ff4d1f;
   --color-primary-light: #ff6b35;
-  --color-primary-dim:   #e8390e1a;
+  --color-primary-dim: #e8390e1a;
+  --color-primary-soft: #ff8a6a;
 
   /* ── Accent — Amber ────────────────────────────────────────────────── */
-  --color-accent:       #ff9f1c;
+  --color-accent: #ff9f1c;
   --color-accent-hover: #ffb347;
-  --color-accent-dim:   #ff9f1c1a;
+  --color-accent-dim: #ff9f1c1a;
 
   /* ── Semantic ──────────────────────────────────────────────────────── */
-  --color-success:     #22c55e;
+  /* `-dim` is the tinted background; `-soft` is the lightened text that reads
+     against it. A badge is the pair: bg-<name>-dim + text-<name>-soft. */
+  --color-success: #22c55e;
   --color-success-dim: #22c55e1a;
-  --color-warning:     #f59e0b;
+  --color-success-soft: #5ddc8a;
+  --color-warning: #f59e0b;
   --color-warning-dim: #f59e0b1a;
-  --color-danger:      #ef4444;
-  --color-danger-dim:  #ef44441a;
-  --color-info:        #3b82f6;
-  --color-info-dim:    #3b82f61a;
+  --color-warning-soft: #fbbf24;
+  --color-danger: #ef4444;
+  --color-danger-dim: #ef44441a;
+  --color-danger-soft: #ff8a8a;
+  --color-info: #3b82f6;
+  --color-info-dim: #3b82f61a;
 
   /* ── Text ──────────────────────────────────────────────────────────── */
-  --color-text-primary:   #f5f5f5;
+  --color-text-primary: #f5f5f5;
+  /* Long-form prose (notes, timeline bodies) — softer than text-primary so a
+     paragraph doesn't compete with the headings around it. */
+  --color-text-body: #c8c8c8;
   --color-text-secondary: #a3a3a3;
-  --color-text-tertiary:  #666666;
-  --color-text-inverse:   #0d0d0d;
+  --color-text-tertiary: #666666;
+  --color-text-inverse: #0d0d0d;
 
   /* ── NLW tier colors ───────────────────────────────────────────────── */
-  --color-nlw-beginner:  #6495ed;
-  --color-nlw-easy:      #00bfff;
-  --color-nlw-medium:    #32cd32;
-  --color-nlw-hard:      #ffd700;
+  --color-nlw-beginner: #6495ed;
+  --color-nlw-easy: #00bfff;
+  --color-nlw-medium: #32cd32;
+  --color-nlw-hard: #ffd700;
   --color-nlw-very-hard: #ff8c00;
-  --color-nlw-insane:    #ff0000;
-  --color-nlw-remorse:   #9400d3;
+  --color-nlw-insane: #ff0000;
+  --color-nlw-remorse: #9400d3;
 }
 
 /* ── Base styles ──────────────────────────────────────────────────────── */

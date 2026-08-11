@@ -3,9 +3,9 @@ import { SettingsSection } from '../components/SettingsSection'
 import { UsernameEditor } from '../components/UsernameEditor'
 import { ConnectedAccountRow } from '../components/ConnectedAccountRow'
 import { GddlApiKeyEditor } from '../components/GddlApiKeyEditor'
-import { Button } from '@/components/ui/button'
-import { AlertDialog } from '@/components/ui/alert-dialog'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { AlertDialog } from '@/components/generic/alert-dialog'
+import { toast } from '@/components/generic/sonner'
 import {
   useConnectDiscord,
   useDisconnectDiscord,
@@ -16,6 +16,9 @@ interface AccountSectionProps {
   me: MeData
 }
 
+/**
+ * Account settings: username, connected accounts, GDDL API key.
+ */
 export function AccountSection({ me }: AccountSectionProps) {
   const connect = useConnectDiscord()
   const disconnect = useDisconnectDiscord()

@@ -1,16 +1,11 @@
-// Create / edit collection modal (mocks 1174:3 create, 1255:2 validation).
-// Name + optional description; duplicate and reserved-name violations render
-// inline under a red Name input with the primary action disabled. Validation
-// runs client-side against the cached index, and the same server codes
-// (DUPLICATE_NAME / RESERVED_NAME) are mapped back if a race slips through.
-
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, X } from 'lucide-react'
 import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
+import { Textarea } from '@/components/generic/textarea'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/MobileSheetDialog'
+import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
 import {
   collectionErrorCode,
   useCollections,
@@ -36,6 +31,13 @@ const isReserved = (name: string) =>
     (r) => r.toLowerCase() === name.trim().toLowerCase()
   )
 
+/**
+ * Create / edit collection modal (mocks 1174:3 create, 1255:2 validation).
+ * Name + optional description; duplicate and reserved-name violations render
+ * inline under a red Name input with the primary action disabled. Validation
+ * runs client-side against the cached index, and the same server codes
+ * (DUPLICATE_NAME / RESERVED_NAME) are mapped back if a race slips through.
+ */
 export function CollectionFormDialog({
   open,
   onClose,
@@ -137,18 +139,18 @@ export function CollectionFormDialog({
             className={cn(
               'h-11 w-full rounded-btn border bg-bg-base px-3 pr-9 text-sm text-text-primary outline-none placeholder:text-text-tertiary',
               error
-                ? 'border-[1.5px] border-red-500'
+                ? 'border-[1.5px] border-danger'
                 : 'border-border focus:border-primary'
             )}
           />
           {error && (
             <AlertTriangle
               size={16}
-              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-red-500"
+              className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-danger"
             />
           )}
         </div>
-        {error && <p className="text-xs text-red-500">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
       </div>
 
       <div className="flex flex-col gap-2">
@@ -161,14 +163,14 @@ export function CollectionFormDialog({
           </label>
           <span className="text-[11px] text-text-tertiary">Optional</span>
         </div>
-        <textarea
+        <Textarea
           id="collection-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           maxLength={200}
           rows={3}
           placeholder="What's this collection for?"
-          className="w-full resize-none rounded-btn border border-border bg-bg-base px-3 py-2.5 text-sm text-text-primary outline-none placeholder:text-text-tertiary focus:border-primary"
+          className="resize-none"
         />
       </div>
     </div>

@@ -1,7 +1,8 @@
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { Textarea } from '@/components/generic/textarea'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
+import { toast } from '@/components/generic/sonner'
 import { useLogDrop } from '@/lib/api/logging'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 import {
@@ -21,6 +22,9 @@ import {
   MAX_ATTEMPTS,
 } from '../format'
 
+/**
+ * The drop path: date, attempts, worst fail, and an optional reason.
+ */
 export function DropStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const logDrop = useLogDrop()
@@ -145,14 +149,13 @@ export function DropStep() {
 
         <div>
           <FieldLabel htmlFor="d-reason">Reason (optional)</FieldLabel>
-          <textarea
+          <Textarea
             id="d-reason"
             value={draft.droppedReason}
             onChange={(e) => patchDraft({ droppedReason: e.target.value })}
             rows={3}
             maxLength={2000}
             placeholder="Why are you setting this aside?"
-            className="flex w-full rounded-md border border-input bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-foreground shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           />
         </div>
 

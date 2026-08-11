@@ -14,10 +14,12 @@ import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'
 import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
 
-// The Search tab. A top-center bar commits a full, filterable, cursor-paginated
-// cache search to the URL (/search?query=…); the results grid, filters, sort,
-// and the opt-in RobTop escalation all read from that URL state. Numeric input
-// is treated as a level id and routed to the Global Level Page (in the bar).
+/**
+ * The Search tab. A top-center bar commits a full, filterable, cursor-paginated
+ * cache search to the URL (/search?query=…); the results grid, filters, sort,
+ * and the opt-in RobTop escalation all read from that URL state. Numeric input
+ * is treated as a level id and routed to the Global Level Page (in the bar).
+ */
 export function SearchPage() {
   const state = useSearch({ from: '/_authenticated/search' })
   const navigate = useNavigate()

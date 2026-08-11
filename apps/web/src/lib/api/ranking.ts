@@ -6,9 +6,9 @@ import type {
   PlaceRankingInput,
   ReorderRankingInput,
 } from '@infernolog/core'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 
 export type {
   ClassicRankingResponse,
@@ -16,10 +16,15 @@ export type {
   UnplacedRankingEntry,
 }
 
-// Key matches the ['ranking'] entry in logging.ts's INVALIDATE_ON_WRITE so a
-// completion log refetches this view (a fresh completion lands in Unplaced).
+/**
+ * Key matches the ['ranking'] entry in logging.ts's INVALIDATE_ON_WRITE so a
+ * completion log refetches this view (a fresh completion lands in Unplaced).
+ */
 export const rankingQueryKey = ['ranking'] as const
 
+/**
+ * The classic-ranking board: the placed list hardest-first, plus the unplaced pile.
+ */
 export function useClassicRanking() {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
@@ -36,11 +41,9 @@ export function useClassicRanking() {
   })
 }
 
-// ─────────────────────────────────────────────
 // Optimistic cache helpers — keep the board snappy while the write is in
 // flight. The server's response (authoritative fractional indices + ranks)
 // replaces the optimistic guess onSuccess.
-// ─────────────────────────────────────────────
 
 function renumber(placed: ClassicRankingEntry[]): ClassicRankingEntry[] {
   return placed.map((e, i) => (e.rank === i + 1 ? e : { ...e, rank: i + 1 }))
@@ -91,7 +94,9 @@ interface OptimisticCtx {
   previous: ClassicRankingResponse | undefined
 }
 
-// PLACE — an unplaced card enters the ranked list.
+/**
+ * PLACE — an unplaced card enters the ranked list.
+ */
 export function usePlaceRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
@@ -134,9 +139,14 @@ export function usePlaceRanking() {
   })
 }
 
+/**
+ * A reorder's target neighbours plus the id of the entry being moved, which the optimistic update needs and the endpoint takes in its path.
+ */
 export type ReorderVars = ReorderRankingInput & { levelProgressId: string }
 
-// REORDER — move a placed entry between new neighbours.
+/**
+ * REORDER — move a placed entry between new neighbours.
+ */
 export function useReorderRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()
@@ -181,7 +191,9 @@ export function useReorderRanking() {
   })
 }
 
-// UNPLACE — remove a placed entry; it returns to the Unplaced panel.
+/**
+ * UNPLACE — remove a placed entry; it returns to the Unplaced panel.
+ */
 export function useUnplaceRanking() {
   const { getIdToken } = useAuth()
   const qc = useQueryClient()

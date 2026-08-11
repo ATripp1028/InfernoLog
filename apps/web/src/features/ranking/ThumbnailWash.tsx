@@ -8,10 +8,12 @@ const GRADIENTS = {
   card: 'linear-gradient(90deg, rgba(13,13,13,0.92) 0%, rgba(13,13,13,0.72) 45%, rgba(13,13,13,0.4) 100%)',
 } as const
 
-// The level thumbnail as a background with a dark left→right scrim so the
-// content above stays legible — the same treatment the list page uses for its
-// rows (see features/list/RowWash). The base surface fill keeps the element
-// opaque when a thumbnail 404s (the <img> hides itself on error).
+/**
+ * The level thumbnail as a background with a dark left→right scrim so the
+ * content above stays legible — the same treatment the list page uses for its
+ * rows (see features/list/RowWash). The base surface fill keeps the element
+ * opaque when a thumbnail 404s (the <img> hides itself on error).
+ */
 export function ThumbnailWash({
   levelId,
   variant = 'row',
@@ -21,10 +23,7 @@ export function ThumbnailWash({
 }) {
   return (
     <>
-      <div
-        aria-hidden
-        className="absolute inset-0 bg-[var(--color-bg-surface)]"
-      />
+      <div aria-hidden className="absolute inset-0 bg-bg-surface" />
       <img
         src={levelThumbnailUrl(levelId)}
         alt=""

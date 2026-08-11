@@ -1,15 +1,20 @@
+import type { ExistingCompletion, Level } from '@/lib/api/logging'
 import type {
   Device,
   DifficultyOpinion,
   EntryVisibility,
-  ExistingCompletion,
   GdVersion,
-  Level,
-} from '@/lib/api/logging'
+} from '@/lib/api/wireEnums'
 import { getViewerTimezone, getZonedParts } from '@/lib/timezone'
 
+/**
+ * Which of the three things the user is logging. Chosen up front and decides the step sequence.
+ */
 export type FlowPath = 'completion' | 'progress' | 'drop'
 
+/**
+ * Every step of the logging flow. The `c_`/`p_`/`d_` prefixes name the {@link FlowPath} a step belongs to.
+ */
 export type FlowStep =
   | 'find'
   // Resolving a pre-targeted level for editing (skips `find`). Auto-advances.
@@ -26,11 +31,16 @@ export type FlowStep =
   | 'p_session'
   | 'd_main'
 
+/**
+ * Draft category scores, keyed by category id, in the internal 0–100 scale.
+ */
 export type RatingScoresDraft = Record<string, number>
 
-// One mutable draft shared across every step of the active path. Numeric inputs
-// are kept as strings (controlled text fields) and parsed at submit time;
-// slider-backed ratings are stored as 0–100 integers (the internal scale).
+/**
+ * One mutable draft shared across every step of the active path. Numeric inputs
+ * are kept as strings (controlled text fields) and parsed at submit time;
+ * slider-backed ratings are stored as 0–100 integers (the internal scale).
+ */
 export interface FlowDraft {
   date: string | null
   // Time-of-day for `date` — `HH:mm` or `''` (no time entered, the common
@@ -90,6 +100,9 @@ function todayDateInput(): string {
   return `${yyyy}-${mm}-${dd}`
 }
 
+/**
+ * A fresh {@link FlowDraft}. A function, not a constant, so reopening the flow cannot inherit the last run's state.
+ */
 export function emptyDraft(): FlowDraft {
   return {
     date: todayDateInput(),
@@ -154,9 +167,11 @@ function isoToDateTimeInput(
   return { date, time }
 }
 
-// "Same day" toggle produces a worst-fail instant exactly one second before
-// the completion/drop instant (bare dates with no time just match exactly) —
-// used to pre-check the toggle when reopening an entry saved that way.
+/**
+ * "Same day" toggle produces a worst-fail instant exactly one second before
+ * the completion/drop instant (bare dates with no time just match exactly) —
+ * used to pre-check the toggle when reopening an entry saved that way.
+ */
 export function isSameDayToggleOn(
   anchorDateRaw: string | null,
   anchorTimezone: string | null,
@@ -176,8 +191,10 @@ export function isSameDayToggleOn(
   )
 }
 
-// Pre-populate the completion draft from a prior completion so the wizard edits
-// in place ("edit, not replace") rather than starting blank.
+/**
+ * Pre-populate the completion draft from a prior completion so the wizard edits
+ * in place ("edit, not replace") rather than starting blank.
+ */
 export function draftFromExistingCompletion(
   existing: ExistingCompletion
 ): FlowDraft {
@@ -226,6 +243,9 @@ export function draftFromExistingCompletion(
   return draft
 }
 
+/**
+ * A level the flow has resolved, together with the user's existing completion when they already beat it.
+ */
 export interface ResolvedLevel {
   level: Level
   existingCompletion: ExistingCompletion | null

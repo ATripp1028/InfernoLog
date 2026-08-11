@@ -4,16 +4,15 @@ import {
   RatingConfigEditor,
   type RatingConfigEditorHandle,
 } from '../components/RatingConfigEditor'
-import { Button } from '@/components/ui/button'
-import { toast } from '@/components/ui/sonner'
+import { Button } from '@/components/generic/button'
+import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'
-import {
-  RatingDisplayScale,
-  RatingMode,
-  useUpdateMe,
-  type MeData,
-} from '@/lib/api/me'
+import { useUpdateMe, type MeData } from '@/lib/api/me'
+import type { RatingDisplayScale, RatingMode } from '@/lib/api/wireEnums'
 
+/**
+ * Imperative handle for saving or resetting the rating configuration from the page chrome.
+ */
 export interface RatingSectionHandle {
   // Saves the category editor if it's mounted (weighted mode) and dirty; a
   // no-op returning true in simple mode or when there's nothing to save.
@@ -30,6 +29,9 @@ interface RatingSectionProps {
   hideCategoryActions?: boolean
 }
 
+/**
+ * Rating mode, display scale, and — in weighted mode — the category editor.
+ */
 export const RatingSection = forwardRef<
   RatingSectionHandle,
   RatingSectionProps
@@ -79,7 +81,7 @@ export const RatingSection = forwardRef<
   return (
     <SettingsSection title="Rating">
       <SettingStack label="Rating mode" description={modeDescription}>
-        <Segmented
+        <SettingToggleGroup
           options={[
             { value: 'SIMPLE', label: 'Simple' },
             { value: 'WEIGHTED', label: 'Weighted' },
@@ -90,7 +92,7 @@ export const RatingSection = forwardRef<
       </SettingStack>
 
       <SettingStack label="Display scale" description={scaleDescription}>
-        <Segmented
+        <SettingToggleGroup
           options={[
             { value: 'ZERO_TO_TEN', label: '0–10' },
             { value: 'ZERO_TO_HUNDRED', label: '0–100' },
@@ -116,19 +118,24 @@ export const RatingSection = forwardRef<
   )
 })
 
-interface SegmentedProps<T extends string> {
+interface SettingToggleGroupProps<T extends string> {
   options: { value: T; label: string }[]
   value: T
   onChange: (next: T) => void
 }
 
-function Segmented<T extends string>({
+// Deliberately NOT components/ui/segmented's Segmented, despite answering the
+// same question. That one is a row of full-width outlined pills sized for a
+// form field; this is a compact inline toggle sized to sit at the end of a
+// settings row. Same shape, different surface — the name is what was
+// confusing, not the existence of both.
+function SettingToggleGroup<T extends string>({
   options,
   value,
   onChange,
-}: SegmentedProps<T>) {
+}: SettingToggleGroupProps<T>) {
   return (
-    <div className="inline-flex rounded-md border border-[var(--color-border)] bg-card p-1">
+    <div className="inline-flex rounded-md border border-border bg-card p-1">
       {options.map((o) => (
         <Button
           key={o.value}
@@ -138,7 +145,7 @@ function Segmented<T extends string>({
           className={cn(
             'rounded-sm px-4',
             o.value === value &&
-              'bg-primary text-primary-foreground hover:bg-[var(--color-primary-hover)] hover:text-primary-foreground'
+              'bg-primary text-primary-foreground hover:bg-primary-hover hover:text-primary-foreground'
           )}
         >
           {o.label}

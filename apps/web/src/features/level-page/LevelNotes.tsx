@@ -6,6 +6,9 @@ interface LevelNotesProps {
   onEdit?: () => void
 }
 
+/**
+ * The user's free-text notes for the level.
+ */
 export function LevelNotes({ notes, isOwner, onEdit }: LevelNotesProps) {
   if (!notes && !isOwner) return null
 
@@ -31,8 +34,8 @@ export function LevelNotes({ notes, isOwner, onEdit }: LevelNotesProps) {
       </div>
 
       {notes ? (
-        <div className="rounded-card border border-border-subtle bg-[#141414] px-4 py-3">
-          <p className="text-[13px] leading-relaxed text-[#c8c8c8] md:text-sm">
+        <div className="rounded-card border border-border-subtle bg-bg-inset px-4 py-3">
+          <p className="text-[13px] leading-relaxed text-text-body md:text-sm">
             {notes}
           </p>
         </div>

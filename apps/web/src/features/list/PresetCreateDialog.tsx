@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { X } from 'lucide-react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
+import { Textarea } from '@/components/generic/textarea'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/MobileSheetDialog'
+import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
 
 interface PresetCreateDialogProps {
   open: boolean
@@ -22,6 +23,9 @@ interface PresetCreateDialogProps {
   excludeName?: string
 }
 
+/**
+ * Names, describes, and colours a new saved view.
+ */
 export function PresetCreateDialog({
   open,
   onClose,
@@ -89,14 +93,14 @@ export function PresetCreateDialog({
           maxLength={50}
           placeholder="My preset"
           className={cn(
-            'h-9 rounded-md border bg-[var(--color-bg-surface)] px-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1',
+            'h-9 rounded-md border bg-bg-surface px-3 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1',
             isDuplicate
-              ? 'border-red-500 focus:ring-red-500'
-              : 'border-[var(--color-border)] focus:ring-[var(--color-primary)]'
+              ? 'border-danger focus:ring-danger'
+              : 'border-border focus:ring-primary'
           )}
         />
         {isDuplicate && (
-          <p className="text-xs text-red-500">
+          <p className="text-xs text-danger">
             A preset with this name already exists.
           </p>
         )}
@@ -108,13 +112,13 @@ export function PresetCreateDialog({
           Description{' '}
           <span className="font-normal text-text-tertiary">(optional)</span>
         </label>
-        <textarea
+        <Textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           maxLength={200}
           rows={2}
           placeholder="A brief description of this view…"
-          className="resize-none rounded-md border border-[var(--color-border)] bg-[var(--color-bg-surface)] px-3 py-2 text-sm text-text-primary placeholder:text-text-tertiary focus:outline-none focus:ring-1 focus:ring-[var(--color-primary)]"
+          className="resize-none"
         />
       </div>
 
@@ -134,7 +138,7 @@ export function PresetCreateDialog({
                 className={cn(
                   'h-7 w-7 cursor-pointer rounded-full transition-transform hover:scale-110',
                   isSelected &&
-                    'ring-2 ring-[var(--color-primary)] ring-offset-2 ring-offset-[var(--color-bg-elevated)]'
+                    'ring-2 ring-primary ring-offset-2 ring-offset-bg-elevated'
                 )}
               />
             )
@@ -159,7 +163,7 @@ export function PresetCreateDialog({
       <button
         type="button"
         onClick={onClose}
-        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle"
       >
         Cancel
       </button>
@@ -167,7 +171,7 @@ export function PresetCreateDialog({
         type="button"
         onClick={handleSave}
         disabled={!trimmedName || isDuplicate || isSaving}
-        className="cursor-pointer rounded-md bg-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+        className="cursor-pointer rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isSaving ? 'Saving…' : submitLabel}
       </button>
@@ -181,7 +185,7 @@ export function PresetCreateDialog({
         onClick={handleBackdropClick}
       >
         <div
-          className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-5 shadow-xl"
+          className="w-full max-w-sm rounded-xl border border-border bg-bg-elevated p-5 shadow-xl"
           onKeyDown={handleKeyDown}
         >
           <h2 className="mb-4 text-base font-semibold text-text-primary">

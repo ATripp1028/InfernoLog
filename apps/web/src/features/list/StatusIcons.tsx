@@ -3,16 +3,18 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-} from '@/components/ui/tooltip'
+} from '@/components/generic/tooltip'
 import type { ListItem } from './types'
 
-// Row status icons: has video (links to the video), on stream, needs placement.
-// Uncertain date is shown next to the date instead.
-//
-// `interactive` (default) renders the video as a focusable link with tooltips —
-// used in the desktop row. The mobile card sets it false: the whole card is a
-// button, so it must not contain nested links/focusable controls. There it
-// renders plain titled icons and the video link lives in the detail pane.
+/**
+ * Row status icons: has video (links to the video), on stream, needs placement.
+ * Uncertain date is shown next to the date instead.
+ *
+ * `interactive` (default) renders the video as a focusable link with tooltips —
+ * used in the desktop row. The mobile card sets it false: the whole card is a
+ * button, so it must not contain nested links/focusable controls. There it
+ * renders plain titled icons and the video link lives in the detail pane.
+ */
 export function StatusIcons({
   item,
   interactive = true,

@@ -5,11 +5,13 @@ import type { LevelSearchBy, SearchPageState } from '@/lib/levelSearchParams'
 
 const DEBOUNCE_MS = 250
 
-// State for the /search page's search bar. The text query and search-by mode are
-// LIVE: editing either debounces into the URL (replace, no history spam), which
-// re-runs the results grid — no Enter required. Enter still flushes immediately,
-// and a numeric-only input is a level id that jumps straight to its Global Level
-// Page (a browse can't auto-navigate on every keystroke).
+/**
+ * State for the /search page's search bar. The text query and search-by mode are
+ * LIVE: editing either debounces into the URL (replace, no history spam), which
+ * re-runs the results grid — no Enter required. Enter still flushes immediately,
+ * and a numeric-only input is a level id that jumps straight to its Global Level
+ * Page (a browse can't auto-navigate on every keystroke).
+ */
 export function useSearchPageBar(committed: SearchPageState) {
   const navigate = useNavigate()
   const location = useLocation()

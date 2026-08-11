@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -6,112 +5,24 @@ import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { FieldError } from '@/components/ui/field-error'
-import { toast } from '@/components/ui/sonner'
-import {
-  toDisplay,
-  toInternal,
-  clampPercent,
-  digitsOnly,
-  maxValueError,
-  formatDisplayRating,
-  MAX_GDDL_TIER,
-} from '@/features/logging/format'
-import {
-  useMe,
-  type RatingDisplayScale,
-  type RatingCategory,
-} from '@/lib/api/me'
-import { useEditProgress } from '@/lib/api/levelPage'
-import { useResolveLevel } from '@/lib/api/logging'
-import { computeWeightedAvg } from '@/utils/weightHandling'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { Label } from '@/components/generic/label'
+import { Switch } from '@/components/generic/switch'
+import { FieldError } from '@/components/generic/field-error'
+import { clampPercent, digitsOnly } from '@/features/logging/format'
+import { formatDisplayRating } from '@/lib/ratingScale'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { DateTimeField } from '@/features/logging/components'
-import { isSameDayToggleOn } from '@/features/logging/types'
-import { getViewerTimezone } from '@/lib/timezone'
 import {
   Section,
   FieldLabel,
   Textarea,
   RatingRow,
-  EditCoinsSection,
-  zonedDateTimeInput,
-  composeZonedDate,
+  CoinPicker,
 } from './EditShared'
-import type { LevelPageData, ProgressUpdate } from './types'
-
-interface EditLevelForm {
-  levelNotes: string
-  simpleRating: number | null
-  ratingScores: Record<string, number | null>
-  worstFail: string
-  worstFailDate: string
-  worstFailTime: string
-  worstFailTimezone: string
-  worstFailSameDay: boolean
-  coinsCollected: number
-  userGddlTier: string
-  visibility: 'PUBLIC' | 'PRIVATE'
-}
-
-// The entry the worst-fail "same day" shortcut anchors to — the completion
-// for a beaten level, the most recent drop for a dropped one. Independent of
-// any specific progress-update selection (this modal has none), which fixes
-// a latent bug in the old combined modal: the shortcut used to depend on
-// whichever entry happened to be open, and silently vanished if that was an
-// old PROGRESS entry rather than the completion/drop itself.
-function findWorstFailAnchor(data: LevelPageData): ProgressUpdate | undefined {
-  if (data.status === 'COMPLETED') {
-    return data.progressUpdates.find((u) => u.kind === 'COMPLETION')
-  }
-  if (data.status === 'DROPPED') {
-    // progressUpdates is already loggedAt-desc, so the first DROP is the
-    // most recent one.
-    return data.progressUpdates.find((u) => u.kind === 'DROP')
-  }
-  return undefined
-}
-
-function initForm(
-  data: LevelPageData,
-  scale: RatingDisplayScale,
-  categories: RatingCategory[],
-  anchor: ProgressUpdate | undefined
-): EditLevelForm {
-  const worstFail = zonedDateTimeInput(
-    data.worstFailDate,
-    data.worstFailDateTimezone
-  )
-  return {
-    levelNotes: data.levelNotes ?? '',
-    simpleRating:
-      data.simpleRating != null ? toDisplay(data.simpleRating, scale) : null,
-    ratingScores: Object.fromEntries(
-      categories.map((cat) => {
-        const found = data.ratingScores.find((r) => r.categoryId === cat.id)
-        return [cat.id, found != null ? toDisplay(found.score, scale) : null]
-      })
-    ),
-    worstFail: data.worstFail != null ? String(data.worstFail) : '',
-    worstFailDate: worstFail.date,
-    worstFailTime: worstFail.time,
-    worstFailTimezone: data.worstFailDateTimezone ?? getViewerTimezone(),
-    worstFailSameDay:
-      anchor != null &&
-      isSameDayToggleOn(
-        anchor.date,
-        anchor.dateTimezone,
-        data.worstFailDate,
-        data.worstFailDateTimezone
-      ),
-    coinsCollected: data.coinsCollected ?? 0,
-    userGddlTier: data.userGddlTier != null ? String(data.userGddlTier) : '',
-    visibility: data.visibility,
-  }
-}
+import type { LevelPageData } from './types'
+import { useEditLevelModal } from './useEditLevelModal'
 
 interface EditLevelModalProps {
   open: boolean
@@ -121,6 +32,9 @@ interface EditLevelModalProps {
   scale: RatingDisplayScale
 }
 
+/**
+ * Edits the level-scoped fields — the ones with one value per level rather than per logged event.
+ */
 export function EditLevelModal({
   open,
   onClose,
@@ -128,130 +42,24 @@ export function EditLevelModal({
   levelId,
   scale,
 }: EditLevelModalProps) {
-  const me = useMe()
-  const editProgress = useEditProgress(levelId)
-  const resolveLevel = useResolveLevel()
+  const {
+    ready,
+    form,
+    patch,
+    weighted,
+    categories,
+    weightedAvg,
+    isCompleted,
+    hasCoins,
+    suggestedGddlTier,
+    hasWorstFailAnchor,
+    gddlTierError,
+    levelName,
+    handleSave,
+    isSaving,
+  } = useEditLevelModal({ open, onClose, data, levelId, scale })
 
-  const anchor = findWorstFailAnchor(data)
-  const [form, setForm] = useState<EditLevelForm>(() =>
-    initForm(data, scale, [], anchor)
-  )
-  const [suggestedGddlTier, setSuggestedGddlTier] = useState<number | null>(
-    null
-  )
-
-  // Reset from server data when the dialog opens for this level — deliberately
-  // NOT keyed on `data` itself (mirrors EditRunModal's reset effect), since a
-  // background refetch of the level-page query (e.g. a GDDL sync invalidation
-  // for an unrelated level) would otherwise re-fire this and silently wipe
-  // whatever the user was mid-typing.
-  useEffect(() => {
-    if (open && me.data) {
-      setForm(initForm(data, scale, me.data.ratingCategories, anchor))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, levelId, scale, me.data])
-
-  // Live "Community: X" hint for the GDDL tier field — a hint, never blocks.
-  useEffect(() => {
-    if (!open) return
-    setSuggestedGddlTier(null)
-    if (data.status === 'COMPLETED') {
-      resolveLevel.mutate(levelId, {
-        onSuccess: (res) => setSuggestedGddlTier(res.suggestedGddlTier),
-      })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, levelId])
-
-  if (!me.data) return null
-
-  const weighted = me.data.ratingMode === 'WEIGHTED'
-  const categories = me.data.ratingCategories
-  const isCompleted = data.status === 'COMPLETED'
-  const hasCoins = (data.level.coins ?? 0) > 0
-
-  const filteredScores = Object.fromEntries(
-    Object.entries(form.ratingScores).filter(([, v]) => v != null)
-  ) as Record<string, number>
-  const weightedAvg = weighted
-    ? computeWeightedAvg(categories, filteredScores)
-    : null
-
-  const gddlTierError = maxValueError(form.userGddlTier, MAX_GDDL_TIER)
-
-  function patch(updates: Partial<EditLevelForm>) {
-    setForm((prev) => ({ ...prev, ...updates }))
-  }
-
-  function handleSave() {
-    let worstFail: {
-      worstFailDate: string | null
-      worstFailDateTimezone: string | null
-    }
-    if (form.worstFailSameDay) {
-      // Nudge one second earlier than the anchor instant so the two events
-      // don't collide at minute-only display precision.
-      worstFail = anchor?.dateTimezone
-        ? {
-            worstFailDate: new Date(
-              new Date(anchor.date as string).getTime() - 1000
-            ).toISOString(),
-            worstFailDateTimezone: anchor.dateTimezone,
-          }
-        : { worstFailDate: anchor?.date ?? null, worstFailDateTimezone: null }
-    } else {
-      const composed = composeZonedDate(
-        form.worstFailDate,
-        form.worstFailTime,
-        form.worstFailTimezone
-      )
-      if (composed === 'invalid') return
-      worstFail = {
-        worstFailDate: composed.date,
-        worstFailDateTimezone: composed.dateTimezone,
-      }
-    }
-
-    const payload: Record<string, unknown> = {
-      levelNotes: form.levelNotes || null,
-      worstFail: form.worstFail !== '' ? parseInt(form.worstFail, 10) : null,
-      ...worstFail,
-      visibility: form.visibility,
-    }
-
-    if (weighted) {
-      payload.ratingScores = Object.entries(form.ratingScores)
-        .filter(([, v]) => v != null)
-        .map(([categoryId, v]) => ({
-          categoryId,
-          score: toInternal(v!, scale),
-        }))
-    } else {
-      payload.simpleRating =
-        form.simpleRating != null ? toInternal(form.simpleRating, scale) : null
-    }
-
-    if (isCompleted) {
-      payload.userGddlTier =
-        form.userGddlTier !== '' ? parseInt(form.userGddlTier, 10) : null
-      if (hasCoins) {
-        payload.coinsCollected = form.coinsCollected
-      }
-    }
-
-    editProgress.mutate(payload, {
-      onSuccess: () => {
-        toast.success('Changes saved')
-        onClose()
-      },
-      onError: () => {
-        toast.error('Failed to save changes')
-      },
-    })
-  }
-
-  const levelName = data.level.name ?? `Level #${data.level.inGameId}`
+  if (!ready) return null
 
   return (
     <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
@@ -321,7 +129,7 @@ export function EditLevelModal({
                     >
                       Worst fail date
                     </Label>
-                    {anchor != null && (
+                    {hasWorstFailAnchor && (
                       <label className="flex shrink-0 cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
                         <input
                           type="checkbox"
@@ -350,11 +158,13 @@ export function EditLevelModal({
               </Section>
 
               {isCompleted && hasCoins && (
-                <EditCoinsSection
-                  level={data.level}
-                  collected={form.coinsCollected}
-                  onChange={(v) => patch({ coinsCollected: v })}
-                />
+                <Section label="Coins">
+                  <CoinPicker
+                    level={data.level}
+                    collected={form.coinsCollected}
+                    onChange={(v) => patch({ coinsCollected: v })}
+                  />
+                </Section>
               )}
 
               <Section label="Rating">
@@ -470,9 +280,9 @@ export function EditLevelModal({
               </Button>
               <Button
                 onClick={handleSave}
-                disabled={editProgress.isPending || gddlTierError != null}
+                disabled={isSaving || gddlTierError != null}
               >
-                {editProgress.isPending ? 'Saving…' : 'Save changes'}
+                {isSaving ? 'Saving…' : 'Save changes'}
               </Button>
             </div>
           </div>

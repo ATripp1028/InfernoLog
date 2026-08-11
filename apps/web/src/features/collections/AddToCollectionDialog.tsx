@@ -1,54 +1,17 @@
-// Two-step flow for adding a level to one or more collections.
-//
-//   Step 1 (level search) — skipped when preselectedLevel is provided.
-//     Name search / cached ID → click to proceed to step 2.
-//     Unknown numeric ID → seed from RobTop → proceed to step 2.
-//
-//   Step 2 (collection picker) — searchable list with checkboxes.
-//     Confirm adds the level to all selected collections in parallel.
-
-import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
-import { toast } from '@/components/ui/sonner'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { ApiError } from '@/lib/api/client'
-import {
-  useLevelById,
-  useLevelSearch,
-  useResolveLevel,
-} from '@/lib/api/logging'
-import {
-  collectionErrorCode,
-  useAddCollectionEntry,
-  useCollectionDetails,
-  useCollections,
-} from '@/lib/api/collections'
+import { Button } from '@/components/generic/button'
+import { Input } from '@/components/generic/input'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
-import { useMyProgress } from '@/lib/api/list'
-import { levelThumbnailUrl } from '@/lib/gdAssets'
-import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
-import { useEscalation } from '@/features/search/useEscalation'
-import { SeededLevelPreviewCard, SectionLabel } from './SeededLevelPreviewCard'
-
-interface PickedLevel {
-  inGameId: string
-  name: string | null
-  creator: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-}
-
-// Holds a level resolved from RobTop, pending confirmation before it's used
-// as the pick for step 2. Mirrors AddLevelsDialog's seeded-confirmation step.
-interface SeededLevel extends PickedLevel {
-  completed: boolean
-}
+import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
+import {
+  useAddToCollectionDialog,
+  type PickedLevel,
+} from './useAddToCollectionDialog'
 
 interface AddToCollectionDialogProps {
   open: boolean
@@ -57,202 +20,62 @@ interface AddToCollectionDialogProps {
   preselectedLevel?: PickedLevel
 }
 
+/**
+ * Two-step flow for adding a level to one or more collections.
+ *
+ *   Step 1 (level search) — skipped when preselectedLevel is provided.
+ *     Name search / cached ID → click to proceed to step 2.
+ *     Unknown numeric ID → seed from RobTop → proceed to step 2.
+ *
+ *   Step 2 (collection picker) — searchable list with checkboxes.
+ *     Confirm adds the level to all selected collections in parallel.
+ *
+ * All of that state lives in useAddToCollectionDialog; this file is markup.
+ */
 export function AddToCollectionDialog({
   open,
   onClose,
   preselectedLevel,
 }: AddToCollectionDialogProps) {
   const isDesktop = useMediaQuery('(min-width: 768px)')
-
-  const [step, setStep] = useState<'search' | 'pick'>(
-    preselectedLevel ? 'pick' : 'search'
-  )
-  const [pickedLevel, setPickedLevel] = useState<PickedLevel | null>(
-    preselectedLevel ?? null
-  )
-  const [levelQuery, setLevelQuery] = useState('')
-  const [collectionQuery, setCollectionQuery] = useState('')
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [seedingId, setSeedingId] = useState<string | null>(null)
-  const [seededLevel, setSeededLevel] = useState<SeededLevel | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-
-  const resolveLevel = useResolveLevel()
-  const addEntry = useAddCollectionEntry()
-  const collections = useCollections()
-  const list = useMyProgress()
-  const escalation = useEscalation()
-
-  const completedIds = useMemo(
-    () =>
-      new Set(
-        list.data
-          ?.filter((i) => i.status === 'COMPLETED')
-          .map((i) => i.level.inGameId) ?? []
-      ),
-    [list.data]
-  )
-
-  const trimmed = levelQuery.trim()
-  const isNumeric = /^\d+$/.test(trimmed)
-  const search = useLevelSearch(levelQuery)
-  const cachedLevel = useLevelById(trimmed)
-
-  useEffect(() => {
-    if (open) {
-      setStep(preselectedLevel ? 'pick' : 'search')
-      setPickedLevel(preselectedLevel ?? null)
-      setLevelQuery('')
-      setCollectionQuery('')
-      setSelectedIds(new Set())
-      setSeedingId(null)
-      setSeededLevel(null)
-      setIsSubmitting(false)
-      escalation.clear()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, preselectedLevel])
-
-  // Editing the query drops any prior GD escalation (fresh confirm required).
-  function updateLevelQuery(value: string) {
-    setLevelQuery(value)
-    escalation.clear()
-  }
-
-  // Batch-load collection details only once the user reaches the pick step.
-  const collectionIds = useMemo(
-    () => (collections.data ?? []).map((c) => c.id),
-    [collections.data]
-  )
-  const collectionDetailQueries = useCollectionDetails(
-    collectionIds,
-    step === 'pick'
-  )
-
-  // Set of collection IDs that already contain the picked level (from loaded details).
-  const levelAlreadyInCollectionIds = useMemo(() => {
-    const result = new Set<string>()
-    if (!pickedLevel) return result
-    collectionIds.forEach((id, i) => {
-      const q = collectionDetailQueries[i]
-      if (
-        q?.data?.entries.some((e) => e.level.inGameId === pickedLevel.inGameId)
-      ) {
-        result.add(id)
-      }
-    })
-    return result
-  }, [collectionIds, collectionDetailQueries, pickedLevel])
-
-  // Auto-uncheck any selection that is discovered to already have the level.
-  useEffect(() => {
-    if (levelAlreadyInCollectionIds.size === 0) return
-    setSelectedIds((prev) => {
-      const toRemove = [...prev].filter((id) =>
-        levelAlreadyInCollectionIds.has(id)
-      )
-      if (toRemove.length === 0) return prev
-      const next = new Set(prev)
-      toRemove.forEach((id) => next.delete(id))
-      return next
-    })
-  }, [levelAlreadyInCollectionIds])
+  const {
+    step,
+    goBackToSearch,
+    canGoBack,
+    levelQuery,
+    trimmed,
+    updateLevelQuery,
+    submitLevelQuery,
+    escalation,
+    searchPending,
+    results,
+    cachedLevel,
+    showResults,
+    showCachedPreview,
+    showSeedHint,
+    showEmptyPrompt,
+    seedingId,
+    seededLevel,
+    clearSeededLevel,
+    seedAndPick,
+    selectLevel,
+    pickedLevel,
+    collectionQuery,
+    setCollectionQuery,
+    collectionsLoading,
+    collectionsFailed,
+    hasBuiltIns,
+    filteredCollections,
+    selectedIds,
+    levelAlreadyInCollectionIds,
+    toggleCollection,
+    handleAdd,
+    isSubmitting,
+  } = useAddToCollectionDialog({ open, onClose, preselectedLevel })
 
   if (!open) return null
 
-  function selectLevel(level: PickedLevel) {
-    setPickedLevel(level)
-    setCollectionQuery('')
-    setSelectedIds(new Set())
-    setStep('pick')
-  }
-
-  async function seedAndPick(levelId: string) {
-    setSeedingId(levelId)
-    try {
-      const res = await resolveLevel.mutateAsync(levelId)
-      if (!res.level) {
-        toast.error(
-          'That level could not be fetched from the GD servers. Log it once to add it manually.'
-        )
-        return
-      }
-      setSeededLevel({
-        inGameId: res.level.inGameId,
-        name: res.level.name,
-        creator: res.level.creator,
-        inGameDifficulty: res.level.inGameDifficulty,
-        featured: res.level.featured,
-        epicValue: res.level.epicValue,
-        isRated: res.level.isRated,
-        completed: res.existingCompletion !== null,
-      })
-      setLevelQuery('')
-    } catch (err) {
-      toast.error(
-        err instanceof ApiError ? err.message : 'Could not look up that level'
-      )
-    } finally {
-      setSeedingId(null)
-    }
-  }
-
-  async function handleAdd() {
-    if (!pickedLevel || selectedIds.size === 0 || isSubmitting) return
-    setIsSubmitting(true)
-    const idList = [...selectedIds]
-    try {
-      const results = await Promise.allSettled(
-        idList.map((collectionId) =>
-          addEntry.mutateAsync({ collectionId, levelId: pickedLevel.inGameId })
-        )
-      )
-      const successNames: string[] = []
-      results.forEach((r, i) => {
-        const id = idList[i]!
-        const colName =
-          collections.data?.find((c) => c.id === id)?.name ?? 'collection'
-        if (r.status === 'fulfilled') {
-          successNames.push(colName)
-        } else {
-          const code = collectionErrorCode(r.reason)
-          toast.error(
-            code === 'LEVEL_ALREADY_COMPLETED'
-              ? `${colName}: Want to Beat only holds unbeaten levels`
-              : r.reason instanceof ApiError
-                ? r.reason.message
-                : `Could not add to ${colName}`
-          )
-        }
-      })
-      if (successNames.length > 0) {
-        toast.success(`Added to ${successNames.join(', ')}`)
-        onClose()
-      }
-    } finally {
-      setIsSubmitting(false)
-    }
-  }
-
   // ── Step 1: level search ───────────────────────────────────────────
-
-  const showResults =
-    !isNumeric && trimmed.length >= 2 && !seedingId && !seededLevel
-  const showCachedPreview =
-    isNumeric &&
-    trimmed.length >= 4 &&
-    !!cachedLevel.data &&
-    !seedingId &&
-    !seededLevel
-  const showSeedHint =
-    isNumeric &&
-    trimmed.length >= 4 &&
-    !cachedLevel.data &&
-    !cachedLevel.isFetching &&
-    !seedingId &&
-    !seededLevel
-
-  const results = sortAndCapSearchResults(search.data ?? [], () => false)
 
   const searchBody = (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
@@ -274,10 +97,7 @@ export function AddToCollectionDialog({
             value={levelQuery}
             onChange={(e) => updateLevelQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && isNumeric) {
-                if (cachedLevel.data) selectLevel(cachedLevel.data)
-                else void seedAndPick(trimmed)
-              }
+              if (e.key === 'Enter') submitLevelQuery()
             }}
             placeholder="Search by name or paste a level ID"
             className="h-12 pl-9 text-base"
@@ -287,7 +107,9 @@ export function AddToCollectionDialog({
 
       {seedingId && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <div className="flex h-12 items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-sm text-text-secondary">
             <Loader2 size={16} className="animate-spin text-primary" />
             Fetching level {seedingId} from the GD servers…
@@ -301,7 +123,7 @@ export function AddToCollectionDialog({
           level={seededLevel}
           badge={seededLevel.completed ? 'Already completed' : null}
           dimmed={seededLevel.completed}
-          onChange={() => setSeededLevel(null)}
+          onChange={clearSeededLevel}
           description={
             seededLevel.completed
               ? "You already completed this level — Want to Beat won't be offered as an option next."
@@ -310,20 +132,15 @@ export function AddToCollectionDialog({
         />
       )}
 
-      {showCachedPreview && cachedLevel.data && (
+      {showCachedPreview && cachedLevel && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <div className="overflow-hidden rounded-md border border-border">
-            <ResultRow
-              levelId={cachedLevel.data.inGameId}
-              name={cachedLevel.data.name}
-              creator={cachedLevel.data.creator}
-              songName={cachedLevel.data.songName}
-              inGameDifficulty={cachedLevel.data.inGameDifficulty}
-              featured={cachedLevel.data.featured}
-              epicValue={cachedLevel.data.epicValue}
-              isRated={cachedLevel.data.isRated}
-              onSelect={() => selectLevel(cachedLevel.data!)}
+            <LevelResultRow
+              level={cachedLevel}
+              onSelect={() => selectLevel(cachedLevel)}
             />
           </div>
         </div>
@@ -331,10 +148,12 @@ export function AddToCollectionDialog({
 
       {showSeedHint && (
         <div>
-          <SectionLabel>Results</SectionLabel>
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
           <button
             type="button"
-            onClick={() => void seedAndPick(trimmed)}
+            onClick={() => seedAndPick(trimmed)}
             className="flex h-12 w-full items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-left text-sm text-text-primary transition-colors hover:bg-bg-subtle"
           >
             <Search size={16} className="text-text-tertiary" />
@@ -345,8 +164,10 @@ export function AddToCollectionDialog({
 
       {showResults && (
         <div>
-          <SectionLabel>Results</SectionLabel>
-          {search.isPending ? (
+          <SectionLabel tone="secondary" className="mb-2">
+            Results
+          </SectionLabel>
+          {searchPending ? (
             <p className="px-1 text-sm text-text-tertiary">Searching…</p>
           ) : results.length === 0 ? (
             <div className="py-8 text-center">
@@ -361,28 +182,21 @@ export function AddToCollectionDialog({
           ) : (
             <div className="overflow-hidden rounded-md border border-border">
               {results.map((r) => (
-                <ResultRow
+                <LevelResultRow
                   key={r.inGameId}
-                  levelId={r.inGameId}
-                  name={r.name}
-                  creator={r.creator}
-                  songName={r.songName}
-                  inGameDifficulty={r.inGameDifficulty}
-                  featured={r.featured}
-                  epicValue={r.epicValue}
-                  isRated={r.isRated}
+                  level={r}
                   onSelect={() => selectLevel(r)}
                 />
               ))}
             </div>
           )}
 
-          {!search.isPending && (
+          {!searchPending && (
             <div className="mt-3 overflow-hidden rounded-md border border-border">
               <GdSearchSection
                 escalation={escalation}
                 query={trimmed}
-                onSelect={(levelId) => void seedAndPick(levelId)}
+                onSelect={(levelId) => seedAndPick(levelId)}
                 offer={{
                   title: `Search GD's servers for "${trimmed}"`,
                   subtitle:
@@ -394,38 +208,23 @@ export function AddToCollectionDialog({
         </div>
       )}
 
-      {!showResults &&
-        !showCachedPreview &&
-        !showSeedHint &&
-        !seedingId &&
-        !seededLevel && (
-          <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
-            <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
-              <Search size={18} />
-            </span>
-            <p className="text-base font-semibold text-text-primary">
-              Find a level
-            </p>
-            <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
-              Search your cache by name, or paste any level ID.
-            </p>
-          </div>
-        )}
+      {showEmptyPrompt && (
+        <div className="flex flex-1 flex-col items-center justify-center py-10 text-center">
+          <span className="mb-3 flex size-10 items-center justify-center rounded-full bg-bg-subtle text-text-tertiary">
+            <Search size={18} />
+          </span>
+          <p className="text-base font-semibold text-text-primary">
+            Find a level
+          </p>
+          <p className="mx-auto mt-1.5 max-w-[300px] text-[13px] text-text-tertiary">
+            Search your cache by name, or paste any level ID.
+          </p>
+        </div>
+      )}
     </div>
   )
 
   // ── Step 2: collection picker ──────────────────────────────────────
-
-  const pickedIsCompleted =
-    !!pickedLevel && completedIds.has(pickedLevel.inGameId)
-  const allCollections = (collections.data ?? []).filter(
-    (c) => !(pickedIsCompleted && c.type === 'WANT_TO_BEAT')
-  )
-  const filteredCollections = collectionQuery.trim()
-    ? allCollections.filter((c) =>
-        c.name.toLowerCase().includes(collectionQuery.toLowerCase())
-      )
-    : allCollections
 
   const pickBody = (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -469,20 +268,19 @@ export function AddToCollectionDialog({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {collections.isLoading ? (
+        {collectionsLoading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 size={20} className="animate-spin text-text-tertiary" />
           </div>
-        ) : collections.isError ||
-          !collections.data?.some((c) => isBuiltIn(c.type)) ? (
+        ) : collectionsFailed || !hasBuiltIns ? (
           <div className="flex flex-col items-center px-6 py-10 text-center">
             <p className="text-sm font-medium text-text-primary">
-              {collections.isError
+              {collectionsFailed
                 ? "Couldn't load your collections"
                 : 'Collections not set up yet'}
             </p>
             <p className="mt-1.5 text-[13px] text-text-tertiary">
-              {collections.isError
+              {collectionsFailed
                 ? 'Check your connection and reload the page.'
                 : 'Your built-in collections are missing. Try signing out and back in.'}
             </p>
@@ -540,14 +338,7 @@ export function AddToCollectionDialog({
                     <input
                       type="checkbox"
                       checked={checked}
-                      onChange={(e) => {
-                        setSelectedIds((prev) => {
-                          const next = new Set(prev)
-                          if (e.target.checked) next.add(c.id)
-                          else next.delete(c.id)
-                          return next
-                        })
-                      }}
+                      onChange={(e) => toggleCollection(c.id, e.target.checked)}
                       className="size-4 accent-[var(--color-primary,#e8390e)]"
                     />
                   </>
@@ -562,19 +353,18 @@ export function AddToCollectionDialog({
 
   // ── Dialog shell ───────────────────────────────────────────────────
 
-  const canGoBack = step === 'pick' && !preselectedLevel
   const n = selectedIds.size
 
   const header = (
     <div className="flex items-start justify-between border-b border-border px-6 pb-3 pt-3.5">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-[0.4px] text-primary">
+        <SectionLabel tone="primary">
           {step === 'search'
             ? 'Step 1 · Level'
             : !preselectedLevel
               ? 'Step 2 · Collections'
               : 'Collections'}
-        </p>
+        </SectionLabel>
         <h2 className="mt-0.5 text-lg font-bold text-text-primary">
           Add to a Collection
         </h2>
@@ -596,7 +386,7 @@ export function AddToCollectionDialog({
         {canGoBack ? (
           <button
             type="button"
-            onClick={() => setStep('search')}
+            onClick={goBackToSearch}
             className="flex items-center gap-1.5 text-sm font-medium text-text-secondary hover:text-text-primary"
           >
             <ArrowLeft size={14} />
@@ -606,7 +396,7 @@ export function AddToCollectionDialog({
           <span />
         )}
         <Button
-          onClick={() => void handleAdd()}
+          onClick={handleAdd}
           disabled={n === 0 || isSubmitting}
           className="min-w-[180px]"
         >
@@ -667,72 +457,5 @@ export function AddToCollectionDialog({
         {footer}
       </div>
     </div>
-  )
-}
-
-function ResultRow({
-  levelId,
-  name,
-  creator,
-  songName,
-  inGameDifficulty,
-  featured,
-  epicValue,
-  isRated,
-  onSelect,
-}: {
-  levelId: string
-  name: string | null
-  creator: string | null
-  songName: string | null
-  inGameDifficulty: string | null
-  featured: boolean | null
-  epicValue: number | null
-  isRated: boolean
-  onSelect: () => void
-}) {
-  const meta = [creator ? `by ${creator}` : null, songName]
-    .filter(Boolean)
-    .join(' · ')
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0"
-    >
-      <img
-        src={levelThumbnailUrl(levelId)}
-        alt=""
-        aria-hidden
-        loading="lazy"
-        onError={(e) => {
-          e.currentTarget.style.display = 'none'
-        }}
-        className="absolute inset-0 size-full object-cover"
-      />
-      <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
-      <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
-      <span className="relative flex items-center gap-3">
-        <DifficultyFace
-          difficulty={inGameDifficulty}
-          featured={featured}
-          epicValue={epicValue}
-          rated={isRated}
-          size={100}
-          className="translate-y-[3px] drop-shadow"
-        />
-        <span>
-          <span className="block font-medium leading-tight text-text-primary">
-            {name ?? `Level #${levelId}`}
-          </span>
-          {meta && (
-            <span className="block text-xs text-text-secondary">{meta}</span>
-          )}
-        </span>
-      </span>
-      <span className="relative font-mono text-xs text-text-secondary">
-        #{levelId}
-      </span>
-    </button>
   )
 }

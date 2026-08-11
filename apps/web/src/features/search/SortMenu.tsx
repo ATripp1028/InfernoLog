@@ -1,7 +1,7 @@
 import { ArrowDownWideNarrow, ArrowUpNarrowWide, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
-  SORT_OPTIONS,
+  LEVEL_SORT_OPTIONS,
   effectiveSortDir,
   naturalSortDir,
   type LevelSort,
@@ -13,8 +13,10 @@ interface SortMenuProps {
   onChange: (patch: Partial<SearchPageState>) => void
 }
 
-// The sort menu body (rendered inside a popover from the bar's sort button): the
-// sort options plus an explicit ascending/descending toggle.
+/**
+ * The sort menu body (rendered inside a popover from the bar's sort button): the
+ * sort options plus an explicit ascending/descending toggle.
+ */
 export function SortMenu({ state, onChange }: SortMenuProps) {
   const dir = effectiveSortDir(state)
 
@@ -25,7 +27,7 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
         <button
           type="button"
           onClick={() => onChange({ sortDir: dir === 'asc' ? 'desc' : 'asc' })}
-          className="inline-flex items-center gap-1 rounded-md border border-[var(--color-border)] px-2 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
+          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs font-medium text-text-secondary hover:text-text-primary"
         >
           {dir === 'asc' ? (
             <ArrowUpNarrowWide size={14} />
@@ -37,7 +39,7 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
       </div>
 
       <div className="flex flex-col">
-        {SORT_OPTIONS.map((o) => {
+        {LEVEL_SORT_OPTIONS.map((o) => {
           const active = state.sort === o.value
           return (
             <button
@@ -65,7 +67,9 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
   )
 }
 
-// Compact label for the bar's sort trigger.
+/**
+ * Compact label for the bar's sort trigger.
+ */
 export function sortTriggerLabel(sort: LevelSort): string {
-  return SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Sort'
+  return LEVEL_SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Sort'
 }

@@ -1,8 +1,10 @@
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { FabAction } from '@/context/FabActionsContext'
 
-// "Add levels" is first — the FAB treats actions[0] as the primary action.
-// Built-in collections drop Edit/Delete.
+/**
+ * "Add levels" is first — the FAB treats actions[0] as the primary action.
+ * Built-in collections drop Edit/Delete.
+ */
 export function collectionDetailActions(opts: {
   isCustom: boolean
   onAddLevels: () => void

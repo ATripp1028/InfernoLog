@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { LandingPage } from '@/features/landing/LandingPage'
-import { PageLoading } from '@/components/PageLoading'
+import { PageLoading } from '@/components/shell/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useRouteGuard } from '@/lib/useRouteGuard'
 

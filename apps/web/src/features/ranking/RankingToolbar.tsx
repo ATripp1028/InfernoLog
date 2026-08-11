@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
+import { Input } from '@/components/generic/input'
+import { Switch } from '@/components/generic/switch'
 
 interface RankingToolbarProps {
   search: string
@@ -9,6 +9,9 @@ interface RankingToolbarProps {
   onShowUnrated: (v: boolean) => void
 }
 
+/**
+ * Search and the show-unrated toggle. Both disable reordering while active — see `filterUnplaced`.
+ */
 export function RankingToolbar({
   search,
   onSearch,
@@ -39,7 +42,7 @@ export function RankingToolbar({
           title="Coming in v2"
         >
           <span>Non-completions</span>
-          <span className="rounded bg-[var(--color-bg-subtle)] px-1 text-[10px] font-bold uppercase">
+          <span className="rounded bg-bg-subtle px-1 text-[10px] font-bold uppercase">
             v2
           </span>
           <Switch checked={false} disabled />

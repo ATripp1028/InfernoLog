@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import type { FlowPath } from '@/features/logging/types'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
@@ -35,9 +38,11 @@ function rowMinWidth(orderedCols: ColumnDef[]): number {
   return LEVEL_MIN_WIDTH + colsWidth + ROW_PADDING
 }
 
-// The minimum width the table needs for the currently visible columns. The page
-// uses this to decide whether the filter panel can dock beside the table or must
-// open as an overlay instead.
+/**
+ * The minimum width the table needs for the currently visible columns. The page
+ * uses this to decide whether the filter panel can dock beside the table or must
+ * open as an overlay instead.
+ */
 export function tableMinWidth(
   columns: ColumnVisibility,
   columnOrder: ColumnId[],
@@ -103,7 +108,7 @@ function ColumnHeaders({
 
   return (
     <div
-      className="flex h-8 items-center border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 sticky top-0 z-20 text-[11px] font-medium text-text-secondary"
+      className="flex h-8 items-center border-b border-border-subtle bg-bg-base px-3 sticky top-0 z-20 text-[11px] font-medium text-text-secondary"
       style={{ minWidth }}
     >
       <div
@@ -189,6 +194,9 @@ function ColumnHeaders({
   )
 }
 
+/**
+ * The virtualized columnar List (md+). Its mobile counterpart is the card list.
+ */
 export function ListTable({
   items,
   columns,
@@ -229,7 +237,7 @@ export function ListTable({
   }, [])
   return (
     <div
-      className="hidden min-h-0 overflow-auto rounded-card border border-[var(--color-border-subtle)] md:block"
+      className="hidden min-h-0 overflow-auto rounded-card border border-border-subtle md:block"
       style={{
         maskImage:
           'linear-gradient(to bottom, black calc(100% - 5rem), transparent 100%)',
@@ -258,7 +266,7 @@ export function ListTable({
         return (
           <RowContextMenu key={item.levelProgressId} handlers={handlers}>
             <div
-              className="group relative cursor-pointer border-b border-[var(--color-border-subtle)] last:border-b-0 hover:bg-white/[0.02]"
+              className="group relative cursor-pointer border-b border-border-subtle last:border-b-0 hover:bg-white/[0.02]"
               style={{ minWidth }}
               onClick={() => {
                 if (clickTimerRef.current) clearTimeout(clickTimerRef.current)

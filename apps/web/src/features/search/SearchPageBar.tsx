@@ -8,19 +8,19 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileActionSheet } from '@/components/MobileActionSheet'
+import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select'
+} from '@/components/generic/select'
 import {
   SEARCH_BY_OPTIONS,
   effectiveSortDir,
@@ -54,7 +54,7 @@ function BarButton({
         'relative flex h-11 shrink-0 items-center gap-1.5 rounded-btn border px-3 text-sm font-medium transition-colors',
         active
           ? 'border-primary/60 bg-primary-dim text-text-primary'
-          : 'border-[#333333] bg-[#212121] text-text-secondary hover:text-text-primary',
+          : 'border-border bg-bg-elevated text-text-secondary hover:text-text-primary',
         className
       )}
       {...props}
@@ -128,10 +128,12 @@ function ResponsiveMenu({
   )
 }
 
-// The top-center search bar for /search. On mobile the query input + Search
-// button sit on their own row above the search-by / sort / filter controls; on
-// desktop everything is a single row. The query is live (see useSearchPageBar);
-// Enter flushes, and a numeric-only input is a level id with a jump affordance.
+/**
+ * The top-center search bar for /search. On mobile the query input + Search
+ * button sit on their own row above the search-by / sort / filter controls; on
+ * desktop everything is a single row. The query is live (see useSearchPageBar);
+ * Enter flushes, and a numeric-only input is a level id with a jump affordance.
+ */
 export function SearchPageBar({
   bar,
   state,
@@ -170,7 +172,7 @@ export function SearchPageBar({
         </div>
 
         {/* Query input (mobile row 1). */}
-        <div className="order-1 flex h-11 min-w-0 flex-1 items-center gap-2 rounded-btn border border-[#333333] bg-[#212121] px-3 text-text-tertiary md:order-2">
+        <div className="order-1 flex h-11 min-w-0 flex-1 items-center gap-2 rounded-btn border border-border bg-bg-elevated px-3 text-text-tertiary md:order-2">
           <Search size={18} />
           <input
             ref={inputRef}
@@ -257,7 +259,7 @@ export function SearchPageBar({
         <button
           type="button"
           onClick={() => bar.goToLevel(bar.numericId!)}
-          className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-[var(--color-primary-light)] hover:brightness-110"
+          className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary-light hover:brightness-110"
         >
           <ArrowRight size={16} />
           Go to level {bar.numericId}

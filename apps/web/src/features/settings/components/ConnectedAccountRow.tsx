@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Card } from '@/components/ui/card'
+import { Card } from '@/components/generic/card'
 
 interface ConnectedAccountRowProps {
   icon: ReactNode
@@ -9,6 +9,9 @@ interface ConnectedAccountRowProps {
   action?: ReactNode
 }
 
+/**
+ * A linked third-party account with its connect/disconnect action.
+ */
 export function ConnectedAccountRow({
   icon,
   providerName,
@@ -19,7 +22,7 @@ export function ConnectedAccountRow({
   return (
     <Card className="flex items-center justify-between gap-4 px-4 py-3">
       <div className="flex min-w-0 items-center gap-3">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[var(--color-bg-elevated)] text-foreground">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-bg-elevated text-foreground">
           {icon}
         </div>
         <div className="min-w-0">

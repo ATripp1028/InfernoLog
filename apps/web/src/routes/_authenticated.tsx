@@ -1,13 +1,13 @@
 import { createFileRoute, Outlet } from '@tanstack/react-router'
 import { useEffect, useRef } from 'react'
 import { useMutationState, useQueryClient } from '@tanstack/react-query'
-import { Shell } from '@/components/Shell'
-import { PageLoading } from '@/components/PageLoading'
+import { Shell } from '@/components/shell/Shell'
+import { PageLoading } from '@/components/shell/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/lib/api/me'
 import { useRouteGuard } from '@/lib/useRouteGuard'
 import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
-import { toast } from '@/components/ui/sonner'
+import { toast } from '@/components/generic/sonner'
 import { rankingQueryKey } from '@/lib/api/ranking'
 import { collectionsQueryKey } from '@/lib/api/collections'
 import { ImportStatusToast } from '@/features/import/ImportStatusToast'
@@ -46,7 +46,7 @@ function AuthenticatedLayout() {
   if (me.error) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <p className="text-sm text-red-500">
+        <p className="text-sm text-danger">
           Something went wrong. Please refresh the page.
         </p>
       </div>

@@ -21,9 +21,11 @@ interface PresetRowProps {
   onMouseLeave?: () => void
 }
 
-// Shared row for the preset list PresetSelector (desktop popover) and
-// PresetSheet (mobile bottom sheet) both render — swatch, name, selected
-// check, edit/delete icons, and the inline pending-delete confirmation.
+/**
+ * Shared row for the preset list PresetSelector (desktop popover) and
+ * PresetSheet (mobile bottom sheet) both render — swatch, name, selected
+ * check, edit/delete icons, and the inline pending-delete confirmation.
+ */
 export function PresetRow({
   density,
   preset,
@@ -71,7 +73,7 @@ export function PresetRow({
               type="button"
               onClick={onCancelDelete}
               className={cn(
-                'cursor-pointer rounded text-xs text-text-secondary hover:bg-[var(--color-bg-subtle)]',
+                'cursor-pointer rounded text-xs text-text-secondary hover:bg-bg-subtle',
                 confirmBtnPadding
               )}
             >
@@ -81,7 +83,7 @@ export function PresetRow({
               type="button"
               onClick={onConfirmDelete}
               className={cn(
-                'cursor-pointer rounded text-xs font-medium text-red-500 hover:bg-red-500/10',
+                'cursor-pointer rounded text-xs font-medium text-danger hover:bg-danger/10',
                 confirmBtnPadding
               )}
             >
@@ -105,7 +107,7 @@ export function PresetRow({
         'group flex w-full items-center gap-2 text-sm cursor-pointer',
         rowPadding,
         rounded,
-        'hover:bg-[var(--color-bg-subtle)]',
+        'hover:bg-bg-subtle',
         isSelected && 'font-medium'
       )}
     >
@@ -115,7 +117,7 @@ export function PresetRow({
           style={{ background: color.hex }}
         />
       ) : (
-        <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-[var(--color-border)]" />
+        <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-border" />
       )}
       <span
         className={cn(
@@ -126,10 +128,7 @@ export function PresetRow({
         {preset?.name ?? 'Default'}
       </span>
       {isSelected && !isDeleting && (
-        <Check
-          size={checkSize}
-          className="shrink-0 text-[var(--color-primary)]"
-        />
+        <Check size={checkSize} className="shrink-0 text-primary" />
       )}
       {preset && (
         <span
@@ -155,7 +154,7 @@ export function PresetRow({
             onClick={onDeleteClick}
             aria-label={`Delete ${preset.name}`}
             className={cn(
-              'cursor-pointer rounded text-text-tertiary hover:text-red-500',
+              'cursor-pointer rounded text-text-tertiary hover:text-danger',
               actionIconPadding
             )}
           >

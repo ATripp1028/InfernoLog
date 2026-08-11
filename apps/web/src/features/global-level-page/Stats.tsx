@@ -3,7 +3,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import { formatNumber } from '@/features/logging/format'
 import {
   gdStatIconSrc,
@@ -136,9 +136,11 @@ function CoinValue({ level }: { level: GlobalLevelPageData }) {
   )
 }
 
-// Six stat cards plus the conditional two-player / low-detail flag chips.
-// Flags live inside this block on purpose: on mobile, collapsing Stats must
-// take the chips with it (orphaned chips under a collapsed header look broken).
+/**
+ * Six stat cards plus the conditional two-player / low-detail flag chips.
+ * Flags live inside this block on purpose: on mobile, collapsing Stats must
+ * take the chips with it (orphaned chips under a collapsed header look broken).
+ */
 export function Stats({ level }: { level: GlobalLevelPageData }) {
   const hasFlags = level.twoPlayer === true || level.lowDetailMode === true
   const likes = level.likes ?? 0

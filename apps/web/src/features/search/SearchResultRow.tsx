@@ -1,9 +1,11 @@
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { cn } from '@/lib/utils'
 
-// The minimal level shape a search row renders. Both LevelSearchResult (cache
-// search) and the full Level (id resolve / GD escalation) satisfy it.
+/**
+ * The minimal level shape a search row renders. Both LevelSearchResult (cache
+ * search) and the full Level (id resolve / GD escalation) satisfy it.
+ */
 export interface SearchRowLevel {
   inGameId: string
   name: string | null
@@ -26,12 +28,14 @@ interface SearchResultRowProps {
   dimmed?: boolean
 }
 
-// A single search-result row. Uses the same level-thumbnail wash as the list,
-// ranking, and collection entries (the shared ThumbnailWash) so search reads as
-// part of the same surface, with the load-bearing `creator · ID · difficulty`
-// triple over it (reuploads and remakes share names, so the triple is how a
-// user tells them apart). Used by both the desktop toolbar dropdown and the
-// mobile overlay.
+/**
+ * A single search-result row. Uses the same level-thumbnail wash as the list,
+ * ranking, and collection entries (the shared ThumbnailWash) so search reads as
+ * part of the same surface, with the load-bearing `creator · ID · difficulty`
+ * triple over it (reuploads and remakes share names, so the triple is how a
+ * user tells them apart). Used by both the desktop toolbar dropdown and the
+ * mobile overlay.
+ */
 export function SearchResultRow({
   level,
   onSelect,
@@ -70,7 +74,7 @@ export function SearchResultRow({
         <span
           className={cn(
             'block truncate text-sm font-medium leading-tight',
-            dimmed ? 'text-[#cccccc]' : 'text-text-primary'
+            dimmed ? 'text-text-body' : 'text-text-primary'
           )}
         >
           {level.name ?? `Level #${level.inGameId}`}

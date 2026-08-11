@@ -16,9 +16,11 @@ function formatChecked(iso: string): string {
   })
 }
 
-// Provenance renders as a muted footer line beneath the content — NOT a card.
-// It only matters when something is off (a manual/unverified row, a stale
-// last-checked date), so it stays quiet until looked at.
+/**
+ * Provenance renders as a muted footer line beneath the content — NOT a card.
+ * It only matters when something is off (a manual/unverified row, a stale
+ * last-checked date), so it stays quiet until looked at.
+ */
 export function Provenance({ level }: { level: GlobalLevelPageData }) {
   const parts: string[] = []
   parts.push(`Source: ${SOURCE_LABEL[level.dataSource] ?? level.dataSource}`)

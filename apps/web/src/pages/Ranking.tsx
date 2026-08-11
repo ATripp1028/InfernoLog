@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearch } from '@tanstack/react-router'
-import { TooltipProvider } from '../components/ui/tooltip'
-import { PageLoading } from '../components/PageLoading'
-import { useMediaQuery } from '../lib/useMediaQuery'
-import { useClassicRanking } from '../lib/api/ranking'
-import { RankingToolbar } from '../features/ranking/RankingToolbar'
-import { RankingBoard } from '../features/ranking/RankingBoard'
-import { MobileRankingList } from '../features/ranking/MobileRankingList'
-import { preScrollIndex } from '../features/ranking/placement'
+import { TooltipProvider } from '@/components/generic/tooltip'
+import { PageLoading } from '@/components/shell/PageLoading'
+import { useMediaQuery } from '@/lib/useMediaQuery'
+import { useClassicRanking } from '@/lib/api/ranking'
+import { RankingToolbar } from '@/features/ranking/RankingToolbar'
+import { RankingBoard } from '@/features/ranking/RankingBoard'
+import { MobileRankingList } from '@/features/ranking/MobileRankingList'
+import { preScrollIndex } from '@/features/ranking/placement'
+import { EmptyState } from '@/components/data/EmptyState'
 
+/**
+ * The personal classic ranking — every completion ordered by how hard the user found it.
+ */
 export function Ranking() {
   const ranking = useClassicRanking()
   const { place: placeId } = useSearch({ from: '/_authenticated/ranking' })
@@ -51,7 +55,11 @@ export function Ranking() {
             <h1 className="text-2xl font-semibold text-text-primary">
               Ranking
             </h1>
-            <EmptyState />
+            <EmptyState
+              className="mt-3"
+              title="No completions to rank yet."
+              description="Log a completion with the + button — it lands in Unplaced, ready for you to place."
+            />
           </>
         ) : (
           <MobileRankingList
@@ -71,7 +79,11 @@ export function Ranking() {
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full flex-col gap-3 p-4 md:p-6">
         {isEmpty ? (
-          <EmptyState />
+          <EmptyState
+            className="mt-3"
+            title="No completions to rank yet."
+            description="Log a completion with the + button — it lands in Unplaced, ready for you to place."
+          />
         ) : (
           <>
             <RankingToolbar
@@ -94,17 +106,5 @@ export function Ranking() {
         )}
       </div>
     </TooltipProvider>
-  )
-}
-
-function EmptyState() {
-  return (
-    <div className="mt-3 rounded-card border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] p-10 text-center">
-      <p className="text-text-primary">No completions to rank yet.</p>
-      <p className="mt-1 text-sm text-text-secondary">
-        Log a completion with the + button — it lands in Unplaced, ready for you
-        to place.
-      </p>
-    </div>
   )
 }

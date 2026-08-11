@@ -8,7 +8,7 @@ import { queryClient } from './lib/queryClient'
 import { persister, MAX_AGE } from './lib/persister'
 import { gddlSyncStatusQueryKey } from './lib/api/me'
 import { AuthProvider } from './context/AuthContext'
-import { Toaster } from './components/ui/sonner'
+import { Toaster } from './components/generic/sonner'
 import { routeTree } from './routeTree.gen'
 import './index.css'
 

@@ -6,8 +6,8 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { toast } from '@/components/ui/sonner'
-import { PageLoading } from '@/components/PageLoading'
+import { toast } from '@/components/generic/sonner'
+import { PageLoading } from '@/components/shell/PageLoading'
 import { meQueryKey, useMe, type MeData } from '@/lib/api/me'
 import { backOriginState } from '@/lib/backOrigin'
 import { useImportStatus } from '@/lib/api/import'
@@ -24,8 +24,11 @@ import {
   SheetContent,
   SheetTitle,
   SheetDescription,
-} from '@/components/ui/sheet'
+} from '@/components/generic/sheet'
 
+/**
+ * Account, privacy, display, logging, rating, and danger-zone settings.
+ */
 export function Settings() {
   // One "Saved" toast per burst of mutations — see the hook for details.
   useSettingsSaveNotifier()
@@ -97,7 +100,7 @@ export function Settings() {
       <DesignSection me={me.data} />
       <DangerZoneSection />
 
-      <footer className="mt-8 border-t border-[var(--color-border)] pt-6 text-sm text-muted-foreground">
+      <footer className="mt-8 border-t border-border pt-6 text-sm text-muted-foreground">
         <Link
           to="/about"
           state={backOriginState(location.href)}

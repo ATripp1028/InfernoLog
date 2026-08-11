@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown, Loader2, Plus, RotateCcw, Undo2 } from 'lucide-react'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover'
+} from '@/components/generic/popover'
 import {
   getPresetColor,
   summarizeColumns,
@@ -14,12 +13,12 @@ import {
 } from './presets'
 import { PresetRow } from './PresetRow'
 import type { ListPreset } from '@/lib/api/presets'
-import { useMe, type RatingDisplayScale } from '@/lib/api/me'
+import { useMe } from '@/lib/api/me'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { getCategoryColumnDefs } from './columns'
+import { usePresetSelector } from './usePresetSelector'
 
-// ─────────────────────────────────────────────
 // Hover card (portal-rendered, so it can overflow the Popover boundary)
-// ─────────────────────────────────────────────
 
 const CARD_WIDTH = 272
 
@@ -51,7 +50,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
   )
 
   return (
-    <div className="space-y-2.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">
+    <div className="space-y-2.5 rounded-md border border-border bg-bg-elevated p-3 shadow-md">
       <div className="flex items-start gap-2">
         <span
           className="mt-0.5 h-3 w-3 shrink-0 rounded-full"
@@ -69,7 +68,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
         </div>
       </div>
 
-      <div className="space-y-1.5 border-t border-[var(--color-border-subtle)] pt-2">
+      <div className="space-y-1.5 border-t border-border-subtle pt-2">
         <HoverRow label="Sort" value={sortSummary} />
         <HoverRow label="Cols" value={colSummary} />
         {preset.hideTime && <HoverRow label="Time" value="Hidden" />}
@@ -87,7 +86,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
 
 function DefaultHoverCard() {
   return (
-    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] p-3 shadow-md">
+    <div className="rounded-md border border-border bg-bg-elevated p-3 shadow-md">
       <p className="text-sm font-semibold text-text-primary">Default</p>
       <p className="mt-1 text-xs text-text-secondary">
         The built-in view — sorted by date, all columns and filters at their
@@ -108,9 +107,7 @@ function HoverRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-// ─────────────────────────────────────────────
 // Component
-// ─────────────────────────────────────────────
 
 interface PresetSelectorProps {
   presets: ListPreset[]
@@ -126,6 +123,9 @@ interface PresetSelectorProps {
   onDiscard: () => void
 }
 
+/**
+ * The saved-view picker, with a hover card summarizing each view.
+ */
 export function PresetSelector({
   presets,
   selectedPresetId,
@@ -139,103 +139,38 @@ export function PresetSelector({
   onEdit,
   onDiscard,
 }: PresetSelectorProps) {
-  const isOverwriting =
-    selectedPresetId != null && overwritingPresetIds.includes(selectedPresetId)
-  const [open, setOpen] = useState(false)
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null)
-
-  // Hover card state
-  const [hoveredId, setHoveredId] = useState<string | 'default' | null>(null)
-  const [hoverRect, setHoverRect] = useState<DOMRect | null>(null)
-  const hideTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  )
-
-  // Track when a deletion is in-flight so we can auto-close when it finishes.
-  const pendingDeleteRef = useRef<string | null>(null)
-
-  const scheduleHide = useCallback(() => {
-    hideTimeout.current = setTimeout(() => {
-      setHoveredId(null)
-      setHoverRect(null)
-    }, 120)
-  }, [])
-
-  const cancelHide = useCallback(() => {
-    if (hideTimeout.current) clearTimeout(hideTimeout.current)
-  }, [])
-
-  function handleOptionEnter(e: React.MouseEvent, id: string | 'default') {
-    cancelHide()
-    setHoveredId(id)
-    setHoverRect((e.currentTarget as HTMLElement).getBoundingClientRect())
-  }
-
-  function handleOptionLeave() {
-    scheduleHide()
-  }
-
-  // When deletingPresetId transitions from non-null → null, close the dropdown.
-  useEffect(() => {
-    if (!deletingPresetId && pendingDeleteRef.current) {
-      pendingDeleteRef.current = null
-      setPendingDeleteId(null)
-      setOpen(false)
-    }
-  }, [deletingPresetId])
-
-  // Clear hover on close.
-  function handleOpenChange(next: boolean) {
-    setOpen(next)
-    if (!next) {
-      cancelHide()
-      setHoveredId(null)
-      setHoverRect(null)
-      if (!deletingPresetId) setPendingDeleteId(null)
-    }
-  }
-
-  const selectedPreset = presets.find((p) => p.id === selectedPresetId)
-  const triggerLabel = selectedPreset?.name ?? 'Default'
-  const triggerColor = selectedPreset
-    ? getPresetColor(selectedPreset.color)
-    : null
-
-  function handleSelect(id: string | null) {
-    onSelect(id)
-    setOpen(false)
-    setPendingDeleteId(null)
-  }
-
-  function handleOverwrite() {
-    if (selectedPresetId) {
-      onOverwrite(selectedPresetId)
-      setOpen(false)
-    }
-  }
-
-  function handleDeleteClick(id: string, e: React.MouseEvent) {
-    e.stopPropagation()
-    setPendingDeleteId(id)
-    setHoveredId(null)
-  }
-
-  function handleEditClick(preset: ListPreset, e: React.MouseEvent) {
-    e.stopPropagation()
-    setOpen(false)
-    onEdit(preset)
-  }
-
-  function handleConfirmDelete(id: string) {
-    pendingDeleteRef.current = id
-    onDelete(id)
-    // Dropdown stays open; useEffect closes it when deletion finishes.
-  }
-
-  const hoveredPreset =
-    hoveredId && hoveredId !== 'default'
-      ? presets.find((p) => p.id === hoveredId)
-      : null
+  const {
+    open,
+    handleOpenChange,
+    isOverwriting,
+    selectedPreset,
+    triggerLabel,
+    triggerColor,
+    handleSelect,
+    handleOverwrite,
+    handleEditClick,
+    pendingDeleteId,
+    handleDeleteClick,
+    handleConfirmDelete,
+    cancelDelete,
+    close,
+    hoveredId,
+    hoveredPreset,
+    hoverRect,
+    handleOptionEnter,
+    handleOptionLeave,
+    cancelHide,
+    scheduleHide,
+  } = usePresetSelector({
+    presets,
+    selectedPresetId,
+    deletingPresetId,
+    overwritingPresetIds,
+    onSelect,
+    onOverwrite,
+    onDelete,
+    onEdit,
+  })
 
   return (
     <div className="flex items-center gap-1">
@@ -243,7 +178,7 @@ export function PresetSelector({
         <PopoverTrigger asChild>
           <button
             type="button"
-            className="flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg-elevated)] py-1.5 pl-2.5 pr-2 text-[13px] cursor-pointer"
+            className="flex items-center gap-1.5 rounded-md border border-border bg-bg-elevated py-1.5 pl-2.5 pr-2 text-[13px] cursor-pointer"
           >
             <span className="font-medium text-text-primary">Preset</span>
             <span className="text-[11px] text-text-tertiary">·</span>
@@ -253,13 +188,13 @@ export function PresetSelector({
                 style={{ background: triggerColor.hex }}
               />
             ) : (
-              <span className="h-2 w-2 shrink-0 rounded-full border border-[var(--color-border)]" />
+              <span className="h-2 w-2 shrink-0 rounded-full border border-border" />
             )}
             <span className="max-w-[90px] truncate text-[12px] text-text-secondary">
               {triggerLabel}
             </span>
             {isModified && (
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-primary)]" />
+              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             )}
             <ChevronDown size={12} className="text-text-secondary" />
           </button>
@@ -285,7 +220,7 @@ export function PresetSelector({
           {/* User presets */}
           {presets.length > 0 && (
             <>
-              <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+              <div className="my-1 h-px bg-border-subtle" />
               {presets.map((preset) => (
                 <PresetRow
                   key={preset.id}
@@ -295,7 +230,7 @@ export function PresetSelector({
                   isPendingDelete={pendingDeleteId === preset.id}
                   isDeleting={deletingPresetId === preset.id}
                   onSelect={() => handleSelect(preset.id)}
-                  onCancelDelete={() => setPendingDeleteId(null)}
+                  onCancelDelete={cancelDelete}
                   onConfirmDelete={() => handleConfirmDelete(preset.id)}
                   onDeleteClick={(e) => handleDeleteClick(preset.id, e)}
                   onEditClick={(e) => handleEditClick(preset, e)}
@@ -307,18 +242,18 @@ export function PresetSelector({
           )}
 
           {/* Actions */}
-          <div className="my-1 h-px bg-[var(--color-border-subtle)]" />
+          <div className="my-1 h-px bg-border-subtle" />
 
           {isModified && (
             <button
               type="button"
               onClick={() => {
-                setOpen(false)
+                close()
                 onSaveNew()
               }}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-[var(--color-bg-subtle)]"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-primary hover:bg-bg-subtle"
             >
-              <Plus size={13} className="text-[var(--color-primary)]" />
+              <Plus size={13} className="text-primary" />
               Save as new preset
             </button>
           )}
@@ -328,7 +263,7 @@ export function PresetSelector({
               type="button"
               onClick={handleOverwrite}
               disabled={isOverwriting}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isOverwriting ? (
                 <Loader2 size={12} className="animate-spin" />
@@ -345,10 +280,10 @@ export function PresetSelector({
             <button
               type="button"
               onClick={() => {
-                setOpen(false)
+                close()
                 onDiscard()
               }}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+              className="flex w-full cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle"
             >
               <Undo2 size={12} />
               {selectedPresetId ? `Discard changes` : 'Reset to default'}
@@ -363,7 +298,7 @@ export function PresetSelector({
           type="button"
           onClick={onSaveNew}
           title="Save current view as a new preset"
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-dashed border-[var(--color-primary)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-dashed border-primary px-2 text-xs font-medium text-primary hover:bg-primary/10"
         >
           <Plus size={12} />
           Save
@@ -377,7 +312,7 @@ export function PresetSelector({
           onClick={() => onOverwrite(selectedPresetId)}
           disabled={isOverwriting}
           title={`Overwrite "${selectedPreset?.name}" with current view`}
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-[var(--color-primary)] hover:bg-[var(--color-primary)]/10 disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isOverwriting ? (
             <Loader2 size={12} className="animate-spin" />
@@ -398,7 +333,7 @@ export function PresetSelector({
               ? `Discard changes and return to "${selectedPreset?.name}"`
               : 'Discard changes and return to default'
           }
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-[var(--color-border)] px-2 text-xs font-medium text-text-secondary hover:bg-[var(--color-bg-subtle)]"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-text-secondary hover:bg-bg-subtle"
         >
           <Undo2 size={12} />
           Discard

@@ -1,11 +1,13 @@
 import { Check } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 import { useLoggingFlow } from '../LoggingFlowProvider'
 
-// Screen 09. "Place now" routes to the ranking page, passing the new
-// completion's level_progress id so the page highlights it in Unplaced and
-// pre-scrolls the ranked list to its GDDL-reference tier.
+/**
+ * Screen 09. "Place now" routes to the ranking page, passing the new
+ * completion's level_progress id so the page highlights it in Unplaced and
+ * pre-scrolls the ranked list to its GDDL-reference tier.
+ */
 export function CompletionSuccessStep() {
   const { level, close, lastCompletionLevelProgressId } = useLoggingFlow()
   const navigate = useNavigate()
@@ -13,7 +15,7 @@ export function CompletionSuccessStep() {
 
   return (
     <div className="p-6">
-      <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-[var(--color-success-dim)] text-success">
+      <div className="mb-4 flex size-10 items-center justify-center rounded-md bg-success-dim text-success">
         <Check size={22} strokeWidth={3} />
       </div>
       <h2 className="text-xl font-semibold text-text-primary">{name} logged</h2>

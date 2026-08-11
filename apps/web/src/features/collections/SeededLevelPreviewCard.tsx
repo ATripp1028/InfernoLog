@@ -2,10 +2,20 @@
 // numeric ID — AddLevelsDialog and AddToCollectionDialog both hold the
 // fetched level for confirmation (rather than adding/picking it immediately)
 // since the user typed a raw ID with no name visible yet.
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 
+import { SectionLabel } from '@/components/inputs/SectionLabel'
+
+/**
+ * The level fields the preview card renders. A subset of `Level`, so a search result satisfies it too.
+ */
+/**
+ * The level fields the preview card renders, and the shape both collection
+ * dialogs pass around for a level picked or resolved by id. A subset of
+ * `Level`, so a search result satisfies it too.
+ */
 export interface SeededLevelPreviewData {
   inGameId: string
   name: string | null
@@ -16,12 +26,15 @@ export interface SeededLevelPreviewData {
   isRated: boolean
 }
 
-export function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.4px] text-text-secondary">
-      {children}
-    </p>
-  )
+/**
+ * Confirmation card for a level resolved from RobTop by numeric id, held for confirmation because the user typed a raw id with no name visible.
+ */
+/**
+ * A {@link SeededLevelPreviewData} plus whether the user has already beaten
+ * it — what both dialogs hold while a by-id resolve awaits confirmation.
+ */
+export interface SeededLevel extends SeededLevelPreviewData {
+  completed: boolean
 }
 
 export function SeededLevelPreviewCard({
@@ -41,7 +54,9 @@ export function SeededLevelPreviewCard({
 }) {
   return (
     <div>
-      <SectionLabel>Selected</SectionLabel>
+      <SectionLabel tone="secondary" className="mb-2">
+        Selected
+      </SectionLabel>
       <div
         className={cn(
           'relative flex items-center gap-3 overflow-hidden rounded-btn border border-border bg-bg-surface px-4 py-3.5',

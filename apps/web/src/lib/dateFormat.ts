@@ -1,4 +1,4 @@
-import type { DateFormatPreference } from '@/lib/api/me'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { getZonedParts } from '@/lib/timezone'
 
 function formatDateParts(
@@ -21,6 +21,14 @@ function formatDateParts(
   }
 }
 
+/**
+ * A calendar date in the user's chosen order.
+ *
+ * Reads the calendar parts straight out of a bare `yyyy-MM-dd` or
+ * UTC-midnight ISO string rather than constructing a `Date`, so a date-only
+ * value cannot slide a day in a negative-UTC timezone. Real timestamps fall
+ * through to local components.
+ */
 export function formatDate(
   date: Date | string,
   preference: DateFormatPreference
@@ -50,6 +58,9 @@ export function formatDate(
   return formatDateParts(yyyy, mm, dd, preference)
 }
 
+/**
+ * A time of day, 24-hour under the ISO preference and 12-hour otherwise.
+ */
 export function formatTimeOfDay(
   hour: number,
   minute: number,
@@ -64,6 +75,9 @@ export function formatTimeOfDay(
   return `${h12}:${mm} ${period}`
 }
 
+/**
+ * Everything needed to render an entry's date: the text, the optional time, and whether the zone badge applies.
+ */
 export interface EntryDateTimeDisplay {
   dateText: string
   timeText: string | null
@@ -71,16 +85,18 @@ export interface EntryDateTimeDisplay {
   zoneLabel: string | null
 }
 
-// Display for a ProgressUpdate/LevelProgress date field that may optionally
-// carry a real time-of-day. `dateTimezone == null` means no time was entered
-// (legacy rows and the common case) — falls through to `formatDate`'s
-// existing calendar-only rendering unchanged. When a timezone IS present, the
-// date/time shown are computed in THAT zone (not the viewer's), so an entry
-// always displays the same wall-clock moment to every viewer. The zone badge
-// shows whenever it differs from the viewer's current zone — a viewer whose
-// own zone genuinely is UTC sees no badge on their own UTC-zoned entries,
-// same as anyone else viewing their own zone's entries. `null` (not the
-// string 'UTC') is the one convention-wide signal for "no time entered".
+/**
+ * Display for a ProgressUpdate/LevelProgress date field that may optionally
+ * carry a real time-of-day. `dateTimezone == null` means no time was entered
+ * (legacy rows and the common case) — falls through to `formatDate`'s
+ * existing calendar-only rendering unchanged. When a timezone IS present, the
+ * date/time shown are computed in THAT zone (not the viewer's), so an entry
+ * always displays the same wall-clock moment to every viewer. The zone badge
+ * shows whenever it differs from the viewer's current zone — a viewer whose
+ * own zone genuinely is UTC sees no badge on their own UTC-zoned entries,
+ * same as anyone else viewing their own zone's entries. `null` (not the
+ * string 'UTC') is the one convention-wide signal for "no time entered".
+ */
 export function formatEntryDateTime(
   date: Date | string | null,
   dateTimezone: string | null,

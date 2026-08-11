@@ -1,19 +1,21 @@
 import { cn } from '@/lib/utils'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { ListItem } from './types'
 
-// Name color encodes progress status: gold = completed, white = in progress,
-// red = dropped.
-// `text-accent` is remapped to a dark gray by the shadcn token layer
-// (index.css), so completions use the brand amber/gold directly.
+/**
+ * Name color encodes progress status: gold = completed, white = in progress,
+ * red = dropped.
+ */
 export const NAME_COLOR: Record<ListItem['status'], string> = {
-  COMPLETED: 'text-[#ff9f1c]',
+  COMPLETED: 'text-accent',
   IN_PROGRESS: 'text-text-primary',
   DROPPED: 'text-danger',
 }
 
-// The Level identity cell — difficulty face + name (+ 2P badge) + creator.
-// Shared by the columnar row and the mobile card.
+/**
+ * The Level identity cell — difficulty face + name (+ 2P badge) + creator.
+ * Shared by the columnar row and the mobile card.
+ */
 export function LevelCell({
   item,
   faceSize = 110,
@@ -42,7 +44,7 @@ export function LevelCell({
             {level.name ?? 'Unknown level'}
           </p>
           {level.twoPlayer && (
-            <span className="shrink-0 rounded bg-[var(--color-bg-elevated)] px-1 text-[9px] font-bold text-text-secondary">
+            <span className="shrink-0 rounded bg-bg-elevated px-1 text-[9px] font-bold text-text-secondary">
               2P
             </span>
           )}

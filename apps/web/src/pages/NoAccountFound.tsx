@@ -1,6 +1,9 @@
 import { useNavigate } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
+import { Button } from '@/components/generic/button'
 
+/**
+ * Shown when a sign-in finds no matching InfernoLog account. Sign-in never creates one.
+ */
 export function NoAccountFound() {
   const navigate = useNavigate()
 

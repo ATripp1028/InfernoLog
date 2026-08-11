@@ -35,13 +35,21 @@ function tierRgb(tier: number): [number, number, number] {
   return last[1]
 }
 
+/**
+ * The badge color for a GDDL tier, interpolated along the difficulty gradient.
+ *
+ * Tiers 1–15 land on light backgrounds, so callers render their number in
+ * black; the palette only darkens from 16 up.
+ */
 export function gddlTierColor(tier: number): string {
   const [r, g, b] = tierRgb(tier)
   return `rgb(${r}, ${g}, ${b})`
 }
 
-// CSS gradient across a tier slider domain, sampling the anchor colors at each
-// anchor's position within [min, max] (clamped to the ends).
+/**
+ * CSS gradient across a tier slider domain, sampling the anchor colors at each
+ * anchor's position within [min, max] (clamped to the ends).
+ */
 export function gddlTrackGradient(min: number, max: number): string {
   const span = Math.max(1, max - min)
   const stops = ANCHORS.map(([tier]) => {

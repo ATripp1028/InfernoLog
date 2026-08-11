@@ -1,5 +1,5 @@
-import { DifficultyFace } from '@/components/DifficultyFace'
-import { CopyableId } from '@/components/CopyableId'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { CopyableId } from '@/components/data/CopyableId'
 import { ratedStarSrc } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
@@ -17,6 +17,9 @@ interface IdentityProps {
   variant: 'mobile' | 'desktop'
 }
 
+/**
+ * The level's name, creator, difficulty face, and id — the page's masthead.
+ */
 export function Identity({ level, variant }: IdentityProps) {
   const isMobile = variant === 'mobile'
   const showStarCount = level.isRated && level.stars != null && level.stars > 0

@@ -11,13 +11,13 @@ import {
   TIER_DOMAIN,
   ATTEMPTS_DOMAIN,
 } from './types'
-import type { RatingDisplayScale, RatingCategory } from '@/lib/api/me'
-import { formatRating } from '@/features/logging/format'
+import type { RatingCategory } from '@/lib/api/me'
+import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import { formatRating } from '@/lib/ratingScale'
 
-// ─────────────────────────────────────────────
-// COLOR PALETTE
-// ─────────────────────────────────────────────
-
+/**
+ * The color a saved view is tagged with. A fixed palette, so a preset's color survives a theme change.
+ */
 export type PresetColorId =
   | 'red'
   | 'orange'
@@ -36,12 +36,18 @@ export type PresetColorId =
   | 'rose'
   | 'slate'
 
+/**
+ * One entry in the preset color palette.
+ */
 export interface PresetColor {
   id: PresetColorId
   hex: string
   label: string
 }
 
+/**
+ * The preset color palette, in swatch order.
+ */
 export const PRESET_COLORS: PresetColor[] = [
   { id: 'red', hex: '#EF4444', label: 'Red' },
   { id: 'orange', hex: '#F97316', label: 'Orange' },
@@ -61,6 +67,9 @@ export const PRESET_COLORS: PresetColor[] = [
   { id: 'slate', hex: '#64748B', label: 'Slate' },
 ]
 
+/**
+ * The palette entry for an id, falling back to the first color so an unknown stored id still renders.
+ */
 export function getPresetColor(id: PresetColorId): PresetColor {
   return (
     PRESET_COLORS.find((c) => c.id === id) ?? (PRESET_COLORS[9] as PresetColor)
@@ -79,7 +88,9 @@ function relativeLuminance(hex: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b
 }
 
-// Returns the foreground color that achieves better contrast against the given background.
+/**
+ * Returns the foreground color that achieves better contrast against the given background.
+ */
 export function getContrastColor(hex: string): '#000000' | '#ffffff' {
   const L = relativeLuminance(hex)
   // Contrast ratio with white: 1.05 / (L + 0.05)
@@ -89,10 +100,9 @@ export function getContrastColor(hex: string): '#000000' | '#ffffff' {
   return L < 0.25 ? '#ffffff' : '#000000'
 }
 
-// ─────────────────────────────────────────────
-// STATE COMPARISON
-// ─────────────────────────────────────────────
-
+/**
+ * The sort stack a fresh view starts with: most recently beaten first.
+ */
 export const DEFAULT_SORTS: SortSpec[] = [{ key: 'date', dir: 'desc' }]
 
 function rangesEqual(a: [number, number], b: [number, number]): boolean {
@@ -151,6 +161,9 @@ function columnOrderEqual(a: ColumnId[], b: ColumnId[]): boolean {
   return a.every((id, i) => id === b[i])
 }
 
+/**
+ * A complete List view — sorts, filters, columns, order — which is exactly what a preset stores.
+ */
 export interface ViewConfig {
   sorts: SortSpec[]
   filters: FilterState
@@ -159,6 +172,12 @@ export interface ViewConfig {
   hideTime: boolean
 }
 
+/**
+ * Whether two views are the same.
+ *
+ * Drives the "unsaved changes" indicator, so it compares by value across
+ * every field rather than by reference.
+ */
 export function viewConfigsEqual(a: ViewConfig, b: ViewConfig): boolean {
   return (
     sortsEqual(a.sorts, b.sorts) &&
@@ -169,6 +188,9 @@ export function viewConfigsEqual(a: ViewConfig, b: ViewConfig): boolean {
   )
 }
 
+/**
+ * The built-in default view.
+ */
 export function defaultViewConfig(): ViewConfig {
   return {
     sorts: DEFAULT_SORTS,
@@ -179,17 +201,20 @@ export function defaultViewConfig(): ViewConfig {
   }
 }
 
+/**
+ * Whether a view is the built-in default. Used to decide whether "Reset" does anything.
+ */
 export function isDefaultConfig(config: ViewConfig): boolean {
   return viewConfigsEqual(config, defaultViewConfig())
 }
 
-// ─────────────────────────────────────────────
 // PRESET CLEANUP
-// ─────────────────────────────────────────────
 
-// Strip references to deleted rating categories from a view config, and append
-// any active category columns that aren't present yet. Called when applying a
-// saved preset or when the user's category list changes.
+/**
+ * Strip references to deleted rating categories from a view config, and append
+ * any active category columns that aren't present yet. Called when applying a
+ * saved preset or when the user's category list changes.
+ */
 export function cleanupPresetForCategories(
   config: ViewConfig,
   activeCategoryIds: Set<string>
@@ -226,10 +251,9 @@ export function cleanupPresetForCategories(
   }
 }
 
-// ─────────────────────────────────────────────
-// SUMMARY HELPERS (for hover card)
-// ─────────────────────────────────────────────
-
+/**
+ * A one-line description of a sort stack, for the preset hover card.
+ */
 export function summarizeSorts(
   sorts: SortSpec[],
   dynamicOptions?: { key: SortKey; label: string }[]
@@ -243,6 +267,9 @@ export function summarizeSorts(
     .join(', ')
 }
 
+/**
+ * A one-line description of the active filters, for the preset hover card. Empty when nothing is filtered.
+ */
 export function summarizeFilters(
   filters: FilterState,
   scale: RatingDisplayScale,
@@ -294,6 +321,9 @@ export function summarizeFilters(
   return lines
 }
 
+/**
+ * A one-line description of the visible columns, for the preset hover card.
+ */
 export function summarizeColumns(
   cols: ColumnVisibility,
   order: ColumnId[],

@@ -16,8 +16,6 @@
   --secondary-foreground: var(--color-text-primary);
   --muted: var(--color-bg-subtle);
   --muted-foreground: var(--color-text-secondary);
-  --accent: var(--color-bg-elevated);
-  --accent-foreground: var(--color-text-primary);
   --destructive: var(--color-danger);
   --destructive-foreground: #ffffff;
   --input: var(--color-border);
@@ -28,7 +26,15 @@
 /* Expose the shadcn semantic vars as Tailwind v4 utilities (bg-card,
    text-muted-foreground, border-input, etc.). `--color-primary`,
    `--color-danger`, etc. are already exposed by tokens.css, so we only add
-   the names shadcn needs that aren't already there. */
+   the names shadcn needs that aren't already there.
+
+   Deliberately absent: shadcn's `accent`. tokens.css already defines
+   `--color-accent` as the brand amber, and mapping shadcn's onto the same
+   name silently turned every `text-accent`/`bg-accent`/`border-accent` in the
+   app dark grey — including the "amber-tracked" slider's range and the
+   completed-level name color. shadcn's `accent` only ever meant "hover /
+   focus surface", which is `bg-elevated`; the three components that wanted it
+   now say `bg-bg-elevated` outright. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -41,8 +47,6 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-input: var(--input);

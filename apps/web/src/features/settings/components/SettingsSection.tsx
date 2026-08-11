@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { Separator } from '@/components/ui/separator'
+import { Separator } from '@/components/generic/separator'
 
 interface SettingsSectionProps {
   title: string
@@ -8,6 +8,9 @@ interface SettingsSectionProps {
   showSeparator?: boolean
 }
 
+/**
+ * A titled block of settings rows.
+ */
 export function SettingsSection({
   title,
   description,
@@ -52,7 +55,7 @@ export function SettingRow({
         {description && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
-        {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+        {error && <p className="text-xs text-danger">{error}</p>}
       </div>
       <div className="flex-shrink-0">{control}</div>
     </div>
@@ -83,7 +86,7 @@ export function SettingStack({
         )}
       </div>
       {children}
-      {error && <p className="text-xs text-[var(--color-danger)]">{error}</p>}
+      {error && <p className="text-xs text-danger">{error}</p>}
     </div>
   )
 }

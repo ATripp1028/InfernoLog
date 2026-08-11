@@ -1,7 +1,3 @@
-// Thin wrapper: resolves the Want to Beat collection from the collections
-// cache and delegates to AddLevelsDialog. The seeded-confirmation and
-// LEVEL_ALREADY_COMPLETED error handling live there.
-
 import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useCollection, useCollections } from '@/lib/api/collections'
@@ -14,6 +10,11 @@ interface AddToWantToBeatDialogProps {
   onClose: () => void
 }
 
+/**
+ * Thin wrapper: resolves the Want to Beat collection from the collections
+ * cache and delegates to AddLevelsDialog. The seeded-confirmation and
+ * LEVEL_ALREADY_COMPLETED error handling live there.
+ */
 export function AddToWantToBeatDialog({
   open,
   onClose,

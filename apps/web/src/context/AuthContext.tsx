@@ -8,16 +8,21 @@ import {
 } from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
-import { queryClient } from '../lib/queryClient'
-import { persister } from '../lib/persister'
+import { queryClient } from '@/lib/queryClient'
+import { persister } from '@/lib/persister'
 
-// Sign In and Sign Up both go through the same Cognito Google OAuth flow —
-// Cognito has no built-in concept of the two being different requests. This
-// key records which button the user clicked so AuthCallback can branch:
-// Sign Up calls POST /v1/auth/signup/start to create the user row; Sign In
-// checks for an existing one and rejects (discarding the Cognito identity)
-// if none exists. See docs/AUTH.md.
+/**
+ * Sign In and Sign Up both go through the same Cognito Google OAuth flow —
+ * Cognito has no built-in concept of the two being different requests. This
+ * key records which button the user clicked so AuthCallback can branch:
+ * Sign Up calls POST /v1/auth/signup/start to create the user row; Sign In
+ * checks for an existing one and rejects (discarding the Cognito identity)
+ * if none exists. See docs/AUTH.md.
+ */
 export const AUTH_INTENT_KEY = 'authIntent'
+/**
+ * Which button started the OAuth round trip. Sign-in with no matching account is rejected rather than creating one, so the two paths cannot be merged.
+ */
 export type AuthIntent = 'signin' | 'signup'
 
 interface AuthContextType {
@@ -31,6 +36,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
+/**
+ * Provides Cognito auth state and hydrates the app user from `GET /v1/me` on mount.
+ */
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAuthInitializing, setIsAuthInitializing] = useState(true)
@@ -96,6 +104,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 }
 
+/**
+ * The current auth state and token accessor. Throws outside an {@link AuthProvider}.
+ */
 export function useAuth() {
   const context = useContext(AuthContext)
   if (!context) throw new Error('useAuth must be used within AuthProvider')

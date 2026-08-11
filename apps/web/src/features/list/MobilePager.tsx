@@ -1,5 +1,8 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
-import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import { backOriginState } from '@/lib/backOrigin'
 import { ListCard } from './ListCard'
 import type { ColumnVisibility } from './columns'
@@ -13,7 +16,9 @@ interface MobilePagerProps {
   hideTime: boolean
 }
 
-// Mobile list — each card taps through to the level page. Mobile-only (md+ shows ListTable).
+/**
+ * Mobile list — each card taps through to the level page. Mobile-only (md+ shows ListTable).
+ */
 export function MobilePager({
   items,
   columns,

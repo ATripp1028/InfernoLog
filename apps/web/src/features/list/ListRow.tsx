@@ -1,12 +1,16 @@
 import { cn } from '@/lib/utils'
-import type { RatingDisplayScale, DateFormatPreference } from '@/lib/api/me'
-import { formatRating, formatNumber } from '@/features/logging/format'
+import type {
+  DateFormatPreference,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
+import { formatNumber } from '@/features/logging/format'
+import { formatRating } from '@/lib/ratingScale'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
-import { CopyableId } from '@/components/CopyableId'
+import { CopyableId } from '@/components/data/CopyableId'
 import { LevelCell } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
@@ -15,8 +19,10 @@ import type { ListItem } from './types'
 
 const VIEWER_TZ = getViewerTimezone()
 
-// Minimum width reserved for the Level (face + name) cell before the table
-// scrolls horizontally — keeps long names readable rather than squeezing them.
+/**
+ * Minimum width reserved for the Level (face + name) cell before the table
+ * scrolls horizontally — keeps long names readable rather than squeezing them.
+ */
 export const LEVEL_MIN_WIDTH = 280
 
 interface RowProps {
@@ -70,6 +76,9 @@ function CoinsCell({ item }: { item: ListItem }) {
   )
 }
 
+/**
+ * One row of the columnar List table.
+ */
 export function ListRow({
   item,
   columns,

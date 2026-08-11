@@ -1,20 +1,27 @@
-import { officialCoinSrc, userCoinSrc } from '@/lib/gdAssets'
+import { isOfficialLevel, officialCoinSrc, userCoinSrc } from '@/lib/gdAssets'
 import type { ListItem } from './types'
 
+/** Which coin sprite a list row shows, and how many of it. */
 export interface CoinDisplay {
   count: number
   src: string
 }
 
-// Coin count comes from the level data (the API fills in 3 for the main levels /
-// Meltdown / SubZero, 0 for World). Official levels (RobTop) render the gold
-// secret-coin sprite; user levels use the silver/uncollected user-coin sprite.
+/**
+ * The coin indicator for a list row, or `null` when the level has no coins.
+ *
+ * Coin count comes from the level data — the API fills in 3 for the main
+ * levels / Meltdown / SubZero, 0 for World. Official levels render the gold
+ * secret-coin sprite; user levels the silver-or-uncollected user-coin sprite,
+ * which doubles as the "are these coins silver-verified?" signal.
+ */
 export function coinDisplay(level: ListItem['level']): CoinDisplay | null {
   const count = level.coins ?? 0
   if (count <= 0) return null
-  const isOfficial = level.creator?.toLowerCase() === 'robtop'
   return {
     count,
-    src: isOfficial ? officialCoinSrc : userCoinSrc(level.coinsVerified),
+    src: isOfficialLevel(level)
+      ? officialCoinSrc
+      : userCoinSrc(level.coinsVerified),
   }
 }

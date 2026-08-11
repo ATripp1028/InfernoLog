@@ -1,61 +1,9 @@
 import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
-import { formatEntryDateTime } from '@/lib/dateFormat'
-import { getViewerTimezone } from '@/lib/timezone'
 import { formatNumber } from '@/features/logging/format'
-import type { DateFormatPreference } from '@/lib/api/me'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { LevelPageData, ProgressUpdate } from './types'
-
-const VIEWER_TZ = getViewerTimezone()
-
-// Percentage / run label for a progress update
-function rangeLabel(update: ProgressUpdate): string {
-  if (update.kind === 'COMPLETION') return '100%'
-  if (update.runFrom != null && update.runTo != null) {
-    return `run ${update.runFrom} → ${update.runTo}%`
-  }
-  if (update.percentage != null) return `${update.percentage}%`
-  return '—'
-}
-
-function formatEntryDate(
-  dateStr: string | null,
-  dateTimezone: string | null,
-  loggedAt: string,
-  uncertain: boolean,
-  datePref: DateFormatPreference
-): {
-  text: string
-  timeText: string | null
-  zoneSuffix: string | null
-  uncertain: boolean
-} {
-  if (!dateStr) {
-    const { dateText } = formatEntryDateTime(
-      loggedAt,
-      null,
-      datePref,
-      VIEWER_TZ
-    )
-    return {
-      text: dateText,
-      timeText: null,
-      zoneSuffix: null,
-      uncertain: false,
-    }
-  }
-  const { dateText, timeText, showZoneBadge, zoneLabel } = formatEntryDateTime(
-    dateStr,
-    dateTimezone,
-    datePref,
-    VIEWER_TZ
-  )
-  return {
-    text: dateText,
-    timeText,
-    zoneSuffix: showZoneBadge ? zoneLabel : null,
-    uncertain,
-  }
-}
+import { formatEntryDate, rangeLabel } from './timelineFormat'
+import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 function EntryTimeSuffix({
   timeText,
@@ -73,33 +21,6 @@ function EntryTimeSuffix({
     </span>
   )
 }
-
-// ─── Timeline dot ────────────────────────────────────────────────
-// type DotColor = 'green' | 'grey' | 'red'
-
-// function TimelineDot({ color }: { color: DotColor }) {
-//   const outerClass =
-//     color === 'green'
-//       ? 'border-[var(--color-success)]'
-//       : color === 'red'
-//         ? 'border-[var(--color-danger)]'
-//         : 'border-[#333]'
-//   const innerClass =
-//     color === 'green'
-//       ? 'bg-[var(--color-success)]'
-//       : color === 'red'
-//         ? 'bg-[var(--color-danger)]'
-//         : 'bg-[#555]'
-
-//   return (
-//     <div
-//       className={`absolute left-[22px] flex size-5 -translate-x-1/2 items-center justify-center rounded-full border-2 bg-bg-base ${outerClass}`}
-//       aria-hidden
-//     >
-//       <div className={`size-2 rounded-full ${innerClass}`} />
-//     </div>
-//   )
-// }
 
 // ─── Completion entry card ────────────────────────────────────────
 function CompletionEntry({
@@ -129,10 +50,10 @@ function CompletionEntry({
   )
 
   return (
-    <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(34,197,94,0.35)] bg-bg-surface">
+    <div className="relative ml-8 overflow-hidden rounded-card border border-success/35 bg-bg-surface">
       <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-[22px] items-center rounded bg-[rgba(34,197,94,0.1)] px-2 text-[11px] font-medium text-[#5ddc8a]">
+          <span className="inline-flex h-[22px] items-center rounded bg-success-dim px-2 text-[11px] font-medium text-success-soft">
             🏆 Completion
           </span>
           <span className="text-[13px] font-medium text-text-primary">
@@ -158,7 +79,7 @@ function CompletionEntry({
               type="button"
               onClick={onDelete}
               aria-label="Delete entry"
-              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-[var(--color-danger)]"
+              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-danger"
             >
               <Trash2 size={11} />
             </button>
@@ -168,12 +89,12 @@ function CompletionEntry({
 
       {update.notes && (
         <>
-          <div className="mx-3.5 mt-3 h-px bg-[#242424]" />
+          <div className="mx-3.5 mt-3 h-px bg-border-subtle" />
           <div className="px-3.5 pb-2 pt-2.5">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#666]">
+            <SectionLabel size="xs" className="mb-1.5">
               Notes on this run
-            </p>
-            <p className="text-[13px] leading-snug text-[#c8c8c8]">
+            </SectionLabel>
+            <p className="text-[13px] leading-snug text-text-body">
               {update.notes}
             </p>
           </div>
@@ -188,7 +109,7 @@ function CompletionEntry({
               href={update.highlightUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-[22px] items-center gap-1 rounded bg-[rgba(232,57,14,0.08)] px-2 text-[11px] font-medium text-[#ff8a6a] hover:opacity-80"
+              className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
             >
               <Film size={10} />
               Highlight
@@ -247,7 +168,7 @@ function ProgressEntry({
     update.notes || update.highlightUrl || update.videoUrl || update.onStream
 
   return (
-    <div className="relative ml-8 overflow-hidden rounded-card border border-border-subtle bg-[#141414]">
+    <div className="relative ml-8 overflow-hidden rounded-card border border-border-subtle bg-bg-inset">
       <div
         className={[
           'flex items-center justify-between px-3.5',
@@ -282,7 +203,7 @@ function ProgressEntry({
               type="button"
               onClick={onDelete}
               aria-label="Delete entry"
-              className="text-text-tertiary transition-colors hover:text-[var(--color-danger)]"
+              className="text-text-tertiary transition-colors hover:text-danger"
             >
               <Trash2 size={13} />
             </button>
@@ -292,12 +213,12 @@ function ProgressEntry({
 
       {update.notes && (
         <>
-          <div className="mx-3.5 mt-2 h-px bg-[#242424]" />
+          <div className="mx-3.5 mt-2 h-px bg-border-subtle" />
           <div className="px-3.5 pb-2 pt-2.5">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#666]">
+            <SectionLabel size="xs" className="mb-1.5">
               Notes on this run
-            </p>
-            <p className="text-[13px] leading-snug text-[#c8c8c8]">
+            </SectionLabel>
+            <p className="text-[13px] leading-snug text-text-body">
               {update.notes}
             </p>
           </div>
@@ -311,7 +232,7 @@ function ProgressEntry({
               href={update.highlightUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex h-[22px] items-center gap-1 rounded bg-[rgba(232,57,14,0.08)] px-2 text-[11px] font-medium text-[#ff8a6a] hover:opacity-80"
+              className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
             >
               <Film size={10} />
               Highlight
@@ -369,10 +290,10 @@ function DropEntry({
   )
 
   return (
-    <div className="relative ml-8 overflow-hidden rounded-card border border-[rgba(239,68,68,0.3)] bg-bg-surface">
+    <div className="relative ml-8 overflow-hidden rounded-card border border-danger/30 bg-bg-surface">
       <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
-          <span className="inline-flex h-[22px] items-center rounded bg-[rgba(239,68,68,0.1)] px-2 text-[11px] font-medium text-[#ff8a8a]">
+          <span className="inline-flex h-[22px] items-center rounded bg-danger-dim px-2 text-[11px] font-medium text-danger-soft">
             ⚑ Dropped
           </span>
           <span className="text-xs text-text-secondary">
@@ -399,7 +320,7 @@ function DropEntry({
               type="button"
               onClick={onDelete}
               aria-label="Delete entry"
-              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-[var(--color-danger)]"
+              className="flex h-7 items-center justify-center rounded-btn border border-border bg-white/5 px-2 text-text-secondary transition-colors hover:bg-bg-subtle hover:text-danger"
             >
               <Trash2 size={11} />
             </button>
@@ -409,12 +330,12 @@ function DropEntry({
 
       {update.notes && (
         <>
-          <div className="mx-3.5 mt-3 h-px bg-[#242424]" />
+          <div className="mx-3.5 mt-3 h-px bg-border-subtle" />
           <div className="px-3.5 pb-3 pt-2.5">
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-[#666]">
+            <SectionLabel size="xs" className="mb-1.5">
               Reason for dropping
-            </p>
-            <p className="text-[13px] leading-snug text-[#c8c8c8]">
+            </SectionLabel>
+            <p className="text-[13px] leading-snug text-text-body">
               {update.notes}
             </p>
           </div>
@@ -433,6 +354,9 @@ interface TimelineProps {
   onDelete: (progressUpdateId: string) => void
 }
 
+/**
+ * Every logged update in reverse chronological order, with the completion styled apart.
+ */
 export function Timeline({
   data,
   datePref,
@@ -456,7 +380,7 @@ export function Timeline({
     <div className="relative flex flex-col gap-2 py-2">
       {/* Vertical connector line */}
       <div
-        className="pointer-events-none absolute bottom-4 left-[31px] top-4 w-0.5 -translate-x-1/2 bg-[#2a2a2a]"
+        className="pointer-events-none absolute bottom-4 left-[31px] top-4 w-0.5 -translate-x-1/2 bg-bg-subtle"
         aria-hidden
       />
 

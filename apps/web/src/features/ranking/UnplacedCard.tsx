@@ -2,7 +2,7 @@ import { forwardRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
-import { DifficultyFace } from '@/components/DifficultyFace'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
 import { RankingBadge } from './RankingBadge'
 import { ThumbnailWash } from './ThumbnailWash'
@@ -20,8 +20,10 @@ interface UnplacedCardProps {
   domId?: string
 }
 
-// Presentational unplaced card. Compact: handle, small thumb, name/creator, and
-// the list-reference tag (or "No list reference").
+/**
+ * Presentational unplaced card. Compact: handle, small thumb, name/creator, and
+ * the list-reference tag (or "No list reference").
+ */
 export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
   ({ item, handle, highlight, isDragging, style, onClick, domId }, ref) => {
     const { level, badge, attempts } = item
@@ -32,10 +34,10 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
         style={style}
         onClick={onClick}
         className={[
-          'relative overflow-hidden rounded-card border bg-[var(--color-bg-elevated)]',
+          'relative overflow-hidden rounded-card border bg-bg-elevated',
           highlight
-            ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]'
-            : 'border-[var(--color-border-subtle)]',
+            ? 'border-primary ring-1 ring-primary'
+            : 'border-border-subtle',
           isDragging ? 'opacity-50' : '',
           onClick ? 'cursor-pointer' : '',
         ].join(' ')}
@@ -83,7 +85,9 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
 )
 UnplacedCard.displayName = 'UnplacedCard'
 
-// Sortable/draggable unplaced card — the source for cross-list placement.
+/**
+ * Sortable/draggable unplaced card — the source for cross-list placement.
+ */
 export function SortableUnplacedCard({
   item,
   highlight,
