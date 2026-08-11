@@ -22,7 +22,7 @@ import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import type { FlowPath } from '@/features/logging/types'
 import { toast } from '@/components/generic/sonner'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { tableMinWidth } from '@/features/list/ListTable'
+import { tableMinWidth } from '@/features/list/tableLayout'
 import {
   applyFilters,
   countActiveFilters,

@@ -15,15 +15,10 @@ import { LevelCell } from './LevelCell'
 import { TierBadge } from './TierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
+import { LEVEL_MIN_WIDTH } from './tableLayout'
 import type { ListItem } from './types'
 
 const VIEWER_TZ = getViewerTimezone()
-
-/**
- * Minimum width reserved for the Level (face + name) cell before the table
- * scrolls horizontally — keeps long names readable rather than squeezing them.
- */
-export const LEVEL_MIN_WIDTH = 280
 
 interface RowProps {
   item: ListItem

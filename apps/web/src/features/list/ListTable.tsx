@@ -7,7 +7,12 @@ import type {
 } from '@/lib/api/wireEnums'
 import type { FlowPath } from '@/features/logging/types'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
-import { ListRow, LEVEL_MIN_WIDTH } from './ListRow'
+import { ListRow } from './ListRow'
+import {
+  LEVEL_MIN_WIDTH,
+  rowMinWidth,
+  visibleOrderedColumns,
+} from './tableLayout'
 import { RowContextMenu, RowActionsKebab } from './rowActions'
 import type { ListItem, SortKey, SortSpec } from './types'
 
@@ -28,32 +33,6 @@ interface ListTableProps {
   onNavigate: (item: ListItem) => void
   onAddToCollectionItem: (item: ListItem) => void
   onLogItem: (item: ListItem, path: FlowPath) => void
-}
-
-// px-3 (12px) on each side of every row.
-const ROW_PADDING = 24
-
-function rowMinWidth(orderedCols: ColumnDef[]): number {
-  const colsWidth = orderedCols.reduce((sum, c) => sum + c.width, 0)
-  return LEVEL_MIN_WIDTH + colsWidth + ROW_PADDING
-}
-
-/**
- * The minimum width the table needs for the currently visible columns. The page
- * uses this to decide whether the filter panel can dock beside the table or must
- * open as an overlay instead.
- */
-export function tableMinWidth(
-  columns: ColumnVisibility,
-  columnOrder: ColumnId[],
-  allColumnDefs: ColumnDef[]
-): number {
-  const orderedCols = columnOrder
-    .map((id) => allColumnDefs.find((c) => c.id === id))
-    .filter(
-      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
-    )
-  return rowMinWidth(orderedCols)
 }
 
 function SortIndicator({
@@ -215,12 +194,7 @@ export function ListTable({
   onAddToCollectionItem,
   onLogItem,
 }: ListTableProps) {
-  const orderedCols = columnOrder
-    .map((id) => allColumnDefs.find((c) => c.id === id))
-    .filter(
-      (col): col is ColumnDef => col != null && (columns[col.id] ?? false)
-    )
-
+  const orderedCols = visibleOrderedColumns(columns, columnOrder, allColumnDefs)
   const minWidth = rowMinWidth(orderedCols)
 
   // Only one row's kebab menu open at a time — opening another closes it.
