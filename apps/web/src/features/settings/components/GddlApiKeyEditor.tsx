@@ -11,39 +11,13 @@ import {
   useGddlListsSync,
   gddlSyncStatusQueryKey,
   type MeData,
-  type GddlListSyncResult,
 } from '@/lib/api/me'
 import { useGddlSyncContext } from '../GddlSyncProvider'
 import { ConnectedAccountRow } from './ConnectedAccountRow'
+import { buildListSyncToast } from '../gddlSyncToast'
 
 interface GddlApiKeyEditorProps {
   me: MeData
-}
-
-function buildListSyncToast(result: GddlListSyncResult): string {
-  const totalAdded =
-    result.favorites.addedToInferno.length +
-    result.leastFavorites.addedToInferno.length
-  const totalPushed =
-    result.favorites.addedToGddl.length +
-    result.leastFavorites.addedToGddl.length
-  const totalRemoved =
-    result.favorites.removedFromGddl.length +
-    result.leastFavorites.removedFromGddl.length
-  const totalSkipped =
-    result.favorites.skipped.length + result.leastFavorites.skipped.length
-
-  const parts: string[] = []
-  if (totalAdded > 0)
-    parts.push(
-      `${totalAdded} level${totalAdded === 1 ? '' : 's'} added to InfernoLog`
-    )
-  if (totalPushed > 0) parts.push(`${totalPushed} pushed to GDDL`)
-  if (totalRemoved > 0) parts.push(`${totalRemoved} removed from GDDL`)
-  const summary = parts.length > 0 ? parts.join(', ') : 'Nothing to sync'
-  return totalSkipped > 0
-    ? `Lists synced — ${summary} · ${totalSkipped} level${totalSkipped === 1 ? '' : 's'} could not be cached`
-    : `Lists synced — ${summary}`
 }
 
 /**

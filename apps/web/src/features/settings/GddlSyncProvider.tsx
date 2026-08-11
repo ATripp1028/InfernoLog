@@ -9,24 +9,10 @@ import { toast } from '@/components/generic/sonner'
 import {
   useGddlSyncStatus,
   useAckGddlSync,
-  type GddlSyncResult,
   type GddlSyncJobStatus,
 } from '@/lib/api/me'
 import { useInvalidateOnWrite } from '@/lib/api/logging'
-
-function buildSyncToast(result: GddlSyncResult): string {
-  const parts: string[] = []
-  if (result.created > 0)
-    parts.push(
-      `${result.created} completion${result.created === 1 ? '' : 's'} added`
-    )
-  if (result.enriched > 0) parts.push(`${result.enriched} enriched`)
-  const summary = parts.length > 0 ? parts.join(', ') : 'Nothing new to import'
-  if (result.errors.length > 0) {
-    return `Sync complete — ${summary} · ${result.errors.length} level${result.errors.length === 1 ? '' : 's'} could not be imported`
-  }
-  return `Sync complete — ${summary}`
-}
+import { buildSyncToast } from './gddlSyncToast'
 
 interface GddlSyncContextValue {
   isSyncing: boolean
