@@ -457,6 +457,45 @@ describe('useAddToCollectionDialog', () => {
       )
     })
 
+    // A level resolved from RobTop reports its own completion, and the picker
+    // must honour that rather than the progress list — the seeded card has
+    // already promised the user that Want to Beat won't be offered next.
+    it('hides Want to Beat when the picked level reports itself as beaten', () => {
+      vi.mocked(useMyProgress).mockReturnValue(progressWith([]))
+      const { result } = render()
+
+      act(() => result.current.selectLevel({ ...level, completed: true }))
+
+      expect(result.current.filteredCollections.map((c) => c.id)).toEqual([
+        'fav',
+        'demons',
+      ])
+    })
+
+    it('keeps Want to Beat when the picked level reports itself unbeaten', () => {
+      vi.mocked(useMyProgress).mockReturnValue(progressWith([]))
+      const { result } = render()
+
+      act(() => result.current.selectLevel({ ...level, completed: false }))
+
+      expect(result.current.filteredCollections.map((c) => c.id)).toContain(
+        'wtb'
+      )
+    })
+
+    // Search results and cached levels carry no viewer state, so the progress
+    // list stays the fallback rather than an absent flag reading as unbeaten.
+    it('falls back to the progress list when the level carries no flag', () => {
+      vi.mocked(useMyProgress).mockReturnValue(progressWith(['12345']))
+      const { result } = render()
+
+      act(() => result.current.selectLevel(level))
+
+      expect(result.current.filteredCollections.map((c) => c.id)).not.toContain(
+        'wtb'
+      )
+    })
+
     it('reports whether any built-ins exist', () => {
       const { result } = renderOnPickStep()
       expect(result.current.hasBuiltIns).toBe(true)
