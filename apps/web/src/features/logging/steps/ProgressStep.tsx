@@ -21,7 +21,8 @@ import {
   PopoverTrigger,
 } from '@/components/generic/popover'
 import { Info } from 'lucide-react'
-import { RunInput, formatRunInputValue, type ParsedRun } from '../RunInput'
+import { RunInput } from '../RunInput'
+import { formatRunInputValue, type ParsedRun } from '../runParsing'
 
 /**
  * Progress step 1: how far the run got, from 0% or from partway through.

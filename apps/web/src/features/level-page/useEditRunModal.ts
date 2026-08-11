@@ -19,7 +19,7 @@ import {
   formatRunInputValue,
   parseRunInput,
   type ParsedRun,
-} from '@/features/logging/RunInput'
+} from '@/features/logging/runParsing'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 /**
