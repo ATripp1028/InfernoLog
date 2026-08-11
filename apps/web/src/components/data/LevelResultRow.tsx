@@ -39,7 +39,7 @@ export interface LevelResultRowLevel {
  * state ("Added", "Already completed"), `loading` and `disabled` grey the row
  * out while a write is in flight. Deliberately distinct from
  * `SearchResultRow`, which answers to the search surface rather than a
- * picker; see docs/CODE_QUALITY.md §3.
+ * picker; see docs/CODE_QUALITY.md, Frontend §3.
  */
 export function LevelResultRow({
   level,
