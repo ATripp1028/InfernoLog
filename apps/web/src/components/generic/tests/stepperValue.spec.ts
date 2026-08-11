@@ -67,12 +67,9 @@ describe('formatValue', () => {
 
   // A NaN in the field would be uneditable — every keystroke would parse back
   // to NaN and the user could never recover.
-  it.each([NaN, Infinity, -Infinity])(
-    'shows zero rather than %p',
-    (value) => {
-      expect(formatValue(value, 2)).toBe('0.00')
-    }
-  )
+  it.each([NaN, Infinity, -Infinity])('shows zero rather than %p', (value) => {
+    expect(formatValue(value, 2)).toBe('0.00')
+  })
 })
 
 describe('commitValue', () => {

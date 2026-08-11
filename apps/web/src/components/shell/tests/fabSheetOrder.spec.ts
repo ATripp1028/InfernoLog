@@ -3,7 +3,12 @@ import type { FabAction } from '@/context/FabActionsContext'
 import { opensSheet, sheetActionOrder } from '../fabSheetOrder'
 
 const action = (key: string): FabAction =>
-  ({ key, label: key, icon: () => null, onClick: () => {} }) as unknown as FabAction
+  ({
+    key,
+    label: key,
+    icon: () => null,
+    onClick: () => {},
+  }) as unknown as FabAction
 
 const keys = (actions: readonly FabAction[]) => actions.map((a) => a.key)
 

@@ -34,9 +34,13 @@ describe('DEMON_OPINIONS', () => {
   // other difficulty face in the app moved with a rename.
   it('agrees with the shared asset mapping', () => {
     expect(DEMON_OPINIONS.map((o) => o.face)).toEqual(
-      ['Easy Demon', 'Medium Demon', 'Hard Demon', 'Insane Demon', 'Extreme Demon'].map(
-        difficultyFaceSrc
-      )
+      [
+        'Easy Demon',
+        'Medium Demon',
+        'Hard Demon',
+        'Insane Demon',
+        'Extreme Demon',
+      ].map(difficultyFaceSrc)
     )
   })
 

@@ -10,7 +10,11 @@ const { useRouteGuard } = await import('../useRouteGuard')
 const render = (props: { ready: boolean; when: boolean; to?: string }) =>
   renderHook(
     (p: { ready: boolean; when: boolean; to?: string }) =>
-      useRouteGuard({ ready: p.ready, when: p.when, to: (p.to ?? '/') as never }),
+      useRouteGuard({
+        ready: p.ready,
+        when: p.when,
+        to: (p.to ?? '/') as never,
+      }),
     { initialProps: props }
   )
 

@@ -69,9 +69,9 @@ describe('toInternal', () => {
   it.each([0, 1, 42, 85, 99, 100])(
     'round-trips the internal value %s on both scales',
     (internal) => {
-      expect(toInternal(toDisplay(internal, 'ZERO_TO_TEN'), 'ZERO_TO_TEN')).toBe(
-        internal
-      )
+      expect(
+        toInternal(toDisplay(internal, 'ZERO_TO_TEN'), 'ZERO_TO_TEN')
+      ).toBe(internal)
       expect(
         toInternal(toDisplay(internal, 'ZERO_TO_HUNDRED'), 'ZERO_TO_HUNDRED')
       ).toBe(internal)
@@ -171,9 +171,10 @@ describe('sortAndCapSearchResults', () => {
   it('sorts before trimming', () => {
     const rows = ['g1', 'g2', 'g3', 'ok']
 
-    expect(
-      sortAndCapSearchResults(rows, (r) => r.startsWith('g'), 2)
-    ).toEqual(['ok', 'g1'])
+    expect(sortAndCapSearchResults(rows, (r) => r.startsWith('g'), 2)).toEqual([
+      'ok',
+      'g1',
+    ])
   })
 
   it('leaves the input untouched', () => {

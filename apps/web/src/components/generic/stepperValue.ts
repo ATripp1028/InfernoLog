@@ -33,9 +33,7 @@ export function clampTo(n: number, min: number, max: number): number {
  * back to zero for a value that is not a finite number.
  */
 export function formatValue(n: number, precision: number): string {
-  return Number.isFinite(n)
-    ? n.toFixed(precision)
-    : (0).toFixed(precision)
+  return Number.isFinite(n) ? n.toFixed(precision) : (0).toFixed(precision)
 }
 
 /**

@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatDate,
-  formatEntryDateTime,
-  formatTimeOfDay,
-} from '../dateFormat'
+import { formatDate, formatEntryDateTime, formatTimeOfDay } from '../dateFormat'
 
 describe('formatDate', () => {
   it.each([

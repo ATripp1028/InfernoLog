@@ -17,10 +17,7 @@ vi.mock('@/features/logging/useDefaultFabActions', () => ({
 const { FabActionsProvider, useFabActions, useResolvedFabActions } =
   await import('../FabActionsContext')
 
-const action = (
-  key: string,
-  overrides: Partial<FabAction> = {}
-): FabAction =>
+const action = (key: string, overrides: Partial<FabAction> = {}): FabAction =>
   ({
     key,
     label: key,

@@ -13,13 +13,12 @@ afterEach(() => {
 const render = () => renderHook(() => useDesktopHoverFab())
 
 /** Runs past the close grace period. */
-const settle = () =>
-  act(() => void vi.advanceTimersByTime(CLOSE_DELAY_MS + 1))
+const settle = () => act(() => void vi.advanceTimersByTime(CLOSE_DELAY_MS + 1))
 
 /** Attaches the hook's ref to a real element so `contains` works. */
-function mountContainer(
-  result: { current: ReturnType<typeof useDesktopHoverFab> }
-): { container: HTMLDivElement; inside: HTMLButtonElement } {
+function mountContainer(result: {
+  current: ReturnType<typeof useDesktopHoverFab>
+}): { container: HTMLDivElement; inside: HTMLButtonElement } {
   const container = document.createElement('div')
   const inside = document.createElement('button')
   container.appendChild(inside)
@@ -157,7 +156,9 @@ describe('useDesktopHoverFab', () => {
   // establishes.
   describe('dismissing', () => {
     const press = (key: string) =>
-      act(() => void document.dispatchEvent(new KeyboardEvent('keydown', { key })))
+      act(
+        () => void document.dispatchEvent(new KeyboardEvent('keydown', { key }))
+      )
 
     it('closes on Escape, with no delay', () => {
       const { result } = render()

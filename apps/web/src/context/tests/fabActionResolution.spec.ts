@@ -3,10 +3,7 @@ import type { FabAction } from '../FabActionsContext'
 import { actionsSignature, resolveFabActions } from '../fabActionResolution'
 import { sheetActionOrder } from '@/components/shell/fabSheetOrder'
 
-const action = (
-  key: string,
-  overrides: Partial<FabAction> = {}
-): FabAction =>
+const action = (key: string, overrides: Partial<FabAction> = {}): FabAction =>
   ({
     key,
     label: key,

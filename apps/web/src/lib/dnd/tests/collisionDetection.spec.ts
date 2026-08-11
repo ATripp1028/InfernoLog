@@ -8,12 +8,10 @@ vi.mock('@dnd-kit/core', () => ({
   rectIntersection: vi.fn(() => []),
 }))
 
-const { closestCenter, pointerWithin, rectIntersection } = await import(
-  '@dnd-kit/core'
-)
-const { useMultiContainerCollisionDetection } = await import(
-  '../collisionDetection'
-)
+const { closestCenter, pointerWithin, rectIntersection } =
+  await import('@dnd-kit/core')
+const { useMultiContainerCollisionDetection } =
+  await import('../collisionDetection')
 
 const CONTAINERS = ['placed', 'unplaced'] as const
 /** Row height, so a gap distance can be compared against `height * 1.5`. */
@@ -21,7 +19,10 @@ const ROW_HEIGHT = 40
 
 /** A collision hit, optionally carrying closestCenter's distance. */
 const hit = (id: string, distance?: number): Collision =>
-  ({ id, ...(distance === undefined ? {} : { data: { value: distance } }) }) as Collision
+  ({
+    id,
+    ...(distance === undefined ? {} : { data: { value: distance } }),
+  }) as Collision
 
 /** Points each detector at a fixed answer for this check. */
 function detectorsReturn(answers: {

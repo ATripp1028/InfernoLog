@@ -19,9 +19,8 @@ vi.mock('@/lib/persister', () => ({
   persister: { removeClient: cache.removeClient },
 }))
 
-const { AUTH_INTENT_KEY, AuthProvider, useAuth } = await import(
-  '../AuthContext'
-)
+const { AUTH_INTENT_KEY, AuthProvider, useAuth } =
+  await import('../AuthContext')
 
 const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
@@ -41,12 +40,14 @@ const emit = (event: string) =>
 
 beforeEach(() => {
   hub.handlers = []
-  hub.listen.mockImplementation((_channel: string, handler: (p: unknown) => void) => {
-    hub.handlers.push(handler)
-    return () => {
-      hub.handlers = hub.handlers.filter((h) => h !== handler)
+  hub.listen.mockImplementation(
+    (_channel: string, handler: (p: unknown) => void) => {
+      hub.handlers.push(handler)
+      return () => {
+        hub.handlers = hub.handlers.filter((h) => h !== handler)
+      }
     }
-  })
+  )
   amplify.fetchAuthSession.mockResolvedValue(session('id-token'))
   amplify.signInWithRedirect.mockResolvedValue(undefined)
   amplify.signOut.mockResolvedValue(undefined)
@@ -139,9 +140,7 @@ describe('starting the OAuth round trip', () => {
 
 describe('the ID token accessor', () => {
   it('hands back the current token', async () => {
-    await expect(render().result.current.getIdToken()).resolves.toBe(
-      'id-token'
-    )
+    await expect(render().result.current.getIdToken()).resolves.toBe('id-token')
   })
 
   // Callers await a string; resolving undefined would send `Bearer undefined`
@@ -267,8 +266,6 @@ describe('signing out', () => {
 
 describe('using auth outside a provider', () => {
   it('throws rather than reporting a signed-out visitor', () => {
-    expect(() => renderHook(() => useAuth())).toThrow(
-      /within AuthProvider/
-    )
+    expect(() => renderHook(() => useAuth())).toThrow(/within AuthProvider/)
   })
 })

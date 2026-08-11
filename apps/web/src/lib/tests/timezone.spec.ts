@@ -66,9 +66,9 @@ describe('getZonedParts', () => {
   // Months are 1-12 here, not the Date object's 0-11 — getting this wrong
   // would silently shift every displayed date by a month.
   it('reports months from one, not zero', () => {
-    expect(getZonedParts(new Date('2026-01-15T12:00:00.000Z'), 'UTC').month).toBe(
-      1
-    )
+    expect(
+      getZonedParts(new Date('2026-01-15T12:00:00.000Z'), 'UTC').month
+    ).toBe(1)
     expect(
       getZonedParts(new Date('2026-12-15T12:00:00.000Z'), 'UTC').month
     ).toBe(12)
@@ -228,11 +228,11 @@ describe('zonedTimeToUtc', () => {
   })
 
   it('handles midnight and the last minute of the day', () => {
-    expect(
-      zonedTimeToUtc('2026-03-14', '00:00', 'UTC').toISOString()
-    ).toBe('2026-03-14T00:00:00.000Z')
-    expect(
-      zonedTimeToUtc('2026-03-14', '23:59', 'UTC').toISOString()
-    ).toBe('2026-03-14T23:59:00.000Z')
+    expect(zonedTimeToUtc('2026-03-14', '00:00', 'UTC').toISOString()).toBe(
+      '2026-03-14T00:00:00.000Z'
+    )
+    expect(zonedTimeToUtc('2026-03-14', '23:59', 'UTC').toISOString()).toBe(
+      '2026-03-14T23:59:00.000Z'
+    )
   })
 })

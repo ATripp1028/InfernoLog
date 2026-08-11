@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  coinIsCollected,
-  coinMaskFromFlags,
-  toggleCoin,
-} from '../coinBitmask'
+import { coinIsCollected, coinMaskFromFlags, toggleCoin } from '../coinBitmask'
 
 describe('coinIsCollected', () => {
   // Bit 0 is coin 1 — the off-by-one this module exists to stop being

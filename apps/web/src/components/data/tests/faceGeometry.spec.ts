@@ -13,7 +13,7 @@ describe('faceScale', () => {
   // The whole point of a shared reference width: every crop comes out the same
   // on-screen size, so a demon-extreme's ball matches an Easy's.
   it('scales every face from the same reference', () => {
-    expect(faceScale(160)).toBe(160 * 0.6 / FACE_REFERENCE_WIDTH)
+    expect(faceScale(160)).toBe((160 * 0.6) / FACE_REFERENCE_WIDTH)
   })
 
   it('leaves room around the face for the fire', () => {

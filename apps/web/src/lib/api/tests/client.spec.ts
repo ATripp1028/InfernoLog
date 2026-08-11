@@ -159,7 +159,8 @@ describe('apiFetch', () => {
     it('prefers `error` when the server sends both', async () => {
       respondWith({
         status: 400,
-        json: () => Promise.resolve({ error: 'from error', message: 'from message' }),
+        json: () =>
+          Promise.resolve({ error: 'from error', message: 'from message' }),
       })
 
       await expect(apiFetch('/v1/x', { token: 't' })).rejects.toThrow(
@@ -212,9 +213,7 @@ describe('apiFetch', () => {
     it('lets a network failure propagate as itself', async () => {
       fetchMock.mockRejectedValue(new TypeError('Failed to fetch'))
 
-      await expect(apiFetch('/v1/x', { token: 't' })).rejects.toThrow(
-        TypeError
-      )
+      await expect(apiFetch('/v1/x', { token: 't' })).rejects.toThrow(TypeError)
     })
   })
 })
