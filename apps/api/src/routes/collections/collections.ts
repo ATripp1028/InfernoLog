@@ -23,6 +23,7 @@ import {
   getCollections,
   updateCollection,
 } from '../../services/collections'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -33,9 +34,8 @@ app.get('/me/collections', async (c) => {
 
 app.post('/me/collections', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = CreateCollectionInputSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
+  const parsed = await parseJsonBody(c, CreateCollectionInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const detail = await createCollection(userId, parsed.data)
   logger.info({ userId, collectionId: detail.id }, 'Collection created')
@@ -50,9 +50,8 @@ app.get('/me/collections/:collectionId', async (c) => {
 
 app.patch('/me/collections/:collectionId', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = UpdateCollectionInputSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
+  const parsed = await parseJsonBody(c, UpdateCollectionInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const detail = await updateCollection(
     userId,

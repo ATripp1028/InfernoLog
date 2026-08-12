@@ -25,6 +25,7 @@ import {
   reorderEntry,
   unplaceEntry,
 } from '../../services/ranking'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -38,11 +39,8 @@ app.get('/me/ranking/classic', async (c) => {
 
 app.post('/me/ranking/classic', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = PlaceRankingInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, PlaceRankingInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const data = await placeCompletion(userId, parsed.data)
   logger.info(
@@ -55,11 +53,8 @@ app.post('/me/ranking/classic', async (c) => {
 app.patch('/me/ranking/classic/:levelProgressId', async (c) => {
   const userId = c.get('userId')
   const levelProgressId = c.req.param('levelProgressId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ReorderRankingInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ReorderRankingInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const data = await reorderEntry(userId, levelProgressId, parsed.data)
   logger.info({ userId, levelProgressId }, 'Reordered ranking entry')

@@ -20,6 +20,7 @@ import {
   serializeMe,
   type RawUser,
 } from '../../services/user/serialize'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -59,11 +60,8 @@ app.get('/me/rating-categories', async (c) => {
 app.put('/me/rating-config', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = RatingConfigSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, RatingConfigSchema)
+  if (!parsed.ok) return parsed.response
 
   const { categories, includeEnjoyment, enjoymentWeight, enjoymentSortOrder } =
     parsed.data

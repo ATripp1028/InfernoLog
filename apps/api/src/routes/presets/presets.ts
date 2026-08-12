@@ -13,6 +13,7 @@ import { Hono } from 'hono'
 import { ListPresetInputSchema, ListPresetUpdateSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -39,11 +40,8 @@ app.get('/me/list-presets', async (c) => {
 
 app.post('/me/list-presets', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ListPresetInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ListPresetInputSchema)
+  if (!parsed.ok) return parsed.response
   const {
     name,
     description,
@@ -77,11 +75,8 @@ app.patch('/me/list-presets/:id', async (c) => {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ListPresetUpdateSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ListPresetUpdateSchema)
+  if (!parsed.ok) return parsed.response
 
   const {
     name,

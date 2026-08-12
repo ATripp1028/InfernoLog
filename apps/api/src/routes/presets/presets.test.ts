@@ -240,10 +240,9 @@ describe('PATCH /me/list-presets/:id', () => {
     expect(res.status).toBe(404)
   })
 
-  it('treats an unparseable body as an empty update', async () => {
-    // ListPresetUpdateSchema is a `.partial()`, so the `{}` fallback for an
-    // unparseable body is valid. Benign here — an empty patch changes nothing
-    // — but see the ranking reorder route for where the same shape bites.
+  it('400s on an unparseable body rather than applying an empty update', async () => {
+    // ListPresetUpdateSchema is a `.partial()`, so a `{}` fallback would be
+    // valid — parseJsonBody rejects the unparseable body before that point.
     ownedBy(TEST_USER_ID)
 
     const res = await app.request(`/me/list-presets/${PRESET_ID}`, {
@@ -252,11 +251,8 @@ describe('PATCH /me/list-presets/:id', () => {
       headers: { 'Content-Type': 'application/json' },
     })
 
-    expect(res.status).toBe(200)
-    expect(prisma.listPreset.update).toHaveBeenCalledWith({
-      where: { id: PRESET_ID },
-      data: {},
-    })
+    expect(res.status).toBe(400)
+    expect(prisma.listPreset.update).not.toHaveBeenCalled()
   })
 
   it('400s on an invalid field for a preset the caller owns', async () => {

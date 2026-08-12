@@ -73,18 +73,15 @@ describe('ranking routes — body validation', () => {
     expect(mockPlaceCompletion).not.toHaveBeenCalled()
   })
 
-  // CHARACTERIZATION TEST — documents current behaviour, which looks wrong.
-  // ReorderRankingInputSchema is `{ aboveId?, belowId? }`, so the `{}` fallback
-  // for an unparseable body is VALID and reaches the service as a reorder with
-  // no neighbours. computeIndex then bisects (null, null) to index 1, i.e. a
-  // corrupt request silently MOVES the entry to the easiest end rather than
-  // erroring. If the route grows an unparseable-body guard, this should flip
-  // to expecting 400.
-  it('passes an unparseable reorder body through as a neighbourless reorder', async () => {
+  it('400s on an unparseable reorder body rather than moving the entry', async () => {
+    // ReorderRankingInputSchema is `{ aboveId?, belowId? }`, so a `{}` fallback
+    // would be VALID and reach the service as a neighbourless reorder —
+    // computeIndex bisects (null, null) to index 1, silently relocating the
+    // entry to the easiest end. parseJsonBody rejects it first.
     const res = await send('PATCH', `/me/ranking/classic/${LP_ID}`, '{oops')
 
-    expect(res.status).toBe(200)
-    expect(mockReorderEntry).toHaveBeenCalledWith('user-123', LP_ID, {})
+    expect(res.status).toBe(400)
+    expect(mockReorderEntry).not.toHaveBeenCalled()
   })
 
   it('400s on a reorder body whose neighbour is the wrong type', async () => {

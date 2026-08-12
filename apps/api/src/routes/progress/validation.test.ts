@@ -65,16 +65,12 @@ function send(method: string, path: string, body: unknown) {
   })
 }
 
-// The three POST routes require fields, so an unparseable body fails their
-// schema. PATCH is excluded from the unparseable case — see the test below.
 const WRITE_ROUTES: [string, string][] = [
   ['POST', '/me/completions'],
   ['POST', '/me/progress'],
   ['POST', '/me/drops'],
   ['PATCH', '/me/progress/12345'],
 ]
-
-const POST_ROUTES = WRITE_ROUTES.filter(([m]) => m === 'POST')
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -95,22 +91,11 @@ function assertNoWrites() {
 // ─── body gates ──────────────────────────────────────────────────────────────
 
 describe('progress routes — body validation', () => {
-  it.each(POST_ROUTES)('%s %s 400s on an unparseable body', async (m, p) => {
+  it.each(WRITE_ROUTES)('%s %s 400s on an unparseable body', async (m, p) => {
     const res = await send(m, p, '{oops')
 
     expect(res.status).toBe(400)
     assertNoWrites()
-  })
-
-  it('treats an unparseable edit body as an empty no-op edit', async () => {
-    // Every field of the edit schema is optional, so the `{}` fallback for an
-    // unparseable body is itself valid. Unlike the import check — where the
-    // same shape produced a false "no conflicts" — this is benign: an empty
-    // patch writes nothing and returns the entry unchanged.
-    const res = await send('PATCH', '/me/progress/12345', '{oops')
-
-    expect(res.status).toBe(200)
-    expect(mockApplyEdit).toHaveBeenCalledWith('user-123', '12345', {})
   })
 
   it.each(WRITE_ROUTES)(

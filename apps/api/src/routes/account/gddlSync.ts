@@ -19,6 +19,7 @@ import { decryptSecret } from '../../utils/kms'
 import { GddlError } from '../../utils/gddl'
 import { syncGddlLists } from '../../services/gddl/listSync'
 import type { HonoVariables } from '../../types/hono'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -198,11 +199,8 @@ const AckGddlSyncSchema = z.object({
 app.post('/me/gddl-sync/ack', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => null)
-  const parsed = AckGddlSyncSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, AckGddlSyncSchema)
+  if (!parsed.ok) return parsed.response
 
   await prisma.gddlSyncJob.updateMany({
     where: {
