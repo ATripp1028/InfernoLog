@@ -28,13 +28,23 @@ const lambda = new LambdaClient({
   region: process.env.AWS_REGION ?? 'us-east-1',
 })
 
+// Distinguishes "the body would not parse" from "the body parsed to something".
+// The usual `.catch(() => ({}))` idiom cannot: every field of
+// ImportCheckRequestSchema is optional, so `{}` is itself a VALID check request
+// and an unparseable body would answer "no conflicts" — telling the user their
+// import is clean when nothing was actually examined.
+const UNPARSEABLE = Symbol('unparseable-body')
+
 // POST /v1/me/import/check — returns which of the given level IDs the
 // authenticated user already has a completion for, with summary detail
 // for the conflict UI. Read-only; no writes.
 app.post('/me/import/check', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
+  const body = await c.req.json().catch(() => UNPARSEABLE)
+  if (body === UNPARSEABLE) {
+    return c.json({ error: 'Request body must be valid JSON' }, 400)
+  }
   const parsed = ImportCheckRequestSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ error: parsed.error.flatten() }, 400)

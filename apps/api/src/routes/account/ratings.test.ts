@@ -131,6 +131,19 @@ describe('GET /me/rating-categories', () => {
     expect(body.data[0]!.weight).toBe(0.35)
   })
 
+  it('passes a weight through when the driver already gave a number', async () => {
+    // The row type allows either a Decimal or a plain number; the adapter
+    // decides which, so both shapes have to serialize the same.
+    prisma.ratingCategory.findMany.mockResolvedValue([
+      { id: CAT_A, name: 'Gameplay', weight: 0.35, sortOrder: 0 },
+    ] as never)
+
+    const body = (await (await app.request('/me/rating-categories')).json()) as {
+      data: { weight: unknown }[]
+    }
+    expect(body.data[0]!.weight).toBe(0.35)
+  })
+
   it('returns an empty array when none are configured', async () => {
     const res = await app.request('/me/rating-categories')
 
@@ -166,6 +179,19 @@ describe('PUT /me/rating-config — validation', () => {
     ['the body is not a config at all', { nope: true }],
   ])('400s and writes nothing when %s', async (_label, body) => {
     const res = await putConfig(body)
+
+    expect(res.status).toBe(400)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
+  })
+
+  it('400s on an unparseable body rather than throwing', async () => {
+    // Unlike the import check, the `{}` fallback is safe here: every field of
+    // RatingConfigSchema is required, so an empty object fails validation.
+    const res = await app.request('/me/rating-config', {
+      method: 'PUT',
+      body: '{oops',
+      headers: { 'Content-Type': 'application/json' },
+    })
 
     expect(res.status).toBe(400)
     expect(prisma.$transaction).not.toHaveBeenCalled()

@@ -144,18 +144,24 @@ describe('POST /me/import/check', () => {
     expect(mockCheckImportConflicts).not.toHaveBeenCalled()
   })
 
-  // CHARACTERIZATION TEST — documents current behaviour, which is a sharp edge.
-  // Every field of ImportCheckRequestSchema is optional, so the `{}` fallback
-  // for an unparseable body is itself VALID: a corrupt request reads as an
-  // empty check and answers "no conflicts" rather than erroring. For an import
-  // preflight that means the user is told it is safe to proceed. If the route
-  // grows a guard for an unparseable body, this should flip to expecting 400.
-  it('treats an unparseable body as an empty check, not an error', async () => {
+  it('400s on an unparseable body instead of reporting no conflicts', async () => {
+    // Every field of the schema is optional, so a `{}` fallback for bad JSON
+    // would itself be VALID and answer "no conflicts" — telling the user their
+    // import is clean when nothing was examined. Hence the explicit guard.
     const res = await app.request('/me/import/check', {
       method: 'POST',
       body: '{oops',
       headers: { 'Content-Type': 'application/json' },
     })
+
+    expect(res.status).toBe(400)
+    expect(mockCheckImportConflicts).not.toHaveBeenCalled()
+  })
+
+  it('still accepts a genuinely empty check request', async () => {
+    // The guard must reject only unparseable bodies — `{}` is a legitimate
+    // request meaning "nothing to check".
+    const res = await post('/me/import/check', {})
 
     expect(res.status).toBe(200)
     expect(mockCheckImportConflicts).toHaveBeenCalledWith(TEST_USER_ID, {})
@@ -227,6 +233,35 @@ describe('POST /me/import/start', () => {
     expect(data).toHaveProperty('rankingPayload')
     expect(data).not.toHaveProperty('collectionsPayload')
     expect(data).not.toHaveProperty('ratingsPayload')
+  })
+
+  it('stores all three optional tabs when the sheet had them', async () => {
+    await post('/me/import/start', {
+      rows: [row(0)],
+      ranking: [{ levelId: '12345' }],
+      collections: [{ list: 'Favorites', levelId: '12345' }],
+      ratings: [{ levelId: '12345', scores: { Gameplay: 85 } }],
+    })
+
+    const { data } = tx.importJob.create.mock.lastCall![0] as {
+      data: Record<string, unknown>
+    }
+    expect(data).toHaveProperty('rankingPayload')
+    expect(data).toHaveProperty('collectionsPayload')
+    expect(data).toHaveProperty('ratingsPayload')
+  })
+
+  it('400s on an unparseable body rather than throwing', async () => {
+    // Safe to fall back to `{}` here, unlike /check: `rows` is required, so an
+    // empty object fails validation on its own.
+    const res = await app.request('/me/import/start', {
+      method: 'POST',
+      body: '{oops',
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    expect(res.status).toBe(400)
+    expect(prisma.$transaction).not.toHaveBeenCalled()
   })
 
   it('invokes the worker asynchronously with just the jobId', async () => {

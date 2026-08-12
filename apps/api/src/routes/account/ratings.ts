@@ -71,6 +71,12 @@ app.put('/me/rating-config', async (c) => {
   // Defensive — RatingConfigSchema already validates this with the same
   // integer-cents math, but we recheck here in case the schema is ever
   // loosened. Integer math avoids floating-point tolerance entirely.
+  //
+  // NOTE: unreachable through this route as long as the schema keeps that
+  // check — the two computations are identical over the same parsed data, so
+  // anything that would fail here fails validation first and 400s above. It is
+  // kept as defence in depth, not as live code, and shows as an uncovered
+  // branch for that reason. Don't try to write a test for it.
   const cents =
     categories.reduce((acc, cat) => acc + Math.round(cat.weight * 100), 0) +
     (includeEnjoyment ? Math.round(enjoymentWeight * 100) : 0)
