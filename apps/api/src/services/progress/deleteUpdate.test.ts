@@ -1,0 +1,226 @@
+/**
+ * Unit tests for deleting one logged entry.
+ *
+ * Deleting an update means the level's status has to be recomputed from what
+ * remains, and the replay is order-dependent: a DROP marks the level dropped,
+ * but a later PROGRESS row means the user resumed it. Getting that wrong leaves
+ * a level mislabelled in the list with nothing to hint why. The other rule is
+ * that undoing a completion also clears the fields that only mean anything for
+ * a completed level, and unplaces it from the ranking. Prisma is mocked.
+ */
+
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PrismaClient } from '@prisma/client'
+import type { DeepMockProxy } from 'vitest-mock-extended'
+
+// ─── mocks ───────────────────────────────────────────────────────────────────
+
+const { prismaMock } = await vi.hoisted(async () => {
+  const { mockDeep } = await import('vitest-mock-extended')
+  return { prismaMock: mockDeep() }
+})
+
+vi.mock('../../utils/prisma', () => ({ default: prismaMock }))
+vi.mock('../../utils/logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
+
+const { deleteProgressUpdate } = await import('./index')
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
+
+const USER_ID = 'user-1'
+const LEVEL_ID = '12345'
+const LP_ID = 'lp-1'
+const TARGET_ID = 'pu-target'
+
+type Kind = 'PROGRESS' | 'COMPLETION' | 'DROP'
+
+/** The transaction client the delete runs against. */
+const tx = {
+  levelProgress: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
+  progressUpdate: { findFirst: vi.fn(), findMany: vi.fn(), delete: vi.fn() },
+  classicRanking: { deleteMany: vi.fn() },
+}
+
+/**
+ * Sets up a level whose stored status is `status`, and whose updates OTHER than
+ * the one being deleted are `remaining`, oldest first.
+ */
+function scenario(status: Kind extends never ? never : string, remaining: Kind[]) {
+  tx.levelProgress.findUnique.mockResolvedValue({ id: LP_ID, status })
+  tx.progressUpdate.findMany.mockResolvedValue(remaining.map((kind) => ({ kind })))
+}
+
+/** The status written back, or null when no update was issued. */
+function writtenStatus(): string | null {
+  const call = tx.levelProgress.update.mock.lastCall
+  return call
+    ? ((call[0] as { data: { status?: string } }).data.status ?? null)
+    : null
+}
+
+function run() {
+  return deleteProgressUpdate(USER_ID, LEVEL_ID, TARGET_ID)
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  for (const model of Object.values(tx))
+    for (const fn of Object.values(model)) fn.mockReset().mockResolvedValue({})
+  tx.progressUpdate.findFirst.mockResolvedValue({ id: TARGET_ID })
+  scenario('IN_PROGRESS', ['PROGRESS'])
+
+  prisma.$transaction.mockReset().mockImplementation(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ((fn: (client: unknown) => unknown) => fn(tx)) as any
+  )
+})
+
+// ─── targeting ───────────────────────────────────────────────────────────────
+
+describe('deleteProgressUpdate — targeting', () => {
+  it('returns null when the user has no progress on the level', async () => {
+    tx.levelProgress.findUnique.mockResolvedValue(null)
+
+    await expect(run()).resolves.toBeNull()
+    expect(tx.progressUpdate.delete).not.toHaveBeenCalled()
+  })
+
+  it('returns null when the update is not on this level', async () => {
+    // Scoped by levelProgressId, so another level's update id can't be deleted.
+    tx.progressUpdate.findFirst.mockResolvedValue(null)
+
+    await expect(run()).resolves.toBeNull()
+    expect(tx.progressUpdate.delete).not.toHaveBeenCalled()
+  })
+})
+
+// ─── the last update ─────────────────────────────────────────────────────────
+
+describe('deleteProgressUpdate — deleting the only update', () => {
+  it('deletes the whole LevelProgress instead of orphaning it', async () => {
+    // A LevelProgress is always created with at least one update, so leaving
+    // one with none would break that invariant.
+    scenario('IN_PROGRESS', [])
+
+    await expect(run()).resolves.toEqual({ deletedLevelProgress: true })
+    expect(tx.levelProgress.delete).toHaveBeenCalledWith({
+      where: { id: LP_ID },
+    })
+    expect(tx.progressUpdate.delete).not.toHaveBeenCalled()
+  })
+})
+
+// ─── status replay ───────────────────────────────────────────────────────────
+
+describe('deleteProgressUpdate — recomputing status', () => {
+  // `from` must differ from the expected result, or no update is issued at all
+  // and the assertion would pass against a broken replay.
+  it.each([
+    ['a lone progress row', 'COMPLETED', ['PROGRESS'] as Kind[], 'IN_PROGRESS'],
+    ['a lone drop', 'COMPLETED', ['DROP'] as Kind[], 'DROPPED'],
+    ['a lone completion', 'IN_PROGRESS', ['COMPLETION'] as Kind[], 'COMPLETED'],
+  ])('replays %s to %s', async (_label, from, remaining, expected) => {
+    scenario(from, remaining)
+
+    await run()
+
+    expect(writtenStatus()).toBe(expected)
+  })
+
+  it('treats progress logged after a drop as a resume', async () => {
+    // The replay is ordered: a later PROGRESS row means the user came back.
+    scenario('COMPLETED', ['DROP', 'PROGRESS'])
+
+    await run()
+
+    expect(writtenStatus()).toBe('IN_PROGRESS')
+  })
+
+  it('keeps a drop that came after the progress', async () => {
+    scenario('COMPLETED', ['PROGRESS', 'DROP'])
+
+    await run()
+
+    expect(writtenStatus()).toBe('DROPPED')
+  })
+
+  it('lets a completion win over an earlier drop', async () => {
+    scenario('IN_PROGRESS', ['DROP', 'COMPLETION'])
+
+    await run()
+
+    expect(writtenStatus()).toBe('COMPLETED')
+  })
+
+  it('does not let progress logged after a completion un-complete it', async () => {
+    // Only DROP moves a completed level; historical progress rows must not.
+    scenario('IN_PROGRESS', ['COMPLETION', 'PROGRESS'])
+
+    await run()
+
+    expect(writtenStatus()).toBe('COMPLETED')
+  })
+
+  it('writes nothing when the status is unchanged', async () => {
+    scenario('IN_PROGRESS', ['PROGRESS'])
+
+    await run()
+
+    expect(tx.levelProgress.update).not.toHaveBeenCalled()
+  })
+
+  it('deletes the target update and reports the LevelProgress survived', async () => {
+    await expect(run()).resolves.toEqual({ deletedLevelProgress: false })
+    expect(tx.progressUpdate.delete).toHaveBeenCalledWith({
+      where: { id: TARGET_ID },
+    })
+  })
+})
+
+// ─── undoing a completion ────────────────────────────────────────────────────
+
+describe('deleteProgressUpdate — undoing a completion', () => {
+  it('clears the completion-only fields and unplaces the ranking', async () => {
+    // coinsCollected/completionTime only mean anything once completed, and a
+    // ranking entry for an uncompleted level is not a valid state.
+    scenario('COMPLETED', ['PROGRESS'])
+
+    await run()
+
+    const [args] = tx.levelProgress.update.mock.lastCall as unknown as [
+      { data: Record<string, unknown> },
+    ]
+    expect(args.data).toMatchObject({
+      status: 'IN_PROGRESS',
+      coinsCollected: null,
+      completionTime: null,
+    })
+    expect(tx.classicRanking.deleteMany).toHaveBeenCalledWith({
+      where: { levelProgressId: LP_ID },
+    })
+  })
+
+  it('leaves the ranking alone when the level is still completed', async () => {
+    scenario('COMPLETED', ['COMPLETION'])
+
+    await run()
+
+    expect(tx.classicRanking.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('does not clear those fields for a status change that is not an uncomplete', async () => {
+    scenario('IN_PROGRESS', ['DROP'])
+
+    await run()
+
+    const [args] = tx.levelProgress.update.mock.lastCall as unknown as [
+      { data: Record<string, unknown> },
+    ]
+    expect(args.data).toEqual({ status: 'DROPPED' })
+    expect(tx.classicRanking.deleteMany).not.toHaveBeenCalled()
+  })
+})
