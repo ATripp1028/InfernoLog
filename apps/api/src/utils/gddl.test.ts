@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   verifyGddlApiKey,
   roundGddlTier,
@@ -501,5 +501,96 @@ describe('submitGddlRecord', () => {
       GddlInvalidKeyError
     )
     expect(mockFetch).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ─── request timeouts ─────────────────────────────────────────────────────────
+
+describe('request timeouts', () => {
+  /**
+   * A fetch that never settles until its abort signal fires — which is what
+   * lets these tests prove the timeout actually aborts the request, rather
+   * than only that a timer was scheduled.
+   */
+  function hangUntilAborted() {
+    mockFetch.mockImplementation((_url?: string, init?: RequestInit) => {
+      const signal = init?.signal
+      // The runner also invokes registered mocks with no arguments during
+      // cleanup. Those have no signal to hang on, and hanging there would
+      // stall the hook rather than the request under test.
+      if (!signal) return Promise.resolve(resp(200, {}))
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError'))
+        )
+      })
+    })
+  }
+
+  /** Runs `call`, pushing the fake clock past any timeout it scheduled. */
+  async function runPastTimeout<T>(call: () => Promise<T>): Promise<T> {
+    const promise = call()
+    // Swallow here so the rejection is never momentarily unhandled while the
+    // clock advances; the caller still asserts on `promise`.
+    promise.catch(() => {})
+    await vi.advanceTimersByTimeAsync(30_000)
+    return promise
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    hangUntilAborted()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('aborts a hung key verification', async () => {
+    await expect(runPastTimeout(() => verifyGddlApiKey('key'))).rejects.toThrow()
+  })
+
+  it('aborts a hung tier lookup and resolves null', async () => {
+    // Never throws — the tier autofill must not block the logging flow.
+    await expect(runPastTimeout(() => fetchGddlTier('12345'))).resolves.toBeNull()
+  })
+
+  it('aborts a hung user-info lookup', async () => {
+    await expect(
+      runPastTimeout(() => fetchGddlUserInfo('key'))
+    ).rejects.toBeInstanceOf(GddlUnavailableError)
+  })
+
+  it('aborts a hung submissions fetch', async () => {
+    await expect(
+      runPastTimeout(() => fetchAllGddlSubmissions('key', 17251))
+    ).rejects.toBeInstanceOf(GddlUnavailableError)
+  })
+
+  it('aborts a hung list fetch', async () => {
+    await expect(
+      runPastTimeout(() => fetchGddlList('key', 17251, 'favorites'))
+    ).rejects.toBeInstanceOf(GddlUnavailableError)
+  })
+
+  it.each([
+    ['addGddlListEntry', addGddlListEntry],
+    ['removeGddlListEntry', removeGddlListEntry],
+  ] as const)('aborts a hung %s', async (_name, fn) => {
+    await expect(
+      runPastTimeout(() => fn('key', 17251, 'favorites', '12345'))
+    ).rejects.toBeInstanceOf(GddlUnavailableError)
+  })
+
+  it('aborts a hung record submission', async () => {
+    // The user-info lookup resolves first; only the submission itself hangs.
+    const hanging = mockFetch.getMockImplementation()!
+    mockFetch
+      .mockImplementationOnce(async () => resp(200, { ID: 17251, Name: 'Riot' }))
+      .mockImplementation(hanging)
+
+    await expect(
+      runPastTimeout(() => submitGddlRecord('key', RECORD))
+    ).rejects.toThrow()
   })
 })

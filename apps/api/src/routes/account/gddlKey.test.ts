@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
+import { Prisma } from '@prisma/client'
 import type { PrismaClient } from '@prisma/client'
 import { buildApp as buildAppWith, TEST_USER_ID } from '../../test/utils'
 import { encryptSecret } from '../../utils/kms'
@@ -223,5 +224,55 @@ describe('DELETE /me/gddl-key', () => {
       })
     )
     expect(body.data.hasGddlApiKey).toBe(false)
+  })
+})
+
+// ─── PUT /me/gddl-key — remaining gates ──────────────────────────────────────
+
+describe('PUT /me/gddl-key — rejections', () => {
+  function put(body: unknown) {
+    return buildApp().request('/me/gddl-key', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: typeof body === 'string' ? body : JSON.stringify(body),
+    })
+  }
+
+  it('400s on an unparseable body without verifying anything', async () => {
+    const res = await put('{oops')
+
+    expect(res.status).toBe(400)
+    expect(verifyGddlApiKey).not.toHaveBeenCalled()
+    expect(encryptSecret).not.toHaveBeenCalled()
+  })
+
+  it('409s when the GDDL account is already linked to another user', async () => {
+    // P2002 on gddlUsername — a distinct, user-actionable outcome rather than
+    // a generic 500, since the fix is to disconnect the other account.
+    prisma.user.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.22.0',
+      })
+    )
+
+    const res = await put({ apiKey: 'super-secret-key' })
+    const body = (await res.json()) as { error: string }
+
+    expect(res.status).toBe(409)
+    expect(body.error).toContain('already connected')
+  })
+
+  it('never echoes the submitted key back in an error', async () => {
+    prisma.user.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.22.0',
+      })
+    )
+
+    const text = await (await put({ apiKey: 'super-secret-key' })).text()
+
+    expect(text).not.toContain('super-secret-key')
   })
 })

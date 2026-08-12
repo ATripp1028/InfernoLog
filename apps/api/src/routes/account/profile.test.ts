@@ -539,6 +539,17 @@ describe('PATCH /me/username — concurrency and no-ops', () => {
     expect(data).toEqual({ username: 'sameName' })
   })
 
+  it('400s on an unparseable username body', async () => {
+    const res = await buildApp().request('/me/username', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: '{oops',
+    })
+
+    expect(res.status).toBe(400)
+    expect(prisma.user.update).not.toHaveBeenCalled()
+  })
+
   it('rescues the unique-constraint race as the same 409 as the pre-check', async () => {
     // The pre-check is TOCTOU; the constraint is the real guarantee, and it
     // must not surface as a 500.

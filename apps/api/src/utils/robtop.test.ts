@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   fetchRobtopLevel,
   fetchRobtopLevelResult,
@@ -462,5 +462,56 @@ describe('searchRobtopByName', () => {
   it('flattens unreachable to an empty array', async () => {
     mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
     await expect(searchRobtopByName('x')).resolves.toEqual([])
+  })
+})
+
+// ─── request timeouts ─────────────────────────────────────────────────────────
+
+describe('request timeouts', () => {
+  /**
+   * A fetch that never settles until its abort signal fires, so these tests
+   * prove the timeout actually aborts the request rather than only that a
+   * timer was scheduled.
+   */
+  function hangUntilAborted() {
+    mockFetch.mockImplementation((_url?: string, init?: RequestInit) => {
+      const signal = init?.signal
+      // The runner also invokes registered mocks with no arguments during
+      // cleanup; hanging there would stall the hook, not the request.
+      if (!signal) return Promise.resolve(robtopResp(200, '-1'))
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener('abort', () =>
+          reject(new DOMException('aborted', 'AbortError'))
+        )
+      })
+    })
+  }
+
+  /** Runs `call`, pushing the fake clock past any timeout it scheduled. */
+  async function runPastTimeout<T>(call: () => Promise<T>): Promise<T> {
+    const promise = call()
+    await vi.advanceTimersByTimeAsync(30_000)
+    return promise
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    hangUntilAborted()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('reports a hung by-id fetch as unreachable', async () => {
+    await expect(
+      runPastTimeout(() => fetchRobtopLevelResult('222'))
+    ).resolves.toEqual({ status: 'unreachable' })
+  })
+
+  it('reports a hung name search as unreachable', async () => {
+    await expect(runPastTimeout(() => searchRobtopByNameResult('x'))).resolves.toEqual(
+      { status: 'unreachable' }
+    )
   })
 })
