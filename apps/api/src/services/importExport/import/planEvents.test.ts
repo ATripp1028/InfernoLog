@@ -400,6 +400,36 @@ describe('planDrop — round-trips by dropId', () => {
     expect(ctx.writes.progressUpdateUpdates).toHaveLength(0)
   })
 
+  it('carries every mergeable drop field the sheet provides', () => {
+    // Each field is its own `if` in the merge builder, so one field per test
+    // would leave most of them unexercised.
+    const ctx = withMatch()
+    planDrop(
+      ctx,
+      LEVEL,
+      {
+        dropId: DROP_ID,
+        droppedAt: '2026-08-12',
+        attemptsAtDrop: 600,
+        reason: 'burnt out',
+        bestProgress: 40,
+        runFrom: 10,
+        runTo: 40,
+      } as ImportDroppedRow,
+      'merge'
+    )
+
+    expect(onlyUpdate(ctx).data).toEqual({
+      date: new Date('2026-08-12'),
+      dateTimezone: null,
+      attempts: 600,
+      notes: 'burnt out',
+      percentage: 40,
+      runFrom: 10,
+      runTo: 40,
+    })
+  })
+
   it('nulls the timezone alongside a rewritten date', () => {
     // Import rows never carry a time-of-day, so a stale zone must not linger.
     const ctx = withMatch()
@@ -622,6 +652,46 @@ describe('planProgress — round-trips by progressId', () => {
       'overwrite'
     )
     expect(onlyUpdate(overwritten).data).toMatchObject({ enjoyment: 85 })
+  })
+
+  it('carries every mergeable progress field the sheet provides', () => {
+    const ctx = withMatch()
+    planProgress(
+      ctx,
+      LEVEL,
+      {
+        progressId: PROGRESS_ID,
+        date: '2026-08-12',
+        dateUncertain: true,
+        attempts: 600,
+        percentage: 40,
+        runFrom: 10,
+        runTo: 40,
+        fps: 240,
+        onStream: true,
+        highlightUrl: 'https://twitch.tv/x',
+        notes: 'session 2',
+        enjoyment: 8.5,
+        device: 'pc',
+      } as ImportProgressRow,
+      'merge'
+    )
+
+    expect(onlyUpdate(ctx).data).toEqual({
+      date: new Date('2026-08-12'),
+      dateTimezone: null,
+      dateUncertain: true,
+      attempts: 600,
+      percentage: 40,
+      runFrom: 10,
+      runTo: 40,
+      fps: 240,
+      onStream: true,
+      highlightUrl: 'https://twitch.tv/x',
+      notes: 'session 2',
+      enjoyment: 85,
+      device: 'pc',
+    })
   })
 
   it('queues no update when a merge row provides nothing', () => {

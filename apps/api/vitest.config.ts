@@ -30,7 +30,11 @@ export default defineConfig({
         'src/scripts/**', // one-off backfills, run by hand
         'src/types/**', // type declarations, no runtime
         'src/index.ts', // Hono/Lambda entry wiring
-        'src/sentry.ts', // SDK init side-effect module
+        // Client/SDK construction with no branching worth asserting on. Any
+        // test would only prove `new X()` was called.
+        'src/sentry.ts',
+        'src/utils/prisma.ts',
+        'src/utils/logger.ts',
         'src/**/*.test.ts',
       ],
       reporter: ['text', 'html', 'json-summary'],
@@ -41,10 +45,10 @@ export default defineConfig({
       // --coverage` alone reports ~24% and will trip them — that is the
       // integration suite's share, not a regression.
       thresholds: {
-        statements: 92,
-        branches: 87,
-        functions: 91,
-        lines: 95,
+        statements: 95,
+        branches: 90,
+        functions: 93,
+        lines: 98,
       },
     },
     projects: [

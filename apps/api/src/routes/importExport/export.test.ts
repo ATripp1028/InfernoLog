@@ -22,7 +22,9 @@ vi.mock('../../services/importExport/export', () => ({
 vi.mock('../../utils/prisma', () => ({ default: {} }))
 vi.mock('@sentry/node', () => ({ captureException: vi.fn() }))
 
-const exportRoutes = (await import('./export')).default
+// Mounted through index.ts so the module's own onError handler is the one
+// under test, not Hono's default.
+const exportRoutes = (await import('./index')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

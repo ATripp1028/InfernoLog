@@ -52,7 +52,9 @@ vi.mock('@aws-sdk/client-lambda', () => ({
 }))
 
 const { logger } = await import('../../utils/logger')
-const importRoutes = (await import('./import')).default
+// Mounted through index.ts so the module's own onError handler is the one
+// under test, not Hono's default.
+const importRoutes = (await import('./index')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

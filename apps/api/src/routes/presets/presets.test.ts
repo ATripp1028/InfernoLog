@@ -26,7 +26,9 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const presetRoutes = (await import('./presets')).default
+// Mounted through index.ts so the module's own onError handler is the one
+// under test, not Hono's default.
+const presetRoutes = (await import('./index')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 

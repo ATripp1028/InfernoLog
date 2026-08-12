@@ -473,3 +473,86 @@ describe('computeRunsGraph — edge cases', () => {
     })
   })
 })
+
+// ─────────────────────────────────────────────
+// Worst-fail placement and same-date tiebreakers
+// ─────────────────────────────────────────────
+
+describe('computeRunsGraph — worst fail placement', () => {
+  it('splices an undated worst fail immediately before the completion', () => {
+    // With no date of its own it can only be positioned relative to the win it
+    // preceded, so it must land directly before it rather than at an end.
+    const entries = computeRunsGraph(
+      [
+        makeUpdate({ id: 'u1', percentage: 40, date: new Date('2026-08-01') }),
+        makeUpdate({
+          id: 'u2',
+          isCompletion: true,
+          date: new Date('2026-08-10'),
+        }),
+      ],
+      [],
+      { percentage: 97, date: null }
+    )
+
+    const kinds = entries.map((e) => e.kind)
+    expect(kinds.indexOf('worst_fail')).toBe(kinds.indexOf('completion') - 1)
+  })
+
+  it('appends an undated worst fail when there is no completion', () => {
+    const entries = computeRunsGraph(
+      [makeUpdate({ id: 'u1', percentage: 40, date: new Date('2026-08-01') })],
+      [],
+      { percentage: 97, date: null }
+    )
+
+    expect(entries[entries.length - 1]!.kind).toBe('worst_fail')
+  })
+
+  it('sorts a same-day worst fail before the completion', () => {
+    // It happened just before the win, so on a date tie it comes first.
+    const entries = computeRunsGraph(
+      [
+        makeUpdate({
+          id: 'u1',
+          isCompletion: true,
+          date: new Date('2026-08-10'),
+        }),
+      ],
+      [],
+      { percentage: 97, date: new Date('2026-08-10') }
+    )
+
+    expect(entries.map((e) => e.kind)).toEqual(['worst_fail', 'completion'])
+  })
+
+  it('sorts a same-day update before a drop', () => {
+    // The drop should reference the update that preceded it.
+    const entries = computeRunsGraph(
+      [makeUpdate({ id: 'u1', percentage: 40, date: new Date('2026-08-10') })],
+      [drop({ droppedAt: new Date('2026-08-10') })]
+    )
+
+    expect(entries[0]!.progressUpdateId).toBe('u1')
+  })
+
+  it('puts an undated drop after dated entries', () => {
+    // Unknown timing sorts last rather than being guessed at.
+    const entries = computeRunsGraph(
+      [makeUpdate({ id: 'u1', percentage: 40, date: new Date('2026-08-10') })],
+      [drop({ droppedAt: null, worstFail: 55 })]
+    )
+
+    expect(entries[0]!.progressUpdateId).toBe('u1')
+    expect(entries.length).toBeGreaterThan(1)
+  })
+
+  it('keeps a stable order when everything is undated', () => {
+    const entries = computeRunsGraph(
+      [makeUpdate({ id: 'u1', percentage: 40, date: null })],
+      [drop({ droppedAt: null, worstFail: 55 })]
+    )
+
+    expect(entries[0]!.progressUpdateId).toBe('u1')
+  })
+})
