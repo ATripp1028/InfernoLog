@@ -1,5 +1,56 @@
-import { describe, expect, it } from 'vitest'
-import { parseGetGJLevels21 } from './robtop'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  fetchRobtopLevel,
+  fetchRobtopLevelResult,
+  parseAllFromGetGJLevels21,
+  parseGetGJLevels21,
+  searchRobtopByName,
+  searchRobtopByNameResult,
+} from './robtop'
+import { acquireRobtopSlot, reportRobtopThrottled } from './robtopRateLimit'
+
+// The rate limiter reads/writes shared state (DynamoDB in production), and the
+// logger is noise here. DEFAULT_COOLDOWN_MS is re-exported from the real module
+// because robtop.ts uses it as the 429 fallback value we assert on.
+vi.mock('./robtopRateLimit', () => ({
+  acquireRobtopSlot: vi.fn(),
+  reportRobtopThrottled: vi.fn(),
+  DEFAULT_COOLDOWN_MS: 60_000,
+}))
+vi.mock('./logger', () => ({
+  logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
+}))
+
+const mockAcquireSlot = vi.mocked(acquireRobtopSlot)
+const mockReportThrottled = vi.mocked(reportRobtopThrottled)
+const mockFetch = vi.fn()
+vi.stubGlobal('fetch', mockFetch)
+
+/** A getGJLevels21 response body. `headers` only needs `retry-after`. */
+function robtopResp(
+  status: number,
+  body: string,
+  headers: Record<string, string> = {}
+): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body,
+    headers: { get: (k: string) => headers[k.toLowerCase()] ?? null },
+  } as Response
+}
+
+/** The URLSearchParams the most recent fetch call posted. */
+function lastRequestParams(): URLSearchParams {
+  const init = mockFetch.mock.lastCall?.[1] as RequestInit
+  return init.body as URLSearchParams
+}
+
+beforeEach(() => {
+  mockFetch.mockReset()
+  mockAcquireSlot.mockReset().mockResolvedValue(true)
+  mockReportThrottled.mockReset().mockResolvedValue(undefined)
+})
 
 // Real getGJLevels21 response for a "bloodbath" search (5 levels). We query by
 // id (type=10) which returns a single level, but the parser always takes the
@@ -110,5 +161,306 @@ describe('parseGetGJLevels21', () => {
 
     // Without a wantId, the first level is returned.
     expect(parseGetGJLevels21(response)?.name).toBe('Other')
+  })
+})
+
+// A minimal two-level response used by the fetch/search tests.
+const TWO_LEVELS =
+  '1:111:2:Alpha:5:1:6:1:8:10:9:30:13:22:18:5:15:2:35:0:12:0|1:222:2:Beta:5:1:6:2:8:10:9:50:13:21:18:10:15:3:35:0:12:0#1:A:10|2:B:20#1~|~~|~2~|~#2:0:10#hash'
+
+// ─── parseAllFromGetGJLevels21 ────────────────────────────────────────────────
+
+describe('parseAllFromGetGJLevels21', () => {
+  it('returns every level in the response, in order', () => {
+    const all = parseAllFromGetGJLevels21(TWO_LEVELS)
+    expect(all.map((r) => r.levelId)).toEqual(['111', '222'])
+    expect(all.map((r) => r.level.name)).toEqual(['Alpha', 'Beta'])
+  })
+
+  it('returns [] for the "-1" sentinel, empty bodies, and garbage', () => {
+    expect(parseAllFromGetGJLevels21('-1')).toEqual([])
+    expect(parseAllFromGetGJLevels21('')).toEqual([])
+    expect(parseAllFromGetGJLevels21('   ')).toEqual([])
+    expect(parseAllFromGetGJLevels21('not a robtop response')).toEqual([])
+  })
+
+  it('skips entries with no level id rather than emitting a bad row', () => {
+    const all = parseAllFromGetGJLevels21(
+      '2:NoId:5:1|1:222:2:Beta:5:1:8:10:9:50:13:21:18:10:15:3#1:A:10#1~|~~|~2~|~#1:0:10#hash'
+    )
+    expect(all.map((r) => r.levelId)).toEqual(['222'])
+  })
+})
+
+// ─── fetchRobtopLevelResult ───────────────────────────────────────────────────
+
+describe('fetchRobtopLevelResult', () => {
+  it('returns the matching level as "found"', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    const result = await fetchRobtopLevelResult('222')
+    expect(result).toEqual({
+      status: 'found',
+      level: expect.objectContaining({ name: 'Beta' }),
+    })
+  })
+
+  it('posts type=0 with the id as the search string and an empty User-Agent', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    await fetchRobtopLevelResult('222')
+
+    const [url, init] = mockFetch.mock.lastCall as [string, RequestInit]
+    expect(url).toContain('/getGJLevels21.php')
+    expect(init.method).toBe('POST')
+    // An empty UA is required — Cloudflare returns HTTP 1020 otherwise.
+    expect((init.headers as Record<string, string>)['User-Agent']).toBe('')
+
+    const params = lastRequestParams()
+    // type=0 (search), NOT type=10 — type=10 omits unrated levels.
+    expect(params.get('type')).toBe('0')
+    expect(params.get('str')).toBe('222')
+    expect(params.get('secret')).toBe('Wmfd2893gb7')
+  })
+
+  it('returns "not_found" for the "-1" body — the id does not exist', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, '-1'))
+    await expect(fetchRobtopLevelResult('999')).resolves.toEqual({
+      status: 'not_found',
+    })
+  })
+
+  // CHARACTERIZATION TEST — documents current behaviour, which looks wrong.
+  // parseGetGJLevels21 falls back to `all[0]` when `wantId` matches nothing, so
+  // a search for an id GD does not have returns some OTHER name-matched level
+  // marked 'found'. Callers cache that under the requested id. If the fallback
+  // is tightened to return null on a wantId miss, this test should flip to
+  // expecting { status: 'not_found' }.
+  it('returns the first result as "found" when the requested id is absent', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    const result = await fetchRobtopLevelResult('999')
+    expect(result).toEqual({
+      status: 'found',
+      level: expect.objectContaining({ name: 'Alpha' }),
+    })
+  })
+
+  it('returns "unreachable" without fetching when the rate limiter denies a slot', async () => {
+    mockAcquireSlot.mockResolvedValue(false)
+    await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+      status: 'unreachable',
+    })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns "unreachable" on a non-OK response', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(500, ''))
+    await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+      status: 'unreachable',
+    })
+  })
+
+  it('returns "unreachable" on a network error or timeout', async () => {
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
+    await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+      status: 'unreachable',
+    })
+
+    mockFetch.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
+    await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+      status: 'unreachable',
+    })
+  })
+
+  describe('429 shared cooldown', () => {
+    it('opens a cooldown from a delta-seconds Retry-After', async () => {
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(429, '', { 'retry-after': '120' })
+      )
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(120_000)
+    })
+
+    it('opens a cooldown from an HTTP-date Retry-After', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(429, '', { 'retry-after': 'Wed, 12 Aug 2026 00:02:00 GMT' })
+      )
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(120_000)
+      vi.useRealTimers()
+    })
+
+    it('clamps an already-past HTTP-date to zero rather than going negative', async () => {
+      vi.useFakeTimers()
+      vi.setSystemTime(new Date('2026-08-12T00:00:00Z'))
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(429, '', { 'retry-after': 'Wed, 12 Aug 2026 00:00:00 GMT' })
+      )
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(0)
+      vi.useRealTimers()
+    })
+
+    it.each([
+      ['absent', {}],
+      ['unparseable', { 'retry-after': 'soon' }],
+    ])('falls back to the default cooldown when Retry-After is %s', async (
+      _label,
+      headers
+    ) => {
+      mockFetch.mockResolvedValueOnce(robtopResp(429, '', headers))
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(60_000)
+    })
+
+    it('still reports unreachable when recording the cooldown fails', async () => {
+      // Best-effort: a cooldown write failure must not change what we return.
+      mockReportThrottled.mockRejectedValueOnce(new Error('dynamo down'))
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(429, '', { 'retry-after': '30' })
+      )
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
+    })
+
+    it('does not open a cooldown for non-429 failures', async () => {
+      mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).not.toHaveBeenCalled()
+    })
+  })
+})
+
+// ─── fetchRobtopLevel ─────────────────────────────────────────────────────────
+
+describe('fetchRobtopLevel', () => {
+  it('returns the level when found', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    const level = await fetchRobtopLevel('222')
+    expect(level?.name).toBe('Beta')
+  })
+
+  it('collapses both not_found and unreachable to null', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, '-1'))
+    await expect(fetchRobtopLevel('999')).resolves.toBeNull()
+
+    mockFetch.mockResolvedValueOnce(robtopResp(500, ''))
+    await expect(fetchRobtopLevel('222')).resolves.toBeNull()
+  })
+})
+
+// ─── searchRobtopByNameResult ─────────────────────────────────────────────────
+
+describe('searchRobtopByNameResult', () => {
+  it('returns every match on success', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    const outcome = await searchRobtopByNameResult('bloodbath')
+    expect(outcome.status).toBe('ok')
+    if (outcome.status !== 'ok') return
+    expect(outcome.results.map((r) => r.levelId)).toEqual(['111', '222'])
+  })
+
+  it('distinguishes a genuine empty result from a failed call', async () => {
+    // GD answered, it just has nothing — ok with [], not unreachable.
+    mockFetch.mockResolvedValueOnce(robtopResp(200, '-1'))
+    await expect(searchRobtopByNameResult('nothing')).resolves.toEqual({
+      status: 'ok',
+      results: [],
+    })
+  })
+
+  it('defaults to type=0 and count=10', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    await searchRobtopByNameResult('bloodbath')
+
+    const params = lastRequestParams()
+    expect(params.get('type')).toBe('0')
+    expect(params.get('str')).toBe('bloodbath')
+    expect(params.get('count')).toBe('10')
+    // Unset filters must be absent, not empty — GD treats '' as a real filter.
+    expect(params.get('diff')).toBeNull()
+    expect(params.get('demonFilter')).toBeNull()
+  })
+
+  it('forwards diff, demonFilter and an overridden type', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    await searchRobtopByNameResult('', {
+      type: '1',
+      diff: '-2',
+      demonFilter: '5',
+    })
+
+    const params = lastRequestParams()
+    expect(params.get('type')).toBe('1')
+    expect(params.get('str')).toBe('')
+    expect(params.get('diff')).toBe('-2')
+    expect(params.get('demonFilter')).toBe('5')
+  })
+
+  it('applies extraParams last so page filters win over diff/demonFilter', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    await searchRobtopByNameResult('x', {
+      diff: '-2',
+      extraParams: { diff: '-1', len: '3', featured: '1' },
+    })
+
+    const params = lastRequestParams()
+    expect(params.get('diff')).toBe('-1')
+    expect(params.get('len')).toBe('3')
+    expect(params.get('featured')).toBe('1')
+  })
+
+  it('returns "unreachable" when the rate limiter denies a slot', async () => {
+    mockAcquireSlot.mockResolvedValue(false)
+    await expect(searchRobtopByNameResult('x')).resolves.toEqual({
+      status: 'unreachable',
+    })
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('returns "unreachable" on a non-OK response or a network error', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
+    await expect(searchRobtopByNameResult('x')).resolves.toEqual({
+      status: 'unreachable',
+    })
+
+    mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
+    await expect(searchRobtopByNameResult('x')).resolves.toEqual({
+      status: 'unreachable',
+    })
+  })
+
+  it('opens the shared cooldown on a 429, same as the by-id fetch', async () => {
+    mockFetch.mockResolvedValueOnce(
+      robtopResp(429, '', { 'retry-after': '45' })
+    )
+    await expect(searchRobtopByNameResult('x')).resolves.toEqual({
+      status: 'unreachable',
+    })
+    expect(mockReportThrottled).toHaveBeenCalledWith(45_000)
+  })
+
+  it('survives a failed cooldown write on a 429', async () => {
+    mockReportThrottled.mockRejectedValueOnce(new Error('dynamo down'))
+    mockFetch.mockResolvedValueOnce(robtopResp(429, ''))
+    await expect(searchRobtopByNameResult('x')).resolves.toEqual({
+      status: 'unreachable',
+    })
+  })
+})
+
+// ─── searchRobtopByName ───────────────────────────────────────────────────────
+
+describe('searchRobtopByName', () => {
+  it('returns the matches on success', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(200, TWO_LEVELS))
+    const results = await searchRobtopByName('bloodbath')
+    expect(results.map((r) => r.levelId)).toEqual(['111', '222'])
+  })
+
+  it('flattens unreachable to an empty array', async () => {
+    mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
+    await expect(searchRobtopByName('x')).resolves.toEqual([])
   })
 })
