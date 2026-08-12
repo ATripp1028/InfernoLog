@@ -41,10 +41,10 @@ export default defineConfig({
       // --coverage` alone reports ~24% and will trip them — that is the
       // integration suite's share, not a regression.
       thresholds: {
-        statements: 87,
-        branches: 80,
-        functions: 88,
-        lines: 90,
+        statements: 92,
+        branches: 87,
+        functions: 91,
+        lines: 95,
       },
     },
     projects: [
