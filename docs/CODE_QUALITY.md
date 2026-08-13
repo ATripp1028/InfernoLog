@@ -475,10 +475,61 @@ subdirectory at the same level as its subject and is named after it:
 as its own source files first, with the suite tucked underneath, and the
 `*.spec.ts` suffix keeps specs distinct from the API's colocated `*.test.ts`.
 
-**Test the logic files, not the components.** §1's split exists so that what is
-worth asserting — the flag matrices, the neighbour arithmetic, the error copy —
-is reachable without rendering anything. Hooks go through `renderHook`; the
-component beside them is presentational and, for now, untested.
+**Test the logic files first.** §1's split exists so that what is worth
+asserting — the flag matrices, the neighbour arithmetic, the error copy — is
+reachable without rendering anything. Hooks go through `renderHook`, and a
+behaviour that has a logic file is asserted there, not through the DOM.
+
+**Render a component when the rendering _is_ a decision we wrote.** That is the
+whole test: a branch, a derived label, an aria state, a choice between two
+assets. `CoinPicker` renders nothing below one coin, picks the gold sprite for
+RobTop levels and the silver one otherwise, and reports a whole new bitmask
+rather than an index — none of which is reachable without mounting it.
+
+Three things stay unrendered, and the reasons differ:
+
+- **Vendored shadcn/ui primitives** — most of `components/generic/` (`button`,
+  `card`, `select`, `popover`, `sheet`, `tooltip`, …). A spec over these tests
+  Radix and cva. The locally-authored files in that folder (`chip`,
+  `segmented`, `stepper-input`, `range-slider`) are ordinary components and
+  follow the rule above.
+- **Anything already covered by its logic sibling.** Re-driving a tested hook
+  through the DOM asserts the same branches twice and makes the render
+  assertions depend on state machinery the component does not own.
+- **Layout and styling.** No class-name assertions, no snapshots. Assert roles,
+  labels, text, and enabled/disabled state — the things a user or a screen
+  reader can observe.
+
+**A feature component's spec stubs its logic hook.** For a component spec the
+component is what is under test, so its `use<Component>` sibling is a boundary
+like any other: `vi.mock('../useAddToCollectionDialog')`, then drive the render
+branches by returning different state. `AddToCollectionDialog.spec.tsx` is the
+reference — it covers both steps, the seeding and failure states, the
+already-added rows and the confirm button's copy and disabled-ness, without
+touching the state machine that `useAddToCollectionDialog.spec.ts` already
+covers.
+
+**A component that kept its state inline has no such hook**, so its boundaries
+are the `lib/api/` hooks it calls plus whatever context it reads —
+`FindLevelStep.spec.tsx` stubs `useResolveLevel`, `useLevelSearch`,
+`useLevelById`, `useMyProgress`, `useEscalation` and `useLoggingFlow`, and
+leaves `sortAndCapSearchResults` real. Use `importOriginal` when stubbing a
+`lib/api/` module so the rest of its exports survive:
+
+```ts
+vi.mock('@/lib/api/me', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/me')>()),
+  useUpdateUsername: vi.fn(),
+}))
+```
+
+**Type the stub to the hook it replaces.** `stubMutation()` defaults to
+`unknown` generics, which `exactOptionalPropertyTypes` will reject at the
+`mockReturnValue`. Declare a small typed factory per spec —
+`stubMutation<LogResult, CompletionInput>(overrides)` — rather than casting.
+The same applies to fixtures: `makeListItem` takes real `Date`s and real enum
+members (`LevelProgressStatus.COMPLETED`, not `'COMPLETED'`), so a spec that
+invents a shape the API could never return fails at typecheck.
 
 **Mock at the module boundary, never the logic under test.** A spec stubs the
 `lib/api/` hooks it consumes and leaves everything else real: the react-query
@@ -486,10 +537,32 @@ provider (`useMutationState` cannot be stubbed), and pure helpers like
 `collectionErrorCode` and `sortAndCapSearchResults`, whose behaviour is half of
 what the assertion is claiming.
 
-**Shared helpers live in `src/utils/testUtils.tsx`,** which holds the
-`renderHook` query wrapper, the `stubQuery`/`stubMutation` result stands-in,
-and the fixture builders (`makeCollectionDetail`, `makeSearchResult`, …). Reach
-for it the second a shape is built in two spec files.
+**Shared helpers live in `src/utils/testUtils.tsx`,** split into a hook-spec
+half (the `renderHook` query wrapper, the `stubQuery`/`stubMutation` result
+stands-in, the fixture builders `makeCollectionDetail`, `makeSearchResult`, …)
+and a component-spec half (`renderWithProviders`, `setViewport`). Reach for it
+the second a shape is built in two spec files.
+
+`renderWithProviders` always provides react-query and takes `router: true` for
+anything rendering `Link` or calling `useNavigate` — that path is async, so
+`await` it. It deliberately provides neither `AuthProvider` nor
+`FabActionsProvider`: both reach for real infrastructure on mount (Amplify's
+`fetchAuthSession`, the default FAB actions' `lib/api` hooks), so a spec needing
+either mocks the module instead.
+
+**Never import `routeTree.gen.ts` from a spec.** It is gitignored and generated
+by `tsr generate`, which runs in `build` and `typecheck` but not in `test` — and
+CI's test job is a separate checkout from its build job, so the file does not
+exist there. A spec importing it passes locally and fails in CI. The test router
+is a bare root route for exactly this reason; `Link` builds its href from the
+`to` string without consulting the route tree, so nothing is lost. The one
+consequence: a typo'd `to` renders as an href rather than throwing, so assert
+the href you expect.
+
+**`setViewport` pins the breakpoint.** `useMediaQuery` starts `false` and reads
+`matchMedia` in an effect, so a component that forks on a breakpoint renders its
+mobile branch unless told otherwise — which silently makes a desktop-only
+assertion vacuous rather than failing.
 
 **The suite runs in a fixed environment, not a fixed moment.** `TZ=UTC` is
 pinned in `vitest.config.ts` because `toLocaleDateString` resolves a UTC
@@ -499,6 +572,14 @@ mean different things on a laptop and in CI. The clock is deliberately _not_
 faked: nothing under test reads it, and global fake timers would interfere
 with react-query and `waitFor`. Fake time per-test with `vi.useFakeTimers()`
 if a future module does read `Date.now()`.
+
+**Do not fake the clock to test a user interaction.** `vi.useFakeTimers()`
+paired with `userEvent.setup({ advanceTimers })` deadlocks: user-event awaits
+its own scheduling between the two clicks of a `dblClick`, and the faked clock
+never advances to release it — the test hangs to its timeout rather than
+failing. `ListTable.spec.tsx` covers the 250ms click-versus-double-click window
+on the real clock instead, which costs a few hundred milliseconds and does not
+fight the library.
 
 **Locale is not pinned, so never assert a locale-formatted string.** Date and
 number formatting follows the reader's locale by design; asserting `'Mar 14,
@@ -512,5 +593,8 @@ Deliberately unsettled, so nothing here is mistaken for a rule:
 
 - **Data fetching** — query key shape, cache invalidation, and where a
   `lib/api/` hook ends and feature logic begins.
-- **Component and end-to-end tests.** §7 covers unit tests only. Nothing
-  renders a component or drives a browser yet; Playwright is not set up.
+
+End-to-end tests are no longer unsettled, only unbuilt: the approach is decided
+and written up in `E2E_TESTING.md` (Playwright against a real staging backend,
+with a native Cognito test user). Nothing drives a browser yet, and Playwright
+is not installed.

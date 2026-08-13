@@ -21,6 +21,11 @@ export default defineConfig({
     // Call history is per-test; spies created with vi.spyOn are also unwound.
     clearMocks: true,
     restoreMocks: true,
+    // `restoreMocks` does NOT cover vi.stubGlobal — without this, testUtils'
+    // `setViewport` stays installed for every later test in the same file, so
+    // a spec that never asked for a breakpoint silently inherits the previous
+    // test's one.
+    unstubGlobals: true,
     // Dates render through toLocaleDateString, so the runner's zone decides
     // which day a UTC instant falls on: 2026-01-01T02:00Z is Jan 1 in UTC but
     // Dec 31 2025 in the Americas. Pin the zone so a date assertion means the
