@@ -512,5 +512,11 @@ Deliberately unsettled, so nothing here is mistaken for a rule:
 
 - **Data fetching** — query key shape, cache invalidation, and where a
   `lib/api/` hook ends and feature logic begins.
-- **Component and end-to-end tests.** §7 covers unit tests only. Nothing
-  renders a component or drives a browser yet; Playwright is not set up.
+- **Component tests.** §7 covers unit tests only — nothing renders a real
+  component yet. Which components are worth rendering, and how much provider
+  scaffolding a spec should stand up, are open.
+
+End-to-end tests are no longer unsettled, only unbuilt: the approach is decided
+and written up in `E2E_TESTING.md` (Playwright against a real staging backend,
+with a native Cognito test user). Nothing drives a browser yet, and Playwright
+is not installed.
