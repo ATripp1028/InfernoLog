@@ -174,7 +174,9 @@ describe('getVerifiedClaims', () => {
     ['there are no claims', { requestContext: { authorizer: { jwt: {} } } }],
     [
       'the claims carry no sub',
-      { requestContext: { authorizer: { jwt: { claims: { email: 'a@b.c' } } } } },
+      {
+        requestContext: { authorizer: { jwt: { claims: { email: 'a@b.c' } } } },
+      },
     ],
   ])('returns null when %s', (_label, env) => {
     expect(getVerifiedClaims({ env })).toBeNull()

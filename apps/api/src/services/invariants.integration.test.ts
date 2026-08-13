@@ -38,13 +38,17 @@ vi.mock('../utils/logger', () => ({
 
 // ─── external network only ───────────────────────────────────────────────────
 
-const { mockFetchUserInfo, mockFetchSubmissions, mockFetchTier, mockResolveByName } =
-  vi.hoisted(() => ({
-    mockFetchUserInfo: vi.fn(),
-    mockFetchSubmissions: vi.fn(),
-    mockFetchTier: vi.fn(),
-    mockResolveByName: vi.fn(),
-  }))
+const {
+  mockFetchUserInfo,
+  mockFetchSubmissions,
+  mockFetchTier,
+  mockResolveByName,
+} = vi.hoisted(() => ({
+  mockFetchUserInfo: vi.fn(),
+  mockFetchSubmissions: vi.fn(),
+  mockFetchTier: vi.fn(),
+  mockResolveByName: vi.fn(),
+}))
 
 vi.mock('../utils/gddl', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../utils/gddl')>()),
@@ -115,7 +119,10 @@ const LEVEL_ID = '100'
 /** A user with a Want to Beat collection, plus one cached level. */
 async function seedWorld() {
   const user = await seedUser(prisma)
-  await seedLevel(prisma, { inGameId: LEVEL_ID, inGameDifficulty: 'Insane Demon' })
+  await seedLevel(prisma, {
+    inGameId: LEVEL_ID,
+    inGameDifficulty: 'Insane Demon',
+  })
   const wtb = await prisma.collection.create({
     data: { userId: user.id, name: 'Want to Beat', type: 'WANT_TO_BEAT' },
   })
@@ -133,7 +140,11 @@ function logCompletion(userId: string, payload: Record<string, unknown> = {}) {
   return buildApp(loggingApp, { userId }).request('/me/completions', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ levelId: LEVEL_ID, dateUncertain: false, ...payload }),
+    body: JSON.stringify({
+      levelId: LEVEL_ID,
+      dateUncertain: false,
+      ...payload,
+    }),
   })
 }
 
@@ -369,8 +380,9 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
 
     await logCompletion(user.id, { attempts: 100 })
 
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(0)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
     await expectWantToBeatUnbeaten()
   })
 
@@ -381,8 +393,9 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
 
     await syncGddlSubmissions(user.id, 'gddl-key')
 
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(0)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
     await expectWantToBeatUnbeaten()
   })
 
@@ -394,8 +407,9 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
       { rowIndex: 0, data: { levelId: LEVEL_ID, attempts: 100 } },
     ])
 
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(0)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
     await expectWantToBeatUnbeaten()
   })
 
@@ -415,8 +429,9 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
     )
 
     expect(res.status).toBe(409)
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(0)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
     await expectWantToBeatUnbeaten()
   })
 
@@ -434,8 +449,9 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
     )
 
     expect(res.status).toBe(200)
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(1)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(1)
     await expectWantToBeatUnbeaten()
   })
 
@@ -447,10 +463,15 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
     })
     await addToWantToBeat(favorites.id, LEVEL_ID)
 
-    await logCompletion(user.id, { attempts: 100 })
+    // Assert the completion actually landed — without this the entry-count
+    // check below passes just as well when the log was rejected.
+    const res = await logCompletion(user.id, { attempts: 100 })
+    expect(res.status).toBe(201)
 
     expect(
-      await prisma.collectionEntry.count({ where: { collectionId: favorites.id } })
+      await prisma.collectionEntry.count({
+        where: { collectionId: favorites.id },
+      })
     ).toBe(1)
     await expectWantToBeatUnbeaten()
   })
@@ -468,10 +489,13 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
 
     await logCompletion(user.id, { attempts: 100 })
 
-    expect(await prisma.collectionEntry.count({ where: { collectionId: wtb.id } }))
-      .toBe(0)
     expect(
-      await prisma.collectionEntry.count({ where: { collectionId: otherWtb.id } })
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
+    expect(
+      await prisma.collectionEntry.count({
+        where: { collectionId: otherWtb.id },
+      })
     ).toBe(1)
     await expectWantToBeatUnbeaten()
   })

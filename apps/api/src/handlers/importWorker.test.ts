@@ -60,7 +60,11 @@ vi.mock('@aws-sdk/client-lambda', () => ({
   },
   InvokeCommand: class {
     constructor(
-      public input: { FunctionName: string; InvocationType: string; Payload: Uint8Array }
+      public input: {
+        FunctionName: string
+        InvocationType: string
+        Payload: Uint8Array
+      }
     ) {}
   },
 }))
@@ -116,14 +120,19 @@ function queueBatches(...batches: number[]) {
 
 /** The `data` of the most recent importJob.update. */
 function lastJobUpdate(): Record<string, unknown> {
-  return (prisma.importJob.update.mock.lastCall?.[0] as { data: Record<string, unknown> })
-    .data
+  return (
+    prisma.importJob.update.mock.lastCall?.[0] as {
+      data: Record<string, unknown>
+    }
+  ).data
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
   prisma.importJob.findUnique.mockReset().mockResolvedValue(job() as never)
-  prisma.importJob.update.mockReset().mockResolvedValue({ reinvokeCount: 1 } as never)
+  prisma.importJob.update
+    .mockReset()
+    .mockResolvedValue({ reinvokeCount: 1 } as never)
   prisma.importJobRow.findMany.mockReset().mockResolvedValue([] as never)
   mockProcessBatch.mockReset().mockResolvedValue(undefined)
   mockCommitRanking.mockReset().mockResolvedValue({ placed: 1 })
@@ -214,7 +223,11 @@ describe('importWorker — checkpointing', () => {
     // One batch, then the checkpoint — not the second batch.
     expect(mockProcessBatch).toHaveBeenCalledTimes(1)
     const { input } = mockLambdaSend.mock.lastCall?.[0] as {
-      input: { FunctionName: string; InvocationType: string; Payload: Uint8Array }
+      input: {
+        FunctionName: string
+        InvocationType: string
+        Payload: Uint8Array
+      }
     }
     expect(input.FunctionName).toBe(SELF_ARN)
     expect(input.InvocationType).toBe('Event')
@@ -303,7 +316,9 @@ describe('importWorker — the one-shot tabs', () => {
     await handler({ jobId: JOB_ID }, context())
 
     expect(mockCommitRanking).toHaveBeenCalledWith(USER_ID, [{ levelId: '1' }])
-    expect(mockCommitCollections).toHaveBeenCalledWith(USER_ID, [{ levelId: '2' }])
+    expect(mockCommitCollections).toHaveBeenCalledWith(USER_ID, [
+      { levelId: '2' },
+    ])
     expect(mockCommitRatings).toHaveBeenCalledWith(USER_ID, [{ levelId: '3' }])
     expect(lastJobUpdate()).toMatchObject({
       status: 'completed',
@@ -365,9 +380,7 @@ describe('importWorker — failure handling', () => {
     mockProcessBatch.mockRejectedValue(new Error('row exploded'))
     prisma.importJob.update.mockRejectedValue(new Error('db unreachable'))
 
-    await expect(
-      handler({ jobId: JOB_ID }, context())
-    ).resolves.toBeUndefined()
+    await expect(handler({ jobId: JOB_ID }, context())).resolves.toBeUndefined()
     expect(mockCaptureException).toHaveBeenCalledTimes(2)
   })
 

@@ -10,7 +10,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -28,8 +33,18 @@ vi.mock('../../utils/kms', () => ({
 const { mockLambdaSend, mockSyncGddlLists } = vi.hoisted(() => ({
   mockLambdaSend: vi.fn(async () => ({})),
   mockSyncGddlLists: vi.fn(async () => ({
-    favorites: { addedToInferno: [], addedToGddl: [], removedFromGddl: [], skipped: [] },
-    leastFavorites: { addedToInferno: [], addedToGddl: [], removedFromGddl: [], skipped: [] },
+    favorites: {
+      addedToInferno: [],
+      addedToGddl: [],
+      removedFromGddl: [],
+      skipped: [],
+    },
+    leastFavorites: {
+      addedToInferno: [],
+      addedToGddl: [],
+      removedFromGddl: [],
+      skipped: [],
+    },
   })),
 }))
 vi.mock('@aws-sdk/client-lambda', () => ({
@@ -83,7 +98,10 @@ async function getSync(userId: string) {
 beforeEach(async () => {
   vi.clearAllMocks()
   await truncateAll(prisma)
-  vi.stubEnv('GDDL_SYNC_WORKER_ARN', 'arn:aws:lambda:us-east-1:1234:function:sync')
+  vi.stubEnv(
+    'GDDL_SYNC_WORKER_ARN',
+    'arn:aws:lambda:us-east-1:1234:function:sync'
+  )
 })
 
 afterAll(async () => {
@@ -123,7 +141,9 @@ describe('POST /me/gddl-sync', () => {
 
     expect(res.status).toBe(202)
     expect(mockLambdaSend).toHaveBeenCalledTimes(1)
-    expect(await prisma.gddlSyncJob.count({ where: { userId: user.id } })).toBe(1)
+    expect(await prisma.gddlSyncJob.count({ where: { userId: user.id } })).toBe(
+      1
+    )
   })
 
   it('reuses the same row and id when a finished job is re-run', async () => {
@@ -174,7 +194,9 @@ describe('POST /me/gddl-sync', () => {
       where: { userId: user.id },
     })
 
-    expect(second.startedAt.getTime()).toBeGreaterThan(first.startedAt.getTime())
+    expect(second.startedAt.getTime()).toBeGreaterThan(
+      first.startedAt.getTime()
+    )
   })
 })
 
@@ -318,7 +340,9 @@ describe('POST /me/gddl-lists-sync', () => {
   it('400s without a configured key', async () => {
     const user = await seedUser(prisma)
 
-    expect((await send(user.id, 'POST', '/me/gddl-lists-sync')).status).toBe(400)
+    expect((await send(user.id, 'POST', '/me/gddl-lists-sync')).status).toBe(
+      400
+    )
     expect(mockSyncGddlLists).not.toHaveBeenCalled()
   })
 })

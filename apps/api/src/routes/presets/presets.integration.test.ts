@@ -10,7 +10,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -50,7 +55,10 @@ function validBody(overrides: Record<string, unknown> = {}) {
 }
 
 /** Creates a preset directly, bypassing the route. */
-async function seedPreset(userId: string, overrides: Record<string, unknown> = {}) {
+async function seedPreset(
+  userId: string,
+  overrides: Record<string, unknown> = {}
+) {
   return prisma.listPreset.create({
     data: {
       userId,
@@ -100,7 +108,12 @@ describe('POST /me/list-presets', () => {
     ]
     const filters = { difficulty: ['extreme'], stars: { min: 1, max: 10 } }
 
-    await send(user.id, 'POST', '/me/list-presets', validBody({ sorts, filters }))
+    await send(
+      user.id,
+      'POST',
+      '/me/list-presets',
+      validBody({ sorts, filters })
+    )
 
     const res = await send(user.id, 'GET', '/me/list-presets')
     const body = (await res.json()) as {
@@ -248,6 +261,8 @@ describe('DELETE /me/list-presets/:id', () => {
 
     await prisma.user.delete({ where: { id: user.id } })
 
-    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(0)
+    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(
+      0
+    )
   })
 })

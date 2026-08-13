@@ -105,7 +105,11 @@ describe('collection entry routes — body validation', () => {
   })
 
   it.each([
-    ['POST', `/me/collections/${COLLECTION_ID}/entries`, { levelId: 'not-numeric' }],
+    [
+      'POST',
+      `/me/collections/${COLLECTION_ID}/entries`,
+      { levelId: 'not-numeric' },
+    ],
     [
       'PATCH',
       `/me/collections/${COLLECTION_ID}/entries/entry-1`,

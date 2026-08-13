@@ -271,7 +271,9 @@ describe('PUT /me/rating-config — constraints', () => {
     })
 
     expect(res.status).toBe(200)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.includeEnjoyment).toBe(true)
     expect(Number(stored.enjoymentWeight)).toBe(0.4)
     expect(stored.enjoymentSortOrder).toBe(2)

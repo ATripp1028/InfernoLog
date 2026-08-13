@@ -122,10 +122,7 @@ function run(rows: ImportCommitRow[]) {
 }
 
 /** The outcome for one row index. */
-function outcomeFor(
-  result: Awaited<ReturnType<typeof run>>,
-  rowIndex: number
-) {
+function outcomeFor(result: Awaited<ReturnType<typeof run>>, rowIndex: number) {
   return result.outcomes.find((o) => o.rowIndex === rowIndex)!
 }
 

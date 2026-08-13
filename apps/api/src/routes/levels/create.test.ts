@@ -54,13 +54,16 @@ function post(body: unknown) {
 
 /** The `data` of the single level.create call. */
 function createData(): Record<string, unknown> {
-  return (prisma.level.create.mock.lastCall?.[0] as { data: Record<string, unknown> })
-    .data
+  return (
+    prisma.level.create.mock.lastCall?.[0] as { data: Record<string, unknown> }
+  ).data
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  prisma.level.create.mockReset().mockResolvedValue({ inGameId: '12345' } as never)
+  prisma.level.create
+    .mockReset()
+    .mockResolvedValue({ inGameId: '12345' } as never)
 })
 
 // ─── success ─────────────────────────────────────────────────────────────────

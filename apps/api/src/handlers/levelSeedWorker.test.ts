@@ -162,7 +162,9 @@ describe('levelSeedWorker — bad input and per-level failures', () => {
   it('still processes the good records alongside an unparseable one', async () => {
     mockFetch.mockResolvedValue({ status: 'found', level: ROBTOP_LEVEL })
 
-    await handler(rawEvent('{not json', JSON.stringify({ levelIds: ['12345'] })))
+    await handler(
+      rawEvent('{not json', JSON.stringify({ levelIds: ['12345'] }))
+    )
 
     expect(prisma.level.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { inGameId: '12345' } })

@@ -108,7 +108,10 @@ describe('POST /auth/signup/start', () => {
     const cats = await prisma.ratingCategory.findMany({
       where: { userId: user.id },
     })
-    const cents = cats.reduce((a, c) => a + Math.round(Number(c.weight) * 100), 0)
+    const cents = cats.reduce(
+      (a, c) => a + Math.round(Number(c.weight) * 100),
+      0
+    )
     expect(cents).toBe(100)
   })
 

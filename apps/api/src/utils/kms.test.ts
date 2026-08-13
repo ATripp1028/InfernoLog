@@ -80,7 +80,9 @@ describe('encryptSecret', () => {
 
   it('throws when KMS returns no ciphertext', async () => {
     mockSend.mockResolvedValue({})
-    await expect(encryptSecret(SECRET)).rejects.toThrow('KMS returned no ciphertext')
+    await expect(encryptSecret(SECRET)).rejects.toThrow(
+      'KMS returned no ciphertext'
+    )
   })
 })
 
@@ -106,7 +108,9 @@ describe('decryptSecret', () => {
 
   it('throws when KMS returns no plaintext', async () => {
     mockSend.mockResolvedValue({})
-    await expect(decryptSecret('AAA=')).rejects.toThrow('KMS returned no plaintext')
+    await expect(decryptSecret('AAA=')).rejects.toThrow(
+      'KMS returned no plaintext'
+    )
   })
 })
 
@@ -134,15 +138,15 @@ describe('missing key configuration', () => {
   it.each([
     ['encryptSecret', () => encryptSecret(SECRET)],
     ['decryptSecret', () => decryptSecret('AAA=')],
-  ])('%s throws before calling KMS when GDDL_KMS_KEY_ID is unset', async (
-    _label,
-    call
-  ) => {
-    vi.stubEnv('GDDL_KMS_KEY_ID', undefined)
+  ])(
+    '%s throws before calling KMS when GDDL_KMS_KEY_ID is unset',
+    async (_label, call) => {
+      vi.stubEnv('GDDL_KMS_KEY_ID', undefined)
 
-    await expect(call()).rejects.toThrow('GDDL_KMS_KEY_ID is not configured')
-    expect(mockSend).not.toHaveBeenCalled()
-  })
+      await expect(call()).rejects.toThrow('GDDL_KMS_KEY_ID is not configured')
+      expect(mockSend).not.toHaveBeenCalled()
+    }
+  )
 
   it('keeps the secret out of the configuration error', async () => {
     // The module's stated rule: never echo secret-adjacent context.

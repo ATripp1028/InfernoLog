@@ -49,12 +49,8 @@ vi.mock('@aws-sdk/client-sqs', () => ({
   },
 }))
 
-const {
-  resolveByName,
-  resolveNamesBatch,
-  ensureStubLevels,
-  enqueueSeedIds,
-} = await import('./levelResolution')
+const { resolveByName, resolveNamesBatch, ensureStubLevels, enqueueSeedIds } =
+  await import('./levelResolution')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -68,7 +64,11 @@ type SqsBatchInput = {
 /** A `levels` row as the resolution queries select it. */
 function dbLevel(
   inGameId: string,
-  overrides: { name?: string; creator?: string | null; diff?: string | null } = {}
+  overrides: {
+    name?: string
+    creator?: string | null
+    diff?: string | null
+  } = {}
 ) {
   return {
     inGameId,
@@ -81,7 +81,11 @@ function dbLevel(
 /** A RobTop search hit. Only the fields the resolver reads are populated. */
 function rtLevel(
   levelId: string,
-  overrides: { name?: string; creator?: string | null; diff?: string | null } = {}
+  overrides: {
+    name?: string
+    creator?: string | null
+    diff?: string | null
+  } = {}
 ): RobtopSearchResult {
   return {
     levelId,
@@ -176,7 +180,9 @@ describe('resolveByName — creator is a lenient tiebreaker', () => {
       dbLevel('2', { creator: 'Michigun' }),
     ] as never)
 
-    await expect(resolveByName('DeathMoon', 'Nobody')).resolves.toBe('ambiguous')
+    await expect(resolveByName('DeathMoon', 'Nobody')).resolves.toBe(
+      'ambiguous'
+    )
   })
 
   it('does not use the creator to reject a single candidate', async () => {
@@ -407,7 +413,11 @@ describe('resolveNamesBatch', () => {
   it('applies the same creator and difficulty rules as the single-name path', async () => {
     prisma.level.findMany.mockResolvedValue([
       dbLevel('1', { name: 'Alpha', diff: 'Easy Demon', creator: 'Riot' }),
-      dbLevel('2', { name: 'Alpha', diff: 'Extreme Demon', creator: 'Michigun' }),
+      dbLevel('2', {
+        name: 'Alpha',
+        diff: 'Extreme Demon',
+        creator: 'Michigun',
+      }),
     ] as never)
 
     await expect(
@@ -465,9 +475,9 @@ describe('ensureStubLevels', () => {
     const t = tx()
     t.level.findMany.mockResolvedValue([{ inGameId: '1' }])
 
-    await expect(ensureStubLevels(t as never, ['1', '2', '3'])).resolves.toEqual(
-      ['2', '3']
-    )
+    await expect(
+      ensureStubLevels(t as never, ['1', '2', '3'])
+    ).resolves.toEqual(['2', '3'])
     expect(t.level.createMany).toHaveBeenCalledWith({
       data: [
         { inGameId: '2', dataSource: 'manual', verified: false },

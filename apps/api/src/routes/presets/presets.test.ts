@@ -75,8 +75,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   prisma.listPreset.findMany.mockReset().mockResolvedValue([] as never)
   prisma.listPreset.findUnique.mockReset()
-  prisma.listPreset.create.mockReset().mockResolvedValue({ id: PRESET_ID } as never)
-  prisma.listPreset.update.mockReset().mockResolvedValue({ id: PRESET_ID } as never)
+  prisma.listPreset.create
+    .mockReset()
+    .mockResolvedValue({ id: PRESET_ID } as never)
+  prisma.listPreset.update
+    .mockReset()
+    .mockResolvedValue({ id: PRESET_ID } as never)
   prisma.listPreset.delete.mockReset().mockResolvedValue({} as never)
 })
 
@@ -92,7 +96,9 @@ describe('GET /me/list-presets', () => {
     const res = await send('GET', '/me/list-presets')
 
     expect(res.status).toBe(200)
-    await expect(res.json()).resolves.toEqual({ data: [{ id: 'a' }, { id: 'b' }] })
+    await expect(res.json()).resolves.toEqual({
+      data: [{ id: 'a' }, { id: 'b' }],
+    })
     expect(prisma.listPreset.findMany).toHaveBeenCalledWith({
       where: { userId: TEST_USER_ID },
       orderBy: { createdAt: 'asc' },

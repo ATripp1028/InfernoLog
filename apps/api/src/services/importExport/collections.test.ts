@@ -39,9 +39,8 @@ vi.mock('../importExport/import', () => ({
   enqueueSeedIds: mockEnqueueSeedIds,
 }))
 
-const { classifyCollection, commitImportCollections } = await import(
-  './collections'
-)
+const { classifyCollection, commitImportCollections } =
+  await import('./collections')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -86,11 +85,13 @@ beforeEach(() => {
   tx.collection.findMany.mockReset().mockResolvedValue([])
   tx.collection.create
     .mockReset()
-    .mockImplementation(async (args: { data: { name: string; type: string } }) => ({
-      id: `col-${args.data.type}`,
-      name: args.data.name,
-      type: args.data.type,
-    }))
+    .mockImplementation(
+      async (args: { data: { name: string; type: string } }) => ({
+        id: `col-${args.data.type}`,
+        name: args.data.name,
+        type: args.data.type,
+      })
+    )
   tx.collectionEntry.deleteMany.mockReset().mockResolvedValue({ count: 0 })
   tx.collectionEntry.createMany.mockReset().mockResolvedValue({ count: 0 })
   tx.levelProgress.findMany.mockReset().mockResolvedValue([])
@@ -151,7 +152,9 @@ describe('classifyCollection', () => {
   })
 
   it('groups custom names case-insensitively', () => {
-    expect(classifyCollection('grind').key).toBe(classifyCollection('GRIND').key)
+    expect(classifyCollection('grind').key).toBe(
+      classifyCollection('GRIND').key
+    )
   })
 })
 
@@ -374,17 +377,20 @@ describe('commitImportCollections — skipped rows', () => {
   it.each([
     ['ambiguous', 'Matches more than one level — add a level_id'],
     [null, 'Level not found on the GD servers'],
-  ])('skips a name-only row that resolves to %s', async (resolution, reason) => {
-    mockResolveNamesBatch.mockResolvedValue([resolution])
+  ])(
+    'skips a name-only row that resolves to %s',
+    async (resolution, reason) => {
+      mockResolveNamesBatch.mockResolvedValue([resolution])
 
-    const result = await commitImportCollections(USER_ID, [
-      entry('favorites', { levelId: null, levelName: 'DeathMoon' }),
-    ])
+      const result = await commitImportCollections(USER_ID, [
+        entry('favorites', { levelId: null, levelName: 'DeathMoon' }),
+      ])
 
-    expect(result.skipped).toEqual([
-      { list: 'Favorites', label: 'DeathMoon', reason },
-    ])
-  })
+      expect(result.skipped).toEqual([
+        { list: 'Favorites', label: 'DeathMoon', reason },
+      ])
+    }
+  )
 
   it('places a name-only row that resolves uniquely', async () => {
     existingCollections([
@@ -401,7 +407,10 @@ describe('commitImportCollections — skipped rows', () => {
   })
 
   it('resolves all name-only rows in one batch, not one query each', async () => {
-    mockResolveNamesBatch.mockResolvedValue([{ levelId: '1' }, { levelId: '2' }])
+    mockResolveNamesBatch.mockResolvedValue([
+      { levelId: '1' },
+      { levelId: '2' },
+    ])
 
     await commitImportCollections(USER_ID, [
       entry('favorites', { levelId: null, levelName: 'A' }),

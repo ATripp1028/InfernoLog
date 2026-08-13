@@ -304,14 +304,14 @@ describe('fetchRobtopLevelResult', () => {
     it.each([
       ['absent', {}],
       ['unparseable', { 'retry-after': 'soon' }],
-    ])('falls back to the default cooldown when Retry-After is %s', async (
-      _label,
-      headers
-    ) => {
-      mockFetch.mockResolvedValueOnce(robtopResp(429, '', headers))
-      await fetchRobtopLevelResult('222')
-      expect(mockReportThrottled).toHaveBeenCalledWith(60_000)
-    })
+    ])(
+      'falls back to the default cooldown when Retry-After is %s',
+      async (_label, headers) => {
+        mockFetch.mockResolvedValueOnce(robtopResp(429, '', headers))
+        await fetchRobtopLevelResult('222')
+        expect(mockReportThrottled).toHaveBeenCalledWith(60_000)
+      }
+    )
 
     it('still reports unreachable when recording the cooldown fails', async () => {
       // Best-effort: a cooldown write failure must not change what we return.
@@ -510,8 +510,8 @@ describe('request timeouts', () => {
   })
 
   it('reports a hung name search as unreachable', async () => {
-    await expect(runPastTimeout(() => searchRobtopByNameResult('x'))).resolves.toEqual(
-      { status: 'unreachable' }
-    )
+    await expect(
+      runPastTimeout(() => searchRobtopByNameResult('x'))
+    ).resolves.toEqual({ status: 'unreachable' })
   })
 })

@@ -99,7 +99,11 @@ function row(rowIndex: number, overrides: Record<string, unknown> = {}) {
 function lastInvoke() {
   return (
     mockLambdaSend.mock.lastCall?.[0] as {
-      input: { FunctionName: string; InvocationType: string; Payload: Uint8Array }
+      input: {
+        FunctionName: string
+        InvocationType: string
+        Payload: Uint8Array
+      }
     }
   ).input
 }
@@ -116,7 +120,9 @@ beforeEach(() => {
   )
   prisma.importJob.findUnique.mockReset().mockResolvedValue(null)
   groupByMock.mockReset().mockResolvedValue([])
-  prisma.importJobRow.updateMany.mockReset().mockResolvedValue({ count: 1 } as never)
+  prisma.importJobRow.updateMany
+    .mockReset()
+    .mockResolvedValue({ count: 1 } as never)
   mockCheckImportConflicts.mockReset().mockResolvedValue({ conflicts: [] })
   mockLambdaSend.mockReset().mockResolvedValue({})
   vi.stubEnv('IMPORT_WORKER_ARN', WORKER_ARN)
@@ -126,7 +132,9 @@ beforeEach(() => {
 
 describe('POST /me/import/check', () => {
   it('delegates to the conflict service for the caller and returns its result', async () => {
-    mockCheckImportConflicts.mockResolvedValue({ conflicts: [{ levelId: '1' }] })
+    mockCheckImportConflicts.mockResolvedValue({
+      conflicts: [{ levelId: '1' }],
+    })
 
     const res = await post('/me/import/check', { completions: [] })
 
@@ -199,7 +207,11 @@ describe('POST /me/import/start', () => {
     })
 
     const { data } = tx.importJobRow.createMany.mock.lastCall![0] as {
-      data: { rowIndex: number; levelName: string | null; identifier: string | null }[]
+      data: {
+        rowIndex: number
+        levelName: string | null
+        identifier: string | null
+      }[]
     }
     expect(data).toHaveLength(2)
     expect(data[0]).toMatchObject({
@@ -209,7 +221,11 @@ describe('POST /me/import/start', () => {
       levelName: 'DeathMoon',
       identifier: '12345',
     })
-    expect(data[1]).toMatchObject({ rowIndex: 7, levelName: 'Other', identifier: '999' })
+    expect(data[1]).toMatchObject({
+      rowIndex: 7,
+      levelName: 'Other',
+      identifier: '999',
+    })
   })
 
   it('nulls the row identifiers a name-only row does not carry', async () => {
@@ -291,8 +307,14 @@ describe('POST /me/import/start', () => {
   it.each([
     ['rows is empty', { rows: [] }],
     ['rows is missing', {}],
-    ['a row has an unknown type', { rows: [{ type: 'nonsense', rowIndex: 0, data: {} }] }],
-    ['a rowIndex is negative', { rows: [{ type: 'completion', rowIndex: -1, data: {} }] }],
+    [
+      'a row has an unknown type',
+      { rows: [{ type: 'nonsense', rowIndex: 0, data: {} }] },
+    ],
+    [
+      'a rowIndex is negative',
+      { rows: [{ type: 'completion', rowIndex: -1, data: {} }] },
+    ],
   ])('400s and writes nothing when %s', async (_label, body) => {
     const res = await post('/me/import/start', body)
 

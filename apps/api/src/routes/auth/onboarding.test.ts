@@ -61,9 +61,8 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
 
 // Cast to a no-arg constructor: the mock's class takes none, but the type
 // comes from the real SDK, whose constructor requires an options bag.
-const { UserNotFoundException: SdkUserNotFound } = await import(
-  '@aws-sdk/client-cognito-identity-provider'
-)
+const { UserNotFoundException: SdkUserNotFound } =
+  await import('@aws-sdk/client-cognito-identity-provider')
 const UserNotFoundException = SdkUserNotFound as unknown as new () => Error
 const { logger } = await import('../../utils/logger')
 const app = (await import('./onboarding')).default
@@ -88,8 +87,11 @@ function post(path: string, claims: Record<string, string> | null) {
 
 /** The AdminDeleteUserCommand input from the most recent Cognito send. */
 function lastDeleteInput(): { UserPoolId?: string; Username: string } {
-  return (mockCognitoSend.mock.lastCall?.[0] as { input: { UserPoolId?: string; Username: string } })
-    .input
+  return (
+    mockCognitoSend.mock.lastCall?.[0] as {
+      input: { UserPoolId?: string; Username: string }
+    }
+  ).input
 }
 
 beforeEach(() => {

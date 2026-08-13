@@ -112,7 +112,9 @@ describe('parseJsonBody — invalidMessage', () => {
   const KeySchema = z.object({ apiKey: z.string().min(8) })
 
   it('uses the fixed message for a validation failure', async () => {
-    const app = appFor(KeySchema, { invalidMessage: 'A valid API key is required' })
+    const app = appFor(KeySchema, {
+      invalidMessage: 'A valid API key is required',
+    })
     const res = await post(app, JSON.stringify({ apiKey: 'short' }))
 
     expect(res.status).toBe(400)
@@ -122,7 +124,9 @@ describe('parseJsonBody — invalidMessage', () => {
   })
 
   it('uses the fixed message for an unparseable body too', async () => {
-    const app = appFor(KeySchema, { invalidMessage: 'A valid API key is required' })
+    const app = appFor(KeySchema, {
+      invalidMessage: 'A valid API key is required',
+    })
     const res = await post(app, '{oops')
 
     await expect(res.json()).resolves.toEqual({

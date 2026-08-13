@@ -24,7 +24,8 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { createUserForSignup, DEFAULT_RATING_CATEGORIES } = await import('./index')
+const { createUserForSignup, DEFAULT_RATING_CATEGORIES } =
+  await import('./index')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -35,8 +36,9 @@ const SUB = 'cognito-sub-abc'
 
 /** The `data` of the single user.create call. */
 function createData(): Record<string, unknown> {
-  return (prisma.user.create.mock.lastCall?.[0] as { data: Record<string, unknown> })
-    .data
+  return (
+    prisma.user.create.mock.lastCall?.[0] as { data: Record<string, unknown> }
+  ).data
 }
 
 beforeEach(() => {

@@ -11,7 +11,13 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser, seedLevel } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+  seedLevel,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -109,7 +115,9 @@ describe('PATCH /me', () => {
 
     await send(user.id, 'PATCH', '/me', { profilePublic: false })
 
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.profilePublic).toBe(false)
     expect(stored.username).toBe(user.username)
     expect(stored.discordPublic).toBe(true)
@@ -135,7 +143,9 @@ describe('PATCH /me', () => {
     await send(user.id, 'PATCH', '/me', { ratingMode: 'SIMPLE' })
     await send(user.id, 'PATCH', '/me', { ratingMode: 'WEIGHTED' })
 
-    expect(await prisma.ratingCategory.count({ where: { userId: user.id } })).toBe(3)
+    expect(
+      await prisma.ratingCategory.count({ where: { userId: user.id } })
+    ).toBe(3)
   })
 
   it('stamps legalAcceptedAt for acceptLegal', async () => {
@@ -143,7 +153,9 @@ describe('PATCH /me', () => {
 
     await send(user.id, 'PATCH', '/me', { acceptLegal: true })
 
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.legalAcceptedAt).toBeInstanceOf(Date)
   })
 })
@@ -159,7 +171,9 @@ describe('PATCH /me/username', () => {
     })
 
     expect(res.status).toBe(200)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.username).toBe('newName')
     expect(stored.previousUsername).toBe('oldName')
     expect(stored.usernameChangedAt).toBeInstanceOf(Date)
@@ -176,7 +190,9 @@ describe('PATCH /me/username', () => {
     })
 
     expect(res.status).toBe(409)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.username).toBe('mine')
   })
 
@@ -293,17 +309,29 @@ describe('DELETE /me', () => {
     expect(res.status).toBe(200)
     expect(await prisma.user.findUnique({ where: { id: user.id } })).toBeNull()
     // Cascades.
-    expect(await prisma.levelProgress.count({ where: { userId: user.id } })).toBe(0)
+    expect(
+      await prisma.levelProgress.count({ where: { userId: user.id } })
+    ).toBe(0)
     expect(await prisma.progressUpdate.count()).toBe(0)
     expect(await prisma.ratingScore.count()).toBe(0)
-    expect(await prisma.classicRanking.count({ where: { userId: user.id } })).toBe(0)
-    expect(await prisma.collection.count({ where: { userId: user.id } })).toBe(0)
+    expect(
+      await prisma.classicRanking.count({ where: { userId: user.id } })
+    ).toBe(0)
+    expect(await prisma.collection.count({ where: { userId: user.id } })).toBe(
+      0
+    )
     expect(await prisma.collectionEntry.count()).toBe(0)
-    expect(await prisma.ratingCategory.count({ where: { userId: user.id } })).toBe(0)
-    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(0)
+    expect(
+      await prisma.ratingCategory.count({ where: { userId: user.id } })
+    ).toBe(0)
+    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(
+      0
+    )
     expect(await prisma.importJob.count({ where: { userId: user.id } })).toBe(0)
     // Explicit deletes for the RESTRICT relations.
-    expect(await prisma.gddlSyncJob.count({ where: { userId: user.id } })).toBe(0)
+    expect(await prisma.gddlSyncJob.count({ where: { userId: user.id } })).toBe(
+      0
+    )
     expect(await prisma.banAppeal.count({ where: { userId: user.id } })).toBe(0)
     expect(await prisma.report.count()).toBe(0)
     expect(await prisma.moderationAction.count()).toBe(0)
@@ -315,8 +343,12 @@ describe('DELETE /me', () => {
 
     await send(user.id, 'DELETE', '/me', CONFIRMATION)
 
-    expect(await prisma.user.findUnique({ where: { id: other.id } })).not.toBeNull()
-    expect(await prisma.level.findUnique({ where: { inGameId: '100' } })).not.toBeNull()
+    expect(
+      await prisma.user.findUnique({ where: { id: other.id } })
+    ).not.toBeNull()
+    expect(
+      await prisma.level.findUnique({ where: { inGameId: '100' } })
+    ).not.toBeNull()
   })
 
   it('refuses without the confirmation phrase and deletes nothing', async () => {
@@ -325,6 +357,8 @@ describe('DELETE /me', () => {
     const res = await send(user.id, 'DELETE', '/me', { confirmation: 'nope' })
 
     expect(res.status).toBe(400)
-    expect(await prisma.user.findUnique({ where: { id: user.id } })).not.toBeNull()
+    expect(
+      await prisma.user.findUnique({ where: { id: user.id } })
+    ).not.toBeNull()
   })
 })

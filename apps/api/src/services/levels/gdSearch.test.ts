@@ -61,7 +61,10 @@ function forwarded(): { type?: string } & Record<string, string> {
     string,
     { type?: string; extraParams: Record<string, string> },
   ]
-  return { ...options.extraParams, ...(options.type ? { type: options.type } : {}) }
+  return {
+    ...options.extraParams,
+    ...(options.type ? { type: options.type } : {}),
+  }
 }
 
 function search(

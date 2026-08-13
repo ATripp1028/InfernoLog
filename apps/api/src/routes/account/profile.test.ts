@@ -458,11 +458,7 @@ describe('PATCH /me', () => {
     )
     const [{ data }] = prisma.ratingCategory.createMany.mock
       .lastCall as unknown as [{ data: { name: string }[] }]
-    expect(data.map((c) => c.name)).toEqual([
-      'Gameplay',
-      'Decoration',
-      'Song',
-    ])
+    expect(data.map((c) => c.name)).toEqual(['Gameplay', 'Decoration', 'Song'])
   })
 
   it('does not reseed when the user already has categories', async () => {
@@ -611,9 +607,8 @@ describe('DELETE /me — Cognito cleanup', () => {
   })
 
   it('still succeeds when the Cognito identity is already gone', async () => {
-    const { UserNotFoundException } = await import(
-      '@aws-sdk/client-cognito-identity-provider'
-    )
+    const { UserNotFoundException } =
+      await import('@aws-sdk/client-cognito-identity-provider')
     mockCognitoSend.mockRejectedValueOnce(
       new (UserNotFoundException as unknown as new () => Error)()
     )

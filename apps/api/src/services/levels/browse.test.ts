@@ -55,7 +55,11 @@ function dbRow(inGameId: string, sortval: number | string = 1) {
 }
 
 function query(overrides: Partial<LevelBrowseQuery> = {}): LevelBrowseQuery {
-  return { searchBy: 'name', sort: 'relevance', ...overrides } as LevelBrowseQuery
+  return {
+    searchBy: 'name',
+    sort: 'relevance',
+    ...overrides,
+  } as LevelBrowseQuery
 }
 
 /** The generated statement, with its parameter placeholders inlined. */
@@ -135,16 +139,16 @@ describe('browseLevels — sorting', () => {
   it.each([
     ['asc', 'ASC'],
     ['desc', 'DESC'],
-  ])('honours an explicit %s direction over the natural one', async (
-    sortDir,
-    expected
-  ) => {
-    await browseLevels(
-      query({ sort: 'likes', sortDir: sortDir as 'asc' | 'desc' })
-    )
+  ])(
+    'honours an explicit %s direction over the natural one',
+    async (sortDir, expected) => {
+      await browseLevels(
+        query({ sort: 'likes', sortDir: sortDir as 'asc' | 'desc' })
+      )
 
-    expect(lastSql().text).toMatch(new RegExp(`ORDER BY[\\s\\S]*${expected}`))
-  })
+      expect(lastSql().text).toMatch(new RegExp(`ORDER BY[\\s\\S]*${expected}`))
+    }
+  )
 
   it('always breaks ties on inGameId so the order is total', async () => {
     // Without a unique tiebreaker the keyset cursor cannot be resumed from.
@@ -201,9 +205,7 @@ describe('browseLevels — filters', () => {
     ['legendary', '"epicValue" = 2'],
     ['mythic', '"epicValue" = 3'],
   ])('maps the %s rate status onto its column', async (status, expected) => {
-    await browseLevels(
-      query({ rateStatus: [status as 'rated'] })
-    )
+    await browseLevels(query({ rateStatus: [status as 'rated'] }))
 
     expect(whereClause().replace(/\s+/g, ' ')).toContain(expected)
   })
@@ -323,7 +325,9 @@ describe('browseLevels — pagination', () => {
   })
 
   it('re-anchors the next page on the cursor pair', async () => {
-    await browseLevels(query({ sort: 'likes', cursor: cursorFor(500, '12345') }))
+    await browseLevels(
+      query({ sort: 'likes', cursor: cursorFor(500, '12345') })
+    )
 
     const where = whereClause()
     expect(where).toContain('"inGameId" >')
@@ -356,17 +360,20 @@ describe('browseLevels — pagination', () => {
 
   it.each([
     ['not valid base64 JSON', 'not-a-cursor'],
-    ['missing its id', Buffer.from(JSON.stringify({ v: 1 })).toString('base64')],
+    [
+      'missing its id',
+      Buffer.from(JSON.stringify({ v: 1 })).toString('base64'),
+    ],
     [
       'carrying a non-scalar value',
       Buffer.from(JSON.stringify({ v: {}, id: 'x' })).toString('base64'),
     ],
-  ])('ignores a cursor that is %s and starts from page one', async (
-    _label,
-    cursor
-  ) => {
-    await browseLevels(query({ sort: 'likes', cursor }))
+  ])(
+    'ignores a cursor that is %s and starts from page one',
+    async (_label, cursor) => {
+      await browseLevels(query({ sort: 'likes', cursor }))
 
-    expect(lastSql().text).not.toContain('WHERE')
-  })
+      expect(lastSql().text).not.toContain('WHERE')
+    }
+  )
 })

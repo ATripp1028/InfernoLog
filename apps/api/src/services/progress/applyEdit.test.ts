@@ -78,7 +78,9 @@ beforeEach(() => {
   vi.clearAllMocks()
   tx.levelProgress.findUnique.mockReset().mockResolvedValue({ id: LP_ID })
   tx.levelProgress.update.mockReset().mockResolvedValue({})
-  tx.levelProgress.findUniqueOrThrow.mockReset().mockResolvedValue({ id: LP_ID })
+  tx.levelProgress.findUniqueOrThrow
+    .mockReset()
+    .mockResolvedValue({ id: LP_ID })
   tx.progressUpdate.findFirst.mockReset()
   targetKind('PROGRESS')
   tx.progressUpdate.update.mockReset().mockResolvedValue({})

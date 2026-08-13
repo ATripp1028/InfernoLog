@@ -96,8 +96,9 @@ describe('acquireRobtopSlot — the wait deadline', () => {
     outcomes()
 
     await runPastDeadline(acquireRobtopSlot())
-    const callsAtGiveUp = (prisma.$queryRaw as unknown as { mock: { calls: unknown[] } })
-      .mock.calls.length
+    const callsAtGiveUp = (
+      prisma.$queryRaw as unknown as { mock: { calls: unknown[] } }
+    ).mock.calls.length
 
     await vi.advanceTimersByTimeAsync(DEFAULT_MAX_WAIT_MS)
 

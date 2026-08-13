@@ -75,7 +75,8 @@ function userOwns(...ids: string[]) {
 /** The `data` of each ratingCategory.update call, in call order. */
 function updateCalls() {
   return prisma.ratingCategory.update.mock.calls.map(
-    (call) => call[0] as { where: { id: string }; data: Record<string, unknown> }
+    (call) =>
+      call[0] as { where: { id: string }; data: Record<string, unknown> }
   )
 }
 
@@ -125,7 +126,9 @@ describe('GET /me/rating-categories', () => {
       { id: CAT_A, name: 'Gameplay', weight: decimal(0.35), sortOrder: 0 },
     ] as never)
 
-    const body = (await (await app.request('/me/rating-categories')).json()) as {
+    const body = (await (
+      await app.request('/me/rating-categories')
+    ).json()) as {
       data: { weight: unknown }[]
     }
     expect(body.data[0]!.weight).toBe(0.35)
@@ -138,7 +141,9 @@ describe('GET /me/rating-categories', () => {
       { id: CAT_A, name: 'Gameplay', weight: 0.35, sortOrder: 0 },
     ] as never)
 
-    const body = (await (await app.request('/me/rating-categories')).json()) as {
+    const body = (await (
+      await app.request('/me/rating-categories')
+    ).json()) as {
       data: { weight: unknown }[]
     }
     expect(body.data[0]!.weight).toBe(0.35)
@@ -155,27 +160,39 @@ describe('GET /me/rating-categories', () => {
 
 describe('PUT /me/rating-config — validation', () => {
   it.each([
-    ['weights do not sum to 1.00', config({
-      categories: [{ id: CAT_A, name: 'Gameplay', weight: 0.3 }],
-    })],
-    ['two categories share a name', config({
-      categories: [
-        { id: CAT_A, name: 'Gameplay', weight: 0.5 },
-        { id: CAT_B, name: 'gameplay', weight: 0.5 },
-      ],
-    })],
-    ['a name is blank', config({
-      categories: [
-        { id: CAT_A, name: '   ', weight: 0.5 },
-        { id: CAT_B, name: 'Decoration', weight: 0.5 },
-      ],
-    })],
-    ['a weight has more than two decimals', config({
-      categories: [
-        { id: CAT_A, name: 'Gameplay', weight: 0.555 },
-        { id: CAT_B, name: 'Decoration', weight: 0.445 },
-      ],
-    })],
+    [
+      'weights do not sum to 1.00',
+      config({
+        categories: [{ id: CAT_A, name: 'Gameplay', weight: 0.3 }],
+      }),
+    ],
+    [
+      'two categories share a name',
+      config({
+        categories: [
+          { id: CAT_A, name: 'Gameplay', weight: 0.5 },
+          { id: CAT_B, name: 'gameplay', weight: 0.5 },
+        ],
+      }),
+    ],
+    [
+      'a name is blank',
+      config({
+        categories: [
+          { id: CAT_A, name: '   ', weight: 0.5 },
+          { id: CAT_B, name: 'Decoration', weight: 0.5 },
+        ],
+      }),
+    ],
+    [
+      'a weight has more than two decimals',
+      config({
+        categories: [
+          { id: CAT_A, name: 'Gameplay', weight: 0.555 },
+          { id: CAT_B, name: 'Decoration', weight: 0.445 },
+        ],
+      }),
+    ],
     ['the body is not a config at all', { nope: true }],
   ])('400s and writes nothing when %s', async (_label, body) => {
     const res = await putConfig(body)

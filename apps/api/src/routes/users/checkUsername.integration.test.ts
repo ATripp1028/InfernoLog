@@ -10,7 +10,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -28,7 +33,8 @@ const prisma = getTestPrisma()
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 async function check(username?: string) {
-  const query = username === undefined ? '' : `?username=${encodeURIComponent(username)}`
+  const query =
+    username === undefined ? '' : `?username=${encodeURIComponent(username)}`
   const res = await buildApp(usersApp).request(`/users/check-username${query}`)
   return {
     status: res.status,

@@ -25,20 +25,17 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const {
-  mockApplyCompletion,
-  mockApplyProgress,
-  mockApplyDrop,
-  mockApplyEdit,
-} = vi.hoisted(() => ({
-  mockApplyCompletion: vi.fn(),
-  mockApplyProgress: vi.fn(),
-  mockApplyDrop: vi.fn(),
-  mockApplyEdit: vi.fn(),
-}))
+const { mockApplyCompletion, mockApplyProgress, mockApplyDrop, mockApplyEdit } =
+  vi.hoisted(() => ({
+    mockApplyCompletion: vi.fn(),
+    mockApplyProgress: vi.fn(),
+    mockApplyDrop: vi.fn(),
+    mockApplyEdit: vi.fn(),
+  }))
 
 vi.mock('../../services/progress', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/progress')>()
+  const actual =
+    await importOriginal<typeof import('../../services/progress')>()
   return {
     ...actual,
     applyCompletion: mockApplyCompletion,
@@ -48,9 +45,8 @@ vi.mock('../../services/progress', async (importOriginal) => {
   }
 })
 
-const { LevelNotFoundError, ProgressFieldsNotApplicableError } = await import(
-  '../../services/progress'
-)
+const { LevelNotFoundError, ProgressFieldsNotApplicableError } =
+  await import('../../services/progress')
 const progressApp = (await import('./index')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

@@ -10,7 +10,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -52,7 +57,11 @@ function row(rowIndex: number, overrides: Record<string, unknown> = {}) {
   return {
     type: 'completion',
     rowIndex,
-    data: { levelId: String(100 + rowIndex), levelName: `Level ${rowIndex}`, ...overrides },
+    data: {
+      levelId: String(100 + rowIndex),
+      levelName: `Level ${rowIndex}`,
+      ...overrides,
+    },
   }
 }
 
@@ -81,7 +90,10 @@ async function seedJob(
 beforeEach(async () => {
   vi.clearAllMocks()
   await truncateAll(prisma)
-  vi.stubEnv('IMPORT_WORKER_ARN', 'arn:aws:lambda:us-east-1:1234:function:worker')
+  vi.stubEnv(
+    'IMPORT_WORKER_ARN',
+    'arn:aws:lambda:us-east-1:1234:function:worker'
+  )
 })
 
 afterAll(async () => {
@@ -132,7 +144,9 @@ describe('POST /me/import/start', () => {
     expect(
       await prisma.importJob.findUnique({ where: { id: first.id } })
     ).toBeNull()
-    expect(await prisma.importJobRow.count({ where: { jobId: first.id } })).toBe(0)
+    expect(
+      await prisma.importJobRow.count({ where: { jobId: first.id } })
+    ).toBe(0)
     expect(await prisma.importJob.count({ where: { userId: user.id } })).toBe(1)
   })
 
@@ -315,8 +329,8 @@ describe('review routes', () => {
   it('404s resolve-all when there is no job', async () => {
     const user = await seedUser(prisma)
 
-    expect(
-      (await send(user.id, 'POST', '/me/import/resolve-all')).status
-    ).toBe(404)
+    expect((await send(user.id, 'POST', '/me/import/resolve-all')).status).toBe(
+      404
+    )
   })
 })

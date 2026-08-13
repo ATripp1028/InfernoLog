@@ -9,7 +9,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -98,7 +103,9 @@ describe('connecting Discord', () => {
     const result = await callback(state)
 
     expect(result.discord).toBe('connected')
-    const linked = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const linked = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(linked.discordId).toBe(DISCORD_ID)
     const untouched = await prisma.user.findUniqueOrThrow({
       where: { id: other.id },
@@ -117,7 +124,9 @@ describe('connecting Discord', () => {
     const result = await callback(await mintState(second.id))
 
     expect(result.reason).toBe('already_linked_elsewhere')
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: second.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: second.id },
+    })
     expect(stored.discordId).toBeNull()
   })
 
@@ -150,7 +159,9 @@ describe('connecting Discord', () => {
     const result = await callback(await mintState(user.id))
 
     expect(result.reason).toBe('token_exchange_failed')
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.discordId).toBeNull()
   })
 })
@@ -169,7 +180,9 @@ describe('DELETE /me/connect-discord', () => {
     )
 
     expect(response.status).toBe(200)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.discordId).toBeNull()
   })
 

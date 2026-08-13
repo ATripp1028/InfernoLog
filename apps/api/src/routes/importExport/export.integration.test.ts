@@ -127,7 +127,11 @@ describe('GET /me/export — sections', () => {
       ],
     })
 
-    const { items, hasMore } = await fetchSection(user.id, 'categories', '&limit=1')
+    const { items, hasMore } = await fetchSection(
+      user.id,
+      'categories',
+      '&limit=1'
+    )
 
     expect(items).toHaveLength(2)
     expect(hasMore).toBe(false)
@@ -165,9 +169,9 @@ describe('GET /me/export — pagination', () => {
     const user = await seedUser(prisma)
     await seedCompletions(user.id, 3)
 
-    expect((await fetchSection(user.id, 'completions', '&limit=2')).hasMore).toBe(
-      true
-    )
+    expect(
+      (await fetchSection(user.id, 'completions', '&limit=2')).hasMore
+    ).toBe(true)
     expect(
       (await fetchSection(user.id, 'completions', '&offset=2&limit=2')).hasMore
     ).toBe(false)

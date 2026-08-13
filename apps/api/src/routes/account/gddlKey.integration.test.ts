@@ -9,7 +9,12 @@
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { buildApp, getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  buildApp,
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -67,7 +72,9 @@ describe('PUT /me/gddl-key', () => {
     const res = await send(user.id, 'PUT', { apiKey: SECRET })
 
     expect(res.status).toBe(200)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.gddlApiKeyEncrypted).toBe(`enc(${SECRET})`)
     expect(stored.gddlUsername).toBe('GDDLUser')
   })
@@ -87,7 +94,9 @@ describe('PUT /me/gddl-key', () => {
 
     await send(user.id, 'PUT', { apiKey: SECRET })
 
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.gddlApiKeyEncrypted).toBe(`enc(${SECRET})`)
   })
 
@@ -100,7 +109,9 @@ describe('PUT /me/gddl-key', () => {
     const res = await send(second.id, 'PUT', { apiKey: 'another-key' })
 
     expect(res.status).toBe(409)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: second.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: second.id },
+    })
     expect(stored.gddlApiKeyEncrypted).toBeNull()
   })
 
@@ -112,7 +123,9 @@ describe('PUT /me/gddl-key', () => {
     const res = await send(user.id, 'PUT', { apiKey: 'bad-key' })
 
     expect(res.status).toBeGreaterThanOrEqual(400)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.gddlApiKeyEncrypted).toBeNull()
   })
 
@@ -136,7 +149,9 @@ describe('DELETE /me/gddl-key', () => {
     const res = await send(user.id, 'DELETE')
 
     expect(res.status).toBe(200)
-    const stored = await prisma.user.findUniqueOrThrow({ where: { id: user.id } })
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
     expect(stored.gddlApiKeyEncrypted).toBeNull()
     expect(stored.gddlUsername).toBeNull()
   })

@@ -115,7 +115,12 @@ describe('deriveEventKey', () => {
   it('returns null when the row carries no distinguishing session data', () => {
     // Otherwise a batch of blank rows would all dedupe against each other.
     expect(
-      deriveEventKey({ date: null, percentage: null, runFrom: null, runTo: null })
+      deriveEventKey({
+        date: null,
+        percentage: null,
+        runFrom: null,
+        runTo: null,
+      })
     ).toBeNull()
   })
 
@@ -228,9 +233,9 @@ describe('diffProgressFields', () => {
   it('compares enjoyment on the display scale, not the stored one', () => {
     // Stored 0-100 internally, sheets carry 0-10 — 85 and 8.5 are the same.
     const existing = existingEvent({ enjoyment: 85 })
-    expect(diffProgressFields(existing, { enjoyment: 8.5 } as ImportProgressRow)).toEqual(
-      []
-    )
+    expect(
+      diffProgressFields(existing, { enjoyment: 8.5 } as ImportProgressRow)
+    ).toEqual([])
     expect(
       diffProgressFields(existing, { enjoyment: 9 } as ImportProgressRow)
     ).toEqual([{ field: 'enjoyment', existingValue: 8.5, importedValue: 9 }])
@@ -306,9 +311,9 @@ describe('isoDate', () => {
   })
 
   it('resolves through the recorded zone when there is one', () => {
-    expect(
-      isoDate(new Date('2026-08-12T02:00:00Z'), 'America/New_York')
-    ).toBe('2026-08-11')
+    expect(isoDate(new Date('2026-08-12T02:00:00Z'), 'America/New_York')).toBe(
+      '2026-08-11'
+    )
   })
 })
 
@@ -745,7 +750,12 @@ describe('planProgress — never establishes level status', () => {
     (status) => {
       // Historical progress rows must not flip a dropped level back to active.
       const ctx = ctxFor({ status })
-      planProgress(ctx, LEVEL, { percentage: 35 } as ImportProgressRow, undefined)
+      planProgress(
+        ctx,
+        LEVEL,
+        { percentage: 35 } as ImportProgressRow,
+        undefined
+      )
 
       expect(ctx.lpPlans.get(LEVEL)!.update).not.toHaveProperty('status')
     }

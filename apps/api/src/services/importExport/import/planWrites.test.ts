@@ -211,14 +211,28 @@ describe('planCompletion — derived fields', () => {
     // Matches the logging flow — a level without coins can't have them
     // collected, whatever the sheet claims.
     const ctx = ctxFor({ coins: 0 })
-    planCompletion(ctx, LEVEL, row({ coinsCollected: 3 }), undefined, null, false)
+    planCompletion(
+      ctx,
+      LEVEL,
+      row({ coinsCollected: 3 }),
+      undefined,
+      null,
+      false
+    )
 
     expect(lpFields(ctx)).toMatchObject({ coinsCollected: null })
   })
 
   it('keeps the coin count on a level that has coins', () => {
     const ctx = ctxFor({ coins: 3 })
-    planCompletion(ctx, LEVEL, row({ coinsCollected: 3 }), undefined, null, false)
+    planCompletion(
+      ctx,
+      LEVEL,
+      row({ coinsCollected: 3 }),
+      undefined,
+      null,
+      false
+    )
 
     expect(lpFields(ctx)).toMatchObject({ coinsCollected: 3 })
   })

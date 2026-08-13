@@ -38,9 +38,8 @@ vi.mock('../../services/ranking', async (importOriginal) => {
   }
 })
 
-const { RankingError, RankingNotFoundError } = await import(
-  '../../services/ranking'
-)
+const { RankingError, RankingNotFoundError } =
+  await import('../../services/ranking')
 const rankingApp = (await import('./index')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -102,7 +101,9 @@ describe('ranking routes — error mapping', () => {
       new RankingNotFoundError('No completion for that level')
     )
 
-    const res = await send('POST', '/me/ranking/classic', { levelProgressId: LP_ID })
+    const res = await send('POST', '/me/ranking/classic', {
+      levelProgressId: LP_ID,
+    })
 
     expect(res.status).toBe(404)
   })
@@ -112,7 +113,9 @@ describe('ranking routes — error mapping', () => {
       new RankingError('Level is already ranked')
     )
 
-    const res = await send('POST', '/me/ranking/classic', { levelProgressId: LP_ID })
+    const res = await send('POST', '/me/ranking/classic', {
+      levelProgressId: LP_ID,
+    })
 
     expect(res.status).toBe(400)
     await expect(res.json()).resolves.toEqual({
@@ -123,7 +126,9 @@ describe('ranking routes — error mapping', () => {
   it('leaves an unrecognized failure as a 500', async () => {
     mockPlaceCompletion.mockRejectedValue(new Error('connection lost'))
 
-    const res = await send('POST', '/me/ranking/classic', { levelProgressId: LP_ID })
+    const res = await send('POST', '/me/ranking/classic', {
+      levelProgressId: LP_ID,
+    })
 
     expect(res.status).toBe(500)
   })

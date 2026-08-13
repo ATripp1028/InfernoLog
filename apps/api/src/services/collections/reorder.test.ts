@@ -26,12 +26,8 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const {
-  reorderEntry,
-  removeEntry,
-  CollectionError,
-  CollectionNotFoundError,
-} = await import('./index')
+const { reorderEntry, removeEntry, CollectionError, CollectionNotFoundError } =
+  await import('./index')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,7 +66,10 @@ function ownedCollection(type: string) {
  */
 function entryIndices(indices: Record<string, Prisma.Decimal>) {
   tx.collectionEntry.findFirst.mockImplementation(
-    async (args: { where: { id: string }; select?: Record<string, boolean> }) => {
+    async (args: {
+      where: { id: string }
+      select?: Record<string, boolean>
+    }) => {
       const id = args.where.id
       // The entry-exists probe selects only `id`; neighbourIndex selects the
       // rankingIndex.
@@ -91,7 +90,9 @@ function movedTo(): number {
     (c) => (c[0] as { where: { id: string } }).where.id === ENTRY_ID
   )
   const last = calls[calls.length - 1]!
-  return Number((last[0] as { data: { rankingIndex: unknown } }).data.rankingIndex)
+  return Number(
+    (last[0] as { data: { rankingIndex: unknown } }).data.rankingIndex
+  )
 }
 
 beforeEach(() => {
@@ -101,7 +102,9 @@ beforeEach(() => {
   // different selects, so one stub has to satisfy both shapes.
   ownedCollection('CUSTOM')
   prisma.levelProgress.findMany.mockReset().mockResolvedValue([] as never)
-  prisma.collectionEntry.findFirst.mockReset().mockResolvedValue({ id: ENTRY_ID } as never)
+  prisma.collectionEntry.findFirst
+    .mockReset()
+    .mockResolvedValue({ id: ENTRY_ID } as never)
   prisma.collectionEntry.delete.mockReset().mockResolvedValue({} as never)
 
   tx.collectionEntry.findFirst.mockReset()
@@ -224,7 +227,10 @@ describe('reorderEntry — rebalancing', () => {
     ]
     let phase = 0
     tx.collectionEntry.findFirst.mockImplementation(
-      async (args: { where: { id: string }; select?: Record<string, boolean> }) => {
+      async (args: {
+        where: { id: string }
+        select?: Record<string, boolean>
+      }) => {
         if (!args.select?.rankingIndex) return { id: args.where.id }
         return { rankingIndex: calls[phase]![args.where.id]! }
       }
@@ -246,7 +252,9 @@ describe('reorderEntry — rebalancing', () => {
 
     const renumbered = tx.collectionEntry.update.mock.calls
       .slice(0, 3)
-      .map((c) => Number((c[0] as { data: { rankingIndex: unknown } }).data.rankingIndex))
+      .map((c) =>
+        Number((c[0] as { data: { rankingIndex: unknown } }).data.rankingIndex)
+      )
     expect(renumbered).toEqual([1, 2, 3])
   })
 

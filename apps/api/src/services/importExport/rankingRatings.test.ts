@@ -41,7 +41,9 @@ const tx = {
 }
 
 /** Seeds the user's completed levels (the only valid targets for both tabs). */
-function completed(rows: { lpId: string; levelId: string; name: string | null }[]) {
+function completed(
+  rows: { lpId: string; levelId: string; name: string | null }[]
+) {
   prisma.levelProgress.findMany.mockResolvedValue(
     rows.map((r) => ({
       id: r.lpId,
@@ -304,6 +306,10 @@ describe('commitImportRatings', () => {
     ])
 
     expect(prisma.$transaction).not.toHaveBeenCalled()
-    expect(result).toMatchObject({ scored: 0, levels: 0, categoriesCreated: [] })
+    expect(result).toMatchObject({
+      scored: 0,
+      levels: 0,
+      categoriesCreated: [],
+    })
   })
 })

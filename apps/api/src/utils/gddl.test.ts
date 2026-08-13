@@ -199,9 +199,9 @@ describe('verifyGddlApiKey', () => {
     })
 
     const init = mockFetch.mock.lastCall?.[1] as RequestInit
-    expect(
-      (init.headers as Record<string, string>).Authorization
-    ).toBe('Bearer secret-key')
+    expect((init.headers as Record<string, string>).Authorization).toBe(
+      'Bearer secret-key'
+    )
   })
 
   it.each([401, 403, 429, 500])(
@@ -371,7 +371,9 @@ describe.each([
 ] as const)('%s', (_name, fn, method) => {
   it(`resolves on 2xx and sends ${method} with an integer levelId`, async () => {
     mockFetch.mockResolvedValueOnce(resp(200, {}))
-    await expect(fn('key', 17251, 'favorites', '12345')).resolves.toBeUndefined()
+    await expect(
+      fn('key', 17251, 'favorites', '12345')
+    ).resolves.toBeUndefined()
 
     const init = mockFetch.mock.lastCall?.[1] as RequestInit
     expect(init.method).toBe(method)
@@ -446,7 +448,13 @@ describe('submitGddlRecord', () => {
     await submitGddlRecord('key', RECORD)
 
     const body = lastRequestBody()
-    for (const key of ['attempts', 'refreshRate', 'enjoyment', 'rating', 'proof'])
+    for (const key of [
+      'attempts',
+      'refreshRate',
+      'enjoyment',
+      'rating',
+      'proof',
+    ])
       expect(body).not.toHaveProperty(key)
   })
 
@@ -547,12 +555,16 @@ describe('request timeouts', () => {
   })
 
   it('aborts a hung key verification', async () => {
-    await expect(runPastTimeout(() => verifyGddlApiKey('key'))).rejects.toThrow()
+    await expect(
+      runPastTimeout(() => verifyGddlApiKey('key'))
+    ).rejects.toThrow()
   })
 
   it('aborts a hung tier lookup and resolves null', async () => {
     // Never throws — the tier autofill must not block the logging flow.
-    await expect(runPastTimeout(() => fetchGddlTier('12345'))).resolves.toBeNull()
+    await expect(
+      runPastTimeout(() => fetchGddlTier('12345'))
+    ).resolves.toBeNull()
   })
 
   it('aborts a hung user-info lookup', async () => {
@@ -586,7 +598,9 @@ describe('request timeouts', () => {
     // The user-info lookup resolves first; only the submission itself hangs.
     const hanging = mockFetch.getMockImplementation()!
     mockFetch
-      .mockImplementationOnce(async () => resp(200, { ID: 17251, Name: 'Riot' }))
+      .mockImplementationOnce(async () =>
+        resp(200, { ID: 17251, Name: 'Riot' })
+      )
       .mockImplementation(hanging)
 
     await expect(

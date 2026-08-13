@@ -70,7 +70,9 @@ async function seedCompletedLevel(
   completion: Record<string, unknown> = {},
   lpFields: Record<string, unknown> = {}
 ) {
-  const user = await seedUser(prisma, { gddlApiKeyEncrypted: 'ciphertext-blob' })
+  const user = await seedUser(prisma, {
+    gddlApiKeyEncrypted: 'ciphertext-blob',
+  })
   await seedLevel(prisma, { inGameId: LEVEL_ID })
   const lp = await prisma.levelProgress.create({
     data: {
@@ -152,7 +154,13 @@ describe('POST /me/gddl-records/:levelId', () => {
 
   it('sends null for fields the completion never recorded', async () => {
     const { user } = await seedCompletedLevel(
-      { videoUrl: null, attempts: null, fps: null, enjoyment: null, device: null },
+      {
+        videoUrl: null,
+        attempts: null,
+        fps: null,
+        enjoyment: null,
+        device: null,
+      },
       { userGddlTier: null }
     )
 
@@ -183,7 +191,9 @@ describe('POST /me/gddl-records/:levelId — rejections', () => {
   })
 
   it('404s when the level has progress but no completion', async () => {
-    const user = await seedUser(prisma, { gddlApiKeyEncrypted: 'ciphertext-blob' })
+    const user = await seedUser(prisma, {
+      gddlApiKeyEncrypted: 'ciphertext-blob',
+    })
     await seedLevel(prisma, { inGameId: LEVEL_ID })
     const lp = await prisma.levelProgress.create({
       data: { userId: user.id, levelId: LEVEL_ID, status: 'IN_PROGRESS' },
@@ -199,7 +209,9 @@ describe('POST /me/gddl-records/:levelId — rejections', () => {
   })
 
   it('404s for a level the user has no progress on', async () => {
-    const user = await seedUser(prisma, { gddlApiKeyEncrypted: 'ciphertext-blob' })
+    const user = await seedUser(prisma, {
+      gddlApiKeyEncrypted: 'ciphertext-blob',
+    })
     await seedLevel(prisma, { inGameId: LEVEL_ID })
 
     expect((await submit(user.id)).status).toBe(404)

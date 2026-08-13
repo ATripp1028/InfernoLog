@@ -49,9 +49,14 @@ const tx = {
  * Sets up a level whose stored status is `status`, and whose updates OTHER than
  * the one being deleted are `remaining`, oldest first.
  */
-function scenario(status: Kind extends never ? never : string, remaining: Kind[]) {
+function scenario(
+  status: Kind extends never ? never : string,
+  remaining: Kind[]
+) {
   tx.levelProgress.findUnique.mockResolvedValue({ id: LP_ID, status })
-  tx.progressUpdate.findMany.mockResolvedValue(remaining.map((kind) => ({ kind })))
+  tx.progressUpdate.findMany.mockResolvedValue(
+    remaining.map((kind) => ({ kind }))
+  )
 }
 
 /** The status written back, or null when no update was issued. */
