@@ -21,6 +21,7 @@ import { logger } from '../../utils/logger'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
 import { checkImportConflicts } from '../../services/importExport/import'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -34,11 +35,11 @@ const lambda = new LambdaClient({
 app.post('/me/import/check', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ImportCheckRequestSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  // Every field of the schema is optional, so an unparseable body must be
+  // rejected rather than falling back to `{}` — that would answer "no
+  // conflicts" without having examined anything.
+  const parsed = await parseJsonBody(c, ImportCheckRequestSchema)
+  if (!parsed.ok) return parsed.response
 
   const result = await checkImportConflicts(userId, parsed.data)
   return c.json(result, 200)
@@ -53,11 +54,8 @@ app.post('/me/import/check', async (c) => {
 app.post('/me/import/start', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ImportStartRequestSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ImportStartRequestSchema)
+  if (!parsed.ok) return parsed.response
 
   const { rows, ranking, collections, ratings } = parsed.data
 

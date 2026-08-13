@@ -20,6 +20,7 @@ import {
   serializeMe,
   type RawUser,
 } from '../../services/user/serialize'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -59,11 +60,8 @@ app.get('/me/rating-categories', async (c) => {
 app.put('/me/rating-config', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = RatingConfigSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, RatingConfigSchema)
+  if (!parsed.ok) return parsed.response
 
   const { categories, includeEnjoyment, enjoymentWeight, enjoymentSortOrder } =
     parsed.data
@@ -71,6 +69,12 @@ app.put('/me/rating-config', async (c) => {
   // Defensive — RatingConfigSchema already validates this with the same
   // integer-cents math, but we recheck here in case the schema is ever
   // loosened. Integer math avoids floating-point tolerance entirely.
+  //
+  // NOTE: unreachable through this route as long as the schema keeps that
+  // check — the two computations are identical over the same parsed data, so
+  // anything that would fail here fails validation first and 400s above. It is
+  // kept as defence in depth, not as live code, and shows as an uncovered
+  // branch for that reason. Don't try to write a test for it.
   const cents =
     categories.reduce((acc, cat) => acc + Math.round(cat.weight * 100), 0) +
     (includeEnjoyment ? Math.round(enjoymentWeight * 100) : 0)

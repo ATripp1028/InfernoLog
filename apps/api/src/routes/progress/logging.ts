@@ -28,6 +28,7 @@ import {
   applyProgress,
   applyDrop,
 } from '../../services/progress'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -35,11 +36,8 @@ const app = new Hono<{ Variables: HonoVariables }>()
 app.post('/me/completions', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = CompletionInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, CompletionInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const result = await applyCompletion(userId, parsed.data)
 
@@ -51,11 +49,8 @@ app.post('/me/completions', async (c) => {
 app.post('/me/progress', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ProgressInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ProgressInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const result = await applyProgress(userId, parsed.data)
   logger.info({ userId, levelId: parsed.data.levelId }, 'Logged progress')
@@ -66,11 +61,8 @@ app.post('/me/progress', async (c) => {
 app.post('/me/drops', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = DropInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, DropInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const result = await applyDrop(userId, parsed.data)
   logger.info({ userId, levelId: parsed.data.levelId }, 'Logged drop')

@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PrismaClient } from '@prisma/client'
 import type { DeepMockProxy } from 'vitest-mock-extended'
+import * as Sentry from '@sentry/aws-serverless'
 import type { RobtopFetchResult, RobtopLevel } from '../utils/robtop'
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
@@ -27,6 +28,8 @@ vi.mock('../utils/logger', () => ({
 const mockFetch = vi.fn<(levelId: string) => Promise<RobtopFetchResult>>()
 vi.mock('../utils/robtop', () => ({ fetchRobtopLevelResult: mockFetch }))
 
+const { logger } = await import('../utils/logger')
+const mockCaptureException = vi.mocked(Sentry.captureException)
 const { handler } = await import('./levelSeedWorker')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -136,5 +139,63 @@ describe('levelSeedWorker', () => {
 
     expect(mockFetch).not.toHaveBeenCalled()
     expect(prisma.level.update).not.toHaveBeenCalled()
+  })
+})
+
+// ─── malformed and per-level failures ────────────────────────────────────────
+
+describe('levelSeedWorker — bad input and per-level failures', () => {
+  /** An SQS event whose record bodies are supplied verbatim. */
+  function rawEvent(...bodies: string[]) {
+    return { Records: bodies.map((body) => ({ body })) }
+  }
+
+  it('skips an unparseable message instead of failing the batch', async () => {
+    // A poison message must not take the whole invocation down with it — that
+    // would redrive the good records alongside it, forever.
+    await expect(handler(rawEvent('{not json'))).resolves.toBeUndefined()
+
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(logger.warn).toHaveBeenCalled()
+  })
+
+  it('still processes the good records alongside an unparseable one', async () => {
+    mockFetch.mockResolvedValue({ status: 'found', level: ROBTOP_LEVEL })
+
+    await handler(
+      rawEvent('{not json', JSON.stringify({ levelIds: ['12345'] }))
+    )
+
+    expect(prisma.level.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { inGameId: '12345' } })
+    )
+  })
+
+  it.each([
+    ['levelIds is missing', {}],
+    ['levelIds is empty', { levelIds: [] }],
+    ['levelIds is not an array', { levelIds: '12345' }],
+  ])('skips a message where %s', async (_label, body) => {
+    await expect(
+      handler(rawEvent(JSON.stringify(body)))
+    ).resolves.toBeUndefined()
+
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('reports a per-level failure and carries on with the batch', async () => {
+    // Logged and captured rather than thrown, so one bad level does not block
+    // the rest — and does not mark the batch unreachable either, which would
+    // redrive levels that were actually fine.
+    const error = new Error('write failed')
+    mockFetch.mockResolvedValue({ status: 'found', level: ROBTOP_LEVEL })
+    prisma.level.update
+      .mockRejectedValueOnce(error)
+      .mockResolvedValue({} as never)
+
+    await expect(handler(event(['12345', '67890']))).resolves.toBeUndefined()
+
+    expect(mockCaptureException).toHaveBeenCalledWith(error)
+    expect(prisma.level.update).toHaveBeenCalledTimes(2)
   })
 })

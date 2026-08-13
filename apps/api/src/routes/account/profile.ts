@@ -25,6 +25,7 @@ import {
   serializeMe,
   type RawUser,
 } from '../../services/user/serialize'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -72,11 +73,8 @@ app.get('/me', async (c) => {
 app.patch('/me', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = UpdateMeSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, UpdateMeSchema)
+  if (!parsed.ok) return parsed.response
 
   // Seed default rating categories on first transition to WEIGHTED if the
   // user has none yet. Keeps the invariant that WEIGHTED mode always has
@@ -120,11 +118,8 @@ app.patch('/me', async (c) => {
 app.patch('/me/username', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = UpdateUsernameSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, UpdateUsernameSchema)
+  if (!parsed.ok) return parsed.response
 
   const { username } = parsed.data
 
@@ -218,11 +213,10 @@ app.patch('/me/username', async (c) => {
 app.delete('/me', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => null)
-  const parsed = DeleteAccountSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: 'Confirmation text does not match' }, 400)
-  }
+  const parsed = await parseJsonBody(c, DeleteAccountSchema, {
+    invalidMessage: 'Confirmation text does not match',
+  })
+  if (!parsed.ok) return parsed.response
 
   await prisma.$transaction([
     prisma.report.deleteMany({

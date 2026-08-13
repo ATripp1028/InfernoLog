@@ -11,15 +11,13 @@ import { isUniqueViolation } from '../../middleware/errors'
 import { logger } from '../../utils/logger'
 import type { HonoVariables } from '../../types/hono'
 import { levelDetailSelect } from '../../services/levels/selects'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.post('/levels', async (c) => {
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ManualLevelInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, ManualLevelInputSchema)
+  if (!parsed.ok) return parsed.response
   const input = parsed.data
 
   // inGameId is the primary key, so a duplicate is a real user-facing case

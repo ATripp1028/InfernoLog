@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mockReset, type DeepMockProxy } from 'vitest-mock-extended'
+import { Prisma } from '@prisma/client'
 import type { PrismaClient } from '@prisma/client'
+import * as Sentry from '@sentry/node'
 import { buildApp as buildAppWith, TEST_USER_ID } from '../../test/utils'
 
 // Mocks must be declared before the route module is imported so the route
@@ -337,5 +339,294 @@ describe('DELETE /me', () => {
     expect(res.status).toBe(500)
     expect(body.error).toBe('Internal server error')
     expect(mockCognitoSend).not.toHaveBeenCalled()
+  })
+})
+
+// ─── PATCH /me ───────────────────────────────────────────────────────────────
+
+describe('PATCH /me', () => {
+  /** A serialized-me row, enough for serializeMe to work on. */
+  function updatedUser() {
+    return {
+      id: USER_ID,
+      enjoymentWeight: { toNumber: () => 0.3 },
+      ratingCategories: [],
+    }
+  }
+
+  /** The `data` of the single user.update call. */
+  function updateData(): Record<string, unknown> {
+    return (
+      prisma.user.update.mock.lastCall as unknown as [
+        { data: Record<string, unknown> },
+      ]
+    )[0].data
+  }
+
+  function patch(body: unknown) {
+    return buildApp().request('/me', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  beforeEach(() => {
+    prisma.user.update.mockResolvedValue(updatedUser() as never)
+    prisma.ratingCategory.count.mockResolvedValue(1 as never)
+    prisma.ratingCategory.createMany.mockResolvedValue({ count: 0 } as never)
+  })
+
+  it('applies a partial preference update', async () => {
+    const res = await patch({ profilePublic: true, defaultFps: 240 })
+
+    expect(res.status).toBe(200)
+    expect(updateData()).toEqual({ profilePublic: true, defaultFps: 240 })
+  })
+
+  it('scopes the update to the authenticated user', async () => {
+    await patch({ profilePublic: true })
+
+    expect(prisma.user.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: USER_ID } })
+    )
+  })
+
+  it('omits keys the body did not send rather than writing undefined', async () => {
+    // exactOptionalPropertyTypes means Prisma rejects an explicit undefined.
+    await patch({ profilePublic: true })
+
+    expect(Object.keys(updateData())).toEqual(['profilePublic'])
+  })
+
+  it('writes an explicit false rather than treating it as unset', async () => {
+    await patch({ profilePublic: false })
+
+    expect(updateData()).toEqual({ profilePublic: false })
+  })
+
+  it('400s on an invalid body without writing', async () => {
+    const res = await patch({ defaultFps: 'lots' })
+
+    expect(res.status).toBe(400)
+    expect(prisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('400s on an unparseable body', async () => {
+    const res = await buildApp().request('/me', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: '{oops',
+    })
+
+    expect(res.status).toBe(400)
+  })
+
+  it('stamps legalAcceptedAt for acceptLegal without writing it as a column', async () => {
+    // acceptLegal isn't a column — it only marks the time.
+    const res = await patch({ acceptLegal: true })
+
+    expect(res.status).toBe(200)
+    const data = updateData()
+    expect(data).not.toHaveProperty('acceptLegal')
+    expect(data.legalAcceptedAt).toBeInstanceOf(Date)
+  })
+
+  it('rejects acceptLegal:false — acceptance is opt-in, not revocable here', async () => {
+    // The schema types it as z.literal(true), so `false` is a validation
+    // error rather than a silently-ignored no-op.
+    const res = await patch({ acceptLegal: false })
+
+    expect(res.status).toBe(400)
+    expect(prisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('does not stamp legalAcceptedAt when acceptLegal is absent', async () => {
+    await patch({ profilePublic: true })
+
+    expect(updateData()).not.toHaveProperty('legalAcceptedAt')
+  })
+
+  it('seeds the default categories on the first switch to WEIGHTED', async () => {
+    // WEIGHTED mode must always have at least one category to score against.
+    prisma.ratingCategory.count.mockResolvedValue(0 as never)
+
+    await patch({ ratingMode: 'WEIGHTED' })
+
+    expect(prisma.ratingCategory.createMany).toHaveBeenCalledWith(
+      expect.objectContaining({ skipDuplicates: true })
+    )
+    const [{ data }] = prisma.ratingCategory.createMany.mock
+      .lastCall as unknown as [{ data: { name: string }[] }]
+    expect(data.map((c) => c.name)).toEqual(['Gameplay', 'Decoration', 'Song'])
+  })
+
+  it('does not reseed when the user already has categories', async () => {
+    prisma.ratingCategory.count.mockResolvedValue(3 as never)
+
+    await patch({ ratingMode: 'WEIGHTED' })
+
+    expect(prisma.ratingCategory.createMany).not.toHaveBeenCalled()
+  })
+
+  it('does not seed when switching to SIMPLE', async () => {
+    prisma.ratingCategory.count.mockResolvedValue(0 as never)
+
+    await patch({ ratingMode: 'SIMPLE' })
+
+    expect(prisma.ratingCategory.count).not.toHaveBeenCalled()
+    expect(prisma.ratingCategory.createMany).not.toHaveBeenCalled()
+  })
+
+  it('returns the serialized user with the ciphertext stripped', async () => {
+    prisma.user.update.mockResolvedValue({
+      ...updatedUser(),
+      gddlApiKeyEncrypted: 'ciphertext-blob',
+    } as never)
+
+    const body = (await (await patch({ profilePublic: true })).json()) as {
+      data: Record<string, unknown>
+    }
+
+    expect(body.data).not.toHaveProperty('gddlApiKeyEncrypted')
+    expect(body.data.hasGddlApiKey).toBe(true)
+  })
+
+  it('returns 500 on a database error', async () => {
+    prisma.user.update.mockRejectedValue(new Error('DB error'))
+
+    const res = await patch({ profilePublic: true })
+
+    expect(res.status).toBe(500)
+  })
+})
+
+// ─── PATCH /me/username — the remaining paths ────────────────────────────────
+
+describe('PATCH /me/username — concurrency and no-ops', () => {
+  function patchUsername(username: string) {
+    return buildApp().request('/me/username', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ username }),
+    })
+  }
+
+  it('treats re-submitting the current username as a no-op past the cooldown', async () => {
+    // Idempotent: the cooldown must not block saving the name you already have.
+    prisma.user.findUnique.mockResolvedValue({
+      username: 'sameName',
+      usernameChangedAt: new Date(),
+    } as never)
+    prisma.user.findFirst.mockResolvedValue(null)
+    prisma.user.update.mockResolvedValue({
+      id: USER_ID,
+      enjoymentWeight: { toNumber: () => 0 },
+      ratingCategories: [],
+    } as never)
+
+    const res = await patchUsername('sameName')
+
+    expect(res.status).toBe(200)
+    // No cooldown restart and no previousUsername for an unchanged name.
+    const [{ data }] = prisma.user.update.mock.lastCall as unknown as [
+      { data: Record<string, unknown> },
+    ]
+    expect(data).toEqual({ username: 'sameName' })
+  })
+
+  it('400s on an unparseable username body', async () => {
+    const res = await buildApp().request('/me/username', {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: '{oops',
+    })
+
+    expect(res.status).toBe(400)
+    expect(prisma.user.update).not.toHaveBeenCalled()
+  })
+
+  it('rescues the unique-constraint race as the same 409 as the pre-check', async () => {
+    // The pre-check is TOCTOU; the constraint is the real guarantee, and it
+    // must not surface as a 500.
+    prisma.user.findUnique.mockResolvedValue({
+      username: 'oldName',
+      usernameChangedAt: null,
+    } as never)
+    prisma.user.findFirst.mockResolvedValue(null)
+    prisma.user.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+        code: 'P2002',
+        clientVersion: '5.22.0',
+      })
+    )
+
+    const res = await patchUsername('takenMeanwhile')
+
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toEqual({
+      error: 'Username is already taken',
+    })
+  })
+})
+
+// ─── DELETE /me — Cognito cleanup ────────────────────────────────────────────
+
+describe('DELETE /me — Cognito cleanup', () => {
+  /** The API Gateway env carrying verified JWT claims. */
+  const envWithClaims = {
+    requestContext: { authorizer: { jwt: { claims: { sub: 'cognito-sub' } } } },
+  }
+
+  function deleteMe(env?: unknown) {
+    return buildApp().request(
+      '/me',
+      {
+        method: 'DELETE',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ confirmation: 'Delete this account' }),
+      },
+      env
+    )
+  }
+
+  beforeEach(() => {
+    ;(
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValue([])
+  })
+
+  it('deletes the Cognito identity after purging the account', async () => {
+    const res = await deleteMe(envWithClaims)
+
+    expect(res.status).toBe(200)
+    const [{ input }] = mockCognitoSend.mock.lastCall as unknown as [
+      { input: { Username: string } },
+    ]
+    expect(input.Username).toBe('cognito-sub')
+  })
+
+  it('still succeeds when the Cognito identity is already gone', async () => {
+    const { UserNotFoundException } =
+      await import('@aws-sdk/client-cognito-identity-provider')
+    mockCognitoSend.mockRejectedValueOnce(
+      new (UserNotFoundException as unknown as new () => Error)()
+    )
+
+    const res = await deleteMe(envWithClaims)
+
+    expect(res.status).toBe(200)
+    expect(Sentry.captureException).not.toHaveBeenCalled()
+  })
+
+  it('reports, but does not fail, an unexpected Cognito failure', async () => {
+    // The InfernoLog account is already gone; a leftover identity just means a
+    // fresh account on next sign-in.
+    mockCognitoSend.mockRejectedValueOnce(new Error('AccessDenied'))
+
+    const res = await deleteMe(envWithClaims)
+
+    expect(res.status).toBe(200)
+    expect(Sentry.captureException).toHaveBeenCalled()
   })
 })

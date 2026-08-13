@@ -20,14 +20,14 @@ import {
 } from '@infernolog/core'
 import type { HonoVariables } from '../../types/hono'
 import { addEntry, removeEntry, reorderEntry } from '../../services/collections'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.post('/me/collections/:collectionId/entries', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = AddCollectionEntryInputSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
+  const parsed = await parseJsonBody(c, AddCollectionEntryInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const entry = await addEntry(
     userId,
@@ -39,9 +39,8 @@ app.post('/me/collections/:collectionId/entries', async (c) => {
 
 app.patch('/me/collections/:collectionId/entries/:entryId', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = ReorderCollectionEntryInputSchema.safeParse(body)
-  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400)
+  const parsed = await parseJsonBody(c, ReorderCollectionEntryInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const entry = await reorderEntry(
     userId,

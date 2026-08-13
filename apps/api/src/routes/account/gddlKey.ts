@@ -26,6 +26,7 @@ import {
   serializeMe,
   type RawUser,
 } from '../../services/user/serialize'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -33,13 +34,12 @@ const app = new Hono<{ Variables: HonoVariables }>()
 app.put('/me/gddl-key', async (c) => {
   const userId = c.get('userId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = SetGddlApiKeySchema.safeParse(body)
-  if (!parsed.success) {
-    // Return a static message — never echo the submitted body, which
-    // contains the secret.
-    return c.json({ error: 'A valid API key is required' }, 400)
-  }
+  // A static message for every rejection — the body contains the secret, so a
+  // validation error must never echo it back.
+  const parsed = await parseJsonBody(c, SetGddlApiKeySchema, {
+    invalidMessage: 'A valid API key is required',
+  })
+  if (!parsed.ok) return parsed.response
 
   // Verify the key against GDDL before storing it. A key GDDL rejects is
   // treated as invalid and never saved; only GDDL-confirmed keys persist.

@@ -8,6 +8,7 @@ import { EditProgressInputSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
 import { applyEdit, deleteProgressUpdate } from '../../services/progress'
+import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -24,11 +25,8 @@ app.patch('/me/progress/:levelId', async (c) => {
   const userId = c.get('userId')
   const levelId = c.req.param('levelId')
 
-  const body = await c.req.json().catch(() => ({}))
-  const parsed = EditProgressInputSchema.safeParse(body)
-  if (!parsed.success) {
-    return c.json({ error: parsed.error.flatten() }, 400)
-  }
+  const parsed = await parseJsonBody(c, EditProgressInputSchema)
+  if (!parsed.ok) return parsed.response
 
   const result = await applyEdit(userId, levelId, parsed.data)
   if (!result) return c.json({ error: 'Entry not found' }, 404)
