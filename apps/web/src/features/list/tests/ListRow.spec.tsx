@@ -55,12 +55,16 @@ describe('ListRow', () => {
   })
 
   it('renders visible columns in the order given, not the registry order', () => {
-    const { container } = render(makeListItem(), ['creator', 'attempts'])
+    render(makeListItem(), ['creator', 'attempts'])
 
-    const labels = [...container.querySelectorAll('.text-\\[10px\\]')].map(
-      (n) => n.textContent
-    )
-    expect(labels.indexOf('creator')).toBeLessThan(labels.indexOf('attempts'))
+    // Document order of the two cell labels, rather than their class names —
+    // §7 keeps styling out of the assertions.
+    const attemptsFollowsCreator =
+      screen
+        .getByText('creator')
+        .compareDocumentPosition(screen.getByText('attempts')) &
+      Node.DOCUMENT_POSITION_FOLLOWING
+    expect(attemptsFollowsCreator).toBeTruthy()
   })
 
   it('dashes a cell the row has no value for, rather than leaving it blank', () => {

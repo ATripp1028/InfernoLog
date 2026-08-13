@@ -307,7 +307,7 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     ratingMode: 'SIMPLE',
     ratingDisplayScale: 'ZERO_TO_TEN',
     defaultFps: 60,
-    defaultPercentageVersion: null,
+    defaultPercentageVersion: 'TWO_TWO',
     defaultDevice: 'pc',
     dateFormatPreference: 'ISO',
     showHighlightUrl: false,
@@ -323,7 +323,7 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     isVerified: false,
     createdAt: '2026-01-01T00:00:00.000Z',
     ...overrides,
-  } as MeData
+  }
 }
 
 /**
@@ -393,8 +393,9 @@ export function stubLoggingFlow(
     level: null,
     existingCompletion: null,
     suggestedGddlTier: null,
+    manualLevelId: null,
     pendingEditLevelId: null,
-    lastCompletionId: null,
+    lastCompletionLevelProgressId: null,
     draft: emptyDraft(),
     open: vi.fn(),
     openForEdit: vi.fn(),
@@ -406,7 +407,7 @@ export function stubLoggingFlow(
     goManual: vi.fn(),
     applyManualLevel: vi.fn(),
     ...overrides,
-  } as FlowContextValue
+  }
 }
 
 /**
@@ -543,7 +544,8 @@ export function renderWithProviders(
  *
  * `useMediaQuery` starts at `false` and reads `matchMedia` in an effect, so a
  * component branching on it renders its mobile layout unless told otherwise.
- * Call this before rendering; `restoreMocks` in `vitest.config.ts` unwinds it.
+ * Call this before rendering; `unstubGlobals` in `vitest.config.ts` unwinds it
+ * after each test (`restoreMocks` does not — it only covers `vi.spyOn`).
  *
  * @param viewport - `desktop` matches every `min-width` query, `mobile` none.
  */

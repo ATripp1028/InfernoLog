@@ -68,22 +68,22 @@ function render({
   }
 }
 
+// The row navigates on a single click but adds to a collection on a
+// double-click, so navigation is deferred by 250ms to see which it was.
+//
+// Run on the real clock. Faking it here means pairing `vi.useFakeTimers` with
+// `userEvent.setup({ advanceTimers })`, which deadlocks: user-event awaits its
+// own scheduling between the two clicks of a dblClick, and the faked clock
+// never advances to release it. 250ms of real time is cheaper than that fight
+// — and matches §7's stance on the global clock.
+const WINDOW_MS = 250
+
+/** Waits out the double-click window on the real clock. */
+const pastWindow = () =>
+  new Promise((resolve) => setTimeout(resolve, WINDOW_MS + 50))
+
 describe('ListTable', () => {
   describe('click versus double-click', () => {
-    // The row navigates on a single click but adds to a collection on a
-    // double-click, so navigation is deferred by 250ms to see which it was.
-    //
-    // Run on the real clock. Faking it here means pairing `vi.useFakeTimers`
-    // with `userEvent.setup({ advanceTimers })`, which deadlocks: user-event
-    // awaits its own scheduling between the two clicks of a dblClick, and the
-    // faked clock never advances to release it. 250ms of real time is cheaper
-    // than that fight — and matches §7's stance on the global clock.
-    const WINDOW_MS = 250
-
-    /** Waits out the double-click window on the real clock. */
-    const pastWindow = () =>
-      new Promise((resolve) => setTimeout(resolve, WINDOW_MS + 50))
-
     it('does not navigate within the double-click window', async () => {
       const { handlers } = render()
 
@@ -173,6 +173,9 @@ describe('ListTable', () => {
       const { handlers } = render()
 
       await openKebab()
+      // Past the window: navigation is deferred, so asserting immediately
+      // would pass even if the kebab let its click reach the row.
+      await pastWindow()
 
       expect(handlers.onNavigate).not.toHaveBeenCalled()
     })
