@@ -127,7 +127,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `LOGGING_FLOW.md`               | FAB-triggered logging modal: completion / progress / drop paths                                                                                                                                                |
 | `LEVEL_LOGGING.md`              | Progress entry model, completion flow, drop flow                                                                                                                                                               |
 | `CODE_QUALITY.md`               | How code is written (not what it does): JSDoc and duplication rules that apply everywhere, then backend (route errors, logging, layering) and frontend (component/logic split, flows, styling tokens) sections |
-| `E2E_TESTING.md`                | Playwright against a real staging backend — designed and deferred, not implemented; the Cognito audience and Amplify storage constraints it depends on                                                       |
+| `E2E_TESTING.md`                | Playwright against a real staging backend — designed and deferred, not implemented; the Cognito audience and Amplify storage constraints it depends on                                                         |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
 > | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |

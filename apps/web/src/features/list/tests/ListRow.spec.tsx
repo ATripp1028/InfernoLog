@@ -99,7 +99,11 @@ describe('ListRow', () => {
     const entry = makeListItem().entry!
     const { unmount } = render(
       makeListItem({
-        entry: { ...entry, date: new Date('2026-03-14T00:00:00.000Z'), dateUncertain: true },
+        entry: {
+          ...entry,
+          date: new Date('2026-03-14T00:00:00.000Z'),
+          dateUncertain: true,
+        },
       }),
       ['date']
     )
@@ -108,7 +112,11 @@ describe('ListRow', () => {
 
     render(
       makeListItem({
-        entry: { ...entry, date: new Date('2026-03-14T00:00:00.000Z'), dateUncertain: false },
+        entry: {
+          ...entry,
+          date: new Date('2026-03-14T00:00:00.000Z'),
+          dateUncertain: false,
+        },
       }),
       ['date']
     )
@@ -124,7 +132,9 @@ describe('ListRow', () => {
     expect(screen.getByText('PC')).toBeInTheDocument()
     unmount()
 
-    render(makeListItem({ entry: { ...entry, device: Device.MOBILE } }), ['device'])
+    render(makeListItem({ entry: { ...entry, device: Device.MOBILE } }), [
+      'device',
+    ])
     expect(screen.getByText('Mobile')).toBeInTheDocument()
   })
 

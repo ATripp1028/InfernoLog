@@ -176,7 +176,9 @@ describe('CompletionReviewStep', () => {
       mutation: logMutation({ mutateAsync }),
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log completion' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Log completion' })
+    )
 
     expect(flow.setLastCompletion).toHaveBeenCalledWith('lp-1')
     expect(flow.setStep).toHaveBeenCalledWith('c_gddl')
@@ -191,7 +193,9 @@ describe('CompletionReviewStep', () => {
       mutation: logMutation({ mutateAsync }),
     })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log completion' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Log completion' })
+    )
 
     expect(flow.setStep).toHaveBeenCalledWith('c_success')
   })
@@ -202,7 +206,9 @@ describe('CompletionReviewStep', () => {
       .mockRejectedValue(new ApiError(500, 'Server exploded'))
     const { flow } = render({ mutation: logMutation({ mutateAsync }) })
 
-    await userEvent.click(screen.getByRole('button', { name: 'Log completion' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Log completion' })
+    )
 
     expect(toast.error).toHaveBeenCalled()
     expect(flow.setStep).not.toHaveBeenCalled()

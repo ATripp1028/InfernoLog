@@ -181,12 +181,23 @@ describe('AddToCollectionDialog', () => {
 
   describe('step 2 — collection picker', () => {
     const collections = [
-      makeCollectionSummary({ id: 'c1', name: 'Favorites', type: CollectionType.FAVORITES }),
-      makeCollectionSummary({ id: 'c2', name: 'Hardest', type: CollectionType.CUSTOM }),
+      makeCollectionSummary({
+        id: 'c1',
+        name: 'Favorites',
+        type: CollectionType.FAVORITES,
+      }),
+      makeCollectionSummary({
+        id: 'c2',
+        name: 'Hardest',
+        type: CollectionType.CUSTOM,
+      }),
     ]
 
     it('numbers the step only when the level was chosen in step 1', () => {
-      const { unmount } = renderDialog({ step: 'pick', filteredCollections: collections })
+      const { unmount } = renderDialog({
+        step: 'pick',
+        filteredCollections: collections,
+      })
       expect(screen.getByText('Step 2 · Collections')).toBeInTheDocument()
       unmount()
 
@@ -199,8 +210,13 @@ describe('AddToCollectionDialog', () => {
     })
 
     it('distinguishes a load failure from missing built-ins', () => {
-      const { unmount } = renderDialog({ step: 'pick', collectionsFailed: true })
-      expect(screen.getByText("Couldn't load your collections")).toBeInTheDocument()
+      const { unmount } = renderDialog({
+        step: 'pick',
+        collectionsFailed: true,
+      })
+      expect(
+        screen.getByText("Couldn't load your collections")
+      ).toBeInTheDocument()
       unmount()
 
       renderDialog({ step: 'pick', hasBuiltIns: false })
@@ -224,10 +240,16 @@ describe('AddToCollectionDialog', () => {
 
     it('toggles a collection by its id', async () => {
       const toggleCollection = vi.fn()
-      renderDialog({ step: 'pick', filteredCollections: collections, toggleCollection })
+      renderDialog({
+        step: 'pick',
+        filteredCollections: collections,
+        toggleCollection,
+      })
 
       await userEvent.click(
-        within(screen.getByText('Hardest').closest('label')!).getByRole('checkbox')
+        within(screen.getByText('Hardest').closest('label')!).getByRole(
+          'checkbox'
+        )
       )
 
       expect(toggleCollection).toHaveBeenCalledWith('c2', true)
@@ -279,11 +301,19 @@ describe('AddToCollectionDialog', () => {
         filteredCollections: collections,
         canGoBack: true,
       })
-      expect(screen.getByRole('button', { name: /Change level/ })).toBeInTheDocument()
+      expect(
+        screen.getByRole('button', { name: /Change level/ })
+      ).toBeInTheDocument()
       unmount()
 
-      renderDialog({ step: 'pick', filteredCollections: collections, canGoBack: false })
-      expect(screen.queryByRole('button', { name: /Change level/ })).not.toBeInTheDocument()
+      renderDialog({
+        step: 'pick',
+        filteredCollections: collections,
+        canGoBack: false,
+      })
+      expect(
+        screen.queryByRole('button', { name: /Change level/ })
+      ).not.toBeInTheDocument()
     })
   })
 
@@ -296,7 +326,9 @@ describe('AddToCollectionDialog', () => {
         <AddToCollectionDialog open onClose={onClose} />
       )
 
-      await userEvent.click(screen.getAllByRole('button', { name: 'Close' })[0]!)
+      await userEvent.click(
+        screen.getAllByRole('button', { name: 'Close' })[0]!
+      )
 
       expect(onClose, `${viewport} close`).toHaveBeenCalled()
       unmount()

@@ -14,7 +14,11 @@ const coins = () => screen.getAllByRole('button')
 describe('CoinPicker', () => {
   it('renders one toggle per coin the level has', () => {
     renderWithProviders(
-      <CoinPicker level={level({ coins: 2 })} collected={0} onChange={vi.fn()} />
+      <CoinPicker
+        level={level({ coins: 2 })}
+        collected={0}
+        onChange={vi.fn()}
+      />
     )
 
     expect(coins()).toHaveLength(2)
@@ -22,7 +26,11 @@ describe('CoinPicker', () => {
 
   it('renders nothing when the level has no coins', () => {
     const { container } = renderWithProviders(
-      <CoinPicker level={level({ coins: 0 })} collected={0} onChange={vi.fn()} />
+      <CoinPicker
+        level={level({ coins: 0 })}
+        collected={0}
+        onChange={vi.fn()}
+      />
     )
 
     expect(container).toBeEmptyDOMElement()
@@ -78,7 +86,11 @@ describe('CoinPicker', () => {
 
   it('labels each coin with its number and collected state', () => {
     renderWithProviders(
-      <CoinPicker level={level({ coins: 2 })} collected={0b01} onChange={vi.fn()} />
+      <CoinPicker
+        level={level({ coins: 2 })}
+        collected={0b01}
+        onChange={vi.fn()}
+      />
     )
 
     expect(screen.getByLabelText('Coin 1 (collected)')).toBeInTheDocument()

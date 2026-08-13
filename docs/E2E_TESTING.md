@@ -37,7 +37,7 @@ maintenance tax nobody wants to pay. Keep it small on purpose.
 
 The alternative considered was intercepting every API call with Playwright's
 `page.route()` and seeding fixtures. It is faster, fully deterministic, and
-needs no AWS — but it verifies the UI against *our fixtures*, which is what the
+needs no AWS — but it verifies the UI against _our fixtures_, which is what the
 component suite already does, with a browser tax on top. It cannot catch
 contract drift, and contract drift is the entire justification for the suite.
 
@@ -45,7 +45,7 @@ So: real staging API, real Cognito, real Neon Postgres.
 
 The cost of that choice is accepted deliberately — a shared mutable
 environment, slower runs, and a class of failure ("staging is down") that is
-not a code defect. The mitigations are in *Where it runs* below.
+not a code defect. The mitigations are in _Where it runs_ below.
 
 ---
 
@@ -58,7 +58,7 @@ live Cognito session and a successful `GET /v1/me`.
 **Sign-in is Google federation only.** Driving that in a browser is not an
 option — Google actively blocks automated sign-in, and scripting a real Google
 account into CI is both fragile and a credential-handling problem we do not
-want. The suite must therefore acquire a session *without* the browser ever
+want. The suite must therefore acquire a session _without_ the browser ever
 visiting the OAuth flow.
 
 ### The approach
@@ -74,7 +74,7 @@ visiting the OAuth flow.
    `isAuthenticated` is true on first render.
 
 `AdminInitiateAuth` is preferred over plain `USER_PASSWORD_AUTH` specifically
-so the *public* web client never has a password flow enabled. The admin flow
+so the _public_ web client never has a password flow enabled. The admin flow
 requires AWS credentials, which only CI and developers have.
 
 ### Two things that will bite
@@ -91,7 +91,7 @@ const jwtAuthorizer = api.addAuthorizer({
 })
 ```
 
-A token minted by a *different* app client fails at the gateway with a 401
+A token minted by a _different_ app client fails at the gateway with a 401
 before Hono ever runs. Note that `src/middleware/auth.ts` reads claims the
 gateway already verified rather than verifying them itself, so this authorizer
 is the only audience gate — but it is an absolute one.

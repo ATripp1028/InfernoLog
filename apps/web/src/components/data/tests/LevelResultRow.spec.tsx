@@ -1,10 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import {
-  LevelResultRow,
-  type LevelResultRowLevel,
-} from '../LevelResultRow'
+import { LevelResultRow, type LevelResultRowLevel } from '../LevelResultRow'
 import { renderWithProviders } from '@/utils/testUtils'
 
 function level(
@@ -28,10 +25,7 @@ const row = () => screen.getByRole('button')
 describe('LevelResultRow', () => {
   it('names an unnamed level by its in-game id', () => {
     renderWithProviders(
-      <LevelResultRow
-        level={level({ name: null })}
-        onSelect={vi.fn()}
-      />
+      <LevelResultRow level={level({ name: null })} onSelect={vi.fn()} />
     )
 
     expect(screen.getByText('Level #4284013')).toBeInTheDocument()
@@ -67,7 +61,11 @@ describe('LevelResultRow', () => {
   it('replaces the id with a badge, and a badge always disables the row', async () => {
     const onSelect = vi.fn()
     renderWithProviders(
-      <LevelResultRow level={level()} onSelect={onSelect} badge="Already added" />
+      <LevelResultRow
+        level={level()}
+        onSelect={onSelect}
+        badge="Already added"
+      />
     )
 
     expect(screen.getByText('Already added')).toBeInTheDocument()

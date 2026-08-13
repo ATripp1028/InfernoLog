@@ -50,7 +50,9 @@ describe('TwoPlayerPicker', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Beat it solo' }))
     expect(onSoloChange).toHaveBeenCalledWith(true)
 
-    await userEvent.click(screen.getByRole('button', { name: 'With a partner' }))
+    await userEvent.click(
+      screen.getByRole('button', { name: 'With a partner' })
+    )
     expect(onSoloChange).toHaveBeenCalledWith(false)
   })
 

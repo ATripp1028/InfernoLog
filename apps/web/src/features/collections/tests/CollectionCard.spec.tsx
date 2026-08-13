@@ -22,7 +22,9 @@ describe('CollectionCard', () => {
   it('tags a built-in collection and leaves a custom one untagged', async () => {
     const { unmount } = await renderWithProviders(
       <CollectionCard
-        collection={makeCollectionSummary({ type: CollectionType.WANT_TO_BEAT })}
+        collection={makeCollectionSummary({
+          type: CollectionType.WANT_TO_BEAT,
+        })}
       />,
       { router: true }
     )
@@ -49,7 +51,9 @@ describe('CollectionCard', () => {
     unmount()
 
     const { container: empty } = await renderWithProviders(
-      <CollectionCard collection={makeCollectionSummary({ previewLevelIds: [] })} />,
+      <CollectionCard
+        collection={makeCollectionSummary({ previewLevelIds: [] })}
+      />,
       { router: true }
     )
     expect(empty.querySelector('img')).not.toBeInTheDocument()

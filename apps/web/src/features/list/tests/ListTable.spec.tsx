@@ -113,10 +113,14 @@ describe('ListTable', () => {
 
   describe('row actions', () => {
     const openKebab = async (index = 0) =>
-      userEvent.click(screen.getAllByRole('button', { name: 'Row actions' })[index]!)
+      userEvent.click(
+        screen.getAllByRole('button', { name: 'Row actions' })[index]!
+      )
 
     it('offers logging for a level that is not yet completed', async () => {
-      render({ items: [makeListItem({ status: LevelProgressStatus.IN_PROGRESS })] })
+      render({
+        items: [makeListItem({ status: LevelProgressStatus.IN_PROGRESS })],
+      })
 
       await openKebab()
 
@@ -127,7 +131,9 @@ describe('ListTable', () => {
 
     it('offers no logging once the level is completed', async () => {
       // A level holds at most one completion, so there is nothing left to log.
-      render({ items: [makeListItem({ status: LevelProgressStatus.COMPLETED })] })
+      render({
+        items: [makeListItem({ status: LevelProgressStatus.COMPLETED })],
+      })
 
       await openKebab()
 
@@ -154,8 +160,14 @@ describe('ListTable', () => {
     it('opens the menu for one row only', async () => {
       render({
         items: [
-          makeListItem({ levelProgressId: 'a', status: LevelProgressStatus.IN_PROGRESS }),
-          makeListItem({ levelProgressId: 'b', status: LevelProgressStatus.IN_PROGRESS }),
+          makeListItem({
+            levelProgressId: 'a',
+            status: LevelProgressStatus.IN_PROGRESS,
+          }),
+          makeListItem({
+            levelProgressId: 'b',
+            status: LevelProgressStatus.IN_PROGRESS,
+          }),
         ],
       })
 
@@ -198,18 +210,20 @@ describe('ListTable', () => {
         ],
       })
 
-      expect(screen.getByRole('button', { name: /Tier/ })).toHaveTextContent('1')
-      expect(screen.getByRole('button', { name: /Attempts/ })).toHaveTextContent(
-        '2'
+      expect(screen.getByRole('button', { name: /Tier/ })).toHaveTextContent(
+        '1'
       )
+      expect(
+        screen.getByRole('button', { name: /Attempts/ })
+      ).toHaveTextContent('2')
     })
 
     it('marks no column when nothing is sorted', () => {
       render({ sorts: [] })
 
-      expect(screen.getByRole('button', { name: /Tier/ })).not.toHaveTextContent(
-        '1'
-      )
+      expect(
+        screen.getByRole('button', { name: /Tier/ })
+      ).not.toHaveTextContent('1')
     })
 
     it('renders one row per item', () => {

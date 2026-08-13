@@ -63,7 +63,12 @@ describe('Segmented', () => {
   it('clears to null when the active option is clicked and deselection is allowed', async () => {
     const onChange = vi.fn()
     renderWithProviders(
-      <Segmented options={OPTIONS} value="pc" allowDeselect onChange={onChange} />
+      <Segmented
+        options={OPTIONS}
+        value="pc"
+        allowDeselect
+        onChange={onChange}
+      />
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'PC' }))
@@ -74,7 +79,12 @@ describe('Segmented', () => {
   it('still selects an inactive option when deselection is allowed', async () => {
     const onChange = vi.fn()
     renderWithProviders(
-      <Segmented options={OPTIONS} value="pc" allowDeselect onChange={onChange} />
+      <Segmented
+        options={OPTIONS}
+        value="pc"
+        allowDeselect
+        onChange={onChange}
+      />
     )
 
     await userEvent.click(screen.getByRole('button', { name: 'Mobile' }))

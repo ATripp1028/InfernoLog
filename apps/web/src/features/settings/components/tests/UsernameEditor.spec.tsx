@@ -9,11 +9,7 @@ import {
 } from '@/lib/api/me'
 import { ApiError } from '@/lib/api/client'
 import { COOLDOWN_DAYS } from '../../usernameRules'
-import {
-  makeMe,
-  renderWithProviders,
-  stubMutation,
-} from '@/utils/testUtils'
+import { makeMe, renderWithProviders, stubMutation } from '@/utils/testUtils'
 
 // `usernameError` and `cooldownEnd` stay real — the rules they encode are half
 // of what these assertions claim. Only the two network calls are stubbed.
@@ -72,7 +68,9 @@ describe('UsernameEditor', () => {
       render({ me: locked })
 
       expect(screen.getByText('someone')).toBeInTheDocument()
-      expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: 'Edit' })
+      ).not.toBeInTheDocument()
       expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
     })
 
@@ -127,7 +125,9 @@ describe('UsernameEditor', () => {
   it('offers no Cancel in onboarding, which would reveal that placeholder', () => {
     render({ startInEditing: true })
 
-    expect(screen.queryByRole('button', { name: 'Cancel' })).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Cancel' })
+    ).not.toBeInTheDocument()
   })
 
   it('reverts and collapses on Cancel in settings', async () => {
@@ -181,11 +181,7 @@ describe('UsernameEditor', () => {
     // Enter calls handleSave directly, so the disabled Save button is no
     // defence on this path — the availability guard inside handleSave is.
     const mutateAsync = vi.fn()
-    render(
-      { startInEditing: true },
-      updateMutation({ mutateAsync }),
-      TAKEN
-    )
+    render({ startInEditing: true }, updateMutation({ mutateAsync }), TAKEN)
     await retype('taken')
     await screen.findByText('Username is already taken')
 
@@ -221,13 +217,11 @@ describe('UsernameEditor', () => {
   })
 
   it('explains a cooldown rejection with the date it lifts', async () => {
-    const mutateAsync = vi
-      .fn()
-      .mockRejectedValue(
-        new ApiError(403, 'Forbidden', {
-          nextAllowedAt: '2026-09-01T00:00:00.000Z',
-        })
-      )
+    const mutateAsync = vi.fn().mockRejectedValue(
+      new ApiError(403, 'Forbidden', {
+        nextAllowedAt: '2026-09-01T00:00:00.000Z',
+      })
+    )
     render({ startInEditing: true }, updateMutation({ mutateAsync }))
     await retype('newname')
 

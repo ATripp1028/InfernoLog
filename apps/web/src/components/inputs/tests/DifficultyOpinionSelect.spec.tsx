@@ -147,12 +147,14 @@ describe('DifficultyOpinionSelect', () => {
       <DifficultyOpinionSelect value="HARD" onChange={vi.fn()} />
     )
 
-    expect(
-      screen.getByRole('button', { name: 'Hard Demon' })
-    ).toHaveAttribute('aria-pressed', 'true')
-    expect(
-      screen.getByRole('button', { name: 'Easy Demon' })
-    ).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.getByRole('button', { name: 'Hard Demon' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    )
+    expect(screen.getByRole('button', { name: 'Easy Demon' })).toHaveAttribute(
+      'aria-pressed',
+      'false'
+    )
   })
 
   it('emits the opinion for the tier clicked', async () => {
@@ -161,9 +163,7 @@ describe('DifficultyOpinionSelect', () => {
       <DifficultyOpinionSelect value={null} onChange={onChange} />
     )
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Extreme Demon' })
-    )
+    await userEvent.click(screen.getByRole('button', { name: 'Extreme Demon' }))
 
     expect(onChange).toHaveBeenCalledWith('EXTREME')
   })
@@ -227,7 +227,10 @@ describe('DifficultyOpinionSelect', () => {
   it('emits the star opinion for the count clicked', async () => {
     const onChange = vi.fn()
     renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[1]!} onChange={onChange} />
+      <DifficultyOpinionSelect
+        value={STAR_TO_OPINION[1]!}
+        onChange={onChange}
+      />
     )
 
     await userEvent.click(

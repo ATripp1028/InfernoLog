@@ -47,9 +47,8 @@ vi.mock('@/components/generic/sonner', () => ({
 }))
 
 /** `useResolveLevel`'s result shape, so the mock matches the hook's types. */
-const resolveMutation = (
-  overrides: Parameters<typeof stubMutation>[0] = {}
-) => stubMutation<ResolveLevelResponse, string>(overrides)
+const resolveMutation = (overrides: Parameters<typeof stubMutation>[0] = {}) =>
+  stubMutation<ResolveLevelResponse, string>(overrides)
 
 interface Options {
   cached?: ReturnType<typeof makeCachedLevel> | undefined
@@ -98,11 +97,15 @@ describe('FindLevelStep', () => {
   it('explains the id-vs-name split before anything is typed', () => {
     render()
 
-    expect(screen.getByText(/Numbers only → looked up as an ID/)).toBeInTheDocument()
+    expect(
+      screen.getByText(/Numbers only → looked up as an ID/)
+    ).toBeInTheDocument()
   })
 
   it('previews a numeric id already in the cache', async () => {
-    render({ cached: makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' }) })
+    render({
+      cached: makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' }),
+    })
 
     await type('4284013')
 
@@ -236,7 +239,9 @@ describe('FindLevelStep', () => {
 
   it('holds a freshly seeded level for confirmation instead of applying it', async () => {
     const level = makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' })
-    const mutateAsync = vi.fn().mockResolvedValue(makeResolveResponse({ level }))
+    const mutateAsync = vi
+      .fn()
+      .mockResolvedValue(makeResolveResponse({ level }))
     const { flow } = render({
       cached: undefined,
       resolve: resolveMutation({ mutateAsync }),
