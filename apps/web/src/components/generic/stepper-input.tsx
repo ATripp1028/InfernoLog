@@ -51,6 +51,11 @@ export function StepperInput({
   // freely; only on blur do we parse/clamp/round and call onChange.
   const [draft, setDraft] = useState<string>(() => format(value))
   const focused = useRef(false)
+  // Set by Escape so the blur it triggers reverts instead of committing.
+  // `blur()` runs synchronously, so onBlur fires before React has re-rendered
+  // the reverted draft and would otherwise read the pre-revert DOM value —
+  // committing the very edit Escape just abandoned.
+  const abandoned = useRef(false)
 
   // Keep the input synced with the prop when not actively being edited
   // (e.g. parent "Distribute equally" or "Sort by weight" changes the value).
@@ -94,12 +99,18 @@ export function StepperInput({
         }}
         onBlur={(e) => {
           focused.current = false
+          if (abandoned.current) {
+            abandoned.current = false
+            setDraft(format(value))
+            return
+          }
           commit(e.target.value)
         }}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             ;(e.target as HTMLInputElement).blur()
           } else if (e.key === 'Escape') {
+            abandoned.current = true
             setDraft(format(value))
             ;(e.target as HTMLInputElement).blur()
           }
