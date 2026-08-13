@@ -180,3 +180,9 @@ prisma/migrations/dev/
 
 #AI Tools
 CLAUDE.md
+
+# Playwright (apps/web/e2e) — the injected Cognito session, plus run output.
+# .auth holds live staging tokens; it must never be committed.
+apps/web/e2e/.auth/
+apps/web/test-results/
+apps/web/playwright-report/

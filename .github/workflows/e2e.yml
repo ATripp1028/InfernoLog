@@ -1,0 +1,134 @@
+name: E2E
+
+# Playwright against a real deployed backend — see docs/E2E_TESTING.md.
+#
+# Deliberately NOT part of ci.yml. This suite drives a shared, mutable
+# environment: gating every merge on it produces exactly the flaky-check
+# culture that gets tests disabled. It runs as a post-deploy gate on staging,
+# and on demand for debugging.
+#
+# `stage` is required with no default, everywhere. Pointing this suite at a
+# stage resets that stage's E2E user data.
+
+on:
+  workflow_call:
+    inputs:
+      stage:
+        required: true
+        type: string
+      environment:
+        required: true
+        type: string
+    secrets:
+      AWS_ACCESS_KEY_ID:
+        required: true
+      AWS_SECRET_ACCESS_KEY:
+        required: true
+      DATABASE_URL:
+        required: true
+      E2E_USER_EMAIL:
+        required: true
+      E2E_USER_PASSWORD:
+        required: true
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: 'Stage to run the E2E suite against (never production)'
+        required: true
+      environment:
+        description: 'GitHub environment holding that stage secrets'
+        required: true
+        default: staging
+
+# The suite owns one shared user on one shared database, so two runs against
+# the same stage must never overlap. Runs triggered from deploy-staging.yml are
+# already serialized by that workflow's own group.
+concurrency:
+  group: e2e-${{ inputs.stage }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Refuse to run against production
+        if: inputs.stage == 'production'
+        run: |
+          echo "The E2E suite resets its user's data and must never point at production."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The browser cache is keyed on the resolved Playwright version: browser
+      # builds are pinned per release, so a stale cache after a bump is a
+      # silent version mismatch rather than a clean miss.
+      - name: Resolve Playwright version
+        id: playwright
+        run: |
+          VERSION=$(pnpm --filter @infernolog/web exec playwright --version | awk '{print $2}')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm --filter @infernolog/web exec playwright install --with-deps chromium
+
+      # A cache hit restores the browser but not the OS packages it links
+      # against, which live outside the cached path.
+      - name: Install Chromium system dependencies
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: pnpm --filter @infernolog/web exec playwright install-deps chromium
+
+      - name: Generate Prisma Client
+        working-directory: apps/api
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+        run: npx prisma generate
+
+      # AWS credentials are needed twice over: to read the stage's config from
+      # SSM, and for the AdminInitiateAuth call that mints the suite's session.
+      - name: Run E2E suite
+        working-directory: apps/web
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: us-east-1
+          E2E_STAGE: ${{ inputs.stage }}
+          E2E_USER_EMAIL: ${{ secrets.E2E_USER_EMAIL }}
+          E2E_USER_PASSWORD: ${{ secrets.E2E_USER_PASSWORD }}
+          E2E_DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm test:e2e
+
+      # Traces are the difference between diagnosing a CI-only failure in five
+      # minutes and not diagnosing it at all.
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ inputs.stage }}
+          path: |
+            apps/web/playwright-report
+            apps/web/test-results
+          retention-days: 14
+          if-no-files-found: ignore

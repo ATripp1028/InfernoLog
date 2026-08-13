@@ -111,3 +111,14 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: us-east-1
+
+  # The E2E suite is a post-deploy gate, not a PR gate: it drives the shared
+  # staging environment, so it only runs once something actually landed there.
+  # See docs/E2E_TESTING.md, "Where it runs".
+  e2e-staging:
+    needs: verify-staging
+    uses: ./.github/workflows/e2e.yml
+    with:
+      stage: staging
+      environment: staging
+    secrets: inherit

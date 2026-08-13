@@ -1,7 +1,7 @@
 /// <reference path="../.sst/platform/config.d.ts" />
 
 import { api } from './api'
-import { userPool, userPoolClient } from './auth'
+import { e2eClient, userPool, userPoolClient } from './auth'
 
 // ─────────────────────────────────────────────
 // SSM OUTPUTS — read by apps/web/sst.config.ts at deploy time, which is why
@@ -33,6 +33,18 @@ new aws.ssm.Parameter('SsmCognitoDomain', {
       ? 'infernolog.auth.us-east-1.amazoncognito.com'
       : `infernolog-${$app.stage}.auth.us-east-1.amazoncognito.com`,
 })
+
+// The E2E app client only exists on non-production stages, so this parameter
+// does too — apps/web/e2e/run.ts reads it to know which client to mint the
+// suite's tokens with, and a missing parameter is how "you pointed the suite
+// at production" surfaces.
+if (e2eClient) {
+  new aws.ssm.Parameter('SsmE2eClientId', {
+    name: `/infernolog/${$app.stage}/e2e-client-id`,
+    type: 'String',
+    value: e2eClient.id,
+  })
+}
 
 // ─────────────────────────────────────────────
 // OUTPUTS — returned from sst.config.ts's run()

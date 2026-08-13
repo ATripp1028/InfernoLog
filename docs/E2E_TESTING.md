@@ -1,13 +1,14 @@
 # End-to-End Testing — Playwright Against Staging
 
-**Status: designed, deferred.** Nothing in this document is implemented. No
-Playwright dependency, config, or spec exists in the repo. This is the agreed
-approach for when the work is picked up, recorded now so the decision does not
-have to be re-litigated — and so the infra prerequisites are visible to anyone
-touching `apps/api/infra/auth.ts` in the meantime.
+**Status: implemented.** The harness, the infra it depends on, and the CI job
+are in the repo; `apps/web/e2e/smoke.e2e.ts` is the only spec so far and exists
+to prove the harness itself. The in-scope flows below are still to be written.
+
+Two setup steps are one-time manual ops per stage and are not automated away —
+see _Provisioning a stage_.
 
 Frontend unit tests are covered by `CODE_QUALITY.md` Frontend §7. Component
-tests are a separate, nearer-term workstream and do not depend on anything here.
+tests are a separate workstream and do not depend on anything here.
 
 ---
 
@@ -77,59 +78,88 @@ visiting the OAuth flow.
 so the _public_ web client never has a password flow enabled. The admin flow
 requires AWS credentials, which only CI and developers have.
 
-### Two things that will bite
+### Two things that bit
 
-**The API Gateway authorizer pins a single audience.** `infra/api.ts` declares:
+**The API Gateway authorizer pins its audience list.** `infra/api.ts`'s
+authorizer is the _only_ audience gate — `src/middleware/auth.ts` reads claims
+the gateway already verified rather than verifying them itself — and a token
+minted by an unlisted app client 401s before Hono ever runs.
 
-```ts
-const jwtAuthorizer = api.addAuthorizer({
-  name: 'CognitoJwt',
-  jwt: {
-    issuer: ...,
-    audiences: [userPoolClient.id],   // ← exactly one client
-  },
-})
-```
-
-A token minted by a _different_ app client fails at the gateway with a 401
-before Hono ever runs. Note that `src/middleware/auth.ts` reads claims the
-gateway already verified rather than verifying them itself, so this authorizer
-is the only audience gate — but it is an absolute one.
-
-The fix is not to add `ALLOW_ADMIN_USER_PASSWORD_AUTH` to
+The fix was not to add `ALLOW_ADMIN_USER_PASSWORD_AUTH` to
 `InfernoLogWebClient`; that would put a password flow on the client the real
-frontend ships with. Instead add a second client, and widen the audience list
-on non-production stages only:
+frontend ships with. `infra/auth.ts` declares a second client, `e2eClient`,
+which exists only on non-production stages, and `infra/api.ts` appends it to
+the audience list when it exists:
 
 ```ts
-// infra/auth.ts — non-production only.
-export const e2eClient = isProd ? undefined : new aws.cognito.UserPoolClient(...)
-
-// infra/api.ts
-audiences: isProd
-  ? [userPoolClient.id]
-  : [userPoolClient.id, e2eClient!.id],
+audiences: e2eClient
+  ? [userPoolClient.id, e2eClient.id]
+  : [userPoolClient.id],
 ```
 
-Production keeps an audience list of exactly one. Guard on stage, not on an
-env var — a misread env var silently widens prod's trust boundary.
+The guard lives on `$app.stage` in `auth.ts`, not on an env var — a misread env
+var would silently widen production's trust boundary. On production `e2eClient`
+is `undefined` and the audience list stays exactly one.
 
-**The Amplify storage key format is version-coupled.** Amplify v6 (`^6.16.4`)
-writes localStorage keys shaped like:
+`e2eClient`'s id is published to SSM as `/infernolog/<stage>/e2e-client-id`,
+alongside the other cross-stack outputs. Its absence is what "you pointed the
+suite at production" looks like from the runner.
+
+**The app has to be configured with the E2E client, not the web client.**
+Amplify derives its localStorage keys from whatever `userPoolClientId` it is
+configured with, and refreshes tokens through that client. So the client that
+minted the session has to be the one the app is built with, or the app finds no
+session at all. `playwright.config.ts` sets `VITE_COGNITO_CLIENT_ID` to the
+E2E client id for the build it serves. This is the main reason the suite serves
+its own build rather than hitting the deployed site — see _How the frontend is
+served_.
+
+**The Amplify storage key format is version-coupled.** Verified against the
+installed `aws-amplify` 6.16.4 (`@aws-amplify/auth` 6.19.1), whose
+`providers/cognito/tokenProvider/TokenStore` derives every key as:
 
 ```
 CognitoIdentityServiceProvider.<clientId>.LastAuthUser
-CognitoIdentityServiceProvider.<clientId>.<username>.idToken
-CognitoIdentityServiceProvider.<clientId>.<username>.accessToken
-CognitoIdentityServiceProvider.<clientId>.<username>.refreshToken
+CognitoIdentityServiceProvider.<clientId>.<lastAuthUser>.idToken
+CognitoIdentityServiceProvider.<clientId>.<lastAuthUser>.accessToken
+CognitoIdentityServiceProvider.<clientId>.<lastAuthUser>.refreshToken
+CognitoIdentityServiceProvider.<clientId>.<lastAuthUser>.clockDrift
 ```
 
-This is an internal detail, not a public API. **Verify it against the installed
-`aws-amplify` version when implementing rather than trusting this snippet**, and
-treat an Amplify major upgrade as something that breaks the E2E suite. If the
-format churns, the fallback is to have `globalSetup` drive a real
-`signIn({ username, password })` call in a page context and snapshot whatever
-storage Amplify produces — slower, but self-correcting across versions.
+`<lastAuthUser>` is Cognito's own username, which for this pool is a UUID
+rather than the email — the pool uses email as a sign-in alias — so
+`amplifyStorage.ts` takes it from the ID token's `cognito:username` claim.
+
+This is an internal detail, not a public API. **Treat an Amplify major upgrade
+as something that breaks this suite.** If the format churns, the fallback is to
+have `globalSetup` drive a real `signIn({ username, password })` in a page
+context and snapshot whatever storage Amplify produces — slower, but
+self-correcting across versions.
+
+---
+
+## How the frontend is served
+
+The suite builds this commit's frontend and serves it at
+`http://localhost:5173`, pointed at the deployed staging API. It does **not**
+drive the deployed staging site.
+
+That is forced by CORS: the non-production API's `allowOrigins` is exactly
+`['http://localhost:5173']` (`infra/api.ts`), as are the non-production Cognito
+callback and logout URLs. A browser at the staging CloudFront origin cannot
+call the staging API at all. Serving locally on the one allowed origin also
+lets the build be configured with the E2E app client, which it has to be.
+
+The build is the real production build (`pnpm build && pnpm preview:e2e`), so
+what runs in the browser is what would ship. What this does **not** cover is
+the deploy itself — the env vars SST bakes into the static site, and the
+CloudFront distribution in front of it. Contract drift against the API, which
+is the entire justification for the suite, is covered in full.
+
+The alternative is to widen the API's CORS allowlist and the Cognito URL lists
+to include the staging CloudFront origin, the way `auth.ts` already hardcodes
+that domain for callbacks. That is a real infra change with a real trust
+surface, and it was not worth it for what it adds.
 
 ### A semantic gap to be aware of
 
@@ -150,18 +180,33 @@ empty database.
 
 - All fixtures belong to the dedicated E2E user. Nothing reads or writes
   another user's rows.
-- `globalSetup` resets that user to a known state before the run — delete their
-  `LevelProgress` / `CollectionEntry` / `ClassicRanking` rows and re-seed, via a
-  script in `apps/api` reusing the existing Prisma client. Reset **before** the
-  run, not after: a crashed run should leave evidence, and the next run cleans
-  up regardless.
-- Levels are global, not user-owned. Seed against level IDs already in the
-  cache so the suite does not depend on RobTop's servers being reachable.
+- `globalSetup` resets that user to a known state before the run, by shelling
+  out to `apps/api`'s `e2e:reset` script — which owns the schema knowledge and
+  reuses the existing Prisma client. Reset **before** the run, not after: a
+  crashed run should leave evidence, and the next run cleans up regardless.
+- The baseline that reset leaves behind is: no `LevelProgress`, no
+  `ClassicRanking`, no `CollectionEntry`, no custom collections, the three
+  built-in collections present, preferences at their defaults, onboarding
+  complete. Specs create whatever else they need.
+- Levels are global, not user-owned. The fixtures are **official** GD levels
+  (`apps/api/src/scripts/e2eFixtures.ts`, mirrored in
+  `apps/web/e2e/fixtures/levels.ts`): their in-game IDs are fixed and synthetic
+  and they enter the cache through `pnpm db:seed:official` rather than a fetch,
+  so nothing here depends on RobTop's servers being reachable. The reset script
+  fails loudly if any of them is missing rather than logging against a level
+  that is not there.
 - Specs that mutate must be independent of execution order, since a reset
-  happens once per run and not once per spec.
+  happens once per run and not once per spec. The suite also runs
+  `workers: 1` — one shared user on one shared database cannot safely
+  interleave.
 
-**Never point this suite at production.** The stage should be an explicit,
-required input with no default.
+**Never point this suite at production.** `E2E_STAGE` is required with no
+default and rejects `production`, in three independent places: the CI job, the
+Playwright entry point, and both `apps/api` scripts. The scripts additionally
+refuse any `E2E_USER_EMAIL` outside the `e2e+` namespace, so a misconfigured
+run cannot delete a real user's rows. `E2E_DATABASE_URL` is likewise required
+and passed explicitly rather than inherited — `apps/api/.env` would otherwise
+silently supply a developer's local database.
 
 ---
 
@@ -176,11 +221,20 @@ the flaky-check culture that gets tests disabled.
   and must stay fast and hermetic. E2E gets its own script (`test:e2e`) and its
   own job.
 
-Job requirements: `npx playwright install --with-deps chromium`, a browser cache
-keyed on the Playwright version, AWS credentials for `AdminInitiateAuth`,
-`retries: 2` with `trace: 'on-first-retry'`, and trace/screenshot artifact
-upload on failure. Traces are the difference between diagnosing a CI-only
+`.github/workflows/e2e.yml` is the job: a reusable workflow taking `stage` and
+`environment`, plus a `workflow_dispatch` trigger for debugging.
+`deploy-staging.yml` calls it as `e2e-staging`, gated on `verify-staging`.
+
+It caches `~/.cache/ms-playwright` keyed on the resolved Playwright version and
+reinstalls system dependencies on a cache hit — the cache holds the browser but
+not the OS packages it links against. The suite runs with `retries: 2` and
+`trace: 'on-first-retry'`, and the HTML report plus traces upload as an
+artifact on every run. Traces are the difference between diagnosing a CI-only
 failure in five minutes and not diagnosing it at all.
+
+Secrets it needs, on the `staging` environment: `AWS_ACCESS_KEY_ID` /
+`AWS_SECRET_ACCESS_KEY` (SSM reads and `AdminInitiateAuth`), `DATABASE_URL`,
+`E2E_USER_EMAIL`, `E2E_USER_PASSWORD`.
 
 ---
 
@@ -194,22 +248,82 @@ Playwright spec run by vitest fails in a confusing way.
 ```
 apps/web/
  ├── e2e/
+ │    ├── run.ts                 test:e2e entry — SSM → env → playwright
+ │    ├── env.ts                 required inputs, validated loudly
  │    ├── playwright.config.ts
- │    ├── globalSetup.ts        AdminInitiateAuth → storageState; data reset
+ │    ├── globalSetup.ts         data reset; AdminInitiateAuth → storageState
+ │    ├── amplifyStorage.ts      tokens → Amplify's localStorage shape
+ │    ├── tsconfig.json          Node types, no DOM lib
  │    ├── fixtures/
+ │    ├── .auth/                 gitignored — holds live staging tokens
  │    └── *.e2e.ts
- └── src/                        vitest only
+ └── src/                         vitest only
 ```
+
+`run.ts` exists because `playwright.config.ts` is loaded synchronously while
+the stage config has to be fetched from SSM, and because the config, the
+global setup, and the app build must not be able to end up pointed at
+different stages. It resolves the stage once and forwards any extra arguments,
+so `pnpm test:e2e --headed --grep ranking` behaves as a bare `playwright test`
+would.
+
+---
+
+## Running it
+
+From `apps/web`, with AWS credentials in the environment:
+
+```sh
+E2E_STAGE=staging \
+E2E_USER_EMAIL=e2e+staging@… \
+E2E_USER_PASSWORD=… \
+E2E_DATABASE_URL=postgresql://…   # the staging database
+pnpm test:e2e
+```
+
+Everything else — API URL, user pool, E2E app client, Cognito domain — is read
+from `/infernolog/<stage>/…` in SSM.
+
+### Provisioning a stage
+
+Once per stage, before the first run. `apps/api`'s `e2e:provision` creates the
+native Cognito identity (suppressing the welcome email, forcing a permanent
+password so `ADMIN_USER_PASSWORD_AUTH` returns tokens rather than a
+`NEW_PASSWORD_REQUIRED` challenge) and the matching `users` row, going through
+the same `createUserForSignup` the real signup route calls so the E2E user gets
+the real default collections and rating categories. It is idempotent.
+
+```sh
+cd apps/api
+E2E_STAGE=staging \
+E2E_USER_EMAIL=e2e+staging@… \
+E2E_USER_PASSWORD=… \
+DATABASE_URL=postgresql://… \
+COGNITO_USER_POOL_ID=$(aws ssm get-parameter \
+  --name /infernolog/staging/user-pool-id \
+  --query Parameter.Value --output text) \
+pnpm e2e:provision
+```
+
+The stage also needs its official levels seeded (`pnpm db:seed:official`) —
+that is where the fixture levels come from.
 
 ---
 
 ## Prerequisites checklist
 
-- [ ] `e2eClient` app client in `infra/auth.ts`, non-production stages only
-- [ ] Authorizer `audiences` widened to include it, guarded on stage
-- [ ] E2E user seeded in the staging pool; password in GitHub Secrets
-- [ ] Corresponding `users` row in the staging database
-- [ ] Reset/seed script in `apps/api`
-- [ ] `playwright` devDependency, config, `test:e2e` script
-- [ ] Post-deploy CI job with browser caching and trace upload
-- [ ] `CODE_QUALITY.md` "Not covered yet" updated to point here
+- [x] `e2eClient` app client in `infra/auth.ts`, non-production stages only
+- [x] Authorizer `audiences` widened to include it, guarded on stage
+- [x] Reset/seed script in `apps/api` (`e2e:reset`), plus `e2e:provision`
+- [x] `@playwright/test` devDependency, config, `test:e2e` script
+- [x] Post-deploy CI job with browser caching and trace upload
+- [x] `CODE_QUALITY.md` "Not covered yet" updated to point here
+
+Still to do, and not automatable from here:
+
+- [ ] Deploy the api stack to staging so `e2eClient` and its SSM parameter exist
+- [ ] Run `e2e:provision` against staging (Cognito identity + `users` row)
+- [ ] Add `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` to the `staging` environment's
+      GitHub Secrets
+- [ ] Write the in-scope flow specs: log a completion, place it in the ranking,
+      add a level to a collection, run a spreadsheet import

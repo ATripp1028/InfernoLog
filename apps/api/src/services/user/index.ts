@@ -51,3 +51,10 @@ export async function createUserForSignup(email: string, cognitoSub: string) {
  * PATCH /v1/me.
  */
 export { DEFAULT_RATING_CATEGORIES }
+
+/**
+ * The built-in collections seeded for every new user (Favorites, Least
+ * Favorites, Want to Beat). Also re-seeded by the E2E reset script, since a
+ * user missing Want to Beat has no list for the completion paths to write to.
+ */
+export { DEFAULT_COLLECTIONS }

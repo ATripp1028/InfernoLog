@@ -84,3 +84,38 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
   },
   { dependsOn: [googleProvider] }
 )
+
+// ─────────────────────────────────────────────
+// E2E APP CLIENT — non-production stages only
+//
+// The Playwright suite (docs/E2E_TESTING.md) needs a Cognito session without
+// driving Google's OAuth flow in a browser, so it signs a dedicated native
+// user in with ADMIN_USER_PASSWORD_AUTH. That flow is deliberately NOT added
+// to InfernoLogWebClient: the client the real frontend ships with must never
+// have a password flow enabled. It lives on its own client instead, and
+// infra/api.ts widens the authorizer audience to accept it.
+//
+// Guarded on stage, not on an env var — a misread env var would silently
+// widen production's trust boundary. On production this is `undefined` and
+// the audience list stays exactly one.
+// ─────────────────────────────────────────────
+export const e2eClient =
+  $app.stage === 'production'
+    ? undefined
+    : new aws.cognito.UserPoolClient('InfernoLogE2eClient', {
+        name: 'InfernoLogE2eClient',
+        userPoolId: userPool.id,
+        generateSecret: false,
+        // No OAuth flows at all: this client exists solely for the admin
+        // password flow, which API Gateway's authorizer accepts by audience.
+        allowedOauthFlowsUserPoolClient: false,
+        supportedIdentityProviders: ['COGNITO'],
+        // ADMIN_USER_PASSWORD_AUTH requires AWS credentials to call, which
+        // only CI and developers have. REFRESH_TOKEN_AUTH is here so Amplify
+        // can refresh mid-run rather than failing a long spec at the 60-minute
+        // token expiry.
+        explicitAuthFlows: [
+          'ALLOW_ADMIN_USER_PASSWORD_AUTH',
+          'ALLOW_REFRESH_TOKEN_AUTH',
+        ],
+      })
