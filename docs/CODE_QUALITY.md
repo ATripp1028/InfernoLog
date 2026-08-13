@@ -509,6 +509,28 @@ already-added rows and the confirm button's copy and disabled-ness, without
 touching the state machine that `useAddToCollectionDialog.spec.ts` already
 covers.
 
+**A component that kept its state inline has no such hook**, so its boundaries
+are the `lib/api/` hooks it calls plus whatever context it reads —
+`FindLevelStep.spec.tsx` stubs `useResolveLevel`, `useLevelSearch`,
+`useLevelById`, `useMyProgress`, `useEscalation` and `useLoggingFlow`, and
+leaves `sortAndCapSearchResults` real. Use `importOriginal` when stubbing a
+`lib/api/` module so the rest of its exports survive:
+
+```ts
+vi.mock('@/lib/api/me', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/me')>()),
+  useUpdateUsername: vi.fn(),
+}))
+```
+
+**Type the stub to the hook it replaces.** `stubMutation()` defaults to
+`unknown` generics, which `exactOptionalPropertyTypes` will reject at the
+`mockReturnValue`. Declare a small typed factory per spec —
+`stubMutation<LogResult, CompletionInput>(overrides)` — rather than casting.
+The same applies to fixtures: `makeListItem` takes real `Date`s and real enum
+members (`LevelProgressStatus.COMPLETED`, not `'COMPLETED'`), so a spec that
+invents a shape the API could never return fails at typecheck.
+
 **Mock at the module boundary, never the logic under test.** A spec stubs the
 `lib/api/` hooks it consumes and leaves everything else real: the react-query
 provider (`useMutationState` cannot be stubbed), and pure helpers like
@@ -550,6 +572,14 @@ mean different things on a laptop and in CI. The clock is deliberately _not_
 faked: nothing under test reads it, and global fake timers would interfere
 with react-query and `waitFor`. Fake time per-test with `vi.useFakeTimers()`
 if a future module does read `Date.now()`.
+
+**Do not fake the clock to test a user interaction.** `vi.useFakeTimers()`
+paired with `userEvent.setup({ advanceTimers })` deadlocks: user-event awaits
+its own scheduling between the two clicks of a `dblClick`, and the faked clock
+never advances to release it — the test hangs to its timeout rather than
+failing. `ListTable.spec.tsx` covers the 250ms click-versus-double-click window
+on the real clock instead, which costs a few hundred milliseconds and does not
+fight the library.
 
 **Locale is not pinned, so never assert a locale-formatted string.** Date and
 number formatting follows the reader's locale by design; asserting `'Mar 14,

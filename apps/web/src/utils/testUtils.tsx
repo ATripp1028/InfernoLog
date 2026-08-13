@@ -20,7 +20,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import {
   CollectionType,
+  Device,
+  EntryVisibility,
+  LevelProgressStatus,
   LevelType,
+  ProgressUpdateKind,
   type CollectionDetail,
   type CollectionEntry,
   type CollectionSummary,
@@ -33,6 +37,10 @@ import type {
   ResolveLevelResponse,
 } from '@/lib/api/logging'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
+import type { MeData } from '@/lib/api/me'
+import type { ListItem } from '@/features/list/types'
+import type { FlowContextValue } from '@/features/logging/useLoggingFlowState'
+import { emptyDraft } from '@/features/logging/types'
 
 type Escalation = ReturnType<typeof useEscalation>
 
@@ -279,6 +287,126 @@ export function makeResolveResponse(
     existingCompletion: null,
     ...overrides,
   } as ResolveLevelResponse
+}
+
+/**
+ * A `MeData` — the signed-in user as `useMe()` returns it.
+ *
+ * Defaults to a simple-rating user on the 0–10 scale with no GDDL key and no
+ * username cooldown, which is the shape most surfaces are written against.
+ */
+export function makeMe(overrides: Partial<MeData> = {}): MeData {
+  return {
+    id: 'user-1',
+    username: 'someone',
+    usernameChangedAt: null,
+    email: 'someone@example.com',
+    discordId: null,
+    profilePublic: false,
+    discordPublic: false,
+    ratingMode: 'SIMPLE',
+    ratingDisplayScale: 'ZERO_TO_TEN',
+    defaultFps: 60,
+    defaultPercentageVersion: null,
+    defaultDevice: 'pc',
+    dateFormatPreference: 'ISO',
+    showHighlightUrl: false,
+    autoExpandFabLabels: false,
+    includeEnjoyment: false,
+    enjoymentWeight: 1,
+    enjoymentSortOrder: 0,
+    hasGddlApiKey: false,
+    gddlUsername: null,
+    ratingCategories: [],
+    onboardingCompleted: true,
+    legalAcceptedAt: '2026-01-01T00:00:00.000Z',
+    isVerified: false,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    ...overrides,
+  } as MeData
+}
+
+/**
+ * A `ListItem` — one row of the List, as the progress query returns it.
+ *
+ * `entry` holds the per-run fields the row renders; pass `entry: null` for the
+ * rare status row with no progress updates. Dates are real `Date`s and the
+ * enum fields are real enum members, so a spec that gets either wrong fails at
+ * typecheck rather than rendering something the API could never produce.
+ */
+export function makeListItem(overrides: Partial<ListItem> = {}): ListItem {
+  const level = makeLevel()
+  const at = new Date('2026-01-01T00:00:00.000Z')
+  return {
+    levelProgressId: `progress-${level.inGameId}`,
+    status: LevelProgressStatus.COMPLETED,
+    visibility: EntryVisibility.PUBLIC,
+    createdAt: at,
+    updatedAt: at,
+    worstFail: null,
+    needsPlacement: false,
+    userGddlTier: null,
+    overallRating: null,
+    ratingScores: [],
+    level,
+    entry: {
+      progressUpdateId: 'update-1',
+      kind: ProgressUpdateKind.COMPLETION,
+      date: null,
+      dateTimezone: null,
+      dateUncertain: false,
+      attempts: null,
+      percentage: null,
+      runFrom: null,
+      runTo: null,
+      enjoyment: null,
+      difficultyOpinion: null,
+      onStream: false,
+      fps: null,
+      percentageVersion: null,
+      videoUrl: null,
+      highlightUrl: null,
+      notes: null,
+      device: null,
+      loggedAt: at,
+    },
+    ...overrides,
+  }
+}
+
+/** Re-exported so a spec can build List fixtures without a second core import. */
+export { Device, LevelProgressStatus }
+
+/**
+ * A `useLoggingFlow()` value with every action spied and a fresh empty draft.
+ *
+ * Steps take no props and read everything from this context, so a step spec
+ * drives its render entirely through what this returns.
+ */
+export function stubLoggingFlow(
+  overrides: Partial<FlowContextValue> = {}
+): FlowContextValue {
+  return {
+    isOpen: true,
+    path: 'completion',
+    step: 'c_review',
+    level: null,
+    existingCompletion: null,
+    suggestedGddlTier: null,
+    pendingEditLevelId: null,
+    lastCompletionId: null,
+    draft: emptyDraft(),
+    open: vi.fn(),
+    openForEdit: vi.fn(),
+    close: vi.fn(),
+    setStep: vi.fn(),
+    setLastCompletion: vi.fn(),
+    patchDraft: vi.fn(),
+    applyResolved: vi.fn(),
+    goManual: vi.fn(),
+    applyManualLevel: vi.fn(),
+    ...overrides,
+  } as FlowContextValue
 }
 
 /**
