@@ -64,7 +64,12 @@ export function getTestPrisma(): PrismaClient {
   return _prisma
 }
 
-// Tables touched by the logging flow, ordered so CASCADE handles the rest.
+// Tables truncated between tests. Ordered so TRUNCATE ... CASCADE from `users`
+// clears everything that references it — which is every user-owned table EXCEPT
+// gddl_sync_jobs: that model declares no relation to User at all (see the
+// schema, and the explicit deleteMany it needs in the DELETE /me purge for the
+// same reason). Without listing it here its rows survive a truncate and leak
+// into the next test.
 const TABLES = [
   'rating_scores',
   'classic_ranking',
@@ -74,6 +79,7 @@ const TABLES = [
   'level_progress',
   'levels',
   'rating_categories',
+  'gddl_sync_jobs',
   'users',
 ]
 
