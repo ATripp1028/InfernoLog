@@ -39,7 +39,9 @@ export default defineConfig({
       ],
       reporter: ['text', 'html', 'json-summary'],
       reportsDirectory: './coverage',
-      // A regression guard, deliberately NOT set to the current numbers. Actual
+      // A regression guard, enforced in CI (the `Run API tests with coverage`
+      // step in .github/workflows/ci.yml runs `test:coverage`, not `test`).
+      // Deliberately NOT set to the current numbers. Actual
       // coverage sits a few points above this; the slack is there so nobody has
       // to test a defensive `if (!x) continue` just to keep the build green.
       // Raising it to match would buy nothing and cost exactly that.

@@ -31,7 +31,7 @@ jobs:
       - name: Build
         run: pnpm turbo run build
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
 
       # apps/api/infra/** is typechecked separately: it needs the SST platform
       # types under .sst/, which are gitignored and only exist after
@@ -63,7 +63,18 @@ jobs:
       # Runs both vitest projects: unit (mocked) and integration (real Postgres).
       # The integration globalSetup starts/stops the test database itself via
       # docker-compose.test.yml — ubuntu-latest ships Docker + `docker compose`.
-      - name: Run tests
-        run: pnpm turbo run test
+      #
+      # Coverage is on so the thresholds in apps/api/vitest.config.ts are
+      # actually enforced. They assume BOTH projects ran, so this has to be the
+      # full `test:coverage`, not a single --project run.
+      - name: Run API tests with coverage
+        run: pnpm --filter @infernolog/api test:coverage
         env:
-          DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy"
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
+
+      # Everything except the API, which ran above. Negated filter rather than
+      # naming apps/web, so a new workspace's tests get picked up on their own.
+      - name: Run remaining tests
+        run: pnpm turbo run test --filter='!@infernolog/api'
+        env:
+          DATABASE_URL: 'postgresql://dummy:dummy@localhost:5432/dummy'
