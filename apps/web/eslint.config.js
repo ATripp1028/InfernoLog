@@ -25,4 +25,15 @@ export default tseslint.config(
       'react-refresh/only-export-components': 'off',
     },
   },
+  {
+    // The Playwright suite. Node, not the browser, and none of the React
+    // rules apply — it drives the app through a real page rather than
+    // rendering anything.
+    extends: [js.configs.recommended, ...tseslint.configs.recommended],
+    files: ['e2e/**/*.ts'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      globals: globals.node,
+    },
+  }
 )

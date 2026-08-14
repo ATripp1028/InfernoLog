@@ -1,6 +1,6 @@
 /// <reference path="../.sst/platform/config.d.ts" />
 
-import { userPool, userPoolClient } from './auth'
+import { e2eClient, userPool, userPoolClient } from './auth'
 import { sharedNodeOptions } from './defaults'
 import { DATABASE_URL, DATABASE_URL_DIRECT, SENTRY_DSN } from './secrets'
 
@@ -35,12 +35,22 @@ export const api = new sst.aws.ApiGatewayV2('InfernoLogApi', {
 // API Gateway JWT authorizer — validates Cognito-issued tokens
 // before invoking the Lambda. Routes that opt in via `auth: { jwt: ... }`
 // get verified claims at event.requestContext.authorizer.jwt.claims.
+//
+// This audience list is the ONLY audience gate: src/middleware/auth.ts reads
+// claims the gateway already verified rather than verifying them itself. A
+// token minted by a client that is not listed here 401s before Hono runs.
+//
+// On non-production stages the list also carries the E2E app client, which is
+// itself `undefined` on production (infra/auth.ts guards it on stage), so
+// production's list stays exactly one entry.
 // ─────────────────────────────────────────────
 const jwtAuthorizer = api.addAuthorizer({
   name: 'CognitoJwt',
   jwt: {
     issuer: $interpolate`https://cognito-idp.us-east-1.amazonaws.com/${userPool.id}`,
-    audiences: [userPoolClient.id],
+    audiences: e2eClient
+      ? [userPoolClient.id, e2eClient.id]
+      : [userPoolClient.id],
   },
 })
 

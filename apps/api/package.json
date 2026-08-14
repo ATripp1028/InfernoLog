@@ -16,6 +16,8 @@
     "db:backfill:sfh": "tsx src/scripts/backfillSfhData.ts",
     "db:backfill:levels": "tsx src/scripts/backfillLevelMetadata.ts",
     "db:seed:official": "tsx src/scripts/seedOfficialLevels.ts",
+    "e2e:provision": "tsx src/scripts/provisionE2eUser.ts",
+    "e2e:reset": "tsx src/scripts/resetE2eUser.ts",
     "db:studio:prod": "dotenv -e .env.production -- prisma studio",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
