@@ -22,11 +22,15 @@ test.describe('e2e harness', () => {
     ).toBeVisible()
   })
 
-  test('starts from the reset baseline: built-in collections only', async ({
-    page,
-  }) => {
+  test('serves the built-in collections over the wire', async ({ page }) => {
     await page.goto('/collections')
 
+    // The three collections every user is created with, read from the real
+    // API. Deliberately no assertion about how many *custom* collections there
+    // are: spec files run in alphabetical order, so this one runs after the
+    // completion specs, and anything it claimed about a pristine database
+    // would be a claim about their leftovers instead. That the reset ran at
+    // all is already guaranteed — globalSetup fails the run if it did not.
     const pinned = page.getByRole('region', { name: 'Pinned collections' })
     await expect(
       pinned.getByRole('link', { name: /Want to Beat/ })
@@ -35,10 +39,5 @@ test.describe('e2e harness', () => {
     await expect(
       pinned.getByRole('link', { name: /Least Favorites/ })
     ).toBeVisible()
-
-    // The reset drops every custom collection, so the only tile left in this
-    // section is the create card. A leftover here means the reset did not run.
-    const yours = page.getByRole('region', { name: 'Your collections' })
-    await expect(yours.getByRole('link')).toHaveCount(0)
   })
 })

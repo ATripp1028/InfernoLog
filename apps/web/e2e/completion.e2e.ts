@@ -93,22 +93,26 @@ function rankedRow(page: Page, rank: number, level: FixtureLevel) {
  *
  * Placement drops the level in at #1, closes the sheet, and switches the list
  * into edit mode — all three of which the caller inherits.
+ *
+ * Nothing here counts unplaced levels. The bar's accessible name is
+ * "<n> unplaced level(s) View →", and matching a specific `n` couples this
+ * spec to what every earlier spec left behind: the completion spec above logs
+ * a level and defers placing it, so by the time this runs there is already one
+ * in the sheet. The reset is once per run, not once per spec, so a spec that
+ * reads a count is a spec that only passes in one position in the file.
  */
 async function placeFromUnplaced(page: Page, level: FixtureLevel) {
-  // The bar's accessible name is "<n> unplaced level(s) View →", hence the
-  // substring match.
-  await page.getByRole('button', { name: /1 unplaced level/ }).click()
+  const sheet = page.getByRole('dialog', { name: 'Unplaced levels' })
+
+  await page.getByRole('button', { name: /unplaced level/ }).click()
 
   // Scoped to the sheet: the level's name also appears in the ranked rows
   // behind it, and once placed it appears there too.
-  await page
-    .getByRole('dialog', { name: 'Unplaced levels' })
-    .getByRole('button', { name: new RegExp(level.name) })
-    .click()
+  await sheet.getByRole('button', { name: new RegExp(level.name) }).click()
 
-  await expect(
-    page.getByRole('button', { name: /0 unplaced levels/ })
-  ).toBeVisible()
+  // The sheet closing is what confirms the placement went through — and unlike
+  // a count, it means the same thing however many levels are still unplaced.
+  await expect(sheet).toBeHidden()
 }
 
 test.describe('completion', () => {

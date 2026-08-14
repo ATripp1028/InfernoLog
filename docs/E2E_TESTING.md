@@ -199,6 +199,19 @@ empty database.
   happens once per run and not once per spec. The suite also runs
   `workers: 1` — one shared user on one shared database cannot safely
   interleave.
+- **Never assert on a count of the user's own rows.** This is where
+  order-independence actually gets violated in practice, and it fails in a
+  particularly confusing way: the first attempt fails, the retry passes,
+  because the retry reset the data first (below) and the first attempt did not.
+  Both original specs had this bug. The ranking spec clicked a button matched
+  as `/1 unplaced level/`, which the earlier completion spec had already turned
+  into "2 unplaced levels"; the smoke spec asserted zero custom collections,
+  which was true only because nothing yet creates one.
+
+  Match what is invariant instead — a named row, a panel closing, a specific
+  level appearing at a specific rank. Placement always inserts at #1, so rank
+  assertions stay true no matter what else is already ranked.
+
 - **Retries reset first.** Order-independence is not enough for a retry: the
   attempt being repeated was itself a mutating attempt that half-succeeded, so
   re-running it against the state it left is not re-testing the same thing.

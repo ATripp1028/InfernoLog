@@ -1,0 +1,16 @@
+# Generated, not authored.
+
+# Playwright's injected Cognito session. Holds live staging tokens and is
+# rewritten on every run — formatting it is at best noise.
+apps/web/e2e/.auth/
+
+# Playwright run output.
+apps/web/playwright-report/
+apps/web/test-results/
+
+# Build output and coverage reports.
+dist/
+coverage/
+
+# TanStack Router's generated route tree.
+apps/web/src/routeTree.gen.ts
