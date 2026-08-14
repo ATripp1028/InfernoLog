@@ -74,12 +74,16 @@ async function ensureCognitoUser(
   } catch (err) {
     if (!(err instanceof UsernameExistsException)) throw err
     console.log(`Cognito user for ${email} already exists — reusing it.`)
-    // A pre-existing identity may predate the attributes above.
+    // A pre-existing identity may predate the attributes above, so every one
+    // of them is reconciled rather than just the one that blocks sign-in.
     await cognito.send(
       new AdminUpdateUserAttributesCommand({
         UserPoolId: userPoolId,
         Username: email,
-        UserAttributes: [{ Name: 'email_verified', Value: 'true' }],
+        UserAttributes: [
+          { Name: 'email_verified', Value: 'true' },
+          { Name: 'name', Value: 'InfernoLog E2E' },
+        ],
       })
     )
   }

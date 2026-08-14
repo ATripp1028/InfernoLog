@@ -3,9 +3,11 @@ name: E2E
 # Playwright against a real deployed backend — see docs/E2E_TESTING.md.
 #
 # Deliberately NOT part of ci.yml. This suite drives a shared, mutable
-# environment: gating every merge on it produces exactly the flaky-check
-# culture that gets tests disabled. It runs as a post-deploy gate on staging,
-# and on demand for debugging.
+# environment, so it can only run once something has actually been deployed
+# there: it is a post-deploy gate on staging, plus workflow_dispatch for
+# debugging. Because deploy-staging.yml runs on pull_request, that post-deploy
+# gate is in practice a required check on any PR touching apps/** — accepted
+# deliberately. See docs/E2E_TESTING.md, "Where it runs".
 #
 # `stage` is required with no default, everywhere. Pointing this suite at a
 # stage resets that stage's E2E user data.

@@ -78,7 +78,7 @@ export const E2E_LEVELS = {
   clubstep: { inGameId: '14', name: 'Clubstep' },
   /** Demon. A second ranking entry, so inserts have something to sort against. */
   theoryOfEverything2: { inGameId: '18', name: 'Theory of Everything 2' },
-  /** Demon. Reserved for the Want to Beat / collections flow. */
+  /** Demon. The third ranking entry, and the one placement reorders against. */
   deadlocked: { inGameId: '20', name: 'Deadlocked' },
   /** Non-demon, for a custom collection that is not about difficulty. */
   stereoMadness: { inGameId: '1', name: 'Stereo Madness' },

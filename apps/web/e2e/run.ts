@@ -94,6 +94,18 @@ async function main() {
     }
   )
 
+  // `status` is null when the runner never started (npx missing, EACCES) or
+  // was killed by a signal. Without this the whole thing exits 1 having
+  // printed nothing, right after the SSM lookups appeared to succeed.
+  if (result.error) {
+    throw new Error('Could not start the Playwright runner.', {
+      cause: result.error,
+    })
+  }
+  if (result.status === null && result.signal) {
+    console.error(`Playwright was terminated by ${result.signal}.`)
+  }
+
   process.exit(result.status ?? 1)
 }
 

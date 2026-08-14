@@ -597,7 +597,8 @@ Deliberately unsettled, so nothing here is mistaken for a rule:
 End-to-end tests are neither unsettled nor unbuilt: the harness lives in
 `apps/web/e2e/` and is documented in `E2E_TESTING.md` (Playwright against a
 real staging backend, with a native Cognito test user). What is still open is
-coverage, not approach — only the harness's own smoke spec exists so far.
+coverage, not approach — so far only the harness's own smoke spec plus the
+completion/ranking round trip.
 
 Two rules carry over from that document into anything written there. Specs live
 in `apps/web/e2e/`, **outside `src/`**, so vitest and Playwright cannot pick up

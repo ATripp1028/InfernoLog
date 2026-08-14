@@ -22,6 +22,12 @@ import { test as base } from '@playwright/test'
 import { readE2eEnv } from './env'
 import { resetUserData } from './resetUserData'
 
+/**
+ * Extra time granted to a retried test to cover the reset itself, so the
+ * retry keeps the same budget for the flow under test as the first attempt.
+ */
+const RESET_TIMEOUT_MS = 90_000
+
 export const test = base.extend<{ resetBetweenRetries: void }>({
   resetBetweenRetries: [
     // Playwright's fixture signature requires the dependency object even when
@@ -30,6 +36,14 @@ export const test = base.extend<{ resetBetweenRetries: void }>({
     async ({}, use, testInfo) => {
       if (testInfo.retry > 0) {
         const env = readE2eEnv()
+        // Fixture setup counts against the test's own timeout, and this
+        // reset is not cheap — pnpm, a tsx compile, and a Prisma connection
+        // to a remote database, tens of seconds on a cold CI runner. Left
+        // alone it would hand the retry less budget than the attempt it
+        // repeats, so the retry times out mid-flow instead of failing where
+        // the first attempt did. That is the exact failure mode this fixture
+        // exists to prevent, so the reset is given its own budget on top.
+        testInfo.setTimeout(testInfo.timeout + RESET_TIMEOUT_MS)
         console.log(`[e2e] retry ${testInfo.retry} — resetting user data first`)
         await resetUserData(env.stage, env.email)
       }

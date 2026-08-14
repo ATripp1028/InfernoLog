@@ -15,7 +15,10 @@
 // import time), so it is the very first import.
 import 'dotenv/config'
 import prisma from '../utils/prisma'
-import { DEFAULT_COLLECTIONS } from '../services/user'
+import {
+  DEFAULT_COLLECTIONS,
+  DEFAULT_RATING_CATEGORIES,
+} from '../services/user'
 import {
   E2E_LEVEL_IDS,
   assertNotProduction,
@@ -26,7 +29,8 @@ import {
 /**
  * Deletes every row the E2E user owns and restores the baseline the specs
  * start from: built-in collections present, no progress, no ranking, no custom
- * collections, default preferences, onboarding complete.
+ * collections, the default rating categories, default preferences, onboarding
+ * complete.
  *
  * Specs create whatever else they need, which is what lets them run in any
  * order — the reset happens once per run, not once per spec.
@@ -45,11 +49,14 @@ export async function resetE2eUser(email: string) {
 
   await assertFixtureLevelsPresent()
 
-  // RatingScore.categoryId -> RatingCategory has no onDelete action, so it is
-  // cleared explicitly before anything else — the same reasoning as the
-  // account-deletion path in routes/account/profile.ts. Everything hanging off
-  // LevelProgress (ProgressUpdate, ClassicRanking, RatingScore) cascades from
-  // its delete; the rest is keyed on the user directly.
+  // Everything hanging off LevelProgress (ProgressUpdate, ClassicRanking,
+  // RatingScore) cascades from its delete; the rest is keyed on the user
+  // directly. RatingScore is nevertheless cleared first and explicitly,
+  // because its categoryId -> RatingCategory relation has no onDelete action:
+  // resetPreferences below re-seeds the rating categories, and that delete is
+  // rejected while any rating_scores row still points at one. (The
+  // account-deletion path in routes/account/profile.ts does the same thing
+  // for the same FK, reached via user.delete's cascade.)
   await prisma.$transaction([
     prisma.ratingScore.deleteMany({ where: { levelProgress: { userId } } }),
     prisma.levelProgress.deleteMany({ where: { userId } }),
@@ -117,6 +124,13 @@ async function seedBuiltInCollections(userId: string) {
  * is what routes the completion wizard through its `c_gddl` step
  * (CompletionReviewStep). A key left connected silently adds a step, and every
  * spec that walks the wizard breaks on a screen it never expected.
+ *
+ * The rating categories go back to the defaults alongside the scalar fields,
+ * not as tidiness either: enabling enjoyment renormalizes the category weights
+ * so that they plus `enjoymentWeight` sum to 1.00 (see schema.prisma on
+ * RatingCategory.weight). Zeroing `enjoymentWeight` without restoring the
+ * categories would leave every later run with weights summing to less than
+ * 1.00, quietly skewing every weighted average the suite reads.
  */
 async function resetPreferences(userId: string) {
   await prisma.user.update({
@@ -134,10 +148,22 @@ async function resetPreferences(userId: string) {
       defaultDevice: 'pc',
       includeEnjoyment: false,
       enjoymentWeight: 0,
+      enjoymentSortOrder: 99,
       showHighlightUrl: false,
+      autoExpandFabLabels: true,
+      timeMachineTopN: 10,
       profilePublic: true,
+      discordPublic: true,
       accountStatus: 'ACTIVE',
     },
+  })
+
+  // Safe in this order only because the transaction above already removed
+  // every RatingScore the user owns — rating_scores.categoryId is a Restrict
+  // FK, so a leftover score would reject the delete.
+  await prisma.ratingCategory.deleteMany({ where: { userId } })
+  await prisma.ratingCategory.createMany({
+    data: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c, userId })),
   })
 }
 

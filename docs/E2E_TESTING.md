@@ -1,8 +1,9 @@
 # End-to-End Testing — Playwright Against Staging
 
 **Status: implemented.** The harness, the infra it depends on, and the CI job
-are in the repo; `apps/web/e2e/smoke.e2e.ts` is the only spec so far and exists
-to prove the harness itself. The in-scope flows below are still to be written.
+are in the repo. `apps/web/e2e/smoke.e2e.ts` exists to prove the harness
+itself; `apps/web/e2e/completion.e2e.ts` covers the completion and ranking
+round trips. The remaining in-scope flows below are still to be written.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -150,11 +151,13 @@ callback and logout URLs. A browser at the staging CloudFront origin cannot
 call the staging API at all. Serving locally on the one allowed origin also
 lets the build be configured with the E2E app client, which it has to be.
 
-The build is the real production build (`pnpm build && pnpm preview:e2e`), so
-what runs in the browser is what would ship. What this does **not** cover is
-the deploy itself — the env vars SST bakes into the static site, and the
-CloudFront distribution in front of it. Contract drift against the API, which
-is the entire justification for the suite, is covered in full.
+The build is a real production Vite build (`pnpm build:e2e && pnpm
+preview:e2e`), so what runs in the browser is what would ship. `build:e2e`
+differs from `build` in one way: it skips the `tsc` pass, which `pnpm
+typecheck` already owns and which would only slow the run down. What this does
+**not** cover is the deploy itself — the env vars SST bakes into the static
+site, and the CloudFront distribution in front of it. Contract drift against
+the API, which is the entire justification for the suite, is covered in full.
 
 The alternative is to widen the API's CORS allowlist and the Cognito URL lists
 to include the staging CloudFront origin, the way `auth.ts` already hardcodes
@@ -238,10 +241,7 @@ silently supply a developer's local database.
 
 ## Where it runs
 
-Not on every PR. A shared-environment suite gating every merge produces exactly
-the flaky-check culture that gets tests disabled.
-
-- **On deploy to staging** — the full suite, as a post-deploy gate.
+- **After a deploy to staging** — the full suite, as a post-deploy gate.
 - **Manually** — `workflow_dispatch`, for debugging.
 - **Not** in `pnpm turbo run test`. That is the negated-filter step in `ci.yml`
   and must stay fast and hermetic. E2E gets its own script (`test:e2e`) and its
@@ -250,6 +250,27 @@ the flaky-check culture that gets tests disabled.
 `.github/workflows/e2e.yml` is the job: a reusable workflow taking `stage` and
 `environment`, plus a `workflow_dispatch` trigger for debugging.
 `deploy-staging.yml` calls it as `e2e-staging`, gated on `verify-staging`.
+
+**In practice this makes E2E a PR gate.** `deploy-staging.yml` is triggered by
+`pull_request`, so any PR touching `apps/**` or `packages/**` deploys to
+staging and then runs the suite; a failure fails that PR's checks. That is
+accepted deliberately — the suite only runs against code that has already been
+deployed to the shared stage, and a PR whose code breaks staging is broken
+whether or not the check reports it. The tradeoff it buys is the one every
+shared-environment suite carries: a flaky spec blocks unrelated PRs. Two things
+hold that line, and both are load-bearing rather than incidental:
+
+- The suite stays **small and contract-focused** (see _What this suite is for_).
+  Every spec added here is a spec every PR pays for, in wall-clock time and in
+  failure surface.
+- A flaky spec gets **fixed or deleted, not retried harder**. `retries: 2` is
+  there for genuine environment noise, not as cover for a spec that races its
+  own data. The reset fixture (`e2e/testBase.ts`) exists so a retry starts from
+  a known state rather than the wreckage of the previous attempt.
+
+Because every PR to `main` deploys to the same `staging` stage and the suite
+owns one shared user there, the serialization in both workflows' `concurrency`
+groups is what keeps two PRs from resetting each other's data mid-run.
 
 It caches `~/.cache/ms-playwright` keyed on the resolved Playwright version and
 reinstalls system dependencies on a cache hit — the cache holds the browser but
