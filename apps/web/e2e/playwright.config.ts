@@ -64,12 +64,21 @@ export default defineConfig({
   // production build of this commit, pointed at the real staging API — which
   // is what the suite exists to check.
   webServer: {
-    command: 'pnpm build && pnpm preview:e2e',
+    command: 'pnpm build:e2e && pnpm preview:e2e',
     cwd: webRoot,
     url: BASE_URL,
     // A production build from cold is not fast.
     timeout: 180_000,
-    reuseExistingServer: !process.env.CI,
+    // Deliberately never reuse, not even locally — the usual
+    // `!process.env.CI` idiom is wrong here. This server is not
+    // interchangeable with whatever else might hold :5173: it is built with
+    // VITE_COGNITO_CLIENT_ID pointing at the E2E app client, and the injected
+    // session's localStorage keys are derived from that id. A `pnpm dev`
+    // server on the same port is built from .env.local with the *web* client,
+    // so Amplify finds no session and every spec fails on the landing page —
+    // silently, and with nothing in the failure to suggest why. Refusing to
+    // reuse turns that into an immediate "port in use" from Playwright.
+    reuseExistingServer: false,
     stdout: 'pipe',
     stderr: 'pipe',
     env: {

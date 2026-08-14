@@ -307,6 +307,17 @@ Everything else — API URL, user pool, E2E app client, Cognito domain — is re
 from `/infernolog/<stage>/…` in SSM. AWS credentials come from the ambient
 environment either way; `AWS_PROFILE` can go in `.env.e2e` too.
 
+**Stop `pnpm dev` first.** The suite needs port 5173, and it will not reuse a
+server it finds there — `reuseExistingServer` is `false` even locally, which is
+deliberate and not the usual Playwright idiom. The server this suite starts is
+built with `VITE_COGNITO_CLIENT_ID` pointing at the E2E app client, and the
+injected session's localStorage keys are derived from that id. A dev server on
+the same port is built from `.env.local` with the _web_ client, so Amplify
+finds no session, every spec fails on the landing page, and nothing in the
+failure hints at why. Refusing to reuse turns that into an immediate "port in
+use" error instead. It costs a rebuild per run, which is why `build:e2e` skips
+`tsc` — typechecking is `pnpm build`'s job and CI's, not the E2E run's.
+
 Both `apps/api` scripts print the database they are about to connect to
 (`user@host/database`, never the password) before their first query, so a
 connection failure names the target rather than leaving you to guess which of
