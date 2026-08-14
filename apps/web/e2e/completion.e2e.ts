@@ -1,6 +1,11 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { CLUBSTEP, THEORY_OF_EVERYTHING_2 } from './fixtures/levels'
+import {
+  CLUBSTEP,
+  DEADLOCKED,
+  THEORY_OF_EVERYTHING_2,
+  type FixtureLevel,
+} from './fixtures/levels'
 
 // Log a completion, then place it in the ranking — the two flows the suite
 // exists for, in the order a user actually performs them ("Place now" on the
@@ -43,7 +48,7 @@ async function openLoggingFlow(page: Page, action: string) {
  */
 async function logCompletion(
   page: Page,
-  level: { name: string; creator: string },
+  level: FixtureLevel,
   attempts: string
 ) {
   await openLoggingFlow(page, 'Log a completion')
@@ -73,6 +78,39 @@ async function logCompletion(
   ).toBeVisible()
 }
 
+/**
+ * A ranked row, which renders as `#<rank> — <name>` (em dash).
+ *
+ * The row is a plain div while edit mode is on and a link while it is off, so
+ * this matches on text rather than role.
+ */
+function rankedRow(page: Page, rank: number, level: FixtureLevel) {
+  return page.getByText(`#${rank} \u2014 ${level.name}`)
+}
+
+/**
+ * Places the named level from the unplaced sheet.
+ *
+ * Placement drops the level in at #1, closes the sheet, and switches the list
+ * into edit mode — all three of which the caller inherits.
+ */
+async function placeFromUnplaced(page: Page, level: FixtureLevel) {
+  // The bar's accessible name is "<n> unplaced level(s) View →", hence the
+  // substring match.
+  await page.getByRole('button', { name: /1 unplaced level/ }).click()
+
+  // Scoped to the sheet: the level's name also appears in the ranked rows
+  // behind it, and once placed it appears there too.
+  await page
+    .getByRole('dialog', { name: 'Unplaced levels' })
+    .getByRole('button', { name: new RegExp(level.name) })
+    .click()
+
+  await expect(
+    page.getByRole('button', { name: /0 unplaced levels/ })
+  ).toBeVisible()
+}
+
 test.describe('completion', () => {
   test('logs a completion and shows it on the list', async ({ page }) => {
     await page.goto('/list')
@@ -88,35 +126,49 @@ test.describe('completion', () => {
     ).toBeVisible()
   })
 
-  test('places a logged completion in the ranking', async ({ page }) => {
+  test('places completions in the ranking and reorders them', async ({
+    page,
+  }) => {
     await page.goto('/ranking')
 
+    // Two completions, not one: placement always drops a level in at #1, and
+    // `move` is a no-op at either end of the list — so a single placed entry
+    // can never be reordered and the PATCH would never be exercised.
     await logCompletion(page, THEORY_OF_EVERYTHING_2, '42')
     await page.getByRole('button', { name: 'Place now' }).click()
-
     await expect(page).toHaveURL(/\/ranking/)
+    await placeFromUnplaced(page, THEORY_OF_EVERYTHING_2)
+    await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
 
-    // The unplaced bar's accessible name is "<n> unplaced level(s) View →",
-    // so these are substring matches rather than exact ones.
-    await page.getByRole('button', { name: /1 unplaced level/ }).click()
-    await page
-      .getByRole('button', { name: new RegExp(THEORY_OF_EVERYTHING_2.name) })
-      .click()
-    await expect(
-      page.getByRole('button', { name: /0 unplaced levels/ })
-    ).toBeVisible()
+    // "Place later" just closes the modal, leaving us on /ranking with the new
+    // completion sitting in Unplaced.
+    await logCompletion(page, DEADLOCKED, '7')
+    await page.getByRole('button', { name: 'Place later' }).click()
+    await placeFromUnplaced(page, DEADLOCKED)
 
-    // Reorder mutations are queued and drained by ReorderSyncWatcher in
-    // _authenticated.tsx, which toasts once the batch settles. That toast is
-    // the signal the write reached the server, not just the cache — waiting on
-    // it is what makes the reload below meaningful.
-    await page.getByRole('button', { name: 'Edit' }).click()
-    await page.getByRole('button', { name: 'Move up' }).first().click()
-    await expect(page.getByText('Ranking saved')).toBeVisible()
+    // Newest placement goes on top, pushing the first one down.
+    await expect(rankedRow(page, 1, DEADLOCKED)).toBeVisible()
+    await expect(rankedRow(page, 2, THEORY_OF_EVERYTHING_2)).toBeVisible()
+
+    // Reordering is a PATCH to a different endpoint than the POST that placed
+    // them, so it is its own contract. Note there is no "Edit" click here:
+    // placing already turned edit mode on, so that toggle now reads "Done" —
+    // clicking it would take the move buttons away.
+    //
+    // Waiting on the response rather than the "Ranking saved" toast, because
+    // placing raises that same toast (place and reorder share a mutation key),
+    // so a toast assertion here could match the earlier one and pass without
+    // the reorder ever landing.
+    const reordered = page.waitForResponse(
+      (r) =>
+        r.request().method() === 'PATCH' &&
+        /\/v1\/me\/ranking\/classic\//.test(r.url())
+    )
+    await page.getByRole('button', { name: 'Move down' }).first().click()
+    expect((await reordered).status()).toBe(200)
 
     await page.reload()
-    await expect(
-      page.getByTitle(THEORY_OF_EVERYTHING_2.name).first()
-    ).toBeVisible()
+    await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
+    await expect(rankedRow(page, 2, DEADLOCKED)).toBeVisible()
   })
 })

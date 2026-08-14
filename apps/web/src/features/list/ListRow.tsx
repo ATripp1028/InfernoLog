@@ -95,7 +95,6 @@ export function ListRow({
     <div
       className="relative flex h-[88px] items-center overflow-hidden px-3"
       style={{ minWidth }}
-      title={`${level.name ?? 'Unknown level'} by ${level.creator ?? 'Unknown'}`}
     >
       <RowWash item={item} />
       <div
