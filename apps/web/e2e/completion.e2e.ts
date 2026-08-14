@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test'
+import type { Page } from '@playwright/test'
+import { expect, test } from './testBase'
 import { CLUBSTEP, THEORY_OF_EVERYTHING_2 } from './fixtures/levels'
 
 // Log a completion, then place it in the ranking — the two flows the suite
@@ -42,7 +43,7 @@ async function openLoggingFlow(page: Page, action: string) {
  */
 async function logCompletion(
   page: Page,
-  level: { name: string },
+  level: { name: string; creator: string },
   attempts: string
 ) {
   await openLoggingFlow(page, 'Log a completion')
@@ -52,7 +53,11 @@ async function logCompletion(
   // from RobTop's servers — the fixture levels are official, so their IDs are
   // one and two digits. A name search hits the cache, which is where they are.
   await page.getByLabel('Level ID or name').fill(level.name)
-  await page.getByRole('button', { name: new RegExp(level.name) }).click()
+  await page
+    .getByRole('button', {
+      name: new RegExp(level.name + ' by ' + level.creator),
+    })
+    .click()
 
   await page.getByLabel('Attempts').fill(attempts)
   await page.getByRole('button', { name: 'Continue' }).click() // basics → rating
@@ -78,7 +83,9 @@ test.describe('completion', () => {
     // Reload rather than trusting the post-mutation cache: what this spec is
     // for is the server's view of what was written.
     await page.reload()
-    await expect(page.getByText(CLUBSTEP.name)).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: 'Open Clubstep details' })
+    ).toBeVisible()
   })
 
   test('places a logged completion in the ranking', async ({ page }) => {
@@ -108,6 +115,8 @@ test.describe('completion', () => {
     await expect(page.getByText('Ranking saved')).toBeVisible()
 
     await page.reload()
-    await expect(page.getByText(THEORY_OF_EVERYTHING_2.name)).toBeVisible()
+    await expect(
+      page.getByTitle(THEORY_OF_EVERYTHING_2.name).first()
+    ).toBeVisible()
   })
 })

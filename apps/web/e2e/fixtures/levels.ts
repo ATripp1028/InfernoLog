@@ -14,18 +14,29 @@
 export interface FixtureLevel {
   inGameId: string
   name: string
+  creator: string
 }
 
-export const CLUBSTEP: FixtureLevel = { inGameId: '14', name: 'Clubstep' }
+export const CLUBSTEP: FixtureLevel = {
+  inGameId: '14',
+  name: 'Clubstep',
+  creator: 'RobTop',
+}
 
 export const THEORY_OF_EVERYTHING_2: FixtureLevel = {
   inGameId: '18',
   name: 'Theory of Everything 2',
+  creator: 'RobTop',
 }
 
-export const DEADLOCKED: FixtureLevel = { inGameId: '20', name: 'Deadlocked' }
+export const DEADLOCKED: FixtureLevel = {
+  inGameId: '20',
+  name: 'Deadlocked',
+  creator: 'RobTop',
+}
 
 export const STEREO_MADNESS: FixtureLevel = {
   inGameId: '1',
   name: 'Stereo Madness',
+  creator: 'RobTop',
 }

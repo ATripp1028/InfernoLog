@@ -199,6 +199,19 @@ empty database.
   happens once per run and not once per spec. The suite also runs
   `workers: 1` — one shared user on one shared database cannot safely
   interleave.
+- **Retries reset first.** Order-independence is not enough for a retry: the
+  attempt being repeated was itself a mutating attempt that half-succeeded, so
+  re-running it against the state it left is not re-testing the same thing.
+  `testBase.ts` adds an auto fixture that resets when `testInfo.retry > 0`, so
+  a retry fails for the same reason as the attempt it repeats instead of
+  wandering into a different code path. Specs import `test` from `./testBase`,
+  never from `@playwright/test`, or they miss it.
+
+  The failure that motivated it: a completion spec that failed after its write
+  left the level logged, and on retry the find step sinks already-logged levels
+  below actionable ones and trims to a cap (`lib/levelSearchResults.ts`) — so
+  the row the spec clicks was no longer rendered, and the retry timed out
+  waiting for an element rather than failing where the first attempt did.
 
 **Never point this suite at production.** `E2E_STAGE` is required with no
 default and rejects `production`, in three independent places: the CI job, the
@@ -229,7 +242,14 @@ It caches `~/.cache/ms-playwright` keyed on the resolved Playwright version and
 reinstalls system dependencies on a cache hit — the cache holds the browser but
 not the OS packages it links against. The suite runs with `retries: 2` and
 `trace: 'on-first-retry'`, and the HTML report plus traces upload as an
-artifact on every run. Traces are the difference between diagnosing a CI-only
+artifact on every run.
+
+`actionTimeout` is set (30s) rather than left unbounded. Unbounded, a locator
+that will never match is stopped only by the test timeout, and the failure
+reads "Test timeout of 60000ms exceeded" with no mention of the element — the
+single least useful message this suite can produce. It sits well above the
+`expect` timeout because an action can be the first thing to touch a cold
+Lambda: the FAB does not render until `GET /v1/me` resolves. Traces are the difference between diagnosing a CI-only
 failure in five minutes and not diagnosing it at all.
 
 Secrets it needs, on the `staging` environment: `AWS_ACCESS_KEY_ID` /
@@ -252,6 +272,8 @@ apps/web/
  │    ├── env.ts                 required inputs, validated loudly
  │    ├── playwright.config.ts
  │    ├── globalSetup.ts         data reset; AdminInitiateAuth → storageState
+ │    ├── testBase.ts            the `test` specs import — resets on retry
+ │    ├── resetUserData.ts       shells out to apps/api's e2e:reset
  │    ├── amplifyStorage.ts      tokens → Amplify's localStorage shape
  │    ├── tsconfig.json          Node types, no DOM lib
  │    ├── fixtures/

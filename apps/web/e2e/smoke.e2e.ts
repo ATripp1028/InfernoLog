@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from './testBase'
 
 // The harness's own test: it asserts nothing about product behaviour that a
 // component test could cover, only the three things unique to this suite —

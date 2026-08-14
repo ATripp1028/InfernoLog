@@ -30,7 +30,7 @@ export function CompletionRatingStep() {
         <div>
           <SectionLabel>Enjoyment</SectionLabel>
           <InternalRatingRow
-            label="Score"
+            label="Enjoyment Score"
             value={draft.enjoyment}
             scale={scale}
             onChange={(v) => patchDraft({ enjoyment: v })}
@@ -74,7 +74,7 @@ export function CompletionRatingStep() {
             )
           ) : (
             <InternalRatingRow
-              label="Score"
+              label="Rating Score"
               value={draft.simpleRating}
               scale={scale}
               onChange={(v) => patchDraft({ simpleRating: v })}
@@ -104,7 +104,7 @@ function InternalRatingRow({
   ...rest
 }: Omit<React.ComponentProps<typeof RatingRow>, 'sliderStep' | 'labelWidth'>) {
   return (
-    <InternalRatingRow
+    <RatingRow
       {...rest}
       scale={scale}
       value={value != null ? toDisplay(value, scale) : null}

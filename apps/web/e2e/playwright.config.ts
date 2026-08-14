@@ -54,6 +54,13 @@ export default defineConfig({
     storageState: STORAGE_STATE_PATH,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    // Without this, actions wait unbounded and are only stopped by the test
+    // timeout — so a locator that will never match reports "Test timeout of
+    // 60000ms exceeded" and nothing about which element was missing. Bounded,
+    // the same failure names the locator. Set well above the `expect` timeout
+    // because an action can be the first thing to touch a cold Lambda: the FAB
+    // does not render until GET /v1/me resolves.
+    actionTimeout: 30_000,
   },
 
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
