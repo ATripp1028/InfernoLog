@@ -19,6 +19,7 @@ import { DEFAULT_COLLECTIONS } from '../services/user'
 import {
   E2E_LEVEL_IDS,
   assertNotProduction,
+  describeDatabaseUrl,
   requireE2eEmail,
 } from './e2eFixtures'
 
@@ -111,6 +112,11 @@ async function seedBuiltInCollections(userId: string) {
  * that changes one (rating scale, FPS, date format) cannot leak into the next
  * run. Onboarding is forced complete: the suite starts inside the app, and the
  * onboarding flow is covered by component tests.
+ *
+ * The GDDL key is cleared for a sharper reason than tidiness: `hasGddlApiKey`
+ * is what routes the completion wizard through its `c_gddl` step
+ * (CompletionReviewStep). A key left connected silently adds a step, and every
+ * spec that walks the wizard breaks on a screen it never expected.
  */
 async function resetPreferences(userId: string) {
   await prisma.user.update({
@@ -118,6 +124,8 @@ async function resetPreferences(userId: string) {
     data: {
       onboardingCompleted: true,
       legalAcceptedAt: new Date(),
+      gddlApiKeyEncrypted: null,
+      gddlUsername: null,
       ratingMode: 'SIMPLE',
       ratingDisplayScale: 'ZERO_TO_TEN',
       dateFormatPreference: 'MDY',
@@ -137,8 +145,14 @@ async function main() {
   const stage = assertNotProduction(process.env.E2E_STAGE)
   const email = requireE2eEmail()
 
+  // Printed before connecting, not after: this is the line that tells you
+  // which database a connection failure was against.
+  console.log(
+    `Resetting ${email} on stage ${stage} via ${describeDatabaseUrl(process.env.DATABASE_URL)}`
+  )
+
   const userId = await resetE2eUser(email)
-  console.log(`Reset E2E user ${email} (${userId}) on stage ${stage}.`)
+  console.log(`Reset E2E user ${email} (${userId}).`)
 }
 
 main()

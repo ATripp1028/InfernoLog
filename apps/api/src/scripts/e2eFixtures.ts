@@ -46,6 +46,28 @@ export function requireE2eEmail(): string {
 }
 
 /**
+ * The connection target as `user@host/database`, for logging.
+ *
+ * Printed before the first query so a connection failure says which database
+ * was tried. Postgres reports a bad password as "password authentication
+ * failed for user X" and nothing else, which is indistinguishable between "the
+ * password is wrong" and "this is the wrong database entirely" — and the
+ * second is by far the more common mistake here.
+ *
+ * The password is never included, and an unparseable URL is reported as such
+ * rather than echoed, so this can never print a credential.
+ */
+export function describeDatabaseUrl(url: string | undefined): string {
+  if (!url) return '(DATABASE_URL is not set)'
+  try {
+    const parsed = new URL(url)
+    return `${parsed.username}@${parsed.host}${parsed.pathname}`
+  } catch {
+    return '(DATABASE_URL is not a parseable URL)'
+  }
+}
+
+/**
  * Levels the suite logs against. Official levels (see data/officialLevels.ts)
  * on purpose: their IDs are fixed and synthetic, they are seeded by
  * `pnpm db:seed:official` rather than fetched, so nothing in the suite depends

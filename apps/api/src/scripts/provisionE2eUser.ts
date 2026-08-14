@@ -34,7 +34,11 @@ import {
 } from '@aws-sdk/client-cognito-identity-provider'
 import prisma from '../utils/prisma'
 import { createUserForSignup } from '../services/user'
-import { assertNotProduction, requireE2eEmail } from './e2eFixtures'
+import {
+  assertNotProduction,
+  describeDatabaseUrl,
+  requireE2eEmail,
+} from './e2eFixtures'
 
 const cognito = new CognitoIdentityProviderClient({
   region: process.env.AWS_REGION ?? 'us-east-1',
@@ -147,6 +151,10 @@ async function main() {
   if (!password) {
     throw new Error('E2E_USER_PASSWORD is required and has no default.')
   }
+
+  console.log(
+    `Provisioning ${email} on stage ${stage} via pool ${userPoolId} and ${describeDatabaseUrl(process.env.DATABASE_URL)}`
+  )
 
   const sub = await ensureCognitoUser(userPoolId, email, password)
   const userId = await ensureUserRow(email, sub)

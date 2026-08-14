@@ -271,18 +271,46 @@ would.
 
 ## Running it
 
-From `apps/web`, with AWS credentials in the environment:
+Copy the template once, fill it in, and the inputs stop being something you
+paste:
+
+```sh
+cd apps/web
+cp .env.e2e.example .env.e2e   # gitignored; the template is committed
+pnpm test:e2e
+```
+
+`.env.e2e` carries the four inputs — `E2E_STAGE`, `E2E_USER_EMAIL`,
+`E2E_USER_PASSWORD`, `E2E_DATABASE_URL`. `run.ts` loads it through Node's
+`process.loadEnvFile`, which **leaves already-set variables alone**, so an
+explicit `E2E_STAGE=dev pnpm test:e2e` still overrides it for a single run, and
+CI — which sets everything from secrets and never has the file — is unaffected.
+
+Two things the file buys beyond convenience. No shell parses it, so the
+database URL's `&` needs no quoting (unquoted on a command line, `zsh` splits
+the assignment there and the variable silently arrives empty). And it is not a
+file Vite reads: Vite auto-loads `.env`, `.env.local` and
+`.env.<mode>[.local]`, and the E2E build runs in production mode, so the name
+cannot collide with the app's own configuration.
+
+Passing them inline still works, with AWS credentials in the environment:
 
 ```sh
 E2E_STAGE=staging \
 E2E_USER_EMAIL=e2e+staging@… \
 E2E_USER_PASSWORD=… \
-E2E_DATABASE_URL=postgresql://…   # the staging database
+E2E_DATABASE_URL='postgresql://…'   # quote it — it contains `&`
 pnpm test:e2e
 ```
 
 Everything else — API URL, user pool, E2E app client, Cognito domain — is read
-from `/infernolog/<stage>/…` in SSM.
+from `/infernolog/<stage>/…` in SSM. AWS credentials come from the ambient
+environment either way; `AWS_PROFILE` can go in `.env.e2e` too.
+
+Both `apps/api` scripts print the database they are about to connect to
+(`user@host/database`, never the password) before their first query, so a
+connection failure names the target rather than leaving you to guess which of
+several Neon branches was tried.
 
 ### Provisioning a stage
 

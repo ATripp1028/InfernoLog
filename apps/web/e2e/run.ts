@@ -11,6 +11,7 @@
 // works as it would with a bare `playwright test`.
 
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { GetParameterCommand, SSMClient } from '@aws-sdk/client-ssm'
@@ -18,6 +19,28 @@ import { STAGE_PARAMETERS, requireStage } from './env'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const webRoot = resolve(here, '..')
+
+/** Local, gitignored credentials for a developer run. See .env.e2e.example. */
+const ENV_FILE = resolve(webRoot, '.env.e2e')
+
+/**
+ * Loads `.env.e2e` when it exists, so a developer run does not mean pasting
+ * four variables (one of them a database URL containing `&`, which the shell
+ * splits on unless quoted) on every invocation.
+ *
+ * `process.loadEnvFile` leaves variables that are already set alone, so an
+ * explicit `E2E_STAGE=… pnpm test:e2e` still wins over the file, and CI —
+ * which sets everything from secrets and never has this file — is unaffected.
+ *
+ * Note this file is NOT one Vite reads. Vite auto-loads `.env`, `.env.local`
+ * and `.env.<mode>[.local]`, and the E2E build runs in production mode, so the
+ * name cannot collide with the app's own configuration.
+ */
+function loadLocalEnv() {
+  if (!existsSync(ENV_FILE)) return
+  process.loadEnvFile(ENV_FILE)
+  console.log('[e2e] loaded apps/web/.env.e2e')
+}
 
 /**
  * Reads the SSM parameters `apps/api/infra/outputs.ts` writes for a stage.
@@ -50,6 +73,8 @@ async function resolveStageConfig(
 }
 
 async function main() {
+  loadLocalEnv()
+
   const stage = requireStage()
   const stageConfig = await resolveStageConfig(stage)
 
