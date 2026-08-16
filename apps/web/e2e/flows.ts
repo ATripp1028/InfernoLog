@@ -25,6 +25,26 @@ export async function openQuickAction(page: Page, action: string) {
 }
 
 /**
+ * Picks a level in the logging flow's find step, whichever path opened it.
+ *
+ * Search by NAME, not by ID. The find step only previews a typed ID at four
+ * or more digits, and below that treats it as an unknown level to fetch live
+ * from RobTop's servers — the fixture levels are official, so their IDs are
+ * one and two digits. A name search hits the cache, which is where they are.
+ *
+ * Selecting a row resolves the level against the API, so the step that follows
+ * is what the caller should wait on.
+ */
+export async function findLevel(page: Page, level: FixtureLevel) {
+  await page.getByLabel('Level ID or name').fill(level.name)
+  await page
+    .getByRole('button', {
+      name: new RegExp(level.name + ' by ' + level.creator),
+    })
+    .click()
+}
+
+/**
  * Walks the completion wizard from the FAB to the success card.
  *
  * The wizard is four "Continue" steps plus a review. `c_gddl` would add a
@@ -39,17 +59,7 @@ export async function logCompletion(
   attempts: string
 ) {
   await openQuickAction(page, 'Log a completion')
-
-  // Search by NAME, not by ID. The find step only previews a typed ID at four
-  // or more digits, and below that treats it as an unknown level to fetch live
-  // from RobTop's servers — the fixture levels are official, so their IDs are
-  // one and two digits. A name search hits the cache, which is where they are.
-  await page.getByLabel('Level ID or name').fill(level.name)
-  await page
-    .getByRole('button', {
-      name: new RegExp(level.name + ' by ' + level.creator),
-    })
-    .click()
+  await findLevel(page, level)
 
   await page.getByLabel('Attempts').fill(attempts)
   await page.getByRole('button', { name: 'Continue' }).click() // basics → rating

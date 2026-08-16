@@ -90,6 +90,14 @@ export const E2E_LEVELS = {
    * completion rather than a fresh one.
    */
   fingerdash: { inGameId: '21', name: 'Fingerdash' },
+  /**
+   * The progress path's level, and nothing else's. That spec logs a run
+   * against it and then edits the run, so it has to stay unbeaten for the
+   * same reason fingerdash is not shared.
+   */
+  electrodynamix: { inGameId: '15', name: 'Electrodynamix' },
+  /** The drop path's level, and nothing else's. */
+  hexagonForce: { inGameId: '16', name: 'Hexagon Force' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

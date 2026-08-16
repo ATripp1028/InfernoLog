@@ -50,3 +50,21 @@ export const FINGERDASH: FixtureLevel = {
   name: 'Fingerdash',
   creator: 'RobTop',
 }
+
+// The progress path's level, and nothing else's. The spec logs a run against
+// it and then edits that run, so it has to stay unbeaten: a level that already
+// carries a completion reopens the wizard on the existing entry rather than a
+// fresh one.
+export const ELECTRODYNAMIX: FixtureLevel = {
+  inGameId: '15',
+  name: 'Electrodynamix',
+  creator: 'RobTop',
+}
+
+// The drop path's level, and nothing else's — a dropped level is not
+// interchangeable with the ones above either.
+export const HEXAGON_FORCE: FixtureLevel = {
+  inGameId: '16',
+  name: 'Hexagon Force',
+  creator: 'RobTop',
+}
