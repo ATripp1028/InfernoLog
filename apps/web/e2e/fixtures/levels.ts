@@ -95,3 +95,24 @@ export const GEOMETRICAL_DOMINATOR: FixtureLevel = {
   name: 'Geometrical Dominator',
   creator: 'RobTop',
 }
+
+// The list-preset spec's pair, and nothing else's. That spec logs a run
+// against one and drops the other, so the status filter its saved view stores
+// has a row to keep as well as a row to hide. A preset whose only visible
+// effect is an absence cannot tell "the filter applied" from "the list failed
+// to load", which is why it takes two levels rather than one.
+//
+// Both names are searched by the find step, so neither may be a substring of
+// another official level's name — "Dash" (in-game id 22) is the one that is,
+// and is why it is not the pick here.
+export const VIKING_ARENA: FixtureLevel = {
+  inGameId: '24',
+  name: 'Viking Arena',
+  creator: 'RobTop',
+}
+
+export const POWER_TRIP: FixtureLevel = {
+  inGameId: '38',
+  name: 'Power Trip',
+  creator: 'RobTop',
+}

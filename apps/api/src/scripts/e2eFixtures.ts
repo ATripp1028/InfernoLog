@@ -108,6 +108,14 @@ export const E2E_LEVELS = {
    * both are deleted, which removes the level entry itself.
    */
   geometricalDominator: { inGameId: '19', name: 'Geometrical Dominator' },
+  /**
+   * The list-preset spec's pair, and nothing else's. One ends up unbeaten and
+   * one dropped, so the saved view's status filter has a row to keep as well
+   * as a row to hide — a preset whose only visible effect is an absence
+   * cannot tell "the filter applied" from "the list failed to load".
+   */
+  vikingArena: { inGameId: '24', name: 'Viking Arena' },
+  powerTrip: { inGameId: '38', name: 'Power Trip' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

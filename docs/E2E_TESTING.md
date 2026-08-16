@@ -6,10 +6,12 @@ itself; `apps/web/e2e/completion.e2e.ts` covers the completion and ranking
 round trips, `apps/web/e2e/collections.e2e.ts` the custom-collection
 lifecycle and the Want to Beat handoff, `apps/web/e2e/progress.e2e.ts`
 the two write paths a completion does not touch — a run logged on an unbeaten
-level and then edited, and a drop — and `apps/web/e2e/levelPage.e2e.ts` the
+level and then edited, and a drop — `apps/web/e2e/levelPage.e2e.ts` the
 writes reached from the level page itself: the level-scoped edit, deleting a
-single logged entry, and deleting the whole entry. The spreadsheet import is
-the one in-scope flow still to be written.
+single logged entry, and deleting the whole entry, and
+`apps/web/e2e/listPresets.e2e.ts` the saved-view CRUD and the filter blob a
+preset stores. The spreadsheet import is the one in-scope flow still to be
+written.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -43,7 +45,13 @@ That framing sets the scope hard:
   values nothing renders: a rating, which is stored as an integer 0-100
   whatever display scale the user is on, and `deletedLevelProgress`, the flag
   in a delete's response that is the only thing telling the client its level
-  is gone.
+  is gone. `listPresets.e2e.ts` covers the other end of that spectrum: a
+  preset's `sorts`/`filters`/`columns`/`columnOrder` are `z.unknown()` on the
+  way in and `Json` columns at rest, so nothing between
+  `features/list/types.ts` and `features/list/presets.ts` is typechecked
+  across the wire at all — the spec pins the enum inside `filters.statuses`
+  and the all-null `filters.dateBeaten` on the create response, then drives
+  the view from the stored blob after a reload.
 - **Out of scope** — rendering detail, empty states, disabled-button logic,
   validation copy, responsive layout. Those belong in component tests, which
   run in seconds instead of minutes and fail with a usable stack trace.
@@ -249,6 +257,17 @@ empty database.
   `Asia/Calcutta`), and `selectOption` fails with "did not find some options"
   rather than anything mentioning timezones. Pick a zone that has never been
   renamed and has no DST, as `progress.e2e.ts` and `levelPage.e2e.ts` both do.
+
+- **A reload is not automatically a server read.** The query client persists
+  to localStorage (`main.tsx`'s `PersistQueryClientProvider`) with a
+  two-minute `staleTime`, so a `page.reload()` inside that window is answered
+  from the cache the spec's own mutation just wrote — and mutations that use
+  `setQueryData` rather than invalidating never went to the server at all.
+  A spec whose assertion is "reload and check" has to either wait on the
+  response that carries the value (`collections.e2e.ts`) or drop the
+  persisted cache first (`listPresets.e2e.ts`'s `coldReload`, which removes
+  the one `infernolog:query-cache` key — Amplify's session lives under its
+  own keys and survives).
 
 - **Retries reset first.** Order-independence is not enough for a retry: the
   attempt being repeated was itself a mutating attempt that half-succeeded, so
