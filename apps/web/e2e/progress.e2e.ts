@@ -1,11 +1,6 @@
-import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { findLevel, openQuickAction } from './flows'
-import {
-  ELECTRODYNAMIX,
-  HEXAGON_FORCE,
-  type FixtureLevel,
-} from './fixtures/levels'
+import { findLevel, onScreen, openLevelPage, openQuickAction } from './flows'
+import { ELECTRODYNAMIX, HEXAGON_FORCE } from './fixtures/levels'
 
 // The two write paths a completion does not cover: POST /v1/me/progress (a run
 // on a level that is not beaten yet) and POST /v1/me/drops, plus the edit of
@@ -54,37 +49,6 @@ const EDITED_TIME = '23:50'
 
 const DROP_DATE = '2026-02-02'
 const DROP_REASON = 'E2E: setting this one aside.'
-
-/**
- * Narrows a text locator to the copy this viewport actually shows.
- *
- * The level page renders its whole layout twice — a `md:hidden` mobile column
- * and a `hidden md:block` desktop one, both always in the DOM — so anything
- * matched inside it matches twice and trips strict mode. Only text locators
- * need this: `getByRole` already skips elements `display: none` keeps out of
- * the accessibility tree, which is why the FAB and the List's two layouts
- * need no such handling elsewhere in the suite.
- */
-function onScreen(locator: Locator): Locator {
-  return locator.filter({ visible: true })
-}
-
-/**
- * The level's own page, reached by URL rather than through the List.
- *
- * Deep-linking on purpose: the List's card for a given level is only reachable
- * if it sorts onto the screen, which depends on what every other spec has
- * already logged. The fixture's in-game id is fixed, so this is the one route
- * in that cannot be perturbed by execution order. The List round trip is
- * completion.e2e.ts's assertion, not this file's.
- */
-async function openLevelPage(page: Page, level: FixtureLevel) {
-  await page.goto(`/list/${level.inGameId}`)
-  // Past the skeleton — every assertion below reads the timeline, and an
-  // absence asserted against a page still loading is true for the wrong
-  // reason.
-  await expect(onScreen(page.getByText('Progress timeline'))).toBeVisible()
-}
 
 test.describe('progress and drops', () => {
   test('logs a run on an unbeaten level and edits it', async ({ page }) => {

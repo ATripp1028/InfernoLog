@@ -1,27 +1,65 @@
 // Multi-step flows more than one spec has to drive, kept here so a wizard that
-// gains a step is fixed once rather than in every spec that walks it.
+// gains a step is fixed once rather than in every spec that walks it — plus
+// the handful of locator helpers that go with them.
 //
 // Deliberately not named `*.e2e.ts`: playwright.config.ts matches that glob, and
 // a helper module picked up as a spec fails as "no tests found".
 
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import type { FixtureLevel } from './fixtures/levels'
 
 /**
  * Opens one of the FAB's quick actions from the mobile bottom sheet.
  *
- * Only valid on a page that has not overridden the FAB (List, Ranking, ...) —
- * hence the hardcoded "Log a completion", which is the default action set's
- * primary and so the label the FAB itself carries. Tapping it opens a
- * `role="menu"` sheet whose rows carry the same labels, so the sheet row has
- * to be scoped to the menu or the locator matches two elements.
+ * The FAB carries its own primary action's label as its accessible name
+ * (`MobileNav`'s FabSlot), so `fabLabel` is which action set the page has
+ * registered — the default logging set's "Log a completion" on List, Ranking
+ * and the rest, and "Edit this entry" on a level page the user owns
+ * (`useLevelDetailPage`'s override, whose first entry is the primary).
+ * Tapping it opens a `role="menu"` sheet whose rows carry the same labels,
+ * so the sheet row has to be scoped to the menu or the locator matches two
+ * elements.
  */
-export async function openQuickAction(page: Page, action: string) {
-  await page.getByRole('button', { name: 'Log a completion' }).click()
+export async function openQuickAction(
+  page: Page,
+  action: string,
+  fabLabel = 'Log a completion'
+) {
+  await page.getByRole('button', { name: fabLabel }).click()
   await page
     .getByRole('menu', { name: 'Quick actions' })
     .getByRole('button', { name: action })
     .click()
+}
+
+/**
+ * Narrows a text locator to the copy this viewport actually shows.
+ *
+ * The level page renders its whole layout twice — a `md:hidden` mobile column
+ * and a `hidden md:block` desktop one, both always in the DOM — so anything
+ * matched inside it matches twice and trips strict mode. Only text locators
+ * need this: `getByRole` already skips elements `display: none` keeps out of
+ * the accessibility tree, which is why the FAB and the List's two layouts
+ * need no such handling elsewhere in the suite.
+ */
+export function onScreen(locator: Locator): Locator {
+  return locator.filter({ visible: true })
+}
+
+/**
+ * The level's own page, reached by URL rather than through the List.
+ *
+ * Deep-linking on purpose: the List's card for a given level is only reachable
+ * if it sorts onto the screen, which depends on what every other spec has
+ * already logged. The fixture's in-game id is fixed, so this is the one route
+ * in that cannot be perturbed by execution order. The List round trip is
+ * completion.e2e.ts's assertion, not any level-page spec's.
+ */
+export async function openLevelPage(page: Page, level: FixtureLevel) {
+  await page.goto(`/list/${level.inGameId}`)
+  // Past the skeleton — the callers read the timeline, and an absence asserted
+  // against a page still loading is true for the wrong reason.
+  await expect(onScreen(page.getByText('Progress timeline'))).toBeVisible()
 }
 
 /**

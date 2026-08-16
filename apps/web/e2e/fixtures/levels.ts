@@ -68,3 +68,30 @@ export const HEXAGON_FORCE: FixtureLevel = {
   name: 'Hexagon Force',
   creator: 'RobTop',
 }
+
+// The level-page edit path's level, and nothing else's. It is completed and
+// then deleted by the spec that owns it, so it can be shared with nothing:
+// a completed level reopens the wizard on the existing completion, and a
+// deleted one has no page left to visit.
+//
+// A main level specifically, because main levels carry three secret coins and
+// the edit modal renders its coin picker only for a level that has any — so a
+// stage whose `levels` rows predate the `coins` column fails here rather than
+// silently skipping that field. Re-run `pnpm db:seed:official` if it does.
+export const BLAST_PROCESSING: FixtureLevel = {
+  inGameId: '17',
+  name: 'Blast Processing',
+  creator: 'RobTop',
+}
+
+// The entry-deletion path's level, and nothing else's. The spec logs two runs
+// against it and deletes both, which deletes the level entry itself.
+//
+// Not "Theory of Everything" (in-game id 12), which would otherwise fit here:
+// its name is a prefix of "Theory of Everything 2", so a name search for it
+// matches two rows and the find step's row locator stops being unambiguous.
+export const GEOMETRICAL_DOMINATOR: FixtureLevel = {
+  inGameId: '19',
+  name: 'Geometrical Dominator',
+  creator: 'RobTop',
+}

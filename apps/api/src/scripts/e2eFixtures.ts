@@ -98,6 +98,16 @@ export const E2E_LEVELS = {
   electrodynamix: { inGameId: '15', name: 'Electrodynamix' },
   /** The drop path's level, and nothing else's. */
   hexagonForce: { inGameId: '16', name: 'Hexagon Force' },
+  /**
+   * The level page's edit path. Completed and then deleted by the spec that
+   * owns it, so it is shared with nothing.
+   */
+  blastProcessing: { inGameId: '17', name: 'Blast Processing' },
+  /**
+   * The level page's entry-deletion path. Two runs are logged against it and
+   * both are deleted, which removes the level entry itself.
+   */
+  geometricalDominator: { inGameId: '19', name: 'Geometrical Dominator' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

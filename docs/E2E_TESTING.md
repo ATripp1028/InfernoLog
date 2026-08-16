@@ -4,10 +4,12 @@
 are in the repo. `apps/web/e2e/smoke.e2e.ts` exists to prove the harness
 itself; `apps/web/e2e/completion.e2e.ts` covers the completion and ranking
 round trips, `apps/web/e2e/collections.e2e.ts` the custom-collection
-lifecycle and the Want to Beat handoff, and `apps/web/e2e/progress.e2e.ts`
+lifecycle and the Want to Beat handoff, `apps/web/e2e/progress.e2e.ts`
 the two write paths a completion does not touch — a run logged on an unbeaten
-level and then edited, and a drop. The spreadsheet import is the one in-scope
-flow still to be written.
+level and then edited, and a drop — and `apps/web/e2e/levelPage.e2e.ts` the
+writes reached from the level page itself: the level-scoped edit, deleting a
+single logged entry, and deleting the whole entry. The spreadsheet import is
+the one in-scope flow still to be written.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -29,13 +31,19 @@ That framing sets the scope hard:
 
 - **In scope** — a handful of flows that cross the wire end to end and would
   break silently on a contract change: log a completion, place it in the
-  ranking, add a level to a collection, log and edit a run, drop a level, run
-  a spreadsheet import. `ProgressUpdate`'s optional time + IANA timezone pair
+  ranking, add a level to a collection, log and edit a run, drop a level, edit
+  a level's own fields, delete a logged entry or a whole entry, run a
+  spreadsheet import. `ProgressUpdate`'s optional time + IANA timezone pair
   is the sharpest case for the whole suite: a server that stopped storing
   `dateTimezone` still returns a valid date and every component spec still
   passes, so `progress.e2e.ts` logs at a wall-clock time whose UTC instant
   falls on a different calendar day and reads it back through the edit
-  modal's own fields.
+  modal's own fields. `levelPage.e2e.ts` does the same for the separate
+  `worstFailDate` / `worstFailDateTimezone` column pair, and pins two more
+  values nothing renders: a rating, which is stored as an integer 0-100
+  whatever display scale the user is on, and `deletedLevelProgress`, the flag
+  in a delete's response that is the only thing telling the client its level
+  is gone.
 - **Out of scope** — rendering detail, empty states, disabled-button logic,
   validation copy, responsive layout. Those belong in component tests, which
   run in seconds instead of minutes and fail with a usable stack trace.
@@ -228,11 +236,19 @@ empty database.
 - **The level page renders its layout twice.** `pages/LevelPage.tsx` has a
   `md:hidden` mobile column and a `hidden md:block` desktop one, both always
   in the DOM, so every locator inside it matches two elements and fails strict
-  mode rather than the assertion. `progress.e2e.ts`'s `onScreen()` helper
+  mode rather than the assertion. `flows.ts`'s `onScreen()` helper
   (`locator.filter({ visible: true })`) is the narrowing; the same shape
   applies to any page built that way. Note also that the stat grid repeats the
   primary entry's date and attempts, so text shared with the timeline needs a
   scope, not just a viewport.
+
+- **A timezone a spec selects has to be one the select offers.** The zone
+  options come from `Intl.supportedValuesOf('timeZone')`, which Chromium
+  answers from ICU's canonical names — and those lag IANA's renames.
+  `Asia/Kolkata` is not in the list at all (Chromium still calls it
+  `Asia/Calcutta`), and `selectOption` fails with "did not find some options"
+  rather than anything mentioning timezones. Pick a zone that has never been
+  renamed and has no DST, as `progress.e2e.ts` and `levelPage.e2e.ts` both do.
 
 - **Retries reset first.** Order-independence is not enough for a retry: the
   attempt being repeated was itself a mutating attempt that half-succeeded, so
@@ -326,7 +342,7 @@ apps/web/
  │    ├── playwright.config.ts
  │    ├── globalSetup.ts         data reset; AdminInitiateAuth → storageState
  │    ├── testBase.ts            the `test` specs import — resets on retry
- │    ├── flows.ts               multi-step flows more than one spec drives
+ │    ├── flows.ts               flows + locator helpers more than one spec uses
  │    ├── resetUserData.ts       shells out to apps/api's e2e:reset
  │    ├── amplifyStorage.ts      tokens → Amplify's localStorage shape
  │    ├── tsconfig.json          Node types, no DOM lib
@@ -442,4 +458,5 @@ Still to do, and not automatable from here:
       GitHub Secrets
 - [ ] Write the last in-scope flow spec: run a spreadsheet import. (Logging a
       completion, placing it in the ranking, adding a level to a collection,
-      logging and editing a run, and dropping a level are covered.)
+      logging and editing a run, dropping a level, editing a level's own
+      fields, and the two delete paths are covered.)
