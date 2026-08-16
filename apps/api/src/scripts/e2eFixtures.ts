@@ -82,6 +82,14 @@ export const E2E_LEVELS = {
   deadlocked: { inGameId: '20', name: 'Deadlocked' },
   /** Non-demon, for a custom collection that is not about difficulty. */
   stereoMadness: { inGameId: '1', name: 'Stereo Madness' },
+  /**
+   * The Want to Beat handoff's level, and nothing else's. That spec logs a
+   * completion for it, so it deliberately does not share one with the specs
+   * above: an already-completed level sinks below actionable ones in the find
+   * step (lib/levelSearchResults.ts) and reopens the wizard on the existing
+   * completion rather than a fresh one.
+   */
+  fingerdash: { inGameId: '21', name: 'Fingerdash' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

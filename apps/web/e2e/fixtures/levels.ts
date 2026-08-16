@@ -40,3 +40,13 @@ export const STEREO_MADNESS: FixtureLevel = {
   name: 'Stereo Madness',
   creator: 'RobTop',
 }
+
+// Only the Want to Beat handoff logs against this one. That spec completes it,
+// and a completed level is not interchangeable with the ones above: it sinks
+// below actionable rows in the find step and reopens the wizard on the
+// existing completion instead of a fresh one.
+export const FINGERDASH: FixtureLevel = {
+  inGameId: '21',
+  name: 'Fingerdash',
+  creator: 'RobTop',
+}

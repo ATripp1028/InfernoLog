@@ -3,7 +3,9 @@
 **Status: implemented.** The harness, the infra it depends on, and the CI job
 are in the repo. `apps/web/e2e/smoke.e2e.ts` exists to prove the harness
 itself; `apps/web/e2e/completion.e2e.ts` covers the completion and ranking
-round trips. The remaining in-scope flows below are still to be written.
+round trips, and `apps/web/e2e/collections.e2e.ts` the custom-collection
+lifecycle and the Want to Beat handoff. The spreadsheet import is the one
+in-scope flow still to be written.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -307,6 +309,7 @@ apps/web/
  │    ├── playwright.config.ts
  │    ├── globalSetup.ts         data reset; AdminInitiateAuth → storageState
  │    ├── testBase.ts            the `test` specs import — resets on retry
+ │    ├── flows.ts               multi-step flows more than one spec drives
  │    ├── resetUserData.ts       shells out to apps/api's e2e:reset
  │    ├── amplifyStorage.ts      tokens → Amplify's localStorage shape
  │    ├── tsconfig.json          Node types, no DOM lib
@@ -420,5 +423,6 @@ Still to do, and not automatable from here:
 - [ ] Run `e2e:provision` against staging (Cognito identity + `users` row)
 - [ ] Add `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` to the `staging` environment's
       GitHub Secrets
-- [ ] Write the in-scope flow specs: log a completion, place it in the ranking,
-      add a level to a collection, run a spreadsheet import
+- [ ] Write the last in-scope flow spec: run a spreadsheet import. (Logging a
+      completion, placing it in the ranking, and adding a level to a collection
+      are covered.)
