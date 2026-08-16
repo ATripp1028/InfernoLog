@@ -10,8 +10,9 @@ level and then edited, and a drop — `apps/web/e2e/levelPage.e2e.ts` the
 writes reached from the level page itself: the level-scoped edit, deleting a
 single logged entry, and deleting the whole entry, and
 `apps/web/e2e/listPresets.e2e.ts` the saved-view CRUD and the filter blob a
-preset stores. The spreadsheet import is the one in-scope flow still to be
-written.
+preset stores. `apps/web/e2e/search.e2e.ts`, the only read-only spec in the
+suite, covers the /search page's keyset pagination over the levels cache. The
+spreadsheet import is the one in-scope flow still to be written.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -34,9 +35,10 @@ That framing sets the scope hard:
 - **In scope** — a handful of flows that cross the wire end to end and would
   break silently on a contract change: log a completion, place it in the
   ranking, add a level to a collection, log and edit a run, drop a level, edit
-  a level's own fields, delete a logged entry or a whole entry, run a
-  spreadsheet import. `ProgressUpdate`'s optional time + IANA timezone pair
-  is the sharpest case for the whole suite: a server that stopped storing
+  a level's own fields, delete a logged entry or a whole entry, page the search
+  grid past its first cursor, run a spreadsheet import. `ProgressUpdate`'s
+  optional time + IANA timezone pair is the sharpest case for the whole suite:
+  a server that stopped storing
   `dateTimezone` still returns a valid date and every component spec still
   passes, so `progress.e2e.ts` logs at a wall-clock time whose UTC instant
   falls on a different calendar day and reads it back through the edit
@@ -51,7 +53,17 @@ That framing sets the scope hard:
   `features/list/types.ts` and `features/list/presets.ts` is typechecked
   across the wire at all — the spec pins the enum inside `filters.statuses`
   and the all-null `filters.dateBeaten` on the create response, then drives
-  the view from the stored blob after a reload.
+  the view from the stored blob after a reload. `search.e2e.ts` is the same
+  argument for an opaque value travelling the other way: GET
+  `/v1/levels/browse`'s cursor is a token the server encodes from the last
+  row's sort value and `inGameId` and decodes back into the next page's
+  `WHERE`, so the client's whole contribution is to thread it back verbatim —
+  and a server that ignored it and re-served page one would satisfy every
+  component spec, since they stub `lib/api/levelBrowse` at the module
+  boundary. It pages a creator search twice: once on a numeric sort whose
+  values all tie (official levels carry no download count, so the page
+  boundary can only be crossed through the keyset's `inGameId` arm) and once
+  on a text sort, the cursor's other value type.
 - **Out of scope** — rendering detail, empty states, disabled-button logic,
   validation copy, responsive layout. Those belong in component tests, which
   run in seconds instead of minutes and fail with a usable stack trace.
@@ -478,4 +490,4 @@ Still to do, and not automatable from here:
 - [ ] Write the last in-scope flow spec: run a spreadsheet import. (Logging a
       completion, placing it in the ranking, adding a level to a collection,
       logging and editing a run, dropping a level, editing a level's own
-      fields, and the two delete paths are covered.)
+      fields, the two delete paths, and the browse cursor are covered.)
