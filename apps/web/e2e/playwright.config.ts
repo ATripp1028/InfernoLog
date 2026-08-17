@@ -67,10 +67,21 @@ export default defineConfig({
 
   // The frontend is served locally rather than hit at its deployed URL: the
   // non-production API's CORS allowlist is exactly `http://localhost:5173`
-  // (infra/api.ts), as are the Cognito callback URLs. The build is the real
-  // production build of this commit, pointed at the real staging API — which
-  // is what the suite exists to check.
+  // (infra/api.ts), as are the Cognito callback URLs. A browser at the staging
+  // CloudFront origin cannot call the staging API at all. The alternative —
+  // widening that allowlist and the Cognito URL lists to include the deployed
+  // origin — is a real infra change to a real trust surface, and it buys only
+  // the deploy itself (the env vars SST bakes into the static site, and the
+  // distribution in front of it). Contract drift against the API, which is the
+  // whole point of the suite, is covered either way.
+  //
+  // The build is the real production build of this commit, pointed at the real
+  // staging API — which is what the suite exists to check.
   webServer: {
+    // build:e2e differs from build in one way: it skips the `tsc` pass, which
+    // `pnpm typecheck` already owns and CI already runs. Paying for it here
+    // would only slow down a rebuild the suite takes on every run (see
+    // reuseExistingServer below).
     command: 'pnpm build:e2e && pnpm preview:e2e',
     cwd: webRoot,
     url: BASE_URL,

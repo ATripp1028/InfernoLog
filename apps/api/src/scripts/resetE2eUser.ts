@@ -1,6 +1,6 @@
 // Resets the dedicated E2E user to a known state. Called by Playwright's
-// globalSetup (apps/web/e2e/globalSetup.ts) once per run — see
-// docs/E2E_TESTING.md.
+// globalSetup (apps/web/e2e/globalSetup.ts) once per run, and again before any
+// retry (apps/web/e2e/testBase.ts).
 //
 // Reset BEFORE a run, never after: a crashed run should leave its evidence in
 // the database for debugging, and the next run cleans up regardless.

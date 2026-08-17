@@ -1,6 +1,7 @@
 // Provisions the dedicated E2E user: a native Cognito identity plus its
 // InfernoLog `users` row. A one-time setup step per stage — the per-run reset
-// is resetE2eUser.ts. See docs/E2E_TESTING.md.
+// is resetE2eUser.ts. The stage also needs `pnpm db:seed:official`, which is
+// where the suite's fixture levels come from.
 //
 // The user is native (username + password), NOT Google-federated, so the suite
 // can sign in through ADMIN_USER_PASSWORD_AUTH without a browser ever visiting

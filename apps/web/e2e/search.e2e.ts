@@ -22,8 +22,8 @@ import { CLUBSTEP, STEREO_MADNESS } from './fixtures/levels'
 // every other user of the stage has already found — which means every assertion
 // here has to be relational (no overlap between pages, ordering across the
 // boundary, the cursor the client sent back). How many rows come back is not
-// knowable and is never asserted, for the same reason docs/E2E_TESTING.md gives
-// about counts of the user's own rows.
+// knowable and is never asserted, for the same reason this directory's README
+// gives about counts of the user's own rows.
 //
 // Cache only, deliberately. GET /v1/levels/gd-search and POST /v1/levels both
 // reach RobTop's servers, whose reachability is exactly what the official-level

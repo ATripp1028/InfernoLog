@@ -126,8 +126,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `LIST_INTEGRATIONS.md`          | GDDL tier tracking (multi-list AREDL/NLW design was abandoned)                                                                                                                                                 |
 | `LOGGING_FLOW.md`               | FAB-triggered logging modal: completion / progress / drop paths                                                                                                                                                |
 | `LEVEL_LOGGING.md`              | Progress entry model, completion flow, drop flow                                                                                                                                                               |
-| `CODE_QUALITY.md`               | How code is written (not what it does): JSDoc and duplication rules that apply everywhere, then backend (route errors, logging, layering) and frontend (component/logic split, flows, styling tokens) sections |
-| `E2E_TESTING.md`                | Playwright against a real staging backend — the harness, how to run and provision it, and the Cognito audience and Amplify storage constraints it depends on                                                   |
+| `CODE_QUALITY.md`               | How code is written (not what it does): JSDoc and duplication rules that apply everywhere, then backend (route errors, logging, layering) and frontend (component/logic split, flows, styling tokens, and the end-to-end suite's scope rules) sections |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
 > | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |

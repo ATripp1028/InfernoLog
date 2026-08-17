@@ -49,7 +49,7 @@ function entryRow(page: Page, level: FixtureLevel) {
  *
  * Matches the card link on a prefix because its accessible name also carries
  * the entry count ("Want to Beat Built-in 1 level"), and a count is the one
- * thing a spec here must not pin — see docs/E2E_TESTING.md, "Test data".
+ * thing a spec here must not pin — see this directory's README.
  *
  * Navigating from the index rather than deep-linking is also how the built-in
  * collections' ids are discovered at all: they are per-user UUIDs the suite has

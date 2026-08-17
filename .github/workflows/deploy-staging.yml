@@ -116,7 +116,7 @@ jobs:
   # environment, so it only runs once something actually landed there. Since
   # this workflow is itself pull_request-triggered, that makes E2E a PR gate
   # for anything that deploys — accepted deliberately, because a PR that
-  # breaks staging is already broken. See docs/E2E_TESTING.md, "Where it runs".
+  # breaks staging is already broken.
   e2e-staging:
     needs: verify-staging
     uses: ./.github/workflows/e2e.yml
