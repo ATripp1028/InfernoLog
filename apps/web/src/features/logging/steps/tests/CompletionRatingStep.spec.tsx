@@ -114,11 +114,11 @@ describe('CompletionRatingStep', () => {
 
     // `null` is "not rated yet", which the control shows as 0 without the
     // draft claiming the user chose 0.
-    it('renders an unset rating as zero without patching the draft', () => {
-      const { flow } = render({ draft: { enjoyment: null } })
+    it('defaults to 50 for all scores', () => {
+      const { flow } = render({ draft: { enjoyment: null, simpleRating: null } })
 
-      expect(stepper('Enjoyment Score')).toHaveValue('0.0')
-      expect(flow.patchDraft).not.toHaveBeenCalled()
+      expect(flow.patchDraft).toHaveBeenCalledWith({ enjoyment: 50 })
+      expect(flow.patchDraft).toHaveBeenCalledWith({ simpleRating: 50 })
     })
   })
 

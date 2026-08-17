@@ -16,13 +16,24 @@ export function CompletionRatingStep() {
   const me = useMe()
   useEffect(() => {
     if (!me.data) return
-    if (isEmptyOrNullObject(draft.ratingScores)) {
-      patchDraft({ ratingScores: me.data.ratingCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 50 }), {}) })
+    switch (me.data.ratingMode) {
+      case 'SIMPLE':
+        if (!draft.simpleRating) {
+          patchDraft({ simpleRating: 50 })
+        }
+        break
+      case 'WEIGHTED':
+        if (isEmptyOrNullObject(draft.ratingScores)) {
+          patchDraft({ ratingScores: me.data.ratingCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 50 }), {}) })
+        }
+        break
+      default:
+        console.error(`Unknown rating mode: ${me.data.ratingMode}`)
     }
     if (!draft.enjoyment) {
       patchDraft({ enjoyment: 50 })
     }
-  }, [draft.ratingScores, patchDraft, me.data, draft.enjoyment])
+  }, [draft.ratingScores, patchDraft, me.data, draft.enjoyment, draft.simpleRating])
   if (!level || !me.data) return null
 
   const scale = me.data.ratingDisplayScale
