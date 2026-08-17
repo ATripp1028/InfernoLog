@@ -2,7 +2,7 @@
 // packages/core's Prisma-backed enums as plain string-literal unions.
 //
 // Two reasons this file exists rather than importing core's enums directly:
-// core pins zod@3 while the server validates on zod@4 (see CLAUDE.md), and
+// core pins zod@3 while the server validates on zod@4, and
 // core's nominal TS `enum` types do not narrow from the plain strings that
 // `JSON.parse` hands back — a string-literal union does, with an ordinary
 // `as` cast. packages/core/src/difficultyOpinion.ts documents the same

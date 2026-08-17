@@ -82,6 +82,48 @@ export const E2E_LEVELS = {
   deadlocked: { inGameId: '20', name: 'Deadlocked' },
   /** Non-demon, for a custom collection that is not about difficulty. */
   stereoMadness: { inGameId: '1', name: 'Stereo Madness' },
+  /**
+   * The Want to Beat handoff's level, and nothing else's. That spec logs a
+   * completion for it, so it deliberately does not share one with the specs
+   * above: an already-completed level sinks below actionable ones in the find
+   * step (lib/levelSearchResults.ts) and reopens the wizard on the existing
+   * completion rather than a fresh one.
+   */
+  fingerdash: { inGameId: '21', name: 'Fingerdash' },
+  /**
+   * The progress path's level, and nothing else's. That spec logs a run
+   * against it and then edits the run, so it has to stay unbeaten for the
+   * same reason fingerdash is not shared.
+   */
+  electrodynamix: { inGameId: '15', name: 'Electrodynamix' },
+  /** The drop path's level, and nothing else's. */
+  hexagonForce: { inGameId: '16', name: 'Hexagon Force' },
+  /**
+   * The level page's edit path. Completed and then deleted by the spec that
+   * owns it, so it is shared with nothing.
+   */
+  blastProcessing: { inGameId: '17', name: 'Blast Processing' },
+  /**
+   * The level page's entry-deletion path. Two runs are logged against it and
+   * both are deleted, which removes the level entry itself.
+   */
+  geometricalDominator: { inGameId: '19', name: 'Geometrical Dominator' },
+  /**
+   * The list-preset spec's pair, and nothing else's. One ends up unbeaten and
+   * one dropped, so the saved view's status filter has a row to keep as well
+   * as a row to hide — a preset whose only visible effect is an absence
+   * cannot tell "the filter applied" from "the list failed to load".
+   */
+  vikingArena: { inGameId: '24', name: 'Viking Arena' },
+  powerTrip: { inGameId: '38', name: 'Power Trip' },
+  /**
+   * The spreadsheet import spec's pair, and nothing else's. One is completed
+   * through the UI before the import runs, so the sheet's row for it
+   * conflicts with a stored completion; the other is only ever named by the
+   * sheet, so the same import also covers a plain insert.
+   */
+  airborneRobots: { inGameId: '25', name: 'Airborne Robots' },
+  payload: { inGameId: '26', name: 'Payload' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

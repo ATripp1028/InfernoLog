@@ -40,3 +40,104 @@ export const STEREO_MADNESS: FixtureLevel = {
   name: 'Stereo Madness',
   creator: 'RobTop',
 }
+
+// Only the Want to Beat handoff logs against this one. That spec completes it,
+// and a completed level is not interchangeable with the ones above: it sinks
+// below actionable rows in the find step and reopens the wizard on the
+// existing completion instead of a fresh one.
+export const FINGERDASH: FixtureLevel = {
+  inGameId: '21',
+  name: 'Fingerdash',
+  creator: 'RobTop',
+}
+
+// The progress path's level, and nothing else's. The spec logs a run against
+// it and then edits that run, so it has to stay unbeaten: a level that already
+// carries a completion reopens the wizard on the existing entry rather than a
+// fresh one.
+export const ELECTRODYNAMIX: FixtureLevel = {
+  inGameId: '15',
+  name: 'Electrodynamix',
+  creator: 'RobTop',
+}
+
+// The drop path's level, and nothing else's — a dropped level is not
+// interchangeable with the ones above either.
+export const HEXAGON_FORCE: FixtureLevel = {
+  inGameId: '16',
+  name: 'Hexagon Force',
+  creator: 'RobTop',
+}
+
+// The level-page edit path's level, and nothing else's. It is completed and
+// then deleted by the spec that owns it, so it can be shared with nothing:
+// a completed level reopens the wizard on the existing completion, and a
+// deleted one has no page left to visit.
+//
+// A main level specifically, because main levels carry three secret coins and
+// the edit modal renders its coin picker only for a level that has any — so a
+// stage whose `levels` rows predate the `coins` column fails here rather than
+// silently skipping that field. Re-run `pnpm db:seed:official` if it does.
+export const BLAST_PROCESSING: FixtureLevel = {
+  inGameId: '17',
+  name: 'Blast Processing',
+  creator: 'RobTop',
+}
+
+// The entry-deletion path's level, and nothing else's. The spec logs two runs
+// against it and deletes both, which deletes the level entry itself.
+//
+// Not "Theory of Everything" (in-game id 12), which would otherwise fit here:
+// its name is a prefix of "Theory of Everything 2", so a name search for it
+// matches two rows and the find step's row locator stops being unambiguous.
+export const GEOMETRICAL_DOMINATOR: FixtureLevel = {
+  inGameId: '19',
+  name: 'Geometrical Dominator',
+  creator: 'RobTop',
+}
+
+// The list-preset spec's pair, and nothing else's. That spec logs a run
+// against one and drops the other, so the status filter its saved view stores
+// has a row to keep as well as a row to hide. A preset whose only visible
+// effect is an absence cannot tell "the filter applied" from "the list failed
+// to load", which is why it takes two levels rather than one.
+//
+// Both names are searched by the find step, so neither may be a substring of
+// another official level's name — "Dash" (in-game id 22) is the one that is,
+// and is why it is not the pick here.
+export const VIKING_ARENA: FixtureLevel = {
+  inGameId: '24',
+  name: 'Viking Arena',
+  creator: 'RobTop',
+}
+
+export const POWER_TRIP: FixtureLevel = {
+  inGameId: '38',
+  name: 'Power Trip',
+  creator: 'RobTop',
+}
+
+// The import spec's pair, and nothing else's. The spreadsheet carries a
+// completion row for each: one for a level the spec has already completed
+// through the UI (so the row conflicts with a stored completion and the
+// /check pass has something to report), and one for a level nothing has
+// touched (so the same sheet also exercises a plain insert).
+//
+// Both have to stay out of every other spec's way for the usual reason — a
+// level that already carries a completion reopens the logging wizard on the
+// existing entry — and Airborne Robots additionally has to be findable by
+// name in the find step, which rules out any name that is a substring of
+// another official level's.
+export const AIRBORNE_ROBOTS: FixtureLevel = {
+  inGameId: '25',
+  name: 'Airborne Robots',
+  creator: 'RobTop',
+}
+
+// Only ever reached by its in-game id, from the sheet — the import spec never
+// searches for it, so the wizard's find step never sees this one.
+export const PAYLOAD: FixtureLevel = {
+  inGameId: '26',
+  name: 'Payload',
+  creator: 'RobTop',
+}

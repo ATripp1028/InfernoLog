@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
+import { levelCard, logCompletion } from './flows'
 import {
   CLUBSTEP,
   DEADLOCKED,
@@ -23,60 +24,6 @@ import {
 // single most reliable way to make an E2E suite flaky, and it would be
 // asserting dnd-kit rather than our contract.
 test.use({ viewport: { width: 390, height: 844 } })
-
-/**
- * Opens the logging flow from the mobile FAB.
- *
- * The FAB itself is labelled with the primary action, and tapping it opens a
- * `role="menu"` sheet whose rows carry the same labels — so the sheet row has
- * to be scoped to the menu or the locator matches two elements.
- */
-async function openLoggingFlow(page: Page, action: string) {
-  await page.getByRole('button', { name: 'Log a completion' }).click()
-  await page
-    .getByRole('menu', { name: 'Quick actions' })
-    .getByRole('button', { name: action })
-    .click()
-}
-
-/**
- * Walks the completion wizard from the FAB to the success card.
- *
- * The wizard is four "Continue" steps plus a review. `c_gddl` would add a
- * fifth, but only for a user with a GDDL key connected — which is why the
- * reset script clears it.
- */
-async function logCompletion(
-  page: Page,
-  level: FixtureLevel,
-  attempts: string
-) {
-  await openLoggingFlow(page, 'Log a completion')
-
-  // Search by NAME, not by ID. The find step only previews a typed ID at four
-  // or more digits, and below that treats it as an unknown level to fetch live
-  // from RobTop's servers — the fixture levels are official, so their IDs are
-  // one and two digits. A name search hits the cache, which is where they are.
-  await page.getByLabel('Level ID or name').fill(level.name)
-  await page
-    .getByRole('button', {
-      name: new RegExp(level.name + ' by ' + level.creator),
-    })
-    .click()
-
-  await page.getByLabel('Attempts').fill(attempts)
-  await page.getByRole('button', { name: 'Continue' }).click() // basics → rating
-  await page.getByRole('button', { name: 'Continue' }).click() // rating → session
-  await page.getByRole('button', { name: 'Continue' }).click() // session → refs
-  await page.getByRole('button', { name: 'Continue' }).click() // refs → review
-
-  await expect(page.getByRole('heading', { name: 'Looks good?' })).toBeVisible()
-  await page.getByRole('button', { name: 'Log completion' }).click()
-
-  await expect(
-    page.getByRole('heading', { name: `${level.name} logged` })
-  ).toBeVisible()
-}
 
 /**
  * A ranked row, which renders as `#<rank> — <name>` (em dash).
@@ -125,9 +72,7 @@ test.describe('completion', () => {
     // Reload rather than trusting the post-mutation cache: what this spec is
     // for is the server's view of what was written.
     await page.reload()
-    await expect(
-      page.getByRole('button', { name: 'Open Clubstep details' })
-    ).toBeVisible()
+    await expect(levelCard(page, CLUBSTEP)).toBeVisible()
   })
 
   test('places completions in the ranking and reorders them', async ({

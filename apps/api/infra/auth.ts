@@ -88,7 +88,7 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
 // ─────────────────────────────────────────────
 // E2E APP CLIENT — non-production stages only
 //
-// The Playwright suite (docs/E2E_TESTING.md) needs a Cognito session without
+// The Playwright suite (apps/web/e2e/) needs a Cognito session without
 // driving Google's OAuth flow in a browser, so it signs a dedicated native
 // user in with ADMIN_USER_PASSWORD_AUTH. That flow is deliberately NOT added
 // to InfernoLogWebClient: the client the real frontend ships with must never

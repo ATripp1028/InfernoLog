@@ -14,8 +14,8 @@ import type { Context } from 'hono'
  * The minimal surface needed from a schema, declared structurally rather than
  * as a zod type on purpose: `packages/core` is on zod@3 while this app is on
  * zod@4, and naming either one here would make the helper accept only that
- * half. See CLAUDE.md on the api↔core zod split — parse with core's schemas,
- * don't build on them.
+ * half. See `docs/CODE_QUALITY.md` Backend §3 on the api↔core zod split —
+ * parse with core's schemas, don't build on them.
  */
 interface BodySchema<T> {
   safeParse(

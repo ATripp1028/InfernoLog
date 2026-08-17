@@ -244,9 +244,13 @@ on malformed JSON, which reaches `onError` as a 500 — the wrong answer for a
 client-side mistake.
 
 **Validate with a schema from `packages/core` and return its error.** Mind the
-Zod split documented in `CLAUDE.md`: parse with core schemas, never compose them
-into locally-declared Zod 4 schemas. When surfacing a single message to a user,
-use `error.issues[0].message` — `error.message` is a JSON dump of every issue.
+Zod split: `packages/core` is on `zod@3` while this app is on `zod@4`, so parse
+with core's schemas — calling `.safeParse` across the boundary is fine, and is
+what the route handlers do — but never **compose** one into a locally-declared
+Zod 4 schema (`z.object({ ...CoreSchema.shape })`, `.extend()`, `.and()`), which
+mixes instances across a major version and defeats type inference. When
+surfacing a single message to a user, use `error.issues[0].message` —
+`error.message` is a JSON dump of every issue.
 
 **Take identity from `c.get('userId')`.** It is the internal UUID, never the
 Cognito sub, and never a value from a path segment or payload. It is already
@@ -587,22 +591,25 @@ number formatting follows the reader's locale by design; asserting `'Mar 14,
 surrounding structure (which segments appear, the prefix, that two different
 inputs differ) instead.
 
+### 8. End-to-end tests are documented with the suite
+
+Playwright against a real deployed stage, in `apps/web/e2e/`. Its `README.md`
+is the whole of it — what the suite is for, what a spec has to do to belong in
+it, how to run and provision it — and is deliberately not summarized here: it
+sits beside the specs it governs, which is where someone about to write one is
+already looking.
+
+The one thing worth knowing from this side is the boundary. That suite exists
+to catch drift between the deployed API and the deployed frontend, because §7's
+specs stub `lib/api/` at the module boundary and cannot see it. Everything §7
+covers — rendering detail, empty states, disabled-button logic, validation copy,
+responsive layout — stays here, in tests that run in seconds and fail with a
+usable stack trace. A behaviour that has a home in §7 does not get an E2E spec
+as well.
+
 ### Not covered yet
 
 Deliberately unsettled, so nothing here is mistaken for a rule:
 
 - **Data fetching** — query key shape, cache invalidation, and where a
   `lib/api/` hook ends and feature logic begins.
-
-End-to-end tests are neither unsettled nor unbuilt: the harness lives in
-`apps/web/e2e/` and is documented in `E2E_TESTING.md` (Playwright against a
-real staging backend, with a native Cognito test user). What is still open is
-coverage, not approach — so far only the harness's own smoke spec plus the
-completion/ranking round trip.
-
-Two rules carry over from that document into anything written there. Specs live
-in `apps/web/e2e/`, **outside `src/`**, so vitest and Playwright cannot pick up
-each other's files. And the suite stays deliberately small: it earns its cost by
-catching contract drift between the deployed API and the frontend, so rendering
-detail, empty states, and validation copy belong in the component tests above,
-which run in seconds and fail with a usable stack trace.

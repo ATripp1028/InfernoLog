@@ -356,7 +356,7 @@ POST   /v1/me/api-keys/{keyId}/rotate
 
 **Planned, and not currently the source of truth.** No `openapi.yaml` exists in the repo, no `/docs` endpoint is served, and the frontend does not run `openapi-typescript`. Today the shared contract is `packages/core` — Zod schemas and types imported by both `apps/web` and `apps/api`.
 
-The intent remains spec-first development with `openapi.yaml` as the contract and generated frontend types. Until that exists, **`packages/core` is where a new cross-the-wire shape belongs** — define it there rather than duplicating Zod schemas in each app. Note `apps/web` pins `zod@3` while `apps/api` and `packages/core` are on `zod@4`; be careful which schema utilities you reach for.
+The intent remains spec-first development with `openapi.yaml` as the contract and generated frontend types. Until that exists, **`packages/core` is where a new cross-the-wire shape belongs** — define it there rather than duplicating Zod schemas in each app. Note the version boundary is api↔core, not web↔api: `packages/core` pins `zod@3` while `apps/api` is on `zod@4`, and `apps/web` declares no zod of its own. Parse with a core schema, never compose one into a locally-declared Zod 4 schema — see `CODE_QUALITY.md` Backend §3.
 
 ---
 

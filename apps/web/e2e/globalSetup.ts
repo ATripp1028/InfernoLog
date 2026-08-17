@@ -3,8 +3,11 @@
 // `storageState`. Every spec starts from that file, so the app boots already
 // authenticated and no test ever visits the OAuth flow.
 //
-// See docs/E2E_TESTING.md, "The auth problem", for why the session is minted
-// out-of-band rather than driven through the browser.
+// Minted out-of-band rather than driven through the browser because sign-in is
+// Google federation only, and Google actively blocks automated sign-in. The two
+// halves that makes possible are documented where each lives: the dedicated
+// native app client in apps/api/infra/auth.ts, and the localStorage shape it is
+// written into in amplifyStorage.ts.
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'

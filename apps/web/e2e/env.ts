@@ -3,8 +3,8 @@
 // Two layers of variables:
 //
 //  - Inputs, supplied by the caller (CI secrets, or a developer's shell).
-//    E2E_STAGE has no default on purpose — see docs/E2E_TESTING.md, "Test
-//    data". Pointing this suite at the wrong stage deletes real rows.
+//    E2E_STAGE has no default on purpose: pointing this suite at a stage
+//    RESETS that stage's E2E user data, so the target is never inferred.
 //  - Stage config, resolved from SSM by run.ts and handed down to the
 //    Playwright process as E2E_API_URL / E2E_USER_POOL_ID / E2E_CLIENT_ID.
 //    They are read here rather than re-fetched so the config, the global
@@ -20,6 +20,10 @@ export const BASE_URL = 'http://localhost:5173'
 export const STAGE_PARAMETERS = {
   E2E_API_URL: 'api-url',
   E2E_USER_POOL_ID: 'user-pool-id',
+  // `e2e-client-id` exists only on non-production stages, because the app
+  // client it names does (apps/api/infra/auth.ts guards it on stage). A
+  // ParameterNotFound on this one is what "you pointed the suite at
+  // production" looks like from the runner.
   E2E_CLIENT_ID: 'e2e-client-id',
   E2E_COGNITO_DOMAIN: 'cognito-domain',
 } as const
@@ -39,7 +43,7 @@ function require_(name: string): string {
   const value = process.env[name]
   if (!value) {
     throw new Error(
-      `${name} is not set. The E2E suite is run through \`pnpm test:e2e\`, which resolves stage config from SSM — see docs/E2E_TESTING.md.`
+      `${name} is not set. The E2E suite is run through \`pnpm test:e2e\` (see e2e/run.ts), which resolves stage config from SSM rather than taking it from the environment directly.`
     )
   }
   return value

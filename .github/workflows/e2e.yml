@@ -1,13 +1,15 @@
 name: E2E
 
-# Playwright against a real deployed backend — see docs/E2E_TESTING.md.
+# Playwright against a real deployed backend. The suite lives in
+# apps/web/e2e/, and that directory's README.md documents it.
 #
 # Deliberately NOT part of ci.yml. This suite drives a shared, mutable
 # environment, so it can only run once something has actually been deployed
 # there: it is a post-deploy gate on staging, plus workflow_dispatch for
 # debugging. Because deploy-staging.yml runs on pull_request, that post-deploy
 # gate is in practice a required check on any PR touching apps/** — accepted
-# deliberately. See docs/E2E_TESTING.md, "Where it runs".
+# deliberately, which is why a flaky spec gets fixed or deleted rather than
+# retried harder.
 #
 # `stage` is required with no default, everywhere. Pointing this suite at a
 # stage resets that stage's E2E user data.
