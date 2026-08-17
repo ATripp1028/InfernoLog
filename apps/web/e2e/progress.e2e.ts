@@ -42,10 +42,13 @@ test.use({ viewport: { width: 390, height: 844 }, timezoneId: 'UTC' })
 // other zone would be a spec that fails once a year.
 const RUN_ZONE = 'Asia/Tokyo'
 const RUN_DATE = '2026-03-14'
-// 00:30 in Tokyo is 15:30 UTC on the 13th. Both times below are chosen for
-// that: read back without the zone, the entry lands on the previous day.
+// Both times are before 09:00, which is the whole point: Tokyo is UTC+9, so
+// 00:30 there is 15:30 UTC on the 13th and 08:15 is 23:15 UTC on the 13th.
+// Read back without the zone, either one lands the entry on the previous day.
+// A time at or after 09:00 would keep the same UTC date and let a dropped
+// `dateTimezone` pass the date assertions unnoticed.
 const RUN_TIME = '00:30'
-const EDITED_TIME = '23:50'
+const EDITED_TIME = '08:15'
 
 const DROP_DATE = '2026-02-02'
 const DROP_REASON = 'E2E: setting this one aside.'

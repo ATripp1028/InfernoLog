@@ -298,13 +298,18 @@ test.describe('spreadsheet import', () => {
     // Registered before the commit rather than after it: a job that finished
     // before the first poll came back would otherwise never be observed as
     // `completed` by anything this test waits on.
+    //
+    // Deliberately under the 120s test timeout above. At 120s the two expire
+    // together and the test timeout always wins, so a job stuck in `running`
+    // reports as a bare timeout with nothing naming the status poll; the
+    // shorter budget makes this wait fail first, with its own message.
     const completed = page.waitForResponse(
       async (r) => {
         if (!r.url().endsWith('/v1/me/import/status')) return false
         const body = (await r.json()) as StatusResponse
         return body.data?.status === 'completed'
       },
-      { timeout: 120_000 }
+      { timeout: 90_000 }
     )
 
     await dialog.getByRole('button', { name: 'Resolve 1 level' }).click()

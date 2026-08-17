@@ -242,11 +242,22 @@ test.describe('search / browse', () => {
     // scrolling the last row into view can carry the sentinel far enough to ask
     // for a third page, and how many pages the cache holds is not this spec's
     // business.
+    //
+    // The wait is what makes that read safe. Everything asserted since the
+    // second response ran against already-parsed JSON, so nothing has yet
+    // waited on the render it triggered, and `rows.all()` is a one-shot read
+    // that would happily snapshot the first page alone. `expect.poll` retries;
+    // a bare `toBeGreaterThanOrEqual` on the array length would not.
+    const expected = ids.map((id) => `/levels/${id}`)
+    await expect
+      .poll(() => rows.count(), {
+        message: 'the second page never rendered into the grid',
+      })
+      .toBeGreaterThanOrEqual(expected.length)
+
     const hrefs = await Promise.all(
       (await rows.all()).map((r) => r.getAttribute('href'))
     )
-    const expected = ids.map((id) => `/levels/${id}`)
-    expect(hrefs.length).toBeGreaterThanOrEqual(expected.length)
     expect(hrefs.slice(0, expected.length)).toEqual(expected)
   })
 
