@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { logCompletion, openQuickAction } from './flows'
+import { levelResultRow, logCompletion, openQuickAction } from './flows'
 import {
   FINGERDASH,
   STEREO_MADNESS,
@@ -68,16 +68,19 @@ async function openCollection(page: Page, name: string) {
  * fixture levels are official, so their ids are one and two digits, below the
  * four the dialog needs before it treats a typed number as a level id.
  *
+ * The field is located here rather than in flows.ts even though the logging
+ * flow's find step carries an identical label: `Level ID or name` is written
+ * out separately in AddLevelsDialog, AddToCollectionDialog and FindLevelStep,
+ * so a shared helper would let a relabelling in one break specs driving
+ * another. The result row is the opposite case — one shared component — hence
+ * the import.
+ *
  * The dialog closing is what says the POST resolved — "Add another after this"
  * is off by default, so a successful add is the only thing that closes it.
  */
 async function addLevel(page: Page, level: FixtureLevel) {
   await page.getByLabel('Level ID or name').fill(level.name)
-  await page
-    .getByRole('button', {
-      name: new RegExp(`${level.name} by ${level.creator}`),
-    })
-    .click()
+  await levelResultRow(page, level).click()
   await expect(page.getByLabel('Level ID or name')).toBeHidden()
 }
 

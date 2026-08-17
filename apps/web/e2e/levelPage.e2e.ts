@@ -2,7 +2,9 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
 import {
   findLevel,
+  levelCard,
   logCompletion,
+  logRun,
   onScreen,
   openLevelPage,
   openQuickAction,
@@ -123,21 +125,6 @@ async function confirmDelete(page: Page, title: string, urlEnd: RegExp) {
   return await responded
 }
 
-/**
- * Walks the two-step progress flow from an already-picked level to the write.
- *
- * The second step is entirely optional fields, so nothing is filled there.
- * The dialog closing is what says the POST resolved — this file asserts on
- * the deletes, not on the logging, which progress.e2e.ts already owns.
- */
-async function logRun(page: Page, run: string, date: string) {
-  await page.getByLabel('This run', { exact: true }).fill(run)
-  await page.getByLabel('Date', { exact: true }).fill(date)
-  await page.getByRole('button', { name: 'Continue' }).click()
-  await page.getByRole('button', { name: 'Log progress' }).click()
-  await expect(page.getByRole('dialog')).toBeHidden()
-}
-
 test.describe('level page', () => {
   test('edits the level-scoped fields, reads them back, and deletes the level', async ({
     page,
@@ -251,11 +238,7 @@ test.describe('level page', () => {
 
     await expect(page).toHaveURL(/\/list$/)
     await page.reload()
-    await expect(
-      page.getByRole('button', {
-        name: `Open ${BLAST_PROCESSING.name} details`,
-      })
-    ).toBeHidden()
+    await expect(levelCard(page, BLAST_PROCESSING)).toBeHidden()
   })
 
   test('deletes one logged entry, then the last one', async ({ page }) => {
@@ -317,10 +300,6 @@ test.describe('level page', () => {
 
     await expect(page).toHaveURL(/\/list$/)
     await page.reload()
-    await expect(
-      page.getByRole('button', {
-        name: `Open ${GEOMETRICAL_DOMINATOR.name} details`,
-      })
-    ).toBeHidden()
+    await expect(levelCard(page, GEOMETRICAL_DOMINATOR)).toBeHidden()
   })
 })

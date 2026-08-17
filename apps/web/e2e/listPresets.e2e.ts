@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { findLevel, openQuickAction } from './flows'
-import { POWER_TRIP, VIKING_ARENA, type FixtureLevel } from './fixtures/levels'
+import { findLevel, levelCard, logRun, openQuickAction } from './flows'
+import { POWER_TRIP, VIKING_ARENA } from './fixtures/levels'
 
 // Saved List views across the wire: POST / PATCH / DELETE
 // /v1/me/list-presets, and the view a stored preset drives once it is read
@@ -61,16 +61,6 @@ const QUERY_CACHE_KEY = 'infernolog:query-cache'
 async function coldReload(page: Page) {
   await page.evaluate((key) => localStorage.removeItem(key), QUERY_CACHE_KEY)
   await page.reload()
-}
-
-/**
- * A level's row in the mobile list, located by the card's own accessible name.
- */
-function levelCard(page: Page, level: FixtureLevel): Locator {
-  return page.getByRole('button', {
-    name: `Open ${level.name} details`,
-    exact: true,
-  })
 }
 
 /**
@@ -175,13 +165,10 @@ test.describe('list presets', () => {
       (r) =>
         r.request().method() === 'POST' && r.url().endsWith('/v1/me/progress')
     )
-    // The run percentage is the only field ProgressStep requires; the date
-    // defaults to today (types.ts's `todayDateInput`).
-    await page.getByLabel('This run', { exact: true }).fill('47')
-    await page.getByRole('button', { name: 'Continue' }).click()
-    await page.getByRole('button', { name: 'Log progress' }).click()
+    // No date: only the run percentage is required, and ProgressStep defaults
+    // the date to today (types.ts's `todayDateInput`).
+    await logRun(page, '47')
     expect((await runLogged).status()).toBe(201)
-    await expect(page.getByRole('dialog')).toBeHidden()
 
     await openQuickAction(page, 'Drop a level')
     await findLevel(page, POWER_TRIP)

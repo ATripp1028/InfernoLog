@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { logCompletion } from './flows'
+import { levelCard, logCompletion } from './flows'
 import {
   CLUBSTEP,
   DEADLOCKED,
@@ -72,9 +72,7 @@ test.describe('completion', () => {
     // Reload rather than trusting the post-mutation cache: what this spec is
     // for is the server's view of what was written.
     await page.reload()
-    await expect(
-      page.getByRole('button', { name: 'Open Clubstep details' })
-    ).toBeVisible()
+    await expect(levelCard(page, CLUBSTEP)).toBeVisible()
   })
 
   test('places completions in the ranking and reorders them', async ({

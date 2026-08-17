@@ -47,6 +47,23 @@ export function onScreen(locator: Locator): Locator {
 }
 
 /**
+ * A level's card in the List, located by the card's own accessible name.
+ *
+ * Mobile only, and that is not incidental: `MobilePager` is the one place in
+ * the app that writes an `Open <name> details` label, so this locator does not
+ * resolve at all above `md`, where the List is a table. Every spec that uses it
+ * runs at a mobile viewport for its own reasons anyway.
+ *
+ * Exact, so a level whose name is a prefix of another's cannot match both.
+ */
+export function levelCard(page: Page, level: FixtureLevel): Locator {
+  return page.getByRole('button', {
+    name: `Open ${level.name} details`,
+    exact: true,
+  })
+}
+
+/**
  * The level's own page, reached by URL rather than through the List.
  *
  * Deep-linking on purpose: the List's card for a given level is only reachable
@@ -63,6 +80,23 @@ export async function openLevelPage(page: Page, level: FixtureLevel) {
 }
 
 /**
+ * A level's row in any search result list.
+ *
+ * The `<name> by <creator>` accessible name comes from
+ * `components/data/LevelResultRow`, which the logging flow's find step and both
+ * collection dialogs all render — so it is one fact with one owner, and belongs
+ * here rather than being rebuilt per surface. The text *field* those surfaces
+ * share is not: `Level ID or name` is written out independently in three
+ * components, and a helper spanning them would let a label change in one break
+ * specs driving another.
+ */
+export function levelResultRow(page: Page, level: FixtureLevel): Locator {
+  return page.getByRole('button', {
+    name: new RegExp(`${level.name} by ${level.creator}`),
+  })
+}
+
+/**
  * Picks a level in the logging flow's find step, whichever path opened it.
  *
  * Search by NAME, not by ID. The find step only previews a typed ID at four
@@ -75,11 +109,7 @@ export async function openLevelPage(page: Page, level: FixtureLevel) {
  */
 export async function findLevel(page: Page, level: FixtureLevel) {
   await page.getByLabel('Level ID or name').fill(level.name)
-  await page
-    .getByRole('button', {
-      name: new RegExp(level.name + ' by ' + level.creator),
-    })
-    .click()
+  await levelResultRow(page, level).click()
 }
 
 /**
@@ -111,4 +141,27 @@ export async function logCompletion(
   await expect(
     page.getByRole('heading', { name: `${level.name} logged` })
   ).toBeVisible()
+}
+
+/**
+ * Walks the two-step progress wizard from an already-picked level to the write.
+ *
+ * The caller opens the flow and picks the level, because the two paths in
+ * differ: the List's FAB walks the find step, while a level page's own FAB
+ * resolves the level it is already on and skips it.
+ *
+ * Only the run percentage is required — `ProgressStep` defaults the date to
+ * today — and the second step is entirely optional fields, so nothing is
+ * filled there. A spec that cares which fields were written should drive the
+ * steps itself rather than call this; progress.e2e.ts owns that assertion, and
+ * this exists for the specs that need a logged run as a fixture.
+ *
+ * The dialog closing is what says the POST resolved.
+ */
+export async function logRun(page: Page, run: string, date?: string) {
+  await page.getByLabel('This run', { exact: true }).fill(run)
+  if (date) await page.getByLabel('Date', { exact: true }).fill(date)
+  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByRole('button', { name: 'Log progress' }).click()
+  await expect(page.getByRole('dialog')).toBeHidden()
 }
