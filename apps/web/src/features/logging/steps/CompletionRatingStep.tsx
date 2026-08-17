@@ -5,6 +5,8 @@ import { useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
 import { formatRating, toDisplay, toInternal } from '@/lib/ratingScale'
 import { computeWeightedAvg } from '@/utils/weightHandling'
+import { isEmptyOrNullObject } from '@/lib/utils'
+import { useEffect } from 'react'
 
 /**
  * Completion step 2: enjoyment and the rating, simple or per category.
@@ -12,6 +14,26 @@ import { computeWeightedAvg } from '@/utils/weightHandling'
 export function CompletionRatingStep() {
   const { level, draft, patchDraft, setStep } = useLoggingFlow()
   const me = useMe()
+  useEffect(() => {
+    if (!me.data) return
+    switch (me.data.ratingMode) {
+      case 'SIMPLE':
+        if (!draft.simpleRating) {
+          patchDraft({ simpleRating: 50 })
+        }
+        break
+      case 'WEIGHTED':
+        if (isEmptyOrNullObject(draft.ratingScores)) {
+          patchDraft({ ratingScores: me.data.ratingCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 50 }), {}) })
+        }
+        break
+      default:
+        console.error(`Unknown rating mode: ${me.data.ratingMode}`)
+    }
+    if (!draft.enjoyment) {
+      patchDraft({ enjoyment: 50 })
+    }
+  }, [draft.ratingScores, patchDraft, me.data, draft.enjoyment, draft.simpleRating])
   if (!level || !me.data) return null
 
   const scale = me.data.ratingDisplayScale
