@@ -116,6 +116,14 @@ export const E2E_LEVELS = {
    */
   vikingArena: { inGameId: '24', name: 'Viking Arena' },
   powerTrip: { inGameId: '38', name: 'Power Trip' },
+  /**
+   * The spreadsheet import spec's pair, and nothing else's. One is completed
+   * through the UI before the import runs, so the sheet's row for it
+   * conflicts with a stored completion; the other is only ever named by the
+   * sheet, so the same import also covers a plain insert.
+   */
+  airborneRobots: { inGameId: '25', name: 'Airborne Robots' },
+  payload: { inGameId: '26', name: 'Payload' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

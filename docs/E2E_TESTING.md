@@ -11,8 +11,9 @@ writes reached from the level page itself: the level-scoped edit, deleting a
 single logged entry, and deleting the whole entry, and
 `apps/web/e2e/listPresets.e2e.ts` the saved-view CRUD and the filter blob a
 preset stores. `apps/web/e2e/search.e2e.ts`, the only read-only spec in the
-suite, covers the /search page's keyset pagination over the levels cache. The
-spreadsheet import is the one in-scope flow still to be written.
+suite, covers the /search page's keyset pagination over the levels cache, and
+`apps/web/e2e/import.e2e.ts` the spreadsheet import — the last in-scope flow,
+and the widest contract in the app.
 
 Two setup steps are one-time manual ops per stage and are not automated away —
 see _Provisioning a stage_.
@@ -63,7 +64,30 @@ That framing sets the scope hard:
   boundary. It pages a creator search twice: once on a numeric sort whose
   values all tie (official levels carry no download count, so the page
   boundary can only be crossed through the keyset's `inGameId` arm) and once
-  on a text sort, the cursor's other value type.
+  on a text sort, the cursor's other value type. `import.e2e.ts` is the widest
+  contract of the lot, and the only asynchronous one: a three-row sheet goes
+  through POST `/v1/me/import/check`, back out on POST `/v1/me/import/start`
+  carrying the resolution the user picked, and is then read by polling GET
+  `/v1/me/import/status` until the worker Lambda finishes. None of those
+  shapes is checked anywhere else. A conflict's `fields` are
+  `{ field, existingValue, importedValue }` triples whose values are `unknown`
+  by construction and whose `field` is the API's camelCase property name — not
+  the sheet's snake_case header, and not anything TypeScript relates to either
+  side, so a renamed field degrades to an unlabelled row in the resolver
+  rather than an error. The `resolution` the wizard folds back into each
+  committed row is the only thing telling the worker to overwrite rather than
+  skip, so dropping it reads as a successful import that changed nothing —
+  which is why the spec asserts the /start request body and then re-reads the
+  overwritten value through GET `/v1/me/export`, the round trip the import
+  format is designed around. The sheet is deliberately three rows and one
+  conflict: one row conflicts with a completion the spec logged through the
+  wizard first, one inserts a level nothing has touched, and one names a level
+  that does not exist — which is what produces the flagged row that PATCH
+  `/v1/me/import/rows/{rowId}/resolve` is answered with. That third row
+  resolves to "Level not found" whether or not RobTop is reachable
+  (`searchRobtopByName` returns `[]` for every failure mode it has), so it
+  costs latency rather than determinism. It is the slowest spec in the suite
+  and carries its own raised timeout for that reason.
 - **Out of scope** — rendering detail, empty states, disabled-button logic,
   validation copy, responsive layout. Those belong in component tests, which
   run in seconds instead of minutes and fail with a usable stack trace.
@@ -269,6 +293,16 @@ empty database.
   `Asia/Calcutta`), and `selectOption` fails with "did not find some options"
   rather than anything mentioning timezones. Pick a zone that has never been
   renamed and has no DST, as `progress.e2e.ts` and `levelPage.e2e.ts` both do.
+
+- **The import toast is a real button, mounted outside the wizard.**
+  `ImportStatusToast` is a persistent (`duration: Infinity`) toast at the app
+  shell, and while a job has an unresolved flagged row its label — "Import
+  complete — N rows need review" — shares wording with the flagged-row panel's
+  own header inside the wizard. A `getByRole('button', { name: /need review/ })`
+  matches both and fails strict mode rather than the assertion, which is why
+  `import.e2e.ts` scopes every wizard locator to the dialog. It also sits
+  bottom-left over whatever is behind it, so a button that ends up in that
+  corner is one a click can be intercepted on.
 
 - **A reload is not automatically a server read.** The query client persists
   to localStorage (`main.tsx`'s `PersistQueryClientProvider`) with a
@@ -487,7 +521,8 @@ Still to do, and not automatable from here:
 - [ ] Run `e2e:provision` against staging (Cognito identity + `users` row)
 - [ ] Add `E2E_USER_EMAIL` / `E2E_USER_PASSWORD` to the `staging` environment's
       GitHub Secrets
-- [ ] Write the last in-scope flow spec: run a spreadsheet import. (Logging a
-      completion, placing it in the ranking, adding a level to a collection,
-      logging and editing a run, dropping a level, editing a level's own
-      fields, the two delete paths, and the browse cursor are covered.)
+
+Every in-scope flow now has a spec: logging a completion, placing it in the
+ranking, adding a level to a collection, logging and editing a run, dropping a
+level, editing a level's own fields, the two delete paths, the browse cursor,
+and the spreadsheet import.

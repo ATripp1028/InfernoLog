@@ -116,3 +116,28 @@ export const POWER_TRIP: FixtureLevel = {
   name: 'Power Trip',
   creator: 'RobTop',
 }
+
+// The import spec's pair, and nothing else's. The spreadsheet carries a
+// completion row for each: one for a level the spec has already completed
+// through the UI (so the row conflicts with a stored completion and the
+// /check pass has something to report), and one for a level nothing has
+// touched (so the same sheet also exercises a plain insert).
+//
+// Both have to stay out of every other spec's way for the usual reason — a
+// level that already carries a completion reopens the logging wizard on the
+// existing entry — and Airborne Robots additionally has to be findable by
+// name in the find step, which rules out any name that is a substring of
+// another official level's.
+export const AIRBORNE_ROBOTS: FixtureLevel = {
+  inGameId: '25',
+  name: 'Airborne Robots',
+  creator: 'RobTop',
+}
+
+// Only ever reached by its in-game id, from the sheet — the import spec never
+// searches for it, so the wizard's find step never sees this one.
+export const PAYLOAD: FixtureLevel = {
+  inGameId: '26',
+  name: 'Payload',
+  creator: 'RobTop',
+}
