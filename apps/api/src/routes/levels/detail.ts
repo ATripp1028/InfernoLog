@@ -16,6 +16,7 @@ import {
   levelDetailSelect,
   levelPageSelect,
 } from '../../services/levels/selects'
+import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -26,6 +27,8 @@ const app = new Hono<{ Variables: HonoVariables }>()
 //   404 { reason: 'not_found' }   — GD has no such level (terminal; nothing
 //                                   cached, so a later visit re-resolves)
 //   503 { reason: 'unreachable' } — GD couldn't be reached (retryable)
+//   429 { reason: 'rate_limited' }— this user has spent their RobTop budget
+//                                   (only reachable on a cache miss)
 app.get('/levels/:levelId/page', async (c) => {
   const userId = c.get('userId')
   const levelId = c.req.param('levelId')
@@ -34,7 +37,13 @@ app.get('/levels/:levelId/page', async (c) => {
     return c.json({ error: 'Level ID must be numeric' }, 400)
   }
 
-  const resolved = await findOrResolveLevel(levelId, levelPageSelect)
+  // The budget is charged from inside findOrResolveLevel's cache-miss hook, so
+  // opening the page for a level already in the cache — the overwhelmingly
+  // common case — costs nothing. See utils/robtopUserBudget.ts. A dry budget
+  // throws to the module's onError → 429.
+  const resolved = await findOrResolveLevel(levelId, levelPageSelect, () =>
+    chargeRobtopBudget(userId)
+  )
 
   if (resolved.status === 'not_found') {
     return c.json({ error: 'No such level', reason: 'not_found' }, 404)

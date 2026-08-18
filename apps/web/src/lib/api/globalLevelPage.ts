@@ -23,19 +23,24 @@ export interface GlobalLevelPageData extends Level {
  * The distinguishable non-2xx outcomes the page branches on. Anything else
  * (a 500, a network failure) is treated the same as an unreachable resolve.
  */
-export type LevelPageErrorKind = 'not_found' | 'unreachable' | 'unknown'
+export type LevelPageErrorKind =
+  | 'not_found'
+  | 'unreachable'
+  | 'rate_limited'
+  | 'unknown'
 
 /**
  * Classifies a failed Global Level Page fetch into the states the page renders.
  *
- * @returns `not_found` for 404 and `unreachable` for 503 — both terminal,
- * each with its own copy and manual Retry. Everything else is `unknown` and
- * worth retrying automatically.
+ * @returns `not_found` for 404, `unreachable` for 503, and `rate_limited` for
+ * 429 — each terminal, with its own copy and manual Retry. Everything else is
+ * `unknown` and worth retrying automatically.
  */
 export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
   if (error instanceof ApiError) {
     if (error.status === 404) return 'not_found'
     if (error.status === 503) return 'unreachable'
+    if (error.status === 429) return 'rate_limited'
   }
   return 'unknown'
 }
@@ -48,16 +53,28 @@ export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
  * immediately as states rather than being retried away (each offers a manual
  * Retry); everything else — a 500, a network failure — is likely transient
  * (e.g. a DB cold start), so we retry it a couple of times before giving up.
+ *
+ * A 429 (the per-user GD-lookup budget) MUST also be excluded from the retry
+ * set, and for a stronger reason than the other two: only a cache miss can
+ * produce one, so each automatic retry would be another uncached lookup —
+ * spending more of the very budget that is already empty, three requests deep,
+ * before the user sees anything.
  */
 export function useGlobalLevelPage(levelId: string) {
   const { isAuthenticated, getIdToken } = useAuth()
   return useQuery({
     queryKey: ['global-level-page', levelId],
     enabled: isAuthenticated && !!levelId,
-    // 404/503 are meaningful states, not failures to retry; retry anything else.
+    // 404/503/429 are meaningful states, not failures to retry; retry the rest.
     retry: (failureCount, error) => {
       const kind = levelPageErrorKind(error)
-      if (kind === 'not_found' || kind === 'unreachable') return false
+      if (
+        kind === 'not_found' ||
+        kind === 'unreachable' ||
+        kind === 'rate_limited'
+      ) {
+        return false
+      }
       return failureCount < 2
     },
     queryFn: async (): Promise<GlobalLevelPageData> => {

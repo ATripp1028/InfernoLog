@@ -12,7 +12,11 @@
 import { randomUUID } from 'node:crypto'
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
-import type { ImportRatingEntry, ImportRatingConflict } from '@infernolog/core'
+import {
+  MAX_RATING_CATEGORIES,
+  type ImportRatingEntry,
+  type ImportRatingConflict,
+} from '@infernolog/core'
 
 /** Outcome of committing a spreadsheet's Ratings tab. */
 export interface ImportRatingsResult {
@@ -125,6 +129,12 @@ export async function commitImportRatings(
   const scoredLpIds = new Set<string>()
   // Preserve first-seen order + original casing for any categories we create.
   const newCategoryNames = new Map<string, string>()
+  // Categories already reported as over the cap. The cap is a property of the
+  // COLUMN, not of any one row, so it is reported once — pushing a skip per
+  // (row × over-cap column) would multiply one stray column into thousands of
+  // identical entries, and this array is stored on the ImportJob row and
+  // returned by every status poll.
+  const overCapReported = new Set<string>()
 
   for (const entry of entries) {
     const label =
@@ -152,8 +162,25 @@ export async function commitImportRatings(
       const name = rawName.trim()
       if (!name) continue
       const key = name.toLowerCase()
-      if (!catIdByName.has(key) && !newCategoryNames.has(key))
+      if (!catIdByName.has(key) && !newCategoryNames.has(key)) {
+        // This is the only bulk path that creates rating categories, and the
+        // sheet's column names are attacker-chosen. The settings editor caps an
+        // account at MAX_RATING_CATEGORIES; honour the same ceiling here rather
+        // than letting a crafted Ratings tab mint thousands of rows. Over the
+        // cap the score is skipped, not the whole import — a sheet with a stray
+        // extra column should still bring in everything else.
+        if (catIdByName.size + newCategoryNames.size >= MAX_RATING_CATEGORIES) {
+          if (!overCapReported.has(key)) {
+            overCapReported.add(key)
+            skipped.push({
+              label: `Category “${name}”`,
+              reason: `Skipped — an account can have at most ${MAX_RATING_CATEGORIES} rating categories`,
+            })
+          }
+          continue
+        }
         newCategoryNames.set(key, name)
+      }
       pending.push({ lpId, categoryName: key, score })
       scoredLpIds.add(lpId)
     }

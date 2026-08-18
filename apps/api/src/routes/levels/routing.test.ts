@@ -20,6 +20,15 @@ const { mockBrowseLevels, mockRunGdSearch, mockQueryRaw } = vi.hoisted(() => ({
   mockQueryRaw: vi.fn(),
 }))
 
+// This spec pins mount order, not metering. Its shared $queryRaw mock is the
+// one the search handler uses, so leaving the budget real would make every
+// route here 429 on an empty result. Real behaviour is covered by
+// robtopBudget.integration.test.ts.
+vi.mock('../../utils/robtopUserBudget', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../utils/robtopUserBudget')>()),
+  chargeRobtopBudget: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('../../utils/prisma', () => ({
   default: {
     $queryRaw: mockQueryRaw,

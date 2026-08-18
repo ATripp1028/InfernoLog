@@ -66,6 +66,12 @@ export async function resetE2eUser(email: string) {
     prisma.listPreset.deleteMany({ where: { userId } }),
     prisma.gddlSyncJob.deleteMany({ where: { userId } }),
     prisma.apiKey.deleteMany({ where: { userId } }),
+    // The per-user RobTop budget (utils/robtopUserBudget.ts). The suite is
+    // nowhere near the cap, but the E2E user is long-lived and shared across
+    // runs, so a run that did exhaust it would fail every subsequent run's
+    // level resolution with a 429 until the bucket refilled. Resetting makes
+    // each run independent, which is the whole point of this script.
+    prisma.robtopUserBudget.deleteMany({ where: { userId } }),
   ])
 
   await seedBuiltInCollections(userId)

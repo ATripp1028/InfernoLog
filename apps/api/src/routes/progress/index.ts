@@ -26,6 +26,7 @@ import { createErrorHandler } from '../../middleware/errors'
 import {
   LevelNotFoundError,
   ProgressFieldsNotApplicableError,
+  RatingCategoryNotOwnedError,
 } from '../../services/progress'
 import listRoutes from './list'
 import levelPageRoutes from './levelPage'
@@ -37,12 +38,14 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
 app.onError(
   createErrorHandler('Progress', (error, c) => {
-    // Both are client-sequencing / client-input errors, not server faults:
-    // writing against a level that was never resolved into the cache, and
-    // putting percentage/runFrom/runTo on an update that isn't kind=PROGRESS.
+    // All three are client-sequencing / client-input errors, not server
+    // faults: writing against a level that was never resolved into the cache,
+    // putting percentage/runFrom/runTo on an update that isn't kind=PROGRESS,
+    // and naming a rating category owned by someone else.
     if (
       error instanceof LevelNotFoundError ||
-      error instanceof ProgressFieldsNotApplicableError
+      error instanceof ProgressFieldsNotApplicableError ||
+      error instanceof RatingCategoryNotOwnedError
     ) {
       return c.json({ error: error.message }, 400)
     }

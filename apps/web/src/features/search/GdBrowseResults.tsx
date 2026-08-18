@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import type { LevelSearchResult } from '@/lib/api/logging'
 import { backOriginState } from '@/lib/backOrigin'
+import { formatRetryWait } from '@/lib/api/client'
 import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
@@ -72,6 +73,22 @@ export function GdBrowseResults({
           {result.totalFound > 0
             ? `All ${result.totalFound} result${result.totalFound === 1 ? '' : 's'} are already in the cache and shown above.`
             : 'GD’s servers returned no matches.'}
+        </p>
+      </div>
+    )
+  }
+
+  // 429 — the per-user GD-lookup budget, not a GD fault. See GdSearchSection.
+  if (result?.status === 'rate_limited') {
+    return (
+      <div className="mt-4 border-t border-border-subtle pt-3">
+        <p className="text-sm font-medium text-text-primary">
+          Too many GD searches
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Searching GD’s servers is limited per account. Try again in{' '}
+          {formatRetryWait(result.retryAfterSeconds)} — cache search is
+          unaffected.
         </p>
       </div>
     )

@@ -15,6 +15,7 @@ import {
 import {
   DelistedBanner,
   NotFoundState,
+  RateLimitedState,
   ResolveFailedState,
   GenericErrorState,
   PageSkeleton,
@@ -30,6 +31,7 @@ export function GlobalLevelPage() {
     back,
     isLoading,
     errorKind,
+    retryAfterSeconds,
     retry,
     goToList,
     level,
@@ -58,6 +60,17 @@ export function GlobalLevelPage() {
   // 503 — GD genuinely unreachable (a cache miss whose RobTop resolve failed).
   if (errorKind === 'unreachable') {
     return <ResolveFailedState onRetry={retry} onSearch={goToList} />
+  }
+  // 429 — this user's GD-lookup budget is spent. Only a cache miss can reach
+  // it, so cached levels keep loading; the copy says so.
+  if (errorKind === 'rate_limited') {
+    return (
+      <RateLimitedState
+        retryAfterSeconds={retryAfterSeconds}
+        onRetry={retry}
+        onSearch={goToList}
+      />
+    )
   }
   // Anything else (500, network failure) — don't blame GD; a cached level's
   // /page request never touches it.

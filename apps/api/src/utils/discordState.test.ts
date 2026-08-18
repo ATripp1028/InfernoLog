@@ -1,11 +1,16 @@
 /**
  * Unit tests for the signed Discord OAuth `state`.
  *
- * This value stands in for a Cognito JWT on the callback — the browser arrives
- * from Discord with no auth header, so whatever userId this decodes to is what
- * the account gets linked to. Every forgery path must return null, and the
- * "return null, never throw, never explain why" contract has to hold for
- * malformed input too. Real HMAC; only the clock and the secret are stubbed.
+ * The state carries a userId across a redirect that cannot carry a JWT, and
+ * these tests cover the one guarantee it makes: the userId inside cannot be
+ * changed by anyone without the signing secret. Every forgery path must return
+ * null, and the "return null, never throw, never explain why" contract has to
+ * hold for malformed input too.
+ *
+ * What the state does NOT establish — that whoever presents it is that user —
+ * is checked by POST /v1/me/connect-discord/complete instead, and is covered by
+ * routes/account/discordComplete.test.ts. Real HMAC here; only the clock and
+ * the secret are stubbed.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -15,7 +20,7 @@ import {
   verifyConnectDiscordState,
 } from './discordState'
 
-const SECRET = 'discord-client-secret'
+const SECRET = 'discord-state-secret'
 const USER_ID = '11111111-2222-3333-4444-555555555555'
 const NONCE = 'nonce-abc'
 const NOW_SECONDS = 1_760_000_000
@@ -38,7 +43,7 @@ function stateOf(
 }
 
 beforeEach(() => {
-  vi.stubEnv('DISCORD_CLIENT_SECRET', SECRET)
+  vi.stubEnv('DISCORD_STATE_SECRET', SECRET)
   vi.useFakeTimers()
   vi.setSystemTime(NOW_SECONDS * 1000)
 })

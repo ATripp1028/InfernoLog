@@ -19,7 +19,10 @@ import {
   useAddCollectionEntry,
   collectionErrorCode,
 } from '@/lib/api/collections'
-import { ApiError } from '@/lib/api/client'
+import {
+  ApiError,
+  retryAfterSeconds as retryAfterSecondsOf,
+} from '@/lib/api/client'
 import { toast } from '@/components/generic/sonner'
 
 /**
@@ -38,6 +41,9 @@ export function useGlobalLevelDetailPage() {
   const query = useGlobalLevelPage(levelId)
   const level = query.data
   const errorKind = query.error ? levelPageErrorKind(query.error) : null
+  // Only meaningful alongside errorKind === 'rate_limited'; the helper falls
+  // back to a sane default for every other error, so it needs no guard here.
+  const retryAfterSeconds = retryAfterSecondsOf(query.error)
 
   // Want to Beat is a built-in collection — resolve its id so the FAB can add
   // this level to it in one tap (the API enforces the "unbeaten only" rule).
@@ -132,6 +138,7 @@ export function useGlobalLevelDetailPage() {
     isLoading: query.isPending,
     // 'not_found' / 'unreachable' / anything else — each gets its own render.
     errorKind,
+    retryAfterSeconds,
     retry: () => void query.refetch(),
     goToList: () => void navigate({ to: '/list' }),
     level,
