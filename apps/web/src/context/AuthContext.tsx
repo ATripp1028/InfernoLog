@@ -50,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const session = await fetchAuthSession()
       const signedIn = !!session.tokens?.idToken
-      if (signedIn && session.userSub) await claimCacheOwner(session.userSub)
+      if (signedIn) await claimCacheOwner(session.userSub)
       setIsAuthenticated(signedIn)
     } catch {
       setIsAuthenticated(false)

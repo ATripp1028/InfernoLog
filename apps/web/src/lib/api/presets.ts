@@ -135,7 +135,7 @@ export function useUpdatePreset() {
     }): Promise<ListPreset> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ListPreset }>(
-        `/v1/me/list-presets/${id}`,
+        `/v1/me/list-presets/${encodeURIComponent(id)}`,
         { token, method: 'PATCH', body: input }
       )
       return data

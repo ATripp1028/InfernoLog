@@ -25,14 +25,18 @@ export function StatusIcons({
 }) {
   const icons: React.ReactNode[] = []
   const video = item.entry?.videoUrl
+  // A URL that isn't safe to put in an href still means "this run has a video",
+  // so the row keeps the icon — it just loses the link rather than rendering an
+  // anchor that does nothing when clicked.
+  const videoHref = safeHref(video)
 
   if (video)
     icons.push(
-      interactive ? (
+      interactive && videoHref ? (
         <Tooltip key="video">
           <TooltipTrigger asChild>
             <a
-              href={safeHref(video)}
+              href={videoHref}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}

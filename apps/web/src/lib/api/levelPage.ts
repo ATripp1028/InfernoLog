@@ -20,7 +20,7 @@ export function useLevelPage(levelId: string) {
     queryFn: async (): Promise<LevelPageData> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: LevelPageData }>(
-        `/v1/me/progress/${levelId}`,
+        `/v1/me/progress/${encodeURIComponent(levelId)}`,
         { token, method: 'GET' }
       )
       return data
@@ -67,10 +67,13 @@ export function useDeleteProgressUpdate(levelId: string) {
       const token = await getIdToken()
       const { data } = await apiFetch<{
         data: { deletedLevelProgress: boolean }
-      }>(`/v1/me/progress/${levelId}/updates/${progressUpdateId}`, {
-        token,
-        method: 'DELETE',
-      })
+      }>(
+        `/v1/me/progress/${encodeURIComponent(levelId)}/updates/${encodeURIComponent(progressUpdateId)}`,
+        {
+          token,
+          method: 'DELETE',
+        }
+      )
       return data
     },
     // Deleting a completion removes its Ranking entry; deleting the last

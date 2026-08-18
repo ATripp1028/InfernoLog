@@ -159,7 +159,7 @@ export function useReorderRanking() {
     }: ReorderVars): Promise<ClassicRankingResponse> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ClassicRankingResponse }>(
-        `/v1/me/ranking/classic/${levelProgressId}`,
+        `/v1/me/ranking/classic/${encodeURIComponent(levelProgressId)}`,
         { token, method: 'PATCH', body }
       )
       return data
@@ -205,7 +205,7 @@ export function useUnplaceRanking() {
     ): Promise<ClassicRankingResponse> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ClassicRankingResponse }>(
-        `/v1/me/ranking/classic/${levelProgressId}`,
+        `/v1/me/ranking/classic/${encodeURIComponent(levelProgressId)}`,
         { token, method: 'DELETE' }
       )
       return data

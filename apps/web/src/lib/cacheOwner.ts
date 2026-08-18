@@ -34,9 +34,17 @@ async function discardCache(): Promise<void> {
  * authenticated route already blocks on `isAuthInitializing`, which is what
  * gives this the window it needs.
  *
- * @param sub - The Cognito `sub` of the signed-in identity.
+ * @param sub - The Cognito `sub` of the signed-in identity, or a nullish value
+ * when the session did not carry one (`userSub` comes off the access token,
+ * while the signed-in check reads the ID token — they can in principle
+ * disagree). An identity we cannot name has to fail closed: it is not this
+ * cache's owner, so the cache goes rather than staying for whoever is next.
  */
-export async function claimCacheOwner(sub: string): Promise<void> {
+export async function claimCacheOwner(
+  sub: string | null | undefined
+): Promise<void> {
+  if (!sub) return releaseCacheOwner()
+
   let owner: string | null = null
   try {
     owner = localStorage.getItem(OWNER_KEY)
