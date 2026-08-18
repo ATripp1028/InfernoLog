@@ -1,3 +1,11 @@
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
+
+# pnpm 10 blocks dependency lifecycle scripts by default. @sentry/cli's
+# postinstall is what fetches the platform binary that @sentry/vite-plugin
+# shells out to when uploading source maps, so without this the web build
+# fails at the upload step (and only on a stage that has SENTRY_AUTH_TOKEN
+# set, which makes it look stage-specific rather than like a missing binary).
+onlyBuiltDependencies:
+  - '@sentry/cli'

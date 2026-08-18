@@ -5,6 +5,7 @@ import { Shell } from '@/components/shell/Shell'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { useAuth } from '@/context/AuthContext'
 import { useMe } from '@/lib/api/me'
+import { setSentryUser } from '@/lib/sentry'
 import { useRouteGuard } from '@/lib/useRouteGuard'
 import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 import { toast } from '@/components/generic/sonner'
@@ -34,6 +35,16 @@ function AuthenticatedLayout() {
     when: !!me.data && !me.data.onboardingCompleted,
     to: '/onboarding',
   })
+
+  // Tags crash reports with who hit them. Mounted here rather than in
+  // AuthContext because this is the first place the internal user id exists —
+  // AuthContext only knows the Cognito identity, and `setSentryUser` wants the
+  // id the API authorizes against. Unmounting (sign-out, or the guards below
+  // bouncing to /) clears the tag.
+  useEffect(() => {
+    setSentryUser(me.data?.id)
+    return () => setSentryUser(undefined)
+  }, [me.data?.id])
 
   if (blockedByAuth) {
     return <PageLoading />

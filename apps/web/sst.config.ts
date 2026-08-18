@@ -54,6 +54,39 @@ export default $config({
     // ─────────────────────────────────────────────
     const stripSlash = (url: string) => url.replace(/\/+$/, '')
 
+    // ─────────────────────────────────────────────
+    // SENTRY
+    //
+    // A browser DSN is public by construction — it ships inside the JS bundle
+    // and the only thing it authorizes is POSTing events into this one
+    // project — so it is a literal here rather than an sst.Secret. (The API's
+    // DSN is a secret only because it sits in a Lambda env, where nothing
+    // forces the distinction.) Committing it to a public repo discloses
+    // nothing that `view-source` on the deployed site does not.
+    //
+    // What a public repo does change is the effort of ABUSING it: the DSN is
+    // greppable here without anyone visiting the site, and a DSN accepts
+    // events from anywhere, so the realistic risk is a stranger flooding the
+    // project and burning the quota that real crashes need. Neither the code
+    // nor the CSP can prevent that — the CSP constrains this app's browser,
+    // not curl. The mitigations live in Sentry project settings: set Allowed
+    // Domains to the app's origins so events with a foreign Origin/Referer
+    // are dropped, and leave spike protection and a rate limit on.
+    //
+    // The CSP origin below is derived from this same string rather than
+    // written out a second time. Sentry's ingest host is part of the DSN, so
+    // hand-maintaining both is a standing invitation to swap projects and
+    // silently lose every event to a CSP block — which reports nowhere,
+    // because the reporting is what got blocked.
+    //
+    // Empty disables the frontend SDK entirely (see src/lib/sentry.ts) and
+    // drops the origin from the CSP.
+    // ─────────────────────────────────────────────
+    const SENTRY_DSN_WEB: string =
+      'https://2fb5eeec010a47d8830606036f4b516a@o4511232638779392.ingest.us.sentry.io/4511232677052416'
+
+    const sentryOrigin = SENTRY_DSN_WEB ? new URL(SENTRY_DSN_WEB).origin : ''
+
     const csp = [
       "default-src 'self'",
       "script-src 'self'",
@@ -65,7 +98,16 @@ export default $config({
       // levelthumbs: level thumbnails. img.youtube.com: video posters.
       // gdladder.com: the GDDL favicon on the API-key settings row.
       "img-src 'self' data: blob: https://levelthumbs.prevter.me https://img.youtube.com https://gdladder.com",
-      `connect-src 'self' ${stripSlash(apiUrl.value)} https://cognito-idp.us-east-1.amazonaws.com https://${cognitoDomain.value}`,
+      [
+        "connect-src 'self'",
+        stripSlash(apiUrl.value),
+        'https://cognito-idp.us-east-1.amazonaws.com',
+        `https://${cognitoDomain.value}`,
+        // Sentry event ingest. Derived from the DSN above.
+        sentryOrigin,
+      ]
+        .filter(Boolean)
+        .join(' '),
       // Completion video embeds (HeroVideo). Both srcs are rebuilt from an
       // extracted id, never from the user's URL verbatim.
       'frame-src https://www.youtube.com https://clips.twitch.tv',
@@ -151,6 +193,12 @@ export default $config({
           $app.stage === 'production'
             ? 'https://infernolog.com'
             : 'http://localhost:5173',
+        VITE_SENTRY_DSN: SENTRY_DSN_WEB,
+        // The SST stage, not the Vite build mode. `import.meta.env.MODE` is
+        // `production` for any `vite build`, so using it would tag staging's
+        // events `production` too and leave the two indistinguishable in the
+        // one project both stages report to.
+        VITE_SENTRY_ENVIRONMENT: $app.stage,
       },
       transform: {
         cdn: (args) => {
