@@ -11,6 +11,18 @@ import { sharedNodeOptions } from './defaults'
 // existing-but-unverified stub levels — see getOrCreateLevel's needsSeed in
 // services/gddlSync.ts). Both workers live in infra/workers.ts.
 //
+// Concurrency is bounded twice, and the two bounds are not redundant:
+// `concurrency.reserved` is an ACCOUNT-level reservation (this function can
+// never take more than 5 of the account's 1000, and always has 5 available),
+// while the event source mapping's `maximumConcurrency` is how many invocations
+// SQS will drive. AWS wants the latter <= the former, or SQS scales into a wall
+// and burns receive counts on throttled messages, so they are deliberately the
+// same number — change one and change the other.
+//
+// The reservation is what stops background work starving the API. A 10-minute
+// batch × 5 in flight used to be 5 slots held out of an account limit of 10,
+// which together with the import/GDDL workers could leave the API with none.
+//
 // The system-wide rate limit is enforced by the shared Postgres-backed token
 // bucket (utils/robtopRateLimit.ts) rather than by serializing this consumer —
 // that limiter is explicitly safe under concurrent callers (an atomic row
@@ -51,16 +63,17 @@ levelSeedQueue.subscribe(
     environment: sharedEnvironment,
     ...sharedNodeOptions,
     timeout: '10 minutes',
+    concurrency: { reserved: 5 },
   },
   {
     batch: { size: 1 },
-    // Cap in-flight seed batches at 5. This is the event source mapping's
-    // scaling config, NOT the function's reserved concurrency: this account's
-    // total concurrent-execution limit is 10, and AWS refuses any reservation
-    // that would drop unreserved concurrency below its floor of 10 — so
-    // `concurrency: { reserved: n }` cannot be used here at all. maximumConcurrency
-    // caps how many invocations this queue drives without reserving anything
-    // from the account pool. Valid range is 2–1000.
+    // Cap in-flight seed batches at 5, matching the reserved concurrency above.
+    // This is the event source mapping's scaling config — how hard SQS pushes —
+    // and it is set alongside the reservation rather than instead of it. (It
+    // used to be the only cap available: the account limit was 10, and AWS
+    // rejects a reservation that would leave too little unreserved, so
+    // `concurrency.reserved` was unusable until that limit was raised to 1000.)
+    // Valid range is 2–1000.
     transform: {
       eventSourceMapping: {
         scalingConfig: { maximumConcurrency: 5 },

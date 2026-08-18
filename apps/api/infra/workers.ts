@@ -5,6 +5,30 @@ import { sharedNodeOptions } from './defaults'
 import { gddlKmsKey } from './kms'
 import { levelSeedQueue } from './queue'
 
+// ─────────────────────────────────────────────
+// WORKER CONCURRENCY
+//
+// Both workers below run for up to 15 minutes per invocation, and both are
+// invoked asynchronously. Without a reservation, a burst of them competes for
+// the same account-wide pool the API serves requests from — and a 15-minute
+// occupant does not give the slot back quickly. Reserving caps each worker so
+// that can't happen, and simultaneously guarantees each one a floor so a busy
+// API can't starve background work either.
+//
+// The caps are per stage, and three stages share the account's 1000. Together
+// with the seed queue's 5 (infra/queue.ts) that is 25 per stage, ~75 in total,
+// leaving the API well over 900 — the point is the ceiling, not the size of it.
+//
+// Throttling here is safe by construction: both are invoked with
+// InvocationType 'Event', and Lambda queues and retries async invocations that
+// hit a concurrency limit rather than dropping them. A throttled import starts
+// late; it does not fail. The one caveat is GddlSyncJob's 20-minute stale
+// timeout (routes/account/gddlSync.ts) — a sync throttled for longer than that
+// would be reported as timed out, which is why its cap is generous relative to
+// the number of users who could plausibly sync at once.
+// ─────────────────────────────────────────────
+const WORKER_RESERVED_CONCURRENCY = 10
+
 // Worker Lambda — runs the full GDDL import in the background so that
 // API Gateway's hard 29-second integration timeout never applies.
 // The route Lambda invokes this asynchronously (InvocationType: Event)
@@ -28,6 +52,7 @@ export const gddlSyncWorker = new sst.aws.Function('GddlSyncWorker', {
     },
   ],
   timeout: '15 minutes',
+  concurrency: { reserved: WORKER_RESERVED_CONCURRENCY },
   ...sharedNodeOptions,
 })
 
@@ -52,6 +77,9 @@ export const importWorker = new sst.aws.Function('ImportWorker', {
     },
   ],
   timeout: '15 minutes',
+  // Caps simultaneous IMPORT JOBS, not batches: a job's self-reinvoke is
+  // sequential, so one job never holds more than one slot at a time.
+  concurrency: { reserved: WORKER_RESERVED_CONCURRENCY },
   ...sharedNodeOptions,
 })
 
