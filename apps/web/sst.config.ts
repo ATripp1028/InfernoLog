@@ -3,15 +3,15 @@
 export default $config({
   app(input) {
     return {
-      name: "infernolog-web",
-      removal: input?.stage === "production" ? "retain" : "remove",
-      home: "aws",
+      name: 'infernolog-web',
+      removal: input?.stage === 'production' ? 'retain' : 'remove',
+      home: 'aws',
       providers: {
         aws: {
-          region: "us-east-1",
+          region: 'us-east-1',
         },
       },
-    };
+    }
   },
   async run() {
     // Read backend outputs from SSM
@@ -52,7 +52,7 @@ export default $config({
     // CSS is not an execution sink. The built index.html carries no inline
     // <script>, so script-src stays at 'self'.
     // ─────────────────────────────────────────────
-    const stripSlash = (url: string) => url.replace(/\/+$/, "")
+    const stripSlash = (url: string) => url.replace(/\/+$/, '')
 
     const csp = [
       "default-src 'self'",
@@ -68,7 +68,7 @@ export default $config({
       `connect-src 'self' ${stripSlash(apiUrl.value)} https://cognito-idp.us-east-1.amazonaws.com https://${cognitoDomain.value}`,
       // Completion video embeds (HeroVideo). Both srcs are rebuilt from an
       // extracted id, never from the user's URL verbatim.
-      "frame-src https://www.youtube.com https://clips.twitch.tv",
+      'frame-src https://www.youtube.com https://clips.twitch.tv',
       "media-src 'self' blob:",
       "worker-src 'self' blob:",
       // Nothing in this app is meant to be framed, embedded, or to post a
@@ -77,11 +77,11 @@ export default $config({
       "form-action 'self'",
       "base-uri 'none'",
       "object-src 'none'",
-      "upgrade-insecure-requests",
-    ].join("; ")
+      'upgrade-insecure-requests',
+    ].join('; ')
 
     const responseHeaders = new aws.cloudfront.ResponseHeadersPolicy(
-      "InfernoLogWebHeaders",
+      'InfernoLogWebHeaders',
       {
         name: `infernolog-web-security-headers-${$app.stage}`,
         securityHeadersConfig: {
@@ -90,9 +90,9 @@ export default $config({
             override: true,
           },
           contentTypeOptions: { override: true },
-          frameOptions: { frameOption: "DENY", override: true },
+          frameOptions: { frameOption: 'DENY', override: true },
           referrerPolicy: {
-            referrerPolicy: "strict-origin-when-cross-origin",
+            referrerPolicy: 'strict-origin-when-cross-origin',
             override: true,
           },
           // Two years with preload, matching the HSTS preload list's
@@ -108,16 +108,16 @@ export default $config({
         customHeadersConfig: {
           items: [
             {
-              header: "Permissions-Policy",
+              header: 'Permissions-Policy',
               value:
-                "accelerometer=(self), camera=(), display-capture=(), geolocation=(), gyroscope=(self), microphone=(), payment=(), usb=()",
+                'accelerometer=(self), camera=(), display-capture=(), geolocation=(), gyroscope=(self), microphone=(), payment=(), usb=()',
               override: true,
             },
             // Referrer-Policy above is the enforced one; this pairs with it to
             // keep the app out of other origins' process-level side channels.
             {
-              header: "Cross-Origin-Opener-Policy",
-              value: "same-origin-allow-popups",
+              header: 'Cross-Origin-Opener-Policy',
+              value: 'same-origin-allow-popups',
               override: true,
             },
           ],
@@ -125,16 +125,16 @@ export default $config({
       }
     )
 
-    const web = new sst.aws.StaticSite("InfernoLogWeb", {
-      path: ".",
+    const web = new sst.aws.StaticSite('InfernoLogWeb', {
+      path: '.',
       build: {
-        command: "pnpm build",
-        output: "dist",
+        command: 'pnpm build',
+        output: 'dist',
       },
       domain:
-        $app.stage === "production"
+        $app.stage === 'production'
           ? {
-              name: "infernolog.com",
+              name: 'infernolog.com',
               dns: sst.aws.dns(),
             }
           : undefined,
@@ -144,13 +144,13 @@ export default $config({
         VITE_COGNITO_CLIENT_ID: userPoolClientId.value,
         VITE_COGNITO_DOMAIN: cognitoDomain.value,
         VITE_REDIRECT_SIGN_IN:
-          $app.stage === "production"
-            ? "https://infernolog.com/auth/callback"
-            : "http://localhost:5173/auth/callback",
+          $app.stage === 'production'
+            ? 'https://infernolog.com/auth/callback'
+            : 'http://localhost:5173/auth/callback',
         VITE_REDIRECT_SIGN_OUT:
-          $app.stage === "production"
-            ? "https://infernolog.com"
-            : "http://localhost:5173",
+          $app.stage === 'production'
+            ? 'https://infernolog.com'
+            : 'http://localhost:5173',
       },
       transform: {
         cdn: (args) => {
