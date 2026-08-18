@@ -43,8 +43,17 @@ const NETWORK_NOISE = [
 
 function isExpectedFailure(error: unknown): boolean {
   if (error instanceof ApiError) return EXPECTED_API_STATUSES.has(error.status)
-  const message = error instanceof Error ? error.message : String(error ?? '')
-  return NETWORK_NOISE.some((noise) => message.includes(noise))
+  // Name AND message: `Failed to fetch`/`Load failed`/`NetworkError` are
+  // messages, but an aborted fetch rejects with a DOMException whose *name* is
+  // `AbortError` and whose message is prose ("The user aborted a request.").
+  // DOMException does extend Error, so a message-only check never sees the
+  // name and every abort would be reported — the same trap `UsernameEditor`
+  // already documents.
+  const text =
+    error instanceof Error
+      ? `${error.name}: ${error.message}`
+      : String(error ?? '')
+  return NETWORK_NOISE.some((noise) => text.includes(noise))
 }
 
 if (dsn) {
@@ -83,6 +92,22 @@ if (dsn) {
  */
 export function setSentryUser(userId: string | undefined): void {
   Sentry.setUser(userId ? { id: userId } : null)
+}
+
+/**
+ * The event id a crash screen may show, or `null` when nothing was stored.
+ *
+ * Sentry mints an id for every capture whether or not there is a client bound
+ * — `init` above is skipped without a DSN, which is every local, test and
+ * fork build — and returns it either way. Displaying that id would send a bug
+ * reporter chasing a reference that exists nowhere.
+ *
+ * @param eventId - The id the boundary got back from its capture call.
+ */
+export function reportedEventId(
+  eventId: string | null | undefined
+): string | null {
+  return eventId && Sentry.getClient() ? eventId : null
 }
 
 export { Sentry }

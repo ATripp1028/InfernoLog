@@ -42,6 +42,13 @@ export default defineConfig({
         sourcemaps: {
           filesToDeleteAfterUpload: ['./dist/**/*.map'],
         },
+        // Without this the plugin THROWS on an upload failure and takes the
+        // build down with it, which would let an expired token or a Sentry
+        // outage block a deploy of a perfectly good app. The only thing lost
+        // when the upload fails is readable stack traces, so warn and ship.
+        errorHandler: (err) => {
+          console.warn(`[sentry] source map upload failed: ${err.message}`)
+        },
       }),
   ],
   build: {

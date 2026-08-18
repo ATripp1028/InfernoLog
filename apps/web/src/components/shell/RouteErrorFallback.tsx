@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ErrorComponentProps } from '@tanstack/react-router'
-import { Sentry } from '@/lib/sentry'
+import { Sentry, reportedEventId } from '@/lib/sentry'
 import { ErrorFallback } from './ErrorFallback'
 
 /**
@@ -26,14 +26,19 @@ export function RouteErrorFallback({ error, info }: ErrorComponentProps) {
     if (reported.current === error) return
     reported.current = error
     setEventId(
-      // Scope-callback form rather than a hint object: `exactOptionalPropertyTypes`
-      // rejects passing `contexts: undefined` for the no-component-stack case.
-      Sentry.captureException(error, (scope) => {
-        if (info) {
-          scope.setContext('react', { componentStack: info.componentStack })
-        }
-        return scope
-      })
+      // `reportedEventId` drops the id when no client is bound — capture hands
+      // one back regardless, and a build without a DSN stored nothing for it
+      // to name.
+      reportedEventId(
+        // Scope-callback form rather than a hint object: `exactOptionalPropertyTypes`
+        // rejects passing `contexts: undefined` for the no-component-stack case.
+        Sentry.captureException(error, (scope) => {
+          if (info) {
+            scope.setContext('react', { componentStack: info.componentStack })
+          }
+          return scope
+        })
+      )
     )
   }, [error, info])
 

@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
-import { Sentry } from './lib/sentry'
+import { Sentry, reportedEventId } from './lib/sentry'
 import { queryClient } from './lib/queryClient'
 import { persister, MAX_AGE } from './lib/persister'
 import { gddlSyncStatusQueryKey } from './lib/api/me'
@@ -40,7 +40,10 @@ createRoot(document.getElementById('root')!).render(
     */}
     <Sentry.ErrorBoundary
       fallback={({ error, eventId }) => (
-        <ErrorFallback error={error} eventId={eventId} />
+        // The boundary mints an id even with no client bound, so it goes
+        // through `reportedEventId` for the same reason RouteErrorFallback's
+        // does — an id nobody can look up is worse than none.
+        <ErrorFallback error={error} eventId={reportedEventId(eventId)} />
       )}
     >
       <PersistQueryClientProvider
