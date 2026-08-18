@@ -25,8 +25,12 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { applyEdit, ProgressFieldsNotApplicableError, LevelNotFoundError } =
-  await import('./index')
+const {
+  applyEdit,
+  ProgressFieldsNotApplicableError,
+  LevelNotFoundError,
+  RatingCategoryNotOwnedError,
+} = await import('./index')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -50,6 +54,7 @@ const tx = {
     findUniqueOrThrow: vi.fn(),
   },
   ratingScore: { deleteMany: vi.fn(), createMany: vi.fn() },
+  ratingCategory: { count: vi.fn() },
 }
 
 /** Points the edit at an update of the given kind. */
@@ -89,6 +94,13 @@ beforeEach(() => {
     .mockResolvedValue({ id: PU_ID, percentage: null })
   tx.ratingScore.deleteMany.mockReset().mockResolvedValue({ count: 0 })
   tx.ratingScore.createMany.mockReset().mockResolvedValue({ count: 0 })
+  // Default: every category named in a payload is one of this user's own.
+  // ownsCategories() below flips this to model a cross-account id.
+  tx.ratingCategory.count
+    .mockReset()
+    .mockImplementation(
+      ({ where }: { where: { id: { in: string[] } } }) => where.id.in.length
+    )
 
   prisma.$transaction.mockReset().mockImplementation(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -365,6 +377,40 @@ describe('applyEdit — rating scores', () => {
     await edit({ notes: 'x' })
 
     expect(tx.ratingScore.deleteMany).not.toHaveBeenCalled()
+  })
+
+  it('scopes the ownership check to the caller', async () => {
+    await edit({ ratingScores: [{ categoryId: 'cat-1', score: 80 }] })
+
+    expect(tx.ratingCategory.count).toHaveBeenCalledWith({
+      where: { userId: USER_ID, id: { in: ['cat-1'] } },
+    })
+  })
+
+  it('rejects a category id belonging to another account', async () => {
+    // RatingScore.categoryId is a bare FK with no user column, so the database
+    // would accept a stranger's category here — the scope has to come from us.
+    tx.ratingCategory.count.mockResolvedValue(0)
+
+    await expect(
+      edit({ ratingScores: [{ categoryId: 'someone-elses-cat', score: 80 }] })
+    ).rejects.toThrow(RatingCategoryNotOwnedError)
+  })
+
+  it('rejects the whole write when only SOME ids are the caller\'s', async () => {
+    // Partial application would silently drop the foreign score and leave a
+    // half-written rating; a clear 400 is better.
+    tx.ratingCategory.count.mockResolvedValue(1)
+
+    await expect(
+      edit({
+        ratingScores: [
+          { categoryId: 'cat-1', score: 80 },
+          { categoryId: 'someone-elses-cat', score: 60 },
+        ],
+      })
+    ).rejects.toThrow(RatingCategoryNotOwnedError)
+    expect(tx.ratingScore.createMany).not.toHaveBeenCalled()
   })
 })
 

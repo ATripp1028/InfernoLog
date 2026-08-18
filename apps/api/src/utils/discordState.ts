@@ -9,7 +9,7 @@
 // Separate from discord.ts so the account module can import the minter without
 // pulling in the callback route.
 
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 
 const STATE_TTL_SECONDS = 10 * 60
 
@@ -61,7 +61,16 @@ export function verifyConnectDiscordState(
   const expected = createHmac('sha256', process.env.DISCORD_CLIENT_SECRET!)
     .update(`${nonce}.${userId}.${expStr}`)
     .digest('hex')
-  if (sig !== expected) return null
+  // Constant-time compare. `!==` on a hex digest leaks, through response
+  // timing, how many leading characters of a guess were right — which turns
+  // forging a state (and with it, linking an arbitrary Discord account to an
+  // arbitrary userId) from "break HMAC-SHA256" into a byte-at-a-time search.
+  // Length-check first: timingSafeEqual throws on a length mismatch, and the
+  // length of a hex digest is not a secret.
+  const sigBuf = Buffer.from(sig, 'utf8')
+  const expectedBuf = Buffer.from(expected, 'utf8')
+  if (sigBuf.length !== expectedBuf.length) return null
+  if (!timingSafeEqual(sigBuf, expectedBuf)) return null
   const exp = Number(expStr)
   if (!Number.isFinite(exp) || exp < Math.floor(Date.now() / 1000)) return null
   return { nonce, userId, exp }

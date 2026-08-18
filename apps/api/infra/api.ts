@@ -29,6 +29,28 @@ export const api = new sst.aws.ApiGatewayV2('InfernoLogApi', {
           dns: sst.aws.dns(),
         }
       : undefined,
+  // Per-route request throttling. Without it the stage inherits the account's
+  // default (10,000 rps / 5,000 burst), which is orders of magnitude above what
+  // this API can actually serve: every route is backed by the same Lambda, and
+  // this account's total concurrent-execution limit is 10 (see infra/queue.ts,
+  // where that ceiling already forced maximumConcurrency instead of reserved
+  // concurrency). One client looping any endpoint can therefore saturate
+  // concurrency for the whole API — including the RobTop-bound routes, which
+  // additionally hold slots for up to ~25s each.
+  //
+  // These are per-route, per-stage ceilings across ALL callers, not per-user
+  // quotas — API Gateway HTTP APIs have no built-in per-principal limiting, so
+  // this bounds the blast radius rather than attributing it. A genuine
+  // per-user quota needs application-level accounting (see the shared RobTop
+  // token bucket in utils/robtopRateLimit.ts for the pattern).
+  transform: {
+    stage: {
+      defaultRouteSettings: {
+        throttlingRateLimit: 50,
+        throttlingBurstLimit: 100,
+      },
+    },
+  },
 })
 
 // ─────────────────────────────────────────────

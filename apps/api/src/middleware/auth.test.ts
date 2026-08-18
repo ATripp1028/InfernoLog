@@ -7,6 +7,10 @@
  * that the INTERNAL uuid lands on the context, not the sub. The missing-claims
  * branch reports to Sentry because reaching it means the API Gateway authorizer
  * is misconfigured, not that a user did something wrong. Prisma is mocked.
+ *
+ * The moderation gate is exercised here rather than per-route because that is
+ * where it lives: every authenticated route mounts behind this middleware, so
+ * these cases are what stands between a banned account and the whole API.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -65,8 +69,23 @@ beforeEach(() => {
   prisma.user.findUnique.mockReset().mockResolvedValue({
     id: USER_ID,
     email: 'stored@example.com',
+    accountStatus: 'ACTIVE',
+    suspensionUntil: null,
   } as never)
 })
+
+/** Makes the looked-up user carry a given moderation state. */
+function withAccountState(
+  accountStatus: string,
+  suspensionUntil: Date | null = null
+) {
+  prisma.user.findUnique.mockResolvedValue({
+    id: USER_ID,
+    email: 'stored@example.com',
+    accountStatus,
+    suspensionUntil,
+  } as never)
+}
 
 // ─── the happy path ──────────────────────────────────────────────────────────
 
@@ -86,7 +105,12 @@ describe('authMiddleware — resolving identity', () => {
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { cognitoSub: SUB },
-      select: { id: true, email: true },
+      select: {
+        id: true,
+        email: true,
+        accountStatus: true,
+        suspensionUntil: true,
+      },
     })
   })
 
@@ -141,6 +165,61 @@ describe('authMiddleware — rejections', () => {
 
     expect(res.status).toBe(404)
     expect(mockCaptureMessage).not.toHaveBeenCalled()
+  })
+
+  it('403s a banned account', async () => {
+    // accountStatus is enforced nowhere else in the API, so this middleware is
+    // the whole of what a ban means.
+    withAccountState('BANNED')
+
+    const res = await request({ sub: SUB })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ reason: 'banned' })
+  })
+
+  it('403s an account serving a suspension, and says until when', async () => {
+    const until = new Date(Date.now() + 60 * 60 * 1000)
+    withAccountState('SUSPENDED', until)
+
+    const res = await request({ sub: SUB })
+
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({
+      reason: 'suspended',
+      until: until.toISOString(),
+    })
+  })
+
+  it('403s an indefinite suspension (no end date)', async () => {
+    // Failing open on a suspension with no end date would make "suspended
+    // indefinitely" the one state that grants access.
+    withAccountState('SUSPENDED', null)
+
+    expect((await request({ sub: SUB })).status).toBe(403)
+  })
+
+  it('lets an expired suspension through without needing a job to clear it', async () => {
+    withAccountState('SUSPENDED', new Date(Date.now() - 1000))
+
+    const res = await request({ sub: SUB })
+
+    expect(res.status).toBe(200)
+    expect(((await res.json()) as { userId: string }).userId).toBe(USER_ID)
+  })
+
+  it('does not run the downstream handler for a banned account', async () => {
+    const handler = vi.fn((c: { json: (b: unknown) => Response }) =>
+      c.json({ ran: true })
+    )
+    withAccountState('BANNED')
+    const app = new Hono<{ Variables: HonoVariables }>()
+    app.use('*', authMiddleware)
+    app.get('/probe', handler)
+
+    await app.request('/probe', {}, envWith({ sub: SUB }))
+
+    expect(handler).not.toHaveBeenCalled()
   })
 
   it('does not run the downstream handler when it rejects', async () => {

@@ -181,11 +181,17 @@ export const RATING_WEIGHT_SUM_TARGET_CENTS = 100
 const isTwoDecimalWeight = (w: number): boolean =>
   Number.isFinite(w) && Math.abs(w * 100 - Math.round(w * 100)) < 1e-6
 
+// Shared by the settings editor and the spreadsheet import's on-demand
+// category creation, so the two cannot disagree on what a category may be
+// named.
+export const MAX_RATING_CATEGORY_NAME_LENGTH = 40
+export const MAX_RATING_CATEGORIES = 20
+
 export const RatingConfigCategorySchema = z.object({
   // id is present for existing categories; omitted for new rows added in the
   // form-style editor. Server creates a new row when id is missing.
   id: z.string().uuid().optional(),
-  name: z.string().min(1).max(40),
+  name: z.string().min(1).max(MAX_RATING_CATEGORY_NAME_LENGTH),
   weight: z
     .number()
     .min(0)
@@ -195,7 +201,7 @@ export const RatingConfigCategorySchema = z.object({
 
 export const RatingConfigSchema = z
   .object({
-    categories: z.array(RatingConfigCategorySchema).max(20),
+    categories: z.array(RatingConfigCategorySchema).max(MAX_RATING_CATEGORIES),
     includeEnjoyment: z.boolean(),
     enjoymentWeight: z
       .number()
@@ -254,9 +260,17 @@ export const RatingConfigSchema = z
 // ─────────────────────────────────────────────
 
 // GD level IDs are numeric strings (the in-game id, also the Level PK).
+//
+// The length cap matters as much as the numeric check: this value becomes a
+// PRIMARY KEY on `levels` via POST /v1/levels, so without it a caller could
+// insert megabyte-long "ids" into the shared level cache and into every index
+// on it. Real GD ids are ~7-8 digits; 20 leaves generous headroom.
+export const MAX_LEVEL_ID_LENGTH = 20
+
 export const LevelIdSchema = z
   .string()
   .regex(/^\d+$/, 'Level ID must be numeric')
+  .max(MAX_LEVEL_ID_LENGTH, 'Level ID is too long')
 
 // Validity check for a user-submitted timezone string — rejects clearly
 // invalid values at the write boundary rather than storing a string that
@@ -279,6 +293,40 @@ const timezoneField = z
   .nullable()
   .optional()
 
+// Every user-supplied URL that reaches the API (video links, highlight clips)
+// is rendered straight into an `href` by the frontend, so the accepted scheme
+// set is a security boundary, not a formatting preference. zod's `.url()` is
+// `new URL()` in a try/catch, which happily accepts `javascript:alert(1)` and
+// `data:text/html,...` — both of which execute when the resulting anchor is
+// clicked. Allow only http/https, and cap the length so a stored URL can't be
+// used as bulk storage.
+//
+// Use this instead of `z.string().url()` for ANY value that originates with a
+// user. The one place a bare `.url()` is still fine is a URL the server itself
+// constructs.
+export const MAX_URL_LENGTH = 2048
+
+// Matched rather than parsed with `new URL()`: this package compiles against
+// the ES2020 lib alone (no DOM, no node types) so it stays usable from both the
+// browser app and Lambda, and a pattern is in any case the stricter of the two
+// — it accepts a subset of what the URL parser does, which is the direction to
+// err in for a security check.
+//
+// Control characters and whitespace are rejected outright: browsers strip
+// TAB/LF/CR from an href before resolving it, so "java\tscript:x" would
+// otherwise be a live bypass of an anchored scheme test.
+const HTTP_URL_PATTERN = /^https?:\/\/[^/?#\s]+/i
+const CONTROL_OR_SPACE_PATTERN = /[\s\u0000-\u001f\u007f]/
+
+export const HttpUrlSchema = z
+  .string()
+  .max(MAX_URL_LENGTH, 'URL is too long')
+  .refine(
+    (value) =>
+      !CONTROL_OR_SPACE_PATTERN.test(value) && HTTP_URL_PATTERN.test(value),
+    'URL must start with http:// or https://'
+  )
+
 // Fields shared by every logged entry's "session details" step.
 const sessionDetailFields = {
   date: z.coerce.date().nullable().optional(),
@@ -298,7 +346,7 @@ const sessionDetailFields = {
   // levels (percentage/runFrom/runTo). Null = not recorded.
   percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
   onStream: z.boolean().default(false),
-  highlightUrl: z.string().url().nullable().optional(),
+  highlightUrl: HttpUrlSchema.nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   // Per-entry privacy, independent of global profile visibility.
   visibility: z.nativeEnum(EntryVisibility).default(EntryVisibility.PUBLIC),
@@ -324,7 +372,7 @@ export const CompletionInputSchema = z.object({
   // IANA zone the time-of-day on worstFailDate was entered in. Null/omitted
   // means no time was entered.
   worstFailDateTimezone: timezoneField,
-  videoUrl: z.string().url().nullable().optional(),
+  videoUrl: HttpUrlSchema.nullable().optional(),
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
@@ -457,8 +505,8 @@ export const EditProgressInputSchema = z
     // no separate paired field.
     difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
     enjoyment: z.number().int().min(0).max(100).nullable().optional(),
-    videoUrl: z.string().url().nullable().optional(),
-    highlightUrl: z.string().url().nullable().optional(),
+    videoUrl: HttpUrlSchema.nullable().optional(),
+    highlightUrl: HttpUrlSchema.nullable().optional(),
     notes: z.string().max(2000).nullable().optional(),
     twoPlayerSolo: z.boolean().nullable().optional(),
     twoPlayerPartner: z.string().max(100).nullable().optional(),
@@ -629,10 +677,18 @@ export const LevelSearchFiltersSchema = z.object({
   songType: LevelSongTypeSchema.optional(),
 })
 
+// Search terms are fed to pg_trgm similarity() and an ILIKE '%…%' over the
+// whole levels cache — both linear in the term's length, and neither is
+// index-assisted for a pathologically long one. Cap it well above any real
+// level or creator name so a single request can't turn into a table-wide scan
+// with megabyte-sized comparisons. GET /v1/levels/search parses its own `q`
+// and repeats this cap by hand.
+export const MAX_SEARCH_QUERY_LENGTH = 200
+
 // The full parsed query for GET /v1/levels/browse (the handler assembles this
 // from the raw query params before validating).
 export const LevelBrowseQuerySchema = LevelSearchFiltersSchema.extend({
-  q: z.string().optional(),
+  q: z.string().max(MAX_SEARCH_QUERY_LENGTH).optional(),
   searchBy: LevelSearchBySchema.default('name'),
   sort: LevelSortSchema.default('relevance'),
   sortDir: LevelSortDirSchema.optional(),
@@ -986,14 +1042,37 @@ export const PRESET_COLOR_IDS = [
 ] as const
 export type PresetColorId = (typeof PRESET_COLOR_IDS)[number]
 
+// The four view-config fields are opaque to the API — it stores and returns
+// whatever the client sends. "Opaque" cannot mean "unbounded", though: with no
+// ceiling, a preset is a write-anything key/value store on the API's own
+// database, and a caller can park arbitrary amounts of data there under an
+// authenticated account. Bound the serialized size instead of the shape, which
+// keeps the fields genuinely opaque while capping what one preset can cost.
+// The real configs are a few hundred characters; 64K is far beyond any of them.
+export const MAX_PRESET_BLOB_CHARS = 64 * 1024
+
+// Measured in JSON characters rather than encoded bytes: this package targets
+// the ES2020 lib alone, so neither Buffer nor TextEncoder is available. A
+// character count is within a small constant factor of the byte count, which is
+// all a ceiling this loose needs.
+const PresetBlobSchema = z.unknown().refine((value) => {
+  if (value === undefined) return true
+  try {
+    return (JSON.stringify(value) ?? '').length <= MAX_PRESET_BLOB_CHARS
+  } catch {
+    // Circular or otherwise unserializable — it can't be stored as JSON either.
+    return false
+  }
+}, `View configuration must serialize to at most ${MAX_PRESET_BLOB_CHARS} characters`)
+
 export const ListPresetInputSchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().max(200).optional().nullable(),
   color: z.enum(PRESET_COLOR_IDS),
-  sorts: z.unknown(),
-  filters: z.unknown(),
-  columns: z.unknown(),
-  columnOrder: z.unknown(),
+  sorts: PresetBlobSchema,
+  filters: PresetBlobSchema,
+  columns: PresetBlobSchema,
+  columnOrder: PresetBlobSchema,
   // Display preference — hides the time-of-day line under the date column.
   // A plain boolean rather than another opaque blob, unlike the four above.
   hideTime: z.boolean().default(false),
@@ -1081,8 +1160,8 @@ export const ImportCompletionRowSchema = z.object({
     .nullable()
     .optional(),
   notes: z.string().max(2000).nullable().optional(),
-  videoUrl: z.string().url().nullable().optional(),
-  highlightUrl: z.string().url().nullable().optional(),
+  videoUrl: HttpUrlSchema.nullable().optional(),
+  highlightUrl: HttpUrlSchema.nullable().optional(),
 })
 
 // A non-completion progress update — one logged session for a level that
@@ -1113,7 +1192,7 @@ export const ImportProgressRowSchema = z.object({
   // 0-10 display scale (server converts to 0-100 on write).
   enjoyment: z.number().min(0).max(10).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
-  highlightUrl: z.string().url().nullable().optional(),
+  highlightUrl: HttpUrlSchema.nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).nullable().optional(),
   // Only used to disambiguate name resolution when levelId is absent.
   inGameDifficulty: z.string().nullable().optional(),
@@ -1293,8 +1372,19 @@ export const ImportRatingEntrySchema = z.object({
   levelName: z.string().nullable().optional(),
   creator: z.string().nullable().optional(),
   inGameDifficulty: z.string().nullable().optional(),
-  // category name → score (0-100, internal scale)
-  scores: z.record(z.string(), z.number().int().min(0).max(100)),
+  // category name → score (0-100, internal scale).
+  //
+  // Category names are matched case-insensitively against the user's existing
+  // rating categories and CREATED ON DEMAND when unrecognized (see
+  // commitImportRatings). That makes this record the one place in the API where
+  // a caller can create rating_categories rows implicitly and in bulk, so both
+  // the key length and the number of keys are bounded here — the settings
+  // editor caps a user at 20 categories (RatingConfigSchema) and this must not
+  // be the way around that.
+  scores: z.record(
+    z.string().min(1).max(MAX_RATING_CATEGORY_NAME_LENGTH),
+    z.number().int().min(0).max(100)
+  ),
 })
 
 export const ImportRatingsRequestSchema = z.object({

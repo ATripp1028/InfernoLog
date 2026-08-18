@@ -14,6 +14,21 @@ import {
 // ─────────────────────────────────────────────
 export const userPool = new sst.aws.CognitoUserPool('InfernoLogUserPool', {
   usernames: ['email'],
+  // SST's default is `allowAdminCreateUserOnly: false`, which leaves Cognito's
+  // unauthenticated SignUp API open to anyone holding the app client id — and
+  // that id is public by construction (it is baked into the frontend bundle,
+  // and this repo is open source). Nothing legitimate uses that API: real
+  // accounts arrive through Google federation, which is unaffected by this
+  // setting, and the E2E user is created with AdminCreateUser (IAM-authed,
+  // also unaffected). Left open, it lets anyone mint unlimited native users in
+  // the pool and make Cognito send a confirmation email to any address they
+  // name — an email-bombing primitive with InfernoLog's sender reputation
+  // behind it.
+  transform: {
+    userPool: {
+      adminCreateUserConfig: { allowAdminCreateUserOnly: true },
+    },
+  },
   triggers: {
     postAuthentication: {
       handler: 'src/triggers/postAuthentication.handler',

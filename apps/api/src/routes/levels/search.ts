@@ -11,7 +11,10 @@
 
 import { Hono } from 'hono'
 import { Prisma } from '@prisma/client'
-import { LevelBrowseQuerySchema } from '@infernolog/core'
+import {
+  LevelBrowseQuerySchema,
+  MAX_SEARCH_QUERY_LENGTH,
+} from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { runGdSearch } from '../../services/levels/gdSearch'
@@ -63,6 +66,15 @@ function parseBrowseQuery(sp: URLSearchParams) {
 app.get('/levels/search', async (c) => {
   const q = c.req.query('q')?.trim()
   if (!q) return c.json({ error: 'Query parameter "q" is required' }, 400)
+  // Same ceiling /browse validates through LevelBrowseQuerySchema. This route
+  // parses `q` by hand, so the cap has to be repeated — both matchers below
+  // are linear in the term's length over the whole levels table.
+  if (q.length > MAX_SEARCH_QUERY_LENGTH) {
+    return c.json(
+      { error: `Query must be at most ${MAX_SEARCH_QUERY_LENGTH} characters` },
+      400
+    )
+  }
 
   // Escape ILIKE wildcards in user input so "100%" matches literally.
   const likePattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`

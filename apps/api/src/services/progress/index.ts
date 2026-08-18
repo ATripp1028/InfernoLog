@@ -45,6 +45,41 @@ export class ProgressFieldsNotApplicableError extends Error {
   }
 }
 
+/**
+ * Thrown when a write names a rating category that isn't one of the caller's.
+ *
+ * `RatingScore.categoryId` is a bare FK to `rating_categories` with no user
+ * column of its own, so the database happily accepts ANOTHER user's category id
+ * here — the ownership scope has to come from the application. Without this
+ * check a caller could attach scores keyed to a stranger's category to their
+ * own entries, which corrupts that stranger's account-delete path (their
+ * category delete now has dependent rows) and lets a caller probe which
+ * category UUIDs exist. PUT /me/rating-config already validates ids this way;
+ * the logging paths were the gap. Client-input error → 400, not 500.
+ */
+export class RatingCategoryNotOwnedError extends Error {
+  constructor() {
+    super('One or more rating categories do not belong to this account')
+    this.name = 'RatingCategoryNotOwnedError'
+  }
+}
+
+// Rejects any categoryId in a rating-score payload that isn't one of this
+// user's own categories. Reject the whole write rather than silently dropping
+// unknown ids — a partially-applied rating is worse than a clear 400.
+async function assertOwnedCategories(
+  tx: Tx,
+  userId: string,
+  scores: ReadonlyArray<{ categoryId: string }> | undefined
+): Promise<void> {
+  if (!scores?.length) return
+  const ids = [...new Set(scores.map((s) => s.categoryId))]
+  const owned = await tx.ratingCategory.count({
+    where: { userId, id: { in: ids } },
+  })
+  if (owned !== ids.length) throw new RatingCategoryNotOwnedError()
+}
+
 async function ensureLevelExists(tx: Tx, levelId: string): Promise<void> {
   const level = await tx.level.findUnique({
     where: { inGameId: levelId },
@@ -127,10 +162,13 @@ async function loadFullEntry(
  * @returns The full level_progress + progress_update, so the caller can respond
  * without a follow-up read.
  * @throws {LevelNotFoundError} The level isn't in the cache yet.
+ * @throws {RatingCategoryNotOwnedError} A `ratingScores` entry names a category
+ * belonging to another account.
  */
 export async function applyCompletion(userId: string, input: CompletionInput) {
   return prisma.$transaction(async (tx) => {
     await ensureLevelExists(tx, input.levelId)
+    await assertOwnedCategories(tx, userId, input.ratingScores)
     const lp = await findOrCreateLevelProgress(
       tx,
       userId,
@@ -320,6 +358,8 @@ export async function applyProgress(userId: string, input: ProgressInput) {
  * this level (or the targeted update isn't theirs) — the caller maps that to a 404.
  * @throws {ProgressFieldsNotApplicableError} percentage/runFrom/runTo were sent
  * for an update that isn't kind=PROGRESS.
+ * @throws {RatingCategoryNotOwnedError} A `ratingScores` entry names a category
+ * belonging to another account.
  */
 export async function applyEdit(
   userId: string,
@@ -332,6 +372,8 @@ export async function applyEdit(
       select: { id: true },
     })
     if (!lp) return null
+
+    await assertOwnedCategories(tx, userId, input.ratingScores)
 
     let targetUpdateId: string | undefined
     let targetUpdateKind: ProgressUpdateKind | undefined
