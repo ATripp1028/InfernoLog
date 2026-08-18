@@ -1377,10 +1377,11 @@ export const ImportRatingEntrySchema = z.object({
   // Category names are matched case-insensitively against the user's existing
   // rating categories and CREATED ON DEMAND when unrecognized (see
   // commitImportRatings). That makes this record the one place in the API where
-  // a caller can create rating_categories rows implicitly and in bulk, so both
-  // the key length and the number of keys are bounded here — the settings
-  // editor caps a user at 20 categories (RatingConfigSchema) and this must not
-  // be the way around that.
+  // a caller can create rating_categories rows implicitly and in bulk, so the
+  // key length is bounded here. How MANY categories may be created is bounded
+  // in commitImportRatings instead (it needs the account's existing category
+  // count to decide) — the settings editor caps a user at
+  // MAX_RATING_CATEGORIES and this must not be the way around that.
   scores: z.record(
     z.string().min(1).max(MAX_RATING_CATEGORY_NAME_LENGTH),
     z.number().int().min(0).max(100)

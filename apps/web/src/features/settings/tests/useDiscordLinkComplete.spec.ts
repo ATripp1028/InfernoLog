@@ -59,9 +59,7 @@ describe('sending the exchange', () => {
     // React 18 StrictMode double-invokes effects in development. A Discord
     // code is single-use, so a second exchange would be rejected and would
     // report a failure over a link that had actually succeeded.
-    const { rerender } = renderHook(() =>
-      useDiscordLinkComplete(CODE, STATE)
-    )
+    const { rerender } = renderHook(() => useDiscordLinkComplete(CODE, STATE))
     rerender()
     rerender()
 
@@ -130,7 +128,10 @@ describe('leaving for the settings page', () => {
   it.each([
     ['a plain Error', new Error('offline')],
     ['an ApiError with no reason', new ApiError(500, 'boom', {})],
-    ['an ApiError with a non-string reason', new ApiError(500, 'boom', { reason: 7 })],
+    [
+      'an ApiError with a non-string reason',
+      new ApiError(500, 'boom', { reason: 7 }),
+    ],
   ])('falls back to internal_error for %s', async (_label, error) => {
     const { onError } = render(CODE, STATE)
     onError!(error)

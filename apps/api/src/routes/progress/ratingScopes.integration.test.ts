@@ -46,14 +46,11 @@ function post(userId: string, body: unknown) {
 }
 
 function patch(userId: string, body: unknown) {
-  return buildApp(progressApp, { userId }).request(
-    `/me/progress/${LEVEL_ID}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    }
-  )
+  return buildApp(progressApp, { userId }).request(`/me/progress/${LEVEL_ID}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
 }
 
 let victimCategoryId: string

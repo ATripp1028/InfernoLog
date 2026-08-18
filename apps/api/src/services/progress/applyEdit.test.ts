@@ -397,7 +397,7 @@ describe('applyEdit — rating scores', () => {
     ).rejects.toThrow(RatingCategoryNotOwnedError)
   })
 
-  it('rejects the whole write when only SOME ids are the caller\'s', async () => {
+  it("rejects the whole write when only SOME ids are the caller's", async () => {
     // Partial application would silently drop the foreign score and leave a
     // half-written rating; a clear 400 is better.
     tx.ratingCategory.count.mockResolvedValue(1)

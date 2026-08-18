@@ -129,6 +129,12 @@ export async function commitImportRatings(
   const scoredLpIds = new Set<string>()
   // Preserve first-seen order + original casing for any categories we create.
   const newCategoryNames = new Map<string, string>()
+  // Categories already reported as over the cap. The cap is a property of the
+  // COLUMN, not of any one row, so it is reported once — pushing a skip per
+  // (row × over-cap column) would multiply one stray column into thousands of
+  // identical entries, and this array is stored on the ImportJob row and
+  // returned by every status poll.
+  const overCapReported = new Set<string>()
 
   for (const entry of entries) {
     const label =
@@ -164,10 +170,13 @@ export async function commitImportRatings(
         // cap the score is skipped, not the whole import — a sheet with a stray
         // extra column should still bring in everything else.
         if (catIdByName.size + newCategoryNames.size >= MAX_RATING_CATEGORIES) {
-          skipped.push({
-            label,
-            reason: `Category "${name}" skipped — an account can have at most ${MAX_RATING_CATEGORIES} rating categories`,
-          })
+          if (!overCapReported.has(key)) {
+            overCapReported.add(key)
+            skipped.push({
+              label: `Category “${name}”`,
+              reason: `Skipped — an account can have at most ${MAX_RATING_CATEGORIES} rating categories`,
+            })
+          }
           continue
         }
         newCategoryNames.set(key, name)

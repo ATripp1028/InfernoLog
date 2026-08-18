@@ -32,7 +32,8 @@ import prisma from './prisma'
 /**
  * Burst allowance, and also the hourly refill: a user who has been idle for an
  * hour can spend all {@link BUDGET_CAPACITY} at once, and sustains one call
- * every {@link BUDGET_CAPACITY}/3600 seconds thereafter.
+ * every 3600/{@link BUDGET_CAPACITY} seconds thereafter — 18s at 200/hour,
+ * which is also the longest `Retry-After` an exhausted budget can produce.
  *
  * Sized to be unreachable in real use rather than to be a tight quota. A heavy
  * genuine session — hand-logging a backlog of obscure levels that aren't cached

@@ -251,7 +251,9 @@ describe('retryAfterSeconds', () => {
     // Rounding down would tell the user to retry fractionally too early and
     // earn them a second 429.
     expect(
-      retryAfterSeconds(new ApiError(429, 'Too many', { retryAfterSeconds: 1.2 }))
+      retryAfterSeconds(
+        new ApiError(429, 'Too many', { retryAfterSeconds: 1.2 })
+      )
     ).toBe(2)
   })
 
@@ -259,7 +261,10 @@ describe('retryAfterSeconds', () => {
     ['a non-ApiError', new Error('boom')],
     ['a body that is not an object', new ApiError(429, 'x', 'nope')],
     ['a body without the field', new ApiError(429, 'x', { error: 'x' })],
-    ['a non-numeric value', new ApiError(429, 'x', { retryAfterSeconds: 'soon' })],
+    [
+      'a non-numeric value',
+      new ApiError(429, 'x', { retryAfterSeconds: 'soon' }),
+    ],
     ['a nonsense value', new ApiError(429, 'x', { retryAfterSeconds: -5 })],
   ])('falls back to a minute for %s', (_label, err) => {
     // Callers render this directly, so it must always be a usable number

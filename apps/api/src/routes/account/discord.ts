@@ -128,7 +128,8 @@ app.post('/me/connect-discord/complete', async (c) => {
       logger.warn({ userId }, 'Discord account already linked to another user')
       return c.json(
         {
-          error: 'That Discord account is already connected to a different InfernoLog user.',
+          error:
+            'That Discord account is already connected to a different InfernoLog user.',
           reason: 'already_linked_elsewhere',
         },
         409

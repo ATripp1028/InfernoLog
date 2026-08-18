@@ -43,7 +43,6 @@ vi.mock('../../utils/robtopUserBudget', async (importOriginal) => ({
   chargeRobtopBudget: vi.fn().mockResolvedValue(undefined),
 }))
 
-
 const searchRoutes = (await import('./search')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────

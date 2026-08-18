@@ -59,7 +59,6 @@ export function retryAfterSeconds(error: unknown): number {
   return DEFAULT
 }
 
-
 /**
  * Options for {@link apiFetch}. `body` is any JSON-serializable value (not a
  * `BodyInit`); the Content-Type header is set for you when it is present.

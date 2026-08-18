@@ -30,8 +30,10 @@
 //
 // The code does pass through the browser as a query parameter, which is
 // standard for OAuth in a SPA (the client secret stays server-side, and the
-// code is useless without it). The frontend strips it from the URL before
-// rendering anything — see apps/web/src/pages/DiscordLinkComplete.tsx.
+// code is useless without it). It is visible in the address bar only for the
+// duration of the completion request: apps/web/src/pages/DiscordLinkComplete.tsx
+// renders nothing but a spinner and then leaves for /settings with
+// `replace: true`, so no history entry retains it.
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'

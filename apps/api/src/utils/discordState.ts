@@ -67,9 +67,7 @@ export type ConnectStatePayload = {
 export function mintConnectDiscordState(userId: string, nonce: string): string {
   const exp = Math.floor(Date.now() / 1000) + STATE_TTL_SECONDS
   const body = `${nonce}.${userId}.${exp}`
-  const sig = createHmac('sha256', stateSecret())
-    .update(body)
-    .digest('hex')
+  const sig = createHmac('sha256', stateSecret()).update(body).digest('hex')
   return `${body}.${sig}`
 }
 
