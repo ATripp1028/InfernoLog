@@ -1,5 +1,8 @@
 const PREFIX = 'il_preset_'
 const MAX_AGE = 60 * 60 * 24 * 365 // 1 year
+// `Secure` keeps this off plaintext HTTP. Omitted on localhost, where the dev
+// server is http:// and a Secure cookie would simply never be stored.
+const SECURE = location.protocol === 'https:' ? '; Secure' : ''
 
 /**
  * The list preset this user last had selected, or `null` if none is remembered.
@@ -25,5 +28,5 @@ export function getPresetCookie(userId: string): string | null {
 export function setPresetCookie(userId: string, presetId: string | null) {
   const name = PREFIX + userId
   const value = presetId ?? 'default'
-  document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${MAX_AGE}; path=/; SameSite=Lax`
+  document.cookie = `${name}=${encodeURIComponent(value)}; max-age=${MAX_AGE}; path=/; SameSite=Lax${SECURE}`
 }

@@ -41,7 +41,10 @@ export function useDeleteProgress() {
   return useMutation({
     mutationFn: async (levelId: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/progress/${levelId}`, { token, method: 'DELETE' })
+      await apiFetch(`/v1/me/progress/${encodeURIComponent(levelId)}`, {
+        token,
+        method: 'DELETE',
+      })
     },
     onMutate: async (levelId) => {
       await queryClient.cancelQueries({ queryKey: listQueryKey })

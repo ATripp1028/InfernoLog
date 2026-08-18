@@ -6,6 +6,17 @@ import { parseSpreadsheet } from '../parseSpreadsheet'
 import { useImportFlow } from '../ImportFlowProvider'
 
 /**
+ * Largest workbook we will hand to SheetJS.
+ *
+ * `parseSpreadsheet` runs synchronously on the main thread, and .xlsx is a zip
+ * — so an unbounded read is an invitation to hand the tab a small file that
+ * decompresses into gigabytes and hang it with no way out but a force quit.
+ * A real export of a full account is well under a megabyte; 25 MB is generous
+ * enough that no legitimate import trips it.
+ */
+const MAX_FILE_BYTES = 25 * 1024 * 1024
+
+/**
  * Parsing and drag bookkeeping for the upload step.
  */
 export function useUploadStep() {
@@ -37,6 +48,14 @@ export function useUploadStep() {
   const handleFile = useCallback(
     async (file: File) => {
       setError(null)
+
+      if (file.size > MAX_FILE_BYTES) {
+        setError(
+          `That file is too large (limit ${MAX_FILE_BYTES / 1024 / 1024} MB). An InfernoLog export is only a few hundred kilobytes.`
+        )
+        return
+      }
+
       setParsing(true)
       try {
         const buffer = await file.arrayBuffer()

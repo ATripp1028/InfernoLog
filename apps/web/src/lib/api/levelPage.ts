@@ -38,7 +38,7 @@ export function useEditProgress(levelId: string) {
   return useMutation({
     mutationFn: async (payload: Record<string, unknown>): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/progress/${levelId}`, {
+      await apiFetch(`/v1/me/progress/${encodeURIComponent(levelId)}`, {
         token,
         method: 'PATCH',
         body: payload,

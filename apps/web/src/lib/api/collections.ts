@@ -185,7 +185,7 @@ export function useDeleteCollection() {
   return useMutation({
     mutationFn: async (collectionId: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/collections/${collectionId}`, {
+      await apiFetch(`/v1/me/collections/${encodeURIComponent(collectionId)}`, {
         token,
         method: 'DELETE',
       })

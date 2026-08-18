@@ -26,10 +26,10 @@ const wrapper = ({ children }: { children: ReactNode }) => (
   <AuthProvider>{children}</AuthProvider>
 )
 
-/** A session carrying (or lacking) an ID token. */
-const session = (token: string | null) =>
+/** A session carrying (or lacking) an ID token, for the given identity. */
+const session = (token: string | null, userSub = 'sub-a') =>
   token
-    ? { tokens: { idToken: { toString: () => token } } }
+    ? { tokens: { idToken: { toString: () => token } }, userSub }
     : { tokens: undefined }
 
 /** Fires an Amplify auth Hub event at the provider's listener. */
@@ -52,6 +52,9 @@ beforeEach(() => {
   amplify.signInWithRedirect.mockResolvedValue(undefined)
   amplify.signOut.mockResolvedValue(undefined)
   sessionStorage.clear()
+  localStorage.clear()
+  cache.clear.mockClear()
+  cache.removeClient.mockClear()
 })
 
 const render = () => renderHook(() => useAuth(), { wrapper })
@@ -165,14 +168,19 @@ describe('the ID token accessor', () => {
 // Amplify refreshes tokens and signs out on its own schedule, so the provider
 // follows the Hub rather than only its own actions.
 describe('following Amplify’s auth events', () => {
-  it('marks the visitor signed in', async () => {
+  // The OAuth round trip lands on a fresh page load, so the mount-time read
+  // usually happens before Amplify has finished the code exchange and sees no
+  // tokens — this event is where the session first becomes readable, which is
+  // why the provider re-reads it rather than just flipping the flag.
+  it('re-reads the session and marks the visitor signed in', async () => {
     amplify.fetchAuthSession.mockResolvedValue(session(null))
     const { result } = render()
     await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+    amplify.fetchAuthSession.mockResolvedValue(session('id-token'))
 
     emit('signedIn')
 
-    expect(result.current.isAuthenticated).toBe(true)
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
   })
 
   it.each(['signedOut', 'tokenRefresh_failure'])(
@@ -212,11 +220,38 @@ describe('following Amplify’s auth events', () => {
     expect(cache.removeClient).toHaveBeenCalled()
   })
 
+  // The persisted cache is one fixed localStorage key, so without this the
+  // second account to use a browser mounts holding the first account's email
+  // and progress. Authenticated routes block on isAuthInitializing, which is
+  // what keeps the discard ahead of the first render.
+  it('discards a cache belonging to a different account before reporting the session', async () => {
+    localStorage.setItem('infernolog:cache-owner', 'sub-previous')
+
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+
+    expect(cache.clear).toHaveBeenCalled()
+    expect(cache.removeClient).toHaveBeenCalled()
+    expect(localStorage.getItem('infernolog:cache-owner')).toBe('sub-a')
+  })
+
+  it('keeps the cache when the same account returns', async () => {
+    localStorage.setItem('infernolog:cache-owner', 'sub-a')
+
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+
+    expect(cache.clear).not.toHaveBeenCalled()
+  })
+
   // An expiring token is not a sign-out, and wiping the cache on one would
   // drop everything the user is looking at.
   it('leaves the cache alone on an ordinary token refresh', async () => {
     const { result } = render()
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+    // Mount claims the cache for this identity, which discards it once (see
+    // cacheOwner.ts). Only what the event itself does is under test here.
+    cache.clear.mockClear()
 
     emit('tokenRefresh')
 

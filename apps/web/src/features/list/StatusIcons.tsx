@@ -5,6 +5,7 @@ import {
   TooltipTrigger,
 } from '@/components/generic/tooltip'
 import type { ListItem } from './types'
+import { safeHref } from '@/lib/safeUrl'
 
 /**
  * Row status icons: has video (links to the video), on stream, needs placement.
@@ -31,7 +32,7 @@ export function StatusIcons({
         <Tooltip key="video">
           <TooltipTrigger asChild>
             <a
-              href={video}
+              href={safeHref(video)}
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}

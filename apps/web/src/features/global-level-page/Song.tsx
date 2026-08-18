@@ -1,6 +1,7 @@
 import { Music } from 'lucide-react'
 import { CopyableId } from '@/components/data/CopyableId'
 import { cn } from '@/lib/utils'
+import { safeHref } from '@/lib/safeUrl'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { formatSongSize } from './format'
 import { songSource } from './display'
@@ -12,6 +13,9 @@ import { SectionLabel } from '@/components/inputs/SectionLabel'
 type SongVariant = 'card' | 'plain'
 
 // An ember-coloured external link with the ↗ leaving-InfernoLog glyph.
+// `href` here is level metadata from GD's servers and the SongFileHub API,
+// not something InfernoLog validated on the way in — so it goes through
+// safeHref like any other externally-sourced URL.
 function EmberLink({
   href,
   children,
@@ -21,7 +25,7 @@ function EmberLink({
 }) {
   return (
     <a
-      href={href}
+      href={safeHref(href)}
       target="_blank"
       rel="noreferrer noopener"
       className="inline-flex items-center gap-1 text-[13px] font-medium text-primary-light transition hover:brightness-110"

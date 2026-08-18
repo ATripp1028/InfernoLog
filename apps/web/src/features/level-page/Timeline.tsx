@@ -1,6 +1,7 @@
 import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
 import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
+import { safeHref } from '@/lib/safeUrl'
 import type { LevelPageData, ProgressUpdate } from './types'
 import { formatEntryDate, rangeLabel } from './timelineFormat'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
@@ -106,7 +107,7 @@ function CompletionEntry({
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
           {update.highlightUrl && (
             <a
-              href={update.highlightUrl}
+              href={safeHref(update.highlightUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
@@ -117,7 +118,7 @@ function CompletionEntry({
           )}
           {update.videoUrl && !update.highlightUrl && (
             <a
-              href={update.videoUrl}
+              href={safeHref(update.videoUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary hover:opacity-80"
@@ -229,7 +230,7 @@ function ProgressEntry({
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
           {update.highlightUrl && (
             <a
-              href={update.highlightUrl}
+              href={safeHref(update.highlightUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
@@ -240,7 +241,7 @@ function ProgressEntry({
           )}
           {update.videoUrl && !update.highlightUrl && (
             <a
-              href={update.videoUrl}
+              href={safeHref(update.videoUrl)}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary hover:opacity-80"

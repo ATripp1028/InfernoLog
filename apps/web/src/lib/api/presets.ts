@@ -157,7 +157,10 @@ export function useDeletePreset() {
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/list-presets/${id}`, { token, method: 'DELETE' })
+      await apiFetch(`/v1/me/list-presets/${encodeURIComponent(id)}`, {
+        token,
+        method: 'DELETE',
+      })
     },
     onSuccess: (_data, id) => {
       queryClient.setQueryData<ListPreset[]>(presetsQueryKey, (old) =>

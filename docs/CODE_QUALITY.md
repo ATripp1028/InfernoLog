@@ -607,6 +607,43 @@ responsive layout — stays here, in tests that run in seconds and fail with a
 usable stack trace. A behaviour that has a home in §7 does not get an E2E spec
 as well.
 
+### 9. Security constraints that are not local to one file
+
+Four rules the frontend depends on that no single file makes obvious. All four
+fail quietly — nothing throws, the wrong thing just works.
+
+**Route guards are UX, never authorization.** `lib/useRouteGuard.ts` and the
+`_authenticated` layout keep a signed-out visitor from watching a page flash
+before it redirects. They decide nothing. Every authorization question belongs
+to the API, which never sees the router — adding a check here and treating the
+endpoint as covered leaves it open to anyone with `curl` and a token.
+
+**The CSP is an allowlist maintained by hand, in `apps/web/sst.config.ts`.**
+CloudFront serves the app under a `ResponseHeadersPolicy` naming every external
+host it may reach: `connect-src` for APIs, `img-src` for images, `frame-src`
+for embeds. A new one has to be added there or the browser blocks the request
+with only a console message. The policy is not applied by `pnpm dev`, so this
+is the first thing to check when something works locally and breaks on a
+deployed stage.
+
+**Externally-sourced URLs go through `lib/safeUrl.ts` before reaching an
+`href`.** React does not sanitize `href`, so one `javascript:` string in a
+completion video link, a stream highlight, or song metadata from a third-party
+API is script execution in a logged-in session. `packages/core`'s
+`HttpUrlSchema` is the real gate and rejects these on write; `safeHref` is the
+render-side pair, because that gate arrived after rows already existed and does
+not cover metadata InfernoLog never wrote. Level ids and internal routes do not
+need it — anything a person typed does.
+
+**The persisted query cache belongs to an account, not a browser.**
+`lib/persister.ts` writes one fixed localStorage key holding `MeData` (email,
+username, linked Discord id) and the full progress list, and restores it at
+mount before any token is read. `lib/cacheOwner.ts` records the owning Cognito
+`sub` and discards the cache when anyone else signs in; `AuthContext` claims it
+inside `refreshAuthStatus`, ahead of `isAuthInitializing` flipping, which is
+the window that keeps a previous account's data out of the first render. A new
+way into an authenticated session has to run through that same claim.
+
 ### Not covered yet
 
 Deliberately unsettled, so nothing here is mistaken for a rule:

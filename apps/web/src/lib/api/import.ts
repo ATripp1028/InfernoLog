@@ -602,7 +602,7 @@ export function useResolveImportRow() {
   return useMutation({
     mutationFn: async (rowId: string) => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/import/rows/${rowId}/resolve`, {
+      await apiFetch(`/v1/me/import/rows/${encodeURIComponent(rowId)}/resolve`, {
         token,
         method: 'PATCH',
       })
