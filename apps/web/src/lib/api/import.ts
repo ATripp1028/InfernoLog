@@ -602,10 +602,13 @@ export function useResolveImportRow() {
   return useMutation({
     mutationFn: async (rowId: string) => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/import/rows/${rowId}/resolve`, {
-        token,
-        method: 'PATCH',
-      })
+      await apiFetch(
+        `/v1/me/import/rows/${encodeURIComponent(rowId)}/resolve`,
+        {
+          token,
+          method: 'PATCH',
+        }
+      )
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: importStatusQueryKey })

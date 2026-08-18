@@ -1,6 +1,7 @@
 import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
 import { formatNumber } from '@/features/logging/format'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
+import { safeHref } from '@/lib/safeUrl'
 import type { LevelPageData, ProgressUpdate } from './types'
 import { formatEntryDate, rangeLabel } from './timelineFormat'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
@@ -20,6 +21,16 @@ function EntryTimeSuffix({
       {zoneSuffix ? ` ${zoneSuffix}` : ''}
     </span>
   )
+}
+
+// The chips below link to URLs the user typed. A URL that isn't safe to put in
+// an href is treated as absent rather than rendered as a chip that looks like a
+// link and does nothing when clicked.
+function chipLinks(update: ProgressUpdate) {
+  return {
+    highlightHref: safeHref(update.highlightUrl),
+    videoHref: safeHref(update.videoUrl),
+  }
 }
 
 // ─── Completion entry card ────────────────────────────────────────
@@ -48,6 +59,8 @@ function CompletionEntry({
     update.dateUncertain,
     datePref
   )
+
+  const { highlightHref, videoHref } = chipLinks(update)
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-success/35 bg-bg-surface">
@@ -102,11 +115,11 @@ function CompletionEntry({
       )}
 
       {/* Meta chips row */}
-      {(update.highlightUrl || update.videoUrl || update.onStream) && (
+      {(highlightHref || videoHref || update.onStream) && (
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
-          {update.highlightUrl && (
+          {highlightHref && (
             <a
-              href={update.highlightUrl}
+              href={highlightHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
@@ -115,9 +128,9 @@ function CompletionEntry({
               Highlight
             </a>
           )}
-          {update.videoUrl && !update.highlightUrl && (
+          {videoHref && !highlightHref && (
             <a
-              href={update.videoUrl}
+              href={videoHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary hover:opacity-80"
@@ -164,8 +177,8 @@ function ProgressEntry({
   )
 
   const label = rangeLabel(update)
-  const hasExtra =
-    update.notes || update.highlightUrl || update.videoUrl || update.onStream
+  const { highlightHref, videoHref } = chipLinks(update)
+  const hasExtra = update.notes || highlightHref || videoHref || update.onStream
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-border-subtle bg-bg-inset">
@@ -225,11 +238,11 @@ function ProgressEntry({
         </>
       )}
 
-      {(update.highlightUrl || update.videoUrl || update.onStream) && (
+      {(highlightHref || videoHref || update.onStream) && (
         <div className="flex flex-wrap items-center gap-1.5 px-3.5 pb-3 pt-2">
-          {update.highlightUrl && (
+          {highlightHref && (
             <a
-              href={update.highlightUrl}
+              href={highlightHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-primary-dim px-2 text-[11px] font-medium text-primary-soft hover:opacity-80"
@@ -238,9 +251,9 @@ function ProgressEntry({
               Highlight
             </a>
           )}
-          {update.videoUrl && !update.highlightUrl && (
+          {videoHref && !highlightHref && (
             <a
-              href={update.videoUrl}
+              href={videoHref}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex h-[22px] items-center gap-1 rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary hover:opacity-80"

@@ -74,18 +74,29 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
     allowedOauthFlows: ['code'],
     allowedOauthFlowsUserPoolClient: true,
     allowedOauthScopes: ['email', 'openid', 'profile'],
+    // Every URL here is a place Cognito will hand an authorization code to.
+    // The localhost entries exist so `pnpm dev` can run the real OAuth flow,
+    // and they are deliberately absent on production: this is a public client
+    // (no secret), so a callback URL the pool accepts is a callback URL an
+    // attacker can name in a hand-built /authorize link. PKCE stops them
+    // spending a code they cannot see, but anything listening on the victim's
+    // localhost:5173 — another dev server, a random local tool — can see it.
+    // Production has no reason to accept a loopback redirect, so it doesn't.
     callbackUrls: [
-      'http://localhost:5173/auth/callback',
       'https://infernolog.com/auth/callback',
+      ...($app.stage !== 'production'
+        ? ['http://localhost:5173/auth/callback']
+        : []),
       ...($app.stage !== 'production' && $app.stage !== 'alextripp'
         ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
         : []),
     ],
     logoutUrls: [
-      'http://localhost:5173',
       'https://infernolog.com',
-      'http://localhost:5173/no-account-found',
       'https://infernolog.com/no-account-found',
+      ...($app.stage !== 'production'
+        ? ['http://localhost:5173', 'http://localhost:5173/no-account-found']
+        : []),
       ...($app.stage !== 'production' && $app.stage !== 'alextripp'
         ? [
             `https://d1r4gy6uhfg2w9.cloudfront.net`,
@@ -93,7 +104,12 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
           ]
         : []),
     ],
-    defaultRedirectUri: 'http://localhost:5173/auth/callback',
+    // Only used when a request omits redirect_uri entirely. It must be a URL
+    // that is also in callbackUrls above, so it follows the same stage split.
+    defaultRedirectUri:
+      $app.stage === 'production'
+        ? 'https://infernolog.com/auth/callback'
+        : 'http://localhost:5173/auth/callback',
     supportedIdentityProviders: ['Google', 'COGNITO'],
     explicitAuthFlows: ['ALLOW_REFRESH_TOKEN_AUTH'],
   },

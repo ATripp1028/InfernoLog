@@ -89,7 +89,7 @@ export function useCollection(collectionId: string) {
     queryFn: async (): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `/v1/me/collections/${collectionId}`,
+        `/v1/me/collections/${encodeURIComponent(collectionId)}`,
         { token, method: 'GET' }
       )
       return data
@@ -111,7 +111,7 @@ export function useCollectionDetails(ids: string[], enabled = true) {
       queryFn: async (): Promise<CollectionDetail> => {
         const token = await getIdToken()
         const { data } = await apiFetch<{ data: CollectionDetail }>(
-          `/v1/me/collections/${id}`,
+          `/v1/me/collections/${encodeURIComponent(id)}`,
           { token, method: 'GET' }
         )
         return data
@@ -167,7 +167,7 @@ export function useUpdateCollection() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `/v1/me/collections/${vars.collectionId}`,
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}`,
         { token, method: 'PATCH', body: vars.input }
       )
       return data
@@ -185,7 +185,7 @@ export function useDeleteCollection() {
   return useMutation({
     mutationFn: async (collectionId: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/collections/${collectionId}`, {
+      await apiFetch(`/v1/me/collections/${encodeURIComponent(collectionId)}`, {
         token,
         method: 'DELETE',
       })
@@ -213,7 +213,7 @@ export function useAddCollectionEntry() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `/v1/me/collections/${vars.collectionId}/entries`,
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}/entries`,
         { token, method: 'POST', body: { levelId: vars.levelId } }
       )
       return data
@@ -237,7 +237,7 @@ export function useRemoveCollectionEntry() {
     }): Promise<CollectionDetail> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `/v1/me/collections/${vars.collectionId}/entries/${vars.entryId}`,
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}/entries/${encodeURIComponent(vars.entryId)}`,
         { token, method: 'DELETE' }
       )
       return data
@@ -294,7 +294,7 @@ export function useReorderCollectionEntry() {
       if (vars.prevId) body.prevId = vars.prevId
       if (vars.nextId) body.nextId = vars.nextId
       const { data } = await apiFetch<{ data: CollectionDetail }>(
-        `/v1/me/collections/${vars.collectionId}/entries/${vars.entryId}`,
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}/entries/${encodeURIComponent(vars.entryId)}`,
         { token, method: 'PATCH', body }
       )
       return data

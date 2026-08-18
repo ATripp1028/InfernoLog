@@ -8,8 +8,7 @@ import {
 } from 'react'
 import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
-import { queryClient } from '@/lib/queryClient'
-import { persister } from '@/lib/persister'
+import { claimCacheOwner, releaseCacheOwner } from '@/lib/cacheOwner'
 
 /**
  * Sign In and Sign Up both go through the same Cognito Google OAuth flow —
@@ -43,10 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isAuthInitializing, setIsAuthInitializing] = useState(true)
 
+  // Claims the persisted cache for whoever is signed in before reporting the
+  // session as usable. Authenticated routes block on `isAuthInitializing`, so
+  // doing the claim inside this call is what keeps a previous account's
+  // restored cache from reaching a single render.
   const refreshAuthStatus = useCallback(async () => {
     try {
       const session = await fetchAuthSession()
-      setIsAuthenticated(!!session.tokens?.idToken)
+      const signedIn = !!session.tokens?.idToken
+      if (signedIn) await claimCacheOwner(session.userSub)
+      setIsAuthenticated(signedIn)
     } catch {
       setIsAuthenticated(false)
     }
@@ -59,19 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const unsubscribe = Hub.listen('auth', ({ payload }) => {
       switch (payload.event) {
+        // The OAuth round trip lands on a fresh page load, so the mount-time
+        // fetchAuthSession above usually runs before Amplify has finished the
+        // code exchange and sees no tokens. This event is where the identity
+        // first becomes known on that path, so the claim has to happen here
+        // too — refreshAuthStatus re-reads the session and does both.
         case 'signedIn':
-          setIsAuthenticated(true)
+          void refreshAuthStatus()
           break
         case 'signedOut':
         case 'tokenRefresh_failure':
           setIsAuthenticated(false)
-          queryClient.clear()
-          persister.removeClient()
+          void releaseCacheOwner()
           break
       }
     })
     return () => unsubscribe()
-  }, [])
+  }, [refreshAuthStatus])
 
   const getIdToken = async (): Promise<string> => {
     const session = await fetchAuthSession()
