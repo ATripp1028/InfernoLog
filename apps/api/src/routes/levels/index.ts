@@ -22,6 +22,7 @@
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'
 import { createErrorHandler } from '../../middleware/errors'
+import { RobtopBudgetExhaustedError } from '../../utils/robtopUserBudget'
 import searchRoutes from './search'
 import resolveRoutes from './resolve'
 import detailRoutes from './detail'
@@ -29,11 +30,30 @@ import createRoutes from './create'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-// No domain error classes here — the level routes signal their expected
-// failures with explicit responses (400 non-numeric id, 404 not found, 503
-// GD unreachable), so anything that reaches this really is unexpected. The
-// one exception, POST /levels' duplicate-id 409, is local to that handler.
-app.onError(createErrorHandler('Levels'))
+// The level routes signal most of their expected failures with explicit
+// responses (400 non-numeric id, 404 not found, 503 GD unreachable), and
+// POST /levels' duplicate-id 409 is local to that handler. The one thrown
+// domain error is a spent per-user RobTop budget, which is raised from three
+// different depths — the gd-search handler, the resolve handler's cache-miss
+// branch, and findOrResolveLevel's cache-miss hook under /page — so mapping it
+// once here beats threading a status back through all three.
+app.onError(
+  createErrorHandler('Levels', (error, c) => {
+    if (error instanceof RobtopBudgetExhaustedError) {
+      c.header('Retry-After', String(error.retryAfterSeconds))
+      return c.json(
+        {
+          error: error.message,
+          reason: 'rate_limited',
+          retryable: true,
+          retryAfterSeconds: error.retryAfterSeconds,
+        },
+        429
+      )
+    }
+    return undefined
+  })
+)
 
 // Literal paths first.
 app.route('/', searchRoutes)

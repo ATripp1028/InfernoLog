@@ -16,6 +16,7 @@ import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
 import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
 import type { HonoVariables } from '../../types/hono'
 import { levelDetailSelect } from '../../services/levels/selects'
+import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -93,8 +94,16 @@ app.get('/levels/:levelId/resolve', async (c) => {
   })
 
   if (!level) {
-    // Cache miss — try RobTop's servers exactly once. Unavailability is an
-    // expected branch, NOT an error: signal the client to fall back to manual.
+    // Cache miss — this is the only branch that reaches RobTop, so it is the
+    // only one that costs the user a token. A hit above is free, which is what
+    // keeps the budget clear of ordinary use: a level resolves from GD once and
+    // is cached from then on. The traffic this actually meters is repeated
+    // lookups of ids GD has no level for, which are never cached and so would
+    // otherwise call out forever.
+    await chargeRobtopBudget(userId)
+
+    // Try RobTop's servers exactly once. Unavailability is an expected branch,
+    // NOT an error: signal the client to fall back to manual.
     const gd = await fetchRobtopLevel(levelId)
     if (!gd) {
       return c.json({

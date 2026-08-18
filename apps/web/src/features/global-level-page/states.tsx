@@ -1,4 +1,11 @@
-import { ArrowLeft, SearchX, ServerCrash, AlertTriangle } from 'lucide-react'
+import {
+  ArrowLeft,
+  SearchX,
+  ServerCrash,
+  AlertTriangle,
+  Hourglass,
+} from 'lucide-react'
+import { formatRetryWait } from '@/lib/api/client'
 import { Button } from '@/components/generic/button'
 import { DesktopSectionHeader } from '@/features/global-level-page/CollapsibleSection'
 
@@ -130,6 +137,41 @@ export function ResolveFailedState({
       </Button>
       <Button variant="outline" onClick={onSearch}>
         Search the cache
+      </Button>
+    </CenteredState>
+  )
+}
+
+/**
+ * "Slow down" — the per-user GD-lookup budget is spent (429).
+ *
+ * Deliberately NOT worded as an error and deliberately not blaming GD: the
+ * request was refused by InfernoLog, GD is fine, and the only reason a normal
+ * session reaches this is a level id being looked up over and over. Only a
+ * cache MISS can spend the budget, so the honest framing is "you've asked for a
+ * lot of levels we don't have yet". Retry is offered but the wait is stated
+ * first, so retrying immediately isn't the obvious move.
+ */
+export function RateLimitedState({
+  retryAfterSeconds,
+  onRetry,
+  onSearch,
+}: {
+  retryAfterSeconds: number
+  onRetry: () => void
+  onSearch: () => void
+}) {
+  return (
+    <CenteredState
+      icon={<Hourglass size={38} className="text-text-tertiary" />}
+      title="Too many GD lookups"
+      body={`You've looked up a lot of levels that aren't cached yet. This clears on its own in ${formatRetryWait(retryAfterSeconds)} — levels already in the cache keep loading normally in the meantime.`}
+    >
+      <Button variant="default" onClick={onSearch}>
+        Search the cache
+      </Button>
+      <Button variant="outline" onClick={onRetry}>
+        Retry
       </Button>
     </CenteredState>
   )

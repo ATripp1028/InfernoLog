@@ -18,6 +18,7 @@ import {
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { runGdSearch } from '../../services/levels/gdSearch'
+import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 import { browseLevels } from '../../services/levels/browse'
 import type { HonoVariables } from '../../types/hono'
 
@@ -112,6 +113,7 @@ app.get('/levels/browse', async (c) => {
 // there is a forwardable filter or a downloads/likes sort to browse by. Shares
 // the RobTop rate limiter, hence the extended timeout in sst.config.ts.
 app.get('/levels/gd-search', async (c) => {
+  const userId = c.get('userId')
   const sp = new URL(c.req.url).searchParams
   const parsed = parseBrowseQuery(sp)
   if (!parsed.success) {
@@ -140,6 +142,12 @@ app.get('/levels/gd-search', async (c) => {
       400
     )
   }
+
+  // Charged here rather than at the top of the handler: the validation and
+  // browse-intent gates above reject without ever reaching RobTop, and a
+  // request that never calls out shouldn't cost the user a token. From this
+  // point on the call is unconditional. Throws to the module's onError → 429.
+  await chargeRobtopBudget(userId)
 
   // Creator search-by has no GD equivalent, so the query term is only
   // forwarded in name mode; a creator escalation degrades to a filter browse.

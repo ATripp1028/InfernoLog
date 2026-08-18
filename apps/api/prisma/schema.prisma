@@ -238,6 +238,33 @@ model RobtopRateLimit {
   @@map("robtop_rate_limit")
 }
 
+// Per-user budget for RobTop calls made on a user's behalf, sitting IN FRONT OF
+// the shared singleton bucket above. The two solve different problems and both
+// are needed: RobtopRateLimit protects RobTop from InfernoLog in aggregate, but
+// it is a global with no notion of who spent it — one account looping a
+// RobTop-reaching endpoint can drain it and degrade level resolution for
+// everyone. This attributes the spend.
+//
+// Charged only when a request is actually about to call RobTop, never on a
+// cache hit (see utils/robtopUserBudget.ts), so ordinary use never touches it:
+// resolving a level already in the cache is free, and a level resolved once is
+// cached from then on. What it bounds is the traffic that CANNOT be absorbed by
+// the cache — repeated lookups of ids GD has no level for (a not-found is
+// deliberately never cached, so every retry is a fresh RobTop call) and the
+// gd-search escalation, which calls out unconditionally.
+//
+// Same token-bucket shape as RobtopRateLimit, one row per user, created lazily
+// on first charge. Cascades with the user.
+model RobtopUserBudget {
+  userId       String   @id
+  tokens       Float
+  lastRefillAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("robtop_user_budget")
+}
+
 // Round-robin cursor for the RobTop level-cache sync. The sync no longer runs
 // as one big monthly batch (which mass-tripped RobTop's rate limit); instead a
 // frequent cron processes a bounded slice of levels ordered by inGameId,
@@ -332,6 +359,7 @@ model User {
   ratingCategories      RatingCategory[]
   listPresets           ListPreset[]
   importJob             ImportJob?
+  robtopBudget          RobtopUserBudget?
   reportsSubmitted      Report[]             @relation("ReporterRelation")
   reportsReceived       Report[]             @relation("ReportedUserRelation")
   reportsModerated      Report[]             @relation("AssignedModeratorRelation")

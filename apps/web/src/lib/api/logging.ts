@@ -8,7 +8,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
-import { ApiError, apiFetch } from './client'
+import { ApiError, apiFetch, retryAfterSeconds } from './client'
 import {
   browseApiQueryString,
   type SearchPageState,
@@ -320,6 +320,10 @@ export type GdSearchResponse =
   | { status: 'ok'; rated: LevelSearchResult[]; unrated: LevelSearchResult[] }
   | { status: 'nothing_new'; totalFound: number }
   | { status: 'unreachable' }
+  // The caller has spent their per-user GD-lookup budget (429). Kept separate
+  // from `unreachable` because the copy differs entirely: GD is fine, the user
+  // simply asked too often, and the wait is known.
+  | { status: 'rate_limited'; retryAfterSeconds: number }
 
 /**
  * Input to an escalation. The bare-string form (`q`) is the legacy call from the
@@ -332,8 +336,12 @@ export type GdSearchInput = string | SearchPageState
  * The opt-in escalation call. A mutation (not a query) because it fires only on
  * explicit confirmation and each call is independent — there is no "escalated
  * mode" to keep in sync. A 503 is the expected RobTop-unreachable branch and
- * resolves to { status: 'unreachable' } rather than rejecting; other failures
- * reject (surfaced as the hook's error state).
+ * resolves to { status: 'unreachable' } rather than rejecting; a 429 is the
+ * per-user GD-lookup budget and resolves to { status: 'rate_limited' }. Other
+ * failures reject (surfaced as the hook's error state).
+ *
+ * Neither is retried: a mutation doesn't retry by default, and a budget 429 in
+ * particular must not be, since the retry would itself be another request.
  */
 export function useGdSearch() {
   const { getIdToken } = useAuth()
@@ -352,6 +360,12 @@ export function useGdSearch() {
       } catch (err) {
         if (err instanceof ApiError && err.status === 503) {
           return { status: 'unreachable' }
+        }
+        if (err instanceof ApiError && err.status === 429) {
+          return {
+            status: 'rate_limited',
+            retryAfterSeconds: retryAfterSeconds(err),
+          }
         }
         throw err
       }

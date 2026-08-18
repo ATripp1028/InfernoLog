@@ -160,12 +160,13 @@ describe('useGlobalLevelDetailPage', () => {
     })
   })
 
-  // Each kind gets its own terminal copy; 404 and 503 are meaningful states
-  // rather than failures, so they must stay distinguishable from a 500.
+  // Each kind gets its own terminal copy; 404, 503 and 429 are meaningful
+  // states rather than failures, so they must stay distinguishable from a 500.
   describe('error classification', () => {
     it.each([
       ['a 404', apiError(404, 'Not found'), 'not_found'],
       ['a 503', apiError(503, 'Unreachable'), 'unreachable'],
+      ['a 429', apiError(429, 'Too many'), 'rate_limited'],
       ['a 500', apiError(500, 'Server error'), 'unknown'],
       ['a network failure', new Error('offline'), 'unknown'],
     ])('classifies %s as %s', (_label, error, kind) => {
@@ -180,6 +181,14 @@ describe('useGlobalLevelDetailPage', () => {
       const { result } = render()
 
       expect(result.current.errorKind).toBeNull()
+    })
+
+    it('surfaces the wait from a 429 so the state can name it', () => {
+      failsWith(apiError(429, 'Too many', { retryAfterSeconds: 214 }))
+
+      const { result } = render()
+
+      expect(result.current.retryAfterSeconds).toBe(214)
     })
   })
 

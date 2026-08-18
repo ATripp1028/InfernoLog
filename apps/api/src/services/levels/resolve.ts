@@ -31,16 +31,27 @@ export type FindOrResolveResult<T> =
  * resolve the SFH NONG check runs before the row is re-read, so the returned
  * row already carries any NONG data on first load. `select` is the caller's
  * Prisma select, so each endpoint gets exactly the columns it renders.
+ *
+ * @param levelId - GD level id (already validated as numeric by the caller).
+ * @param select - The caller's Prisma select.
+ * @param onCacheMiss - Optional hook run ONLY when the cache misses and just
+ * before GD is called, so a caller can meter or refuse the outbound request
+ * (`/page` charges the per-user RobTop budget here). Whatever it throws
+ * propagates unchanged — the level is not fetched and nothing is written. The
+ * cache-hit path never invokes it, which is what keeps a hit free.
  */
 export async function findOrResolveLevel<T extends Prisma.LevelSelect>(
   levelId: string,
-  select: T
+  select: T,
+  onCacheMiss?: () => Promise<void>
 ): Promise<FindOrResolveResult<Prisma.LevelGetPayload<{ select: T }>>> {
   const cached = await prisma.level.findUnique({
     where: { inGameId: levelId },
     select,
   })
   if (cached) return { status: 'found', level: cached }
+
+  await onCacheMiss?.()
 
   const gd = await fetchRobtopLevelResult(levelId)
   if (gd.status === 'not_found') return { status: 'not_found' }

@@ -21,6 +21,46 @@ export class ApiError extends Error {
 }
 
 /**
+ * Renders a retry delay as the coarse phrase a wait message wants
+ * ("a moment" / "about 3 minutes"), rather than an exact countdown — the value
+ * is a refill estimate, and a ticking number invites watching the clock to
+ * resume spamming.
+ *
+ * @param seconds - Seconds to wait.
+ */
+export function formatRetryWait(seconds: number): string {
+  if (seconds < 60) return 'a moment'
+  const minutes = Math.ceil(seconds / 60)
+  return `about ${minutes} minute${minutes === 1 ? '' : 's'}`
+}
+
+/**
+ * Reads the retry hint off a 429 from the API.
+ *
+ * The server sends `retryAfterSeconds` in the JSON body (alongside the
+ * `Retry-After` header, which `fetch` exposes but our thrown ApiError does
+ * not carry). Falls back to a minute when the body isn't the expected shape,
+ * so callers always have something concrete to show rather than having to
+ * handle a null.
+ *
+ * @param error - The rejected request's error.
+ * @returns Seconds to wait before retrying.
+ */
+export function retryAfterSeconds(error: unknown): number {
+  const DEFAULT = 60
+  if (!(error instanceof ApiError)) return DEFAULT
+  const body = error.body
+  if (body && typeof body === 'object' && 'retryAfterSeconds' in body) {
+    const value = (body as { retryAfterSeconds: unknown }).retryAfterSeconds
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      return Math.ceil(value)
+    }
+  }
+  return DEFAULT
+}
+
+
+/**
  * Options for {@link apiFetch}. `body` is any JSON-serializable value (not a
  * `BodyInit`); the Content-Type header is set for you when it is present.
  */

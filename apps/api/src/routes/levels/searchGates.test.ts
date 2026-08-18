@@ -34,6 +34,15 @@ vi.mock('../../services/levels/browse', () => ({
 vi.mock('../../services/levels/gdSearch', () => ({
   runGdSearch: mockRunGdSearch,
 }))
+vi.mock('../../utils/robtopUserBudget', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../utils/robtopUserBudget')>()),
+  // These specs are about routing and the query gates, not metering, and they
+  // run against a mocked Prisma that has no budget row to charge. The real
+  // helper is covered by its own integration suite; the route wiring by
+  // robtopBudget.integration.test.ts.
+  chargeRobtopBudget: vi.fn().mockResolvedValue(undefined),
+}))
+
 
 const searchRoutes = (await import('./search')).default
 

@@ -1,5 +1,6 @@
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatRetryWait } from '@/lib/api/client'
 import type { LevelSearchResult } from '@/lib/api/logging'
 import { EscalationRow } from './EscalationRow'
 import { SearchResultRow } from './SearchResultRow'
@@ -88,6 +89,24 @@ export function GdSearchSection({
         <p className="mt-2 text-[11px] text-text-tertiary">
           Distinct from an error — the request succeeded and found only known
           levels.
+        </p>
+      </div>
+    )
+  }
+
+  // 429 — this user's GD-lookup budget is spent. Must not blame GD (the
+  // request never left InfernoLog) and must not offer a Try again link, which
+  // would just spend a token to be refused again.
+  if (result?.status === 'rate_limited') {
+    return (
+      <div className={cn('py-4', pad)}>
+        <p className="text-sm font-medium text-text-primary">
+          Too many GD searches
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Searching GD’s servers is limited per account. Try again in{' '}
+          {formatRetryWait(result.retryAfterSeconds)} — cache search is
+          unaffected.
         </p>
       </div>
     )
