@@ -1,18 +1,20 @@
 /**
- * Unit tests for the public Discord OAuth callback.
+ * Unit tests for the public Discord OAuth redirect target.
  *
- * This route is unauthenticated — the browser arrives straight from Discord
- * with no JWT, and the signed `state` is the only thing binding the callback to
- * a user. So the tests care most about which userId the link lands on, and that
- * every failure ends as a redirect carrying a reason rather than an error page
- * (the frontend has nothing else to show). Prisma, fetch and the state verifier
- * are mocked.
+ * This route used to exchange the code and write `discordId`, and most of what
+ * this file tested lives in routes/account/discord.ts now — see that module's
+ * tests for the exchange, the write, and the authorization check that made the
+ * move necessary. What is left here is a bouncer, and the tests are about the
+ * two properties a bouncer has to have: it forwards what Discord gave it, and
+ * it does nothing else.
+ *
+ * "Does nothing else" is the security-relevant half. This is the one
+ * unauthenticated entry point in the linking flow, so a test that it touches
+ * neither Prisma nor the network is a test that the flow's only write cannot
+ * be reached without a JWT.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { Prisma } from '@prisma/client'
-import type { PrismaClient } from '@prisma/client'
-import type { DeepMockProxy } from 'vitest-mock-extended'
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
@@ -27,11 +29,6 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { mockVerifyState } = vi.hoisted(() => ({ mockVerifyState: vi.fn() }))
-vi.mock('../../utils/discordState', () => ({
-  verifyConnectDiscordState: mockVerifyState,
-}))
-
 const mockFetch = vi.fn()
 vi.stubGlobal('fetch', mockFetch)
 
@@ -39,208 +36,123 @@ const app = (await import('./discord')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
-
-const USER_ID = 'user-1'
-const DISCORD_ID = '987654321'
 const FRONTEND = 'https://app.test'
 
-function res(status: number, body: unknown): Response {
-  return {
-    ok: status >= 200 && status < 300,
-    status,
-    json: async () => body,
-    text: async () => JSON.stringify(body),
-  } as Response
+function callback(query: Record<string, string>) {
+  const qs = new URLSearchParams(query)
+  return app.request(`/discord/callback?${qs}`)
 }
 
-/** Queues the token exchange then the /users/@me lookup, in that order. */
-function mockDiscordHappyPath() {
-  mockFetch
-    .mockResolvedValueOnce(res(200, { access_token: 'discord-token' }))
-    .mockResolvedValueOnce(res(200, { id: DISCORD_ID }))
-}
-
-function callback(query = 'code=auth-code&state=signed-state') {
-  return app.request(`/discord/callback?${query}`)
-}
-
-/** The `reason` query param of a redirect Location, or null if not an error. */
-function failureReason(response: Response): string | null {
-  const location = new URL(response.headers.get('location')!)
-  return location.searchParams.get('reason')
-}
-
-/** A P2002 unique-constraint error, as Prisma raises it. */
-function uniqueViolation(): Error {
-  return new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
-    code: 'P2002',
-    clientVersion: '5.22.0',
-  })
+/** The Location header of a redirect, parsed. */
+async function locationOf(res: Response): Promise<URL> {
+  return new URL(res.headers.get('location')!)
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  prisma.user.update.mockReset().mockResolvedValue({} as never)
-  mockFetch.mockReset()
-  mockVerifyState.mockReset().mockReturnValue({
-    userId: USER_ID,
-    nonce: 'n',
-    exp: 9_999_999_999,
-  })
   vi.stubEnv('FRONTEND_URL', FRONTEND)
-  vi.stubEnv('DISCORD_REDIRECT_URI', 'https://api.test/auth/discord/callback')
-  vi.stubEnv('DISCORD_CLIENT_ID', 'client-id')
-  vi.stubEnv('DISCORD_CLIENT_SECRET', 'client-secret')
 })
 
-// ─── success ─────────────────────────────────────────────────────────────────
+// ─── forwarding ──────────────────────────────────────────────────────────────
 
-describe('GET /discord/callback — success', () => {
-  it('links the Discord id and redirects back to settings', async () => {
-    mockDiscordHappyPath()
-
-    const response = await callback()
-
-    expect(response.status).toBe(302)
-    expect(response.headers.get('location')).toBe(
-      `${FRONTEND}/settings?discord=connected&discordId=${DISCORD_ID}`
+describe('GET /discord/callback — forwarding', () => {
+  it('sends the browser to the authenticated completion page', async () => {
+    const url = await locationOf(
+      await callback({ code: 'abc', state: 'signed-state' })
     )
+
+    expect(url.origin + url.pathname).toBe(`${FRONTEND}/auth/discord/complete`)
   })
 
-  it('writes the link against the userId from the signed state', async () => {
-    // The state is the only proof of who started the flow — a query param or
-    // the Discord id itself must never be the source of identity here.
-    mockDiscordHappyPath()
-
-    await callback()
-
-    expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { id: USER_ID },
-      data: { discordId: DISCORD_ID },
-    })
-  })
-
-  it('exchanges the code with the configured client credentials', async () => {
-    mockDiscordHappyPath()
-
-    await callback('code=auth-code&state=signed-state')
-
-    const [url, init] = mockFetch.mock.calls[0] as [string, RequestInit]
-    expect(url).toBe('https://discord.com/api/oauth2/token')
-    const body = init.body as URLSearchParams
-    expect(body.get('grant_type')).toBe('authorization_code')
-    expect(body.get('code')).toBe('auth-code')
-    expect(body.get('client_id')).toBe('client-id')
-    expect(body.get('client_secret')).toBe('client-secret')
-  })
-
-  it('presents the access token as a bearer on the user lookup', async () => {
-    mockDiscordHappyPath()
-
-    await callback()
-
-    const [url, init] = mockFetch.mock.calls[1] as [string, RequestInit]
-    expect(url).toBe('https://discord.com/api/users/@me')
-    expect((init.headers as Record<string, string>).Authorization).toBe(
-      'Bearer discord-token'
+  it('forwards the code and state unchanged', async () => {
+    const url = await locationOf(
+      await callback({ code: 'abc', state: 'signed-state' })
     )
+
+    expect(url.searchParams.get('code')).toBe('abc')
+    expect(url.searchParams.get('state')).toBe('signed-state')
   })
 
-  it('percent-encodes the Discord id into the redirect', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(200, { access_token: 'discord-token' }))
-      .mockResolvedValueOnce(res(200, { id: 'weird id&x=1' }))
+  it('encodes values that would otherwise break the query string', async () => {
+    const url = await locationOf(
+      await callback({ code: 'a&b=c d', state: 'x/y+z' })
+    )
 
-    const response = await callback()
+    expect(url.searchParams.get('code')).toBe('a&b=c d')
+    expect(url.searchParams.get('state')).toBe('x/y+z')
+  })
 
-    expect(response.headers.get('location')).toContain('weird%20id%26x%3D1')
+  it('forwards a state it cannot vouch for', async () => {
+    // The bouncer deliberately does not verify the signature: one place
+    // decides whether a state is trustworthy, and it is the endpoint that acts
+    // on it. Forwarding garbage costs nothing, because this route grants
+    // nothing.
+    const url = await locationOf(
+      await callback({ code: 'abc', state: 'not-a-real-state' })
+    )
+
+    expect(url.pathname).toBe('/auth/discord/complete')
+  })
+})
+
+// ─── the bouncer grants nothing ──────────────────────────────────────────────
+
+describe('GET /discord/callback — does nothing but redirect', () => {
+  it('never touches the database', async () => {
+    await callback({ code: 'abc', state: 'signed-state' })
+
+    // The linking write now lives behind the JWT. If this route ever regains a
+    // Prisma call, the unauthenticated CSRF path is back.
+    expect(prismaMock.user.update).not.toHaveBeenCalled()
+  })
+
+  it('never calls Discord', async () => {
+    await callback({ code: 'abc', state: 'signed-state' })
+
+    // No token exchange here means the authorization code is still unspent
+    // when it reaches the authenticated endpoint, which is what lets that
+    // endpoint refuse before spending it.
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
+  it('always redirects — never renders an error', async () => {
+    // The user's browser is mid-OAuth-redirect; an error body would be a dead
+    // end with no way back into the app.
+    for (const query of [
+      { code: 'abc', state: 's' },
+      { code: 'abc' },
+      { state: 's' },
+      {},
+      { error: 'access_denied' },
+    ]) {
+      expect((await callback(query)).status).toBe(302)
+    }
   })
 })
 
 // ─── failures ────────────────────────────────────────────────────────────────
 
-describe('GET /discord/callback — failures redirect with a reason', () => {
-  it('rejects a missing code before verifying anything', async () => {
-    const response = await callback('state=signed-state')
+describe('GET /discord/callback — failures', () => {
+  it.each([
+    ['a declined consent screen', { error: 'access_denied' }, 'cancelled'],
+    ['a missing code', { state: 's' }, 'missing_code'],
+    ['a missing state', { code: 'abc' }, 'missing_state'],
+    ['an empty redirect', {}, 'missing_code'],
+  ])('reports %s as %s', async (_label, query, reason) => {
+    const url = await locationOf(await callback(query))
 
-    expect(failureReason(response)).toBe('missing_code')
-    expect(mockVerifyState).not.toHaveBeenCalled()
+    expect(url.origin + url.pathname).toBe(`${FRONTEND}/settings`)
+    expect(url.searchParams.get('discord')).toBe('error')
+    expect(url.searchParams.get('reason')).toBe(reason)
   })
 
-  it('rejects a missing state', async () => {
-    const response = await callback('code=auth-code')
+  it('treats a denial as a denial even when Discord echoes a state', async () => {
+    // Discord sends back ?error=access_denied&state=… — without the explicit
+    // error check that reads as a plain missing code.
+    const url = await locationOf(
+      await callback({ error: 'access_denied', state: 's' })
+    )
 
-    expect(failureReason(response)).toBe('missing_state')
-    expect(mockFetch).not.toHaveBeenCalled()
-  })
-
-  it('rejects an unverifiable state without calling Discord', async () => {
-    // A forged/expired state must not reach the token exchange at all.
-    mockVerifyState.mockReturnValue(null)
-
-    const response = await callback()
-
-    expect(failureReason(response)).toBe('invalid_state')
-    expect(mockFetch).not.toHaveBeenCalled()
-    expect(prisma.user.update).not.toHaveBeenCalled()
-  })
-
-  it('reports a failed token exchange', async () => {
-    mockFetch.mockResolvedValueOnce(res(400, { error: 'invalid_grant' }))
-
-    const response = await callback()
-
-    expect(failureReason(response)).toBe('token_exchange_failed')
-    expect(prisma.user.update).not.toHaveBeenCalled()
-  })
-
-  it('reports a failed user lookup', async () => {
-    mockFetch
-      .mockResolvedValueOnce(res(200, { access_token: 'discord-token' }))
-      .mockResolvedValueOnce(res(401, {}))
-
-    const response = await callback()
-
-    expect(failureReason(response)).toBe('user_fetch_failed')
-    expect(prisma.user.update).not.toHaveBeenCalled()
-  })
-
-  it('reports a Discord account already linked to someone else', async () => {
-    // P2002 on discordId — a distinct, user-actionable reason rather than a
-    // generic error, since the fix is to unlink from the other account.
-    mockDiscordHappyPath()
-    prisma.user.update.mockRejectedValue(uniqueViolation())
-
-    const response = await callback()
-
-    expect(failureReason(response)).toBe('already_linked_elsewhere')
-  })
-
-  it('falls back to an internal error for an unexpected write failure', async () => {
-    mockDiscordHappyPath()
-    prisma.user.update.mockRejectedValue(new Error('connection lost'))
-
-    const response = await callback()
-
-    expect(failureReason(response)).toBe('internal_error')
-  })
-
-  it('never surfaces an error page — every failure is a redirect', async () => {
-    mockFetch.mockRejectedValue(new TypeError('network down'))
-
-    const response = await callback()
-
-    expect(response.status).toBe(302)
-    expect(failureReason(response)).toBe('internal_error')
-  })
-
-  it('sends every failure back to the settings page', async () => {
-    mockVerifyState.mockReturnValue(null)
-
-    const location = new URL((await callback()).headers.get('location')!)
-
-    expect(location.origin + location.pathname).toBe(`${FRONTEND}/settings`)
-    expect(location.searchParams.get('discord')).toBe('error')
+    expect(url.searchParams.get('reason')).toBe('cancelled')
   })
 })

@@ -3,7 +3,11 @@
 import { api, jwtAuth, sharedEnvironment, sharedLinks } from '../api'
 import { userPool } from '../auth'
 import { sharedNodeOptions } from '../defaults'
-import { DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET } from '../secrets'
+import {
+  DISCORD_CLIENT_ID,
+  DISCORD_CLIENT_SECRET,
+  DISCORD_STATE_SECRET,
+} from '../secrets'
 
 api.route('GET /v1/users/check-username', {
   handler: 'src/index.handler',
@@ -44,14 +48,12 @@ api.route(
   { auth: jwtAuth }
 )
 
-// Env vars used by the connect-Discord initiator + public callback.
-// The signed `state` parameter ties the two together — no Cognito JWT
-// is needed on the public callback because the userId is encoded in
-// (and verified from) the state.
-const discordEnvironment = {
-  ...sharedEnvironment,
-  DISCORD_CLIENT_ID: DISCORD_CLIENT_ID.value,
-  DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value,
+// Where the browser is sent, and where Discord sends it back. Needed by the
+// bouncer (to build its redirect) and by the two authenticated endpoints.
+const discordUrls = {
+  // Registered with Discord — changing it means updating the Discord app.
+  // It still points at the public bouncer even though the bouncer no longer
+  // exchanges anything, so the registration survives this refactor untouched.
   DISCORD_REDIRECT_URI:
     $app.stage === 'production'
       ? 'https://api.infernolog.com/auth/discord/callback'
@@ -62,8 +64,43 @@ const discordEnvironment = {
       : 'http://localhost:5173',
 }
 
+// The public bouncer forwards `code` and `state` to the frontend and nothing
+// else, so it gets the URLs and NO credentials: not the client secret (it no
+// longer exchanges the code) and not the state secret (it no longer verifies
+// the state). The one unauthenticated Lambda in this flow now holds nothing
+// worth stealing.
+const discordBouncerEnvironment = {
+  ...sharedEnvironment,
+  ...discordUrls,
+}
+
+// The authenticated endpoints: minting a state needs the signing secret and
+// the client id; completing a link additionally needs the client secret for
+// the token exchange.
+const discordEnvironment = {
+  ...sharedEnvironment,
+  ...discordUrls,
+  DISCORD_CLIENT_ID: DISCORD_CLIENT_ID.value,
+  DISCORD_CLIENT_SECRET: DISCORD_CLIENT_SECRET.value,
+  DISCORD_STATE_SECRET: DISCORD_STATE_SECRET.value,
+}
+
 api.route(
   'POST /v1/me/connect-discord',
+  {
+    handler: 'src/index.handler',
+    link: sharedLinks,
+    environment: discordEnvironment,
+    ...sharedNodeOptions,
+  },
+  { auth: jwtAuth }
+)
+
+// The only write in the linking flow, and the only place the state's claimed
+// userId is checked against an authenticated caller. See
+// routes/account/discord.ts.
+api.route(
+  'POST /v1/me/connect-discord/complete',
   {
     handler: 'src/index.handler',
     link: sharedLinks,
@@ -87,6 +124,6 @@ api.route(
 api.route('GET /auth/discord/callback', {
   handler: 'src/index.handler',
   link: sharedLinks,
-  environment: discordEnvironment,
+  environment: discordBouncerEnvironment,
   ...sharedNodeOptions,
 })

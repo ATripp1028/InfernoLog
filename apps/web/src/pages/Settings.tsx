@@ -8,7 +8,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/generic/sonner'
 import { PageLoading } from '@/components/shell/PageLoading'
-import { meQueryKey, useMe, type MeData } from '@/lib/api/me'
+import { meQueryKey, useMe } from '@/lib/api/me'
 import { backOriginState } from '@/lib/backOrigin'
 import { useImportStatus } from '@/lib/api/import'
 import { AccountSection } from '@/features/settings/sections/AccountSection'
@@ -37,7 +37,6 @@ export function Settings() {
   const importStatus = useImportStatus()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
-    discordId?: string
     reason?: string
     importStatus?: true
   }
@@ -56,23 +55,23 @@ export function Settings() {
       handledDiscordResultRef.current = null
       return
     }
-    const resultKey = `${search.discord}:${search.discordId ?? ''}:${search.reason ?? ''}`
+    const resultKey = `${search.discord}:${search.reason ?? ''}`
     if (handledDiscordResultRef.current === resultKey) return
     handledDiscordResultRef.current = resultKey
     if (search.discord === 'connected') {
+      // The completion mutation already wrote discordId into the cache (it had
+      // the value first-hand, from an authenticated response). This used to
+      // read the id out of the URL instead, because the write happened in a
+      // server-side redirect the client never saw — and it toasted success
+      // unconditionally, so a victim of the linking CSRF was told their own
+      // account had connected while the link landed on someone else's.
       toast.success('Discord account connected')
-      if (search.discordId) {
-        const newDiscordId = search.discordId
-        queryClient.setQueryData<MeData>(meQueryKey, (old) =>
-          old ? { ...old, discordId: newDiscordId } : old
-        )
-      }
       void queryClient.refetchQueries({ queryKey: meQueryKey })
     } else if (search.discord === 'error') {
       toast.error(discordErrorMessage(search.reason))
     }
     void navigate({ to: '/settings', replace: true, search: {} })
-  }, [search.discord, search.discordId, search.reason, navigate, queryClient])
+  }, [search.discord, search.reason, navigate, queryClient])
 
   useEffect(() => {
     if (!search.importStatus) return
@@ -140,15 +139,25 @@ export function Settings() {
   )
 }
 
+// `reason` codes come from two places: the API's public redirect target, which
+// can only report that Discord itself didn't cooperate, and the authenticated
+// completion endpoint, which reports everything else.
 function discordErrorMessage(reason?: string): string {
   switch (reason) {
+    case 'cancelled':
+      return 'Discord connection cancelled.'
     case 'invalid_state':
       return 'The Discord connection link expired or was tampered with. Please try again.'
+    case 'state_mismatch':
+      // The completion request was authenticated as a different account than
+      // the one that started the flow. Benignly, a stale tab left open across
+      // an account switch; otherwise, someone else's connection link. The copy
+      // covers both without accusing the user of anything.
+      return 'That Discord connection link was started from a different account. Start again from your own settings.'
     case 'missing_code':
     case 'missing_state':
       return 'Discord didn’t return the required information. Please try again.'
-    case 'token_exchange_failed':
-    case 'user_fetch_failed':
+    case 'exchange_failed':
       return 'Couldn’t reach Discord. Please try again.'
     case 'already_linked_elsewhere':
       return 'That Discord account is already connected to a different InfernoLog user.'

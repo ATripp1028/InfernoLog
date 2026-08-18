@@ -107,6 +107,41 @@ export function useConnectDiscord() {
 }
 
 /**
+ * Finishes a Discord link by exchanging the code returned from the OAuth flow.
+ *
+ * This call — not the redirect that precedes it — is what authorizes the link.
+ * The API refuses unless the signed `state` names the account whose token is on
+ * this request, which is what stops someone handing their own authorize URL to
+ * a stranger and collecting the stranger's Discord identity onto their own
+ * profile. See apps/api/src/routes/auth/discord.ts.
+ *
+ * Writes the resulting `discordId` straight into the cached user, so the
+ * settings page is correct the moment it renders.
+ */
+export function useCompleteDiscordLink() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (input: {
+      code: string
+      state: string
+    }): Promise<{ discordId: string }> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: { discordId: string } }>(
+        '/v1/me/connect-discord/complete',
+        { token, method: 'POST', body: input }
+      )
+      return data
+    },
+    onSuccess: ({ discordId }) => {
+      queryClient.setQueryData<MeData>(meQueryKey, (old) =>
+        old ? { ...old, discordId } : old
+      )
+    },
+  })
+}
+
+/**
  * Unlinks the Discord account, clearing `discordId` in the cache immediately.
  */
 export function useDisconnectDiscord() {
