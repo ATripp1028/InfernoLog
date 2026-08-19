@@ -48,8 +48,9 @@ export function CompletionBasicsStep() {
                 This isn&apos;t a demon
               </p>
               <p className="text-sm text-text-secondary">
-                InfernoLog is built for demon tracking. You can still log it —
-                it just won&apos;t appear in your difficulty ranking by default.
+                InfernoLog is built for demon tracking, so you&apos;ll see it
+                framed that way in places. Everything still works — log it,
+                rate it, rank it like any other completion.
               </p>
             </div>
           </Card>

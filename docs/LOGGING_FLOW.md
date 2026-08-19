@@ -160,20 +160,21 @@ on the completion Core step.
 
 ## Scope Stance: Demon-Focused, Not Demon-Locked
 
-InfernoLog is built for demon completions and remains so. But logging a non-demon is **not
-hard-blocked** — a hard validation wall buys little (reliable demon detection, reupload/rating
-edge cases, "why won't it let me log this?" support burden) over a soft treatment.
+InfernoLog is built for demon completions and remains so. But that is a matter of **emphasis,
+not capability**: a non-demon is logged, rated, collected and ranked exactly like a demon. A hard
+validation wall buys little (reliable demon detection, reupload/rating edge cases, "why won't it
+let me log this?" support burden) over a soft treatment.
 
-- On autofill, a non-demon level (the GD servers return difficulty) surfaces a **soft-gate notice**:
-  an inline warning banner ("This isn't a demon — InfernoLog is built for demon tracking, but
-  you can still log it. It won't appear in your difficulty ranking by default."). It informs;
-  it does not block.
-- Non-demons are logged and kept in history but treated as second-class for demon-specific
-  apparatus (excluded from the difficulty ranking by default). This reuses the existing
-  unrated-level treatment and costs almost nothing.
-- The previously-default behavior — silent acceptance with full equal treatment — is the one
-  genuinely wrong option, because it lets the difficulty ranking fill with levels it wasn't
-  designed for, with no signal to the user.
+- On autofill, a non-demon level (the GD servers return difficulty) surfaces a **notice**: an
+  inline banner ("This isn't a demon — InfernoLog is built for demon tracking, so you'll see it
+  framed that way in places. Everything still works."). It informs; it does not block, and it
+  does not describe a restriction, because there isn't one.
+- `isDemon` may drive **presentation** — demon-first sort orders, demon-shaped copy, which
+  external list links are offered. It must never gate an action. Restrictions the user cannot
+  predict or work around are worse than an unopinionated app.
+- Earlier drafts of this doc excluded non-demons from the difficulty ranking. That rule was
+  **dropped**: the ranking is the user's own difficulty order, and nothing in it depends on GD's
+  demon flag. The classic/platformer split is a real separation and stays; demon-ness is not.
 
 ---
 
@@ -230,9 +231,9 @@ These are **two separate fields**, never conflated:
 
 Showing the two side by side is the entire point: the user is stating where they _disagree_ with
 the in-game rating. A "Not demon-worthy" opinion is a disagreement only — the level is still a
-rated demon and stays in the difficulty ranking unless the user removes it; this is distinct from
-the non-demon **soft gate** above (which fires when the GD servers report the level isn't a demon at
-all).
+rated demon unless the user removes it; this is distinct from the non-demon **notice** above
+(which fires when the GD servers report the level isn't a demon at all). Neither affects ranking
+eligibility — nothing does, beyond being a completed classic level.
 
 `Level entry → Core (Where are you at?) → Session Details → Review`
 

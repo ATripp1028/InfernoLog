@@ -1109,6 +1109,39 @@ describe('commitImportRanking', () => {
     exp = await fullExport(user.id)
     expect(exp.ranking.map((r) => r.levelId)).toEqual(['200', '100'])
   })
+
+  it('ranks a non-demon completion but skips a platformer one', async () => {
+    await seedLevels()
+    await seedLevel(prisma, {
+      inGameId: '400',
+      name: 'Deadlocked',
+      inGameDifficulty: 'Harder',
+      isDemon: false,
+    })
+    await seedLevel(prisma, {
+      inGameId: '500',
+      name: 'Platformer Level',
+      levelType: 'PLATFORMER',
+      isDemon: true,
+    })
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '100' } },
+      { type: 'completion', rowIndex: 1, data: { levelId: '400' } },
+      { type: 'completion', rowIndex: 2, data: { levelId: '500' } },
+    ])
+
+    const res = await commitImportRanking(user.id, [
+      { levelId: '400' },
+      { levelId: '500' },
+      { levelId: '100' },
+    ])
+
+    expect(res.placed).toBe(2)
+    expect(res.skipped.map((s) => s.rank)).toEqual([2])
+    const exp = await fullExport(user.id)
+    expect(exp.ranking.map((r) => r.levelId)).toEqual(['400', '100'])
+  })
 })
 
 describe('checkRankingMerge', () => {

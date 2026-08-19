@@ -25,7 +25,8 @@ import type { PlaceRankingInput, ReorderRankingInput } from '@infernolog/core'
 type Tx = Prisma.TransactionClient
 
 /**
- * 400 — caller-fixable (e.g. placing a non-demon, neighbours out of order).
+ * 400 — caller-fixable (e.g. placing an in-progress entry, neighbours out of
+ * order).
  */
 export class RankingError extends Error {
   constructor(message: string) {
@@ -148,7 +149,10 @@ export async function getClassicRanking(userId: string) {
         userId,
         status: 'COMPLETED',
         classicRanking: { is: null },
-        level: { levelType: 'CLASSIC', isDemon: true },
+        // Classic only — the platformer ranking is a separate list. Demon-ness
+        // is deliberately NOT filtered: a non-demon completion is rankable like
+        // any other (see "Scope Stance" in LOGGING_FLOW.md).
+        level: { levelType: 'CLASSIC' },
       },
       orderBy: { updatedAt: 'desc' },
       select: {
@@ -191,8 +195,10 @@ export async function getClassicRanking(userId: string) {
 // ─────────────────────────────────────────────
 
 /**
- * PLACE — an unplaced completion enters the ranking. Validates the entry is the
- * caller's COMPLETED classic demon and not already placed.
+ * PLACE — an unplaced completion enters the ranking. Validates the entry is one
+ * of the caller's COMPLETED classic levels and not already placed. Non-demons
+ * are accepted: the ranking is the user's own difficulty order, and nothing
+ * about it depends on the level carrying GD's demon flag.
  */
 export async function placeCompletion(
   userId: string,
@@ -204,7 +210,7 @@ export async function placeCompletion(
       select: {
         status: true,
         classicRanking: { select: { id: true } },
-        level: { select: { levelType: true, isDemon: true } },
+        level: { select: { levelType: true } },
       },
     })
     if (!lp) throw new RankingNotFoundError('Level progress not found')
@@ -215,10 +221,6 @@ export async function placeCompletion(
     if (lp.level.levelType !== 'CLASSIC')
       throw new RankingError(
         'Only classic levels appear in the classic ranking'
-      )
-    if (!lp.level.isDemon)
-      throw new RankingError(
-        'Non-demon levels are excluded from the difficulty ranking'
       )
 
     const rankingIndex = await computeIndex(

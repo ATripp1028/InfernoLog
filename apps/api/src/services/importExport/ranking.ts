@@ -28,10 +28,20 @@ interface RankingTargets {
 }
 
 // Shared by commitImportRanking and checkRankingMerge — the user's completed
-// levels, resolvable by levelId or (ambiguity-checked) by name.
+// classic levels, resolvable by levelId or (ambiguity-checked) by name.
+//
+// Scoped to CLASSIC to match what the ranking board itself offers: the
+// platformer ranking is a separate list, and without this filter a Ranking tab
+// naming a platformer completion would inject it into the classic ranking,
+// where nothing downstream filters it back out. Non-demons are in scope — the
+// classic ranking accepts them on every path (see services/ranking).
 async function resolveRankingTargets(userId: string): Promise<RankingTargets> {
   const completed = await prisma.levelProgress.findMany({
-    where: { userId, progressUpdates: { some: { kind: 'COMPLETION' } } },
+    where: {
+      userId,
+      progressUpdates: { some: { kind: 'COMPLETION' } },
+      level: { levelType: 'CLASSIC' },
+    },
     select: { id: true, levelId: true, level: { select: { name: true } } },
   })
 
@@ -88,7 +98,7 @@ function resolveRankingOrder(
         rank,
         label,
         reason:
-          'Not among your completed levels — rank only applies to completions',
+          'Not among your completed classic levels — rank only applies to classic completions',
       })
       return
     }
