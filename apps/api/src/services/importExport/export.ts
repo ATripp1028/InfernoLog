@@ -10,10 +10,17 @@
 // What it intentionally does NOT include (out of the import model / user-only):
 // rating category weights + mode, AREDL references, and system timestamps.
 // See docs/IMPORT_EXPORT.md.
+//
+// Every tab's in_game_difficulty is the level's CURRENT cached difficulty, not
+// the snapshot ProgressUpdate took when the entry was logged. The column exists
+// to filter name resolution on the way back in, and it is matched against the
+// cache as it is then — a stale snapshot could only rule the row's own level
+// out. Import re-snapshots from the cache itself and never stores this cell, so
+// nothing is lost by it. See ./sheetDifficulty.ts for how the value is spelled.
 
 import prisma from '../../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
-import { resolveLevelDifficulty } from '../levels/difficulty'
+import { toSheetDifficulty } from './sheetDifficulty'
 import { zonedDateString } from '../../utils/timezone'
 import { toNum } from '../../utils/decimal'
 
@@ -53,7 +60,16 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       userGddlTier: true,
       simpleRating: true,
       coinsCollected: true,
-      level: { select: { name: true, creator: true } },
+      // stars + the label together resolve the difficulty cell; see
+      // toSheetDifficulty.
+      level: {
+        select: {
+          name: true,
+          creator: true,
+          stars: true,
+          inGameDifficulty: true,
+        },
+      },
       progressUpdates: {
         where: { kind: 'COMPLETION' },
         take: 1,
@@ -71,7 +87,6 @@ async function exportCompletions(userId: string, skip: number, take: number) {
           difficultyOpinion: true,
           twoPlayerSolo: true,
           twoPlayerPartner: true,
-          inGameDifficulty: true,
           notes: true,
           videoUrl: true,
           highlightUrl: true,
@@ -88,7 +103,10 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         levelId: lp.levelId,
         levelName: lp.level.name,
         creator: lp.level.creator,
-        inGameDifficulty: pu.inGameDifficulty,
+        inGameDifficulty: toSheetDifficulty({
+          ...lp.level,
+          inGameId: lp.levelId,
+        }),
         date: iso(pu.date, pu.dateTimezone),
         dateUncertain: pu.dateUncertain,
         attempts: pu.attempts,
@@ -227,7 +245,7 @@ async function exportDropped(userId: string, skip: number, take: number) {
       levelId: lp.levelId,
       levelName: lp.level.name,
       creator: lp.level.creator,
-      inGameDifficulty: resolveLevelDifficulty({
+      inGameDifficulty: toSheetDifficulty({
         ...lp.level,
         inGameId: lp.levelId,
       }),
@@ -323,20 +341,21 @@ async function exportRatings(userId: string, skip: number, take: number) {
     take,
     select: {
       levelId: true,
-      level: { select: { name: true, creator: true } },
-      ratingScores: { select: { categoryId: true, score: true } },
-      // Representative update (completion first, else most recent) — rating
-      // is level-level and doesn't require a completion to exist.
-      progressUpdates: {
-        orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }],
-        take: 1,
-        select: { inGameDifficulty: true },
+      // stars + the label together resolve the difficulty cell; see
+      // toSheetDifficulty.
+      level: {
+        select: {
+          name: true,
+          creator: true,
+          stars: true,
+          inGameDifficulty: true,
+        },
       },
+      ratingScores: { select: { categoryId: true, score: true } },
     },
   })
 
   return lps.flatMap((lp) => {
-    const pu = lp.progressUpdates[0]
     if (lp.ratingScores.length === 0) return []
     const scores: Record<string, number> = {}
     for (const s of lp.ratingScores) {
@@ -349,7 +368,10 @@ async function exportRatings(userId: string, skip: number, take: number) {
         levelId: lp.levelId,
         levelName: lp.level.name,
         creator: lp.level.creator,
-        inGameDifficulty: pu?.inGameDifficulty ?? null,
+        inGameDifficulty: toSheetDifficulty({
+          ...lp.level,
+          inGameId: lp.levelId,
+        }),
         scores,
       },
     ]

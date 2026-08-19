@@ -337,9 +337,7 @@ describe('resolveByName — difficulty is a hard filter', () => {
     ] as never)
     mockSearchRobtopByName.mockResolvedValue([])
 
-    await expect(
-      resolveByName('DeathMoon', null, 'Normal')
-    ).resolves.toBeNull()
+    await expect(resolveByName('DeathMoon', null, 'Normal')).resolves.toBeNull()
   })
 
   // A candidate with only a label is still testable, since the label's band
@@ -357,6 +355,73 @@ describe('resolveByName — difficulty is a hard filter', () => {
     ] as never)
     mockSearchRobtopByName.mockResolvedValue([])
     await expect(resolveByName('DeathMoon', null, '8')).resolves.toBeNull()
+  })
+})
+
+// ─── the explicit non-demon marker ───────────────────────────────────────────
+
+// The escape hatch from "a bare tier name means the demon tier", for the rows
+// that have a face and no star count to write instead — what an export puts in
+// the cell for them (see ../sheetDifficulty.ts).
+describe('resolveByName — the non-demon marker', () => {
+  it('resolves a label-only non-demon that the bare face cannot', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Hard', stars: null }),
+    ] as never)
+    await expect(
+      resolveByName('DeathMoon', null, 'Hard (non-demon)')
+    ).resolves.toEqual({ levelId: '1' })
+
+    // The same row, asked for by the bare face: read as Hard Demon, filtered
+    // out, and off to RobTop. This is the round trip the marker exists to fix.
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Hard', stars: null }),
+    ] as never)
+    mockSearchRobtopByName.mockResolvedValue([])
+    await expect(resolveByName('DeathMoon', null, 'Hard')).resolves.toBeNull()
+  })
+
+  it.each([
+    ['Insane (non-demon)'],
+    ['insane (non demon)'],
+    ['Insane non-demon'],
+    ['INSANE (NONDEMON)'],
+  ])('accepts the hand-typed variant %s', async (diff) => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Insane', stars: null }),
+    ] as never)
+
+    await expect(resolveByName('DeathMoon', null, diff)).resolves.toEqual({
+      levelId: '1',
+    })
+  })
+
+  it('still excludes the demon tier of the same name', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Insane Demon' }),
+      dbLevel('2', { diff: 'Insane', stars: null }),
+    ] as never)
+
+    await expect(
+      resolveByName('DeathMoon', null, 'Insane (non-demon)')
+    ).resolves.toEqual({ levelId: '2' })
+  })
+
+  it('resolves an official level whose star award is off the non-demon scale', async () => {
+    // id 11 is Clutterfunk: labelled Insane, but 11 stars — a count no sheet
+    // can claim, so its cell is the marked face.
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('11', { name: 'Clutterfunk', diff: 'Insane', stars: 11 }),
+    ] as never)
+
+    await expect(
+      resolveByName('Clutterfunk', null, 'Insane (non-demon)')
+    ).resolves.toEqual({ levelId: '11' })
+  })
+
+  it('scopes a marked face to its GD diff bucket, not the demon filter', async () => {
+    await resolveByName('DeathMoon', null, 'Insane (non-demon)')
+    expect(lastSearchOptions()).toEqual({ diff: '5' })
   })
 })
 

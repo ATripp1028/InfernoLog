@@ -422,6 +422,100 @@ describe('import → export round-trip', () => {
   })
 })
 
+// The export's in_game_difficulty is what a name-only reimport filters
+// candidates by, so a non-demon's cell has to say "non-demon" in a way the
+// parser hears — a bare face reads as the demon tier of that name and rules the
+// row's own level out. Each case seeds a same-named demon so the filter is load
+// bearing: without it the pair is ambiguous and nothing resolves at all.
+describe('export → reimport by name', () => {
+  async function seedNamesake(stars: number | null) {
+    await seedLevel(prisma, {
+      inGameId: '700',
+      name: 'Namesake',
+      creator: 'Riot',
+      inGameDifficulty: 'Hard',
+      isRated: true,
+    })
+    if (stars != null) {
+      await prisma.level.update({
+        where: { inGameId: '700' },
+        data: { stars },
+      })
+    }
+    await seedLevel(prisma, {
+      inGameId: '701',
+      name: 'Namesake',
+      creator: 'Riot',
+      inGameDifficulty: 'Hard Demon',
+      isDemon: true,
+      isRated: true,
+    })
+  }
+
+  // Reimports a source account's exported completion into a fresh one with the
+  // level_id stripped, which is what a user editing the sheet by hand leaves.
+  async function reimportByName(exp: ExportResponse) {
+    const row = exp.completions[0]!
+    const userB = await seedUser(prisma)
+    await commitImportBatch(userB.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: {
+          levelName: row.levelName,
+          creator: row.creator,
+          inGameDifficulty: row.inGameDifficulty,
+        },
+      },
+    ])
+    return fullExport(userB.id)
+  }
+
+  it('round-trips a star-rated non-demon as its star count', async () => {
+    await seedNamesake(5)
+    const userA = await seedUser(prisma)
+    await commitImportBatch(userA.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '700' } },
+    ])
+
+    const expA = await fullExport(userA.id)
+    expect(expA.completions[0]!.inGameDifficulty).toBe('5★')
+
+    const expB = await reimportByName(expA)
+    expect(expB.completions.map((c) => c.levelId)).toEqual(['700'])
+  })
+
+  it('round-trips a label-only non-demon as its marked face', async () => {
+    // Hard spans 4-5 stars, so nothing can recover the count for a row that
+    // only ever carried the label — the marker is all the cell has to work with.
+    await seedNamesake(null)
+    const userA = await seedUser(prisma)
+    await commitImportBatch(userA.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '700' } },
+    ])
+
+    const expA = await fullExport(userA.id)
+    expect(expA.completions[0]!.inGameDifficulty).toBe('Hard (non-demon)')
+
+    const expB = await reimportByName(expA)
+    expect(expB.completions.map((c) => c.levelId)).toEqual(['700'])
+  })
+
+  it('still round-trips a demon tier, which needs no marking', async () => {
+    await seedNamesake(null)
+    const userA = await seedUser(prisma)
+    await commitImportBatch(userA.id, randomUUID(), [
+      { type: 'completion', rowIndex: 0, data: { levelId: '701' } },
+    ])
+
+    const expA = await fullExport(userA.id)
+    expect(expA.completions[0]!.inGameDifficulty).toBe('Hard Demon')
+
+    const expB = await reimportByName(expA)
+    expect(expB.completions.map((c) => c.levelId)).toEqual(['701'])
+  })
+})
+
 describe('commitImportBatch — completion conflict resolution', () => {
   it('merge only overwrites provided fields and never wipes category ratings', async () => {
     await seedLevels()

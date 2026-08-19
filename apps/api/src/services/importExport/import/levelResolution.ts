@@ -15,6 +15,7 @@ import type { Prisma } from '@prisma/client'
 import {
   MAX_NON_DEMON_STARS,
   faceMatchesStars,
+  faceToStarRange,
   starsToFace,
 } from '@infernolog/core'
 import { searchRobtopByName, type RobtopLevel } from '../../../utils/robtop'
@@ -26,13 +27,13 @@ const sqs = new SQSClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
 
 // ── Name-based level resolution ────────────────────────────────────────────
 
-
 // Demon tier names, keyed without the redundant "Demon" suffix. A bare tier name
 // in a sheet means the DEMON tier — "Easy" is Easy Demon, not the 2-star Easy.
 // That convention predates non-demon support and is what the import template
 // documents ('e.g. "Easy" (Demon is implied)'), so it stays; a sheet that means
-// the non-demon difficulty says so unambiguously with a star count (see
-// starsFromSheetValue). Levels in our DB store the suffixed form for demons
+// the non-demon difficulty says so unambiguously — with a star count, or with
+// the explicit marker when it has no count to give (see
+// nonDemonClaimFromSheetValue). Levels in our DB store the suffixed form for demons
 // (see deriveDifficulty in robtop.ts), so both sides normalize through this.
 const DEMON_TIER_FILTERS: Record<string, string> = {
   easy: '1',
@@ -66,17 +67,24 @@ function normalizeTier(diff: string | null | undefined): string | null {
   )
 }
 
+// The explicit "this is not a demon" marker, which frees a face name from the
+// bare-tier-means-demon convention. Written by every export that has a face but
+// no star count to write (see ../sheetDifficulty.ts), and loose enough to
+// accept the hand-typed variants — parentheses optional, hyphen optional.
+const NON_DEMON_MARKER = /\(?\s*non[-\s]?demon\s*\)?$/
+
 // What a sheet's in_game_difficulty is claiming about a non-demon, or null when
 // it isn't claiming anything this scale covers.
 //
 // Two shapes, because they carry different amounts of information:
 //   * an exact star count — "5", "5★", "5 stars" — which pins the difficulty;
-//   * a bare face name that CANNOT also be a demon tier ("Auto", "Normal",
-//     "Harder"), which pins only a band (Harder is 6 or 7 stars).
+//   * a face name, which pins only a band (Harder is 6 or 7 stars).
 //
-// "Easy" / "Hard" / "Insane" are deliberately excluded from the face branch:
-// they read as demon tiers per the convention above, and a sheet meaning the
-// non-demon one writes the number.
+// A face only counts when it cannot also be read as a demon tier: either it
+// isn't one ("Auto", "Normal", "Harder"), or the value marks itself non-demon
+// outright ("Insane (non-demon)"). A bare "Easy" / "Hard" / "Insane" stays a
+// demon tier per the convention above — a sheet meaning the non-demon one
+// writes the star count, or the marker when there is no count to write.
 type NonDemonClaim =
   | { kind: 'stars'; stars: number }
   | { kind: 'face'; face: string }
@@ -85,17 +93,23 @@ function nonDemonClaimFromSheetValue(
   value: string | null | undefined
 ): NonDemonClaim | null {
   if (!value) return null
-  const v = value.trim().toLowerCase()
+  let v = value.trim().toLowerCase()
+  const marked = NON_DEMON_MARKER.test(v)
+  if (marked) v = v.replace(NON_DEMON_MARKER, '').trim()
 
   const numeric = v.match(/^(\d+)\s*(?:★|\*|stars?)?$/)
   if (numeric) {
     const n = Number(numeric[1])
-    return n >= 1 && n <= MAX_NON_DEMON_STARS ? { kind: 'stars', stars: n } : null
+    return n >= 1 && n <= MAX_NON_DEMON_STARS
+      ? { kind: 'stars', stars: n }
+      : null
   }
 
   if (v === 'auto' || v === 'normal' || v === 'harder') {
     return { kind: 'face', face: v }
   }
+  // Marked, so even a face that doubles as a demon tier is non-demon here.
+  if (marked && faceToStarRange(v)) return { kind: 'face', face: v }
   return null
 }
 
@@ -184,7 +198,9 @@ function toDiffFilter(diff: string | null | undefined): {
   const claim = nonDemonClaimFromSheetValue(diff)
   if (claim) {
     const face =
-      claim.kind === 'face' ? claim.face : starsToFace(claim.stars)?.toLowerCase()
+      claim.kind === 'face'
+        ? claim.face
+        : starsToFace(claim.stars)?.toLowerCase()
     const bucket = face ? FACE_TO_GD_DIFF[face] : undefined
     if (bucket) return { diff: bucket }
     return {}
