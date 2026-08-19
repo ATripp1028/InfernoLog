@@ -10,23 +10,30 @@ vi.mock('@/components/generic/sonner', () => ({
 vi.mock('@/lib/api/ranking', () => ({
   usePlaceRanking: vi.fn(),
   useReorderRanking: vi.fn(),
+  useUnplaceRanking: vi.fn(),
 }))
 
 const { toast } = await import('@/components/generic/sonner')
-const { usePlaceRanking, useReorderRanking } = await import('@/lib/api/ranking')
+const { usePlaceRanking, useReorderRanking, useUnplaceRanking } =
+  await import('@/lib/api/ranking')
 const { useMobileRankingList } = await import('../useMobileRankingList')
 
 let placeMutate: ReturnType<typeof vi.fn>
 let reorderMutate: ReturnType<typeof vi.fn>
+let unplaceMutate: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   placeMutate = vi.fn()
   reorderMutate = vi.fn()
+  unplaceMutate = vi.fn()
   vi.mocked(usePlaceRanking).mockReturnValue(
     stubMutation({ mutate: placeMutate })
   )
   vi.mocked(useReorderRanking).mockReturnValue(
     stubMutation({ mutate: reorderMutate })
+  )
+  vi.mocked(useUnplaceRanking).mockReturnValue(
+    stubMutation({ mutate: unplaceMutate })
   )
 })
 
@@ -346,6 +353,37 @@ describe('useMobileRankingList', () => {
       expect(result.current.unplacedView.map((e) => e.levelProgressId)).toEqual(
         ['x']
       )
+    })
+  })
+
+  describe('removing a row from the ranking', () => {
+    it('unplaces it', () => {
+      const { result } = render({ data: board(['a', 'b']) })
+
+      act(() => result.current.removeFromRanking('b'))
+
+      expect(unplaceMutate).toHaveBeenCalledWith('b')
+    })
+
+    // The unplaced sheet is closed, so the toast is the only thing saying
+    // where the row went.
+    it('says where the level went', () => {
+      const { result } = render({ data: board(['a']) })
+
+      act(() => result.current.removeFromRanking('a'))
+
+      expect(toast.success).toHaveBeenCalledWith(
+        expect.stringContaining('Unplaced')
+      )
+    })
+
+    it('writes nothing for an id that is not placed', () => {
+      const { result } = render({ data: board(['a'], ['x']) })
+
+      act(() => result.current.removeFromRanking('x'))
+
+      expect(unplaceMutate).not.toHaveBeenCalled()
+      expect(toast.success).not.toHaveBeenCalled()
     })
   })
 })

@@ -1,5 +1,6 @@
 // Logic for MobileRankingList: edit mode, the ↑/↓/# move arithmetic that
-// stands in for drag-and-drop on touch, and placing from the unplaced sheet.
+// stands in for drag-and-drop on touch, and placing into / removing from the
+// ranking, which on touch replace dragging between the two columns.
 //
 // Extracted from MobileRankingList so the move arithmetic can be exercised
 // without rendering the list.
@@ -8,12 +9,16 @@ import { useState } from 'react'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { ClassicRankingResponse } from '@infernolog/core'
 import { toast } from '@/components/generic/sonner'
-import { usePlaceRanking, useReorderRanking } from '@/lib/api/ranking'
+import {
+  usePlaceRanking,
+  useReorderRanking,
+  useUnplaceRanking,
+} from '@/lib/api/ranking'
 import { neighboursAround } from './neighbours'
 import { filterPlaced, filterUnplaced, reorderDisabled } from './filtering'
 
 /**
- * State and the reorder/place writes for the mobile ranking list.
+ * State and the reorder/place/unplace writes for the mobile ranking list.
  */
 export function useMobileRankingList({
   data,
@@ -26,6 +31,7 @@ export function useMobileRankingList({
 }) {
   const reorder = useReorderRanking()
   const place = usePlaceRanking()
+  const unplace = useUnplaceRanking()
   const [editMode, setEditMode] = useState(false)
   const [unplacedOpen, setUnplacedOpen] = useState(false)
   const [jumpFor, setJumpFor] = useState<string | null>(null)
@@ -61,6 +67,15 @@ export function useMobileRankingList({
     reorder.mutate({ levelProgressId: id, ...neighboursAround(next, target) })
   }
 
+  // Removal confirms with a toast where placement does not: the level lands in
+  // the unplaced sheet, which is closed, so the row simply vanishing is the
+  // only other feedback there would be.
+  function removeFromRanking(id: string) {
+    if (!placedIds.includes(id)) return
+    unplace.mutate(id)
+    toast.success('Removed from your ranking — it is back in Unplaced.')
+  }
+
   // Mobile placement: drop the tapped level in at the top, then let the user
   // nudge it with ↑/↓/#. (No drag-and-drop on touch.)
   function placeFromUnplaced(id: string) {
@@ -92,6 +107,7 @@ export function useMobileRankingList({
 
     // Moving
     move,
+    removeFromRanking,
     jumpFor,
     setJumpFor,
     jumpValue,

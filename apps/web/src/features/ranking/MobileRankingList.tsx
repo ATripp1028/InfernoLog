@@ -1,5 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
-import { ChevronUp, ChevronDown, Hash, Pencil, Search } from 'lucide-react'
+import { ChevronUp, ChevronDown, Hash, Pencil, Search, X } from 'lucide-react'
 import type { ClassicRankingResponse } from '@infernolog/core'
 import { Input } from '@/components/generic/input'
 import { Button } from '@/components/generic/button'
@@ -45,6 +45,7 @@ export function MobileRankingList({
     setUnplacedOpen,
     placeFromUnplaced,
     move,
+    removeFromRanking,
     jumpFor,
     setJumpFor,
     jumpValue,
@@ -103,7 +104,8 @@ export function MobileRankingList({
       )}
       {canEdit && (
         <p className="flex items-center gap-1.5 text-xs text-text-tertiary">
-          <Pencil className="size-3" /> Edit mode — use ↑↓ or # to reorder.
+          <Pencil className="size-3" /> Edit mode — use ↑↓ or # to reorder, ✕ to
+          remove.
         </p>
       )}
 
@@ -132,6 +134,7 @@ export function MobileRankingList({
               onSubmitJump={() => submitJump(entry.levelProgressId)}
               onUp={() => move(entry.levelProgressId, 'up')}
               onDown={() => move(entry.levelProgressId, 'down')}
+              onRemove={() => removeFromRanking(entry.levelProgressId)}
             />
           ))}
         </div>
@@ -230,6 +233,7 @@ interface MobileRowProps {
   onSubmitJump: () => void
   onUp: () => void
   onDown: () => void
+  onRemove: () => void
 }
 
 function MobileRow({
@@ -244,6 +248,7 @@ function MobileRow({
   onSubmitJump,
   onUp,
   onDown,
+  onRemove,
 }: MobileRowProps) {
   const location = useLocation()
   const levelInfo = (
@@ -333,6 +338,9 @@ function MobileRow({
               </IconBtn>
               <IconBtn label="Jump to position" onClick={onStartJump}>
                 <Hash className="size-4" />
+              </IconBtn>
+              <IconBtn label="Remove from ranking" onClick={onRemove}>
+                <X className="size-4" />
               </IconBtn>
             </div>
           ))}
