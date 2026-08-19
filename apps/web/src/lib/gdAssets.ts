@@ -1,5 +1,7 @@
 // Helpers for mapping a level's metadata onto Geometry Dash art assets.
 
+import { starsToFace, MAX_NON_DEMON_STARS } from '@infernolog/core'
+
 const GD_ASSET_BASE = '/assets/gd'
 
 /**
@@ -62,16 +64,47 @@ export function showsRatedStar(
 export const ratedStarSrc = `${GD_ASSET_BASE}/star.png`
 
 /**
- * Standard GD non-demon difficulty by star count (1–9). Used by the non-demon
- * difficulty-opinion picker, where each button is a star count.
+ * The difficulty text for a level — `"5★ Harder"` for a rated non-demon, the
+ * plain face name otherwise (`"Extreme Demon"`, `"Unrated"`).
+ *
+ * Players refer to non-demons by star count, and the count is the canonical
+ * difficulty the API stores for them; the face name rides along because it's
+ * what the filter chips and sort order are keyed on.
+ *
+ * Takes the face from the API's already-resolved `inGameDifficulty` and only
+ * PREFIXES the count — it never recomputes the face from `stars`. The server
+ * owns that rule and knows the exceptions to it (official levels carry bespoke
+ * star awards that don't follow GD's bands — see services/levels/difficulty.ts
+ * in the API); deriving here would silently disagree with it.
+ *
+ * The prefix appears for any rated non-demon, keyed off the label rather than a
+ * star range so that an official level's out-of-band count (xStep is 10 stars
+ * and Insane) still renders as itself.
+ */
+export function difficultyLabel(level: {
+  inGameDifficulty: string | null
+  stars: number | null
+}): string {
+  const face = level.inGameDifficulty ?? 'Unrated'
+  const isDemon = face.toLowerCase().includes('demon')
+  if (!isDemon && level.stars != null && level.stars > 0) {
+    return `${level.stars}★ ${face}`
+  }
+  return face
+}
+
+/**
+ * Standard GD non-demon difficulty by star count (1–9), clamping out-of-range
+ * input to the nearest face. Used by the difficulty-OPINION picker, where each
+ * button is a star count the user is asserting rather than one GD awarded — the
+ * scale is the same either way, which is why this defers to {@link starsToFace}
+ * rather than carrying its own copy of the bands.
  */
 export function starCountToDifficulty(stars: number): string {
-  if (stars <= 1) return 'Auto'
-  if (stars === 2) return 'Easy'
-  if (stars === 3) return 'Normal'
-  if (stars <= 5) return 'Hard'
-  if (stars <= 7) return 'Harder'
-  return 'Insane'
+  const clamped = Math.min(Math.max(stars, 1), MAX_NON_DEMON_STARS)
+  // Non-null by construction: 1..MAX_NON_DEMON_STARS is exactly the range
+  // starsToFace covers.
+  return starsToFace(clamped)!
 }
 
 /**

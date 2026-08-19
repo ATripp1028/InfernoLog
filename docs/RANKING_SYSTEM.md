@@ -2,7 +2,7 @@
 
 ## Overview
 
-Each user maintains a personal difficulty ranking of their demon completions, independent of any official list tier or star rating. Classic and platformer rankings are completely separate. This document covers the classic ranking.
+Each user maintains a personal difficulty ranking of their completions, independent of any official list tier or star rating. Demons are the expected case but not a requirement — a non-demon completion is placeable like any other (see `LOGGING_FLOW.md` → "Scope Stance"). Classic and platformer rankings are completely separate, and that separation _is_ enforced: only `CLASSIC` completions enter the classic ranking, on every path including spreadsheet import. This document covers the classic ranking.
 
 Only progress updates with `kind = completion` appear in the ranking by default. A v2 toggle allows non-completion entries to appear alongside completions.
 

@@ -171,6 +171,24 @@ export function useRankingBoard({
     // unplaced → unplaced: nothing to persist.
   }
 
+  /**
+   * Remove a placed entry from the ranking — it returns to the Unplaced panel.
+   *
+   * Backs the row's X button, the click-driven twin of dragging a row out of
+   * the placed column. It has to move the item between the live containers
+   * itself: `unplace` is a `rankingReorder` mutation, so while it is in flight
+   * the resync effect above is deliberately frozen and the optimistic cache
+   * update alone would not reach the rendered list.
+   */
+  function removeFromRanking(id: string) {
+    if (!containers.placed.includes(id)) return
+    setContainers((prev) => ({
+      placed: prev.placed.filter((x) => x !== id),
+      unplaced: [id, ...prev.unplaced],
+    }))
+    unplace.mutate(id)
+  }
+
   // Both branches honour the unplaced search box; they differ only in which
   // ordering they read — the query data while filtering, the live container
   // otherwise, so a drag in progress is not disturbed.
@@ -204,6 +222,9 @@ export function useRankingBoard({
       setActiveId(null)
       startContainer.current = null
     },
+
+    // Unplacing
+    removeFromRanking,
 
     // Filtered (read-only) view
     filtering,

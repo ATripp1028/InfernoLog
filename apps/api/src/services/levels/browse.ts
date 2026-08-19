@@ -11,6 +11,7 @@
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
+import { resolveLevelDifficulty } from './difficulty'
 import type {
   LevelBrowseQuery,
   LevelBrowseResult,
@@ -266,10 +267,12 @@ export async function browseLevels(
     hasMore && last ? encodeCursor(last._sortval, last.inGameId) : null
 
   const data = page.map((row): LevelBrowseResult => {
-    // Strip the internal keyset value; the rest is the wire row.
+    // Strip the internal keyset value; the rest is the wire row, except that a
+    // non-demon's difficulty is keyed on "stars", which outranks the stored
+    // label (see starDifficulty.ts).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _sortval, ...rest } = row
-    return rest
+    return { ...rest, inGameDifficulty: resolveLevelDifficulty(rest) }
   })
   return { data, nextCursor }
 }

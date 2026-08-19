@@ -159,6 +159,7 @@ export function makeLevel(
     creator: 'Creator',
     levelType: LevelType.CLASSIC,
     inGameDifficulty: 'EXTREME_DEMON',
+    stars: 10,
     isDemon: true,
     isRated: true,
     featured: false,

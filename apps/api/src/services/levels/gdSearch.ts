@@ -13,6 +13,7 @@ import type {
   LevelSort,
 } from '@infernolog/core'
 import prisma from '../../utils/prisma'
+import { resolveLevelDifficulty } from './difficulty'
 import { searchRobtopByNameResult, type RobtopLevel } from '../../utils/robtop'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
 
@@ -117,7 +118,9 @@ function toRow(inGameId: string, level: RobtopLevel): LevelSearchResult {
     name: level.name,
     creator: level.creator,
     songName: level.songName,
-    inGameDifficulty: level.inGameDifficulty,
+    // Same normalization the cache paths apply, so an escalated row and a
+    // cached row of the same level render identically.
+    inGameDifficulty: resolveLevelDifficulty({ ...level, inGameId }),
     stars: level.stars,
     featured: level.featured,
     epicValue: level.epicValue,

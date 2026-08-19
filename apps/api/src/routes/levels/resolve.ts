@@ -15,7 +15,10 @@ import { fetchGddlTier } from '../../utils/gddl'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
 import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
 import type { HonoVariables } from '../../types/hono'
-import { levelDetailSelect } from '../../services/levels/selects'
+import {
+  levelDetailSelect,
+  mapLevelDetail,
+} from '../../services/levels/selects'
 import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -132,7 +135,7 @@ app.get('/levels/:levelId/resolve', async (c) => {
   ])
 
   return c.json({
-    level,
+    level: mapLevelDetail(level),
     fallbackToManual: false,
     suggestedGddlTier,
     existingCompletion,

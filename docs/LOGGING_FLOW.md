@@ -160,20 +160,21 @@ on the completion Core step.
 
 ## Scope Stance: Demon-Focused, Not Demon-Locked
 
-InfernoLog is built for demon completions and remains so. But logging a non-demon is **not
-hard-blocked** — a hard validation wall buys little (reliable demon detection, reupload/rating
-edge cases, "why won't it let me log this?" support burden) over a soft treatment.
+InfernoLog is built for demon completions and remains so. But that is a matter of **emphasis,
+not capability**: a non-demon is logged, rated, collected and ranked exactly like a demon. A hard
+validation wall buys little (reliable demon detection, reupload/rating edge cases, "why won't it
+let me log this?" support burden) over a soft treatment.
 
-- On autofill, a non-demon level (the GD servers return difficulty) surfaces a **soft-gate notice**:
-  an inline warning banner ("This isn't a demon — InfernoLog is built for demon tracking, but
-  you can still log it. It won't appear in your difficulty ranking by default."). It informs;
-  it does not block.
-- Non-demons are logged and kept in history but treated as second-class for demon-specific
-  apparatus (excluded from the difficulty ranking by default). This reuses the existing
-  unrated-level treatment and costs almost nothing.
-- The previously-default behavior — silent acceptance with full equal treatment — is the one
-  genuinely wrong option, because it lets the difficulty ranking fill with levels it wasn't
-  designed for, with no signal to the user.
+- On autofill, a non-demon level (the GD servers return difficulty) surfaces a **notice**: an
+  inline banner ("This isn't a demon — InfernoLog is built for demon tracking, so you'll see it
+  framed that way in places. Everything still works."). It informs; it does not block, and it
+  does not describe a restriction, because there isn't one.
+- `isDemon` may drive **presentation** — demon-first sort orders, demon-shaped copy, which
+  external list links are offered. It must never gate an action. Restrictions the user cannot
+  predict or work around are worse than an unopinionated app.
+- Earlier drafts of this doc excluded non-demons from the difficulty ranking. That rule was
+  **dropped**: the ranking is the user's own difficulty order, and nothing in it depends on GD's
+  demon flag. The classic/platformer split is a real separation and stays; demon-ness is not.
 
 ---
 
@@ -222,17 +223,61 @@ These are **two separate fields**, never conflated:
   Demon"). It is objective and **read-only** — displayed, never picked. It appears as a small
   chip beside the difficulty-opinion selector and as an "In-game difficulty" row on the Review
   step.
+
+  For a **non-demon the star count is the canonical identifier**, not the face label. GD awards
+  1–10 stars, and the face is a **band** over that range:
+
+  | Stars | 1    | 2    | 3      | 4–5  | 6–7    | 8–9    | 10               |
+  | ----- | ---- | ---- | ------ | ---- | ------ | ------ | ---------------- |
+  | Face  | Auto | Easy | Normal | Hard | Harder | Insane | Demon (any tier) |
+
+  So the mapping is a **surjection, not a bijection**: a count always determines a face, but a
+  face does not determine a count — a "Hard" level is 4 or 5 stars and the face doesn't say which.
+  That asymmetry is precisely why the count is canonical: it is strictly the more informative of
+  the two. It is also why `starDifficulty.ts` exposes `faceToStarRange`/`faceMatchesStars` and
+  deliberately **no** `faceToStars`; anything wanting to turn a label into a count is about to
+  invent data.
+
+  **Both are stored.** `Level.stars` and `Level.inGameDifficulty` are written together from the
+  same RobTop snapshot; what differs is precedence, not presence. Every read path resolves them
+  through `deriveInGameDifficulty`, where **the count wins for a non-demon** — so a label left
+  stale by a refresh that moved the count never reaches a client. The label answers for everything
+  a count cannot express: which of the five demon tiers a 10-star level is, and "Unrated", which
+  has no stars. It is also the fallback for a rated non-demon whose count never got populated —
+  including every Hard/Harder/Insane row the backfill migration deliberately skipped, since only
+  Auto/Easy/Normal are recoverable from a label.
+
+  Non-demons display as **"7★ Harder"** — the count is how players actually refer to them, the
+  face is what filter chips and sort order key on. Anywhere a non-demon difficulty is _entered_
+  (manual level entry, the spreadsheet's `in_game_difficulty`), the **count** is what's asked for,
+  because a face would leave it ambiguous.
+
+  A star count in 1–9 is by itself proof of a rated non-demon, which is why the resolution needs
+  no `isDemon` flag and the raw-SQL search/browse projections can use it unchanged.
+
+  **The one exemption: official levels.** RobTop's own main levels get bespoke star awards running
+  1–15, assigned per level rather than per band — Stereo Madness is 1 star but _Easy_ (not Auto),
+  Time Machine is 8 but _Harder_ (not Insane), Deadlocked is 15. Eleven of the 38 seeded official
+  levels contradict the bands outright, so for those rows the stored label is the authority and the
+  count is only a number to show. Every API path resolves difficulty through
+  `services/levels/difficulty.ts`, which applies that exemption; **calling core's
+  `deriveInGameDifficulty` directly from the API is a bug**. The web never re-derives a face at all
+  — `difficultyLabel` prefixes the count onto the label the API already resolved.
+
 - **Difficulty opinion** is the user's **own subjective read**, stored independently and fully
   editable. It is the pill selector on the Core step, with values **Not demon-worthy / Easy /
-  Medium / Hard / Insane / Extreme**. "Not demon-worthy" handles the common case of beating an
+  Medium / Hard / Insane / Extreme**. Its "not demon-worthy" values carry a star count on the
+  **same 1–9 scale** GD uses — the user is saying what they think the level should have been
+  awarded. Same vocabulary, different claim: `starDifficulty.ts` describes the rating the level
+  _has_, `difficultyOpinion.ts` the one a player thinks it _deserved_. "Not demon-worthy" handles the common case of beating an
   easy demon the user thinks shouldn't be rated a demon at all; it sits first (left of Easy)
   because that's where attention lands when someone wants to dispute an overrated easy demon.
 
 Showing the two side by side is the entire point: the user is stating where they _disagree_ with
 the in-game rating. A "Not demon-worthy" opinion is a disagreement only — the level is still a
-rated demon and stays in the difficulty ranking unless the user removes it; this is distinct from
-the non-demon **soft gate** above (which fires when the GD servers report the level isn't a demon at
-all).
+rated demon unless the user removes it; this is distinct from the non-demon **notice** above
+(which fires when the GD servers report the level isn't a demon at all). Neither affects ranking
+eligibility — nothing does, beyond being a completed classic level.
 
 `Level entry → Core (Where are you at?) → Session Details → Review`
 

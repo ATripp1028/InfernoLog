@@ -21,6 +21,10 @@ import {
   type RawUser,
 } from '../../services/user/serialize'
 import { parseJsonBody } from '../../utils/requestBody'
+import {
+  purgeCategoriesFromPreset,
+  type PresetViewFields,
+} from '../../services/listPresets'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -106,6 +110,31 @@ app.put('/me/rating-config', async (c) => {
 
   const toDelete = [...existingIds].filter((id) => !bodyIds.has(id))
 
+  // Deleting a category has to reach into the user's saved List presets too.
+  // Their view-config blobs reference categories by id (`cat:<id>` sorts and
+  // columns, `filters.categoryRatings` keys), and no foreign key covers them —
+  // left behind, the List page renders the raw UUID where the category name
+  // used to be. Read them here and rewrite the affected ones inside the same
+  // transaction as the delete, so a preset can never outlive its category.
+  const deletedIds = new Set(toDelete)
+  const presetPurges: Array<{ id: string; fields: PresetViewFields }> = []
+  if (deletedIds.size > 0) {
+    const presets = await prisma.listPreset.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        sorts: true,
+        filters: true,
+        columns: true,
+        columnOrder: true,
+      },
+    })
+    for (const preset of presets) {
+      const fields = purgeCategoriesFromPreset(preset, deletedIds)
+      if (fields) presetPurges.push({ id: preset.id, fields })
+    }
+  }
+
   // Two-phase sortOrder write — first park existing rows at negative
   // indices, then rewrite to final positions. Keeps the door open for a
   // future @@unique([userId, sortOrder]) constraint without churn here.
@@ -162,6 +191,19 @@ app.put('/me/rating-config', async (c) => {
           data: { name: u.name, weight: u.weight, sortOrder: u.sortOrder },
         })
       ),
+      // Purge the deleted categories out of every preset that referenced
+      // them. Ownership is already established by the userId-scoped read.
+      ...presetPurges.map((p) =>
+        prisma.listPreset.update({
+          where: { id: p.id },
+          data: {
+            sorts: p.fields.sorts as object,
+            filters: p.fields.filters as object,
+            columns: p.fields.columns as object,
+            columnOrder: p.fields.columnOrder as object,
+          },
+        })
+      ),
       // Creates.
       ...creates.map((c) =>
         prisma.ratingCategory.create({
@@ -190,7 +232,14 @@ app.put('/me/rating-config', async (c) => {
     select: meWithCategoriesSelect,
   })
 
-  logger.info({ userId }, 'Updated rating config')
+  logger.info(
+    {
+      userId,
+      deletedCategories: toDelete.length,
+      purgedPresets: presetPurges.length,
+    },
+    'Updated rating config'
+  )
   return c.json({ data: serializeMe(me as RawUser) })
 })
 

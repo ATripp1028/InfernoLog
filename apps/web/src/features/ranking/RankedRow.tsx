@@ -2,6 +2,7 @@ import { forwardRef } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { X } from 'lucide-react'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
@@ -22,13 +23,19 @@ interface RankedRowProps {
   // Stable DOM id for handoff scroll-into-view. Omitted on the drag overlay to
   // avoid a duplicate id while a real row exists.
   domId?: string
+  // Unplace affordance — omitted on the drag overlay, where a click target
+  // sitting under the cursor would be nonsense.
+  onRemove?: (() => void) | undefined
 }
 
 /**
  * Presentational ranked row. The sortable wrapper below feeds it a ref + style.
  */
 export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
-  ({ rank, item, handle, highlight, isDragging, style, domId }, ref) => {
+  (
+    { rank, item, handle, highlight, isDragging, style, domId, onRemove },
+    ref
+  ) => {
     const { level, badge, attempts } = item
     const location = useLocation()
     return (
@@ -85,6 +92,17 @@ export const RankedRow = forwardRef<HTMLDivElement, RankedRowProps>(
             )}
             <RankingBadge badge={badge} />
           </Link>
+          {onRemove && (
+            <button
+              type="button"
+              aria-label={`Remove ${level.name ?? 'level'} from ranking`}
+              title="Remove from ranking"
+              onClick={onRemove}
+              className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
         <div
           aria-hidden
@@ -104,10 +122,12 @@ export function SortableRankedRow({
   rank,
   item,
   highlight,
+  onRemove,
 }: {
   rank: number
   item: RankingItem
   highlight?: boolean
+  onRemove?: (() => void) | undefined
 }) {
   const {
     attributes,
@@ -125,6 +145,7 @@ export function SortableRankedRow({
       item={item}
       highlight={highlight}
       isDragging={isDragging}
+      onRemove={onRemove}
       domId={`rk-${item.levelProgressId}`}
       style={{
         transform: CSS.Transform.toString(transform),

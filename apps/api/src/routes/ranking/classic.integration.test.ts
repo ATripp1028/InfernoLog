@@ -163,9 +163,9 @@ describe('GET /me/ranking/classic', () => {
     expect(data.unplaced[0]?.levelProgressId).toBe(unplaced.id)
   })
 
-  it('excludes non-demon and platformer completions from unplaced', async () => {
+  it('excludes platformer completions from unplaced but keeps non-demons', async () => {
     const user = await seedUser(prisma)
-    await seedCompletion(user.id, {
+    const nonDemon = await seedCompletion(user.id, {
       levelOverrides: { isDemon: false },
     })
     await seedCompletion(user.id, {
@@ -175,7 +175,7 @@ describe('GET /me/ranking/classic', () => {
     const { data } = await getRanking(user.id)
 
     expect(data.placed).toHaveLength(0)
-    expect(data.unplaced).toHaveLength(0)
+    expect(data.unplaced.map((e) => e.levelProgressId)).toEqual([nonDemon.id])
   })
 
   it('surfaces isRated and attempts on entries', async () => {
@@ -298,10 +298,26 @@ describe('POST /me/ranking/classic', () => {
     ])
   })
 
-  it('rejects placing a non-demon (400)', async () => {
+  it('places a non-demon completion like any other', async () => {
     const user = await seedUser(prisma)
     const lp = await seedCompletion(user.id, {
       levelOverrides: { isDemon: false },
+    })
+
+    const res = await send(user.id, 'POST', '/me/ranking/classic', {
+      levelProgressId: lp.id,
+    })
+    expect(res.status).toBe(201)
+
+    const { data } = (await res.json()) as RankingBody
+    expect(data.placed.map((e) => e.levelProgressId)).toEqual([lp.id])
+    expect(data.unplaced).toHaveLength(0)
+  })
+
+  it('rejects placing a platformer completion (400)', async () => {
+    const user = await seedUser(prisma)
+    const lp = await seedCompletion(user.id, {
+      levelOverrides: { levelType: 'PLATFORMER' },
     })
 
     const res = await send(user.id, 'POST', '/me/ranking/classic', {

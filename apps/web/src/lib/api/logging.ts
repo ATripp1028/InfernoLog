@@ -152,6 +152,11 @@ export interface ManualLevelInput {
   name: string
   creator: string
   difficulty: string
+  /**
+   * Awarded star count, for a rated non-demon. Separate from `difficulty`
+   * because a face spans two counts (Hard is 4 or 5) — see starDifficulty.ts.
+   */
+  stars?: number | null
   isDemon?: boolean
   isRated?: boolean
   songName?: string | null

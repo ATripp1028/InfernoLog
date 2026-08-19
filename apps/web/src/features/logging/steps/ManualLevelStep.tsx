@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
+import { NON_DEMON_STAR_TIERS, starsToFace } from '@infernolog/core'
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { Card } from '@/components/generic/card'
@@ -21,14 +22,16 @@ const DEMON_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
   { value: 'Extreme Demon', label: 'Extreme' },
 ]
 // Non-demon difficulties — secondary; for the occasional non-demon log.
-const NON_DEMON_OPTIONS: ReadonlyArray<{ value: string; label: string }> = [
-  { value: 'Auto', label: 'Auto' },
-  { value: 'Easy', label: 'Easy' },
-  { value: 'Normal', label: 'Normal' },
-  { value: 'Hard', label: 'Hard' },
-  { value: 'Harder', label: 'Harder' },
-  { value: 'Insane', label: 'Insane' },
-]
+// The VALUE is the star count, not the face, because the face doesn't determine
+// it: Hard is 4 or 5 stars, Harder 6 or 7, Insane 8 or 9. The count is what the
+// API stores as canonical, so it's what the user picks; the face is shown
+// beside it because that's the other half of how players say it ("a 5 star
+// Hard"). Adjacent same-face options are the bands, not duplicates.
+const NON_DEMON_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
+  NON_DEMON_STAR_TIERS.map(({ stars, face }) => ({
+    value: String(stars),
+    label: `${stars}★ ${face}`,
+  }))
 
 /**
  * Hand-enters a level when RobTop can't be reached or has no such id. Stored unverified until a sync confirms it.
@@ -40,6 +43,9 @@ export function ManualLevelStep() {
   const [name, setName] = useState('')
   const [creator, setCreator] = useState('')
   const [difficulty, setDifficulty] = useState<string>('Extreme Demon')
+  // Only set on the non-demon path; the demon path clears it, since every demon
+  // is 10 stars and the count would say nothing the tier doesn't.
+  const [stars, setStars] = useState<number | null>(null)
   const [rated, setRated] = useState(true)
   const [songName, setSongName] = useState('')
   const [songAuthor, setSongAuthor] = useState('')
@@ -58,6 +64,7 @@ export function ManualLevelStep() {
         name: name.trim(),
         creator: creator.trim(),
         difficulty,
+        stars: isDemon ? null : stars,
         isDemon,
         isRated: effectiveRated,
         songName: songName.trim() || null,
@@ -123,7 +130,10 @@ export function ManualLevelStep() {
           <Segmented
             options={DEMON_OPTIONS}
             value={isDemon ? difficulty : null}
-            onChange={setDifficulty}
+            onChange={(v) => {
+              setDifficulty(v)
+              setStars(null)
+            }}
           />
           <FieldHint>
             Sets the in-game rating since we couldn&apos;t fetch it. Stored as
@@ -133,12 +143,17 @@ export function ManualLevelStep() {
           {/* Non-demon path — secondary, since most logs here are demons. */}
           <div className="mt-3 rounded-md border border-border-subtle bg-bg-surface/40 p-3">
             <p className="mb-2 text-xs text-text-tertiary">
-              Not a demon? Pick its difficulty instead.
+              Not a demon? Pick its star rating instead.
             </p>
             <Segmented
               options={NON_DEMON_OPTIONS}
-              value={difficulty}
-              onChange={setDifficulty}
+              value={stars == null ? null : String(stars)}
+              onChange={(v) => {
+                const n = Number(v)
+                setStars(n)
+                // Non-null for every option: they're built from the same bands.
+                setDifficulty(starsToFace(n)!)
+              }}
               size="sm"
               fill={false}
             />

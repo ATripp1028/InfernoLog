@@ -481,4 +481,60 @@ describe('useRankingBoard', () => {
       ).toEqual(['y'])
     })
   })
+
+  // The X button on a ranked row. Unlike the drag path it has no dragOver to
+  // move the item between containers first, so the hook has to do it — the
+  // resync effect is frozen while a rankingReorder mutation is pending.
+  describe('removing a row with the X button', () => {
+    it('unplaces it', () => {
+      const { result } = render({ data: board(['a', 'b', 'c']) })
+
+      act(() => result.current.removeFromRanking('b'))
+
+      expect(unplaceMutate).toHaveBeenCalledWith('b')
+    })
+
+    it('drops it out of the ranked column straight away', () => {
+      const { result } = render({ data: board(['a', 'b', 'c']) })
+
+      act(() => result.current.removeFromRanking('b'))
+
+      expect(result.current.containers.placed).toEqual(['a', 'c'])
+    })
+
+    it('shows it at the top of the unplaced pile straight away', () => {
+      const { result } = render({ data: board(['a', 'b'], ['x']) })
+
+      act(() => result.current.removeFromRanking('b'))
+
+      expect(result.current.containers.unplaced).toEqual(['b', 'x'])
+    })
+
+    it('writes nothing for an id that is not placed', () => {
+      const { result } = render({ data: board(['a'], ['x']) })
+
+      act(() => result.current.removeFromRanking('x'))
+      act(() => result.current.removeFromRanking('nope'))
+
+      expect(unplaceMutate).not.toHaveBeenCalled()
+      expect(result.current.containers).toEqual({
+        placed: ['a'],
+        unplaced: ['x'],
+      })
+    })
+
+    // Removal does not depend on a row's position, so unlike reordering it
+    // stays available in the static view a search puts the board into.
+    it('still removes while the board is filtering', () => {
+      const { result } = render({
+        data: board(['a', 'b']),
+        search: 'nothing matches',
+      })
+
+      expect(result.current.filtering).toBe(true)
+      act(() => result.current.removeFromRanking('a'))
+
+      expect(unplaceMutate).toHaveBeenCalledWith('a')
+    })
+  })
 })

@@ -102,6 +102,7 @@ export interface SyncBatchResult {
 const compareSelect = {
   isRated: true,
   inGameDifficulty: true,
+  stars: true,
   name: true,
   creator: true,
   songName: true,
@@ -212,13 +213,26 @@ async function syncOneLevel(
     data.ratingStatusSince = now
   }
 
+  // `stars` is the CANONICAL difficulty for a non-demon — every read path
+  // resolves the label against it and the count wins (starDifficulty.ts). So it
+  // cannot be left behind when the label moves: a level rerated 4-star Hard →
+  // 7-star Harder would keep serving "Hard" off the stale count, republishing
+  // the very difficulty this sync just corrected. Compared on its own rather
+  // than folded into `ratingChanged` for two reasons: a rerate INSIDE one face
+  // (4 → 5 stars, still "Hard") changes no label and would otherwise be
+  // invisible, and backfilling a count onto a row that never had one is not
+  // news about when the level was rated, so it must not bump
+  // `ratingStatusSince` (which orders the "recently rated" sort).
+  const starsChanged = robtop.stars !== current.stars
+  if (starsChanged) data.stars = robtop.stars
+
   // Text drift. A null from RobTop for any of these is "the response didn't
   // carry it", not a rename to nothing (see PRESERVE_IF_NULL in
   // robtopMapping.ts), and the cached value can be the only one that exists —
   // a name from GDDL metadata, a creator/song typed in on a manual level. So a
   // null is no news: keep what's there. Same rule the repair path below gets
   // from buildRobtopRefreshData.
-  let changed = ratingChanged
+  let changed = ratingChanged || starsChanged
   for (const field of ['name', 'creator', 'songName', 'songAuthor'] as const) {
     const next = robtop[field]
     if (next === null || next === current[field]) continue

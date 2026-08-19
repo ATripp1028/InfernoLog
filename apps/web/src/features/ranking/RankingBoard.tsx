@@ -37,6 +37,7 @@ export function RankingBoard({
     handleDragOver,
     handleDragEnd,
     clearActive,
+    removeFromRanking,
     filtering,
     placedView,
     unplacedView,
@@ -45,7 +46,7 @@ export function RankingBoard({
   const PlacedColumn = (
     <PlacedDroppable>
       {filtering ? (
-        <StaticPlaced entries={placedView} />
+        <StaticPlaced entries={placedView} onRemove={removeFromRanking} />
       ) : containers.placed.length === 0 ? (
         <EmptyRanked />
       ) : (
@@ -62,6 +63,7 @@ export function RankingBoard({
                   rank={i + 1}
                   item={item}
                   highlight={id === highlightId}
+                  onRemove={() => removeFromRanking(id)}
                 />
               ) : null
             })}
@@ -193,8 +195,10 @@ function UnplacedDroppable({
 
 function StaticPlaced({
   entries,
+  onRemove,
 }: {
   entries: ClassicRankingResponse['placed']
+  onRemove: (levelProgressId: string) => void
 }) {
   if (entries.length === 0) {
     return (
@@ -210,6 +214,7 @@ function StaticPlaced({
           key={e.levelProgressId}
           rank={e.rank}
           item={e}
+          onRemove={() => onRemove(e.levelProgressId)}
           domId={`rk-${e.levelProgressId}`}
         />
       ))}
