@@ -138,8 +138,6 @@ export interface DifficultySource {
  * which is what lets the raw-SQL search and browse projections use it without
  * widening their column lists.
  */
-export function deriveInGameDifficulty(
-  level: DifficultySource
-): string | null {
+export function deriveInGameDifficulty(level: DifficultySource): string | null {
   return starsToFace(level.stars) ?? level.inGameDifficulty
 }

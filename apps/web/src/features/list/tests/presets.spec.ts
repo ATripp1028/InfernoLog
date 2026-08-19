@@ -311,9 +311,7 @@ describe('summarizing a cleaned preset', () => {
 
     const view = cleanupPresetForCategories(stored, new Set([KEPT.id]))
     const summaries = [
-      summarizeSorts(view.sorts, [
-        { key: `cat:${KEPT.id}`, label: KEPT.name },
-      ]),
+      summarizeSorts(view.sorts, [{ key: `cat:${KEPT.id}`, label: KEPT.name }]),
       ...summarizeFilters(view.filters, 'ZERO_TO_TEN', [KEPT]),
       summarizeColumns(
         view.columns,

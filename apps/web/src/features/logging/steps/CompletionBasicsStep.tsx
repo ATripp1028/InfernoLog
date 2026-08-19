@@ -49,8 +49,8 @@ export function CompletionBasicsStep() {
               </p>
               <p className="text-sm text-text-secondary">
                 InfernoLog is built for demon tracking, so you&apos;ll see it
-                framed that way in places. Everything still works — log it,
-                rate it, rank it like any other completion.
+                framed that way in places. Everything still works — log it, rate
+                it, rank it like any other completion.
               </p>
             </div>
           </Card>

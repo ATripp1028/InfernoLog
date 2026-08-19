@@ -73,7 +73,8 @@ export function purgeCategoriesFromPreset(
   let sorts = preset.sorts
   if (Array.isArray(sorts)) {
     const kept = sorts.filter(
-      (s) => !(isPlainObject(s) && typeof s.key === 'string' && isDeleted(s.key))
+      (s) =>
+        !(isPlainObject(s) && typeof s.key === 'string' && isDeleted(s.key))
     )
     if (kept.length !== sorts.length) {
       sorts = kept

@@ -72,14 +72,14 @@ Cursor-based (keyset) pagination is the standard for **new** list endpoints. Off
 
 This is **not** universal today, and the exceptions are intentional:
 
-| Endpoint | Scheme | Why |
-| --- | --- | --- |
-| `GET /v1/levels/browse` | cursor (keyset) | The standard. Stable ordering over a large cache. |
-| `GET /v1/me/export` | `offset` + `limit` | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive. |
-| `GET /v1/me/progress` | **none** — full payload | The List page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
-| `GET /v1/me/ranking/classic` | **none** — full payload | Returns placed and unplaced columns together; the ranking UI is a drag-and-drop board over the whole set. |
-| `GET /v1/levels/search` | **none** — `LIMIT 20` | Typeahead. |
-| `GET /v1/levels/gd-search` | **none** — first page only | One upstream GD query; never paginated (see below). |
+| Endpoint                     | Scheme                     | Why                                                                                                                                       |
+| ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/levels/browse`      | cursor (keyset)            | The standard. Stable ordering over a large cache.                                                                                         |
+| `GET /v1/me/export`          | `offset` + `limit`         | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive.                                          |
+| `GET /v1/me/progress`        | **none** — full payload    | The List page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
+| `GET /v1/me/ranking/classic` | **none** — full payload    | Returns placed and unplaced columns together; the ranking UI is a drag-and-drop board over the whole set.                                 |
+| `GET /v1/levels/search`      | **none** — `LIMIT 20`      | Typeahead.                                                                                                                                |
+| `GET /v1/levels/gd-search`   | **none** — first page only | One upstream GD query; never paginated (see below).                                                                                       |
 
 ---
 
@@ -312,12 +312,12 @@ Returns public profile data. `403` if private. Accepts both username and UUID �
 
 **These are reads only, and they are not aliases of the `/me` equivalents.** The split is deliberate and load-bearing:
 
-| | `/v1/me/...` | `/v1/users/{usernameOrId}/...` |
-| --- | --- | --- |
-| Subject | JWT, authoritative | path parameter, resolved |
-| Visibility | all entries, including `PRIVATE` | `profilePublic` + per-entry visibility enforced |
-| Shape | full payload, client-side filtering | cursor-paginated, `?sort=`, `?order=`, filterable by list source / tier range / date range |
-| Writes | yes | **no** |
+|            | `/v1/me/...`                        | `/v1/users/{usernameOrId}/...`                                                             |
+| ---------- | ----------------------------------- | ------------------------------------------------------------------------------------------ |
+| Subject    | JWT, authoritative                  | path parameter, resolved                                                                   |
+| Visibility | all entries, including `PRIVATE`    | `profilePublic` + per-entry visibility enforced                                            |
+| Shape      | full payload, client-side filtering | cursor-paginated, `?sort=`, `?order=`, filterable by list source / tier range / date range |
+| Writes     | yes                                 | **no**                                                                                     |
 
 Writes stay on `/me` permanently. The authenticated user comes from the JWT and never from a path segment, so a `PATCH /v1/users/{someoneElse}/...` route would exist only to be rejected.
 

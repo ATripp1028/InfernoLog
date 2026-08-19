@@ -115,9 +115,9 @@ describe('deriveInGameDifficulty', () => {
   })
 
   it('agrees with the label when the two are in sync', () => {
-    expect(
-      deriveInGameDifficulty({ stars: 5, inGameDifficulty: 'Hard' })
-    ).toBe('Hard')
+    expect(deriveInGameDifficulty({ stars: 5, inGameDifficulty: 'Hard' })).toBe(
+      'Hard'
+    )
   })
 
   it('keeps the stored label for demons and unrated levels', () => {
