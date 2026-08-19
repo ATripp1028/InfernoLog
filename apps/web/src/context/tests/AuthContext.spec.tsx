@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 
-const { amplify, hub, cache } = vi.hoisted(() => ({
+const { amplify, hub, cache, sentry } = vi.hoisted(() => ({
   amplify: {
     fetchAuthSession: vi.fn(),
     signInWithRedirect: vi.fn(),
@@ -10,6 +10,7 @@ const { amplify, hub, cache } = vi.hoisted(() => ({
   },
   hub: { listen: vi.fn(), handlers: [] as ((p: unknown) => void)[] },
   cache: { clear: vi.fn(), removeClient: vi.fn() },
+  sentry: { captureException: vi.fn() },
 }))
 
 vi.mock('aws-amplify/auth', () => amplify)
@@ -18,6 +19,7 @@ vi.mock('@/lib/queryClient', () => ({ queryClient: { clear: cache.clear } }))
 vi.mock('@/lib/persister', () => ({
   persister: { removeClient: cache.removeClient },
 }))
+vi.mock('@/lib/sentry', () => ({ Sentry: sentry }))
 
 const { AUTH_INTENT_KEY, AuthProvider, useAuth } =
   await import('../AuthContext')
@@ -33,10 +35,25 @@ const session = (token: string | null, userSub = 'sub-a') =>
     : { tokens: undefined }
 
 /** Fires an Amplify auth Hub event at the provider's listener. */
-const emit = (event: string) =>
+const emit = (event: string, data?: unknown) =>
   act(() => {
-    for (const handler of hub.handlers) handler({ payload: { event } })
+    for (const handler of hub.handlers) handler({ payload: { event, data } })
   })
+
+/**
+ * A refresh failure Amplify treats as the end of the session — it clears the
+ * stored tokens on these, so only a new sign-in gets the visitor back.
+ */
+const terminal = () => ({
+  name: 'NotAuthorizedException',
+  message: 'Refresh Token has expired',
+})
+
+/**
+ * A refresh failure Amplify treats as retryable — it keeps the stored tokens,
+ * because the session is fine and only the call to Cognito failed.
+ */
+const transient = () => ({ name: 'NetworkError', message: 'Failed to fetch' })
 
 beforeEach(() => {
   hub.handlers = []
@@ -55,6 +72,7 @@ beforeEach(() => {
   localStorage.clear()
   cache.clear.mockClear()
   cache.removeClient.mockClear()
+  sentry.captureException.mockClear()
 })
 
 const render = () => renderHook(() => useAuth(), { wrapper })
@@ -81,14 +99,26 @@ describe('hydrating the session on mount', () => {
     expect(result.current.isAuthenticated).toBe(false)
   })
 
-  // A rejected session is the ordinary signed-out case, not an app error —
-  // and it must still finish initializing or the app hangs on its splash.
+  // A failed lookup is not an app error, and must still finish initializing
+  // or the app hangs on its splash.
   it('finishes initializing even when the session lookup fails', async () => {
-    amplify.fetchAuthSession.mockRejectedValue(new Error('no session'))
+    amplify.fetchAuthSession.mockRejectedValue(transient())
     const { result } = render()
 
     await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
     expect(result.current.isAuthenticated).toBe(false)
+  })
+
+  // Amplify clears the stored tokens on these before rejecting, so there is
+  // nothing left to recover and the cache has to go with them.
+  it('drops the cached account data when the session is really over', async () => {
+    amplify.fetchAuthSession.mockRejectedValue(terminal())
+    const { result } = render()
+
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+    expect(result.current.isAuthenticated).toBe(false)
+    expect(cache.clear).toHaveBeenCalled()
+    expect(cache.removeClient).toHaveBeenCalled()
   })
 })
 
@@ -183,13 +213,20 @@ describe('following Amplify’s auth events', () => {
     await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
   })
 
-  it.each(['signedOut', 'tokenRefresh_failure'])(
+  // A refresh failure only belongs here when Amplify classified it as the end
+  // of the session; the transient ones are covered below.
+  const endingEvents: [string, unknown][] = [
+    ['signedOut', undefined],
+    ['tokenRefresh_failure', { error: terminal() }],
+  ]
+
+  it.each(endingEvents)(
     'marks the visitor signed out on %s',
-    async (event) => {
+    async (event, data) => {
       const { result } = render()
       await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
 
-      emit(event)
+      emit(event, data)
 
       expect(result.current.isAuthenticated).toBe(false)
     }
@@ -197,13 +234,13 @@ describe('following Amplify’s auth events', () => {
 
   // The cache holds one account's levels, collections, and ratings. Leaving
   // it behind would show them to whoever signs in next on this browser.
-  it.each(['signedOut', 'tokenRefresh_failure'])(
+  it.each(endingEvents)(
     'clears the cached account data on %s',
-    async (event) => {
+    async (event, data) => {
       const { result } = render()
       await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
 
-      emit(event)
+      emit(event, data)
 
       expect(cache.clear).toHaveBeenCalled()
     }
@@ -252,11 +289,50 @@ describe('following Amplify’s auth events', () => {
     // Mount claims the cache for this identity, which discards it once (see
     // cacheOwner.ts). Only what the event itself does is under test here.
     cache.clear.mockClear()
+    amplify.fetchAuthSession.mockClear()
 
     emit('tokenRefresh')
 
+    await waitFor(() => expect(amplify.fetchAuthSession).toHaveBeenCalled())
     expect(cache.clear).not.toHaveBeenCalled()
     expect(result.current.isAuthenticated).toBe(true)
+  })
+
+  // The bug this whole split exists for: Amplify dispatches this for a dead
+  // network moment too, having kept tokens it still considers good. Ending the
+  // session on one strands a visitor on the landing page with no way back.
+  it('keeps the visitor signed in when a refresh failure is only transient', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+    cache.clear.mockClear()
+
+    emit('tokenRefresh_failure', { error: transient() })
+
+    expect(result.current.isAuthenticated).toBe(true)
+    expect(cache.clear).not.toHaveBeenCalled()
+  })
+
+  // Nothing else sees these — the provider swallowed them before, so how often
+  // this fires in production was unknowable.
+  it('reports a transient refresh failure', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+    const error = transient()
+
+    emit('tokenRefresh_failure', { error })
+
+    expect(sentry.captureException).toHaveBeenCalledWith(error)
+  })
+
+  // An ordinary end of session is not a fault, and reporting it would bury the
+  // transient ones in noise.
+  it('does not report a refresh failure that simply ended the session', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+
+    emit('tokenRefresh_failure', { error: terminal() })
+
+    expect(sentry.captureException).not.toHaveBeenCalled()
   })
 
   it('ignores events it does not handle', async () => {
@@ -280,6 +356,82 @@ describe('following Amplify’s auth events', () => {
     unmount()
 
     expect(hub.handlers).toHaveLength(0)
+  })
+})
+
+// A browser that unloads an idle tab reloads it on return, against tokens
+// that expired hours ago — so the mount read has to reach Cognito at exactly
+// the moment a machine waking from sleep has no network yet. Amplify keeps the
+// tokens in that case, so the session is still there; before these paths the
+// provider had already written it off and nothing looked again, leaving the
+// landing page up until the user reloaded by hand.
+describe('recovering a session the mount read could not reach', () => {
+  /** Mounts with the network down, then brings it back. */
+  const renderRestoredOffline = async () => {
+    amplify.fetchAuthSession.mockRejectedValue(transient())
+    const view = render()
+    await waitFor(() =>
+      expect(view.result.current.isAuthInitializing).toBe(false)
+    )
+    expect(view.result.current.isAuthenticated).toBe(false)
+    amplify.fetchAuthSession.mockResolvedValue(session('id-token'))
+    return view
+  }
+
+  it('signs the visitor back in once the network returns', async () => {
+    const { result } = await renderRestoredOffline()
+
+    act(() => {
+      window.dispatchEvent(new Event('online'))
+    })
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+  })
+
+  it('signs the visitor back in when the tab is looked at again', async () => {
+    const { result } = await renderRestoredOffline()
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+  })
+
+  // The event fires on the way out too, and a tab being hidden tells us
+  // nothing new about the session.
+  it('does not re-read while the tab is on its way out of view', async () => {
+    const { result } = await renderRestoredOffline()
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+    amplify.fetchAuthSession.mockClear()
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(amplify.fetchAuthSession).not.toHaveBeenCalled()
+    expect(result.current.isAuthenticated).toBe(false)
+  })
+
+  it('signs the visitor back in when Amplify refreshes on its own', async () => {
+    const { result } = await renderRestoredOffline()
+
+    emit('tokenRefresh')
+
+    await waitFor(() => expect(result.current.isAuthenticated).toBe(true))
+  })
+
+  it('stops re-reading once unmounted', async () => {
+    const { unmount } = await renderRestoredOffline()
+    unmount()
+    amplify.fetchAuthSession.mockClear()
+
+    act(() => {
+      window.dispatchEvent(new Event('online'))
+      document.dispatchEvent(new Event('visibilitychange'))
+    })
+
+    expect(amplify.fetchAuthSession).not.toHaveBeenCalled()
   })
 })
 
