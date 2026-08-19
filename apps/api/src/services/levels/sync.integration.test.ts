@@ -388,6 +388,52 @@ describe('syncLevelBatch — found, rating diff', () => {
     expect(result).toMatchObject({ processed: 1, updated: 1, ratingChanged: 1 })
   })
 
+  // `stars` is canonical for a non-demon on every read path, so a label the
+  // sync corrects is worthless while the count it loses to stays stale.
+  it('carries the star count over when the difficulty label moves', async () => {
+    await seedCachedLevel({
+      isDemon: false,
+      inGameDifficulty: 'Hard',
+      stars: 4,
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ isDemon: false, inGameDifficulty: 'Harder', stars: 7 })
+    )
+
+    await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.stars).toBe(7)
+    expect(after.inGameDifficulty).toBe('Harder')
+  })
+
+  // A rerate inside one face changes no label, so the count is the only thing
+  // that says it happened — but it is not news about WHEN the level was rated.
+  it('writes a star-only rerate without re-stamping rating_status_since', async () => {
+    await seedCachedLevel({
+      isDemon: false,
+      inGameDifficulty: 'Hard',
+      stars: 4,
+      ratingStatusSince: daysAgo(200),
+    })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ isDemon: false, inGameDifficulty: 'Hard', stars: 5 })
+    )
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.stars).toBe(5)
+    expect(after.ratingStatusSince!.getTime()).toBeLessThan(
+      daysAgo(199).getTime()
+    )
+    expect(result).toMatchObject({ processed: 1, updated: 1, ratingChanged: 0 })
+  })
+
   it('stamps rating_status_since when in_game_difficulty changes', async () => {
     await seedCachedLevel({
       inGameDifficulty: 'Hard Demon',

@@ -69,7 +69,12 @@ app.get('/levels/:levelId/page', async (c) => {
   })
 
   return c.json({
-    data: { ...resolved.level, hasUserProgress: progress !== null },
+    data: {
+      // Same resolution every other detail response applies — `stars` is
+      // canonical for a non-demon and outranks the stored label.
+      ...mapLevelDetail(resolved.level),
+      hasUserProgress: progress !== null,
+    },
   })
 })
 

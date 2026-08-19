@@ -308,6 +308,40 @@ describe('resolveByName — difficulty is a hard filter', () => {
     await expect(resolveByName('DeathMoon', null, '4')).resolves.toBeNull()
   })
 
+  // RobTop's own main levels get bespoke star awards that ignore the bands
+  // (Dry Out is 4 stars but Normal), so neither field may veto the other there.
+  it('accepts an official level whose label contradicts its star count', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      // id 4 is Dry Out in data/officialLevels.ts: 4 stars, labelled Normal.
+      dbLevel('4', { name: 'Dry Out', diff: 'Normal', stars: 4 }),
+    ] as never)
+
+    await expect(resolveByName('Dry Out', null, 'Normal')).resolves.toEqual({
+      levelId: '4',
+    })
+  })
+
+  it('still lets an official level match on its exact star count', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('4', { name: 'Dry Out', diff: 'Normal', stars: 4 }),
+    ] as never)
+
+    await expect(resolveByName('Dry Out', null, '4')).resolves.toEqual({
+      levelId: '4',
+    })
+  })
+
+  it('keeps the count authoritative for an ordinary level', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('9876543', { diff: 'Normal', stars: 4 }),
+    ] as never)
+    mockSearchRobtopByName.mockResolvedValue([])
+
+    await expect(
+      resolveByName('DeathMoon', null, 'Normal')
+    ).resolves.toBeNull()
+  })
+
   // A candidate with only a label is still testable, since the label's band
   // either contains the requested count or doesn't.
   it('rules a label-only candidate in or out by its band', async () => {

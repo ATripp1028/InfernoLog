@@ -18,6 +18,7 @@ import {
   starsToFace,
 } from '@infernolog/core'
 import { searchRobtopByName, type RobtopLevel } from '../../../utils/robtop'
+import { OFFICIAL_LEVELS_BY_ID } from '../../../data/officialLevels'
 
 type Tx = Prisma.TransactionClient
 
@@ -102,6 +103,19 @@ function nonDemonClaimFromSheetValue(
 interface DifficultyFacts {
   inGameDifficulty: string | null
   stars: number | null
+  // DB candidates only — a RobTop hit has no id here, and RobTop never serves
+  // an official level anyway, so its absence is always the right answer.
+  inGameId?: string
+}
+
+// RobTop's own main levels carry bespoke star awards that ignore the difficulty
+// bands — Dry Out is 4 stars but Normal, Time Machine 8 but Harder — so for
+// those rows the count and the label are BOTH true and routinely disagree.
+// Neither may veto the other, or a sheet naming an official level by its real
+// face stops resolving. Same exemption services/levels/difficulty.ts applies on
+// the read side.
+function isOfficial(level: DifficultyFacts): boolean {
+  return level.inGameId != null && OFFICIAL_LEVELS_BY_ID.has(level.inGameId)
 }
 
 // Builds a hard difficulty predicate from the spreadsheet's in_game_difficulty.
@@ -124,9 +138,13 @@ function difficultyPredicate(
   // band contains it.
   if (claim?.kind === 'stars') {
     return (level) => {
+      const byLabel =
+        level.inGameDifficulty != null &&
+        faceMatchesStars(level.inGameDifficulty, claim.stars)
+      if (isOfficial(level)) return level.stars === claim.stars || byLabel
       if (level.stars != null) return level.stars === claim.stars
       if (level.inGameDifficulty == null) return true
-      return faceMatchesStars(level.inGameDifficulty, claim.stars)
+      return byLabel
     }
   }
 
@@ -134,9 +152,16 @@ function difficultyPredicate(
   // must name the same face. Cannot narrow within the band — the sheet didn't.
   if (claim?.kind === 'face') {
     return (level) => {
+      const byLabel =
+        level.inGameDifficulty?.trim().toLowerCase() === claim.face
+      if (isOfficial(level))
+        return (
+          byLabel ||
+          (level.stars != null && faceMatchesStars(claim.face, level.stars))
+        )
       if (level.stars != null) return faceMatchesStars(claim.face, level.stars)
       if (level.inGameDifficulty == null) return true
-      return level.inGameDifficulty.trim().toLowerCase() === claim.face
+      return byLabel
     }
   }
 
