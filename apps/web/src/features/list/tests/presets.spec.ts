@@ -292,6 +292,52 @@ describe('cleanupPresetForCategories', () => {
   })
 })
 
+// The hover card summarizes a preset through cleanupPresetForCategories rather
+// than straight from storage, because each summarizer falls back to the raw key
+// when it can't name a category — which renders a UUID where the name was.
+// Deleting a category purges those references server-side; this pairing is what
+// covers a preset written before that existed.
+describe('summarizing a cleaned preset', () => {
+  const GONE = 'gone-category-id'
+  const KEPT = category('kept-category-id', 0, 'Gameplay')
+
+  it('names no deleted category in any summary line', () => {
+    const stored = config({
+      sorts: [{ key: `cat:${GONE}`, dir: 'desc' }],
+      filters: filters({ categoryRatings: { [GONE]: [40, 90] } }),
+      columns: { ...defaultColumnVisibility(), [`cat:${GONE}`]: true },
+      columnOrder: [...defaultColumnOrder(), `cat:${GONE}`] as ColumnId[],
+    })
+
+    const view = cleanupPresetForCategories(stored, new Set([KEPT.id]))
+    const summaries = [
+      summarizeSorts(view.sorts, [
+        { key: `cat:${KEPT.id}`, label: KEPT.name },
+      ]),
+      ...summarizeFilters(view.filters, 'ZERO_TO_TEN', [KEPT]),
+      summarizeColumns(
+        view.columns,
+        view.columnOrder,
+        getCategoryColumnDefs([KEPT])
+      ),
+    ]
+
+    expect(summaries.join(' | ')).not.toContain(GONE)
+  })
+
+  it('still names a category that survived', () => {
+    const stored = config({
+      sorts: [{ key: `cat:${KEPT.id}`, dir: 'desc' }],
+    })
+
+    const view = cleanupPresetForCategories(stored, new Set([KEPT.id]))
+
+    expect(
+      summarizeSorts(view.sorts, [{ key: `cat:${KEPT.id}`, label: KEPT.name }])
+    ).toBe('Gameplay ↓')
+  })
+})
+
 describe('summarizeSorts', () => {
   it('reads a single sort with its direction arrow', () => {
     expect(summarizeSorts([{ key: 'date', dir: 'desc' }])).toBe('Date ↓')

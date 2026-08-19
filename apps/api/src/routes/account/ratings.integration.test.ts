@@ -5,8 +5,10 @@
  * at negative indices before rewriting the final positions — specifically so a
  * reorder can't collide. A mocked test can only assert the two batches of calls
  * were issued in order; whether the resulting rows actually land in the right
- * order, and whether deleting a category takes its rating scores with it
- * without tripping a foreign key, is a question only Postgres answers.
+ * order, whether deleting a category takes its rating scores with it without
+ * tripping a foreign key, and whether the same delete rewrites the JSON blobs
+ * of the saved List presets that referenced it, are questions only Postgres
+ * answers.
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -220,6 +222,83 @@ describe('PUT /me/rating-config — removing a category', () => {
       where: { levelProgressId: lp.id },
     })
     expect(scores.map((s) => s.categoryId)).toEqual([keep!.id])
+  })
+
+  it('purges the deleted category out of the saved list presets', async () => {
+    // The preset's view config is opaque JSON with no foreign key to the
+    // category — nothing but this write path keeps the two in step.
+    const user = await seedUser(prisma)
+    const [keep, drop] = await seedCategories(user.id, ['Keep', 'Drop'])
+    const preset = await prisma.listPreset.create({
+      data: {
+        userId: user.id,
+        name: 'Mine',
+        color: 'blue',
+        sorts: [
+          { key: `cat:${drop!.id}`, dir: 'desc' },
+          { key: 'date', dir: 'desc' },
+        ],
+        filters: {
+          categoryRatings: { [keep!.id]: [0, 100], [drop!.id]: [50, 100] },
+        },
+        columns: {
+          date: true,
+          [`cat:${keep!.id}`]: true,
+          [`cat:${drop!.id}`]: true,
+        },
+        columnOrder: ['date', `cat:${keep!.id}`, `cat:${drop!.id}`],
+      },
+    })
+
+    const res = await putConfig(
+      user.id,
+      config([{ id: keep!.id, name: 'Keep', weight: 1 }])
+    )
+
+    expect(res.status).toBe(200)
+    const stored = await prisma.listPreset.findUniqueOrThrow({
+      where: { id: preset.id },
+    })
+    expect(stored.sorts).toEqual([{ key: 'date', dir: 'desc' }])
+    expect(stored.filters).toEqual({
+      categoryRatings: { [keep!.id]: [0, 100] },
+    })
+    expect(stored.columns).toEqual({
+      date: true,
+      [`cat:${keep!.id}`]: true,
+    })
+    expect(stored.columnOrder).toEqual(['date', `cat:${keep!.id}`])
+  })
+
+  it('leaves another user’s presets untouched', async () => {
+    const user = await seedUser(prisma)
+    const other = await seedUser(prisma)
+    const [keep, drop] = await seedCategories(user.id, ['Keep', 'Drop'])
+    // Same key shape, different owner — the purge is scoped by userId, so a
+    // colliding id in someone else's preset must survive.
+    const theirs = await prisma.listPreset.create({
+      data: {
+        userId: other.id,
+        name: 'Theirs',
+        color: 'rose',
+        sorts: [{ key: `cat:${drop!.id}`, dir: 'desc' }],
+        filters: { categoryRatings: { [drop!.id]: [0, 50] } },
+        columns: { [`cat:${drop!.id}`]: true },
+        columnOrder: [`cat:${drop!.id}`],
+      },
+    })
+
+    const res = await putConfig(
+      user.id,
+      config([{ id: keep!.id, name: 'Keep', weight: 1 }])
+    )
+
+    expect(res.status).toBe(200)
+    const stored = await prisma.listPreset.findUniqueOrThrow({
+      where: { id: theirs.id },
+    })
+    expect(stored.sorts).toEqual([{ key: `cat:${drop!.id}`, dir: 'desc' }])
+    expect(stored.columnOrder).toEqual([`cat:${drop!.id}`])
   })
 
   it('rejects an id belonging to another user without touching anything', async () => {

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
+import { presetsQueryKey } from './presets'
 import type {
   DateFormatPreference,
   Device,
@@ -554,6 +555,11 @@ export function useUpdateRatingConfig() {
       // (single save click, no rapid-fire races) so we can safely write the
       // response straight to the cache without the scope/isLastPending dance.
       queryClient.setQueryData(meQueryKey, data)
+      // Deleting a category also rewrites every saved List preset that sorted,
+      // filtered, or showed a column by it — server-side, in the same
+      // transaction. Nothing in this response reflects that, so the presets
+      // have to be refetched or the List keeps rendering the stale copy.
+      void queryClient.invalidateQueries({ queryKey: presetsQueryKey })
     },
   })
 }

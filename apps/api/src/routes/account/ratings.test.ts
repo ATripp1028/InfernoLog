@@ -5,8 +5,9 @@
  * the weights-sum-to-1.00 invariant makes single-row edits unvalidatable. The
  * things worth pinning: ids in the body must belong to the caller (a foreign id
  * is rejected outright, not silently dropped), removing a category takes its
- * rating scores with it, and sortOrder is written in two phases so final
- * positions never collide. Prisma is mocked.
+ * rating scores with it (and every `cat:` reference to it in the caller's saved
+ * List presets), and sortOrder is written in two phases so final positions
+ * never collide. Prisma is mocked.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -87,6 +88,8 @@ beforeEach(() => {
   prisma.ratingCategory.create.mockReset()
   prisma.ratingCategory.deleteMany.mockReset()
   prisma.ratingScore.deleteMany.mockReset()
+  prisma.listPreset.findMany.mockReset().mockResolvedValue([] as never)
+  prisma.listPreset.update.mockReset()
   prisma.user.update.mockReset()
   prisma.$transaction.mockReset().mockResolvedValue([] as never)
   prisma.user.findFirst.mockReset().mockResolvedValue({
@@ -346,6 +349,58 @@ describe('PUT /me/rating-config — applying the config', () => {
     })
   })
 
+  it('purges the dropped category out of the caller’s list presets', async () => {
+    userOwns(CAT_A, CAT_B)
+    prisma.listPreset.findMany.mockResolvedValue([
+      {
+        id: 'preset-1',
+        sorts: [
+          { key: `cat:${CAT_B}`, dir: 'desc' },
+          { key: 'date', dir: 'desc' },
+        ],
+        filters: {
+          statuses: [],
+          categoryRatings: { [CAT_A]: [0, 100], [CAT_B]: [50, 100] },
+        },
+        columns: { date: true, [`cat:${CAT_A}`]: true, [`cat:${CAT_B}`]: true },
+        columnOrder: ['date', `cat:${CAT_A}`, `cat:${CAT_B}`],
+      },
+    ] as never)
+
+    await putConfig(
+      config({ categories: [{ id: CAT_A, name: 'Gameplay', weight: 1 }] })
+    )
+
+    expect(prisma.listPreset.update).toHaveBeenCalledWith({
+      where: { id: 'preset-1' },
+      data: {
+        sorts: [{ key: 'date', dir: 'desc' }],
+        filters: { statuses: [], categoryRatings: { [CAT_A]: [0, 100] } },
+        columns: { date: true, [`cat:${CAT_A}`]: true },
+        columnOrder: ['date', `cat:${CAT_A}`],
+      },
+    })
+  })
+
+  it('leaves presets that never referenced the dropped category alone', async () => {
+    userOwns(CAT_A, CAT_B)
+    prisma.listPreset.findMany.mockResolvedValue([
+      {
+        id: 'preset-1',
+        sorts: [{ key: 'date', dir: 'desc' }],
+        filters: { categoryRatings: { [CAT_A]: [0, 100] } },
+        columns: { date: true },
+        columnOrder: ['date'],
+      },
+    ] as never)
+
+    await putConfig(
+      config({ categories: [{ id: CAT_A, name: 'Gameplay', weight: 1 }] })
+    )
+
+    expect(prisma.listPreset.update).not.toHaveBeenCalled()
+  })
+
   it('issues no delete when nothing was dropped', async () => {
     userOwns(CAT_A, CAT_B)
 
@@ -353,6 +408,8 @@ describe('PUT /me/rating-config — applying the config', () => {
 
     expect(prisma.ratingScore.deleteMany).not.toHaveBeenCalled()
     expect(prisma.ratingCategory.deleteMany).not.toHaveBeenCalled()
+    // No categories dropped means the presets are never even read.
+    expect(prisma.listPreset.findMany).not.toHaveBeenCalled()
   })
 
   it('persists the enjoyment settings onto the user', async () => {

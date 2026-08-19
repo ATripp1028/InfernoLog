@@ -6,6 +6,7 @@ import {
   PopoverTrigger,
 } from '@/components/generic/popover'
 import {
+  cleanupPresetForCategories,
   getPresetColor,
   summarizeColumns,
   summarizeFilters,
@@ -41,11 +42,21 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
   }))
   const allColumnDefs = getCategoryColumnDefs(categories)
   const color = getPresetColor(preset.color)
-  const sortSummary = summarizeSorts(preset.sorts, catSortOptions)
-  const filterLines = summarizeFilters(preset.filters, scale, categories)
+  // Summarize the view the preset would actually apply, not the one stored:
+  // a preset saved before a rating category was deleted can still carry
+  // `cat:<id>` references, and the summaries fall back to the raw key when
+  // they can't name a category — a UUID where the category name used to be.
+  // Deleting a category purges them server-side now (PUT /v1/me/rating-config);
+  // this keeps presets written before that from showing ids.
+  const view = cleanupPresetForCategories(
+    preset,
+    new Set(categories.map((c) => c.id))
+  )
+  const sortSummary = summarizeSorts(view.sorts, catSortOptions)
+  const filterLines = summarizeFilters(view.filters, scale, categories)
   const colSummary = summarizeColumns(
-    preset.columns,
-    preset.columnOrder,
+    view.columns,
+    view.columnOrder,
     allColumnDefs
   )
 
