@@ -394,7 +394,21 @@ model Level {
   // The level's actual rated difficulty (e.g. "Insane Demon"), cached from
   // GDBrowser and read-only in the UI — EXCEPT on the manual-entry fallback,
   // where the user-entered difficulty becomes this value (data_source=manual).
-  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion.
+  //
+  // For a NON-DEMON this is the display copy, not the identifier: `stars` is
+  // canonical and wins wherever the two disagree — see deriveInGameDifficulty
+  // in packages/core, which every read path goes through. The face is a BAND
+  // over the star range (Hard is 4-5, Harder 6-7, Insane 8-9), so the count
+  // determines the label but the label does NOT determine the count — which is
+  // exactly why the count is the canonical one. Both are written together from
+  // the same RobTop snapshot, so they only diverge if something writes one
+  // alone.
+  //
+  // For DEMONS and UNRATED levels this column is the only representation there
+  // is: all five demon tiers share 10 stars, and "Unrated" has no stars at all.
+  //
+  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion,
+  // and is on a DIFFERENT, subjective 1-9 star scale. Don't mix the two.
   inGameDifficulty      String?
   // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
   // entered on the manual-entry fallback.
@@ -438,8 +452,11 @@ model Level {
   creatorPlayerId       String?
   creatorAccountId      String?
   // Rating / difficulty detail. stars is the awarded star/moon count (0 when
-  // unrated → isRated); partialDiff is GDBrowser's machine-readable
-  // difficulty token ("demon-extreme", "demon-extreme-featured").
+  // unrated → isRated) and, for a non-demon, the CANONICAL identifier of its
+  // difficulty: 1-9, banded onto the six faces (see starDifficulty.ts), with
+  // inGameDifficulty above as the display copy. Demons are always 10 regardless
+  // of tier. partialDiff is GDBrowser's machine-readable difficulty token
+  // ("demon-extreme", "demon-extreme-featured").
   stars                 Int?
   starsRequested        Int?
   partialDiff           String?

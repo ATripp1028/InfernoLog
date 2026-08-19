@@ -334,6 +334,79 @@ describe('numeric fields', () => {
   })
 })
 
+describe('difficulty opinion', () => {
+  it('merges a not_demon_worthy opinion with its star count', () => {
+    const row = oneCompletion(
+      ['level_id', 'difficulty_opinion', 'difficulty_opinion_stars'],
+      ['128', 'not_demon_worthy', 7]
+    )
+
+    expect(row.data.difficultyOpinion).toBe('SEVEN_STAR')
+    expect(flagsFor(row, 'difficulty_opinion_stars')).toEqual([])
+  })
+
+  // The default is a guess at the user's own opinion, so it must be visible —
+  // without the warning the row silently becomes "1★ Auto".
+  it('warns when not_demon_worthy has no star count', () => {
+    const row = oneCompletion(
+      ['level_id', 'difficulty_opinion', 'difficulty_opinion_stars'],
+      ['128', 'not_demon_worthy', '']
+    )
+
+    const flag = flagsFor(row, 'difficulty_opinion_stars')[0]!
+    expect(flag.severity).toBe('warning')
+    expect(flag.message).toContain('1★ Auto')
+    expect(row.data.difficultyOpinion).toBe('AUTO')
+  })
+
+  it('warns when the column is absent entirely', () => {
+    const row = oneCompletion(
+      ['level_id', 'difficulty_opinion'],
+      ['128', 'not_demon_worthy']
+    )
+
+    expect(flagsFor(row, 'difficulty_opinion_stars')[0]!.message).toContain(
+      '1★ Auto'
+    )
+  })
+
+  // An unusable value lands on the same default, and "value dropped" alone
+  // never says what replaced it.
+  it.each([['abc'], [42]])(
+    'warns about the default when the star count %s is unusable',
+    (value) => {
+      const row = oneCompletion(
+        ['level_id', 'difficulty_opinion', 'difficulty_opinion_stars'],
+        ['128', 'not_demon_worthy', value]
+      )
+
+      const messages = flagsFor(row, 'difficulty_opinion_stars').map(
+        (f) => f.message
+      )
+      expect(messages.some((m) => m.includes('1★ Auto'))).toBe(true)
+      expect(row.data.difficultyOpinion).toBe('AUTO')
+    }
+  )
+
+  // A demon-tier opinion carries no star count, so a blank column is normal
+  // there and must stay silent.
+  it('stays silent for a demon-tier opinion with no star count', () => {
+    const row = oneCompletion(
+      ['level_id', 'difficulty_opinion'],
+      ['128', 'extreme']
+    )
+
+    expect(row.data.difficultyOpinion).toBe('EXTREME')
+    expect(flagsFor(row, 'difficulty_opinion_stars')).toEqual([])
+  })
+
+  it('stays silent when there is no opinion at all', () => {
+    const row = oneCompletion(['level_id', 'attempts'], ['128', 10])
+
+    expect(flagsFor(row, 'difficulty_opinion_stars')).toEqual([])
+  })
+})
+
 describe('boolean fields', () => {
   it.each([
     ['true', true],

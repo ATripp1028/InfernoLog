@@ -1,4 +1,10 @@
-// Prisma selects for the cached-level wire shape.
+// Prisma selects for the cached-level wire shape, and the mapper that turns a
+// selected row into that shape.
+
+import {
+  resolveLevelDifficulty,
+  type LevelDifficultyFields,
+} from './difficulty'
 
 /**
  * Columns returned for a cached level (the wire shape, LevelSchema). Excludes
@@ -63,3 +69,14 @@ export const levelPageSelect = {
   delistedAt: true,
   lastCheckedAt: true,
 } as const
+
+/**
+ * Serializes a {@link levelDetailSelect} / {@link levelPageSelect} row for the
+ * wire, resolving `inGameDifficulty` against `stars` — the canonical difficulty
+ * for a non-demon, which outranks the stored label. The row-summary equivalent
+ * is mapLevel in row.ts; every detail response must go through one of the two,
+ * or a stale label reaches the client.
+ */
+export function mapLevelDetail<T extends LevelDifficultyFields>(level: T): T {
+  return { ...level, inGameDifficulty: resolveLevelDifficulty(level) }
+}

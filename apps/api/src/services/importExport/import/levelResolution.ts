@@ -12,6 +12,11 @@
 import prisma from '../../../utils/prisma'
 import { SQSClient, SendMessageBatchCommand } from '@aws-sdk/client-sqs'
 import type { Prisma } from '@prisma/client'
+import {
+  MAX_NON_DEMON_STARS,
+  faceMatchesStars,
+  starsToFace,
+} from '@infernolog/core'
 import { searchRobtopByName, type RobtopLevel } from '../../../utils/robtop'
 
 type Tx = Prisma.TransactionClient
@@ -20,17 +25,34 @@ const sqs = new SQSClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
 
 // ── Name-based level resolution ────────────────────────────────────────────
 
-// Demon tier names, keyed without the redundant "Demon" suffix. InfernoLog only
-// tracks demon completions, so spreadsheet in_game_difficulty values are always a
-// demon tier — written either bare ("Easy") or suffixed ("Easy Demon"). Levels in
-// our DB always store the suffixed form (see deriveDifficulty in robtop.ts), so
-// both sides are normalized through this before comparing.
+
+// Demon tier names, keyed without the redundant "Demon" suffix. A bare tier name
+// in a sheet means the DEMON tier — "Easy" is Easy Demon, not the 2-star Easy.
+// That convention predates non-demon support and is what the import template
+// documents ('e.g. "Easy" (Demon is implied)'), so it stays; a sheet that means
+// the non-demon difficulty says so unambiguously with a star count (see
+// starsFromSheetValue). Levels in our DB store the suffixed form for demons
+// (see deriveDifficulty in robtop.ts), so both sides normalize through this.
 const DEMON_TIER_FILTERS: Record<string, string> = {
   easy: '1',
   medium: '2',
   hard: '3',
   insane: '4',
   extreme: '5',
+}
+
+// GD search's `diff` parameter by difficulty face. These are NOT star counts —
+// GD numbers its difficulty buckets separately (Auto is -3), and a bucket covers
+// a whole band (both 4- and 5-star levels are `diff=3`). Keyed by face rather
+// than count for exactly that reason. Mirrors NONDEMON_DIFF in
+// services/levels/gdSearch.ts.
+const FACE_TO_GD_DIFF: Record<string, string> = {
+  auto: '-3',
+  easy: '1',
+  normal: '2',
+  hard: '3',
+  harder: '4',
+  insane: '5',
 }
 
 function normalizeTier(diff: string | null | undefined): string | null {
@@ -43,34 +65,111 @@ function normalizeTier(diff: string | null | undefined): string | null {
   )
 }
 
-// Maps a human-readable inGameDifficulty label to GD search API diff/demonFilter params.
+// What a sheet's in_game_difficulty is claiming about a non-demon, or null when
+// it isn't claiming anything this scale covers.
+//
+// Two shapes, because they carry different amounts of information:
+//   * an exact star count — "5", "5★", "5 stars" — which pins the difficulty;
+//   * a bare face name that CANNOT also be a demon tier ("Auto", "Normal",
+//     "Harder"), which pins only a band (Harder is 6 or 7 stars).
+//
+// "Easy" / "Hard" / "Insane" are deliberately excluded from the face branch:
+// they read as demon tiers per the convention above, and a sheet meaning the
+// non-demon one writes the number.
+type NonDemonClaim =
+  | { kind: 'stars'; stars: number }
+  | { kind: 'face'; face: string }
+
+function nonDemonClaimFromSheetValue(
+  value: string | null | undefined
+): NonDemonClaim | null {
+  if (!value) return null
+  const v = value.trim().toLowerCase()
+
+  const numeric = v.match(/^(\d+)\s*(?:★|\*|stars?)?$/)
+  if (numeric) {
+    const n = Number(numeric[1])
+    return n >= 1 && n <= MAX_NON_DEMON_STARS ? { kind: 'stars', stars: n } : null
+  }
+
+  if (v === 'auto' || v === 'normal' || v === 'harder') {
+    return { kind: 'face', face: v }
+  }
+  return null
+}
+
+/** A candidate's difficulty, from either the DB or a RobTop search hit. */
+interface DifficultyFacts {
+  inGameDifficulty: string | null
+  stars: number | null
+}
+
+// Builds a hard difficulty predicate from the spreadsheet's in_game_difficulty.
+// Returns null when the value claims nothing recognizable, in which case
+// difficulty simply isn't used to filter.
+//
+// Each claim is matched against whichever field the candidate actually has,
+// preferring `stars` since that is the canonical identifier for a non-demon
+// (see starDifficulty.ts). A candidate carrying only a label is still testable —
+// un-enriched stubs and hand-added rows can have one without the other — because
+// a label pins a BAND, so it can rule a count in or out even though it could
+// never produce one. Only a candidate with neither field gets the benefit of the
+// doubt, the way an unknown-difficulty candidate always has.
+function difficultyPredicate(
+  inGameDifficulty: string | null | undefined
+): ((level: DifficultyFacts) => boolean) | null {
+  const claim = nonDemonClaimFromSheetValue(inGameDifficulty)
+
+  // An exact count: the candidate must be that count, or carry a label whose
+  // band contains it.
+  if (claim?.kind === 'stars') {
+    return (level) => {
+      if (level.stars != null) return level.stars === claim.stars
+      if (level.inGameDifficulty == null) return true
+      return faceMatchesStars(level.inGameDifficulty, claim.stars)
+    }
+  }
+
+  // A face: the candidate's count must fall in that face's band, or its label
+  // must name the same face. Cannot narrow within the band — the sheet didn't.
+  if (claim?.kind === 'face') {
+    return (level) => {
+      if (level.stars != null) return faceMatchesStars(claim.face, level.stars)
+      if (level.inGameDifficulty == null) return true
+      return level.inGameDifficulty.trim().toLowerCase() === claim.face
+    }
+  }
+
+  const tier = normalizeTier(inGameDifficulty)
+  if (!tier || !DEMON_TIER_FILTERS[tier]) return null
+  return (level) => {
+    if (level.inGameDifficulty == null) return true
+    const d = level.inGameDifficulty.toLowerCase()
+    return d.includes('demon') && normalizeTier(d) === tier
+  }
+}
+
+// Maps a spreadsheet in_game_difficulty to GD search API diff/demonFilter params.
 function toDiffFilter(diff: string | null | undefined): {
   diff?: string
   demonFilter?: string
 } {
+  // Both claim shapes resolve to a face, since GD's diff buckets are per-face:
+  // asking for 4 stars and asking for 5 stars are the same query (`diff=3`).
+  const claim = nonDemonClaimFromSheetValue(diff)
+  if (claim) {
+    const face =
+      claim.kind === 'face' ? claim.face : starsToFace(claim.stars)?.toLowerCase()
+    const bucket = face ? FACE_TO_GD_DIFF[face] : undefined
+    if (bucket) return { diff: bucket }
+    return {}
+  }
+
   const tier = normalizeTier(diff)
   if (!tier) return {}
   const demonFilter = DEMON_TIER_FILTERS[tier]
   if (!demonFilter) return {}
   return { diff: '-2', demonFilter }
-}
-
-// Builds a hard difficulty predicate from the spreadsheet's in_game_difficulty.
-// InfernoLog only tracks demons, so a value like "Easy" means "Easy Demon" — a
-// known non-demon / auto / unrated level (or a demon of a different tier) must
-// NOT match. Returns null when the value isn't a recognized demon tier, in which
-// case difficulty is simply not used to filter. A candidate whose own difficulty
-// is unknown (null — e.g. an un-enriched stub) is given the benefit of the doubt.
-function demonTierPredicate(
-  inGameDifficulty: string | null | undefined
-): ((levelDiff: string | null) => boolean) | null {
-  const tier = normalizeTier(inGameDifficulty)
-  if (!tier || !DEMON_TIER_FILTERS[tier]) return null
-  return (levelDiff) => {
-    if (levelDiff == null) return true
-    const d = levelDiff.toLowerCase()
-    return d.includes('demon') && normalizeTier(d) === tier
-  }
 }
 
 /**
@@ -89,6 +188,8 @@ type DbCandidate = {
   inGameId: string
   creator: string | null
   inGameDifficulty: string | null
+  // The canonical difficulty identifier for a non-demon.
+  stars: number | null
 }
 
 // Resolve from already-fetched DB candidates for a name. Returns a unique match,
@@ -98,12 +199,11 @@ function resolveFromDbCandidates(
   creator: string | null | undefined,
   inGameDifficulty: string | null | undefined
 ): { levelId: string } | 'ambiguous' | null {
-  const matchesTier = demonTierPredicate(inGameDifficulty)
+  const matchesDifficulty = difficultyPredicate(inGameDifficulty)
   let candidates = dbLevels
   // Difficulty is a hard filter (applied even when it empties the list, so the
   // wrong-difficulty single match falls through to RobTop instead of resolving).
-  if (matchesTier)
-    candidates = candidates.filter((l) => matchesTier(l.inGameDifficulty))
+  if (matchesDifficulty) candidates = candidates.filter(matchesDifficulty)
   // Creator is a lenient tiebreaker only (the column is fuzzy / often blank).
   if (creator && candidates.length > 1) {
     const hint = creator.toLowerCase()
@@ -125,7 +225,7 @@ async function resolveViaRobtop(
   creator: string | null | undefined,
   inGameDifficulty: string | null | undefined
 ): Promise<ResolveResult> {
-  const matchesTier = demonTierPredicate(inGameDifficulty)
+  const matchesDifficulty = difficultyPredicate(inGameDifficulty)
   const rtResults = await searchRobtopByName(
     name,
     toDiffFilter(inGameDifficulty)
@@ -135,10 +235,8 @@ async function resolveViaRobtop(
   let rtCandidates = rtResults.filter(
     (r) => r.level.name?.trim().toLowerCase() === wantName
   )
-  if (matchesTier) {
-    rtCandidates = rtCandidates.filter((r) =>
-      matchesTier(r.level.inGameDifficulty)
-    )
+  if (matchesDifficulty) {
+    rtCandidates = rtCandidates.filter((r) => matchesDifficulty(r.level))
   }
   if (creator && rtCandidates.length > 1) {
     const hint = creator.toLowerCase()
@@ -174,7 +272,12 @@ export async function resolveByName(
   // 1. Check the local cache first, then fall back to RobTop.
   const dbLevels = await prisma.level.findMany({
     where: { name: { equals: name, mode: 'insensitive' } },
-    select: { inGameId: true, creator: true, inGameDifficulty: true },
+    select: {
+      inGameId: true,
+      creator: true,
+      inGameDifficulty: true,
+      stars: true,
+    },
   })
   const db = resolveFromDbCandidates(dbLevels, creator, inGameDifficulty)
   if (db) return db // unique match or 'ambiguous'
@@ -212,6 +315,7 @@ export async function resolveNamesBatch(
         name: true,
         creator: true,
         inGameDifficulty: true,
+        stars: true,
       },
     })
     for (const r of rows) {

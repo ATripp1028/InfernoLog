@@ -18,6 +18,7 @@ import type { ImportCommitRow, ImportCommitResponse } from '@infernolog/core'
 import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
 import { buildRobtopRefreshData } from '../../levels/robtopMapping'
+import { resolveLevelDifficulty } from '../../levels/difficulty'
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
 import {
@@ -163,10 +164,17 @@ export async function processImportJobBatch(
 
   const levelRows = await prisma.level.findMany({
     where: { inGameId: { in: allKnownIds } },
-    select: { inGameId: true, inGameDifficulty: true, coins: true },
+    // stars is canonical for a non-demon, so the snapshot has to be resolved
+    // rather than read straight off the (display-copy) label column.
+    select: {
+      inGameId: true,
+      inGameDifficulty: true,
+      stars: true,
+      coins: true,
+    },
   })
   const levelDiff = new Map<string, string | null>(
-    levelRows.map((l) => [l.inGameId, l.inGameDifficulty])
+    levelRows.map((l) => [l.inGameId, resolveLevelDifficulty(l)])
   )
   const levelCoins = new Map<string, number | null>(
     levelRows.map((l) => [l.inGameId, l.coins])
@@ -174,7 +182,7 @@ export async function processImportJobBatch(
   // Name-resolved levels are created/enriched as stubs below; surface their
   // RobTop difficulty + coin count now for the completion snapshot / coin gate.
   for (const [id, rt] of resolvedRobtopData) {
-    levelDiff.set(id, rt.inGameDifficulty)
+    levelDiff.set(id, resolveLevelDifficulty({ ...rt, inGameId: id }))
     levelCoins.set(id, rt.coins)
   }
 

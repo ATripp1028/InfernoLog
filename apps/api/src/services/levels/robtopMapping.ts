@@ -23,6 +23,11 @@ type RobtopLevelFields = Omit<Prisma.LevelUncheckedCreateInput, 'inGameId'>
  * function at all means GD's servers answered with a real level, which is
  * exactly what "verified" records.
  *
+ * Both `inGameDifficulty` and `stars` are written straight from the snapshot.
+ * For a rated non-demon the two say the same thing and `stars` is the canonical
+ * one (see starDifficulty.ts) — but they are written together, from the same
+ * response, so this is the one place they cannot drift.
+ *
  * @param gd - Normalized level from {@link fetchRobtopLevel}.
  * @returns Column values, without `inGameId` — use {@link buildRobtopCreateData}
  * or {@link buildRobtopRefreshData} rather than calling this directly.

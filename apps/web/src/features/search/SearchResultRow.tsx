@@ -1,5 +1,6 @@
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
+import { difficultyLabel } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 
 /**
@@ -11,6 +12,8 @@ export interface SearchRowLevel {
   name: string | null
   creator: string | null
   inGameDifficulty: string | null
+  /** Canonical difficulty for a non-demon — see difficultyLabel. */
+  stars: number | null
   isRated: boolean
   featured?: boolean | null
   epicValue?: number | null
@@ -44,7 +47,7 @@ export function SearchResultRow({
   compact = false,
   dimmed = false,
 }: SearchResultRowProps) {
-  const difficulty = level.inGameDifficulty ?? 'Unrated'
+  const difficulty = difficultyLabel(level)
   const meta = `by ${level.creator ?? 'Unknown'} · ${level.inGameId} · ${difficulty}`
 
   return (

@@ -68,6 +68,7 @@ function dbLevel(
     name?: string
     creator?: string | null
     diff?: string | null
+    stars?: number | null
   } = {}
 ) {
   return {
@@ -75,6 +76,7 @@ function dbLevel(
     name: overrides.name ?? 'DeathMoon',
     creator: overrides.creator ?? null,
     inGameDifficulty: overrides.diff === undefined ? null : overrides.diff,
+    stars: overrides.stars ?? null,
   }
 }
 
@@ -85,6 +87,7 @@ function rtLevel(
     name?: string
     creator?: string | null
     diff?: string | null
+    stars?: number | null
   } = {}
 ): RobtopSearchResult {
   return {
@@ -93,6 +96,7 @@ function rtLevel(
       name: overrides.name ?? 'DeathMoon',
       creator: overrides.creator ?? null,
       inGameDifficulty: overrides.diff === undefined ? null : overrides.diff,
+      stars: overrides.stars ?? null,
     } as unknown as RobtopLevel,
   }
 }
@@ -253,7 +257,7 @@ describe('resolveByName — difficulty is a hard filter', () => {
     ).resolves.toEqual({ levelId: '2' })
   })
 
-  it.each([['Auto'], ['Harder'], ['not a difficulty'], ['']])(
+  it.each([['not a difficulty'], [''], ['12']])(
     'ignores an unrecognized difficulty (%s) instead of filtering everything out',
     async (diff) => {
       prisma.level.findMany.mockResolvedValue([
@@ -265,6 +269,61 @@ describe('resolveByName — difficulty is a hard filter', () => {
       })
     }
   )
+
+  // "Auto"/"Normal"/"Harder" can't name a demon tier, so they read as non-demon
+  // faces and DO filter — a sheet saying "Harder" must not land on a demon.
+  it.each([['Auto'], ['Normal'], ['Harder']])(
+    'excludes a demon candidate for the non-demon face %s',
+    async (diff) => {
+      prisma.level.findMany.mockResolvedValue([
+        dbLevel('1', { diff: 'Easy Demon' }),
+      ] as never)
+      mockSearchRobtopByName.mockResolvedValue([])
+
+      await expect(resolveByName('DeathMoon', null, diff)).resolves.toBeNull()
+    }
+  )
+
+  // A face pins a BAND, not a count, so both counts in it must match.
+  it.each([[4], [5]])(
+    'matches a %s-star candidate against the face "Hard"',
+    async (stars) => {
+      prisma.level.findMany.mockResolvedValue([
+        dbLevel('1', { diff: null, stars }),
+      ] as never)
+
+      await expect(
+        resolveByName('DeathMoon', null, 'hard stars')
+      ).resolves.toEqual({ levelId: '1' })
+    }
+  )
+
+  // ...and an exact count must not match its band-mate.
+  it('does not match a 5-star candidate against an exact 4', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: null, stars: 5 }),
+    ] as never)
+    mockSearchRobtopByName.mockResolvedValue([])
+
+    await expect(resolveByName('DeathMoon', null, '4')).resolves.toBeNull()
+  })
+
+  // A candidate with only a label is still testable, since the label's band
+  // either contains the requested count or doesn't.
+  it('rules a label-only candidate in or out by its band', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Hard', stars: null }),
+    ] as never)
+    await expect(resolveByName('DeathMoon', null, '4')).resolves.toEqual({
+      levelId: '1',
+    })
+
+    prisma.level.findMany.mockResolvedValue([
+      dbLevel('1', { diff: 'Hard', stars: null }),
+    ] as never)
+    mockSearchRobtopByName.mockResolvedValue([])
+    await expect(resolveByName('DeathMoon', null, '8')).resolves.toBeNull()
+  })
 })
 
 // ─── resolveByName: RobTop fallback ──────────────────────────────────────────
@@ -295,9 +354,40 @@ describe('resolveByName — RobTop fallback', () => {
     expect(lastSearchOptions()).toEqual({ diff: '-2', demonFilter: filter })
   })
 
-  it('sends no difficulty scoping for an unrecognized tier', async () => {
-    await resolveByName('DeathMoon', null, 'Auto')
+  it('sends no difficulty scoping for an unrecognized value', async () => {
+    await resolveByName('DeathMoon', null, 'Nonsense')
     expect(lastSearchOptions()).toEqual({})
+  })
+
+  // Non-demons are scoped by GD's own diff bucket, which is numbered separately
+  // from the star count (Auto is 1 star but diff -3) and covers a whole band.
+  it('scopes a non-demon star count to its GD diff bucket', async () => {
+    await resolveByName('DeathMoon', null, '5')
+    expect(lastSearchOptions()).toEqual({ diff: '3' }) // 5 stars = Hard
+
+    await resolveByName('DeathMoon', null, '1')
+    expect(lastSearchOptions()).toEqual({ diff: '-3' }) // 1 star = Auto
+  })
+
+  // Both counts in a band are the same GD query — the bucket is per-face.
+  it('sends the same bucket for either count in a band', async () => {
+    await resolveByName('DeathMoon', null, '4')
+    const forFour = lastSearchOptions()
+    await resolveByName('DeathMoon', null, '5')
+    expect(lastSearchOptions()).toEqual(forFour)
+  })
+
+  // "Auto"/"Normal"/"Harder" can't be demon tiers, so they read as faces.
+  it('reads an unambiguous non-demon face as its own bucket', async () => {
+    await resolveByName('DeathMoon', null, 'Harder')
+    expect(lastSearchOptions()).toEqual({ diff: '4' })
+  })
+
+  // "Easy" is both a demon tier and a 2-star face; the demon reading wins, per
+  // the documented sheet convention.
+  it('still reads a bare shared tier name as the demon tier', async () => {
+    await resolveByName('DeathMoon', null, 'Easy')
+    expect(lastSearchOptions()).toEqual({ diff: '-2', demonFilter: '1' })
   })
 
   it('discards keyword hits whose name is not an exact match', async () => {

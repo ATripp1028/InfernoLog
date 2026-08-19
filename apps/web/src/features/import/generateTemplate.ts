@@ -269,7 +269,7 @@ export const FIELD_DESCRIPTIONS = [
     'Completions',
     'difficulty_opinion_stars',
     'no',
-    'Integer 1-9 — the non-demon star rating, only when difficulty_opinion is not_demon_worthy.',
+    'Integer 1-9 — the non-demon star rating. Required when difficulty_opinion is not_demon_worthy; leaving it blank there records 1★ Auto and warns.',
   ],
   [
     'Completions',
@@ -305,7 +305,7 @@ export const FIELD_DESCRIPTIONS = [
     'Completions',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank; otherwise autofilled from the GD servers.',
+    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count (1-9) instead — "Easy" alone always means Easy Demon. Used to filter name resolution when level_id is blank; otherwise autofilled from the GD servers.',
   ],
   [
     'Completions',
@@ -437,7 +437,7 @@ export const FIELD_DESCRIPTIONS = [
     'Dropped',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count (1-9) instead. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Dropped',
@@ -536,7 +536,7 @@ export const FIELD_DESCRIPTIONS = [
     'Lists',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count (1-9) instead. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Lists',
@@ -573,7 +573,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ratings',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count (1-9) instead. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Ratings',

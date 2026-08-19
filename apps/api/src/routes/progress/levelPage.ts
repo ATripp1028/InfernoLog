@@ -12,6 +12,7 @@ import prisma from '../../utils/prisma'
 import { computeRunsGraph } from '../../utils/runsGraph'
 import type { HonoVariables } from '../../types/hono'
 import { toNum } from '../../utils/decimal'
+import { mapLevelDetail } from '../../services/levels/selects'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -48,6 +49,9 @@ app.get('/me/progress/:levelId', async (c) => {
           creator: true,
           levelType: true,
           inGameDifficulty: true,
+          // Canonical difficulty for a non-demon; also rendered beside the
+          // face ("5★ Harder").
+          stars: true,
           isDemon: true,
           isRated: true,
           featured: true,
@@ -195,7 +199,7 @@ app.get('/me/progress/:levelId', async (c) => {
       // the rebeat design. See ProgressUpdate.videoUrl in schema.prisma.
       completionVideoUrl: completionUpdate?.videoUrl ?? null,
       completionHighlightUrl: completionUpdate?.highlightUrl ?? null,
-      level: lp.level,
+      level: mapLevelDetail(lp.level),
       progressUpdates: lp.progressUpdates.map((u) => ({
         progressUpdateId: u.id,
         kind: u.kind,

@@ -81,4 +81,89 @@ describe('POST /levels (manual metadata write)', () => {
     expect(created?.length).toBe('XL')
     expect(created?.isDemon).toBe(true)
   })
+
+  // A rated non-demon stores BOTH, with the star count as the canonical one.
+  // The form submits the count directly: "Harder" spans 6 and 7 stars, so the
+  // label alone could not have told us which.
+  it('stores both the label and the submitted star count', async () => {
+    const user = await seedUser(prisma)
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels',
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          inGameId: '556',
+          name: 'Five Star',
+          creator: 'Some Creator',
+          difficulty: 'Harder',
+          stars: 7,
+          isDemon: false,
+          isRated: true,
+        }),
+      }
+    )
+
+    expect(res.status).toBe(201)
+    const stored = await prisma.level.findUnique({
+      where: { inGameId: '556' },
+    })
+    expect(stored?.stars).toBe(7)
+    expect(stored?.inGameDifficulty).toBe('Harder')
+
+    const body = (await res.json()) as { data: { inGameDifficulty: string } }
+    expect(body.data.inGameDifficulty).toBe('Harder')
+  })
+
+  // The count and label come from one picker, so disagreeing values mean a
+  // malformed request — storing the count anyway would corrupt the canonical
+  // field, so it is dropped and the label (which no count contradicts) stands.
+  it('drops a star count that contradicts the submitted label', async () => {
+    const user = await seedUser(prisma)
+
+    await buildApp(levelsApp, { userId: user.id }).request('/levels', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        inGameId: '558',
+        name: 'Mismatched',
+        creator: 'Some Creator',
+        difficulty: 'Harder',
+        stars: 2,
+        isDemon: false,
+        isRated: true,
+      }),
+    })
+
+    const stored = await prisma.level.findUnique({
+      where: { inGameId: '558' },
+    })
+    expect(stored?.stars).toBeNull()
+    expect(stored?.inGameDifficulty).toBe('Harder')
+  })
+
+  // Unrated levels are awarded no stars, so the label is all they have.
+  it('stores no star count for an unrated non-demon', async () => {
+    const user = await seedUser(prisma)
+
+    await buildApp(levelsApp, { userId: user.id }).request('/levels', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        inGameId: '557',
+        name: 'Unrated Level',
+        creator: 'Some Creator',
+        difficulty: 'Harder',
+        isDemon: false,
+        isRated: false,
+      }),
+    })
+
+    const stored = await prisma.level.findUnique({
+      where: { inGameId: '557' },
+    })
+    expect(stored?.stars).toBeNull()
+    expect(stored?.inGameDifficulty).toBe('Harder')
+  })
 })

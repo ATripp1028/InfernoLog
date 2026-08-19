@@ -13,6 +13,7 @@
 
 import prisma from '../../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
+import { resolveLevelDifficulty } from '../levels/difficulty'
 import { zonedDateString } from '../../utils/timezone'
 import { toNum } from '../../utils/decimal'
 
@@ -194,7 +195,13 @@ async function exportDropped(userId: string, skip: number, take: number) {
           status: true,
           worstFail: true,
           level: {
-            select: { name: true, creator: true, inGameDifficulty: true },
+            select: {
+              name: true,
+              creator: true,
+              inGameDifficulty: true,
+              // Canonical for a non-demon — the label is the display copy.
+              stars: true,
+            },
           },
           // The level's single most recent update — used below to tell
           // whether this is the level's CURRENT drop.
@@ -220,7 +227,10 @@ async function exportDropped(userId: string, skip: number, take: number) {
       levelId: lp.levelId,
       levelName: lp.level.name,
       creator: lp.level.creator,
-      inGameDifficulty: lp.level.inGameDifficulty,
+      inGameDifficulty: resolveLevelDifficulty({
+        ...lp.level,
+        inGameId: lp.levelId,
+      }),
       bestProgress: isCurrentDrop ? lp.worstFail : null,
       attemptsAtDrop: u.attempts,
       droppedAt: iso(u.date, u.dateTimezone),

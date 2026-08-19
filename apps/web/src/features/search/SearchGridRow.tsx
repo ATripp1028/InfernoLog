@@ -2,7 +2,7 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
 import { formatNumber } from '@/features/logging/format'
-import { gdStatIconSrc } from '@/lib/gdAssets'
+import { gdStatIconSrc, difficultyLabel } from '@/lib/gdAssets'
 import { backOriginState } from '@/lib/backOrigin'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
 
@@ -33,7 +33,7 @@ function Stat({
  * Global Level Page.
  */
 export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
-  const difficulty = level.inGameDifficulty ?? 'Unrated'
+  const difficulty = difficultyLabel(level)
   const likes = level.likes ?? 0
   // RobTop's official levels aren't online levels, so their download/like counts
   // are always 0 — hide those stats for them (same 'robtop' heuristic the Stats

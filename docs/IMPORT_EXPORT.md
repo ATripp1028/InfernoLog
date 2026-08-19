@@ -192,7 +192,7 @@ Nothing is forced — if you leave entries unplaced in either source column, the
 | `coin_3`                   | No       | TRUE/FALSE — 3rd user coin collected (ignored if the level has no coins) |
 | `two_player_solo`          | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level)      |
 | `two_player_partner`       | No       | Partner's name (only when `two_player_solo` is FALSE)                    |
-| `in_game_difficulty`       | No       | Filters name resolution when `level_id` is blank; otherwise autofilled   |
+| `in_game_difficulty`       | No       | Filters name resolution when `level_id` is blank; otherwise autofilled. Bare tier names mean the DEMON tier ("Easy" = Easy Demon); write a star count (1-9) for a non-demon   |
 | `gddl_tier`                | No       | Whole-number tier                                                        |
 | `nlw_tier`                 | No       | Tier name                                                                |
 | `notes`                    | No       | Text about this completion                                               |
@@ -262,7 +262,7 @@ Unlike Completions, **multiple rows per level are expected** — a level can be 
 | `level_id`           | No\*     | In-game level ID                                                                                            |
 | `level_name`         | No\*     | If blank, resolved from the GD servers by name                                                              |
 | `creator`            | No       | Narrows name resolution when the name matches many levels                                                   |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                                                            |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; a bare tier name means the DEMON tier, a star count (1-9) means a non-demon                                                            |
 | `best_progress`      | No       | Percentage (a trailing `%` is accepted)                                                                     |
 | `run_from`           | No       | Trailing `%` accepted                                                                                       |
 | `run_to`             | No       | Trailing `%` accepted                                                                                       |
@@ -313,7 +313,7 @@ Membership of your collections — Want to Beat / Favorites / Least Favorites an
 | `level_id`           | No\*     | In-game level ID                                                                                             |
 | `level_name`         | No\*     | Matched against the GD servers (a listed level need not be completed)                                        |
 | `creator`            | No       | Narrows name resolution when the name matches many levels                                                    |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                                                             |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; a bare tier name means the DEMON tier, a star count (1-9) means a non-demon                                                             |
 | `position`           | No       | Order within the collection; row order is used if blank                                                      |
 
 \* one of `level_id` / `level_name` required.
@@ -335,7 +335,7 @@ Weighted per-category scores. The tab is "wide": identity columns, then **one co
 | `level_id`           | No\*     | In-game level ID                                                            |
 | `level_name`         | No\*     | Matched against **your completed levels** (scores attach to the completion) |
 | `creator`            | No       | Narrows name resolution                                                     |
-| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank                            |
+| `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; a bare tier name means the DEMON tier, a star count (1-9) means a non-demon                            |
 | _(any other column)_ | No       | Treated as a **category name**; the cell is that level's score              |
 
 \* one of `level_id` / `level_name` required.

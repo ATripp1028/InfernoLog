@@ -473,8 +473,21 @@ function parseCompletionRow(
     difficultyOpinionStars <= 9
       ? Math.round(difficultyOpinionStars)
       : null
-  // "not demon-worthy" always resolves to a concrete star value — default to
-  // AUTO (1 star) when the sheet gives no star count.
+
+  // "not demon-worthy" has no bare enum value — it always resolves to a
+  // concrete star count, and with nothing to go on that means AUTO (1 star).
+  // That is a guess at the user's own opinion, so it is never applied silently:
+  // otherwise the row lands as "1★ Auto" with nothing on screen to say the
+  // sheet never claimed that. Covers both a blank column and one whose value
+  // was dropped above — they reach the same default, and "value dropped"
+  // doesn't say what replaced it.
+  if (rawOpinion === 'not_demon_worthy' && validStars == null)
+    pushFlag(
+      'difficulty_opinion_stars',
+      `difficulty_opinion is "not_demon_worthy" with no usable difficulty_opinion_stars — recorded as 1★ Auto. Set it to 1-9 to say which.`,
+      'warning'
+    )
+
   const difficultyOpinion: DifficultyOpinion | null =
     rawOpinion == null
       ? null

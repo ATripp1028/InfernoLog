@@ -541,6 +541,12 @@ export const ManualLevelInputSchema = z.object({
   name: z.string().min(1).max(200),
   creator: z.string().min(1).max(200),
   difficulty: z.string().min(1).max(100),
+  // The awarded star count, for a rated non-demon. Sent separately from
+  // `difficulty` because the face does NOT determine it — a "Hard" level is 4
+  // or 5 stars — and the count is the canonical identifier, so the form asks
+  // for it directly rather than guessing (see starDifficulty.ts). Omitted for
+  // demons (always 10) and unrated levels (no stars).
+  stars: z.number().int().min(1).max(10).nullable().optional(),
   // Whether the user picked a demon tier vs "Not a demon" on the manual form.
   // autofill was unavailable, so the client tells us; defaults to false.
   isDemon: z.boolean().optional(),
@@ -774,7 +780,15 @@ export const LevelListSummarySchema = z.object({
   name: z.string().nullable(),
   creator: z.string().nullable(),
   levelType: z.nativeEnum(LevelType),
+  // Resolved server-side, not the raw column: for a non-demon `stars` is
+  // canonical and wins over the stored label (deriveInGameDifficulty). Always a
+  // face name — "Harder", "Extreme Demon" — so clients rendering just a label
+  // need not know which field it came from.
   inGameDifficulty: z.string().nullable(),
+  // Awarded star count, and the canonical difficulty identifier for a
+  // non-demon: 1-9 there, 10 for a demon, 0/null when unrated. Rendered
+  // alongside the face for non-demons ("7★ Harder").
+  stars: z.number().int().nullable(),
   isDemon: z.boolean(),
   isRated: z.boolean(),
   featured: z.boolean().nullable(),

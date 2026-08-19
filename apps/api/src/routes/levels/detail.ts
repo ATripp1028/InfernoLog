@@ -14,6 +14,7 @@ import { findOrResolveLevel } from '../../services/levels/resolve'
 import type { HonoVariables } from '../../types/hono'
 import {
   levelDetailSelect,
+  mapLevelDetail,
   levelPageSelect,
 } from '../../services/levels/selects'
 import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
@@ -85,7 +86,7 @@ app.get('/levels/:levelId', async (c) => {
     select: levelDetailSelect,
   })
   if (!level) return c.json({ error: 'Level not found' }, 404)
-  return c.json({ data: level })
+  return c.json({ data: mapLevelDetail(level) })
 })
 
 export default app
