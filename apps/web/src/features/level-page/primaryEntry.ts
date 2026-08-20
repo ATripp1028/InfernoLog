@@ -1,11 +1,15 @@
 import type { LevelPageData } from './types'
 
 /**
- * Which entry an "edit this entry" affordance targets when it isn't scoped
- * to one specific Timeline card (the level page's FAB, the list page's row
- * action). Mirrors the fallback `applyEdit` used server-side back when
- * progressUpdateId was optional: completion-first, else the most recent
- * entry (progressUpdates is already loggedAt-desc from the API).
+ * Which entry the level page's FAB targets, being the one "edit this entry"
+ * affordance there that isn't scoped to a specific Timeline card. Mirrors the
+ * fallback `applyEdit` used server-side back when progressUpdateId was
+ * optional: completion-first, else the most recent entry (progressUpdates is
+ * already loggedAt-desc from the API).
+ *
+ * The list page's edit modal is completion-first too, but falls back to the
+ * date a run happened rather than to loggedAt, and lets the user switch from
+ * there. See {@link defaultEntryChoice}.
  */
 export function findPrimaryProgressUpdateId(
   data: LevelPageData

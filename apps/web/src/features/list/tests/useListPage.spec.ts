@@ -836,26 +836,23 @@ describe('useListPage', () => {
     const row = () =>
       item({ level: level({ inGameId: '128', name: 'Bloodbath' }) })
 
-    it.each([
-      ['handleEditRun', 'run'],
-      ['handleEditLevel', 'level'],
-    ] as const)('opens the %s editor on the row’s level', (fn, mode) => {
+    // Both halves of an entry are tabs of one modal, so the row menu has a
+    // single Edit action and the page only tracks which level it opened for.
+    it('opens the editor on the row’s level', () => {
       const { result } = render()
 
-      act(() => result.current[fn](row()))
+      act(() => result.current.handleEdit(row()))
 
       expect(result.current.editingLevelId).toBe('128')
-      expect(result.current.editMode).toBe(mode)
     })
 
-    it('closes the editor, forgetting both the level and the mode', () => {
+    it('closes the editor, forgetting the level', () => {
       const { result } = render()
-      act(() => result.current.handleEditRun(row()))
+      act(() => result.current.handleEdit(row()))
 
       act(() => result.current.closeEditModal())
 
       expect(result.current.editingLevelId).toBeNull()
-      expect(result.current.editMode).toBeNull()
     })
 
     // The level-page query only runs once a row is being edited, and a
@@ -863,7 +860,7 @@ describe('useListPage', () => {
     // it really happens: open first, then the fetch fails.
     it('reports and closes when the level data fails to load', () => {
       const { result, rerender } = render()
-      act(() => result.current.handleEditRun(row()))
+      act(() => result.current.handleEdit(row()))
 
       vi.mocked(useLevelPage).mockReturnValue(
         stubQuery({ isError: true }) as never

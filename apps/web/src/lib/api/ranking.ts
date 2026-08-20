@@ -42,8 +42,11 @@ export function useClassicRanking() {
 }
 
 // Optimistic cache helpers — keep the board snappy while the write is in
-// flight. The server's response (authoritative fractional indices + ranks)
-// replaces the optimistic guess onSuccess.
+// flight. Every write returns the whole freshly serialized board, and each
+// mutation's onSuccess writes that over the optimistic guess: it carries the
+// authoritative fractional indices and ranks, and it is the only thing that
+// can correct the cache if a refetch issued mid-write (a completion log
+// invalidates ['ranking']) landed with a pre-write snapshot.
 
 function renumber(placed: ClassicRankingEntry[]): ClassicRankingEntry[] {
   return placed.map((e, i) => (e.rank === i + 1 ? e : { ...e, rank: i + 1 }))
@@ -132,6 +135,9 @@ export function usePlaceRanking() {
       }
       return { previous }
     },
+    onSuccess: (data) => {
+      qc.setQueryData(rankingQueryKey, data)
+    },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
       toast.error('Could not save ranking order')
@@ -184,6 +190,9 @@ export function useReorderRanking() {
       }
       return { previous }
     },
+    onSuccess: (data) => {
+      qc.setQueryData(rankingQueryKey, data)
+    },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
       toast.error('Could not save ranking order')
@@ -225,6 +234,9 @@ export function useUnplaceRanking() {
         })
       }
       return { previous }
+    },
+    onSuccess: (data) => {
+      qc.setQueryData(rankingQueryKey, data)
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)

@@ -1,6 +1,8 @@
-// Logic for EditRunModal: the edit form's state, the reset-on-open sync from
-// server data, the per-kind field rules (completion vs progress vs drop), and
-// the save payload. The component renders fields against what this returns.
+// Logic for the run half of the edit modals: the edit form's state, the
+// reset-on-open sync from server data, the per-kind field rules (completion
+// vs progress vs drop), and the save payload. `useEditRunForm` holds all of
+// that and is what the merged EditEntryModal composes; `useEditRunModal`
+// wraps it with the mutation the standalone EditRunModal saves through.
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
@@ -91,22 +93,30 @@ function initForm(
   }
 }
 
+// The run text an entry starts out showing, and what that parses to. Kept
+// beside initForm because the two together are the form's pristine state.
+function initParsedRun(update: ProgressUpdate): ParsedRun | null {
+  const result = parseRunInput(
+    formatRunInputValue(update.percentage, update.runFrom, update.runTo)
+  )
+  return result.kind === 'ok' ? { from: result.from, to: result.to } : null
+}
+
+/** What {@link useEditRunForm} hands the fields component. */
+export type EditRunFormState = ReturnType<typeof useEditRunForm>
+
 /**
- * Form state, validation, and the save mutation for one logged update.
+ * Form state, validation, and the PATCH payload for one logged update — everything but the mutation.
  */
-export function useEditRunModal({
+export function useEditRunForm({
   open,
-  onClose,
   data,
-  levelId,
   scale,
   datePref,
   progressUpdateId,
 }: {
   open: boolean
-  onClose: () => void
   data: LevelPageData
-  levelId: string
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   progressUpdateId: string | null
@@ -115,26 +125,28 @@ export function useEditRunModal({
     ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
     : undefined
   const me = useMe()
-  const editProgress = useEditProgress(levelId)
 
   const [form, setForm] = useState<EditRunForm>(EMPTY_FORM)
   const [parsedRun, setParsedRun] = useState<ParsedRun | null>(null)
+  // The form exactly as it was loaded. Captured alongside the reset rather
+  // than recomputed from `data`, since the reset deliberately ignores
+  // background refetches — comparing against a moving `data` would report
+  // the form as dirty when nobody typed anything.
+  const [pristine, setPristine] = useState<{
+    form: EditRunForm
+    run: ParsedRun | null
+  } | null>(null)
 
   // Reset from server data every time the dialog opens (or the target
   // entry changes while open) — mirrors the original combined modal's
   // reset-on-open effect, so a cancel-then-reopen never shows stale edits.
   useEffect(() => {
     if (!open || !update) return
-    setForm(initForm(update, scale))
-    const initialText = formatRunInputValue(
-      update.percentage,
-      update.runFrom,
-      update.runTo
-    )
-    const result = parseRunInput(initialText)
-    setParsedRun(
-      result.kind === 'ok' ? { from: result.from, to: result.to } : null
-    )
+    const initialForm = initForm(update, scale)
+    const initialRun = initParsedRun(update)
+    setForm(initialForm)
+    setParsedRun(initialRun)
+    setPristine({ form: initialForm, run: initialRun })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, progressUpdateId, scale])
 
@@ -150,14 +162,31 @@ export function useEditRunModal({
   const fpsError = maxValueError(form.fps, MAX_FPS)
   const runInputMissing = isProgress && parsedRun == null
 
+  // Whether anything has been typed since this entry was loaded. Every field
+  // is a scalar, so a key-by-key compare against the pristine form is the
+  // whole check. Read when the entry picker wants to swap the form out from
+  // under the user — see useEditEntryModal.
+  const isDirty =
+    update != null &&
+    pristine != null &&
+    ((Object.keys(pristine.form) as (keyof EditRunForm)[]).some(
+      (key) => form[key] !== pristine.form[key]
+    ) ||
+      parsedRun?.from !== pristine.run?.from ||
+      parsedRun?.to !== pristine.run?.to)
+
   function patch(updates: Partial<EditRunForm>) {
     setForm((prev) => ({ ...prev, ...updates }))
   }
 
-  function handleSave() {
-    if (!update) return
+  /**
+   * The PATCH body for this form, or null when there is nothing editable or
+   * the composed date is unusable — in which case the caller must not save.
+   */
+  function buildPayload(): Record<string, unknown> | null {
+    if (!update) return null
     const session = composeZonedDate(form.date, form.time, form.timezone)
-    if (session === 'invalid') return
+    if (session === 'invalid') return null
 
     const payload: Record<string, unknown> = {
       progressUpdateId: update.progressUpdateId,
@@ -193,15 +222,7 @@ export function useEditRunModal({
       }
     }
 
-    editProgress.mutate(payload, {
-      onSuccess: () => {
-        toast.success('Changes saved')
-        onClose()
-      },
-      onError: () => {
-        toast.error('Failed to save changes')
-      },
-    })
+    return payload
   }
 
   return {
@@ -219,6 +240,7 @@ export function useEditRunModal({
     isDrop,
     isProgress,
     showHighlightUrl: me.data?.showHighlightUrl ?? false,
+    showTwoPlayer: !!data.level.twoPlayer,
     // 2.1-era completions have no version to pick — the completion itself
     // already pins the percentage basis.
     showVersionPicker:
@@ -235,9 +257,43 @@ export function useEditRunModal({
     hasFieldError: attemptsError != null || fpsError != null || runInputMissing,
 
     entryLabel: update ? entryLabelFor(update, datePref) : '',
-    handleSave,
-    isSaving: editProgress.isPending,
+    isDirty,
+    buildPayload,
   }
+}
+
+/**
+ * Form state, validation, and the save mutation for one logged update.
+ */
+export function useEditRunModal(args: {
+  open: boolean
+  onClose: () => void
+  data: LevelPageData
+  levelId: string
+  scale: RatingDisplayScale
+  datePref: DateFormatPreference
+  progressUpdateId: string | null
+}) {
+  const { onClose, levelId } = args
+  const state = useEditRunForm(args)
+  const editProgress = useEditProgress(levelId)
+
+  function handleSave() {
+    const payload = state.buildPayload()
+    if (!payload) return
+
+    editProgress.mutate(payload, {
+      onSuccess: () => {
+        toast.success('Changes saved')
+        onClose()
+      },
+      onError: () => {
+        toast.error('Failed to save changes')
+      },
+    })
+  }
+
+  return { ...state, handleSave, isSaving: editProgress.isPending }
 }
 
 // "Editing <x>" subtitle — completions and drops are unique per level, so

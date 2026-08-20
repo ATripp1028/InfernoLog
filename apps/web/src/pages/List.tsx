@@ -6,9 +6,7 @@ import { TooltipProvider } from '@/components/generic/tooltip'
 import { Sheet, SheetContent, SheetTitle } from '@/components/generic/sheet'
 import { MobileActionSheet } from '@/components/shell/MobileActionSheet'
 import { AlertDialog } from '@/components/generic/alert-dialog'
-import { EditRunModal } from '@/features/level-page/EditRunModal'
-import { EditLevelModal } from '@/features/level-page/EditLevelModal'
-import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
+import { EditEntryModal } from '@/features/level-page/EditEntryModal'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { Toolbar } from '@/features/list/Toolbar'
 import { ListTable } from '@/features/list/ListTable'
@@ -80,14 +78,12 @@ export function List() {
     handleEditPreset,
     handleUpdatePresetMeta,
     handleDiscardPresetChanges,
-    handleEditRun,
-    handleEditLevel,
+    handleEdit,
     handleLog,
     handleNavigate,
     addToCollectionItem,
     setAddToCollectionItem,
     editingLevelId,
-    editMode,
     editLevelData,
     editLevelFailed,
     closeEditModal,
@@ -178,8 +174,7 @@ export function List() {
                 scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
                 hideTime={hideTime}
-                onEditRunItem={handleEditRun}
-                onEditLevelItem={handleEditLevel}
+                onEditItem={handleEdit}
                 onDeleteItem={setPendingDelete}
                 onNavigate={handleNavigate}
                 onAddToCollectionItem={setAddToCollectionItem}
@@ -285,32 +280,21 @@ export function List() {
         onConfirm={confirmDelete}
       />
 
-      {editingLevelId && editLevelData && editMode === 'run' && (
-        <EditRunModal
+      {editingLevelId && editLevelData && (
+        <EditEntryModal
           open
           onClose={closeEditModal}
           data={editLevelData}
           levelId={editingLevelId}
           scale={ratingDisplayScale}
           datePref={dateFormatPreference}
-          progressUpdateId={findPrimaryProgressUpdateId(editLevelData)}
-        />
-      )}
-
-      {editingLevelId && editLevelData && editMode === 'level' && (
-        <EditLevelModal
-          open
-          onClose={closeEditModal}
-          data={editLevelData}
-          levelId={editingLevelId}
-          scale={ratingDisplayScale}
         />
       )}
 
       {/* Fetching a level's edit data is a network round-trip — without this,
           clicking Edit does nothing visible until it resolves, which reads as
-          a hang. Shown immediately on click; swaps for EditRunModal/EditLevelModal
-          once the query lands. */}
+          a hang. Shown immediately on click; swaps for EditEntryModal once the
+          query lands. */}
       {editingLevelId && !editLevelData && !editLevelFailed && (
         <Dialog.Root open onOpenChange={(o) => !o && closeEditModal()}>
           <Dialog.Portal>

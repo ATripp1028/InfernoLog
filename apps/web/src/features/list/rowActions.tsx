@@ -4,7 +4,6 @@ import {
   FolderPlus,
   MoreVertical,
   Pencil,
-  Settings2,
   Trash2,
   X,
 } from 'lucide-react'
@@ -25,8 +24,9 @@ import type { FlowPath } from '@/features/logging/types'
  * The actions a List row can trigger, passed down so the row itself stays presentational.
  */
 export interface RowActionHandlers {
-  onEditRun: () => void
-  onEditLevel: () => void
+  // One entry point for both halves of an entry — the run and the level's own
+  // fields are two tabs of the same modal (EditEntryModal), not two actions.
+  onEdit: () => void
   onDelete: () => void
   onAddToCollection: () => void
   // Only present for levels that aren't already completed — a level can only
@@ -67,11 +67,8 @@ export function RowContextMenu({
           </>
         )}
         <div className="my-1 h-px bg-border-subtle" />
-        <ContextMenuItem onSelect={handlers.onEditRun}>
-          <Pencil size={14} /> Edit most recent run
-        </ContextMenuItem>
-        <ContextMenuItem onSelect={handlers.onEditLevel}>
-          <Settings2 size={14} /> Edit level details
+        <ContextMenuItem onSelect={handlers.onEdit}>
+          <Pencil size={14} /> Edit
         </ContextMenuItem>
         <ContextMenuItem destructive onSelect={handlers.onDelete}>
           <Trash2 size={14} /> Delete
@@ -134,16 +131,7 @@ export function RowActionsKebab({
           </>
         )}
         <div className="my-1 h-px bg-border-subtle" />
-        <MenuButton
-          icon={Pencil}
-          label="Edit most recent run"
-          onClick={handlers.onEditRun}
-        />
-        <MenuButton
-          icon={Settings2}
-          label="Edit level details"
-          onClick={handlers.onEditLevel}
-        />
+        <MenuButton icon={Pencil} label="Edit" onClick={handlers.onEdit} />
         <MenuButton
           icon={Trash2}
           label="Delete"
