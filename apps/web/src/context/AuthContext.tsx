@@ -6,9 +6,16 @@ import {
   ReactNode,
   useCallback,
 } from 'react'
-import { fetchAuthSession, signInWithRedirect, signOut } from 'aws-amplify/auth'
+import {
+  fetchAuthSession,
+  signInWithRedirect,
+  signOut,
+  type AuthSession,
+} from 'aws-amplify/auth'
 import { Hub } from 'aws-amplify/utils'
 import { claimCacheOwner, releaseCacheOwner } from '@/lib/cacheOwner'
+import { Sentry } from '@/lib/sentry'
+import { isTerminalAuthError } from './authSessionErrors'
 
 /**
  * Sign In and Sign Up both go through the same Cognito Google OAuth flow —
@@ -47,14 +54,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // doing the claim inside this call is what keeps a previous account's
   // restored cache from reaching a single render.
   const refreshAuthStatus = useCallback(async () => {
+    let session: AuthSession
     try {
-      const session = await fetchAuthSession()
-      const signedIn = !!session.tokens?.idToken
-      if (signedIn) await claimCacheOwner(session.userSub)
-      setIsAuthenticated(signedIn)
-    } catch {
-      setIsAuthenticated(false)
+      session = await fetchAuthSession()
+    } catch (error) {
+      // A session that is genuinely over *resolves* with no tokens. A
+      // rejection is a read that failed, and for the transient half of those
+      // Amplify has kept tokens it considers still good — see
+      // authSessionErrors.ts. Reporting one as signed out is what turned a tab
+      // the browser had unloaded into the landing page until the user reloaded
+      // by hand: the restore lands on expired tokens, the refresh needs a
+      // network that is not back yet, and nothing re-read the session
+      // afterwards. Leaving the flag alone lets the recovery paths below fix
+      // it. The Hub listener reports these — it sees the same failures with
+      // the underlying error attached.
+      if (isTerminalAuthError(error)) {
+        setIsAuthenticated(false)
+        await releaseCacheOwner()
+      }
+      return
     }
+
+    // Outside the try above deliberately: a cache eviction that throws is not
+    // a failed session read, and must not be able to report one.
+    const signedIn = !!session.tokens?.idToken
+    if (signedIn) await claimCacheOwner(session.userSub)
+    setIsAuthenticated(signedIn)
   }, [])
 
   useEffect(() => {
@@ -72,14 +97,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         case 'signedIn':
           void refreshAuthStatus()
           break
+        // Amplify refreshes on its own schedule, so a refresh that succeeds is
+        // the signal that a session an earlier read could not reach is usable
+        // again. Without this the provider had no way back from that short of
+        // a manual reload.
+        case 'tokenRefresh':
+          void refreshAuthStatus()
+          break
         case 'signedOut':
+          setIsAuthenticated(false)
+          void releaseCacheOwner()
+          break
+        // Dispatched for every refresh failure, transient ones included, and
+        // the only place the underlying error is available — so this is where
+        // they get reported. Only the terminal ones end the session.
         case 'tokenRefresh_failure':
+          if (!isTerminalAuthError(payload.data?.error)) {
+            Sentry.captureException(payload.data?.error)
+            break
+          }
           setIsAuthenticated(false)
           void releaseCacheOwner()
           break
       }
     })
     return () => unsubscribe()
+  }, [refreshAuthStatus])
+
+  // The two moments a session written off as unreadable becomes readable
+  // again, and the only things that re-read it after mount. A browser that
+  // unloads an idle tab reloads it on return, so the mount read runs against
+  // hours-expired tokens and has to reach Cognito — precisely when a machine
+  // waking from sleep has no network. Cheap to run this often: with unexpired
+  // tokens `fetchAuthSession` is a storage read and makes no network call.
+  useEffect(() => {
+    const recheck = () => void refreshAuthStatus()
+    const recheckWhenVisible = () => {
+      if (document.visibilityState === 'visible') recheck()
+    }
+    window.addEventListener('online', recheck)
+    document.addEventListener('visibilitychange', recheckWhenVisible)
+    return () => {
+      window.removeEventListener('online', recheck)
+      document.removeEventListener('visibilitychange', recheckWhenVisible)
+    }
   }, [refreshAuthStatus])
 
   const getIdToken = async (): Promise<string> => {
