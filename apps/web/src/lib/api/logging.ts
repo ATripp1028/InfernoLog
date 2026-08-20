@@ -7,6 +7,7 @@
 // endpoints live in ./wireEnums. (Same convention as lib/api/me.ts.)
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch, retryAfterSeconds } from './client'
 import {
@@ -418,22 +419,41 @@ export function useCreateManualLevel() {
 // Logging writes
 
 /**
+ * Refetches every view a write can change, from anywhere holding a query
+ * client — the hook below is the usual way in.
+ *
+ * The cancel pass is not optional. A fetch already in flight was issued
+ * *before* this write, so its response cannot contain it; `invalidateQueries`
+ * only starts a fresh one when the query already has data (query-core's
+ * `fetch()` honours `cancelRefetch` only in that case — otherwise it adopts
+ * the in-flight promise). So invalidating during a view's very first load
+ * resolves with pre-write data, stamps it as freshly fetched, and clears the
+ * invalidation: the view then shows state missing the write for a whole
+ * `staleTime` with nothing left to refetch it. Cancelling first forces the
+ * refetch to be a new request, issued after the write.
+ *
+ * allSettled so a single failed refetch can't surface as a false
+ * "write failed" error.
+ */
+export async function invalidateOnWrite(queryClient: QueryClient) {
+  await Promise.allSettled(
+    INVALIDATE_ON_WRITE.map(async (key) => {
+      await queryClient.cancelQueries({ queryKey: key as unknown[] })
+      return queryClient.invalidateQueries({ queryKey: key as unknown[] })
+    })
+  )
+}
+
+/**
  * Awaited by every mutation's onSuccess below (react-query awaits whatever
  * onSuccess returns before resolving mutate/mutateAsync) — so callers stay in
  * their pending state until the affected views have actually refetched,
  * rather than closing/navigating while the UI still shows stale data with no
- * indication a refetch is even happening. allSettled so a single failed
- * refetch can't surface as a false "write failed" error.
+ * indication a refetch is even happening.
  */
 export function useInvalidateOnWrite() {
   const queryClient = useQueryClient()
-  return async () => {
-    await Promise.allSettled(
-      INVALIDATE_ON_WRITE.map((key) =>
-        queryClient.invalidateQueries({ queryKey: key as unknown[] })
-      )
-    )
-  }
+  return () => invalidateOnWrite(queryClient)
 }
 
 /**

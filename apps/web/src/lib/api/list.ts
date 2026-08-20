@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { LevelProgressListItem } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
-import { INVALIDATE_ON_WRITE } from './logging'
+import { invalidateOnWrite } from './logging'
 
 export type { LevelProgressListItem }
 
@@ -64,12 +64,6 @@ export function useDeleteProgress() {
     // (allSettled) so callers relying on mutateAsync/isPending stay pending
     // until the refetch actually lands, rather than seeing stale data with no
     // indication a refetch is in flight.
-    onSettled: async () => {
-      await Promise.allSettled(
-        INVALIDATE_ON_WRITE.map((key) =>
-          queryClient.invalidateQueries({ queryKey: key as unknown[] })
-        )
-      )
-    },
+    onSettled: () => invalidateOnWrite(queryClient),
   })
 }

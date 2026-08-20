@@ -3,7 +3,7 @@ import { useNavigate } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from '@/components/generic/sonner'
 import { useImportStatus, type ImportStatusResponse } from '@/lib/api/import'
-import { INVALIDATE_ON_WRITE } from '@/lib/api/logging'
+import { invalidateOnWrite } from '@/lib/api/logging'
 
 const TOAST_ID = 'import-status'
 
@@ -32,9 +32,7 @@ export function ImportStatusToast() {
   useEffect(() => {
     const status = importStatus.data?.status
     if (status === 'completed' && prevStatusRef.current !== 'completed') {
-      for (const key of INVALIDATE_ON_WRITE) {
-        void queryClient.invalidateQueries({ queryKey: key as unknown[] })
-      }
+      void invalidateOnWrite(queryClient)
     }
     prevStatusRef.current = status ?? null
   }, [importStatus.data?.status, queryClient])
