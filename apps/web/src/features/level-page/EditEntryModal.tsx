@@ -108,10 +108,15 @@ export function EditEntryModal({
         )
       }
     >
+      {/* Only a tabpanel when the tab strip is on screen — with no run to
+          switch to there is no tablist, and the aria wiring would point at a
+          tab that was never rendered. */}
       <div
-        role="tabpanel"
-        id={`edit-entry-panel-${onRun ? 'run' : 'level'}`}
-        aria-labelledby={`edit-entry-tab-${onRun ? 'run' : 'level'}`}
+        {...(hasRun && {
+          role: 'tabpanel',
+          id: `edit-entry-panel-${onRun ? 'run' : 'level'}`,
+          'aria-labelledby': `edit-entry-tab-${onRun ? 'run' : 'level'}`,
+        })}
         className="space-y-6"
       >
         {onRun ? (
@@ -134,7 +139,7 @@ const TABS = [
 }>
 
 /**
- * The run/level switch. A real tablist rather than a {@link Segmented} group:
+ * The run/level switch. A real tablist rather than a segmented control:
  * these pick which panel is on screen, not a value the form submits.
  */
 function TabStrip({

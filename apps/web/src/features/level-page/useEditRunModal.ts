@@ -128,14 +128,25 @@ export function useEditRunForm({
 
   const [form, setForm] = useState<EditRunForm>(EMPTY_FORM)
   const [parsedRun, setParsedRun] = useState<ParsedRun | null>(null)
+  // The form exactly as it was loaded. Captured alongside the reset rather
+  // than recomputed from `data`, since the reset deliberately ignores
+  // background refetches — comparing against a moving `data` would report
+  // the form as dirty when nobody typed anything.
+  const [pristine, setPristine] = useState<{
+    form: EditRunForm
+    run: ParsedRun | null
+  } | null>(null)
 
   // Reset from server data every time the dialog opens (or the target
   // entry changes while open) — mirrors the original combined modal's
   // reset-on-open effect, so a cancel-then-reopen never shows stale edits.
   useEffect(() => {
     if (!open || !update) return
-    setForm(initForm(update, scale))
-    setParsedRun(initParsedRun(update))
+    const initialForm = initForm(update, scale)
+    const initialRun = initParsedRun(update)
+    setForm(initialForm)
+    setParsedRun(initialRun)
+    setPristine({ form: initialForm, run: initialRun })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, progressUpdateId, scale])
 
@@ -155,15 +166,14 @@ export function useEditRunForm({
   // is a scalar, so a key-by-key compare against the pristine form is the
   // whole check. Read when the entry picker wants to swap the form out from
   // under the user — see useEditEntryModal.
-  const pristine = update ? initForm(update, scale) : null
-  const pristineRun = update ? initParsedRun(update) : null
   const isDirty =
+    update != null &&
     pristine != null &&
-    ((Object.keys(pristine) as (keyof EditRunForm)[]).some(
-      (key) => form[key] !== pristine[key]
+    ((Object.keys(pristine.form) as (keyof EditRunForm)[]).some(
+      (key) => form[key] !== pristine.form[key]
     ) ||
-      parsedRun?.from !== pristineRun?.from ||
-      parsedRun?.to !== pristineRun?.to)
+      parsedRun?.from !== pristine.run?.from ||
+      parsedRun?.to !== pristine.run?.to)
 
   function patch(updates: Partial<EditRunForm>) {
     setForm((prev) => ({ ...prev, ...updates }))

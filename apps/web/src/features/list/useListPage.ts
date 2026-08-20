@@ -65,9 +65,6 @@ const PANEL_WIDTH = 320
 const CONTENT_PADDING = 48
 
 /**
- * Which edit modal the list opened for the level being edited.
- */
-/**
  * Everything the List page renders from: the query, the active view, sorting and filtering, and every dialog and sheet it can open.
  */
 export function useListPage() {

@@ -103,6 +103,15 @@ export function useEditEntryModal({
   const runError = run.hasFieldError
   const levelError = level.gddlTierError != null
 
+  // An untouched run half is left out of the save entirely. Its payload would
+  // only write back what the row already holds, except where the form can't
+  // round-trip a value — a null `percentageVersion` seeds the picker as
+  // TWO_TWO — so including it would edit the run nobody opened this modal to
+  // edit. Leaving it out also keeps a run the form can't represent at all (an
+  // imported entry with no percentage, which parses to nothing) from locking
+  // the level half out of saving.
+  const saveRun = hasRun && run.isDirty
+
   function handleSave() {
     const levelPayload = level.buildPayload()
     if (!levelPayload) {
@@ -111,7 +120,7 @@ export function useEditEntryModal({
     }
 
     let payload = levelPayload
-    if (hasRun) {
+    if (saveRun) {
       const runPayload = run.buildPayload()
       if (!runPayload) {
         setTab('run')
@@ -120,6 +129,10 @@ export function useEditEntryModal({
       // The two halves write disjoint fields, so a plain merge is a complete
       // body — the run half spreads last only to keep progressUpdateId last.
       payload = { ...levelPayload, ...runPayload }
+    } else if (progressUpdateId) {
+      // Nothing typed into the run half: still name the entry the modal is
+      // scoped to, but send none of its fields, so the row is left as it is.
+      payload = { ...levelPayload, progressUpdateId }
     }
 
     editProgress.mutate(payload, {
@@ -158,6 +171,7 @@ export function useEditEntryModal({
     levelName: level.levelName,
     handleSave,
     isSaving: editProgress.isPending,
-    hasFieldError: runError || levelError,
+    // Only an edited run can block the save; an untouched one isn't written.
+    hasFieldError: (runError && saveRun) || levelError,
   }
 }
