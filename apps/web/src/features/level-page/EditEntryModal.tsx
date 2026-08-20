@@ -1,5 +1,13 @@
 import { Pencil, Settings2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/generic/select'
+import type { EntryChoice } from './entryChoices'
 import type {
   DateFormatPreference,
   RatingDisplayScale,
@@ -44,6 +52,12 @@ export function EditEntryModal({
     levelError,
     entryLabel,
     levelName,
+    choices,
+    entryId,
+    selectEntry,
+    pendingEntry,
+    confirmSwitch,
+    cancelSwitch,
     handleSave,
     isSaving,
     hasFieldError,
@@ -69,12 +83,28 @@ export function EditEntryModal({
             onTab={setTab}
             runError={runError}
             levelError={levelError}
-            caption={
-              onRun
-                ? `This run only — editing ${entryLabel}.`
-                : 'The level overall — shared by every run on it.'
-            }
-          />
+          >
+            {!onRun ? (
+              <Caption>The level overall — shared by every run on it.</Caption>
+            ) : choices.length > 1 ? (
+              <>
+                <EntryPicker
+                  choices={choices}
+                  entryId={entryId}
+                  onSelect={selectEntry}
+                />
+                {pendingEntry && (
+                  <DiscardSwitchPrompt
+                    target={pendingEntry}
+                    onConfirm={confirmSwitch}
+                    onCancel={cancelSwitch}
+                  />
+                )}
+              </>
+            ) : (
+              <Caption>This run only — editing {entryLabel}.</Caption>
+            )}
+          </TabStrip>
         )
       }
     >
@@ -112,13 +142,14 @@ function TabStrip({
   onTab,
   runError,
   levelError,
-  caption,
+  children,
 }: {
   tab: EditEntryTab
   onTab: (tab: EditEntryTab) => void
   runError: boolean
   levelError: boolean
-  caption: string
+  /** What the tab is scoped to — a caption, or the entry picker. */
+  children: React.ReactNode
 }) {
   return (
     <div className="px-5 pb-3">
@@ -163,7 +194,91 @@ function TabStrip({
           )
         })}
       </div>
-      <p className="mt-2 text-xs text-text-tertiary">{caption}</p>
+      <div className="mt-2">{children}</div>
+    </div>
+  )
+}
+
+/** The plain scope line, shown whenever there is nothing to pick between. */
+function Caption({ children }: { children: React.ReactNode }) {
+  return <p className="text-xs text-text-tertiary">{children}</p>
+}
+
+/**
+ * Which logged entry the run half is editing.
+ *
+ * Deliberately the size of the caption it replaces: it opens on the newest
+ * entry, so anyone here to fix their latest run never has to touch it, and
+ * it only appears at all once there is a second entry to switch to.
+ */
+function EntryPicker({
+  choices,
+  entryId,
+  onSelect,
+}: {
+  choices: EntryChoice[]
+  entryId: string | null
+  onSelect: (id: string) => void
+}) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-text-tertiary">
+      <span id="edit-entry-picker-label">Editing</span>
+      <Select onValueChange={onSelect} {...(entryId && { value: entryId })}>
+        <SelectTrigger
+          aria-labelledby="edit-entry-picker-label"
+          className="h-auto w-auto gap-1 border-border-subtle bg-transparent px-1.5 py-0.5 text-xs text-text-secondary shadow-none hover:text-text-primary"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {choices.map((choice) => (
+            <SelectItem key={choice.id} value={choice.id}>
+              {choice.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <span>— this run only.</span>
+    </div>
+  )
+}
+
+/**
+ * Loading another entry replaces the form, so a switch that would throw away
+ * typing stops here first. Inline rather than a confirm dialog: a second modal
+ * over this one to answer a question about a one-line control is heavier than
+ * the question deserves.
+ */
+function DiscardSwitchPrompt({
+  target,
+  onConfirm,
+  onCancel,
+}: {
+  target: EntryChoice
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-danger/40 bg-danger-dim px-2.5 py-1.5 text-xs text-text-secondary">
+      <span>
+        Switching to {target.label} discards your unsaved changes to this run.
+      </span>
+      <div className="ml-auto flex shrink-0 gap-3">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="font-medium text-text-secondary hover:text-text-primary"
+        >
+          Keep editing
+        </button>
+        <button
+          type="button"
+          onClick={onConfirm}
+          className="font-medium text-danger hover:underline"
+        >
+          Discard
+        </button>
+      </div>
     </div>
   )
 }

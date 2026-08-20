@@ -93,6 +93,15 @@ function initForm(
   }
 }
 
+// The run text an entry starts out showing, and what that parses to. Kept
+// beside initForm because the two together are the form's pristine state.
+function initParsedRun(update: ProgressUpdate): ParsedRun | null {
+  const result = parseRunInput(
+    formatRunInputValue(update.percentage, update.runFrom, update.runTo)
+  )
+  return result.kind === 'ok' ? { from: result.from, to: result.to } : null
+}
+
 /** What {@link useEditRunForm} hands the fields component. */
 export type EditRunFormState = ReturnType<typeof useEditRunForm>
 
@@ -126,15 +135,7 @@ export function useEditRunForm({
   useEffect(() => {
     if (!open || !update) return
     setForm(initForm(update, scale))
-    const initialText = formatRunInputValue(
-      update.percentage,
-      update.runFrom,
-      update.runTo
-    )
-    const result = parseRunInput(initialText)
-    setParsedRun(
-      result.kind === 'ok' ? { from: result.from, to: result.to } : null
-    )
+    setParsedRun(initParsedRun(update))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, progressUpdateId, scale])
 
@@ -149,6 +150,20 @@ export function useEditRunForm({
   const attemptsError = maxValueError(form.attempts, MAX_ATTEMPTS)
   const fpsError = maxValueError(form.fps, MAX_FPS)
   const runInputMissing = isProgress && parsedRun == null
+
+  // Whether anything has been typed since this entry was loaded. Every field
+  // is a scalar, so a key-by-key compare against the pristine form is the
+  // whole check. Read when the entry picker wants to swap the form out from
+  // under the user — see useEditEntryModal.
+  const pristine = update ? initForm(update, scale) : null
+  const pristineRun = update ? initParsedRun(update) : null
+  const isDirty =
+    pristine != null &&
+    ((Object.keys(pristine) as (keyof EditRunForm)[]).some(
+      (key) => form[key] !== pristine[key]
+    ) ||
+      parsedRun?.from !== pristineRun?.from ||
+      parsedRun?.to !== pristineRun?.to)
 
   function patch(updates: Partial<EditRunForm>) {
     setForm((prev) => ({ ...prev, ...updates }))
@@ -232,6 +247,7 @@ export function useEditRunForm({
     hasFieldError: attemptsError != null || fpsError != null || runInputMissing,
 
     entryLabel: update ? entryLabelFor(update, datePref) : '',
+    isDirty,
     buildPayload,
   }
 }

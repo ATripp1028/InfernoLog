@@ -3,14 +3,18 @@
 // useEditRunForm/useEditLevelForm, which the standalone modals also use — this
 // only composes them, so the merged modal can never drift from either.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
 import { useEditProgress } from '@/lib/api/levelPage'
 import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import { findPrimaryProgressUpdateId } from './primaryEntry'
+import {
+  defaultEntryChoice,
+  entryChoices,
+  type EntryChoice,
+} from './entryChoices'
 import type { LevelPageData } from './types'
 import { useEditRunForm } from './useEditRunModal'
 import { useEditLevelForm } from './useEditLevelModal'
@@ -40,9 +44,16 @@ export function useEditEntryModal({
   scale: RatingDisplayScale
   datePref: DateFormatPreference
 }) {
-  // Completion-first, else the most recent entry — the same target the level
-  // page's FAB edits, since neither affordance is scoped to one Timeline card.
-  const progressUpdateId = findPrimaryProgressUpdateId(data)
+  // Newest first for the picker; the completion, if any, for the default.
+  const choices = useMemo(() => entryChoices(data, datePref), [data, datePref])
+  const defaultEntryId = defaultEntryChoice(choices)?.id ?? null
+
+  const [entryId, setEntryId] = useState<string | null>(defaultEntryId)
+  // The switch waiting on the user's answer, once one would throw away edits.
+  const [pendingEntry, setPendingEntry] = useState<EntryChoice | null>(null)
+
+  const progressUpdateId =
+    choices.find((c) => c.id === entryId)?.id ?? defaultEntryId
   const run = useEditRunForm({
     open,
     data,
@@ -58,10 +69,36 @@ export function useEditEntryModal({
 
   // Open on the run half whenever there is one — it holds the fields that
   // change most often. Reset per open so a reopen never lands on whichever
-  // tab was last used for some other level.
+  // tab, or entry, was last used for some other level.
   useEffect(() => {
-    if (open) setTab(hasRun ? 'run' : 'level')
-  }, [open, levelId, hasRun])
+    if (!open) return
+    setTab(hasRun ? 'run' : 'level')
+    setEntryId(defaultEntryId)
+    setPendingEntry(null)
+  }, [open, levelId, hasRun, defaultEntryId])
+
+  /**
+   * Point the run half at another entry. Loading one replaces the form, so a
+   * switch away from unsaved edits asks first. The level half is untouched
+   * either way — it isn't scoped to an entry, so its edits always survive.
+   */
+  function selectEntry(id: string) {
+    if (id === progressUpdateId) return
+    if (run.isDirty) {
+      setPendingEntry(choices.find((c) => c.id === id) ?? null)
+      return
+    }
+    setEntryId(id)
+  }
+
+  function confirmSwitch() {
+    if (pendingEntry) setEntryId(pendingEntry.id)
+    setPendingEntry(null)
+  }
+
+  function cancelSwitch() {
+    setPendingEntry(null)
+  }
 
   const runError = run.hasFieldError
   const levelError = level.gddlTierError != null
@@ -104,6 +141,14 @@ export function useEditEntryModal({
     // A level with no logged entry at all can't happen through the app, but
     // the run half has nothing to target if it ever did.
     hasRun,
+    // The entry picker: every entry newest-first, which one is loaded, and
+    // the switch held back because it would discard edits.
+    choices,
+    entryId: progressUpdateId,
+    selectEntry,
+    pendingEntry,
+    confirmSwitch,
+    cancelSwitch,
     tab,
     setTab,
     runError,

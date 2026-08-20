@@ -59,6 +59,10 @@ export function EditRunFields({
           <div>
             <FieldLabel htmlFor={id('run')}>This run</FieldLabel>
             <RunInput
+              // Seeded from initialValue and uncontrolled thereafter, so
+              // switching entries has to remount it or it keeps showing the
+              // previous entry's run.
+              key={update.progressUpdateId}
               id={id('run')}
               initialValue={formatRunInputValue(
                 update.percentage,

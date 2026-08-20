@@ -77,9 +77,137 @@ function render(
 }
 
 describe('useEditEntryModal', () => {
+  describe('entry picker', () => {
+    const threeEntries = [
+      progressUpdate({ progressUpdateId: 'old', date: '2026-01-05' }),
+      progressUpdate({ progressUpdateId: 'newest', date: '2026-03-20' }),
+      progressUpdate({ progressUpdateId: 'mid', date: '2026-02-10' }),
+    ]
+
+    // The completion holds fields no other entry has, so it takes the default
+    // outright rather than competing on date.
+    it('opens on the completion, whatever it is dated', () => {
+      const { result } = render({
+        updates: [
+          progressUpdate({
+            progressUpdateId: 'the-completion',
+            kind: 'COMPLETION',
+            date: '2026-01-05',
+          }),
+          progressUpdate({
+            progressUpdateId: 'later-run',
+            date: '2026-06-30',
+          }),
+        ],
+      })
+
+      expect(result.current.entryId).toBe('the-completion')
+      expect(result.current.choices[0]!.id).toBe('later-run')
+      expect(result.current.run.isCompletion).toBe(true)
+    })
+
+    it('opens on the entry with the most recent date when none is a completion', () => {
+      const { result } = render({ updates: threeEntries })
+
+      expect(result.current.entryId).toBe('newest')
+      expect(result.current.choices.map((c) => c.id)).toEqual([
+        'newest',
+        'mid',
+        'old',
+      ])
+    })
+
+    it('loads the entry picked, so the form follows it', () => {
+      const { result } = render({ updates: threeEntries })
+
+      act(() => result.current.selectEntry('old'))
+
+      expect(result.current.entryId).toBe('old')
+      expect(result.current.run.update?.progressUpdateId).toBe('old')
+    })
+
+    it('saves against whichever entry is loaded', () => {
+      const { result } = render({ updates: threeEntries })
+      act(() => result.current.selectEntry('mid'))
+
+      act(() => result.current.handleSave())
+
+      expect(saved()).toMatchObject({ progressUpdateId: 'mid' })
+    })
+
+    it('goes back to the newest entry on reopen', () => {
+      const { result, rerender } = render({ updates: threeEntries })
+      act(() => result.current.selectEntry('old'))
+
+      rerender({ open: false })
+      rerender({ open: true })
+
+      expect(result.current.entryId).toBe('newest')
+    })
+
+    // Loading an entry replaces the form, so an unguarded switch would drop
+    // whatever the user had typed without a word.
+    describe('with unsaved changes', () => {
+      const dirtied = () => {
+        const view = render({ updates: threeEntries })
+        act(() => view.result.current.run.patch({ notes: 'half-typed' }))
+        return view
+      }
+
+      it('holds the switch back instead of discarding them', () => {
+        const { result } = dirtied()
+
+        act(() => result.current.selectEntry('old'))
+
+        expect(result.current.pendingEntry?.id).toBe('old')
+        expect(result.current.entryId).toBe('newest')
+        expect(result.current.run.form.notes).toBe('half-typed')
+      })
+
+      it('switches once the user confirms', () => {
+        const { result } = dirtied()
+        act(() => result.current.selectEntry('old'))
+
+        act(() => result.current.confirmSwitch())
+
+        expect(result.current.entryId).toBe('old')
+        expect(result.current.pendingEntry).toBeNull()
+      })
+
+      it('stays put, edits intact, when the user backs out', () => {
+        const { result } = dirtied()
+        act(() => result.current.selectEntry('old'))
+
+        act(() => result.current.cancelSwitch())
+
+        expect(result.current.entryId).toBe('newest')
+        expect(result.current.pendingEntry).toBeNull()
+        expect(result.current.run.form.notes).toBe('half-typed')
+      })
+
+      // The level half isn't scoped to an entry, so nothing about switching
+      // one threatens its edits — asking would be noise.
+      it('does not ask when only the level half is dirty', () => {
+        const { result } = render({ updates: threeEntries })
+        act(() => result.current.level.patch({ levelNotes: 'overall' }))
+
+        act(() => result.current.selectEntry('old'))
+
+        expect(result.current.entryId).toBe('old')
+        expect(result.current.pendingEntry).toBeNull()
+        expect(result.current.level.form.levelNotes).toBe('overall')
+      })
+    })
+  })
+
   describe('tabs', () => {
     it('opens on the run half, which holds the fields that change most', () => {
       expect(render().result.current.tab).toBe('run')
+    })
+
+    // One entry means nothing to pick between, so the picker stays away.
+    it('offers a single entry as the only choice', () => {
+      expect(render().result.current.choices).toHaveLength(1)
     })
 
     // The run half has nothing to target without an entry — an app-created
