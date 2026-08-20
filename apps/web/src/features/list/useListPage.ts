@@ -67,8 +67,6 @@ const CONTENT_PADDING = 48
 /**
  * Which edit modal the list opened for the level being edited.
  */
-export type ListEditMode = 'run' | 'level' | null
-
 /**
  * Everything the List page renders from: the query, the active view, sorting and filtering, and every dialog and sheet it can open.
  */
@@ -93,7 +91,6 @@ export function useListPage() {
 
   const [pendingDelete, setPendingDelete] = useState<ListItem | null>(null)
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
-  const [editMode, setEditMode] = useState<ListEditMode>(null)
   const [addToCollectionItem, setAddToCollectionItem] =
     useState<ListItem | null>(null)
   const [search, setSearch] = useState('')
@@ -163,7 +160,6 @@ export function useListPage() {
 
   const closeEditModal = useCallback(() => {
     setEditingLevelId(null)
-    setEditMode(null)
   }, [])
 
   useEffect(() => {
@@ -426,14 +422,10 @@ export function useListPage() {
     setFilters(defaultFilterState())
   }
 
-  function handleEditRun(item: ListItem) {
+  // Both halves of the entry — the run and the level's own fields — are tabs
+  // of the one modal, so the row menu has a single Edit action.
+  function handleEdit(item: ListItem) {
     setEditingLevelId(item.level.inGameId)
-    setEditMode('run')
-  }
-
-  function handleEditLevel(item: ListItem) {
-    setEditingLevelId(item.level.inGameId)
-    setEditMode('level')
   }
 
   function handleLog(item: ListItem, path: FlowPath) {
@@ -529,8 +521,7 @@ export function useListPage() {
     handleDiscardPresetChanges: () => handleSelectPreset(selectedPresetId),
 
     // Row actions
-    handleEditRun,
-    handleEditLevel,
+    handleEdit,
     handleLog,
     handleNavigate,
     addToCollectionItem,
@@ -538,7 +529,6 @@ export function useListPage() {
 
     // Edit modals
     editingLevelId,
-    editMode,
     editLevelData: editLevelQuery.data,
     editLevelFailed: editLevelQuery.isError,
     closeEditModal,

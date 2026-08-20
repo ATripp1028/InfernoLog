@@ -24,8 +24,7 @@ type Handlers = Pick<
   Parameters<typeof ListTable>[0],
   | 'onNavigate'
   | 'onAddToCollectionItem'
-  | 'onEditRunItem'
-  | 'onEditLevelItem'
+  | 'onEditItem'
   | 'onDeleteItem'
   | 'onLogItem'
   | 'onToggleSort'
@@ -42,8 +41,7 @@ function render({
   const handlers: Handlers = {
     onNavigate: vi.fn(),
     onAddToCollectionItem: vi.fn(),
-    onEditRunItem: vi.fn(),
-    onEditLevelItem: vi.fn(),
+    onEditItem: vi.fn(),
     onDeleteItem: vi.fn(),
     onLogItem: vi.fn(),
     onToggleSort: vi.fn(),

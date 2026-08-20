@@ -1,6 +1,8 @@
-// Logic for EditRunModal: the edit form's state, the reset-on-open sync from
-// server data, the per-kind field rules (completion vs progress vs drop), and
-// the save payload. The component renders fields against what this returns.
+// Logic for the run half of the edit modals: the edit form's state, the
+// reset-on-open sync from server data, the per-kind field rules (completion
+// vs progress vs drop), and the save payload. `useEditRunForm` holds all of
+// that and is what the merged EditEntryModal composes; `useEditRunModal`
+// wraps it with the mutation the standalone EditRunModal saves through.
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
@@ -91,22 +93,21 @@ function initForm(
   }
 }
 
+/** What {@link useEditRunForm} hands the fields component. */
+export type EditRunFormState = ReturnType<typeof useEditRunForm>
+
 /**
- * Form state, validation, and the save mutation for one logged update.
+ * Form state, validation, and the PATCH payload for one logged update — everything but the mutation.
  */
-export function useEditRunModal({
+export function useEditRunForm({
   open,
-  onClose,
   data,
-  levelId,
   scale,
   datePref,
   progressUpdateId,
 }: {
   open: boolean
-  onClose: () => void
   data: LevelPageData
-  levelId: string
   scale: RatingDisplayScale
   datePref: DateFormatPreference
   progressUpdateId: string | null
@@ -115,7 +116,6 @@ export function useEditRunModal({
     ? data.progressUpdates.find((u) => u.progressUpdateId === progressUpdateId)
     : undefined
   const me = useMe()
-  const editProgress = useEditProgress(levelId)
 
   const [form, setForm] = useState<EditRunForm>(EMPTY_FORM)
   const [parsedRun, setParsedRun] = useState<ParsedRun | null>(null)
@@ -154,10 +154,14 @@ export function useEditRunModal({
     setForm((prev) => ({ ...prev, ...updates }))
   }
 
-  function handleSave() {
-    if (!update) return
+  /**
+   * The PATCH body for this form, or null when there is nothing editable or
+   * the composed date is unusable — in which case the caller must not save.
+   */
+  function buildPayload(): Record<string, unknown> | null {
+    if (!update) return null
     const session = composeZonedDate(form.date, form.time, form.timezone)
-    if (session === 'invalid') return
+    if (session === 'invalid') return null
 
     const payload: Record<string, unknown> = {
       progressUpdateId: update.progressUpdateId,
@@ -193,15 +197,7 @@ export function useEditRunModal({
       }
     }
 
-    editProgress.mutate(payload, {
-      onSuccess: () => {
-        toast.success('Changes saved')
-        onClose()
-      },
-      onError: () => {
-        toast.error('Failed to save changes')
-      },
-    })
+    return payload
   }
 
   return {
@@ -219,6 +215,7 @@ export function useEditRunModal({
     isDrop,
     isProgress,
     showHighlightUrl: me.data?.showHighlightUrl ?? false,
+    showTwoPlayer: !!data.level.twoPlayer,
     // 2.1-era completions have no version to pick — the completion itself
     // already pins the percentage basis.
     showVersionPicker:
@@ -235,9 +232,42 @@ export function useEditRunModal({
     hasFieldError: attemptsError != null || fpsError != null || runInputMissing,
 
     entryLabel: update ? entryLabelFor(update, datePref) : '',
-    handleSave,
-    isSaving: editProgress.isPending,
+    buildPayload,
   }
+}
+
+/**
+ * Form state, validation, and the save mutation for one logged update.
+ */
+export function useEditRunModal(args: {
+  open: boolean
+  onClose: () => void
+  data: LevelPageData
+  levelId: string
+  scale: RatingDisplayScale
+  datePref: DateFormatPreference
+  progressUpdateId: string | null
+}) {
+  const { onClose, levelId } = args
+  const state = useEditRunForm(args)
+  const editProgress = useEditProgress(levelId)
+
+  function handleSave() {
+    const payload = state.buildPayload()
+    if (!payload) return
+
+    editProgress.mutate(payload, {
+      onSuccess: () => {
+        toast.success('Changes saved')
+        onClose()
+      },
+      onError: () => {
+        toast.error('Failed to save changes')
+      },
+    })
+  }
+
+  return { ...state, handleSave, isSaving: editProgress.isPending }
 }
 
 // "Editing <x>" subtitle — completions and drops are unique per level, so

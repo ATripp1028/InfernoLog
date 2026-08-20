@@ -1,6 +1,8 @@
-// Logic for EditLevelModal: the level-scoped form (notes, ratings, worst
-// fail, coins, GDDL tier, visibility), its reset-on-open sync, the community
-// tier hint, and the save payload. The component renders what this returns.
+// Logic for the level half of the edit modals: the level-scoped form (notes,
+// ratings, worst fail, coins, GDDL tier, visibility), its reset-on-open sync,
+// the community tier hint, and the save payload. `useEditLevelForm` holds all
+// of that and is what the merged EditEntryModal composes; `useEditLevelModal`
+// wraps it with the mutation the standalone EditLevelModal saves through.
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
@@ -89,24 +91,24 @@ function initForm(
   }
 }
 
+/** What {@link useEditLevelForm} hands the fields component. */
+export type EditLevelFormState = ReturnType<typeof useEditLevelForm>
+
 /**
- * Form state, validation, and the save mutation for the level-scoped edit modal.
+ * Form state, validation, and the PATCH payload for the level-scoped fields — everything but the mutation.
  */
-export function useEditLevelModal({
+export function useEditLevelForm({
   open,
-  onClose,
   data,
   levelId,
   scale,
 }: {
   open: boolean
-  onClose: () => void
   data: LevelPageData
   levelId: string
   scale: RatingDisplayScale
 }) {
   const me = useMe()
-  const editProgress = useEditProgress(levelId)
   const resolveLevel = useResolveLevel()
 
   const anchor = findWorstFailAnchor(data)
@@ -159,7 +161,11 @@ export function useEditLevelModal({
     setForm((prev) => ({ ...prev, ...updates }))
   }
 
-  function handleSave() {
+  /**
+   * The PATCH body for this form, or null when the composed worst-fail date
+   * is unusable — in which case the caller must not save.
+   */
+  function buildPayload(): Record<string, unknown> | null {
     let worstFail: {
       worstFailDate: string | null
       worstFailDateTimezone: string | null
@@ -181,7 +187,7 @@ export function useEditLevelModal({
         form.worstFailTime,
         form.worstFailTimezone
       )
-      if (composed === 'invalid') return
+      if (composed === 'invalid') return null
       worstFail = {
         worstFailDate: composed.date,
         worstFailDateTimezone: composed.dateTimezone,
@@ -215,15 +221,7 @@ export function useEditLevelModal({
       }
     }
 
-    editProgress.mutate(payload, {
-      onSuccess: () => {
-        toast.success('Changes saved')
-        onClose()
-      },
-      onError: () => {
-        toast.error('Failed to save changes')
-      },
-    })
+    return payload
   }
 
   return {
@@ -248,7 +246,40 @@ export function useEditLevelModal({
 
     gddlTierError,
     levelName: data.level.name ?? `Level #${data.level.inGameId}`,
-    handleSave,
-    isSaving: editProgress.isPending,
+    // The CoinPicker renders against the level itself, not the form.
+    level: data.level,
+    buildPayload,
   }
+}
+
+/**
+ * Form state, validation, and the save mutation for the level-scoped edit modal.
+ */
+export function useEditLevelModal(args: {
+  open: boolean
+  onClose: () => void
+  data: LevelPageData
+  levelId: string
+  scale: RatingDisplayScale
+}) {
+  const { onClose, levelId } = args
+  const state = useEditLevelForm(args)
+  const editProgress = useEditProgress(levelId)
+
+  function handleSave() {
+    const payload = state.buildPayload()
+    if (!payload) return
+
+    editProgress.mutate(payload, {
+      onSuccess: () => {
+        toast.success('Changes saved')
+        onClose()
+      },
+      onError: () => {
+        toast.error('Failed to save changes')
+      },
+    })
+  }
+
+  return { ...state, handleSave, isSaving: editProgress.isPending }
 }
