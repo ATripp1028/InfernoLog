@@ -2,8 +2,8 @@ import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatRetryWait } from '@/lib/api/client'
 import type { LevelSearchResult } from '@/lib/api/logging'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { EscalationRow } from './EscalationRow'
-import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
 
 interface GdSearchSectionProps {
@@ -70,7 +70,6 @@ export function GdSearchSection({
         rated={result.rated}
         unrated={result.unrated}
         onSelect={onSelect}
-        compact={compact}
       />
     )
   }
@@ -136,17 +135,14 @@ export function GdSearchSection({
 function GroupHeader({
   children,
   accent = false,
-  compact = false,
 }: {
   children: React.ReactNode
   accent?: boolean
-  compact?: boolean
 }) {
   return (
     <p
       className={cn(
-        'pb-1 pt-2.5 text-[10px] font-medium uppercase tracking-wide',
-        compact ? 'px-4' : 'px-5',
+        'px-4 pb-1 pt-2.5 text-[10px] font-medium uppercase tracking-wide',
         accent ? 'text-accent-hover' : 'text-text-secondary'
       )}
     >
@@ -155,30 +151,31 @@ function GroupHeader({
   )
 }
 
+/**
+ * The GD-server hits. Rendered with the same LevelResultRow the surrounding
+ * picker uses for cache results, so an escalation reads as more of the same
+ * list rather than a second design — the GD-specific part is the rated/unrated
+ * grouping and the fade on unrated rows, not the row itself.
+ */
 function GdResults({
   rated,
   unrated,
   onSelect,
-  compact = false,
 }: {
   rated: LevelSearchResult[]
   unrated: LevelSearchResult[]
   onSelect: (levelId: string) => void
-  compact?: boolean
 }) {
   return (
     <div className="flex flex-col">
       {rated.length > 0 && (
         <>
-          <GroupHeader accent compact={compact}>
-            Rated · cached automatically
-          </GroupHeader>
+          <GroupHeader accent>Rated · cached automatically</GroupHeader>
           {rated.map((level) => (
-            <SearchResultRow
+            <LevelResultRow
               key={level.inGameId}
               level={level}
               onSelect={() => onSelect(level.inGameId)}
-              compact={compact}
             />
           ))}
         </>
@@ -186,27 +183,19 @@ function GdResults({
 
       {unrated.length > 0 && (
         <>
-          <GroupHeader compact={compact}>
-            Unrated · cached only if you pick one
-          </GroupHeader>
+          <GroupHeader>Unrated · cached only if you pick one</GroupHeader>
           {unrated.map((level) => (
-            <SearchResultRow
+            <LevelResultRow
               key={level.inGameId}
               level={level}
               onSelect={() => onSelect(level.inGameId)}
-              compact={compact}
               dimmed
             />
           ))}
         </>
       )}
 
-      <p
-        className={cn(
-          'py-2.5 text-[11px] leading-4 text-text-tertiary',
-          compact ? 'px-4' : 'px-5'
-        )}
-      >
+      <p className="px-4 py-2.5 text-[11px] leading-4 text-text-tertiary">
         First page of GD results, rated grouped first. Levels already in the
         cache are omitted. Selecting an unrated level seeds only that one, so
         noclips, autos and startpos copies never enter the cache.

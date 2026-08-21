@@ -157,7 +157,7 @@ describe('AddToCollectionDialog', () => {
         seedAndSelect,
       })
 
-      await userEvent.click(screen.getByRole('option', { name: /Bloodbath/ }))
+      await userEvent.click(screen.getByRole('button', { name: /Bloodbath/ }))
 
       expect(seedAndSelect).toHaveBeenCalledWith('4284013')
     })

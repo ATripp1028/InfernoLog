@@ -1,19 +1,22 @@
-// The level search-result row shared by every "pick a level" surface: the
-// logging flow's FindLevelStep, and the two collections dialogs. Thumbnail
-// backdrop, gradient scrim for legibility, hover lift, difficulty face,
-// name + `by creator · song` meta, and a right-hand slot that shows the
+// The level result row shared by every surface that lists levels to pick
+// from: the logging flow's FindLevelStep, the two collections dialogs, and
+// the GD-server escalation results in both of those and on /search.
+// Thumbnail backdrop, gradient scrim for legibility, hover lift, difficulty
+// face, name + `by creator · song` meta, and a right-hand slot that shows the
 // level's ID unless the caller supplied a status badge.
 //
-// Callers differ only in that right-hand slot and in whether the row can be
-// clicked — the layout itself is identical everywhere, so it lives here
-// rather than being re-typed per feature.
+// Callers differ only in that right-hand slot, in whether the row can be
+// clicked, and in the `dimmed` fade — the layout itself is identical
+// everywhere, so it lives here rather than being re-typed per feature.
 //
-// Not to be confused with the search page's SearchResultRow, which is a
-// genuinely different (shorter, ThumbnailWash-based, listbox-option) design.
+// The /search cache results are the one list that does NOT use this row: they
+// are SearchGridRow, a spaced card carrying browse-only stats (downloads,
+// likes, length) this row has no slot for.
 
 import { Loader2 } from 'lucide-react'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
+import { cn } from '@/lib/utils'
 
 /**
  * The subset of a level this row renders. Structural on purpose: `Level`,
@@ -33,13 +36,12 @@ export interface LevelResultRowLevel {
 
 /**
  * A selectable level row for any "pick a level" prompt — the logging flow's
- * find step and both collection dialogs.
+ * find step, both collection dialogs, and the GD-server escalation results.
  *
  * Per-caller differences are props, not copies: `badge` labels a blocked
  * state ("Added", "Already completed"), `loading` and `disabled` grey the row
- * out while a write is in flight. Deliberately distinct from
- * `SearchResultRow`, which answers to the search surface rather than a
- * picker; see docs/CODE_QUALITY.md, Frontend §3.
+ * out while a write is in flight, `dimmed` fades an unrated GD result without
+ * blocking it. See docs/CODE_QUALITY.md, Frontend §3.
  */
 export function LevelResultRow({
   level,
@@ -47,6 +49,7 @@ export function LevelResultRow({
   badge = null,
   loading = false,
   disabled = false,
+  dimmed = false,
 }: {
   level: LevelResultRowLevel
   onSelect: () => void
@@ -60,6 +63,9 @@ export function LevelResultRow({
   // Blocks selection for a reason not specific to this row — typically
   // another row's action being in flight.
   disabled?: boolean
+  // Fades the row without blocking it. The GD escalation results use this to
+  // mark unrated levels, which stay selectable.
+  dimmed?: boolean
 }) {
   const meta = [level.creator ? `by ${level.creator}` : null, level.songName]
     .filter(Boolean)
@@ -70,7 +76,10 @@ export function LevelResultRow({
       type="button"
       disabled={badge != null || disabled}
       onClick={onSelect}
-      className="group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60"
+      className={cn(
+        'group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60',
+        dimmed && 'opacity-70'
+      )}
     >
       {/* Level thumbnail backdrop; hidden if it fails to load. */}
       <img
