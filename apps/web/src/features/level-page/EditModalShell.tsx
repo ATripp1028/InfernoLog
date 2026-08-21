@@ -1,11 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
 import { Button } from '@/components/generic/button'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 
 interface EditModalShellProps {
   open: boolean
@@ -24,6 +24,10 @@ interface EditModalShellProps {
  * The dialog chrome every edit modal shares — overlay, the mobile
  * bottom-sheet/desktop-centred card, header, scrolling body, and the
  * Cancel/Save footer. Only the fields inside differ between them.
+ *
+ * While `isSaving`, the modal cannot be dismissed at all: Escape, the overlay,
+ * the X and Cancel are all inert, so a save in flight can't be orphaned by a
+ * stray click. The X and Cancel fade out to say so.
  */
 export function EditModalShell({
   open,
@@ -37,7 +41,15 @@ export function EditModalShell({
   saveDisabled,
 }: EditModalShellProps) {
   return (
-    <Dialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog.Root
+      open={open}
+      onOpenChange={(o) => {
+        // Radix funnels Escape, the overlay and Dialog.Close through here, so
+        // one guard covers every dismissal path.
+        if (isSaving) return
+        if (!o) onClose()
+      }}
+    >
       <Dialog.Portal>
         <Dialog.Overlay
           className={cn(
@@ -67,13 +79,10 @@ export function EditModalShell({
                 <p className="mt-0.5 text-sm text-text-secondary">{subtitle}</p>
               </div>
               <Dialog.Close asChild>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="mt-0.5 flex size-8 items-center justify-center rounded-md bg-bg-elevated text-text-secondary transition-colors hover:text-text-primary"
-                >
-                  <X size={16} />
-                </button>
+                <DialogCloseButton
+                  disabled={isSaving}
+                  className="mt-0.5 size-8 bg-bg-elevated hover:text-text-primary"
+                />
               </Dialog.Close>
             </div>
 
@@ -85,7 +94,7 @@ export function EditModalShell({
             </div>
 
             <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-              <Button variant="outline" onClick={onClose}>
+              <Button variant="outline" onClick={onClose} disabled={isSaving}>
                 Cancel
               </Button>
               <Button onClick={onSave} disabled={isSaving || saveDisabled}>

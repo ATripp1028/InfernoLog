@@ -1,5 +1,6 @@
-import { Loader2, Search, X } from 'lucide-react'
+import { Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/generic/button'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 import { Input } from '@/components/generic/input'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { type CollectionDetail } from '@/lib/api/collections'
@@ -31,6 +32,12 @@ interface AddLevelsDialogProps {
  *   with no name visible.
  *
  * Both paths and all of their state live in useAddLevelsDialog.
+ *
+ * Whichever path is mid-flight, the dialog stops closing: a seed or an add is
+ * a write the user hasn't seen the result of yet, and both paths reuse the
+ * dialog afterwards ("add another"), so losing it to a stray backdrop click
+ * would leave the user unsure whether the level landed. The X fades out while
+ * that's true.
  */
 export function AddLevelsDialog({
   open,
@@ -68,6 +75,14 @@ export function AddLevelsDialog({
     addAnother,
     setAddAnother,
   } = useAddLevelsDialog({ open, onClose, collection, completedIds })
+
+  // A seed (`pending`) or an add in flight — the two writes this dialog makes.
+  // Searching doesn't count: it changes nothing, and trapping the user behind
+  // a slow search would be worse than the stray click it prevents.
+  const busy = isAdding || !!pending
+  const requestClose = () => {
+    if (!busy) onClose()
+  }
 
   if (!open) return null
 
@@ -288,14 +303,11 @@ export function AddLevelsDialog({
           Add levels
         </h2>
       </div>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="mt-1 flex size-9 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-      >
-        <X size={16} />
-      </button>
+      <DialogCloseButton
+        onClick={requestClose}
+        disabled={busy}
+        className="mt-1 size-9 hover:bg-bg-subtle hover:text-text-primary"
+      />
     </div>
   )
 
@@ -304,10 +316,10 @@ export function AddLevelsDialog({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
         onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
+          if (e.target === e.currentTarget) requestClose()
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape') requestClose()
         }}
       >
         <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
@@ -324,6 +336,7 @@ export function AddLevelsDialog({
         type="button"
         aria-label="Close"
         onClick={onClose}
+        disabled={busy}
         className="absolute inset-0 bg-black/55"
       />
       <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">

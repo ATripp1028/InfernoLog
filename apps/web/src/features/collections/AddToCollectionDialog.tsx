@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Search, X } from 'lucide-react'
+import { ArrowLeft, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
@@ -8,6 +8,7 @@ import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 import {
   useAddToCollectionDialog,
   type PickedLevel,
@@ -32,6 +33,11 @@ interface AddToCollectionDialogProps {
  *     Confirm adds the level to all selected collections in parallel.
  *
  * All of that state lives in useAddToCollectionDialog; this file is markup.
+ *
+ * While a seed or the multi-collection add is in flight the dialog won't
+ * close — the add writes to several collections at once, so a dismissal
+ * mid-write leaves the user with no idea which ones took. The X fades out to
+ * signal it. Searching is not "in flight" for this purpose.
  */
 export function AddToCollectionDialog({
   open,
@@ -74,6 +80,11 @@ export function AddToCollectionDialog({
     handleAdd,
     isSubmitting,
   } = useAddToCollectionDialog({ open, onClose, preselectedLevel })
+
+  const busy = isSubmitting || !!seedingId
+  const requestClose = () => {
+    if (!busy) onClose()
+  }
 
   if (!open) return null
 
@@ -371,14 +382,11 @@ export function AddToCollectionDialog({
           Add to a Collection
         </h2>
       </div>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="mt-1 flex size-9 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-      >
-        <X size={16} />
-      </button>
+      <DialogCloseButton
+        onClick={requestClose}
+        disabled={busy}
+        className="mt-1 size-9 hover:bg-bg-subtle hover:text-text-primary"
+      />
     </div>
   )
 
@@ -427,10 +435,10 @@ export function AddToCollectionDialog({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
         onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
+          if (e.target === e.currentTarget) requestClose()
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape') requestClose()
         }}
       >
         <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
@@ -448,6 +456,7 @@ export function AddToCollectionDialog({
         type="button"
         aria-label="Close"
         onClick={onClose}
+        disabled={busy}
         className="absolute inset-0 bg-black/55"
       />
       <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">

@@ -7,6 +7,11 @@ interface MobileSheetDialogProps {
   // Lets each dialog keep its own surface/border tokens; the backdrop,
   // position, drag-handle, focus, and Escape handling are shared.
   className?: string
+  // Set while the sheet's form is saving: the backdrop and Escape stop
+  // closing it. The caller is responsible for the matching visual cue on its
+  // own close/cancel controls (see `DialogCloseButton`) — this component
+  // renders none of its own.
+  dismissDisabled?: boolean
 }
 
 /**
@@ -25,6 +30,7 @@ export function MobileSheetDialog({
   onClose,
   children,
   className,
+  dismissDisabled = false,
 }: MobileSheetDialogProps) {
   const sheetRef = useRef<HTMLDivElement>(null)
 
@@ -38,13 +44,14 @@ export function MobileSheetDialog({
         type="button"
         aria-label="Close"
         onClick={onClose}
+        disabled={dismissDisabled}
         className="absolute inset-0 bg-black/60"
       />
       <div
         ref={sheetRef}
         tabIndex={-1}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape' && !dismissDisabled) onClose()
         }}
         className={cn(
           'absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col overflow-hidden rounded-t-card border-t shadow-[0_-8px_24px_rgba(0,0,0,0.5)] outline-none',

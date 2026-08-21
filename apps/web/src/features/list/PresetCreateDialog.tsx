@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/generic/textarea'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 
 interface PresetCreateDialogProps {
   open: boolean
@@ -69,13 +69,19 @@ export function PresetCreateDialog({
     onSave(trimmedName, description.trim(), color)
   }
 
+  // Nothing dismisses the dialog while the preset is saving — the X, Cancel,
+  // Escape and the backdrop all defer to this, and the first two fade out.
+  function requestClose() {
+    if (!isSaving) onClose()
+  }
+
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) handleSave()
-    if (e.key === 'Escape') onClose()
+    if (e.key === 'Escape') requestClose()
   }
 
   function handleBackdropClick(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) onClose()
+    if (e.target === e.currentTarget) requestClose()
   }
 
   const selectedColorObj = PRESET_COLORS.find((c) => c.id === color)!
@@ -163,7 +169,8 @@ export function PresetCreateDialog({
       <button
         type="button"
         onClick={onClose}
-        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle"
+        disabled={isSaving}
+        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle disabled:pointer-events-none disabled:opacity-50"
       >
         Cancel
       </button>
@@ -201,19 +208,17 @@ export function PresetCreateDialog({
   return (
     <MobileSheetDialog
       onClose={onClose}
+      dismissDisabled={isSaving}
       className="border-border bg-bg-surface"
     >
       <div className="overflow-y-auto" onKeyDown={handleKeyDown}>
         <div className="flex items-start justify-between px-5 pb-2 pt-3">
           <h2 className="text-base font-semibold text-text-primary">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-          >
-            <X size={16} />
-          </button>
+          <DialogCloseButton
+            onClick={requestClose}
+            disabled={isSaving}
+            className="size-8 hover:bg-bg-subtle hover:text-text-primary"
+          />
         </div>
         <div className="px-5 pt-1">{body}</div>
       </div>

@@ -28,6 +28,11 @@ interface FlowState {
   // The level_progress id of the just-submitted completion — handed to the
   // ranking page's "Place now" navigation so it can highlight/scroll to it.
   lastCompletionLevelProgressId: string | null
+  // True while the current step has a write in flight. Steps own their own
+  // mutations, so the shell can only know it's mid-save if they say so — see
+  // `useFlowBusy`. It's what stops the modal being dismissed out from under a
+  // save, so it tracks writes only, never searches or lookups.
+  isBusy: boolean
   draft: FlowDraft
 }
 
@@ -43,6 +48,7 @@ const CLOSED: FlowState = {
   manualLevelId: null,
   pendingEditLevelId: null,
   lastCompletionLevelProgressId: null,
+  isBusy: false,
   draft: emptyDraft(),
 }
 
@@ -56,6 +62,7 @@ export interface FlowContextValue extends FlowState {
   close: () => void
   setStep: (step: FlowStep) => void
   setLastCompletion: (levelProgressId: string) => void
+  setBusy: (busy: boolean) => void
   patchDraft: (patch: Partial<FlowDraft>) => void
   applyResolved: (resolved: ResolvedLevel) => void
   goManual: (levelId: string, existing: ExistingCompletion | null) => void
@@ -100,6 +107,10 @@ export function useLoggingFlowState(): FlowContextValue {
 
   const setLastCompletion = useCallback((levelProgressId: string) => {
     setState((s) => ({ ...s, lastCompletionLevelProgressId: levelProgressId }))
+  }, [])
+
+  const setBusy = useCallback((busy: boolean) => {
+    setState((s) => (s.isBusy === busy ? s : { ...s, isBusy: busy }))
   }, [])
 
   const patchDraft = useCallback((patch: Partial<FlowDraft>) => {
@@ -168,6 +179,7 @@ export function useLoggingFlowState(): FlowContextValue {
       close,
       setStep,
       setLastCompletion,
+      setBusy,
       patchDraft,
       applyResolved,
       goManual,
@@ -180,6 +192,7 @@ export function useLoggingFlowState(): FlowContextValue {
       close,
       setStep,
       setLastCompletion,
+      setBusy,
       patchDraft,
       applyResolved,
       goManual,

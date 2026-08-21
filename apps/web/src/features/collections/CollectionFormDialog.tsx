@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
 import { Button } from '@/components/generic/button'
 import { Textarea } from '@/components/generic/textarea'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/lib/useMediaQuery'
 import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 import {
   collectionErrorCode,
   useCollections,
@@ -77,6 +78,13 @@ export function CollectionFormDialog({
   const error = clientError ?? serverError
   const canSave = !!trimmed && !clientError && !isSaving
 
+  // No dismissal while the save is in flight — the name is validated
+  // server-side, so closing early would hide the duplicate/reserved-name error
+  // this dialog exists to show. The X and Cancel fade out while that holds.
+  const requestClose = () => {
+    if (!isSaving) onClose()
+  }
+
   if (!open) return null
 
   async function handleSave() {
@@ -103,14 +111,11 @@ export function CollectionFormDialog({
       <h2 className="text-lg font-semibold text-text-primary">
         {editing ? 'Edit collection' : 'New collection'}
       </h2>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="flex size-7 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-      >
-        <X size={16} />
-      </button>
+      <DialogCloseButton
+        onClick={requestClose}
+        disabled={isSaving}
+        className="size-7 hover:bg-bg-subtle hover:text-text-primary"
+      />
     </div>
   )
 
@@ -183,7 +188,7 @@ export function CollectionFormDialog({
         isDesktop && 'rounded-b-xl'
       )}
     >
-      <Button variant="outline" onClick={onClose}>
+      <Button variant="outline" onClick={onClose} disabled={isSaving}>
         Cancel
       </Button>
       <Button onClick={() => void handleSave()} disabled={!canSave}>
@@ -197,10 +202,10 @@ export function CollectionFormDialog({
       <div
         className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
         onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
+          if (e.target === e.currentTarget) requestClose()
         }}
         onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
+          if (e.key === 'Escape') requestClose()
         }}
       >
         <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
@@ -215,6 +220,7 @@ export function CollectionFormDialog({
   return (
     <MobileSheetDialog
       onClose={onClose}
+      dismissDisabled={isSaving}
       className="border-border bg-bg-surface"
     >
       <div className="overflow-y-auto">

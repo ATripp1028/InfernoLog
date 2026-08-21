@@ -18,6 +18,10 @@ interface DeleteAccountDialogProps {
 
 /**
  * Account deletion confirmation. Requires the exact `DELETE_ACCOUNT_CONFIRMATION` phrase.
+ *
+ * Once the delete is in flight the dialog refuses to close — Escape and the
+ * overlay included — so the user can't dismiss it and be left guessing whether
+ * the account went away. Cancel fades out to show that.
  */
 export function DeleteAccountDialog({
   open,
@@ -29,6 +33,7 @@ export function DeleteAccountDialog({
   const canDelete = value === DELETE_ACCOUNT_CONFIRMATION
 
   const handleOpenChange = (next: boolean) => {
+    if (isDeleting) return
     if (!next) setValue('')
     onOpenChange(next)
   }
