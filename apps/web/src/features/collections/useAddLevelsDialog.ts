@@ -24,16 +24,6 @@ import type { SeededLevel } from './SeededLevelPreviewCard'
 export type { SeededLevel }
 
 /**
- * What the dialog is waiting on, and what the indicator that replaces the
- * result sections should say. One piece of state for both phases so the
- * GD-result path — which seeds *and then* adds — never blinks back to the
- * results list between the two waits.
- */
-export type PendingWork =
-  | { levelId: string; phase: 'seeding' }
-  | { levelId: string; phase: 'adding'; name: string | null }
-
-/**
  * State for AddLevelsDialog: the level search, the GD-server seed (confirmed only when the query was a raw id), and the add mutation.
  */
 export function useAddLevelsDialog({
@@ -50,7 +40,12 @@ export function useAddLevelsDialog({
   const [query, setQuery] = useState('')
   const [seeded, setSeeded] = useState<SeededLevel | null>(null)
   const [addAnother, setAddAnother] = useState(false)
-  const [pending, setPending] = useState<PendingWork | null>(null)
+  // A raw id being fetched from RobTop. No row for it exists yet, so this
+  // replaces the result sections with a strip that names it.
+  const [seedingId, setSeedingId] = useState<string | null>(null)
+  // The row the user clicked, for as long as it is working. A GD result is
+  // held for the seed *and* the add behind it, so the row spins through both
+  // rather than the list blinking back between them.
   const [addingId, setAddingId] = useState<string | null>(null)
 
   const resolveLevel = useResolveLevel()
@@ -76,7 +71,7 @@ export function useAddLevelsDialog({
       setQuery('')
       setSeeded(null)
       setAddAnother(false)
-      setPending(null)
+      setSeedingId(null)
       setAddingId(null)
       escalation.clear()
     }
@@ -120,8 +115,8 @@ export function useAddLevelsDialog({
 
   // Fetch a level from RobTop into the shared cache. Returns the seeded level,
   // or null when it could not be fetched (reported here, not by the caller).
-  // The caller owns `pending`, since the GD path keeps its indicator up
-  // through the add that follows this.
+  // The caller owns the indicator, since the GD path keeps it up through the
+  // add that follows this.
   async function seedLevel(levelId: string): Promise<SeededLevel | null> {
     try {
       const res = await resolveLevel.mutateAsync(levelId)
@@ -152,30 +147,29 @@ export function useAddLevelsDialog({
   // Seeded add — a raw ID the user typed. Nothing about the level was visible
   // before the fetch, so hold it for confirmation.
   async function seedAndSelect(levelId: string) {
-    setPending({ levelId, phase: 'seeding' })
+    setSeedingId(levelId)
     try {
       const level = await seedLevel(levelId)
       if (!level) return
       setSeeded(level)
       setQuery('')
     } finally {
-      setPending(null)
+      setSeedingId(null)
     }
   }
 
   // GD-search add — the result row already showed name, creator, ID and
   // difficulty, so seeding is a step to finish, not something to re-confirm.
-  // The row the user clicked is gone the moment seeding starts, so the
-  // indicator has to carry both waits: the seed, then the add behind it.
+  // The clicked row stays on screen and holds the spinner across both waits
+  // (the seed, then the add behind it), so the list never blinks between them.
   async function seedAndAdd(levelId: string) {
-    setPending({ levelId, phase: 'seeding' })
+    setAddingId(levelId)
     try {
       const level = await seedLevel(levelId)
       if (!level) return
-      setPending({ levelId, phase: 'adding', name: level.name })
       await handleDirectAdd(level.inGameId, level.name)
     } finally {
-      setPending(null)
+      setAddingId(null)
     }
   }
 
@@ -209,19 +203,19 @@ export function useAddLevelsDialog({
     }
   }
 
-  const showResults = !isNumeric && trimmed.length >= 2 && !pending && !seeded
+  const showResults = !isNumeric && trimmed.length >= 2 && !seedingId && !seeded
   const showCachedPreview =
     isNumeric &&
     trimmed.length >= 4 &&
     !!cachedLevel.data &&
-    !pending &&
+    !seedingId &&
     !seeded
   const showSeedHint =
     isNumeric &&
     trimmed.length >= 4 &&
     !cachedLevel.data &&
     !cachedLevel.isFetching &&
-    !pending &&
+    !seedingId &&
     !seeded
 
   return {
@@ -248,7 +242,7 @@ export function useAddLevelsDialog({
       !showResults &&
       !showCachedPreview &&
       !showSeedHint &&
-      !pending,
+      !seedingId,
 
     // Row state. A badge means the row can't be picked: already a member of
     // this collection, or (Want to Beat only, via completedIds) already beaten.
@@ -259,14 +253,17 @@ export function useAddLevelsDialog({
           ? 'Already beaten'
           : null,
     addingId,
-    isAdding: addEntry.isPending,
+    // Any row-scoped work in flight — the seed for a picked GD result, the add
+    // behind it, or a direct add. Greys out the rows that aren't spinning, and
+    // holds the dialog open until the write the user can't see has landed.
+    isAdding: addEntry.isPending || addingId !== null,
 
     // Add paths
     addLevel: (levelId: string, levelName: string | null) =>
       void handleDirectAdd(levelId, levelName),
     seedAndSelect: (levelId: string) => void seedAndSelect(levelId),
     seedAndAdd: (levelId: string) => void seedAndAdd(levelId),
-    pending,
+    seedingId,
     seeded,
     clearSeeded: () => setSeeded(null),
     seededAlreadyAdded,

@@ -15,6 +15,12 @@ interface GdSearchSectionProps {
   offer: { title: string; subtitle: string }
   compact?: boolean
   showEnterHint?: boolean
+  /**
+   * The level whose selection is being fetched. Its row spins and the rest
+   * stop taking clicks — picking a GD result costs a seed round-trip, so the
+   * wait has to land on the row the user actually clicked.
+   */
+  loadingId?: string | null
 }
 
 /**
@@ -31,6 +37,7 @@ export function GdSearchSection({
   offer,
   compact = false,
   showEnterHint = false,
+  loadingId = null,
 }: GdSearchSectionProps) {
   const pad = compact ? 'px-4' : 'px-5'
 
@@ -70,6 +77,7 @@ export function GdSearchSection({
         rated={result.rated}
         unrated={result.unrated}
         onSelect={onSelect}
+        loadingId={loadingId}
       />
     )
   }
@@ -161,10 +169,12 @@ function GdResults({
   rated,
   unrated,
   onSelect,
+  loadingId,
 }: {
   rated: LevelSearchResult[]
   unrated: LevelSearchResult[]
   onSelect: (levelId: string) => void
+  loadingId: string | null
 }) {
   return (
     <div className="flex flex-col">
@@ -176,6 +186,8 @@ function GdResults({
               key={level.inGameId}
               level={level}
               onSelect={() => onSelect(level.inGameId)}
+              loading={loadingId === level.inGameId}
+              disabled={loadingId !== null}
             />
           ))}
         </>
@@ -189,6 +201,8 @@ function GdResults({
               key={level.inGameId}
               level={level}
               onSelect={() => onSelect(level.inGameId)}
+              loading={loadingId === level.inGameId}
+              disabled={loadingId !== null}
               dimmed
             />
           ))}

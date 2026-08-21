@@ -65,7 +65,7 @@ export function AddLevelsDialog({
     addLevel,
     seedAndSelect,
     seedAndAdd,
-    pending,
+    seedingId,
     seeded,
     clearSeeded,
     seededAlreadyAdded,
@@ -76,10 +76,10 @@ export function AddLevelsDialog({
     setAddAnother,
   } = useAddLevelsDialog({ open, onClose, collection, completedIds })
 
-  // A seed (`pending`) or an add in flight — the two writes this dialog makes.
-  // Searching doesn't count: it changes nothing, and trapping the user behind
-  // a slow search would be worse than the stray click it prevents.
-  const busy = isAdding || !!pending
+  // A seed or an add in flight — the two writes this dialog makes. Searching
+  // doesn't count: it changes nothing, and trapping the user behind a slow
+  // search would be worse than the stray click it prevents.
+  const busy = isAdding || !!seedingId
 
   const body = (
     <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-5">
@@ -109,31 +109,26 @@ export function AddLevelsDialog({
         </div>
       </div>
 
-      {/* Busy indicator. Covers both waits a picked GD result goes through
-            (seed, then add), so the results list never flashes back between
-            them, as well as the raw-ID seed on its own. */}
-      {pending && (
+      {/* Raw-ID seed indicator. Only this path needs one: every other wait
+            belongs to a row the user clicked, which carries its own spinner. */}
+      {seedingId && (
         <div>
           <SectionLabel tone="secondary" className="mb-2">
             Results
           </SectionLabel>
           <div className="flex h-12 items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-sm text-text-secondary">
             <Loader2 size={16} className="animate-spin text-primary" />
-            {pending.phase === 'seeding'
-              ? `Fetching level ${pending.levelId} from the GD servers…`
-              : `Adding ${pending.name ?? `level ${pending.levelId}`} to ${collection.name}…`}
+            Fetching level {seedingId} from the GD servers…
           </div>
-          {pending.phase === 'seeding' && (
-            <p className="mt-2 text-xs text-text-tertiary">
-              New to InfernoLog — we&apos;ll add it to the shared cache so
-              it&apos;s name-searchable next time.
-            </p>
-          )}
+          <p className="mt-2 text-xs text-text-tertiary">
+            New to InfernoLog — we&apos;ll add it to the shared cache so
+            it&apos;s name-searchable next time.
+          </p>
         </div>
       )}
 
       {/* Seeded confirmation card — only for raw IDs, never a picked GD result. */}
-      {seeded && !pending && (
+      {seeded && !seedingId && (
         <SeededLevelPreviewCard
           level={seeded}
           badge={
@@ -233,6 +228,7 @@ export function AddLevelsDialog({
                 escalation={escalation}
                 query={trimmed}
                 onSelect={(levelId) => seedAndAdd(levelId)}
+                loadingId={addingId}
                 offer={{
                   title: `Search GD's servers for "${trimmed}"`,
                   subtitle:

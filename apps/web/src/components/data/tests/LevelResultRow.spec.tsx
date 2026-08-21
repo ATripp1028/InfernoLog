@@ -91,6 +91,18 @@ describe('LevelResultRow', () => {
     expect(container.querySelector('.animate-spin')).toBeInTheDocument()
   })
 
+  it('stops taking clicks while it is loading', async () => {
+    const onSelect = vi.fn()
+    renderWithProviders(
+      <LevelResultRow level={level()} onSelect={onSelect} loading />
+    )
+
+    expect(row()).toBeDisabled()
+
+    await userEvent.click(row())
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
   it('can be disabled without a badge, for a reason belonging to another row', () => {
     renderWithProviders(
       <LevelResultRow level={level()} onSelect={vi.fn()} disabled />

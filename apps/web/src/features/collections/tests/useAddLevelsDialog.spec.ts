@@ -381,7 +381,7 @@ describe('useAddLevelsDialog', () => {
       await act(async () => result.current.seedAndSelect('12345'))
 
       expect(toast.error).toHaveBeenCalledWith(expected)
-      expect(result.current.pending).toBeNull()
+      expect(result.current.seedingId).toBeNull()
     })
 
     it('announces the fetch, then clears it', async () => {
@@ -394,15 +394,10 @@ describe('useAddLevelsDialog', () => {
       const { result } = render()
 
       act(() => result.current.seedAndSelect('12345'))
-      await waitFor(() =>
-        expect(result.current.pending).toEqual({
-          levelId: '12345',
-          phase: 'seeding',
-        })
-      )
+      await waitFor(() => expect(result.current.seedingId).toBe('12345'))
 
       await act(async () => finish(makeResolveResponse()))
-      expect(result.current.pending).toBeNull()
+      expect(result.current.seedingId).toBeNull()
     })
   })
 
@@ -649,10 +644,12 @@ describe('useAddLevelsDialog', () => {
       expect(onClose).not.toHaveBeenCalled()
     })
 
-    // The regression this guards: clearing the indicator the moment the seed
-    // resolved put the results list back on screen for the length of the add,
-    // so the row the user clicked reappeared and then the dialog closed.
-    it('keeps an indicator up through the add that follows the seed', async () => {
+    // The regression this guards: the indicator used to replace the results
+    // list, and clearing it the moment the seed resolved put that list back on
+    // screen for the length of the add — so the row the user clicked
+    // reappeared and then the dialog closed. It now sits in the row itself,
+    // which has to stay marked across both waits with the list left alone.
+    it('keeps the clicked row spinning through the add that follows the seed', async () => {
       let finishAdd: () => void = () => {}
       addAsync.mockReturnValue(
         new Promise<void>((resolve) => {
@@ -664,17 +661,32 @@ describe('useAddLevelsDialog', () => {
 
       act(() => result.current.seedAndAdd('12345'))
 
-      await waitFor(() =>
-        expect(result.current.pending).toEqual({
-          levelId: '12345',
-          phase: 'adding',
-          name: 'Tidal Wave',
-        })
-      )
-      expect(result.current.showResults).toBe(false)
+      await waitFor(() => expect(result.current.addingId).toBe('12345'))
+      expect(result.current.isAdding).toBe(true)
+      expect(result.current.showResults).toBe(true)
 
       await act(async () => finishAdd())
-      expect(result.current.pending).toBeNull()
+      expect(result.current.addingId).toBeNull()
+    })
+
+    // The seed is the half of the wait no mutation reports as pending, so a
+    // failure there has to clear the row marker itself.
+    it('marks the row while the seed alone is in flight', async () => {
+      let finishSeed: (v: unknown) => void = () => {}
+      resolveAsync.mockReturnValue(
+        new Promise((resolve) => {
+          finishSeed = resolve
+        })
+      )
+      const { result } = render()
+      act(() => result.current.updateQuery('tidal'))
+
+      act(() => result.current.seedAndAdd('12345'))
+
+      await waitFor(() => expect(result.current.addingId).toBe('12345'))
+
+      await act(async () => finishSeed(makeResolveResponse({ level: null })))
+      expect(result.current.addingId).toBeNull()
     })
 
     it('reports a failed fetch and adds nothing', async () => {
@@ -685,7 +697,7 @@ describe('useAddLevelsDialog', () => {
 
       expect(toast.error).toHaveBeenCalledWith('GD servers unreachable')
       expect(addAsync).not.toHaveBeenCalled()
-      expect(result.current.pending).toBeNull()
+      expect(result.current.addingId).toBeNull()
     })
 
     it('reports a failed add without stranding a confirmation card', async () => {
@@ -724,7 +736,7 @@ describe('useAddLevelsDialog', () => {
     expect(result.current.query).toBe('')
     expect(result.current.seeded).toBeNull()
     expect(result.current.addAnother).toBe(false)
-    expect(result.current.pending).toBeNull()
+    expect(result.current.seedingId).toBeNull()
     expect(result.current.addingId).toBeNull()
     expect(escalation.clear).toHaveBeenCalled()
   })

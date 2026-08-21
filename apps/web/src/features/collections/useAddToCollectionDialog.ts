@@ -60,6 +60,10 @@ export function useAddToCollectionDialog({
   const [collectionQuery, setCollectionQuery] = useState('')
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [seedingId, setSeedingId] = useState<string | null>(null)
+  // A GD result the user clicked, while its seed is in flight. Kept apart
+  // from `seedingId` because that one replaces the results with a strip: the
+  // clicked row is on screen here, so the wait belongs in the row instead.
+  const [pickingId, setPickingId] = useState<string | null>(null)
   const [seededLevel, setSeededLevel] = useState<SeededLevel | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -92,6 +96,7 @@ export function useAddToCollectionDialog({
       setCollectionQuery('')
       setSelectedIds(new Set())
       setSeedingId(null)
+      setPickingId(null)
       setSeededLevel(null)
       setIsSubmitting(false)
       escalation.clear()
@@ -198,14 +203,15 @@ export function useAddToCollectionDialog({
 
   // GD-search pick — the result row already showed name, creator, id and
   // difficulty, so seeding it leads straight to the collection picker. The
-  // query is left alone so Back returns to those same results.
+  // query is left alone so Back returns to those same results, and the row
+  // keeps its own spinner rather than the results giving way to a strip.
   async function seedAndSelect(levelId: string) {
-    setSeedingId(levelId)
+    setPickingId(levelId)
     try {
       const level = await seedLevel(levelId)
       if (level) selectLevel(level)
     } finally {
-      setSeedingId(null)
+      setPickingId(null)
     }
   }
 
@@ -325,6 +331,7 @@ export function useAddToCollectionDialog({
       !seedingId &&
       !seededLevel,
     seedingId,
+    pickingId,
     seededLevel,
     clearSeededLevel: () => setSeededLevel(null),
     seedAndPick: (levelId: string) => void seedAndPick(levelId),

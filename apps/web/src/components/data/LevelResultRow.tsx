@@ -57,8 +57,9 @@ export function LevelResultRow({
   // "Already beaten") — a badge always means the row is not actionable, so
   // it disables the row too.
   badge?: string | null
-  // In-flight indicator for a row-scoped action (e.g. adding to a
-  // collection); takes the right-hand slot while true.
+  // In-flight indicator for a row-scoped action (e.g. fetching the level, or
+  // adding it to a collection); takes the right-hand slot while true, and
+  // stops the row taking a second click of its own.
   loading?: boolean
   // Blocks selection for a reason not specific to this row — typically
   // another row's action being in flight.
@@ -74,7 +75,7 @@ export function LevelResultRow({
   return (
     <button
       type="button"
-      disabled={badge != null || disabled}
+      disabled={badge != null || disabled || loading}
       onClick={onSelect}
       className={cn(
         'group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60',

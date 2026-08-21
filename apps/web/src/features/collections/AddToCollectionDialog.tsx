@@ -65,6 +65,7 @@ export function AddToCollectionDialog({
     showSeedHint,
     showEmptyPrompt,
     seedingId,
+    pickingId,
     seededLevel,
     clearSeededLevel,
     seedAndPick,
@@ -84,7 +85,7 @@ export function AddToCollectionDialog({
     isSubmitting,
   } = useAddToCollectionDialog({ open, onClose, preselectedLevel })
 
-  const busy = isSubmitting || !!seedingId
+  const busy = isSubmitting || !!seedingId || !!pickingId
 
   // ── Step 1: level search ───────────────────────────────────────────
 
@@ -151,6 +152,7 @@ export function AddToCollectionDialog({
           <div className="overflow-hidden rounded-md border border-border">
             <LevelResultRow
               level={cachedLevel}
+              disabled={!!pickingId}
               onSelect={() => selectLevel(cachedLevel)}
             />
           </div>
@@ -196,6 +198,7 @@ export function AddToCollectionDialog({
                 <LevelResultRow
                   key={r.inGameId}
                   level={r}
+                  disabled={!!pickingId}
                   onSelect={() => selectLevel(r)}
                 />
               ))}
@@ -208,6 +211,7 @@ export function AddToCollectionDialog({
                 escalation={escalation}
                 query={trimmed}
                 onSelect={(levelId) => seedAndSelect(levelId)}
+                loadingId={pickingId}
                 offer={{
                   title: `Search GD's servers for "${trimmed}"`,
                   subtitle:

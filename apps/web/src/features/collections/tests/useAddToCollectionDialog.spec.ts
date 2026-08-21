@@ -417,7 +417,29 @@ describe('useAddToCollectionDialog', () => {
         expect(toast.error).toHaveBeenCalledWith('GD servers unreachable')
         expect(result.current.step).toBe('search')
         expect(result.current.pickedLevel).toBeNull()
+        expect(result.current.pickingId).toBeNull()
+      })
+
+      // The row is on screen, so the wait is reported on it — which means the
+      // results must not give way to the seeding strip the raw-id path uses.
+      it('marks the clicked row and leaves the results up', async () => {
+        let finish: (v: unknown) => void = () => {}
+        resolveAsync.mockReturnValue(
+          new Promise((resolve) => {
+            finish = resolve
+          })
+        )
+        const { result } = render()
+        act(() => result.current.updateLevelQuery('tidal'))
+
+        act(() => result.current.seedAndSelect('12345'))
+
+        await waitFor(() => expect(result.current.pickingId).toBe('12345'))
         expect(result.current.seedingId).toBeNull()
+        expect(result.current.showResults).toBe(true)
+
+        await act(async () => finish(makeResolveResponse()))
+        expect(result.current.pickingId).toBeNull()
       })
     })
 

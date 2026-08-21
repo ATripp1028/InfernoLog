@@ -43,6 +43,7 @@ function stubDialog(overrides: Partial<DialogState> = {}): DialogState {
     showSeedHint: false,
     showEmptyPrompt: true,
     seedingId: null,
+    pickingId: null,
     seededLevel: null,
     clearSeededLevel: vi.fn(),
     seedAndPick: vi.fn(),
@@ -160,6 +161,32 @@ describe('AddToCollectionDialog', () => {
       await userEvent.click(screen.getByRole('button', { name: /Bloodbath/ }))
 
       expect(seedAndSelect).toHaveBeenCalledWith('4284013')
+    })
+
+    // Seeding a picked GD result costs a round-trip, and unlike a raw id it
+    // has a row on screen — so the wait shows there rather than replacing the
+    // results the user is reading.
+    it('spins the GD row whose level is being fetched', () => {
+      renderDialog({
+        showEmptyPrompt: false,
+        showResults: true,
+        trimmed: 'bloodbath',
+        pickingId: '4284013',
+        escalation: stubEscalation({
+          escalatedQuery: 'bloodbath',
+          result: {
+            status: 'ok',
+            rated: [
+              makeSearchResult({ inGameId: '4284013', name: 'Bloodbath' }),
+            ],
+            unrated: [],
+          },
+        }),
+      })
+
+      const row = screen.getByRole('button', { name: /Bloodbath/ })
+      expect(row.querySelector('.animate-spin')).toBeInTheDocument()
+      expect(row).toBeDisabled()
     })
 
     it('lists cache results and selects the one clicked', async () => {
