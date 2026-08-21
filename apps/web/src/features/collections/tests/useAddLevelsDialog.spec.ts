@@ -381,10 +381,10 @@ describe('useAddLevelsDialog', () => {
       await act(async () => result.current.seedAndSelect('12345'))
 
       expect(toast.error).toHaveBeenCalledWith(expected)
-      expect(result.current.seedingId).toBeNull()
+      expect(result.current.pending).toBeNull()
     })
 
-    it('marks the row being seeded, then clears it', async () => {
+    it('announces the fetch, then clears it', async () => {
       let finish: (v: unknown) => void = () => {}
       resolveAsync.mockReturnValue(
         new Promise((resolve) => {
@@ -394,10 +394,15 @@ describe('useAddLevelsDialog', () => {
       const { result } = render()
 
       act(() => result.current.seedAndSelect('12345'))
-      await waitFor(() => expect(result.current.seedingId).toBe('12345'))
+      await waitFor(() =>
+        expect(result.current.pending).toEqual({
+          levelId: '12345',
+          phase: 'seeding',
+        })
+      )
 
       await act(async () => finish(makeResolveResponse()))
-      expect(result.current.seedingId).toBeNull()
+      expect(result.current.pending).toBeNull()
     })
   })
 
@@ -605,6 +610,96 @@ describe('useAddLevelsDialog', () => {
     })
   })
 
+  // A GD-server search result row already showed name, creator, id and
+  // difficulty, so seeding it is a step to finish rather than a second thing
+  // to confirm — only a raw typed id gets the confirmation card.
+  describe('picking a GD-search result', () => {
+    beforeEach(() => {
+      resolveAsync.mockResolvedValue(
+        makeResolveResponse({
+          level: makeCachedLevel({ inGameId: '12345', name: 'Tidal Wave' }),
+        })
+      )
+    })
+
+    it('adds the level outright instead of holding it for confirmation', async () => {
+      const { result, onClose } = render()
+
+      await act(async () => result.current.seedAndAdd('12345'))
+
+      expect(resolveAsync).toHaveBeenCalledWith('12345')
+      expect(addAsync).toHaveBeenCalledWith({
+        collectionId: 'collection-1',
+        levelId: '12345',
+      })
+      expect(result.current.seeded).toBeNull()
+      expect(toast.success).toHaveBeenCalledWith(
+        'Added Tidal Wave to My Collection'
+      )
+      expect(onClose).toHaveBeenCalledOnce()
+    })
+
+    it('stays open for the next pick when Add another is on', async () => {
+      const { result, onClose } = render()
+      act(() => result.current.setAddAnother(true))
+
+      await act(async () => result.current.seedAndAdd('12345'))
+
+      expect(addAsync).toHaveBeenCalledOnce()
+      expect(onClose).not.toHaveBeenCalled()
+    })
+
+    // The regression this guards: clearing the indicator the moment the seed
+    // resolved put the results list back on screen for the length of the add,
+    // so the row the user clicked reappeared and then the dialog closed.
+    it('keeps an indicator up through the add that follows the seed', async () => {
+      let finishAdd: () => void = () => {}
+      addAsync.mockReturnValue(
+        new Promise<void>((resolve) => {
+          finishAdd = resolve
+        })
+      )
+      const { result } = render()
+      act(() => result.current.updateQuery('tidal'))
+
+      act(() => result.current.seedAndAdd('12345'))
+
+      await waitFor(() =>
+        expect(result.current.pending).toEqual({
+          levelId: '12345',
+          phase: 'adding',
+          name: 'Tidal Wave',
+        })
+      )
+      expect(result.current.showResults).toBe(false)
+
+      await act(async () => finishAdd())
+      expect(result.current.pending).toBeNull()
+    })
+
+    it('reports a failed fetch and adds nothing', async () => {
+      resolveAsync.mockRejectedValue(apiError(503, 'GD servers unreachable'))
+      const { result } = render()
+
+      await act(async () => result.current.seedAndAdd('12345'))
+
+      expect(toast.error).toHaveBeenCalledWith('GD servers unreachable')
+      expect(addAsync).not.toHaveBeenCalled()
+      expect(result.current.pending).toBeNull()
+    })
+
+    it('reports a failed add without stranding a confirmation card', async () => {
+      addAsync.mockRejectedValue(apiError(500, 'boom'))
+      const { result, onClose } = render()
+
+      await act(async () => result.current.seedAndAdd('12345'))
+
+      expect(toast.error).toHaveBeenCalledWith('boom')
+      expect(result.current.seeded).toBeNull()
+      expect(onClose).not.toHaveBeenCalled()
+    })
+  })
+
   describe('GD escalation', () => {
     // Escalation is an action, never a mode: editing the query must re-require
     // an explicit confirm rather than silently re-escalating.
@@ -629,7 +724,7 @@ describe('useAddLevelsDialog', () => {
     expect(result.current.query).toBe('')
     expect(result.current.seeded).toBeNull()
     expect(result.current.addAnother).toBe(false)
-    expect(result.current.seedingId).toBeNull()
+    expect(result.current.pending).toBeNull()
     expect(result.current.addingId).toBeNull()
     expect(escalation.clear).toHaveBeenCalled()
   })

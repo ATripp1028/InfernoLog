@@ -21,8 +21,10 @@ interface AddLevelsDialogProps {
 /**
  * Add-levels-to-collection flow. Two distinct paths:
  *
- *   Name search / cached ID — clicking a result adds immediately (no confirmation
- *   needed — the user can see exactly what they're clicking).
+ *   A visible result — cache search, cached ID preview, or a GD-server search
+ *   row — adds immediately on click (no confirmation needed: the row itself
+ *   showed name, creator, ID and difficulty). A GD row is seeded into the
+ *   cache first, which is a step to finish, not something to confirm.
  *
  *   Unknown numeric ID — "Fetch from GD servers" seeds the level from RobTop,
  *   then shows a confirmation card before adding, since the user typed a raw ID
@@ -55,7 +57,8 @@ export function AddLevelsDialog({
     isAdding,
     addLevel,
     seedAndSelect,
-    seedingId,
+    seedAndAdd,
+    pending,
     seeded,
     clearSeeded,
     seededAlreadyAdded,
@@ -97,25 +100,31 @@ export function AddLevelsDialog({
           </div>
         </div>
 
-        {/* Fetching an unknown ID from RobTop. */}
-        {seedingId && (
+        {/* Busy indicator. Covers both waits a picked GD result goes through
+            (seed, then add), so the results list never flashes back between
+            them, as well as the raw-ID seed on its own. */}
+        {pending && (
           <div>
             <SectionLabel tone="secondary" className="mb-2">
               Results
             </SectionLabel>
             <div className="flex h-12 items-center gap-3 rounded-btn border border-border bg-bg-surface px-4 text-sm text-text-secondary">
               <Loader2 size={16} className="animate-spin text-primary" />
-              Fetching level {seedingId} from the GD servers…
+              {pending.phase === 'seeding'
+                ? `Fetching level ${pending.levelId} from the GD servers…`
+                : `Adding ${pending.name ?? `level ${pending.levelId}`} to ${collection.name}…`}
             </div>
-            <p className="mt-2 text-xs text-text-tertiary">
-              New to InfernoLog — we&apos;ll add it to the shared cache so
-              it&apos;s name-searchable next time.
-            </p>
+            {pending.phase === 'seeding' && (
+              <p className="mt-2 text-xs text-text-tertiary">
+                New to InfernoLog — we&apos;ll add it to the shared cache so
+                it&apos;s name-searchable next time.
+              </p>
+            )}
           </div>
         )}
 
-        {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
-        {seeded && !seedingId && (
+        {/* Seeded confirmation card — only for raw IDs, never a picked GD result. */}
+        {seeded && !pending && (
           <SeededLevelPreviewCard
             level={seeded}
             badge={
@@ -216,7 +225,7 @@ export function AddLevelsDialog({
                 <GdSearchSection
                   escalation={escalation}
                   query={trimmed}
-                  onSelect={(levelId) => seedAndSelect(levelId)}
+                  onSelect={(levelId) => seedAndAdd(levelId)}
                   offer={{
                     title: `Search GD's servers for "${trimmed}"`,
                     subtitle:

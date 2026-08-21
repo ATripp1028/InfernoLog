@@ -24,8 +24,9 @@ interface AddToCollectionDialogProps {
  * Two-step flow for adding a level to one or more collections.
  *
  *   Step 1 (level search) — skipped when preselectedLevel is provided.
- *     Name search / cached ID → click to proceed to step 2.
- *     Unknown numeric ID → seed from RobTop → proceed to step 2.
+ *     Name search / cached ID / GD-server search result → click to proceed to
+ *     step 2 (a GD result is seeded into the cache on the way).
+ *     Unknown numeric ID → seed from RobTop → confirm → proceed to step 2.
  *
  *   Step 2 (collection picker) — searchable list with checkboxes.
  *     Confirm adds the level to all selected collections in parallel.
@@ -58,6 +59,7 @@ export function AddToCollectionDialog({
     seededLevel,
     clearSeededLevel,
     seedAndPick,
+    seedAndSelect,
     selectLevel,
     pickedLevel,
     collectionQuery,
@@ -117,7 +119,7 @@ export function AddToCollectionDialog({
         </div>
       )}
 
-      {/* Seeded confirmation card — only for unknown IDs fetched from RobTop. */}
+      {/* Seeded confirmation card — only for raw IDs, never a picked GD result. */}
       {seededLevel && !seedingId && (
         <SeededLevelPreviewCard
           level={seededLevel}
@@ -196,7 +198,7 @@ export function AddToCollectionDialog({
               <GdSearchSection
                 escalation={escalation}
                 query={trimmed}
-                onSelect={(levelId) => seedAndPick(levelId)}
+                onSelect={(levelId) => seedAndSelect(levelId)}
                 offer={{
                   title: `Search GD's servers for "${trimmed}"`,
                   subtitle:

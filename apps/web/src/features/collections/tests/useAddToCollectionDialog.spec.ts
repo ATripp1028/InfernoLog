@@ -370,6 +370,57 @@ describe('useAddToCollectionDialog', () => {
       })
     })
 
+    // A GD-server search result row already showed name, creator, id and
+    // difficulty, so picking one goes straight to step 2 — only a raw typed id
+    // gets the confirmation card.
+    describe('picking a GD-search result', () => {
+      it('goes straight to the collection picker', async () => {
+        resolveAsync.mockResolvedValue(
+          makeResolveResponse({
+            level: makeCachedLevel({ inGameId: '12345', name: 'Tidal Wave' }),
+          })
+        )
+        const { result } = render()
+        act(() => result.current.updateLevelQuery('tidal'))
+
+        await act(async () => result.current.seedAndSelect('12345'))
+
+        expect(result.current.step).toBe('pick')
+        expect(result.current.pickedLevel).toMatchObject({
+          inGameId: '12345',
+          name: 'Tidal Wave',
+        })
+        expect(result.current.seededLevel).toBeNull()
+        // The query survives so Back returns to the same GD results.
+        expect(result.current.levelQuery).toBe('tidal')
+      })
+
+      it("carries the level's completion through to the picker", async () => {
+        resolveAsync.mockResolvedValue(
+          makeResolveResponse({
+            existingCompletion: { id: 'completion-1' } as never,
+          })
+        )
+        const { result } = render()
+
+        await act(async () => result.current.seedAndSelect('12345'))
+
+        expect(result.current.pickedLevel?.completed).toBe(true)
+      })
+
+      it('stays on the search step when the fetch fails', async () => {
+        resolveAsync.mockRejectedValue(apiError(503, 'GD servers unreachable'))
+        const { result } = render()
+
+        await act(async () => result.current.seedAndSelect('12345'))
+
+        expect(toast.error).toHaveBeenCalledWith('GD servers unreachable')
+        expect(result.current.step).toBe('search')
+        expect(result.current.pickedLevel).toBeNull()
+        expect(result.current.seedingId).toBeNull()
+      })
+    })
+
     describe('submitting the query', () => {
       it('ignores Enter on a name query — the user picks a result instead', () => {
         const { result } = render()

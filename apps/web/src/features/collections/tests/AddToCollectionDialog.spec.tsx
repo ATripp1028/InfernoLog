@@ -46,6 +46,7 @@ function stubDialog(overrides: Partial<DialogState> = {}): DialogState {
     seededLevel: null,
     clearSeededLevel: vi.fn(),
     seedAndPick: vi.fn(),
+    seedAndSelect: vi.fn(),
     selectLevel: vi.fn(),
     pickedLevel: null,
     collectionQuery: '',
@@ -133,6 +134,32 @@ describe('AddToCollectionDialog', () => {
       )
 
       expect(seedAndPick).toHaveBeenCalledWith('128')
+    })
+
+    // The GD rows carry name, creator, id and difficulty, so picking one must
+    // go straight through rather than land on a confirmation card.
+    it('picks a GD-server result without a confirmation step', async () => {
+      const seedAndSelect = vi.fn()
+      renderDialog({
+        showEmptyPrompt: false,
+        showResults: true,
+        trimmed: 'bloodbath',
+        escalation: stubEscalation({
+          escalatedQuery: 'bloodbath',
+          result: {
+            status: 'ok',
+            rated: [
+              makeSearchResult({ inGameId: '4284013', name: 'Bloodbath' }),
+            ],
+            unrated: [],
+          },
+        }),
+        seedAndSelect,
+      })
+
+      await userEvent.click(screen.getByRole('option', { name: /Bloodbath/ }))
+
+      expect(seedAndSelect).toHaveBeenCalledWith('4284013')
     })
 
     it('lists cache results and selects the one clicked', async () => {

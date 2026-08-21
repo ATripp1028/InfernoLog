@@ -1,6 +1,7 @@
 // Logic for AddToCollectionDialog: the two-step (level → collections) state
-// machine, the level lookup/seed paths, the collection list the picker shows,
-// and the parallel add on confirm. The component renders what this returns.
+// machine, the level lookup/seed paths (a raw id is held for confirmation, a
+// picked GD-search result is not), the collection list the picker shows, and
+// the parallel add on confirm. The component renders what this returns.
 
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
@@ -150,17 +151,20 @@ export function useAddToCollectionDialog({
     setStep('pick')
   }
 
-  async function seedAndPick(levelId: string) {
-    setSeedingId(levelId)
+  // Fetch a level from RobTop into the shared cache. Returns the seeded level,
+  // or null when it could not be fetched (reported here, not by the caller).
+  // The caller owns the seeding indicator, so it stays up until whatever it
+  // does with the level has been rendered.
+  async function seedLevel(levelId: string): Promise<SeededLevel | null> {
     try {
       const res = await resolveLevel.mutateAsync(levelId)
       if (!res.level) {
         toast.error(
           'That level could not be fetched from the GD servers. Log it once to add it manually.'
         )
-        return
+        return null
       }
-      setSeededLevel({
+      return {
         inGameId: res.level.inGameId,
         name: res.level.name,
         creator: res.level.creator,
@@ -169,12 +173,37 @@ export function useAddToCollectionDialog({
         epicValue: res.level.epicValue,
         isRated: res.level.isRated,
         completed: res.existingCompletion !== null,
-      })
-      setLevelQuery('')
+      }
     } catch (err) {
       toast.error(
         err instanceof ApiError ? err.message : 'Could not look up that level'
       )
+      return null
+    }
+  }
+
+  // Raw id typed by the user — nothing about the level was visible before the
+  // fetch, so hold it on a confirmation card before step 2.
+  async function seedAndPick(levelId: string) {
+    setSeedingId(levelId)
+    try {
+      const level = await seedLevel(levelId)
+      if (!level) return
+      setSeededLevel(level)
+      setLevelQuery('')
+    } finally {
+      setSeedingId(null)
+    }
+  }
+
+  // GD-search pick — the result row already showed name, creator, id and
+  // difficulty, so seeding it leads straight to the collection picker. The
+  // query is left alone so Back returns to those same results.
+  async function seedAndSelect(levelId: string) {
+    setSeedingId(levelId)
+    try {
+      const level = await seedLevel(levelId)
+      if (level) selectLevel(level)
     } finally {
       setSeedingId(null)
     }
@@ -299,6 +328,7 @@ export function useAddToCollectionDialog({
     seededLevel,
     clearSeededLevel: () => setSeededLevel(null),
     seedAndPick: (levelId: string) => void seedAndPick(levelId),
+    seedAndSelect: (levelId: string) => void seedAndSelect(levelId),
     selectLevel,
 
     // Collection picker
