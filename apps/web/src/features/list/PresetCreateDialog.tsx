@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/generic/textarea'
-import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
-import { DialogCloseButton } from '@/components/generic/dialog-close-button'
+import { Modal } from '@/components/generic/modal'
 
 interface PresetCreateDialogProps {
   open: boolean
@@ -39,7 +37,7 @@ export function PresetCreateDialog({
   existingNames,
   excludeName,
 }: PresetCreateDialogProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)')
+  const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(initialName ?? '')
   const [description, setDescription] = useState(initialDescription ?? '')
   const [color, setColor] = useState<PresetColorId>(initialColor ?? 'blue')
@@ -62,26 +60,15 @@ export function PresetCreateDialog({
     }
   }, [open, initialName, initialDescription, initialColor])
 
-  if (!open) return null
-
   function handleSave() {
     if (!trimmedName || isDuplicate) return
     onSave(trimmedName, description.trim(), color)
   }
 
-  // Nothing dismisses the dialog while the preset is saving — the X, Cancel,
-  // Escape and the backdrop all defer to this, and the first two fade out.
-  function requestClose() {
-    if (!isSaving) onClose()
-  }
-
+  // Enter submits; Escape is Modal's to handle, and it already refuses while
+  // the save is in flight.
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) handleSave()
-    if (e.key === 'Escape') requestClose()
-  }
-
-  function handleBackdropClick(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) requestClose()
   }
 
   const selectedColorObj = PRESET_COLORS.find((c) => c.id === color)!
@@ -92,7 +79,7 @@ export function PresetCreateDialog({
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-text-secondary">Name</label>
         <input
-          autoFocus={isDesktop}
+          ref={nameRef}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -165,7 +152,7 @@ export function PresetCreateDialog({
   )
 
   const footer = (
-    <div className="mt-5 flex justify-end gap-2">
+    <div className="flex justify-end gap-2">
       <button
         type="button"
         onClick={onClose}
@@ -185,44 +172,19 @@ export function PresetCreateDialog({
     </div>
   )
 
-  if (isDesktop) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        onClick={handleBackdropClick}
-      >
-        <div
-          className="w-full max-w-sm rounded-xl border border-border bg-bg-elevated p-5 shadow-xl"
-          onKeyDown={handleKeyDown}
-        >
-          <h2 className="mb-4 text-base font-semibold text-text-primary">
-            {title}
-          </h2>
-          {body}
-          {footer}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <MobileSheetDialog
+    <Modal
+      open={open}
       onClose={onClose}
-      dismissDisabled={isSaving}
-      className="border-border bg-bg-surface"
+      busy={isSaving}
+      size="sm"
+      title={title}
+      autoFocusRef={nameRef}
+      footer={footer}
     >
-      <div className="overflow-y-auto" onKeyDown={handleKeyDown}>
-        <div className="flex items-start justify-between px-5 pb-2 pt-3">
-          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
-          <DialogCloseButton
-            onClick={requestClose}
-            disabled={isSaving}
-            className="size-8 hover:bg-bg-subtle hover:text-text-primary"
-          />
-        </div>
-        <div className="px-5 pt-1">{body}</div>
+      <div className="px-5 pb-5 pt-1" onKeyDown={handleKeyDown}>
+        {body}
       </div>
-      <div className="px-5 pb-6">{footer}</div>
-    </MobileSheetDialog>
+    </Modal>
   )
 }

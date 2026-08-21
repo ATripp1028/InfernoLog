@@ -1,11 +1,5 @@
-import * as Dialog from '@radix-ui/react-dialog'
-import { cn } from '@/lib/utils'
-import {
-  dialogContentAnimation,
-  dialogOverlayAnimation,
-} from '@/lib/dialogAnimation'
 import { Button } from '@/components/generic/button'
-import { DialogCloseButton } from '@/components/generic/dialog-close-button'
+import { Modal } from '@/components/generic/modal'
 
 interface EditModalShellProps {
   open: boolean
@@ -21,11 +15,14 @@ interface EditModalShellProps {
 }
 
 /**
- * The dialog chrome every edit modal shares — overlay, the mobile
- * bottom-sheet/desktop-centred card, header, scrolling body, and the
- * Cancel/Save footer. Only the fields inside differ between them.
+ * `Modal` with the Cancel/Save footer the three edit modals share.
  *
- * While `isSaving`, the modal cannot be dismissed at all: Escape, the overlay,
+ * That footer, and the `onSave`/`isSaving`/`saveDisabled` contract behind it,
+ * is the only thing this adds — everything else is Modal's. It stays a
+ * separate component so the footer lives in one place rather than being
+ * retyped in each of the three.
+ *
+ * While `isSaving` the modal can't be dismissed at all: Escape, the overlay,
  * the X and Cancel are all inert, so a save in flight can't be orphaned by a
  * stray click. The X and Cancel fade out to say so.
  */
@@ -41,69 +38,28 @@ export function EditModalShell({
   saveDisabled,
 }: EditModalShellProps) {
   return (
-    <Dialog.Root
+    <Modal
       open={open}
-      onOpenChange={(o) => {
-        // Radix funnels Escape, the overlay and Dialog.Close through here, so
-        // one guard covers every dismissal path.
-        if (isSaving) return
-        if (!o) onClose()
-      }}
+      onClose={onClose}
+      busy={isSaving}
+      title={title}
+      subtitle={subtitle}
+      belowHeader={belowHeader}
+      footer={
+        <div className="flex items-center justify-end gap-3">
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={onSave} disabled={isSaving || saveDisabled}>
+            {isSaving ? 'Saving…' : 'Save changes'}
+          </Button>
+        </div>
+      }
     >
-      <Dialog.Portal>
-        <Dialog.Overlay
-          className={cn(
-            'fixed inset-0 z-40 bg-black/60 backdrop-blur-sm',
-            dialogOverlayAnimation
-          )}
-        />
-        <Dialog.Content
-          aria-describedby={undefined}
-          className={cn(
-            'fixed z-50 focus:outline-none',
-            dialogContentAnimation,
-            'md:left-1/2 md:top-1/2 md:right-auto md:bottom-auto md:-translate-x-1/2 md:-translate-y-1/2',
-            'inset-x-0 bottom-0 w-full md:w-[540px]'
-          )}
-        >
-          <div className="flex max-h-[92dvh] flex-col rounded-t-card border border-border bg-bg-surface shadow-[0_24px_64px_rgba(0,0,0,0.6)] md:max-h-[calc(100vh-4rem)] md:rounded-card">
-            <div className="flex justify-center pb-1 pt-2 md:hidden">
-              <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-            </div>
-
-            <div className="flex items-start justify-between px-5 pb-3 pt-4 md:pt-5">
-              <div>
-                <Dialog.Title className="text-lg font-semibold text-text-primary">
-                  {title}
-                </Dialog.Title>
-                <p className="mt-0.5 text-sm text-text-secondary">{subtitle}</p>
-              </div>
-              <Dialog.Close asChild>
-                <DialogCloseButton
-                  disabled={isSaving}
-                  className="mt-0.5 size-8 bg-bg-elevated hover:text-text-primary"
-                />
-              </Dialog.Close>
-            </div>
-
-            {belowHeader}
-
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 pb-2 pt-1">
-              {children}
-              <div className="h-2" />
-            </div>
-
-            <div className="flex items-center justify-end gap-3 border-t border-border px-5 py-4">
-              <Button variant="outline" onClick={onClose} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button onClick={onSave} disabled={isSaving || saveDisabled}>
-                {isSaving ? 'Saving…' : 'Save changes'}
-              </Button>
-            </div>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      <div className="space-y-6 px-5 pb-2 pt-1">
+        {children}
+        <div className="h-2" />
+      </div>
+    </Modal>
   )
 }

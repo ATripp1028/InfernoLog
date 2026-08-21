@@ -1,14 +1,14 @@
+import { useRef } from 'react'
 import { ArrowLeft, Loader2, Search } from 'lucide-react'
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { collectionIdentity, isBuiltIn, withAlpha } from './identity'
-import { useMediaQuery } from '@/lib/useMediaQuery'
 import { GdSearchSection } from '@/features/search/GdSearchSection'
 import { SeededLevelPreviewCard } from './SeededLevelPreviewCard'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
-import { DialogCloseButton } from '@/components/generic/dialog-close-button'
+import { Modal } from '@/components/generic/modal'
 import {
   useAddToCollectionDialog,
   type PickedLevel,
@@ -44,7 +44,10 @@ export function AddToCollectionDialog({
   onClose,
   preselectedLevel,
 }: AddToCollectionDialogProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)')
+  // Only one of the two search fields exists when the modal opens — the level
+  // search, or the collection search when the caller preselected a level — so
+  // one ref serves both.
+  const openFocusRef = useRef<HTMLInputElement>(null)
   const {
     step,
     goBackToSearch,
@@ -82,16 +85,11 @@ export function AddToCollectionDialog({
   } = useAddToCollectionDialog({ open, onClose, preselectedLevel })
 
   const busy = isSubmitting || !!seedingId
-  const requestClose = () => {
-    if (!busy) onClose()
-  }
-
-  if (!open) return null
 
   // ── Step 1: level search ───────────────────────────────────────────
 
   const searchBody = (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 px-5 py-5">
       <div>
         <label
           htmlFor="atc-level-query"
@@ -106,7 +104,7 @@ export function AddToCollectionDialog({
           />
           <Input
             id="atc-level-query"
-            autoFocus={isDesktop}
+            ref={openFocusRef}
             value={levelQuery}
             onChange={(e) => updateLevelQuery(e.target.value)}
             onKeyDown={(e) => {
@@ -271,7 +269,7 @@ export function AddToCollectionDialog({
             className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
           />
           <Input
-            autoFocus={isDesktop && !!preselectedLevel}
+            ref={openFocusRef}
             value={collectionQuery}
             onChange={(e) => setCollectionQuery(e.target.value)}
             placeholder="Search collections…"
@@ -286,7 +284,7 @@ export function AddToCollectionDialog({
             <Loader2 size={20} className="animate-spin text-text-tertiary" />
           </div>
         ) : collectionsFailed || !hasBuiltIns ? (
-          <div className="flex flex-col items-center px-6 py-10 text-center">
+          <div className="flex flex-col items-center px-5 py-10 text-center">
             <p className="text-sm font-medium text-text-primary">
               {collectionsFailed
                 ? "Couldn't load your collections"
@@ -307,7 +305,7 @@ export function AddToCollectionDialog({
             </Button>
           </div>
         ) : filteredCollections.length === 0 ? (
-          <p className="px-6 py-8 text-center text-sm text-text-tertiary">
+          <p className="px-5 py-8 text-center text-sm text-text-tertiary">
             {collectionQuery
               ? `No collections match "${collectionQuery}"`
               : 'No collections yet'}
@@ -368,31 +366,9 @@ export function AddToCollectionDialog({
 
   const n = selectedIds.size
 
-  const header = (
-    <div className="flex items-start justify-between border-b border-border px-6 pb-3 pt-3.5">
-      <div>
-        <SectionLabel tone="primary">
-          {step === 'search'
-            ? 'Step 1 · Level'
-            : !preselectedLevel
-              ? 'Step 2 · Collections'
-              : 'Collections'}
-        </SectionLabel>
-        <h2 className="mt-0.5 text-lg font-bold text-text-primary">
-          Add to a Collection
-        </h2>
-      </div>
-      <DialogCloseButton
-        onClick={requestClose}
-        disabled={busy}
-        className="mt-1 size-9 hover:bg-bg-subtle hover:text-text-primary"
-      />
-    </div>
-  )
-
   const footer =
     step === 'pick' ? (
-      <div className="flex items-center justify-between gap-3 border-t border-border px-6 py-4">
+      <div className="flex items-center justify-between gap-3">
         {canGoBack ? (
           <button
             type="button"
@@ -418,7 +394,7 @@ export function AddToCollectionDialog({
         </Button>
       </div>
     ) : seededLevel ? (
-      <div className="flex items-center justify-end gap-3 border-t border-border px-6 py-4">
+      <div className="flex items-center justify-end gap-3">
         <Button
           onClick={() => selectLevel(seededLevel)}
           className="min-w-[180px]"
@@ -428,45 +404,26 @@ export function AddToCollectionDialog({
       </div>
     ) : null
 
-  const innerBody = step === 'search' ? searchBody : pickBody
-
-  if (isDesktop) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) requestClose()
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') requestClose()
-        }}
-      >
-        <div className="flex max-h-[80vh] min-h-[520px] w-full max-w-[560px] flex-col overflow-hidden rounded-xl border border-border bg-bg-surface shadow-[0_12px_40px_rgba(0,0,0,0.5)]">
-          {header}
-          {innerBody}
-          {footer}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="fixed inset-0 z-50 md:hidden">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        disabled={busy}
-        className="absolute inset-0 bg-black/55"
-      />
-      <div className="absolute inset-x-0 bottom-0 flex max-h-[88dvh] min-h-[70dvh] flex-col overflow-hidden rounded-t-card border-t border-border bg-bg-surface shadow-[0_-8px_24px_rgba(0,0,0,0.5)]">
-        <div className="flex justify-center pt-2">
-          <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-        </div>
-        {header}
-        {innerBody}
-        {footer}
-      </div>
-    </div>
+    <Modal
+      open={open}
+      onClose={onClose}
+      busy={busy}
+      size="xl"
+      tall
+      divided
+      eyebrow={
+        step === 'search'
+          ? 'Step 1 · Level'
+          : !preselectedLevel
+            ? 'Step 2 · Collections'
+            : 'Collections'
+      }
+      title="Add to a Collection"
+      autoFocusRef={openFocusRef}
+      footer={footer}
+    >
+      {step === 'search' ? searchBody : pickBody}
+    </Modal>
   )
 }
