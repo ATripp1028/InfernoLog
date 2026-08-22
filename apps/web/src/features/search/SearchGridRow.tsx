@@ -46,7 +46,7 @@ export function SearchGridRow({ level }: { level: LevelBrowseResult }) {
       to="/levels/$levelId"
       params={{ levelId: level.inGameId }}
       state={backOriginState(location.href)}
-      className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-border-subtle px-3 py-2.5 transition-colors"
+      className="group relative flex items-center gap-3 overflow-hidden rounded-card border border-border-subtle pr-3 transition-colors"
     >
       <ThumbnailWash levelId={level.inGameId} variant="row" />
       <span
