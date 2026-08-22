@@ -17,11 +17,13 @@ import * as Sentry from '@sentry/aws-serverless'
 /**
  * The level the canary asks for. 128 ("1st level") is one of the oldest levels
  * on the servers and has outlived every outage so far, which is the only
- * property that matters here. Overridable so a stage can point at something
- * else without a deploy — and so this is fixable by config if the level ever
- * does disappear.
+ * property that matters here.
+ *
+ * A constant rather than configuration: the day this level disappears is the
+ * day the `level_missing` alarm below fires, and changing one line then is
+ * simpler than carrying an env var nothing ever sets.
  */
-const CANARY_LEVEL_ID = process.env.ROBTOP_CANARY_LEVEL_ID ?? '128'
+const CANARY_LEVEL_ID = '128'
 
 /**
  * How long the canary waits for a shared rate-limiter slot, well above the
@@ -94,10 +96,10 @@ export async function runRobtopCanary(): Promise<CanaryOutcome> {
     // RobTop's health, so it must not page as an outage.
     logger.error(
       { levelId: CANARY_LEVEL_ID },
-      'robtopCanary: canary level no longer exists; pick a new ROBTOP_CANARY_LEVEL_ID'
+      'robtopCanary: canary level no longer exists; point CANARY_LEVEL_ID at a live level'
     )
     Sentry.captureMessage(
-      `robtopCanary: canary level ${CANARY_LEVEL_ID} no longer exists — set ROBTOP_CANARY_LEVEL_ID to a live level`,
+      `robtopCanary: canary level ${CANARY_LEVEL_ID} no longer exists — point CANARY_LEVEL_ID (services/levels/canary.ts) at a live level`,
       'warning'
     )
     return 'level_missing'

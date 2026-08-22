@@ -74,7 +74,7 @@ describe('runRobtopCanary', () => {
 
     await expect(runRobtopCanary()).resolves.toBe('level_missing')
     expect(captureMessageMock).toHaveBeenCalledWith(
-      expect.stringContaining('ROBTOP_CANARY_LEVEL_ID'),
+      expect.stringContaining('CANARY_LEVEL_ID'),
       'warning'
     )
   })
