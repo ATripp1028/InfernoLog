@@ -106,8 +106,11 @@ export async function runRobtopCanary(): Promise<CanaryOutcome> {
   }
 
   logger.error({ levelId: CANARY_LEVEL_ID }, 'robtopCanary: RobTop unreachable')
+  // The alert carries its own runbook: the comparison it asks for is only
+  // possible WHILE the block is happening, which is the window this alarm
+  // exists to open.
   Sentry.captureMessage(
-    `robtopCanary: RobTop unreachable (level ${CANARY_LEVEL_ID}) — see the fetchRobtopLevel log line for the status and cf-ray`,
+    `robtopCanary: RobTop unreachable (level ${CANARY_LEVEL_ID}) — check the fetchRobtopLevel log line for status/cf-ray, then run \`pnpm probe:robtop\` from a non-AWS machine while this is still firing: if it succeeds, the block is on our egress IP rather than our request`,
     'error'
   )
   return 'unreachable'

@@ -23,12 +23,20 @@ vi.mock('./logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
 
-// Cloudflare's block page, trimmed. The real one is ~4KB of HTML; what matters
-// is that it is HTML rather than a getGJLevels21 body.
+// Cloudflare's block page. The real one opens with ~700 bytes of DOCTYPE and IE
+// conditional comments — boilerplate shared by every Cloudflare error page —
+// and only says what it is thousands of bytes in. That shape is the point of
+// the fixture: sampling the front of this body identifies nothing.
 const CF_BLOCK_PAGE =
-  '<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title>' +
-  '</head><body><h1>Sorry, you have been blocked</h1>' +
-  '<p>You are unable to access boomlings.com</p></body></html>'
+  '<!DOCTYPE html>\n' +
+  '<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
+  '<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->\n' +
+  '<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->\n' +
+  '<head><title>Attention Required! | Cloudflare</title></head>' +
+  `<body>${' '.repeat(3000)}` +
+  '<h1 data-translate="block_headline">Sorry, you have been blocked</h1>' +
+  '<div id="cf-error-details" class="cf-error-details-wrapper">' +
+  '<p>You are unable to access boomlings.com</p></div></body></html>'
 
 const mockAcquireSlot = vi.mocked(acquireRobtopSlot)
 const mockReportThrottled = vi.mocked(reportRobtopThrottled)
@@ -374,6 +382,14 @@ describe('fetchRobtopLevelResult', () => {
   })
 
   describe('non-OK diagnostics', () => {
+    /** The payload of the non-OK log line from the most recent call. */
+    function lastNonOkLog(): Record<string, unknown> {
+      const calls = vi
+        .mocked(logger.warn)
+        .mock.calls.filter((c) => c[1] === 'fetchRobtopLevel: non-OK response')
+      return calls[calls.length - 1]![0] as Record<string, unknown>
+    }
+
     it('logs the Cloudflare block details a 403 can be diagnosed from', async () => {
       mockFetch.mockResolvedValueOnce(
         robtopResp(403, CF_BLOCK_PAGE, {
@@ -384,22 +400,44 @@ describe('fetchRobtopLevelResult', () => {
       )
       await fetchRobtopLevelResult('222')
 
-      const [details] = vi
-        .mocked(logger.warn)
-        .mock.calls.find(
-          (call) => call[1] === 'fetchRobtopLevel: non-OK response'
-        )!
-      expect(details).toMatchObject({
+      // The marker has to come from the headline thousands of bytes in, not
+      // from the DOCTYPE boilerplate the page opens with.
+      expect(lastNonOkLog()).toMatchObject({
         levelId: '222',
         status: 403,
         cfRay: 'a2f5533e6fc34e0a-MCI',
         cfMitigated: 'challenge',
         server: 'cloudflare',
+        blockPage: true,
+        marker: 'Sorry, you have been blocked',
       })
-      expect(details).toHaveProperty('bodySnippet')
-      expect(
-        (details as { bodySnippet: string }).bodySnippet.length
-      ).toBeLessThanOrEqual(200)
+    })
+
+    it('keeps a raw excerpt only for a body it cannot classify', async () => {
+      // An unrecognised body is the one case where the raw text is worth having.
+      mockFetch.mockResolvedValueOnce(robtopResp(502, 'upstream connect error'))
+      await fetchRobtopLevelResult('222')
+
+      expect(lastNonOkLog()).toMatchObject({
+        status: 502,
+        blockPage: false,
+        snippet: 'upstream connect error',
+      })
+      expect(lastNonOkLog()).not.toHaveProperty('marker')
+    })
+
+    it('reports a Cloudflare error code when the page carries one', async () => {
+      // boomlings' block page has no numeric code today, but it is the most
+      // useful field when a Cloudflare page does carry one.
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(
+          403,
+          '<html><body>Access denied. error code: 1020</body></html>'
+        )
+      )
+      await fetchRobtopLevelResult('222')
+
+      expect(lastNonOkLog()).toMatchObject({ marker: 'cloudflare 1020' })
     })
 
     it('still reports unreachable when the body cannot be read', async () => {

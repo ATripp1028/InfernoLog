@@ -352,7 +352,9 @@ export async function syncLevelBatch(
       )
       Sentry.captureMessage(
         `levelSync circuit breaker: ${goneStreak} consecutive failures, ` +
-          `aborted with ${remaining} level(s) unprocessed`,
+          `aborted with ${remaining} level(s) unprocessed — if RobTop is ` +
+          'blocking us, run `pnpm probe:robtop` from a non-AWS machine while ' +
+          'it lasts to tell an egress-IP block from a bad request',
         'error'
       )
       break

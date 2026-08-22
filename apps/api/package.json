@@ -18,6 +18,7 @@
     "db:seed:official": "tsx src/scripts/seedOfficialLevels.ts",
     "e2e:provision": "tsx src/scripts/provisionE2eUser.ts",
     "e2e:reset": "tsx src/scripts/resetE2eUser.ts",
+    "probe:robtop": "tsx src/scripts/probeRobtop.ts",
     "db:studio:prod": "dotenv -e .env.production -- prisma studio",
     "test": "vitest run",
     "test:unit": "vitest run --project unit",

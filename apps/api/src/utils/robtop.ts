@@ -13,6 +13,7 @@
 // resources/server/level).
 
 import { logger } from './logger'
+import { buildGetGJLevels21Request, summarizeErrorBody } from './robtopRequest'
 import {
   acquireRobtopSlot,
   reportRobtopThrottled,
@@ -30,14 +31,6 @@ function parseRetryAfterMs(headerValue: string | null): number | undefined {
   if (!Number.isNaN(when)) return Math.max(0, when - Date.now())
   return undefined
 }
-
-// Plain HTTP works too, but these calls cross the public internet with no
-// transport security and boomlings serves the same endpoint over TLS.
-const ROBTOP_API_BASE_URL =
-  process.env.ROBTOP_API_BASE_URL ?? 'https://www.boomlings.com/database'
-
-// The shared read secret for getGJLevels21 (a fixed, public constant).
-const GETLEVELS_SECRET = 'Wmfd2893gb7'
 
 // Keep a hung request from pinning the Lambda until its own timeout.
 const FETCH_TIMEOUT_MS = 5000
@@ -72,9 +65,9 @@ async function reportNonOkResponse(
   res: Response,
   context: Record<string, string>
 ): Promise<void> {
-  let bodySnippet: string | undefined
+  let body = ''
   try {
-    bodySnippet = (await res.text()).slice(0, 200)
+    body = await res.text()
   } catch {
     // A body we can't read is not worth failing over.
   }
@@ -86,7 +79,7 @@ async function reportNonOkResponse(
       cfRay: res.headers.get('cf-ray'),
       cfMitigated: res.headers.get('cf-mitigated'),
       server: res.headers.get('server'),
-      bodySnippet,
+      ...summarizeErrorBody(body),
     },
     'fetchRobtopLevel: non-OK response'
   )
@@ -489,24 +482,11 @@ export async function fetchRobtopLevelResult(
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const body = new URLSearchParams({
+    const { url, init } = buildGetGJLevels21Request({
       type: '0',
       str: levelId,
-      secret: GETLEVELS_SECRET,
-      gameVersion: '22',
-      binaryVersion: '42',
     })
-
-    const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        // Must be empty to bypass Cloudflare (HTTP 1020 otherwise).
-        'User-Agent': '',
-      },
-      body,
-      signal: controller.signal,
-    })
+    const res = await fetch(url, { ...init, signal: controller.signal })
     if (!res.ok) {
       // A genuine failure (not "level doesn't exist" — that's a 200 with a
       // "-1" body, handled below without logging). This is the branch a
@@ -597,30 +577,19 @@ export async function searchRobtopByNameResult(
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const body = new URLSearchParams({
+    const params: Record<string, string> = {
       type: options?.type ?? '0',
       str: name,
-      secret: GETLEVELS_SECRET,
-      gameVersion: '22',
-      binaryVersion: '42',
       count: '10',
-    })
-    if (options?.diff !== undefined) body.set('diff', options.diff)
-    if (options?.demonFilter !== undefined)
-      body.set('demonFilter', options.demonFilter)
-    if (options?.extraParams) {
-      for (const [k, v] of Object.entries(options.extraParams)) body.set(k, v)
     }
+    if (options?.diff !== undefined) params.diff = options.diff
+    if (options?.demonFilter !== undefined)
+      params.demonFilter = options.demonFilter
+    // Applied last, so a caller's extras win over diff/demonFilter.
+    if (options?.extraParams) Object.assign(params, options.extraParams)
 
-    const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': '',
-      },
-      body,
-      signal: controller.signal,
-    })
+    const { url, init } = buildGetGJLevels21Request(params)
+    const res = await fetch(url, { ...init, signal: controller.signal })
     if (!res.ok) {
       // Same logging and shared-cooldown backoff as fetchRobtopLevelResult.
       await reportNonOkResponse(res, { name })
