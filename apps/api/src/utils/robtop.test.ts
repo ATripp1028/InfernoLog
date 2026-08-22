@@ -8,6 +8,7 @@ import {
   searchRobtopByNameResult,
 } from './robtop'
 import { acquireRobtopSlot, reportRobtopThrottled } from './robtopRateLimit'
+import { logger } from './logger'
 
 // The rate limiter reads/writes shared state (DynamoDB in production), and the
 // logger is noise here. DEFAULT_COOLDOWN_MS is re-exported from the real module
@@ -16,10 +17,18 @@ vi.mock('./robtopRateLimit', () => ({
   acquireRobtopSlot: vi.fn(),
   reportRobtopThrottled: vi.fn(),
   DEFAULT_COOLDOWN_MS: 60_000,
+  BLOCKED_COOLDOWN_MS: 300_000,
 }))
 vi.mock('./logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
+
+// Cloudflare's block page, trimmed. The real one is ~4KB of HTML; what matters
+// is that it is HTML rather than a getGJLevels21 body.
+const CF_BLOCK_PAGE =
+  '<!DOCTYPE html><html><head><title>Attention Required! | Cloudflare</title>' +
+  '</head><body><h1>Sorry, you have been blocked</h1>' +
+  '<p>You are unable to access boomlings.com</p></body></html>'
 
 const mockAcquireSlot = vi.mocked(acquireRobtopSlot)
 const mockReportThrottled = vi.mocked(reportRobtopThrottled)
@@ -50,6 +59,9 @@ beforeEach(() => {
   mockFetch.mockReset()
   mockAcquireSlot.mockReset().mockResolvedValue(true)
   mockReportThrottled.mockReset().mockResolvedValue(undefined)
+  // The diagnostics tests read logger.warn's calls, so they must see only their
+  // own.
+  vi.mocked(logger.warn).mockClear()
 })
 
 // Real getGJLevels21 response for a "bloodbath" search (5 levels). We query by
@@ -324,10 +336,83 @@ describe('fetchRobtopLevelResult', () => {
       })
     })
 
-    it('does not open a cooldown for non-429 failures', async () => {
+    it('does not open a cooldown for a 5xx', async () => {
+      // RobTop's origin being unwell is not RobTop telling us to stop.
       mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
       await fetchRobtopLevelResult('222')
       expect(mockReportThrottled).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('403 shared cooldown (Cloudflare block)', () => {
+    it('opens the fixed block cooldown', async () => {
+      // A block page carries no Retry-After, so the fixed window applies.
+      mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
+      expect(mockReportThrottled).toHaveBeenCalledWith(300_000)
+    })
+
+    it('ignores Retry-After on a 403', async () => {
+      // Only a 429 negotiates its own backoff; a WAF block does not get to ask
+      // us to come back in a second.
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(403, CF_BLOCK_PAGE, { 'retry-after': '1' })
+      )
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(300_000)
+    })
+
+    it('still reports unreachable when recording the cooldown fails', async () => {
+      mockReportThrottled.mockRejectedValueOnce(new Error('db down'))
+      mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
+    })
+  })
+
+  describe('non-OK diagnostics', () => {
+    it('logs the Cloudflare block details a 403 can be diagnosed from', async () => {
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(403, CF_BLOCK_PAGE, {
+          'cf-ray': 'a2f5533e6fc34e0a-MCI',
+          'cf-mitigated': 'challenge',
+          server: 'cloudflare',
+        })
+      )
+      await fetchRobtopLevelResult('222')
+
+      const [details] = vi
+        .mocked(logger.warn)
+        .mock.calls.find(
+          (call) => call[1] === 'fetchRobtopLevel: non-OK response'
+        )!
+      expect(details).toMatchObject({
+        levelId: '222',
+        status: 403,
+        cfRay: 'a2f5533e6fc34e0a-MCI',
+        cfMitigated: 'challenge',
+        server: 'cloudflare',
+      })
+      expect(details).toHaveProperty('bodySnippet')
+      expect(
+        (details as { bodySnippet: string }).bodySnippet.length
+      ).toBeLessThanOrEqual(200)
+    })
+
+    it('still reports unreachable when the body cannot be read', async () => {
+      // Logging is best-effort — an unreadable body must not change the result.
+      mockFetch.mockResolvedValueOnce({
+        ...robtopResp(500, ''),
+        text: async () => {
+          throw new Error('body already consumed')
+        },
+      } as Response)
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
     })
   })
 })

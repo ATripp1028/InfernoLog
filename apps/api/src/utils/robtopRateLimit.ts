@@ -34,6 +34,14 @@ export const DEFAULT_COOLDOWN_MS = 60_000
  */
 export const MAX_COOLDOWN_MS = 5 * 60_000
 
+/**
+ * Backoff applied when Cloudflare blocks us outright (a 403 block page rather
+ * than a RobTop 429). These carry no `Retry-After`, and a WAF/reputation block
+ * is not cleared by continuing to hit it — if anything the opposite — so back
+ * off for the full window the cap allows and let it age out.
+ */
+export const BLOCKED_COOLDOWN_MS = MAX_COOLDOWN_MS
+
 // Outcome of one acquire attempt:
 //   'acquired' — a token was taken.
 //   'cooling'  — a shared 429 cooldown is active, so no token was (or will soon
@@ -107,6 +115,26 @@ export async function reportRobtopThrottled(
  * this wait window, so busy-polling the DB for maxWaitMs would just add latency
  * (a user-facing /resolve or /page waiting ~10s) and wasted queries.
  */
+/**
+ * Whether a shared cooldown is currently in effect, i.e. every consumer is
+ * deliberately holding off after a 429 or a Cloudflare block.
+ *
+ * Read-only and token-free — it takes nothing from the bucket. Exists so the
+ * reachability canary can tell "we are choosing not to call RobTop" apart from
+ * "RobTop won't answer us", and stay quiet during a cooldown it would otherwise
+ * report as an outage.
+ *
+ * @returns True while a cooldown is active.
+ */
+export async function isRobtopCooling(): Promise<boolean> {
+  const rows = await prisma.$queryRaw<{ cooling: boolean }[]>`
+    SELECT ("cooldownUntil" IS NOT NULL AND "cooldownUntil" > now()) AS cooling
+    FROM "robtop_rate_limit"
+    WHERE id = 'singleton'
+  `
+  return rows[0]?.cooling ?? false
+}
+
 export async function acquireRobtopSlot(
   maxWaitMs: number = DEFAULT_MAX_WAIT_MS
 ): Promise<boolean> {

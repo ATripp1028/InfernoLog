@@ -687,10 +687,10 @@ describe('runLevelSyncSlice — round-robin', () => {
 })
 
 describe('runLevelSyncSlice — cursor advances past a failing stretch', () => {
-  it('advances to the end of the slice even when the circuit breaker aborts', async () => {
-    // 8 levels, all unreachable → breaker aborts after 5. The cursor must still
-    // jump to the last id of the slice so the failing prefix can't pin the
-    // rotation and starve everything after it.
+  it('advances to the last ATTEMPTED level when the circuit breaker aborts, not the end of the slice', async () => {
+    // 8 levels, all unreachable → breaker aborts after 5. The cursor advances
+    // to the 5th (so the failing prefix can't pin the rotation) but no further:
+    // levels 6-8 were never looked at and must still be in front of the cursor.
     const ids = await seedN(8) // 'id-1'..'id-8', lexicographically ordered
     resultMock.mockResolvedValue({ status: 'unreachable' })
 
@@ -698,8 +698,25 @@ describe('runLevelSyncSlice — cursor advances past a failing stretch', () => {
 
     expect(result.aborted).toBe(true)
     expect(result.processed).toBe(5)
-    expect(await readCursor()).toBe(ids[ids.length - 1])
+    expect(await readCursor()).toBe(ids[4])
   })
+
+  it('picks up the untouched tail on the next run instead of skipping a lap', async () => {
+    // The regression the Aug 2026 Cloudflare block exposed: a run that aborted
+    // early still advanced the cursor over every level it never attempted, so
+    // they went unchecked until the rotation came all the way back around.
+    const ids = await seedN(8)
+    resultMock.mockResolvedValue({ status: 'unreachable' })
+    await runLevelSyncSlice(8)
+
+    resultMock.mockReset()
+    resultMock.mockResolvedValue({ status: 'found', level: makeRobtop() })
+    await runLevelSyncSlice(8)
+
+    expect(resultMock.mock.calls.map((c) => c[0])).toEqual(ids.slice(5))
+    // Two full runs at the real 670ms/level pacing (runLevelSyncSlice owns its
+    // pacing, so a test can't shorten it) — past the 5s default.
+  }, 15_000)
 })
 
 describe('runDelistedReverifySlice', () => {

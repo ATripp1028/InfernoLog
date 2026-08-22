@@ -89,6 +89,11 @@ export interface SyncBatchResult {
   // level was processed (RobTop was failing the whole run). The untouched tail
   // is retried next run.
   aborted: boolean
+  // The last id this batch actually attempted, or null for an empty batch. The
+  // cron advances its cursor to this rather than to the end of the slice, so an
+  // aborted run doesn't skip the levels it never looked at (see
+  // runLevelSyncSlice).
+  lastAttemptedId: string | null
   // SFH bookkeeping: levels eligible for a Song File Hub check that we actually
   // called SFH for this run, and how many of those turned up a rated NONG.
   sfhChecked: number
@@ -306,6 +311,7 @@ export async function syncLevelBatch(
     unreachable: 0,
     errors: 0,
     aborted: false,
+    lastAttemptedId: null,
     sfhChecked: 0,
     sfhFound: 0,
   }
@@ -318,6 +324,7 @@ export async function syncLevelBatch(
     const levelId = levelIds[i]
     if (!levelId) continue
     if (i > 0 && paceMs > 0) await sleep(paceMs)
+    result.lastAttemptedId = levelId
 
     try {
       const outcome = await syncOneLevel(levelId, result, paceMs)
@@ -447,9 +454,19 @@ async function nextSlice(
 /**
  * One cron slice of the round-robin sync. Reads the cursor, syncs the next
  * `size` eligible levels (wrapping to the start when it reaches the end), and
- * advances the cursor to the last id in the slice — even if the circuit breaker
- * aborted partway, so a persistently-failing stretch can't pin the rotation and
- * starve everything after it (the skipped tail is retried on the next lap).
+ * advances the cursor to the last id it ATTEMPTED — which is the end of the
+ * slice on a healthy run, and the level the circuit breaker stopped on when a
+ * run aborts.
+ *
+ * Advancing to the last attempted id rather than the end of the slice keeps
+ * both guarantees at once. Nothing is silently skipped: an aborted run leaves
+ * the untouched tail in front of the cursor, so the next run picks it up ~6h
+ * later instead of a whole rotation later — during the Aug 2026 Cloudflare
+ * block, a run that processed 5 of 50 levels moved the cursor past all 50, so
+ * ~90% of every lap went unchecked for as long as the block lasted. And the
+ * rotation still can't be pinned: the cursor advances by at least the breaker's
+ * streak length every run, so even a permanently-failing stretch is stepped
+ * over rather than retried forever.
  */
 export async function runLevelSyncSlice(
   size: number = SYNC_SLICE_SIZE
@@ -467,9 +484,9 @@ export async function runLevelSyncSlice(
   )
   const result = await syncLevelBatch(ids)
 
-  // Advance regardless of abort: the last id we selected this run becomes the
-  // next run's starting point.
-  await writeCursor('singleton', ids[ids.length - 1]!)
+  // Advance regardless of abort — but only over what we actually attempted, so
+  // an aborted run's untouched tail stays in front of the cursor.
+  await writeCursor('singleton', result.lastAttemptedId ?? ids[ids.length - 1]!)
 
   logger.info({ ...result }, 'levelSync: slice complete')
   return result

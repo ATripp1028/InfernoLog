@@ -2,7 +2,7 @@
 
 ## Geometry Dash servers (RobTop / boomlings.com)
 
-**Base URL:** `http://www.boomlings.com/database` (override via `ROBTOP_API_BASE_URL`)  
+**Base URL:** `https://www.boomlings.com/database` (override via `ROBTOP_API_BASE_URL`)  
 **Purpose:** Primary level metadata autofill for both rated and unrated levels  
 **Auth:** None — a fixed public secret (`Wmfd2893gb7`) is sent as a request param  
 **Called from:** Lambda (server-side only). Client: `apps/api/src/utils/robtop.ts`
@@ -12,7 +12,7 @@ We call RobTop's official servers directly (previously via the third-party GDBro
 ### Usage Pattern
 
 ```
-POST http://www.boomlings.com/database/getGJLevels21.php
+POST https://www.boomlings.com/database/getGJLevels21.php
 Content-Type: application/x-www-form-urlencoded
 User-Agent:                      ← MUST be empty (Cloudflare returns HTTP 1020 otherwise)
 
@@ -28,6 +28,10 @@ Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofil
 ### Failure Handling
 
 If the servers are unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by the servers being down.
+
+**Being blocked is a distinct failure from being down.** Two upstream statuses mean "stop calling", and both open the shared cooldown in `robtopRateLimit.ts` so every consumer backs off together rather than only the one that got hit: a **429** (RobTop rate-limiting our IP — honours `Retry-After`) and a **403** (Cloudflare's block page, from a WAF rule or the egress IP's reputation, with no `Retry-After` — fixed 5-minute backoff, since continuing to hit a block helps keep it). Anything else, including a 5xx, is logged as unreachable but opens no cooldown. Every non-OK response is logged with `cf-ray`, `cf-mitigated`, `server`, and a body snippet: those are what distinguish a UA/WAF block from an IP block after the fact, and a 403 run is not diagnosable without them.
+
+**Reachability canary.** A production-only cron (`RobtopCanary`, every 15 minutes, `handlers/robtopCanaryWorker.ts` → `services/levels/canary.ts`) makes one `getGJLevels21` call for a known-good level (`ROBTOP_CANARY_LEVEL_ID`, default `128`) and alerts to Sentry when it comes back unreachable. It exists because the level-cache sync runs every 6 hours, so without it the first sign that GD's servers have cut us off is a circuit-breaker log up to a full interval later — how the Aug 2026 Cloudflare block was found. It skips its check entirely while a cooldown is open, and reports a deleted canary level as a config problem rather than an outage.
 
 **Auto-fallback to manual entry.** When the fetch fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields autofill would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"), and for a rated non-demon it also fixes the canonical `stars` count, which is derived from it and stored alongside. Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later sync can backfill and verify/override them. See `LOGGING_FLOW.md` and the `Level` model in `schema.prisma`.
 

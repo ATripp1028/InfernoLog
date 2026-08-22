@@ -16,6 +16,7 @@ import {
   acquireRobtopSlot,
   reportRobtopThrottled,
   DEFAULT_COOLDOWN_MS,
+  BLOCKED_COOLDOWN_MS,
 } from './robtopRateLimit'
 
 // Parses an HTTP Retry-After header (delta-seconds or an HTTP date) to ms.
@@ -29,14 +30,79 @@ function parseRetryAfterMs(headerValue: string | null): number | undefined {
   return undefined
 }
 
+// Plain HTTP works too, but these calls cross the public internet with no
+// transport security and boomlings serves the same endpoint over TLS.
 const ROBTOP_API_BASE_URL =
-  process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
+  process.env.ROBTOP_API_BASE_URL ?? 'https://www.boomlings.com/database'
 
 // The shared read secret for getGJLevels21 (a fixed, public constant).
 const GETLEVELS_SECRET = 'Wmfd2893gb7'
 
 // Keep a hung request from pinning the Lambda until its own timeout.
 const FETCH_TIMEOUT_MS = 5000
+
+/**
+ * Handles a non-OK getGJLevels21 response: logs why it failed in enough detail
+ * to diagnose after the fact, and opens the shared cooldown when the status
+ * means "back off", so EVERY consumer stops — not just the caller that got hit.
+ *
+ * Two statuses open a cooldown:
+ *   - 429: RobTop is rate-limiting our IP. Honour `Retry-After` when it sends
+ *     a usable one.
+ *   - 403: Cloudflare denied the request at the edge (the "Sorry, you have been
+ *     blocked" page) — a WAF or IP-reputation block, not a RobTop decision.
+ *     There is no `Retry-After` on these, and continuing to hammer a block is a
+ *     good way to keep it, so back off for a fixed window instead.
+ *
+ * Any other status (a 5xx origin error) is logged but opens no cooldown: it's
+ * RobTop being unwell, not us being told to stop.
+ *
+ * `cf-ray` identifies the request in Cloudflare's own logs and `cf-mitigated`
+ * names the action it took; the body snippet distinguishes a block page from an
+ * origin error. Without these, a 403 run is indistinguishable after the fact
+ * from any other failure — which is exactly what happened in the Aug 2026
+ * block. Best-effort throughout: nothing here may change what the caller
+ * returns.
+ *
+ * @param res - The non-OK response.
+ * @param context - Caller identity for the log line (`levelId` or `name`).
+ */
+async function reportNonOkResponse(
+  res: Response,
+  context: Record<string, string>
+): Promise<void> {
+  let bodySnippet: string | undefined
+  try {
+    bodySnippet = (await res.text()).slice(0, 200)
+  } catch {
+    // A body we can't read is not worth failing over.
+  }
+
+  logger.warn(
+    {
+      ...context,
+      status: res.status,
+      cfRay: res.headers.get('cf-ray'),
+      cfMitigated: res.headers.get('cf-mitigated'),
+      server: res.headers.get('server'),
+      bodySnippet,
+    },
+    'fetchRobtopLevel: non-OK response'
+  )
+
+  if (res.status !== 429 && res.status !== 403) return
+
+  const cooldownMs =
+    res.status === 429
+      ? (parseRetryAfterMs(res.headers.get('retry-after')) ??
+        DEFAULT_COOLDOWN_MS)
+      : BLOCKED_COOLDOWN_MS
+  try {
+    await reportRobtopThrottled(cooldownMs)
+  } catch (err) {
+    logger.warn({ ...context, err }, 'fetchRobtopLevel: cooldown write failed')
+  }
+}
 
 /**
  * Normalized level — a snapshot of (essentially) everything RobTop's level
@@ -433,28 +499,10 @@ export async function fetchRobtopLevelResult(
     })
     if (!res.ok) {
       // A genuine failure (not "level doesn't exist" — that's a 200 with a
-      // "-1" body, handled below without logging). Worth surfacing: this is
-      // the branch a Cloudflare block, rate limit, or RobTop outage takes.
-      logger.warn(
-        { levelId, status: res.status },
-        'fetchRobtopLevel: non-OK response'
-      )
-      // A 429 means RobTop is rate-limiting our IP — open a shared cooldown so
-      // EVERY consumer backs off, not just this call. Best-effort; a failure to
-      // record it must not change what we return.
-      if (res.status === 429) {
-        const cooldownMs =
-          parseRetryAfterMs(res.headers.get('retry-after')) ??
-          DEFAULT_COOLDOWN_MS
-        try {
-          await reportRobtopThrottled(cooldownMs)
-        } catch (err) {
-          logger.warn(
-            { levelId, err },
-            'fetchRobtopLevel: cooldown write failed'
-          )
-        }
-      }
+      // "-1" body, handled below without logging). This is the branch a
+      // Cloudflare block, rate limit, or RobTop outage takes; the helper logs
+      // it and opens the shared cooldown when the status says to back off.
+      await reportNonOkResponse(res, { levelId })
       return { status: 'unreachable' }
     }
 
@@ -564,20 +612,8 @@ export async function searchRobtopByNameResult(
       signal: controller.signal,
     })
     if (!res.ok) {
-      // Same shared-cooldown backoff as fetchRobtopLevelResult on a 429.
-      if (res.status === 429) {
-        const cooldownMs =
-          parseRetryAfterMs(res.headers.get('retry-after')) ??
-          DEFAULT_COOLDOWN_MS
-        try {
-          await reportRobtopThrottled(cooldownMs)
-        } catch (err) {
-          logger.warn(
-            { name, err },
-            'searchRobtopByName: cooldown write failed'
-          )
-        }
-      }
+      // Same logging and shared-cooldown backoff as fetchRobtopLevelResult.
+      await reportNonOkResponse(res, { name })
       return { status: 'unreachable' }
     }
 

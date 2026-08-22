@@ -50,6 +50,31 @@ const syncFunctionOptions = {
 // the fix is not to stagger the schedules but to stop deploying it three times.
 // ─────────────────────────────────────────────
 if ($app.stage === 'production') {
+  // ─────────────────────────────────────────────
+  // ROBTOP REACHABILITY CANARY — one getGJLevels21 call every 15 minutes for a
+  // single known-good level, alerting when GD's servers stop answering us.
+  //
+  // The level sync runs every 6 hours, so without this the first signal that
+  // RobTop has cut us off is a circuit-breaker log up to a full interval after
+  // it started (exactly how the Aug 2026 Cloudflare block was found — hours
+  // late, from a log line nobody was watching). One call per run is negligible
+  // against the shared rate limiter, and the canary skips its check entirely
+  // while a cooldown is open, so it never adds load to a RobTop that is already
+  // refusing us. Production only, for the same reason the sync is: a per-stage
+  // canary would multiply an uncoordinated request rate from one egress IP.
+  // ─────────────────────────────────────────────
+  new sst.aws.CronV2('RobtopCanary', {
+    schedule: 'rate(15 minutes)',
+    function: {
+      handler: 'src/handlers/robtopCanaryWorker.handler',
+      link: sharedLinks,
+      environment: sharedEnvironment,
+      // Bounds one limiter wait (10s) plus one fetch (5s) with room to spare.
+      timeout: '1 minute' as const,
+      ...sharedNodeOptions,
+    },
+  })
+
   new sst.aws.CronV2('LevelSync', {
     // Every 6 hours. Each run processes one bounded round-robin slice
     // (SYNC_SLICE_SIZE levels) so no single run can trip RobTop's per-IP rate
