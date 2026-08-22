@@ -33,6 +33,19 @@ describe('runRobtopCanary', () => {
     expect(captureMessageMock).not.toHaveBeenCalled()
   })
 
+  it('waits far longer than a user request for a limiter slot', async () => {
+    // A limiter timeout comes back as `unreachable`, so a drained token bucket
+    // would page as an outage on the default 10s wait.
+    fetchMock.mockResolvedValue({
+      status: 'found',
+      level: { name: '1st level' } as never,
+    })
+
+    await runRobtopCanary()
+
+    expect(fetchMock).toHaveBeenCalledWith(expect.any(String), 30_000)
+  })
+
   it('alerts when RobTop is unreachable', async () => {
     fetchMock.mockResolvedValue({ status: 'unreachable' })
 

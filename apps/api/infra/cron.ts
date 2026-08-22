@@ -69,7 +69,8 @@ if ($app.stage === 'production') {
       handler: 'src/handlers/robtopCanaryWorker.handler',
       link: sharedLinks,
       environment: sharedEnvironment,
-      // Bounds one limiter wait (10s) plus one fetch (5s) with room to spare.
+      // Bounds one limiter wait (CANARY_LIMITER_WAIT_MS, 30s) plus one fetch
+      // (5s) with room to spare.
       timeout: '1 minute' as const,
       ...sharedNodeOptions,
     },

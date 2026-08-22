@@ -106,16 +106,6 @@ export async function reportRobtopThrottled(
 }
 
 /**
- * Blocks (polling) until a RobTop request slot is free, or gives up after
- * maxWaitMs. Returns false on timeout — fetchRobtopLevel treats that exactly
- * like any other failure (network error, non-OK status) and returns null, so no
- * caller needs special handling for "the limiter was busy" or "we're cooling
- * down after a 429". An active cooldown returns false immediately rather than
- * polling it out: a cooldown is measured in whole minutes and won't clear inside
- * this wait window, so busy-polling the DB for maxWaitMs would just add latency
- * (a user-facing /resolve or /page waiting ~10s) and wasted queries.
- */
-/**
  * Whether a shared cooldown is currently in effect, i.e. every consumer is
  * deliberately holding off after a 429 or a Cloudflare block.
  *
@@ -135,6 +125,21 @@ export async function isRobtopCooling(): Promise<boolean> {
   return rows[0]?.cooling ?? false
 }
 
+/**
+ * Blocks (polling) until a RobTop request slot is free, or gives up after
+ * maxWaitMs. Returns false on timeout — fetchRobtopLevel treats that exactly
+ * like any other failure (network error, non-OK status) and returns null, so no
+ * caller needs special handling for "the limiter was busy" or "we're cooling
+ * down after a 429". An active cooldown returns false immediately rather than
+ * polling it out: a cooldown is measured in whole minutes and won't clear inside
+ * this wait window, so busy-polling the DB for maxWaitMs would just add latency
+ * (a user-facing /resolve or /page waiting ~10s) and wasted queries.
+ *
+ * @param maxWaitMs - How long to keep polling for a token. The default suits a
+ *   user-facing request; a background caller that must not read a drained
+ *   bucket as an upstream failure (the reachability canary) passes more.
+ * @returns True once a token was taken; false on timeout or an open cooldown.
+ */
 export async function acquireRobtopSlot(
   maxWaitMs: number = DEFAULT_MAX_WAIT_MS
 ): Promise<boolean> {

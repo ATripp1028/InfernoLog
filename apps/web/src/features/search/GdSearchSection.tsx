@@ -13,7 +13,6 @@ interface GdSearchSectionProps {
   onSelect: (levelId: string) => void
   /** Contextual offer copy — each call site phrases it to fit (2.7). */
   offer: { title: string; subtitle: string }
-  compact?: boolean
   showEnterHint?: boolean
   /**
    * The level whose selection is being fetched. Its row spins and the rest
@@ -35,11 +34,13 @@ export function GdSearchSection({
   query,
   onSelect,
   offer,
-  compact = false,
   showEnterHint = false,
   loadingId = null,
 }: GdSearchSectionProps) {
-  const pad = compact ? 'px-4' : 'px-5'
+  // Every non-result state (the offer, loading, the two failures) is padded to
+  // the surrounding panel; the results themselves are LevelResultRow's own
+  // px-4, so they line up with the cache results above them instead.
+  const pad = 'px-5'
 
   // Not escalated for the *current* query → show the offer. (Editing the query
   // clears any prior escalation, so this reappears and re-requires a confirm.)
@@ -50,7 +51,6 @@ export function GdSearchSection({
         subtitle={offer.subtitle}
         onConfirm={() => escalation.escalate(query)}
         showEnterHint={showEnterHint}
-        compact={compact}
       />
     )
   }

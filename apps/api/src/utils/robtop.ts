@@ -467,11 +467,20 @@ export type RobtopFetchResult =
  * Lower-level fetch that preserves the not-found vs unreachable distinction.
  * `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
  * that only care whether they got a level.
+ *
+ * @param levelId - GD level ID.
+ * @param limiterWaitMs - How long to wait for a shared rate-limiter slot before
+ *   giving up. Defaults to the limiter's own wait, which is tuned for
+ *   user-facing calls. Note a limiter timeout is reported as `unreachable` like
+ *   any other failure, so a caller that must not confuse "we never called" with
+ *   "RobTop would not answer" — the reachability canary — passes a wait long
+ *   enough that only an open cooldown can deny it a slot.
  */
 export async function fetchRobtopLevelResult(
-  levelId: string
+  levelId: string,
+  limiterWaitMs?: number
 ): Promise<RobtopFetchResult> {
-  if (!(await acquireRobtopSlot())) {
+  if (!(await acquireRobtopSlot(limiterWaitMs))) {
     logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
     return { status: 'unreachable' }
   }

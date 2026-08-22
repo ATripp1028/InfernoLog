@@ -24,6 +24,24 @@ import * as Sentry from '@sentry/aws-serverless'
 const CANARY_LEVEL_ID = process.env.ROBTOP_CANARY_LEVEL_ID ?? '128'
 
 /**
+ * How long the canary waits for a shared rate-limiter slot, well above the
+ * limiter's user-facing default.
+ *
+ * A limiter timeout comes back from `fetchRobtopLevelResult` as `unreachable`,
+ * indistinguishable from RobTop refusing us — so with the default 10s wait a
+ * merely-drained token bucket pages as an outage. The level sync alone paces at
+ * 670ms/level against a 1.5/s refill, so the bucket sits at its edge for the
+ * length of every slice and any concurrent user resolve empties it. Waiting
+ * 30s (≈45 tokens' worth of refill) leaves an open cooldown as the only thing
+ * that can deny the canary a slot — and a cooldown only ever opens on a real
+ * 429 or Cloudflare block, which is exactly what this is here to report.
+ *
+ * Must stay comfortably inside the cron's Lambda timeout (see infra/cron.ts):
+ * this wait plus one 5s fetch is the run's worst case.
+ */
+const CANARY_LIMITER_WAIT_MS = 30_000
+
+/**
  * Outcome of one canary run:
  *   - 'healthy'      → RobTop answered with the level. Nothing to see.
  *   - 'cooling'      → a shared cooldown is open, so we deliberately did not
@@ -44,8 +62,11 @@ export type CanaryOutcome =
 /**
  * Runs one reachability check against RobTop.
  *
- * Never throws: the canary reporting a failure is the point, so a failure here
- * must not turn into a Lambda error that looks like a different problem.
+ * No RobTop failure throws: `fetchRobtopLevelResult` swallows every one of
+ * them, so an outage comes back as an outcome rather than as a Lambda error
+ * that would look like a different problem. Something genuinely unexpected —
+ * the cooldown read failing, say — still propagates, and the worker turns that
+ * into a failed run on purpose.
  *
  * @returns What the check found; see {@link CanaryOutcome}.
  */
@@ -58,7 +79,10 @@ export async function runRobtopCanary(): Promise<CanaryOutcome> {
     return 'cooling'
   }
 
-  const result = await fetchRobtopLevelResult(CANARY_LEVEL_ID)
+  const result = await fetchRobtopLevelResult(
+    CANARY_LEVEL_ID,
+    CANARY_LIMITER_WAIT_MS
+  )
 
   if (result.status === 'found') {
     logger.info({ levelId: CANARY_LEVEL_ID }, 'robtopCanary: RobTop reachable')
