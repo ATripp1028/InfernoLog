@@ -1,7 +1,8 @@
 // Client for Geometry Dash's official servers (boomlings.com), replacing the
-// GDBrowser proxy. We hit getGJLevels21 with type=10 (specific level by id) and
-// parse RobTop's raw colon/pipe/tilde-delimited response into the same
-// normalized shape the levels cache stores.
+// GDBrowser proxy. We hit getGJLevels21 with type=0 (search) — NOT type=10
+// (specific level by id), which only returns rated levels — and parse RobTop's
+// raw colon/pipe/tilde-delimited response into the same normalized shape the
+// levels cache stores. See fetchRobtopLevelResult for why.
 //
 // GOLDEN RULE (unchanged from the old client): server unavailability NEVER
 // blocks the logging flow. Every failure path (down, timeout, "-1", malformed)

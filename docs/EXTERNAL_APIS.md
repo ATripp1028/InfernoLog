@@ -7,7 +7,7 @@
 **Auth:** None — a fixed public secret (`Wmfd2893gb7`) is sent as a request param  
 **Called from:** Lambda (server-side only). Client: `apps/api/src/utils/robtop.ts`
 
-We call RobTop's official servers directly (previously via the third-party GDBrowser proxy). The endpoint is `getGJLevels21.php` with `type=10` (fetch specific levels by id), so we query a single id and read the first (only) level. It returns name, creator, song, length, description, and the full stat/flag set, which we parse into the `levels` cache columns. See `https://wyliemaster.github.io/gddocs`.
+We call RobTop's official servers directly (previously via the third-party GDBrowser proxy). The endpoint is `getGJLevels21.php` with `type=0` (search), passing the level id as the search string and selecting the exact id out of the response. It is **not** `type=10` (fetch specific levels by id), despite that being the obvious choice: `type=10` returns only RATED levels, so an unrated id looks like a not-found. `type=0` returns the exact level for rated and unrated ids alike, along with community-voted difficulty for the unrated ones. It returns name, creator, song, length, description, and the full stat/flag set, which we parse into the `levels` cache columns. See `https://wyliemaster.github.io/gddocs`.
 
 ### Usage Pattern
 
@@ -16,7 +16,7 @@ POST https://www.boomlings.com/database/getGJLevels21.php
 Content-Type: application/x-www-form-urlencoded
 User-Agent:                      ← MUST be empty (Cloudflare returns HTTP 1020 otherwise)
 
-type=10&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
+type=0&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
 ```
 
 The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). Rate limits are ~2 req/s for data endpoints; our usage is per-user cache-miss only.
@@ -39,7 +39,7 @@ If the servers are unavailable, the user is notified and may proceed with fully 
 
 The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level enters the cache when anyone logs it, enters its ID, or reaches it via the opt-in GD-server search escalation; entering a raw ID routes through autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
 
-**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (`type=0` with a search string, vs `type=10` for ID lookup; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
+**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (the same `type=0` search the ID lookup uses, with a name as the search string instead of an id; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
 
 ---
 

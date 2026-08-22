@@ -17,9 +17,15 @@ jobs:
         with:
           version: 9
 
+      # Matches the Lambda runtime pinned in apps/api/infra/defaults.ts. These
+      # must move together: the API's tests are only meaningful as a gate if
+      # they run on the Node (and bundled undici) production actually runs.
+      # Note Node 26+ breaks the web suite — it exposes Web Storage unflagged,
+      # which collides with jsdom's localStorage — so bumping past 24 means
+      # sorting that out first.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -52,9 +58,10 @@ jobs:
         with:
           version: 9
 
+      # Keep in step with the `ci` job above and the pinned Lambda runtime.
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
           cache: 'pnpm'
 
       - name: Install dependencies
