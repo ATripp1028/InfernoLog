@@ -2,21 +2,21 @@
 
 ## Geometry Dash servers (RobTop / boomlings.com)
 
-**Base URL:** `http://www.boomlings.com/database` (override via `ROBTOP_API_BASE_URL`)  
+**Base URL:** `https://www.boomlings.com/database` (override via `ROBTOP_API_BASE_URL`)  
 **Purpose:** Primary level metadata autofill for both rated and unrated levels  
 **Auth:** None — a fixed public secret (`Wmfd2893gb7`) is sent as a request param  
 **Called from:** Lambda (server-side only). Client: `apps/api/src/utils/robtop.ts`
 
-We call RobTop's official servers directly (previously via the third-party GDBrowser proxy). The endpoint is `getGJLevels21.php` with `type=10` (fetch specific levels by id), so we query a single id and read the first (only) level. It returns name, creator, song, length, description, and the full stat/flag set, which we parse into the `levels` cache columns. See `https://wyliemaster.github.io/gddocs`.
+We call RobTop's official servers directly (previously via the third-party GDBrowser proxy). The endpoint is `getGJLevels21.php` with `type=0` (search), passing the level id as the search string and selecting the exact id out of the response. It is **not** `type=10` (fetch specific levels by id), despite that being the obvious choice: `type=10` returns only RATED levels, so an unrated id looks like a not-found. `type=0` returns the exact level for rated and unrated ids alike, along with community-voted difficulty for the unrated ones. It returns name, creator, song, length, description, and the full stat/flag set, which we parse into the `levels` cache columns. See `https://wyliemaster.github.io/gddocs`.
 
 ### Usage Pattern
 
 ```
-POST http://www.boomlings.com/database/getGJLevels21.php
+POST https://www.boomlings.com/database/getGJLevels21.php
 Content-Type: application/x-www-form-urlencoded
 User-Agent:                      ← MUST be empty (Cloudflare returns HTTP 1020 otherwise)
 
-type=10&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
+type=0&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
 ```
 
 The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). Rate limits are ~2 req/s for data endpoints; our usage is per-user cache-miss only.
@@ -29,13 +29,19 @@ Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofil
 
 If the servers are unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by the servers being down.
 
+**Being blocked is a distinct failure from being down.** Two upstream statuses mean "stop calling", and both open the shared cooldown in `robtopRateLimit.ts` so every consumer backs off together rather than only the one that got hit: a **429** (RobTop rate-limiting our IP — honours `Retry-After`) and a **403** (Cloudflare's block page, from a WAF rule or the egress IP's reputation, with no `Retry-After` — fixed 5-minute backoff, since continuing to hit a block helps keep it). Anything else, including a 5xx, is logged as unreachable but opens no cooldown. Every non-OK response is logged with `cf-ray`, `cf-mitigated`, `server`, and a body snippet: those are what distinguish a UA/WAF block from an IP block after the fact, and a 403 run is not diagnosable without them.
+
+**Reachability canary.** A production-only cron (`RobtopCanary`, every 15 minutes, `handlers/robtopCanaryWorker.ts` → `services/levels/canary.ts`) makes one `getGJLevels21` call for a known-good level (`128`, a constant in `canary.ts`) and alerts to Sentry when it comes back unreachable. It exists because the level-cache sync runs every 6 hours, so without it the first sign that GD's servers have cut us off is a circuit-breaker log up to a full interval later — how the Aug 2026 Cloudflare block was found. It skips its check entirely while a cooldown is open, and reports a deleted canary level as a config problem rather than an outage.
+
+**Telling an egress block from a bad request.** The logs establish _that_ Cloudflare refused us; they cannot establish _why us_. The block page carries no numeric error code, and `cf-ray` resolves only inside RobTop's Cloudflare account, not ours. The one thing that separates "our egress IP is blocked" from "our request shape is wrong" is running the identical request from somewhere else at the same moment: `pnpm probe:robtop [levelId]` (from `apps/api`) does exactly that, sharing the request builder in `utils/robtopRequest.ts` so it cannot drift from what production sends. It needs no database or AWS credentials, and both the canary and sync circuit-breaker alerts name it. Run it **while an alert is firing** — a block that has cleared is no longer diagnosable.
+
 **Auto-fallback to manual entry.** When the fetch fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields autofill would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"), and for a rated non-demon it also fixes the canonical `stars` count, which is derived from it and stored alongside. Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later sync can backfill and verify/override them. See `LOGGING_FLOW.md` and the `Level` model in `schema.prisma`.
 
 ### Cache-Backed Name Search
 
 The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level enters the cache when anyone logs it, enters its ID, or reaches it via the opt-in GD-server search escalation; entering a raw ID routes through autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
 
-**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (`type=0` with a search string, vs `type=10` for ID lookup; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
+**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (the same `type=0` search the ID lookup uses, with a name as the search string instead of an id; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
 
 ---
 

@@ -4,7 +4,7 @@ import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { toast } from '@/components/generic/sonner'
 import { useLogDrop } from '@/lib/api/logging'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import {
   DateTimeField,
   FieldError,
@@ -28,6 +28,7 @@ import {
 export function DropStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const logDrop = useLogDrop()
+  useFlowBusy(logDrop.isPending)
   if (!level) return null
 
   const attemptsError = maxValueError(draft.attempts, MAX_ATTEMPTS)

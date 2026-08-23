@@ -1,10 +1,8 @@
-import { useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { PRESET_COLORS, getContrastColor, type PresetColorId } from './presets'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/generic/textarea'
-import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
+import { Modal } from '@/components/generic/modal'
 
 interface PresetCreateDialogProps {
   open: boolean
@@ -39,7 +37,7 @@ export function PresetCreateDialog({
   existingNames,
   excludeName,
 }: PresetCreateDialogProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)')
+  const nameRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState(initialName ?? '')
   const [description, setDescription] = useState(initialDescription ?? '')
   const [color, setColor] = useState<PresetColorId>(initialColor ?? 'blue')
@@ -62,20 +60,15 @@ export function PresetCreateDialog({
     }
   }, [open, initialName, initialDescription, initialColor])
 
-  if (!open) return null
-
   function handleSave() {
     if (!trimmedName || isDuplicate) return
     onSave(trimmedName, description.trim(), color)
   }
 
+  // Enter submits; Escape is Modal's to handle, and it already refuses while
+  // the save is in flight.
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Enter' && !e.shiftKey) handleSave()
-    if (e.key === 'Escape') onClose()
-  }
-
-  function handleBackdropClick(e: React.MouseEvent) {
-    if (e.target === e.currentTarget) onClose()
   }
 
   const selectedColorObj = PRESET_COLORS.find((c) => c.id === color)!
@@ -86,7 +79,7 @@ export function PresetCreateDialog({
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-text-secondary">Name</label>
         <input
-          autoFocus={isDesktop}
+          ref={nameRef}
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -159,11 +152,12 @@ export function PresetCreateDialog({
   )
 
   const footer = (
-    <div className="mt-5 flex justify-end gap-2">
+    <div className="flex justify-end gap-2">
       <button
         type="button"
         onClick={onClose}
-        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle"
+        disabled={isSaving}
+        className="cursor-pointer rounded-md px-3 py-1.5 text-sm text-text-secondary hover:bg-bg-subtle disabled:pointer-events-none disabled:opacity-50"
       >
         Cancel
       </button>
@@ -178,46 +172,19 @@ export function PresetCreateDialog({
     </div>
   )
 
-  if (isDesktop) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-        onClick={handleBackdropClick}
-      >
-        <div
-          className="w-full max-w-sm rounded-xl border border-border bg-bg-elevated p-5 shadow-xl"
-          onKeyDown={handleKeyDown}
-        >
-          <h2 className="mb-4 text-base font-semibold text-text-primary">
-            {title}
-          </h2>
-          {body}
-          {footer}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <MobileSheetDialog
+    <Modal
+      open={open}
       onClose={onClose}
-      className="border-border bg-bg-surface"
+      busy={isSaving}
+      size="sm"
+      title={title}
+      autoFocusRef={nameRef}
+      footer={footer}
     >
-      <div className="overflow-y-auto" onKeyDown={handleKeyDown}>
-        <div className="flex items-start justify-between px-5 pb-2 pt-3">
-          <h2 className="text-base font-semibold text-text-primary">{title}</h2>
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={onClose}
-            className="flex size-8 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-          >
-            <X size={16} />
-          </button>
-        </div>
-        <div className="px-5 pt-1">{body}</div>
+      <div className="px-5 pb-5 pt-1" onKeyDown={handleKeyDown}>
+        {body}
       </div>
-      <div className="px-5 pb-6">{footer}</div>
-    </MobileSheetDialog>
+    </Modal>
   )
 }

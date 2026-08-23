@@ -9,7 +9,7 @@ import { Segmented } from '@/components/generic/segmented'
 import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useCreateManualLevel } from '@/lib/api/logging'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 
 // Demon tiers are the primary case (the app is demon-focused). The stored value
@@ -39,6 +39,7 @@ const NON_DEMON_OPTIONS: ReadonlyArray<{ value: string; label: string }> =
 export function ManualLevelStep() {
   const { manualLevelId, setStep, applyManualLevel } = useLoggingFlow()
   const createLevel = useCreateManualLevel()
+  useFlowBusy(createLevel.isPending)
 
   const [name, setName] = useState('')
   const [creator, setCreator] = useState('')

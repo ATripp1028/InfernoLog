@@ -123,6 +123,12 @@ export function FindLevelStep() {
   const results = sortAndCapSearchResults(search.data ?? [], (r) =>
     completedIds.has(r.inGameId)
   )
+  // The row whose resolve is in flight. The mutation carries the level id it
+  // was called with, so the clicked row is identifiable without a second piece
+  // of state — every path through this step resolves one level at a time.
+  const resolvingId = resolveLevel.isPending
+    ? (resolveLevel.variables ?? null)
+    : null
 
   return (
     <>
@@ -187,6 +193,7 @@ export function FindLevelStep() {
                   ? 'Already logged'
                   : null
               }
+              loading={resolvingId === cachedLevel.data.inGameId}
               disabled={resolveLevel.isPending}
               onSelect={() => resolve(cachedLevel.data!.inGameId)}
             />
@@ -222,6 +229,7 @@ export function FindLevelStep() {
                     badge={
                       completedIds.has(r.inGameId) ? 'Already logged' : null
                     }
+                    loading={resolvingId === r.inGameId}
                     disabled={resolveLevel.isPending}
                     onSelect={() => resolve(r.inGameId)}
                   />
@@ -240,6 +248,7 @@ export function FindLevelStep() {
                   escalation={escalation}
                   query={trimmed}
                   onSelect={(levelId) => void resolve(levelId)}
+                  loadingId={resolvingId}
                   offer={{
                     title: `Search GD's servers for "${trimmed}"`,
                     subtitle:

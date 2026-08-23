@@ -177,6 +177,27 @@ describe('FindLevelStep', () => {
     expect(screen.getByRole('button', { name: /Done/ })).toBeDisabled()
   })
 
+  // Resolving is a round-trip to the API, and the row the user clicked is the
+  // only place that wait means anything — the rest just stop taking clicks.
+  it('spins the row being resolved, and only that one', async () => {
+    render({
+      results: [
+        makeSearchResult({ inGameId: '111', name: 'Bloodbath' }),
+        makeSearchResult({ inGameId: '222', name: 'Bloodlust' }),
+      ],
+      resolve: resolveMutation({ isPending: true, variables: '111' }),
+    })
+
+    await type('blood')
+
+    const clicked = screen.getByRole('button', { name: /Bloodbath/ })
+    expect(clicked.querySelector('.animate-spin')).toBeInTheDocument()
+
+    const other = screen.getByRole('button', { name: /Bloodlust/ })
+    expect(other.querySelector('.animate-spin')).toBeNull()
+    expect(other).toBeDisabled()
+  })
+
   it('applies a resolved level to the flow', async () => {
     const level = makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' })
     const mutateAsync = vi

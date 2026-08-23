@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/generic/button'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
 
 /**
@@ -11,6 +11,7 @@ import { ApiError } from '@/lib/api/client'
 export function CompletionGddlStep() {
   const { level, setStep } = useLoggingFlow()
   const submitGddl = useSubmitGddlRecord()
+  useFlowBusy(submitGddl.isPending)
   const [done, setDone] = useState(false)
 
   if (!level) return null

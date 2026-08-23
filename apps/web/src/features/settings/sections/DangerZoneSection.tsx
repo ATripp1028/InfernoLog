@@ -2,10 +2,10 @@ import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { signOut } from 'aws-amplify/auth'
 import { SettingsSection } from '../components/SettingsSection'
-import { DeleteAccountDialog } from '../components/DeleteAccountDialog'
+import { AlertDialog } from '@/components/generic/alert-dialog'
 import { Button } from '@/components/generic/button'
 import { toast } from '@/components/generic/sonner'
-import { useDeleteAccount } from '@/lib/api/me'
+import { DELETE_ACCOUNT_CONFIRMATION, useDeleteAccount } from '@/lib/api/me'
 import { clearAllAppCookies } from '@/lib/cookies'
 
 /**
@@ -54,11 +54,16 @@ export function DangerZoneSection() {
         </Button>
       </div>
 
-      <DeleteAccountDialog
+      <AlertDialog
         open={open}
         onOpenChange={setOpen}
+        title="Delete your account?"
+        description="This permanently deletes your account and everything tied to it — completions, rankings, categories, collections, and preferences. This cannot be undone."
+        confirmLabel="Delete account"
+        confirmPhrase={DELETE_ACCOUNT_CONFIRMATION}
+        destructive
+        isPending={deleteAccount.isPending}
         onConfirm={() => void handleConfirm()}
-        isDeleting={deleteAccount.isPending}
       />
     </SettingsSection>
   )

@@ -43,9 +43,11 @@ function stubDialog(overrides: Partial<DialogState> = {}): DialogState {
     showSeedHint: false,
     showEmptyPrompt: true,
     seedingId: null,
+    pickingId: null,
     seededLevel: null,
     clearSeededLevel: vi.fn(),
     seedAndPick: vi.fn(),
+    seedAndSelect: vi.fn(),
     selectLevel: vi.fn(),
     pickedLevel: null,
     collectionQuery: '',
@@ -133,6 +135,58 @@ describe('AddToCollectionDialog', () => {
       )
 
       expect(seedAndPick).toHaveBeenCalledWith('128')
+    })
+
+    // The GD rows carry name, creator, id and difficulty, so picking one must
+    // go straight through rather than land on a confirmation card.
+    it('picks a GD-server result without a confirmation step', async () => {
+      const seedAndSelect = vi.fn()
+      renderDialog({
+        showEmptyPrompt: false,
+        showResults: true,
+        trimmed: 'bloodbath',
+        escalation: stubEscalation({
+          escalatedQuery: 'bloodbath',
+          result: {
+            status: 'ok',
+            rated: [
+              makeSearchResult({ inGameId: '4284013', name: 'Bloodbath' }),
+            ],
+            unrated: [],
+          },
+        }),
+        seedAndSelect,
+      })
+
+      await userEvent.click(screen.getByRole('button', { name: /Bloodbath/ }))
+
+      expect(seedAndSelect).toHaveBeenCalledWith('4284013')
+    })
+
+    // Seeding a picked GD result costs a round-trip, and unlike a raw id it
+    // has a row on screen — so the wait shows there rather than replacing the
+    // results the user is reading.
+    it('spins the GD row whose level is being fetched', () => {
+      renderDialog({
+        showEmptyPrompt: false,
+        showResults: true,
+        trimmed: 'bloodbath',
+        pickingId: '4284013',
+        escalation: stubEscalation({
+          escalatedQuery: 'bloodbath',
+          result: {
+            status: 'ok',
+            rated: [
+              makeSearchResult({ inGameId: '4284013', name: 'Bloodbath' }),
+            ],
+            unrated: [],
+          },
+        }),
+      })
+
+      const row = screen.getByRole('button', { name: /Bloodbath/ })
+      expect(row.querySelector('.animate-spin')).toBeInTheDocument()
+      expect(row).toBeDisabled()
     })
 
     it('lists cache results and selects the one clicked', async () => {

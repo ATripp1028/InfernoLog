@@ -149,10 +149,6 @@ each surface keeps a deliberate example:
 - The `rebalance`/`neighbourIndex` pair in the ranking and collections services
   is duplicated on purpose, because unifying it across two Prisma delegates
   costs more clarity than the ~20 lines it saves.
-- `SearchResultRow` looks like it belongs to the `LevelResultRow` family and
-  deliberately does not: a shorter row with a different thumbnail treatment,
-  meta format, and listbox semantics, answering to the search surface rather
-  than to a "pick a level" prompt.
 
 When you keep two, say in a comment why both exist. The rule targets one fact
 written twice, not two facts that rhyme.

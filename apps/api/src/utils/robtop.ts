@@ -1,7 +1,8 @@
 // Client for Geometry Dash's official servers (boomlings.com), replacing the
-// GDBrowser proxy. We hit getGJLevels21 with type=10 (specific level by id) and
-// parse RobTop's raw colon/pipe/tilde-delimited response into the same
-// normalized shape the levels cache stores.
+// GDBrowser proxy. We hit getGJLevels21 with type=0 (search) — NOT type=10
+// (specific level by id), which only returns rated levels — and parse RobTop's
+// raw colon/pipe/tilde-delimited response into the same normalized shape the
+// levels cache stores. See fetchRobtopLevelResult for why.
 //
 // GOLDEN RULE (unchanged from the old client): server unavailability NEVER
 // blocks the logging flow. Every failure path (down, timeout, "-1", malformed)
@@ -12,10 +13,12 @@
 // resources/server/level).
 
 import { logger } from './logger'
+import { buildGetGJLevels21Request, summarizeErrorBody } from './robtopRequest'
 import {
   acquireRobtopSlot,
   reportRobtopThrottled,
   DEFAULT_COOLDOWN_MS,
+  BLOCKED_COOLDOWN_MS,
 } from './robtopRateLimit'
 
 // Parses an HTTP Retry-After header (delta-seconds or an HTTP date) to ms.
@@ -29,14 +32,71 @@ function parseRetryAfterMs(headerValue: string | null): number | undefined {
   return undefined
 }
 
-const ROBTOP_API_BASE_URL =
-  process.env.ROBTOP_API_BASE_URL ?? 'http://www.boomlings.com/database'
-
-// The shared read secret for getGJLevels21 (a fixed, public constant).
-const GETLEVELS_SECRET = 'Wmfd2893gb7'
-
 // Keep a hung request from pinning the Lambda until its own timeout.
 const FETCH_TIMEOUT_MS = 5000
+
+/**
+ * Handles a non-OK getGJLevels21 response: logs why it failed in enough detail
+ * to diagnose after the fact, and opens the shared cooldown when the status
+ * means "back off", so EVERY consumer stops — not just the caller that got hit.
+ *
+ * Two statuses open a cooldown:
+ *   - 429: RobTop is rate-limiting our IP. Honour `Retry-After` when it sends
+ *     a usable one.
+ *   - 403: Cloudflare denied the request at the edge (the "Sorry, you have been
+ *     blocked" page) — a WAF or IP-reputation block, not a RobTop decision.
+ *     There is no `Retry-After` on these, and continuing to hammer a block is a
+ *     good way to keep it, so back off for a fixed window instead.
+ *
+ * Any other status (a 5xx origin error) is logged but opens no cooldown: it's
+ * RobTop being unwell, not us being told to stop.
+ *
+ * `cf-ray` identifies the request in Cloudflare's own logs and `cf-mitigated`
+ * names the action it took; the body snippet distinguishes a block page from an
+ * origin error. Without these, a 403 run is indistinguishable after the fact
+ * from any other failure — which is exactly what happened in the Aug 2026
+ * block. Best-effort throughout: nothing here may change what the caller
+ * returns.
+ *
+ * @param res - The non-OK response.
+ * @param context - Caller identity for the log line (`levelId` or `name`).
+ */
+async function reportNonOkResponse(
+  res: Response,
+  context: Record<string, string>
+): Promise<void> {
+  let body = ''
+  try {
+    body = await res.text()
+  } catch {
+    // A body we can't read is not worth failing over.
+  }
+
+  logger.warn(
+    {
+      ...context,
+      status: res.status,
+      cfRay: res.headers.get('cf-ray'),
+      cfMitigated: res.headers.get('cf-mitigated'),
+      server: res.headers.get('server'),
+      ...summarizeErrorBody(body),
+    },
+    'fetchRobtopLevel: non-OK response'
+  )
+
+  if (res.status !== 429 && res.status !== 403) return
+
+  const cooldownMs =
+    res.status === 429
+      ? (parseRetryAfterMs(res.headers.get('retry-after')) ??
+        DEFAULT_COOLDOWN_MS)
+      : BLOCKED_COOLDOWN_MS
+  try {
+    await reportRobtopThrottled(cooldownMs)
+  } catch (err) {
+    logger.warn({ ...context, err }, 'fetchRobtopLevel: cooldown write failed')
+  }
+}
 
 /**
  * Normalized level — a snapshot of (essentially) everything RobTop's level
@@ -400,11 +460,20 @@ export type RobtopFetchResult =
  * Lower-level fetch that preserves the not-found vs unreachable distinction.
  * `fetchRobtopLevel` collapses this to `RobtopLevel | null` for the many callers
  * that only care whether they got a level.
+ *
+ * @param levelId - GD level ID.
+ * @param limiterWaitMs - How long to wait for a shared rate-limiter slot before
+ *   giving up. Defaults to the limiter's own wait, which is tuned for
+ *   user-facing calls. Note a limiter timeout is reported as `unreachable` like
+ *   any other failure, so a caller that must not confuse "we never called" with
+ *   "RobTop would not answer" — the reachability canary — passes a wait long
+ *   enough that only an open cooldown can deny it a slot.
  */
 export async function fetchRobtopLevelResult(
-  levelId: string
+  levelId: string,
+  limiterWaitMs?: number
 ): Promise<RobtopFetchResult> {
-  if (!(await acquireRobtopSlot())) {
+  if (!(await acquireRobtopSlot(limiterWaitMs))) {
     logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
     return { status: 'unreachable' }
   }
@@ -413,48 +482,17 @@ export async function fetchRobtopLevelResult(
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const body = new URLSearchParams({
+    const { url, init } = buildGetGJLevels21Request({
       type: '0',
       str: levelId,
-      secret: GETLEVELS_SECRET,
-      gameVersion: '22',
-      binaryVersion: '42',
     })
-
-    const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        // Must be empty to bypass Cloudflare (HTTP 1020 otherwise).
-        'User-Agent': '',
-      },
-      body,
-      signal: controller.signal,
-    })
+    const res = await fetch(url, { ...init, signal: controller.signal })
     if (!res.ok) {
       // A genuine failure (not "level doesn't exist" — that's a 200 with a
-      // "-1" body, handled below without logging). Worth surfacing: this is
-      // the branch a Cloudflare block, rate limit, or RobTop outage takes.
-      logger.warn(
-        { levelId, status: res.status },
-        'fetchRobtopLevel: non-OK response'
-      )
-      // A 429 means RobTop is rate-limiting our IP — open a shared cooldown so
-      // EVERY consumer backs off, not just this call. Best-effort; a failure to
-      // record it must not change what we return.
-      if (res.status === 429) {
-        const cooldownMs =
-          parseRetryAfterMs(res.headers.get('retry-after')) ??
-          DEFAULT_COOLDOWN_MS
-        try {
-          await reportRobtopThrottled(cooldownMs)
-        } catch (err) {
-          logger.warn(
-            { levelId, err },
-            'fetchRobtopLevel: cooldown write failed'
-          )
-        }
-      }
+      // "-1" body, handled below without logging). This is the branch a
+      // Cloudflare block, rate limit, or RobTop outage takes; the helper logs
+      // it and opens the shared cooldown when the status says to back off.
+      await reportNonOkResponse(res, { levelId })
       return { status: 'unreachable' }
     }
 
@@ -539,45 +577,22 @@ export async function searchRobtopByNameResult(
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
 
   try {
-    const body = new URLSearchParams({
+    const params: Record<string, string> = {
       type: options?.type ?? '0',
       str: name,
-      secret: GETLEVELS_SECRET,
-      gameVersion: '22',
-      binaryVersion: '42',
       count: '10',
-    })
-    if (options?.diff !== undefined) body.set('diff', options.diff)
-    if (options?.demonFilter !== undefined)
-      body.set('demonFilter', options.demonFilter)
-    if (options?.extraParams) {
-      for (const [k, v] of Object.entries(options.extraParams)) body.set(k, v)
     }
+    if (options?.diff !== undefined) params.diff = options.diff
+    if (options?.demonFilter !== undefined)
+      params.demonFilter = options.demonFilter
+    // Applied last, so a caller's extras win over diff/demonFilter.
+    if (options?.extraParams) Object.assign(params, options.extraParams)
 
-    const res = await fetch(`${ROBTOP_API_BASE_URL}/getGJLevels21.php`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': '',
-      },
-      body,
-      signal: controller.signal,
-    })
+    const { url, init } = buildGetGJLevels21Request(params)
+    const res = await fetch(url, { ...init, signal: controller.signal })
     if (!res.ok) {
-      // Same shared-cooldown backoff as fetchRobtopLevelResult on a 429.
-      if (res.status === 429) {
-        const cooldownMs =
-          parseRetryAfterMs(res.headers.get('retry-after')) ??
-          DEFAULT_COOLDOWN_MS
-        try {
-          await reportRobtopThrottled(cooldownMs)
-        } catch (err) {
-          logger.warn(
-            { name, err },
-            'searchRobtopByName: cooldown write failed'
-          )
-        }
-      }
+      // Same logging and shared-cooldown backoff as fetchRobtopLevelResult.
+      await reportNonOkResponse(res, { name })
       return { status: 'unreachable' }
     }
 

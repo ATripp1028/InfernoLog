@@ -4,7 +4,7 @@ import { toast } from '@/components/generic/sonner'
 import { useLogCompletion } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
 import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
 import { starCountToDifficulty, difficultyLabel } from '@/lib/gdAssets'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
@@ -37,6 +37,7 @@ export function CompletionReviewStep() {
   const { level, draft, setStep, setLastCompletion } = useLoggingFlow()
   const me = useMe()
   const logCompletion = useLogCompletion()
+  useFlowBusy(logCompletion.isPending)
   if (!level || !me.data) return null
 
   const scale = me.data.ratingDisplayScale

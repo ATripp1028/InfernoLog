@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   dialogContentAnimation,
   dialogOverlayAnimation,
 } from '@/lib/dialogAnimation'
 import { Button } from '@/components/generic/button'
+import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import { useLoggingFlow } from './LoggingFlowProvider'
 import type { FlowPath, FlowStep } from './types'
@@ -129,7 +129,7 @@ function StepView({ step }: { step: FlowStep }) {
  * The logging flow's shell: the level backdrop, the step indicator, and the current step. Steps render themselves.
  */
 export function LoggingModal() {
-  const { isOpen, path, step, level, close } = useLoggingFlow()
+  const { isOpen, path, step, level, isBusy, close } = useLoggingFlow()
   const [confirmingClose, setConfirmingClose] = useState(false)
 
   // Both c_gddl and c_success are post-save: the completion is already written,
@@ -148,6 +148,10 @@ export function LoggingModal() {
   }, [isOpen])
 
   function requestClose() {
+    // A write in flight (`isBusy`, reported by the step running it) closes off
+    // every exit — not even the discard prompt, since the save is already
+    // going and there'd be nothing to discard.
+    if (isBusy) return
     if (guardClose) setConfirmingClose(true)
     else close()
   }
@@ -164,11 +168,11 @@ export function LoggingModal() {
         <Dialog.Content
           aria-describedby={undefined}
           onInteractOutside={(e) => {
-            if (guardClose) e.preventDefault()
+            if (guardClose || isBusy) e.preventDefault()
           }}
           onEscapeKeyDown={(e) => {
             // Route Escape through the confirmation prompt instead of closing.
-            if (guardClose) e.preventDefault()
+            if (guardClose || isBusy) e.preventDefault()
             requestClose()
           }}
           className={cn(
@@ -224,11 +228,11 @@ export function LoggingModal() {
                   <Dialog.Title className="mt-1 text-2xl font-semibold text-text-primary">
                     {header.title}
                   </Dialog.Title>
-                  <Dialog.Close
-                    aria-label="Close"
-                    className="absolute right-5 top-5 flex size-8 items-center justify-center rounded-md bg-bg-elevated text-text-secondary transition-colors hover:text-text-primary"
-                  >
-                    <X size={16} />
+                  <Dialog.Close asChild>
+                    <DialogCloseButton
+                      disabled={isBusy}
+                      className="absolute right-5 top-5 size-8 bg-bg-elevated hover:text-text-primary"
+                    />
                   </Dialog.Close>
                   <div className="mt-4 h-0.5 w-full overflow-hidden rounded-full bg-bg-subtle">
                     <div

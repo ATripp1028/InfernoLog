@@ -8,6 +8,7 @@ import {
   searchRobtopByNameResult,
 } from './robtop'
 import { acquireRobtopSlot, reportRobtopThrottled } from './robtopRateLimit'
+import { logger } from './logger'
 
 // The rate limiter reads/writes shared state (DynamoDB in production), and the
 // logger is noise here. DEFAULT_COOLDOWN_MS is re-exported from the real module
@@ -16,10 +17,26 @@ vi.mock('./robtopRateLimit', () => ({
   acquireRobtopSlot: vi.fn(),
   reportRobtopThrottled: vi.fn(),
   DEFAULT_COOLDOWN_MS: 60_000,
+  BLOCKED_COOLDOWN_MS: 300_000,
 }))
 vi.mock('./logger', () => ({
   logger: { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
 }))
+
+// Cloudflare's block page. The real one opens with ~700 bytes of DOCTYPE and IE
+// conditional comments — boilerplate shared by every Cloudflare error page —
+// and only says what it is thousands of bytes in. That shape is the point of
+// the fixture: sampling the front of this body identifies nothing.
+const CF_BLOCK_PAGE =
+  '<!DOCTYPE html>\n' +
+  '<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en-US"> <![endif]-->\n' +
+  '<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en-US"> <![endif]-->\n' +
+  '<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en-US"> <![endif]-->\n' +
+  '<head><title>Attention Required! | Cloudflare</title></head>' +
+  `<body>${' '.repeat(3000)}` +
+  '<h1 data-translate="block_headline">Sorry, you have been blocked</h1>' +
+  '<div id="cf-error-details" class="cf-error-details-wrapper">' +
+  '<p>You are unable to access boomlings.com</p></div></body></html>'
 
 const mockAcquireSlot = vi.mocked(acquireRobtopSlot)
 const mockReportThrottled = vi.mocked(reportRobtopThrottled)
@@ -50,11 +67,14 @@ beforeEach(() => {
   mockFetch.mockReset()
   mockAcquireSlot.mockReset().mockResolvedValue(true)
   mockReportThrottled.mockReset().mockResolvedValue(undefined)
+  // The diagnostics tests read logger.warn's calls, so they must see only their
+  // own.
+  vi.mocked(logger.warn).mockClear()
 })
 
-// Real getGJLevels21 response for a "bloodbath" search (5 levels). We query by
-// id (type=10) which returns a single level, but the parser always takes the
-// first — so this richer fixture exercises the creator/song joins too.
+// Real getGJLevels21 response for a "bloodbath" search (5 levels). A by-id query
+// is a type=0 search for that id, which normally matches a single level, but
+// this richer fixture exercises the creator/song joins and the id selection too.
 const BLOODBATH_RESPONSE =
   '1:10565740:2:Bloodbath:5:3:6:503085:8:10:9:50:10:170836653:12:0:13:21:14:5484858:17:1:43:6:25::18:10:19:3206:42:0:45:24746:3:V2hvc2UgYmxvb2Qgd2lsbCBiZSBzcGlsdCBpbiB0aGUgQmxvb2RiYXRoPyBXaG8gd2lsbCB0aGUgdmljdG9ycyBiZT8gSG93IG1hbnkgd2lsbCBzdXJ2aXZlPyBHb29kIGx1Y2suLi4=:15:3:30:7679228:31:0:37:0:38:0:39:0:46:1:47:2:35:467339|1:21761387:2:Bloodbath Z:5:1:6:3277407:8:10:9:20:10:20195372:12:0:13:20:14:446688:17:1:43:4:25::18:10:19:6328:42:0:45:0:3:UmVtYWtlIG9mIEJCLCBidXQgU2hvcnRlciBhbmQgbXVjaCBlYXNpZXIgWEQgTW9yZSBvZiBhIGdhbWVwbGF5IGxldmVsISAgSnVzdCBhIGZ1biBlYXN5IGRlbW9uLiBWZXJpZmllZCBCeSBYaW9kYXplciEgRW5qb3kgOkQ=:15:3:30:0:31:0:37:3:38:1:39:10:46:1:47:2:35:223469|1:64968478:2:Bloodbath but no:5:1:6:19747356:8:10:9:50:10:6967991:12:0:13:21:14:283065:17::43:6:25::18:8:19:19849:42:0:45:23233:3:Qmxvb2RiYXRoLCBJdCdzIG5vdCBldmVuIHRoaXM=:15:3:30:0:31:0:37:0:38:1:39:8:46:1:47:2:35:706340|1:75795864:2:Bloodbath:5:3:6:12348083:8:10:9:40:10:856380:12:0:13:22:14:20292:17::43:5:25::18:7:19:24643:42:0:45:55985:3:VGhhbmtzIHRvIGV2ZXJ5b25lIGluIG15IGRpc2NvcmQgc2VydmVyIHRoYXQgY29udHJpYnV0ZWQ=:15:3:30:75393195:31:0:37:0:38:1:39:6:46:1:47:2:35:513064|1:32256905:2:Bloodbath noclip:5:1:6:17869201:8:10:9:40:10:256320:12:0:13:21:14:1916:17::43:5:25::18:0:19:0:42:0:45:13997:3::15:3:30:10565740:31:0:37:0:38:0:39:8:46:1:47:2:35:467339#503085:Riot:37415|3277407:Zyzyx:88354|12348083:KNOEPPEL:3009121|17869201:CoolManGame2:5599333|19747356:Texic:6152129#1~|~223469~|~2~|~ParagonX9 - HyperioxX~|~3~|~31~|~4~|~ParagonX9~|~5~|~3.77~|~6~|~~|~10~|~-~|~16~|~~|~7~|~~|~8~|~1~:~1~|~467339~|~2~|~At the Speed of Light~|~3~|~52~|~4~|~Dimrain47~|~5~|~9.56~|~6~|~~|~10~|~https%3A%2F%2Fgeometrydashcontent.b-cdn.net%2Fsongs%2F467339.mp3~|~16~|~~|~7~|~~|~8~|~1~:~1~|~513064~|~2~|~EnV - Uprise~|~3~|~149~|~4~|~Envy~|~5~|~8.71~|~6~|~~|~10~|~http%3A%2F%2Faudio.ngfiles.com%2F513000%2F513064_EnV---Uprise.mp3~|~16~|~~|~7~|~UCaRqE7rKwJl1BvMRU4FFVJQ~|~8~|~1~:~1~|~706340~|~2~|~-At the Speed of Light- (8 bit Remix)~|~3~|~46724~|~4~|~ThaPredator~|~5~|~4.78~|~6~|~~|~10~|~-~|~16~|~~|~7~|~~|~8~|~1#5:0:10#2a869972e889b08ab70a94c3f84560b2f12d2aed'
 
@@ -324,10 +344,113 @@ describe('fetchRobtopLevelResult', () => {
       })
     })
 
-    it('does not open a cooldown for non-429 failures', async () => {
+    it('does not open a cooldown for a 5xx', async () => {
+      // RobTop's origin being unwell is not RobTop telling us to stop.
       mockFetch.mockResolvedValueOnce(robtopResp(503, ''))
       await fetchRobtopLevelResult('222')
       expect(mockReportThrottled).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('403 shared cooldown (Cloudflare block)', () => {
+    it('opens the fixed block cooldown', async () => {
+      // A block page carries no Retry-After, so the fixed window applies.
+      mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
+      expect(mockReportThrottled).toHaveBeenCalledWith(300_000)
+    })
+
+    it('ignores Retry-After on a 403', async () => {
+      // Only a 429 negotiates its own backoff; a WAF block does not get to ask
+      // us to come back in a second.
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(403, CF_BLOCK_PAGE, { 'retry-after': '1' })
+      )
+      await fetchRobtopLevelResult('222')
+      expect(mockReportThrottled).toHaveBeenCalledWith(300_000)
+    })
+
+    it('still reports unreachable when recording the cooldown fails', async () => {
+      mockReportThrottled.mockRejectedValueOnce(new Error('db down'))
+      mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
+    })
+  })
+
+  describe('non-OK diagnostics', () => {
+    /** The payload of the non-OK log line from the most recent call. */
+    function lastNonOkLog(): Record<string, unknown> {
+      const calls = vi
+        .mocked(logger.warn)
+        .mock.calls.filter((c) => c[1] === 'fetchRobtopLevel: non-OK response')
+      return calls[calls.length - 1]![0] as Record<string, unknown>
+    }
+
+    it('logs the Cloudflare block details a 403 can be diagnosed from', async () => {
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(403, CF_BLOCK_PAGE, {
+          'cf-ray': 'a2f5533e6fc34e0a-MCI',
+          'cf-mitigated': 'challenge',
+          server: 'cloudflare',
+        })
+      )
+      await fetchRobtopLevelResult('222')
+
+      // The marker has to come from the headline thousands of bytes in, not
+      // from the DOCTYPE boilerplate the page opens with.
+      expect(lastNonOkLog()).toMatchObject({
+        levelId: '222',
+        status: 403,
+        cfRay: 'a2f5533e6fc34e0a-MCI',
+        cfMitigated: 'challenge',
+        server: 'cloudflare',
+        blockPage: true,
+        marker: 'Sorry, you have been blocked',
+      })
+    })
+
+    it('keeps a raw excerpt only for a body it cannot classify', async () => {
+      // An unrecognised body is the one case where the raw text is worth having.
+      mockFetch.mockResolvedValueOnce(robtopResp(502, 'upstream connect error'))
+      await fetchRobtopLevelResult('222')
+
+      expect(lastNonOkLog()).toMatchObject({
+        status: 502,
+        blockPage: false,
+        snippet: 'upstream connect error',
+      })
+      expect(lastNonOkLog()).not.toHaveProperty('marker')
+    })
+
+    it('reports a Cloudflare error code when the page carries one', async () => {
+      // boomlings' block page has no numeric code today, but it is the most
+      // useful field when a Cloudflare page does carry one.
+      mockFetch.mockResolvedValueOnce(
+        robtopResp(
+          403,
+          '<html><body>Access denied. error code: 1020</body></html>'
+        )
+      )
+      await fetchRobtopLevelResult('222')
+
+      expect(lastNonOkLog()).toMatchObject({ marker: 'cloudflare 1020' })
+    })
+
+    it('still reports unreachable when the body cannot be read', async () => {
+      // Logging is best-effort — an unreadable body must not change the result.
+      mockFetch.mockResolvedValueOnce({
+        ...robtopResp(500, ''),
+        text: async () => {
+          throw new Error('body already consumed')
+        },
+      } as Response)
+      await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
+        status: 'unreachable',
+      })
     })
   })
 })

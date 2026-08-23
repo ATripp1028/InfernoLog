@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
 import { Button } from '@/components/generic/button'
 import { Textarea } from '@/components/generic/textarea'
 import { cn } from '@/lib/utils'
-import { useMediaQuery } from '@/lib/useMediaQuery'
-import { MobileSheetDialog } from '@/components/shell/MobileSheetDialog'
+import { Modal } from '@/components/generic/modal'
 import {
   collectionErrorCode,
   useCollections,
@@ -45,7 +44,7 @@ export function CollectionFormDialog({
   isSaving,
   editing,
 }: CollectionFormDialogProps) {
-  const isDesktop = useMediaQuery('(min-width: 768px)')
+  const nameRef = useRef<HTMLInputElement>(null)
   const collections = useCollections()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -77,8 +76,8 @@ export function CollectionFormDialog({
   const error = clientError ?? serverError
   const canSave = !!trimmed && !clientError && !isSaving
 
-  if (!open) return null
-
+  // No `if (!open) return null` here: Radix only mounts the panel while open,
+  // and bailing early would cut the close animation off at the first frame.
   async function handleSave() {
     if (!canSave) return
     setServerError(null)
@@ -98,24 +97,8 @@ export function CollectionFormDialog({
     }
   }
 
-  const header = (
-    <div className="flex items-center justify-between pb-2 pl-6 pr-5 pt-5">
-      <h2 className="text-lg font-semibold text-text-primary">
-        {editing ? 'Edit collection' : 'New collection'}
-      </h2>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="flex size-7 items-center justify-center rounded-md text-text-secondary hover:bg-bg-subtle hover:text-text-primary"
-      >
-        <X size={16} />
-      </button>
-    </div>
-  )
-
   const body = (
-    <div className="flex flex-col gap-5 px-6 pb-5 pt-3">
+    <div className="flex flex-col gap-5 px-5 pb-5 pt-3">
       <div className="flex flex-col gap-2">
         <label
           htmlFor="collection-name"
@@ -126,7 +109,7 @@ export function CollectionFormDialog({
         <div className="relative">
           <input
             id="collection-name"
-            autoFocus={isDesktop}
+            ref={nameRef}
             value={name}
             onChange={(e) => {
               setName(e.target.value)
@@ -177,13 +160,8 @@ export function CollectionFormDialog({
   )
 
   const footer = (
-    <div
-      className={cn(
-        'flex items-center justify-end gap-3 border-t border-border-subtle bg-bg-surface/50 px-6 py-3.5',
-        isDesktop && 'rounded-b-xl'
-      )}
-    >
-      <Button variant="outline" onClick={onClose}>
+    <div className="flex items-center justify-end gap-3">
+      <Button variant="outline" onClick={onClose} disabled={isSaving}>
         Cancel
       </Button>
       <Button onClick={() => void handleSave()} disabled={!canSave}>
@@ -192,36 +170,17 @@ export function CollectionFormDialog({
     </div>
   )
 
-  if (isDesktop) {
-    return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose()
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') onClose()
-        }}
-      >
-        <div className="w-full max-w-[480px] rounded-xl border border-border bg-bg-surface shadow-[0_8px_24px_rgba(0,0,0,0.6)]">
-          {header}
-          {body}
-          {footer}
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <MobileSheetDialog
+    <Modal
+      open={open}
       onClose={onClose}
-      className="border-border bg-bg-surface"
+      busy={isSaving}
+      size="md"
+      title={editing ? 'Edit collection' : 'New collection'}
+      autoFocusRef={nameRef}
+      footer={footer}
     >
-      <div className="overflow-y-auto">
-        {header}
-        {body}
-      </div>
-      {footer}
-    </MobileSheetDialog>
+      {body}
+    </Modal>
   )
 }

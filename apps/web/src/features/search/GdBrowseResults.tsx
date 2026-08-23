@@ -1,8 +1,8 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import type { LevelSearchResult } from '@/lib/api/logging'
 import { backOriginState } from '@/lib/backOrigin'
+import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { formatRetryWait } from '@/lib/api/client'
-import { SearchResultRow } from './SearchResultRow'
 import type { useEscalation } from './useEscalation'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 
@@ -39,7 +39,7 @@ export function GdBrowseResults({
         </SectionLabel>
         <div className="overflow-hidden rounded-card border border-border-subtle">
           {result.rated.map((level: LevelSearchResult) => (
-            <SearchResultRow
+            <LevelResultRow
               key={level.inGameId}
               level={level}
               onSelect={() => go(level.inGameId)}
@@ -47,7 +47,7 @@ export function GdBrowseResults({
           ))}
           {result.unrated.length > 0 &&
             result.unrated.map((level: LevelSearchResult) => (
-              <SearchResultRow
+              <LevelResultRow
                 key={level.inGameId}
                 level={level}
                 onSelect={() => go(level.inGameId)}

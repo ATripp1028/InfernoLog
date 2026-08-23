@@ -6,7 +6,7 @@ import { RatingRow } from '@/components/data/RatingRow'
 import { toast } from '@/components/generic/sonner'
 import { useLogProgress } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import {
   FieldError,
   FieldHint,
@@ -29,6 +29,7 @@ export function ProgressSessionStep() {
   const { level, draft, patchDraft, setStep, close } = useLoggingFlow()
   const me = useMe()
   const logProgress = useLogProgress()
+  useFlowBusy(logProgress.isPending)
   const defaultDevice = me.data?.defaultDevice
 
   useEffect(() => {

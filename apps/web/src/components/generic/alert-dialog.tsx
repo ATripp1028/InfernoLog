@@ -1,21 +1,49 @@
+import { useEffect, useId, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Loader2 } from 'lucide-react'
 import { Button } from './button'
-import { cn } from '@/lib/utils'
-import {
-  dialogContentAnimation,
-  dialogOverlayAnimation,
-} from '@/lib/dialogAnimation'
+import { Input } from './input'
+import { DialogSurface } from './dialog-surface'
 
 /**
- * A small centered confirm dialog over Radix Dialog (no extra dep). Used for
- * destructive confirmations like deleting a list entry.
+ * Props for {@link AlertDialog}.
+ */
+export interface AlertDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  description?: string
+  confirmLabel?: string
+  cancelLabel?: string
+  destructive?: boolean
+  /**
+   * The confirm mutation's `isPending`. Named for what callers already hold
+   * rather than matching `Modal`'s `busy`, since every call site passes a
+   * TanStack mutation flag straight through.
+   */
+  isPending?: boolean
+  onConfirm: () => void
+  /**
+   * Gate confirm behind typing this exact phrase. For the handful of actions
+   * where a misplaced click is unrecoverable — deleting an account, not
+   * deleting a list entry. Use it sparingly: asked for routinely it stops
+   * being read, which is the opposite of the point.
+   */
+  confirmPhrase?: string
+}
+
+/**
+ * A confirmation: a question, the stakes, and two answers.
  *
- * The dialog does NOT close itself on confirm — `onConfirm` is expected to
- * kick off a mutation whose pending state is passed back in as `isPending`.
- * While pending, the confirm/cancel buttons are disabled and dismissal
- * (escape/overlay click) is blocked; the caller closes the dialog (typically
- * on mutation success) via `onOpenChange`.
+ * It does NOT close itself on confirm. `onConfirm` kicks off a mutation whose
+ * pending state comes back as `isPending`; while that's true both buttons are
+ * disabled and dismissal is blocked, and the caller closes the dialog — usually
+ * on success — through `onOpenChange`. So the dialog stays put if the mutation
+ * fails, which is where the error message needs it to be.
+ *
+ * For a task rather than a question — a form, a search, anything with a body
+ * worth scrolling — reach for `Modal`. It shares this one's
+ * {@link DialogSurface} but not its anatomy.
  */
 export function AlertDialog({
   open,
@@ -27,69 +55,75 @@ export function AlertDialog({
   destructive = false,
   isPending = false,
   onConfirm,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  title: string
-  description?: string
-  confirmLabel?: string
-  cancelLabel?: string
-  destructive?: boolean
-  isPending?: boolean
-  onConfirm: () => void
-}) {
+  confirmPhrase,
+}: AlertDialogProps) {
+  const [typed, setTyped] = useState('')
+  const phraseRef = useRef<HTMLInputElement>(null)
+  const phraseId = useId()
+
+  // Clear the phrase whenever the dialog closes, so reopening it always asks
+  // again — including after a failed attempt the caller left open.
+  useEffect(() => {
+    if (!open) setTyped('')
+  }, [open])
+
+  const phraseSatisfied = !confirmPhrase || typed === confirmPhrase
+
   return (
-    <Dialog.Root
+    <DialogSurface
       open={open}
-      onOpenChange={(o) => {
-        if (isPending) return
-        onOpenChange(o)
-      }}
+      onDismiss={() => onOpenChange(false)}
+      busy={isPending}
+      size="sm"
+      hasDescription={!!description}
+      autoFocusRef={confirmPhrase ? phraseRef : undefined}
+      className="px-5 pb-6 pt-2 md:pb-5 md:pt-5"
     >
-      <Dialog.Portal>
-        <Dialog.Overlay
-          className={cn(
-            'fixed inset-0 z-50 bg-black/60',
-            dialogOverlayAnimation
-          )}
-        />
-        <Dialog.Content
-          {...(description ? {} : { 'aria-describedby': undefined })}
-          className={cn(
-            'fixed inset-x-0 bottom-0 z-50 w-full rounded-t-card border-t border-border bg-bg-surface p-5 pb-6 shadow-xl focus:outline-none',
-            dialogContentAnimation,
-            'md:inset-auto md:left-1/2 md:top-1/2 md:bottom-auto md:w-[calc(100vw-2rem)] md:max-w-sm md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-card md:border md:pb-5'
-          )}
+      <Dialog.Title className="text-base font-semibold text-text-primary">
+        {title}
+      </Dialog.Title>
+      {description && (
+        <Dialog.Description className="mt-1.5 text-sm text-text-secondary">
+          {description}
+        </Dialog.Description>
+      )}
+
+      {confirmPhrase && (
+        <div className="mt-4 space-y-1.5">
+          <label htmlFor={phraseId} className="text-xs text-text-secondary">
+            Type{' '}
+            <span className="font-medium text-text-primary">
+              {confirmPhrase}
+            </span>{' '}
+            to confirm
+          </label>
+          <Input
+            id={phraseId}
+            ref={phraseRef}
+            value={typed}
+            onChange={(e) => setTyped(e.target.value)}
+            autoComplete="off"
+            disabled={isPending}
+          />
+        </div>
+      )}
+
+      <div className="mt-5 flex justify-end gap-2">
+        <Dialog.Close asChild>
+          <Button variant="outline" size="sm" disabled={isPending}>
+            {cancelLabel}
+          </Button>
+        </Dialog.Close>
+        <Button
+          variant={destructive ? 'destructive' : 'default'}
+          size="sm"
+          disabled={isPending || !phraseSatisfied}
+          onClick={onConfirm}
         >
-          <div className="mx-auto mb-3 flex justify-center md:hidden">
-            <span className="h-1 w-10 rounded-full bg-border" aria-hidden />
-          </div>
-          <Dialog.Title className="text-base font-semibold text-text-primary">
-            {title}
-          </Dialog.Title>
-          {description && (
-            <Dialog.Description className="mt-1.5 text-sm text-text-secondary">
-              {description}
-            </Dialog.Description>
-          )}
-          <div className="mt-5 flex justify-end gap-2">
-            <Dialog.Close asChild>
-              <Button variant="outline" size="sm" disabled={isPending}>
-                {cancelLabel}
-              </Button>
-            </Dialog.Close>
-            <Button
-              variant={destructive ? 'destructive' : 'default'}
-              size="sm"
-              disabled={isPending}
-              onClick={onConfirm}
-            >
-              {isPending && <Loader2 size={14} className="animate-spin" />}
-              {confirmLabel}
-            </Button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+          {isPending && <Loader2 size={14} className="animate-spin" />}
+          {confirmLabel}
+        </Button>
+      </div>
+    </DialogSurface>
   )
 }
