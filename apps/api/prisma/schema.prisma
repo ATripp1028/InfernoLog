@@ -145,6 +145,58 @@ enum EntryVisibility {
   PRIVATE
 }
 
+// What an ActivityLog row records. See docs/EVENT_LOG.md for the taxonomy and
+// apps/api/src/services/activityLog for the emission API.
+//
+// RANKING_REBALANCE is INTERNAL ONLY. It records a wholesale rewrite of the
+// classic ranking's fractional-index space — the renormalisation inside
+// services/ranking, and the spreadsheet import's full replace — so every
+// level's logged rankingIndex history stays in one coordinate system and
+// reconstruction can't silently drift. The user never did anything a feed
+// would name, so it must be filtered out of any Log/timeline surface and out
+// of any future Discord event-type → channel mapping. Nothing else in the enum
+// is hidden.
+enum ActivityEventType {
+  RANKING_PLACEMENT
+  RANKING_REORDER
+  RANKING_UNRANKED
+  RANKING_REBALANCE
+  LOG_EDIT
+  RATING_CONFIG_CHANGE
+}
+
+// Why a level appears on a ranking event. MOVER is the level the user acted
+// on (and, on a RANKING_REBALANCE, every level whose index was rewritten —
+// nothing "moved" there, but nothing is a bystander either). NEIGHBOR is a
+// level immediately adjacent to the mover before or after the move, carried so
+// the event records the local context it changed. Levels further down the list
+// whose ordinal merely shifted are deliberately NOT recorded — see
+// docs/RANKING_SYSTEM.md, "direct events only".
+enum ActivityImpactRole {
+  MOVER
+  NEIGHBOR
+}
+
+// The filter key for ActivityLogFieldChange rows. Filtering keys off THIS, not
+// off fieldName, so a new editable field only has to be given a category
+// instead of being added to a hardcoded field list everywhere that filters.
+//
+//   RATING         — the level's rating: simple rating, per-category weighted
+//                    scores, per-event enjoyment.
+//   SESSION_DETAIL — the run/session: percentage, run range, attempts, date,
+//                    fps, device, notes, and the rest of the Session Details
+//                    step (see docs/LOGGING_FLOW.md).
+//   METADATA       — the user's read of the LEVEL rather than of one run:
+//                    difficulty opinion, GDDL tier opinion, level notes.
+//   RATING_CONFIG  — weighted-mode configuration, on RATING_CONFIG_CHANGE
+//                    events only. Never appears on a LOG_EDIT.
+enum ActivityFieldCategory {
+  RATING
+  SESSION_DETAIL
+  METADATA
+  RATING_CONFIG
+}
+
 enum CollectionType {
   WANT_TO_BEAT
   FAVORITES
@@ -367,6 +419,7 @@ model User {
   moderationActionsBy   ModerationAction[]   @relation("ModeratorRelation")
   moderationActionsOn   ModerationAction[]   @relation("TargetUserRelation")
   banAppealsReviewed    BanAppeal[]          @relation("ReviewedByRelation")
+  activityLog           ActivityLog[]
 
   @@map("users")
 }
@@ -516,6 +569,8 @@ model Level {
   // Relations
   levelProgress         LevelProgress[]
   collectionEntries     CollectionEntry[]
+  activityLog           ActivityLog[]
+  activityImpacts       ActivityLogLevelImpact[]
 
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
   // (GET /v1/levels/search). Queried via the `%` operator / similarity().
@@ -756,7 +811,17 @@ model RatingScore {
 //   1.0 ── 2.0 ── 3.0  (initial)
 //   Insert between 2 and 3 → 2.5
 //   Insert between 2 and 2.5 → 2.25
-//   Gap < 0.0001 → rebalancing job renormalizes to integers
+//   Gap < 0.0001 → renormalize the whole list to integers, then insert
+//
+// The renormalization is NOT a background job (earlier comments here called it
+// "the rebalancing job"; no such cron exists). It runs inline, inside the
+// transaction of the placement or reorder that found the gap too tight — see
+// rebalance() in services/ranking. The spreadsheet import's full replace
+// rewrites the same index space the same way.
+//
+// EVERY write that touches rankingIndex must emit an ActivityLog event
+// (see services/activityLog and docs/EVENT_LOG.md). An index written without
+// one is a permanent hole in that level's history — the old value is gone.
 //
 // Only LevelProgress entries with status = COMPLETED appear here.
 // ─────────────────────────────────────────────
@@ -818,6 +883,156 @@ model CollectionEntry {
 
   @@unique([collectionId, levelId]) // A level can only appear once per collection
   @@map("collection_entries")
+}
+
+// ─────────────────────────────────────────────
+// ACTIVITY LOG
+// The parent row for every loggable event that is NOT already derivable from
+// an existing timestamp.
+//
+// Deliberately NOT here: progress logs, completions and drops. Those are
+// already events — ProgressUpdate.kind + loggedAt — and duplicating them into
+// activity_log would create two records of one fact that can disagree. A
+// timeline reads both and merges at query time (the "hybrid merge"); nothing
+// in this schema needs to change for that to be built. Collection add/remove
+// is not tracked at all. See docs/EVENT_LOG.md.
+//
+// Neither the timeline UI nor Discord notifications exist yet. The shape here
+// is chosen so both can be added without a migration.
+// ─────────────────────────────────────────────
+
+model ActivityLog {
+  id                String                  @id @default(uuid())
+  userId            String
+
+  eventType         ActivityEventType
+
+  // The level the event is about. Null for RATING_CONFIG_CHANGE (user-scoped,
+  // not level-scoped) and for RANKING_REBALANCE (list-wide — the levels it
+  // touched are its impact rows). A ranking event's mover level is BOTH here
+  // and in its MOVER impact row: here so "this level's history" is one indexed
+  // query, there so the mover carries the same index/position payload every
+  // other touched level does.
+  levelId           String?
+
+  // Per-entry privacy, the same enum LevelProgress.visibility uses. Inert
+  // until v4 public profiles ship — every route today is scoped to the
+  // authenticated user's own data — but events are being written now and would
+  // otherwise all be retroactively public the day a profile route lands.
+  visibility        EntryVisibility         @default(PUBLIC)
+
+  createdAt         DateTime                @default(now())
+  // Total-order tiebreaker, and the field reconstruction should actually order
+  // by. One request routinely writes two events — a placement that trips a
+  // rebalance emits RANKING_REBALANCE then RANKING_PLACEMENT — and createdAt
+  // cannot separate them reliably: Prisma stamps it per statement, so the two
+  // are a millisecond apart at best and can land in the same one, and the
+  // column DEFAULT is CURRENT_TIMESTAMP, which Postgres freezes at transaction
+  // start for anything inserted by raw SQL. Ordering those two backwards makes
+  // "the most recent logged rankingIndex as of T" read the stale coordinate
+  // system. Order by (createdAt, sequence), or by sequence alone within a user.
+  //
+  // Int, not BigInt: 2^31 events is orders of magnitude beyond this app, and
+  // Prisma maps BigInt to a JS BigInt that JSON.stringify throws on — a
+  // landmine for the first read route that returns an event row.
+  sequence          Int                     @default(autoincrement())
+
+  // Relations
+  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // SetNull, not Cascade: a level leaving the shared cache must not delete a
+  // user's record of what they did. levelName on the impact rows is what keeps
+  // such a row readable.
+  level             Level?                  @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
+  levelImpacts      ActivityLogLevelImpact[]
+  fieldChanges      ActivityLogFieldChange[]
+
+  // The timeline read: one user's events newest-first.
+  @@index([userId, createdAt])
+  // "This level's history" on a level page, and the purge that runs when a
+  // user deletes their entry for a level.
+  @@index([userId, levelId, createdAt])
+  @@map("activity_log")
+}
+
+// One row per level actually touched by a ranking event: the mover, plus the
+// levels immediately adjacent to it before or after the move. Children of
+// RANKING_PLACEMENT / RANKING_REORDER / RANKING_UNRANKED / RANKING_REBALANCE
+// only — no other event type has these.
+model ActivityLogLevelImpact {
+  id                String              @id @default(uuid())
+  eventId           String
+
+  // Nullable for the same reason ActivityLog.levelId is: history outlives the
+  // level cache row.
+  levelId           String?
+  // DENORMALIZED, snapshotted at write time. This is what keeps the row
+  // displayable after the referenced level's LevelProgress/ClassicRanking is
+  // deleted: deleting an entry deletes that level's OWN events, but every
+  // other level's impact rows still name it, and there is no longer any
+  // level_progress to join through for a name. Null only when the level cache
+  // had no name at write time.
+  levelName         String?
+
+  role              ActivityImpactRole
+
+  // The ACTUAL fractional index this level held after this event — never a
+  // delta, never a boolean. Recording the real value on every write that
+  // touches classic_ranking.rankingIndex (rebalances included) is what makes
+  // snapshot-at-T reconstruction possible later without a snapshot table: a
+  // level's index at time T is its most recent impact row at or before T.
+  rankingIndex      Decimal             @db.Decimal(20, 10)
+
+  // 1-based display positions (#1 = hardest), computed from the ordered
+  // ranking before and after the event. positionBefore is null for an initial
+  // placement; positionAfter is null for RANKING_UNRANKED. Both are present
+  // and equal on a RANKING_REBALANCE, which rewrites indices but no order.
+  positionBefore    Int?
+  positionAfter     Int?
+
+  // The top-N threshold this level crossed on this event, or null for none.
+  // DIRECTION is read off positionBefore/positionAfter — entering the top 10
+  // and falling out of it are both `10`. An int rather than an enum because no
+  // milestone-threshold model exists to point at; the thresholds live in
+  // apps/api/src/services/activityLog/milestones.ts and can become per-user
+  // config later without touching this column.
+  milestoneCrossed  Int?
+
+  // Relations
+  event             ActivityLog         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  level             Level?              @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
+
+  @@index([eventId])
+  // The reconstruction read: one level's index history in event order.
+  @@index([levelId])
+  @@map("activity_log_level_impact")
+}
+
+// One row per field actually changed in a save. Children of LOG_EDIT (the
+// user's edits to their own log entry) and of RATING_CONFIG_CHANGE (the
+// weighted-rating config diff, category = RATING_CONFIG). One event per SAVE,
+// not per field.
+model ActivityLogFieldChange {
+  id                String                @id @default(uuid())
+  eventId           String
+
+  // Raw field identifier, snake_case, matching the column it maps to:
+  // `percentage`, `attempts`, `date`, `notes`, `simple_rating`,
+  // `difficulty_opinion`. Per-category weighted scores are
+  // `rating_score:<categoryId>`. Never filter on this — see `category`.
+  fieldName         String
+  category          ActivityFieldCategory
+
+  // Serialized at the application layer; no typed column per field. Null means
+  // the field had (or was given) no value, which is distinct from the string
+  // "null" a caller would have to go out of its way to produce.
+  oldValue          String?
+  newValue          String?
+
+  // Relations
+  event             ActivityLog           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@map("activity_log_field_change")
 }
 
 // ─────────────────────────────────────────────

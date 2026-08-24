@@ -35,9 +35,17 @@ const USER_ID = 'user-1'
 
 /** The transaction client both commits run against. */
 const tx = {
-  classicRanking: { deleteMany: vi.fn(), createMany: vi.fn() },
+  classicRanking: {
+    deleteMany: vi.fn(),
+    createMany: vi.fn(),
+    // The before/after snapshots the ranking replace emits its
+    // RANKING_REBALANCE from.
+    findMany: vi.fn(),
+  },
   ratingCategory: { createMany: vi.fn() },
   ratingScore: { deleteMany: vi.fn(), createMany: vi.fn() },
+  activityLog: { create: vi.fn() },
+  activityLogLevelImpact: { createMany: vi.fn() },
 }
 
 /** Seeds the user's completed levels (the only valid targets for both tabs). */
@@ -69,6 +77,8 @@ beforeEach(() => {
   prisma.ratingCategory.findMany.mockReset().mockResolvedValue([] as never)
   for (const model of Object.values(tx))
     for (const fn of Object.values(model)) fn.mockReset().mockResolvedValue({})
+  tx.classicRanking.findMany.mockResolvedValue([])
+  tx.activityLog.create.mockResolvedValue({ id: 'event-1' })
   prisma.$transaction.mockReset().mockImplementation(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ((fn: (client: unknown) => unknown) => fn(tx)) as any

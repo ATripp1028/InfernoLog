@@ -25,6 +25,8 @@ import {
   purgeCategoriesFromPreset,
   type PresetViewFields,
 } from '../../services/listPresets'
+import { ratingConfigChangeData } from '../../services/activityLog'
+import { buildRatingConfigChanges } from '../../services/activityLog/ratingConfig'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -91,10 +93,22 @@ app.put('/me/rating-config', async (c) => {
     )
   }
 
-  const existing = await prisma.ratingCategory.findMany({
-    where: { userId },
-    select: { id: true },
-  })
+  // name/weight/sortOrder come along for the RATING_CONFIG_CHANGE diff at the
+  // end — the ids alone are what the validation below needs.
+  const [existing, currentUser] = await Promise.all([
+    prisma.ratingCategory.findMany({
+      where: { userId },
+      select: { id: true, name: true, weight: true, sortOrder: true },
+    }),
+    prisma.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        includeEnjoyment: true,
+        enjoymentWeight: true,
+        enjoymentSortOrder: true,
+      },
+    }),
+  ])
   const existingIds = new Set(existing.map((r) => r.id))
   const bodyIds = new Set(
     categories.filter((c) => c.id).map((c) => c.id as string)
@@ -160,6 +174,30 @@ app.put('/me/rating-config', async (c) => {
     }
   })
 
+  // ONE RATING_CONFIG_CHANGE per successful save — the config is saved on
+  // command, not live per keystroke, so a save maps cleanly onto an event. The
+  // "after" state is `parsed.data` with sortOrder taken from array position,
+  // exactly what the writes below apply. A save that changed nothing produces
+  // no rows and therefore no event.
+  const configChanges = buildRatingConfigChanges(
+    {
+      categories: existing,
+      includeEnjoyment: currentUser.includeEnjoyment,
+      enjoymentWeight: currentUser.enjoymentWeight,
+      enjoymentSortOrder: currentUser.enjoymentSortOrder,
+    },
+    {
+      categories: categories.map((cat, idx) => ({
+        name: cat.name,
+        weight: cat.weight,
+        sortOrder: idx,
+      })),
+      includeEnjoyment,
+      enjoymentWeight,
+      enjoymentSortOrder,
+    }
+  )
+
   // The @@unique([userId, name]) constraint is the real guarantee against
   // duplicate category names — the zod check can be bypassed by a direct API
   // hit. Only this write can raise it; everything else in the handler falls
@@ -219,6 +257,15 @@ app.put('/me/rating-config', async (c) => {
         where: { id: userId },
         data: { includeEnjoyment, enjoymentWeight, enjoymentSortOrder },
       }),
+      // Last in the array so the event commits with the config or rolls back
+      // with it — including on the P2002 the catch below translates.
+      ...(configChanges.length > 0
+        ? [
+            prisma.activityLog.create({
+              data: ratingConfigChangeData(userId, configChanges),
+            }),
+          ]
+        : []),
     ])
   } catch (error) {
     if (isUniqueViolation(error)) {

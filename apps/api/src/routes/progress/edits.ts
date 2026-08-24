@@ -8,6 +8,7 @@ import { EditProgressInputSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
 import { applyEdit, deleteProgressUpdate } from '../../services/progress'
+import { purgeLevelActivity } from '../../services/activityLog'
 import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -39,7 +40,10 @@ app.patch('/me/progress/:levelId', async (c) => {
 //
 // Deleting the LevelProgress cascades to its ProgressUpdates (and their rating
 // scores / list references) and its ClassicRanking, per the schema's
-// onDelete: Cascade relations.
+// onDelete: Cascade relations. The activity_log rows scoped to this level are
+// NOT cascaded (they hang off the user and the level, not the entry), so they
+// are purged explicitly in the same transaction — the user asked for the entry
+// to be gone, and its event history goes with it.
 //
 // GDDL caveat: GDDL records cannot be deleted via the GDDL API. Users must
 // manage GDDL record deletion directly on the GDDL platform. This is noted in
@@ -60,7 +64,10 @@ app.delete('/me/progress/:levelId', async (c) => {
   })
   if (!existing) return c.json({ error: 'Entry not found' }, 404)
 
-  await prisma.levelProgress.delete({ where: { id: existing.id } })
+  await prisma.$transaction(async (tx) => {
+    await purgeLevelActivity(tx, userId, levelId)
+    await tx.levelProgress.delete({ where: { id: existing.id } })
+  })
   return c.json({ gddlCaveat: GDDL_DELETE_CAVEAT })
 })
 

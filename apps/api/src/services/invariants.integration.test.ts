@@ -1,13 +1,14 @@
 /**
  * Integration tests for the application-layer invariants.
  *
- * These two rules are enforced in code, not by a database constraint, which
+ * These three rules are enforced in code, not by a database constraint, which
  * means every write path has to uphold them independently and a new path can
  * break them silently. So rather than assert per-path behaviour, each test
  * drives one real write path against a real database and then runs a
  * whole-database sweep (`expectNoDuplicateCompletions` /
- * `expectWantToBeatUnbeaten`) that fails if ANY row violates the rule. Adding a
- * fourth write path without upholding them should turn this file red.
+ * `expectWantToBeatUnbeaten` / `expectRankingFullyLogged`) that fails if ANY
+ * row violates the rule. Adding a further write path without upholding them
+ * should turn this file red.
  *
  * Only the external network is mocked; Postgres is real.
  */
@@ -70,6 +71,7 @@ vi.mock('./importExport/import/levelResolution', async (importOriginal) => ({
 }))
 
 const { default: loggingApp } = await import('../routes/progress/index')
+const { default: rankingApp } = await import('../routes/ranking/index')
 const { default: collectionsApp } = await import('../routes/collections/index')
 const { syncGddlSubmissions } = await import('./gddl/sync')
 const { processImportJobBatch } = await import('./importExport/import')
@@ -110,6 +112,42 @@ async function expectWantToBeatUnbeaten() {
       )
   `
   expect(rows).toEqual([])
+}
+
+/**
+ * Fails if ANY placed ranking entry's current `rankingIndex` is not the most
+ * recent value logged for that level in `activity_log_level_impact`.
+ *
+ * This is reconstruction integrity stated as a query. Every write that touches
+ * `classic_ranking.rankingIndex` must emit an event carrying the new value —
+ * placement, reorder, unranking, the renormalisation, and the spreadsheet
+ * import's full replace. A path that skips emission leaves the level's latest
+ * logged index stale (or absent entirely), and nothing can fill that in
+ * afterwards, so it has to be caught the moment the path is added.
+ *
+ * Ordered by `sequence`, not `createdAt`: one request can write two events, and
+ * only `sequence` separates them (see the ActivityLog model).
+ */
+async function expectRankingFullyLogged() {
+  const rows = await prisma.$queryRaw<
+    { levelId: string; current: string; logged: string | null }[]
+  >`
+    SELECT
+      lp."levelId",
+      cr."rankingIndex"::text AS current,
+      (
+        SELECT i."rankingIndex"::text
+        FROM "activity_log_level_impact" i
+        JOIN "activity_log" e ON e.id = i."eventId"
+        WHERE i."levelId" = lp."levelId" AND e."userId" = cr."userId"
+        ORDER BY e."sequence" DESC
+        LIMIT 1
+      ) AS logged
+    FROM "classic_ranking" cr
+    JOIN "level_progress" lp ON lp.id = cr."levelProgressId"
+  `
+  const unlogged = rows.filter((r) => r.logged !== r.current)
+  expect(unlogged).toEqual([])
 }
 
 // ─── fixtures ────────────────────────────────────────────────────────────────
@@ -217,6 +255,15 @@ async function completionCount(userId: string) {
   })
 }
 
+/** Places a completion through the real endpoint, at the top of the ranking. */
+function placeInRanking(userId: string, levelProgressId: string) {
+  return buildApp(rankingApp, { userId }).request('/me/ranking/classic', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ levelProgressId }),
+  })
+}
+
 beforeEach(async () => {
   vi.clearAllMocks()
   await truncateAll(prisma)
@@ -258,6 +305,40 @@ describe('the invariant sweeps', () => {
     await addToWantToBeat(wtb.id, LEVEL_ID)
 
     await expect(expectWantToBeatUnbeaten()).rejects.toThrow()
+  })
+
+  it('expectRankingFullyLogged catches a rankingIndex written without an event', async () => {
+    // Exactly what a new write path that forgets to emit would leave behind.
+    const { user } = await seedWorld()
+    await logCompletion(user.id, { attempts: 100 })
+    const lp = await prisma.levelProgress.findFirstOrThrow({
+      where: { userId: user.id, levelId: LEVEL_ID },
+    })
+
+    await prisma.classicRanking.create({
+      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
+    })
+
+    await expect(expectRankingFullyLogged()).rejects.toThrow()
+  })
+
+  it('expectRankingFullyLogged catches an index moved out from under its event', async () => {
+    // The subtler failure: the level was logged once, then written again by a
+    // path that skipped emission, so the latest logged value is stale.
+    const { user } = await seedWorld()
+    await logCompletion(user.id, { attempts: 100 })
+    const lp = await prisma.levelProgress.findFirstOrThrow({
+      where: { userId: user.id, levelId: LEVEL_ID },
+    })
+    await placeInRanking(user.id, lp.id)
+    await expectRankingFullyLogged()
+
+    await prisma.classicRanking.updateMany({
+      where: { levelProgressId: lp.id },
+      data: { rankingIndex: 99 },
+    })
+
+    await expect(expectRankingFullyLogged()).rejects.toThrow()
   })
 
   it('does not fire on a Want to Beat entry the user has not completed', async () => {
@@ -372,6 +453,82 @@ describe('INVARIANT: at most one COMPLETION per level_progress', () => {
 })
 
 // ─── INVARIANT: Want to Beat holds only unbeaten levels ──────────────────────
+
+// ─── every rankingIndex write is logged ──────────────────────────────────────
+
+describe('INVARIANT: every classic_ranking write is logged', () => {
+  // Each test drives one real write path and then sweeps the WHOLE database, so
+  // a path added later that skips emission fails here rather than silently
+  // losing that level's history.
+
+  async function completedEntry(userId: string) {
+    await logCompletion(userId, { attempts: 100 })
+    return prisma.levelProgress.findFirstOrThrow({
+      where: { userId, levelId: LEVEL_ID },
+    })
+  }
+
+  it('holds after a placement', async () => {
+    const { user } = await seedWorld()
+    const lp = await completedEntry(user.id)
+
+    await placeInRanking(user.id, lp.id)
+
+    await expectRankingFullyLogged()
+  })
+
+  it('holds after a reorder', async () => {
+    const { user } = await seedWorld()
+    const first = await completedEntry(user.id)
+    await placeInRanking(user.id, first.id)
+
+    await seedLevel(prisma, { inGameId: '101' })
+    const second = await prisma.levelProgress.create({
+      data: { userId: user.id, levelId: '101', status: 'COMPLETED' },
+    })
+    await prisma.progressUpdate.create({
+      data: { levelProgressId: second.id, kind: 'COMPLETION' },
+    })
+    await placeInRanking(user.id, second.id)
+
+    await buildApp(rankingApp, { userId: user.id }).request(
+      `/me/ranking/classic/${second.id}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ belowId: first.id }),
+      }
+    )
+
+    await expectRankingFullyLogged()
+  })
+
+  it('holds after an unranking', async () => {
+    const { user } = await seedWorld()
+    const lp = await completedEntry(user.id)
+    await placeInRanking(user.id, lp.id)
+
+    await buildApp(rankingApp, { userId: user.id }).request(
+      `/me/ranking/classic/${lp.id}`,
+      { method: 'DELETE' }
+    )
+
+    await expectRankingFullyLogged()
+  })
+
+  it('holds after a spreadsheet import replaces the whole ranking', async () => {
+    // The import is the write path least likely to be remembered: it bypasses
+    // the ranking endpoints entirely and rewrites every index at once.
+    const { user } = await seedWorld()
+    const lp = await completedEntry(user.id)
+    await placeInRanking(user.id, lp.id)
+
+    const { commitImportRanking } = await import('./importExport/ranking')
+    await commitImportRanking(user.id, [{ levelId: LEVEL_ID }])
+
+    await expectRankingFullyLogged()
+  })
+})
 
 describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
   it('drops the level when a completion is logged', async () => {

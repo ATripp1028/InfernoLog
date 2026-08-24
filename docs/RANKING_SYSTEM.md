@@ -16,8 +16,18 @@ Ranking positions use floating-point decimal values (`ranking_index`) rather tha
 Initial:          1.0 ── 2.0 ── 3.0 ── 4.0
 Insert 2↔3:       1.0 ── 2.0 ── 2.5 ── 3.0 ── 4.0
 Insert 2↔2.5:     1.0 ── 2.0 ── 2.25 ── 2.5 ── 3.0 ── 4.0
-Gap < 0.0001:     rebalancing job renormalizes all to integers
+Gap < 0.0001:     renormalize the whole list to integers, then insert
 ```
+
+**Renormalization is not a background job.** Earlier drafts of this document
+(and the `ClassicRanking` comment in `schema.prisma`) called it "the rebalancing
+job", which implied a cron that does not exist. It runs **inline**, inside the
+transaction of the placement or reorder that found the gap too tight —
+`rebalance()` in `apps/api/src/services/ranking/index.ts`, called from
+`computeIndex` — so no read ever observes a half-renormalized list, and the
+insert that triggered it lands in the new coordinate system. The spreadsheet
+import's full replace (`services/importExport/ranking.ts`) rewrites the same
+index space the same way. Both are logged as `RANKING_REBALANCE` — see below.
 
 ---
 
@@ -91,3 +101,121 @@ Features:
 - Toggle to show/hide unrated levels (ranking numbers update for that view)
 - Unplaced completions (user chose "Place later") live in a separate **Unplaced** panel until manually placed — they are not shown inline as auto-placed entries
 - Sortable by any logged metric independent of ranking order
+
+---
+
+## Ranking Events
+
+Every write that touches `classic_ranking.ranking_index` records what it did in
+`activity_log`, with one `activity_log_level_impact` row per level it actually
+touched. The full event taxonomy — including the non-ranking event types — is in
+`EVENT_LOG.md`; this section covers the ranking half and the reasoning specific
+to it.
+
+**This is a hard requirement, not a nice-to-have.** A `ranking_index` written
+without a matching impact row is a hole in that level's history that nothing can
+fill in afterwards, because the old value is simply gone. Every path goes through
+`services/activityLog`: the placement, reorder and unranking endpoints, the
+inline renormalization, the indirect unranking when deleting a completion walks
+an entry out of `COMPLETED`, and the spreadsheet import's full replace.
+`services/invariants.integration.test.ts` sweeps the whole database for the gap —
+every placed entry's current index must be the most recent one logged for that
+level — so a new write path that forgets turns that file red.
+
+### Direct events only — the mover and its immediate neighbours
+
+One `activity_log` row per move action, with impact rows for the mover plus the
+levels **immediately adjacent to it in either the before or the after state**. A
+placement has destination neighbours only; an unranking has origin neighbours
+only; a reorder has up to four, since it closes one gap and opens another.
+
+Levels further down the list whose ordinal merely shifted get **nothing**.
+Dropping a level in at #3 shifts the ordinal of every level beneath it, and
+recording that cascade would turn one drag into hundreds of rows saying nothing
+the mover's own row does not already imply — while making the write cost scale
+with the size of the ranking rather than with what happened. The positions of
+uninvolved levels are always derivable from the mover's, which is why they do
+not need storing.
+
+### Impact rows store the real index, never a delta
+
+`rankingIndex` on an impact row is the actual fractional value the level held
+after that event. Not a delta, not a "moved up" boolean. This is the single
+decision that makes reconstruction possible later without a dedicated snapshot
+table: a level's index at any time T is just its most recent impact row at or
+before T.
+
+It is also why the renormalization has to emit. Renormalizing rewrites every
+index in the list without changing the order, so every value logged before it is
+suddenly in a stale coordinate system. `RANKING_REBALANCE` records each level's
+new index so the two are never compared. Without it, reconstruction would
+silently start returning nonsense at the first renormalization and there would be
+no way to tell from the data that it had happened.
+
+**`RANKING_REBALANCE` is internal-only.** It must never appear in a Log/timeline
+feed, and must be excluded from any future event-type → Discord channel mapping.
+Nothing a user did is described by it. That covers both emitters: the inline
+renormalization and the spreadsheet import's full replace, which is modelled as a
+rebalance rather than as N placements because it rewrites the index space
+wholesale and is not a set of moves the user made one at a time.
+
+### Milestones are a field, not an event
+
+`milestoneCrossed` on an impact row holds the tightest top-N boundary that level
+crossed on that event (thresholds in
+`apps/api/src/services/activityLog/milestones.ts`), or null for none. It is a
+field rather than a separate event type because a crossing is never independent
+of the move that caused it — and because one move can produce several: the mover
+entering the top 10 and the neighbour it pushed out of the top 10 each carry the
+crossing on their own row.
+
+Direction is deliberately not stored. Entering the top 10 and falling out of it
+are both `10`; `positionBefore` and `positionAfter` on the same row say which,
+and encoding it twice would just be a second thing to keep consistent.
+
+### The level name is denormalized on purpose
+
+`activity_log_level_impact.levelName` is snapshotted at write time. Deleting a
+`level_progress` entry deletes that level's **own** event history — the user
+asked for the entry to be gone — but every other level's impact rows still name
+it, and there is no longer any `level_progress` to join through for a name. The
+snapshot is what keeps those rows readable. `levelId` is nullable for the same
+reason: history outlives the level cache row.
+
+Deleting an entry emits no new ranking event for the `classic_ranking` row it
+cascades away. Such an event would be scoped to the deleted level and removed in
+the same breath, and the surviving levels' indices are untouched by a delete, so
+reconstruction is unaffected either way.
+
+---
+
+## Reconstruction: snapshot-at-T vs. retroactive-at-T
+
+Neither query is built. Both are what the impact rows exist to make buildable
+without a migration, and both have been decided so they do not get re-litigated
+when someone does build them. They answer genuinely different questions and a
+Time Machine–style view will want to name which one it is showing. (Distinct
+from `TIME_MACHINE.md`, which plots completions against their **community list
+tier** over time, not against the user's own ranking.)
+
+**Snapshot-at-T — "what my ranking looked like on that day."**
+
+Each level's most recently logged `rankingIndex` at or before T, ordered by that
+value. Includes levels that have since been unranked or whose entry no longer
+exists, because on that day they were in the list. Reads `activity_log` alone;
+the current `classic_ranking` table is not consulted. Order by `(createdAt,
+sequence)` — one request can write two events (a placement that tripped a
+renormalization) and `sequence` is the only thing that separates them.
+
+**Retroactive-at-T — "where would the levels I had beaten by then sit in the
+ranking I hold today?"**
+
+The **current** ranking, filtered to levels the user had already logged at T,
+sorted by their **current** index. Excludes anything since unranked, since it has
+no current position. Reads `classic_ranking` plus completion dates; the event log
+is not consulted at all.
+
+The difference is not cosmetic: a level the user later decided was much harder
+sits low in the snapshot and high in the retroactive view, and a level they
+unranked appears in one and not the other. Neither is more correct — snapshot is
+history as it was recorded, retroactive is today's judgement applied backwards.

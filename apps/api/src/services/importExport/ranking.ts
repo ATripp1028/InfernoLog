@@ -9,11 +9,20 @@
 // DESC, #1 = hardest). The incoming entries are ordered hardest → easiest, so
 // entry 0 gets the highest index. We assign plain integers 1..N — the same shape
 // the rebalance job produces — since a full replace has no neighbours to bisect.
+//
+// This is a write path that touches ClassicRanking.rankingIndex, so it emits an
+// activity_log event like every other one (see services/activityLog). It emits
+// RANKING_REBALANCE rather than N placements: the index space is rewritten
+// wholesale, which is what that internal-only event type means, and a
+// spreadsheet import is not a set of moves the user made one at a time. The
+// import reports its own outcome to the user; the event exists so the logged
+// index history stays complete and in one coordinate system.
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
 import { computeListMerge } from '../../utils/listMerge'
+import { readRankingSnapshot, recordRankingRebalance } from '../activityLog'
 
 /** Outcome of committing a spreadsheet's Ranking tab. */
 export interface ImportRankingResult {
@@ -126,6 +135,11 @@ function resolveRankingOrder(
  * written as evenly spaced integers — the same normalized state the rebalance
  * job produces.
  *
+ * Emits one internal-only RANKING_REBALANCE event carrying every entry's new
+ * index, including a null-position row for anything the replace dropped out of
+ * the ranking. See the module header for why this event type and not N
+ * placements.
+ *
  * @param userId - Internal user UUID.
  * @param entries - Validated Ranking-tab rows, hardest first.
  */
@@ -141,6 +155,7 @@ export async function commitImportRanking(
   // of unresolvable rows would silently wipe an existing ranking.
   if (n > 0) {
     await prisma.$transaction(async (tx) => {
+      const before = await readRankingSnapshot(tx, userId)
       await tx.classicRanking.deleteMany({ where: { userId } })
       await tx.classicRanking.createMany({
         data: orderedLpIds.map((levelProgressId, i) => ({
@@ -150,6 +165,8 @@ export async function commitImportRanking(
           rankingIndex: new Prisma.Decimal(n - i),
         })),
       })
+      const after = await readRankingSnapshot(tx, userId)
+      await recordRankingRebalance(tx, userId, before, after)
     })
   }
 
