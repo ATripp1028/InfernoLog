@@ -8,21 +8,23 @@
 // Ordering: ClassicRanking.rankingIndex is higher = harder (the UI shows it
 // DESC, #1 = hardest). The incoming entries are ordered hardest → easiest, so
 // entry 0 gets the highest index. We assign plain integers 1..N — the same shape
-// the rebalance job produces — since a full replace has no neighbours to bisect.
+// the inline renormalisation in services/ranking produces — since a full replace
+// has no neighbours to bisect.
 //
 // This is a write path that touches ClassicRanking.rankingIndex, so it emits an
 // activity_log event like every other one (see services/activityLog). It emits
-// RANKING_REBALANCE rather than N placements: the index space is rewritten
-// wholesale, which is what that internal-only event type means, and a
-// spreadsheet import is not a set of moves the user made one at a time. The
-// import reports its own outcome to the user; the event exists so the logged
-// index history stays complete and in one coordinate system.
+// ONE user-facing RANKING_BULK_REPLACE for the whole import — not N placements,
+// which would bury every other event in the user's feed, and not the
+// internal-only RANKING_REBALANCE, which is for a rewrite the user cannot see.
+// A replace really does change the order they see, so it belongs in the feed;
+// the per-level detail lives in the event's impact rows, for a reader that wants
+// to expand it.
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
 import { computeListMerge } from '../../utils/listMerge'
-import { readRankingSnapshot, recordRankingRebalance } from '../activityLog'
+import { readRankingSnapshot, recordRankingBulkReplace } from '../activityLog'
 
 /** Outcome of committing a spreadsheet's Ranking tab. */
 export interface ImportRankingResult {
@@ -132,13 +134,12 @@ function resolveRankingOrder(
  * Each sheet row is resolved to one of the user's completions; rows with no
  * matching completion are reported in `skipped` rather than failing the import.
  * Because a full replace has no neighbours to bisect against, indices are
- * written as evenly spaced integers — the same normalized state the rebalance
- * job produces.
+ * written as evenly spaced integers — the same normalized state the inline
+ * renormalisation produces.
  *
- * Emits one internal-only RANKING_REBALANCE event carrying every entry's new
+ * Emits one user-facing RANKING_BULK_REPLACE event carrying every entry's new
  * index, including a null-position row for anything the replace dropped out of
- * the ranking. See the module header for why this event type and not N
- * placements.
+ * the ranking. See the module header for why one event and not N placements.
  *
  * @param userId - Internal user UUID.
  * @param entries - Validated Ranking-tab rows, hardest first.
@@ -166,7 +167,7 @@ export async function commitImportRanking(
         })),
       })
       const after = await readRankingSnapshot(tx, userId)
-      await recordRankingRebalance(tx, userId, before, after)
+      await recordRankingBulkReplace(tx, userId, before, after)
     })
   }
 

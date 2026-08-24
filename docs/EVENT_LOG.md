@@ -38,18 +38,33 @@ feed entry; a missed ranking event corrupts every reconstruction that spans it.
 | `RANKING_PLACEMENT`    | One level      | Impact rows   | `POST /v1/me/ranking/classic`                                                                                      |
 | `RANKING_REORDER`      | One level      | Impact rows   | `PATCH /v1/me/ranking/classic/:levelProgressId`                                                                    |
 | `RANKING_UNRANKED`     | One level      | Impact rows   | `DELETE /v1/me/ranking/classic/:levelProgressId`, and deleting a completion that walks an entry out of `COMPLETED` |
-| `RANKING_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization; the spreadsheet import's full replace                                            |
+| `RANKING_BULK_REPLACE` | The whole list | Impact rows   | The spreadsheet import's full replace of the ranking                                                               |
+| `RANKING_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                   |
 | `LOG_EDIT`             | One level      | Field changes | `PATCH /v1/me/progress/:levelId`                                                                                   |
 | `RATING_CONFIG_CHANGE` | The account    | Field changes | `PUT /v1/me/rating-config`; a rating-mode switch on `PATCH /v1/me`                                                 |
 
-`RANKING_REBALANCE` is **internal-only**. It exists so every level's logged index
-values stay in one coordinate system; nothing the user did is described by it. It
-must be filtered out of any Log/timeline surface and excluded from any future
-event-type → Discord channel mapping. Every other type is user-facing.
+`RANKING_REBALANCE` is **internal-only** — the one hidden type. It exists so
+every level's logged index values stay in one coordinate system; the order the
+user sees does not change, and nothing they did is described by it. It must be
+filtered out of any Log/timeline surface and excluded from any future
+event-type → Discord channel mapping.
 
-The ranking half — direct-events-only, milestones as a field, the denormalized
-level name, and the snapshot-at-T / retroactive-at-T reconstruction definitions —
-is documented in `RANKING_SYSTEM.md` → "Ranking Events". The rest is below.
+**Every other type is user-facing**, `RANKING_BULK_REPLACE` included. That one
+produces rows structurally identical to a rebalance's — one event, one impact row
+per level in the list — and is a separate type anyway, precisely so one can be
+shown and the other suppressed: a spreadsheet import really does change the order
+the user sees, so it belongs in their feed. Do not collapse the two on the
+grounds that the shapes match.
+
+A bulk replace is **one** event for the whole import, not one per level. The user
+performed a single action, and a feed that listed every level it touched would
+bury everything else they have. The per-level detail lives in its impact rows,
+for a reader that wants to expand it into "42 levels reordered".
+
+The rest of the ranking half — direct-events-only, milestones as a field, the
+denormalized level name, and the snapshot-at-T / retroactive-at-T reconstruction
+definitions — is documented in `RANKING_SYSTEM.md` → "Ranking Events". The rest
+of the taxonomy is below.
 
 ---
 
@@ -169,7 +184,8 @@ already settled.
 **Discord notifications and the event-type → channel mapping.** Not built. The
 `eventType` enum is the natural key for that mapping when it lands. The only
 constraint it inherits is that `RANKING_REBALANCE` must never be mapped to
-anything.
+anything — which is exactly why the import's bulk replace is its own type rather
+than sharing that one.
 
 ---
 

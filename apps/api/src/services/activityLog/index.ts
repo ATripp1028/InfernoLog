@@ -8,9 +8,9 @@
 // importantly — a committed write must not be missing one.
 //
 // **Every write path that touches `ClassicRanking.rankingIndex` must go through
-// `recordRankingMove` or `recordRankingRebalance`.** A path that skips it leaves
-// a permanent hole in that level's index history, and nothing can fill it in
-// later. `invariants.integration.test.ts` sweeps the whole database for exactly
+// `recordRankingMove`, `recordRankingBulkReplace` or `recordRankingRebalance`.**
+// A path that skips it leaves a permanent hole in that level's index history,
+// and nothing can fill it in later. `invariants.integration.test.ts` sweeps the whole database for exactly
 // that gap.
 //
 // Reads, the timeline UI, the hybrid merge with ProgressUpdate, and Discord
@@ -218,31 +218,18 @@ export async function recordRankingMove(
   })
 }
 
-/**
- * Records a wholesale rewrite of the ranking's fractional-index space.
- *
- * Two callers, one shape: the renormalisation that runs when a neighbour gap
- * closes past `REBALANCE_GAP`, and the spreadsheet import's full replace. In
- * both, every entry gets a new `rankingIndex` without the user having moved
- * anything, so every impact row is a MOVER and positions are usually unchanged.
- *
- * This exists so that a level's logged index values all live in the SAME
- * coordinate system. Without it, a renormalisation would silently invalidate
- * every index logged before it and reconstruction would compare 2.4375 against
- * a 7 that now means something else.
- *
- * RANKING_REBALANCE is internal-only: it must never reach a Log/timeline feed
- * or a Discord channel mapping. Nothing the user did is described by it.
- *
- * @param tx - The caller's transaction client. This must not open its own.
- * @param before - Snapshot from immediately before the rewrite.
- * @param after - Snapshot from immediately after it. Membership may differ from
- * `before` (the import replace adds and drops entries); a level present in only
- * one gets the corresponding null position.
- */
-export async function recordRankingRebalance(
+/** The two ranking events that rewrite every index at once. */
+export type RankingListWideEventType =
+  | typeof ActivityEventType.RANKING_BULK_REPLACE
+  | typeof ActivityEventType.RANKING_REBALANCE
+
+// One event covering a wholesale rewrite of the index space, with an impact row
+// per level in the list. Every row is a MOVER: nothing here is a bystander, and
+// there is no single level the event is "about", so levelId stays null.
+async function recordListWideRankingEvent(
   tx: Tx,
   userId: string,
+  eventType: RankingListWideEventType,
   before: RankingSnapshot,
   after: RankingSnapshot
 ): Promise<void> {
@@ -258,14 +245,81 @@ export async function recordRankingRebalance(
     .filter((row): row is NonNullable<typeof row> => row !== null)
 
   const event = await tx.activityLog.create({
-    // levelId stays null: a rebalance is list-wide, and the levels it touched
-    // are exactly its impact rows.
-    data: { userId, eventType: ActivityEventType.RANKING_REBALANCE },
+    data: { userId, eventType },
     select: { id: true },
   })
   await tx.activityLogLevelImpact.createMany({
     data: impacts.map((impact) => ({ ...impact, eventId: event.id })),
   })
+}
+
+/**
+ * Records the spreadsheet import replacing the user's classic ranking.
+ *
+ * ONE user-facing event for the whole replace, with an impact row per level —
+ * not one event per level. The user performed a single import; a feed that
+ * spelled it out level by level would bury everything else they have ever done.
+ * The impact rows are what a reader expands into "42 levels reordered".
+ *
+ * Separate from {@link recordRankingRebalance} despite the identical row shape,
+ * because that difference is the whole point: a replace changes the order the
+ * user sees and belongs in their feed, a rebalance changes only the numbers
+ * behind it and must never surface. Do not merge them back together.
+ *
+ * @param tx - The caller's transaction client. This must not open its own.
+ * @param before - Snapshot from immediately before the replace.
+ * @param after - Snapshot from immediately after it. Membership legitimately
+ * differs — a replace adds and drops entries — and a level the replace dropped
+ * gets a row with its last held index and a null `positionAfter`.
+ */
+export async function recordRankingBulkReplace(
+  tx: Tx,
+  userId: string,
+  before: RankingSnapshot,
+  after: RankingSnapshot
+): Promise<void> {
+  return recordListWideRankingEvent(
+    tx,
+    userId,
+    ActivityEventType.RANKING_BULK_REPLACE,
+    before,
+    after
+  )
+}
+
+/**
+ * Records the renormalisation that runs when a neighbour gap closes past
+ * `REBALANCE_GAP`, carrying every entry's new `rankingIndex`.
+ *
+ * INTERNAL ONLY. The order the user sees is unchanged — only the numbers
+ * underneath it move — so this must never reach a Log/timeline feed or a
+ * Discord channel mapping. It is the one hidden event type.
+ *
+ * It exists so that a level's logged index values all live in the SAME
+ * coordinate system. Without it a renormalisation would silently invalidate
+ * every index logged before it, and reconstruction would compare 2.4375 against
+ * a 7 that now means something else — with nothing in the data to show that
+ * anything had happened.
+ *
+ * @param tx - The caller's transaction client. This must not open its own.
+ * @param before - Snapshot from immediately before the rewrite.
+ * @param after - Snapshot from immediately after it. Same membership as
+ * `before`: a renormalisation neither adds nor drops entries, so every impact
+ * row carries equal positions.
+ */
+export async function recordRankingRebalance(
+  tx: Tx,
+  userId: string,
+  before: RankingSnapshot,
+  after: RankingSnapshot
+): Promise<void> {
+  return recordListWideRankingEvent(
+    tx,
+    userId,
+    ActivityEventType.RANKING_REBALANCE,
+    before,
+    after
+  )
 }
 
 /**

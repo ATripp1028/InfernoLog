@@ -518,7 +518,8 @@ describe('INVARIANT: every classic_ranking write is logged', () => {
 
   it('holds after a spreadsheet import replaces the whole ranking', async () => {
     // The import is the write path least likely to be remembered: it bypasses
-    // the ranking endpoints entirely and rewrites every index at once.
+    // the ranking endpoints entirely and rewrites every index at once. It emits
+    // one RANKING_BULK_REPLACE covering all of them.
     const { user } = await seedWorld()
     const lp = await completedEntry(user.id)
     await placeInRanking(user.id, lp.id)

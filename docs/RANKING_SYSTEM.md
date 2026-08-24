@@ -25,9 +25,13 @@ job", which implied a cron that does not exist. It runs **inline**, inside the
 transaction of the placement or reorder that found the gap too tight —
 `rebalance()` in `apps/api/src/services/ranking/index.ts`, called from
 `computeIndex` — so no read ever observes a half-renormalized list, and the
-insert that triggered it lands in the new coordinate system. The spreadsheet
-import's full replace (`services/importExport/ranking.ts`) rewrites the same
-index space the same way. Both are logged as `RANKING_REBALANCE` — see below.
+insert that triggered it lands in the new coordinate system.
+
+The spreadsheet import's full replace (`services/importExport/ranking.ts`)
+rewrites the same index space, but it is **not** the same event: renormalization
+leaves the order untouched and is logged internal-only, while a replace changes
+the order the user sees and is logged as a normal user-facing event. See
+"Two list-wide rewrites, deliberately not one event type" below.
 
 ---
 
@@ -120,7 +124,9 @@ inline renormalization, the indirect unranking when deleting a completion walks
 an entry out of `COMPLETED`, and the spreadsheet import's full replace.
 `services/invariants.integration.test.ts` sweeps the whole database for the gap —
 every placed entry's current index must be the most recent one logged for that
-level — so a new write path that forgets turns that file red.
+level — so a new write path that forgets turns that file red. Note that this
+requirement is indifferent to whether the event is user-facing: the internal-only
+rebalance is bound by it exactly as tightly as a placement is.
 
 ### Direct events only — the mover and its immediate neighbours
 
@@ -145,19 +151,36 @@ decision that makes reconstruction possible later without a dedicated snapshot
 table: a level's index at any time T is just its most recent impact row at or
 before T.
 
-It is also why the renormalization has to emit. Renormalizing rewrites every
-index in the list without changing the order, so every value logged before it is
-suddenly in a stale coordinate system. `RANKING_REBALANCE` records each level's
-new index so the two are never compared. Without it, reconstruction would
-silently start returning nonsense at the first renormalization and there would be
-no way to tell from the data that it had happened.
+It is also why the renormalization has to emit even though nothing the user can
+see has changed. Renormalizing rewrites every index in the list, so every value
+logged before it is suddenly in a stale coordinate system. `RANKING_REBALANCE`
+records each level's new index so the two are never compared. Without it,
+reconstruction would silently start returning nonsense at the first
+renormalization, with nothing in the data to show that it had happened.
 
-**`RANKING_REBALANCE` is internal-only.** It must never appear in a Log/timeline
-feed, and must be excluded from any future event-type → Discord channel mapping.
-Nothing a user did is described by it. That covers both emitters: the inline
-renormalization and the spreadsheet import's full replace, which is modelled as a
-rebalance rather than as N placements because it rewrites the index space
-wholesale and is not a set of moves the user made one at a time.
+### Two list-wide rewrites, deliberately not one event type
+
+`RANKING_BULK_REPLACE` and `RANKING_REBALANCE` produce identical rows — one
+event, one impact row per level in the list, every row a `MOVER`. They are still
+two types, because the only thing that distinguishes them is the thing that
+matters most about them: whether the user can see what happened.
+
+- **`RANKING_BULK_REPLACE`** — the spreadsheet import replaced the ranking. The
+  order the user sees really did change, so this is an ordinary user-facing
+  event and belongs in a feed. It is **one** event for the whole import, not one
+  per level: the user performed a single action, and spelling it out level by
+  level would bury every other event they have. The per-level detail is in the
+  impact rows, for a reader that wants to expand it into "42 levels reordered".
+  Levels the replace dropped out of the ranking get a row carrying their last
+  held index and a null `positionAfter`.
+
+- **`RANKING_REBALANCE`** — the inline renormalization. Indices move, order does
+  not; the user saw nothing and did nothing. It exists purely so logged index
+  values stay in one coordinate system. It must never appear in a Log/timeline
+  feed, and must be excluded from any future event-type → Discord channel
+  mapping. It is the **only** hidden event type.
+
+Do not merge them back together on the grounds that the row shapes match.
 
 ### Milestones are a field, not an event
 

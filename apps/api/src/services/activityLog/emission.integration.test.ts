@@ -394,20 +394,62 @@ describe('ranking rebalance', () => {
     ])
     expect(rows[0]?.sequence).toBeLessThan(rows[1]?.sequence ?? 0)
   })
+})
 
-  it('records the spreadsheet import’s full replace, including what it dropped', async () => {
+describe('ranking bulk replace', () => {
+  it('records the spreadsheet import as one event, including what it dropped', async () => {
     const user = await seedUser(prisma)
     const kept = await seedPlaced(user.id, 5)
     const dropped = await seedPlaced(user.id, 3)
 
     await commitImportRanking(user.id, [{ levelId: kept.levelId }])
 
-    const event = await onlyEvent(user.id, 'RANKING_REBALANCE')
+    const event = await onlyEvent(user.id, 'RANKING_BULK_REPLACE')
+    // List-wide, so no single level owns it — the levels are the impact rows.
+    expect(event.levelId).toBeNull()
     const byLevel = impactsByLevel(event)
     expect(Number(byLevel.get(kept.inGameId)!.rankingIndex)).toBe(1)
     // Still recorded, with the index it last held and no position after.
     expect(byLevel.get(dropped.inGameId)!.positionAfter).toBeNull()
     expect(Number(byLevel.get(dropped.inGameId)!.rankingIndex)).toBe(3)
+  })
+
+  it('does not spell the replace out as one event per level', async () => {
+    // A feed that did would bury everything else the user has ever done.
+    const user = await seedUser(prisma)
+    const a = await seedPlaced(user.id, 5)
+    const b = await seedPlaced(user.id, 3)
+    const c = await seedPlaced(user.id, 1)
+
+    await commitImportRanking(user.id, [
+      { levelId: c.levelId },
+      { levelId: a.levelId },
+      { levelId: b.levelId },
+    ])
+
+    const rows = await events(user.id)
+    expect(rows.map((e) => e.eventType)).toEqual(['RANKING_BULK_REPLACE'])
+    expect(rows[0]?.levelImpacts).toHaveLength(3)
+  })
+
+  it('is a user-facing event, not the internal rebalance', async () => {
+    // The order the user sees really changed, so it belongs in their feed —
+    // unlike the renormalisation, which only moves the numbers behind it.
+    const user = await seedUser(prisma)
+    const first = await seedPlaced(user.id, 5)
+    const second = await seedPlaced(user.id, 3)
+
+    await commitImportRanking(user.id, [
+      { levelId: second.levelId },
+      { levelId: first.levelId },
+    ])
+
+    const rows = await events(user.id)
+    expect(rows.map((e) => e.eventType)).not.toContain('RANKING_REBALANCE')
+    // The reordering it performed is visible in the positions.
+    const byLevel = impactsByLevel(rows[0]!)
+    expect(byLevel.get(second.inGameId)!.positionBefore).toBe(2)
+    expect(byLevel.get(second.inGameId)!.positionAfter).toBe(1)
   })
 })
 

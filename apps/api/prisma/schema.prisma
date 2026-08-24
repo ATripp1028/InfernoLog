@@ -148,18 +148,28 @@ enum EntryVisibility {
 // What an ActivityLog row records. See docs/EVENT_LOG.md for the taxonomy and
 // apps/api/src/services/activityLog for the emission API.
 //
-// RANKING_REBALANCE is INTERNAL ONLY. It records a wholesale rewrite of the
-// classic ranking's fractional-index space — the renormalisation inside
-// services/ranking, and the spreadsheet import's full replace — so every
-// level's logged rankingIndex history stays in one coordinate system and
-// reconstruction can't silently drift. The user never did anything a feed
-// would name, so it must be filtered out of any Log/timeline surface and out
-// of any future Discord event-type → channel mapping. Nothing else in the enum
-// is hidden.
+// Two event types rewrite the whole fractional-index space at once, and they
+// are separate BECAUSE one is visible to the user and the other is not:
+//
+//   RANKING_BULK_REPLACE — the spreadsheet import replaced the user's ranking.
+//     The order the user sees really did change, so this is a normal
+//     user-facing event. It is ONE event for the whole replace, not one per
+//     level: the user performed a single import, and a feed that spelled it out
+//     level by level would bury every other event they have. The levels it
+//     touched are its impact rows.
+//
+//   RANKING_REBALANCE — INTERNAL ONLY. The renormalisation inside
+//     services/ranking, which rewrites every index while leaving the ORDER
+//     untouched. It exists so every level's logged rankingIndex history stays
+//     in one coordinate system and reconstruction can't silently drift. The
+//     user saw nothing and did nothing, so it must be filtered out of any
+//     Log/timeline surface and out of any future Discord event-type → channel
+//     mapping. It is the only hidden type in this enum.
 enum ActivityEventType {
   RANKING_PLACEMENT
   RANKING_REORDER
   RANKING_UNRANKED
+  RANKING_BULK_REPLACE
   RANKING_REBALANCE
   LOG_EDIT
   RATING_CONFIG_CHANGE
@@ -908,8 +918,9 @@ model ActivityLog {
   eventType         ActivityEventType
 
   // The level the event is about. Null for RATING_CONFIG_CHANGE (user-scoped,
-  // not level-scoped) and for RANKING_REBALANCE (list-wide — the levels it
-  // touched are its impact rows). A ranking event's mover level is BOTH here
+  // not level-scoped) and for the two list-wide ranking types,
+  // RANKING_BULK_REPLACE and RANKING_REBALANCE, whose levels are their impact
+  // rows. A single-level ranking event's mover level is BOTH here
   // and in its MOVER impact row: here so "this level's history" is one indexed
   // query, there so the mover carries the same index/position payload every
   // other touched level does.
@@ -955,9 +966,10 @@ model ActivityLog {
 }
 
 // One row per level actually touched by a ranking event: the mover, plus the
-// levels immediately adjacent to it before or after the move. Children of
-// RANKING_PLACEMENT / RANKING_REORDER / RANKING_UNRANKED / RANKING_REBALANCE
-// only — no other event type has these.
+// levels immediately adjacent to it before or after the move. The two
+// list-wide types (RANKING_BULK_REPLACE, RANKING_REBALANCE) instead carry one
+// row per level in the list, since they rewrote every index. Children of the
+// ranking event types only — no other event type has these.
 model ActivityLogLevelImpact {
   id                String              @id @default(uuid())
   eventId           String
@@ -977,15 +989,17 @@ model ActivityLogLevelImpact {
 
   // The ACTUAL fractional index this level held after this event — never a
   // delta, never a boolean. Recording the real value on every write that
-  // touches classic_ranking.rankingIndex (rebalances included) is what makes
+  // touches classic_ranking.rankingIndex (bulk replaces and rebalances
+  // included) is what makes
   // snapshot-at-T reconstruction possible later without a snapshot table: a
   // level's index at time T is its most recent impact row at or before T.
   rankingIndex      Decimal             @db.Decimal(20, 10)
 
   // 1-based display positions (#1 = hardest), computed from the ordered
   // ranking before and after the event. positionBefore is null for an initial
-  // placement; positionAfter is null for RANKING_UNRANKED. Both are present
-  // and equal on a RANKING_REBALANCE, which rewrites indices but no order.
+  // placement; positionAfter is null for RANKING_UNRANKED, and for a level a
+  // RANKING_BULK_REPLACE dropped out of the ranking. Both are present and
+  // equal on a RANKING_REBALANCE, which rewrites indices but no order.
   positionBefore    Int?
   positionAfter     Int?
 
