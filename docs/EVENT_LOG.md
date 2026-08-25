@@ -4,11 +4,14 @@ The event log is the record of things a user **did** that are not already
 recoverable from a timestamp somewhere else: ranking moves, edits to a log entry,
 and rating-configuration changes.
 
-It is schema and emission discipline only. There is no timeline UI, no feed, no
-reconstruction query, and no Discord wiring — all of that is v2 or later, and the
-shape below is chosen so each can be added without a migration. The dedicated Log
-page is currently shelved (see `PROJECT_OVERVIEW.md`); the events are being
-written now regardless, because history cannot be backfilled after the fact.
+The schema and its emission discipline came first; the surfaces that read it are
+specified below and being built now — the **Log page** (`/log`) and the **rank
+history** panel on a level page. See "Surfaces". Discord wiring is still later
+work, and the shape below is chosen so it can be added without a migration.
+
+Events have been written since 2026-08-24 regardless of what reads them, because
+history cannot be backfilled after the fact. Every surface therefore has a hard
+floor at that date, and nothing before it can be shown.
 
 Tables: `activity_log` (the parent event), `activity_log_level_impact` (ranking
 events' per-level detail), `activity_log_field_change` (edit and rating-config
@@ -119,12 +122,42 @@ recoverable from that user's `RATING_CONFIG_CHANGE` events. A reader resolves th
 id against the user's current categories; one that no longer exists renders as a
 removed category rather than as a name that may since have moved elsewhere.
 
-### No rank or position snapshot on an edit
+### What an edit does and does not snapshot
 
-Unlike ranking events, `LOG_EDIT` captures no index and no position. Weighted
-totals are computed at query time (see `RATING_SYSTEM.md`), and there is no
-reconstruction requirement for rating history, so there is nothing to snapshot.
-Editing a rating does **not** emit anything about the level's rank.
+`LOG_EDIT` captures no `ranking_index` and no classic-ranking position. Those
+belong to ranking events, and editing a rating does **not** move a level in the
+difficulty ranking — that ranking is ordered by hand, not by score.
+
+A rating change does record what it did to the two things that _are_ ordered by
+score. Both are ordinary `activity_log_field_change` rows on the same event,
+carrying `category = RATING`:
+
+| `fieldName`        | Holds                                                             |
+| ------------------ | ----------------------------------------------------------------- |
+| `weighted_average` | The level's overall rating, before and after the save             |
+| `rating_rank`      | Its 1-based position in the user's rating order, before and after |
+
+These are the one deliberate exception to "actually changed is measured against
+the values already stored" — nothing stores them today, so they are computed
+inside the same transaction. `computeOverallRating` in `packages/core` does the
+arithmetic for the average; the rank is one ordered pass over that user's own
+levels, ties broken on enjoyment, then completion date, then `levelId` (always
+unique, and the number a user recognises).
+
+**Both must be written at save time, because neither can be recovered
+afterwards.** The average could in principle be recomputed from the field changes
+plus the config in force then; the rank cannot, because it depends on every
+_other_ level's average at that instant and nothing records those.
+
+`category = RATING` rather than a new `DERIVED` one, deliberately. `LevelProgress`
+is expected to gain stored columns for both, at which point these stop being
+derived and become ordinary field changes — and `RATING` is what they would have
+been all along. Choosing `DERIVED` now would mean migrating them back later.
+
+A weight change still logs no knock-on effect on any level (see "Rating-config
+events" below), so the rating order's history has deliberate gaps: every stored
+`rating_rank` predating a reweight was measured on a scale that no longer
+applies.
 
 ---
 
@@ -162,24 +195,34 @@ none of that is recorded. It was ruled out as noise: the averages are computed a
 query time, so nothing about any level actually changed, and logging it would
 bury the one thing the user did under hundreds of things they did not.
 
+The one cost of that, now that edits record `rating_rank`: a reweight silently
+puts every previously logged rank on a scale that no longer applies. Ranks are
+comparable within a config era, not across one.
+
 ---
 
 ## Deliberately not tracked
 
 **Progress logs, completions and drops.** These are already events —
 `progress_updates.kind` plus `logged_at` — and duplicating them into
-`activity_log` would create two records of one fact that can drift apart. A
-timeline is expected to read both tables and merge at read time (the "hybrid
-merge"). That merge is not built; nothing here prevents it, and nothing here
-should start writing progress rows into `activity_log` instead.
+`activity_log` would create two records of one fact that can drift apart. The Log
+page reads both tables and merges them at read time (the "hybrid merge") — see
+"Surfaces". Nothing should start writing progress rows into `activity_log`
+instead.
 
 **Collection add/remove.** Adding a level to Want to Beat, Favorites, or a custom
 collection is not tracked at all, in any form. If it is ever wanted, it is a new
 `eventType` and (probably) no new tables.
 
-**Timeline UI, feeds, and reconstruction queries.** Not built. The schema
-supports them; see `RANKING_SYSTEM.md` for the two reconstruction definitions
-already settled.
+**Whole-ranking reconstruction.** The snapshot-at-T and retroactive-at-T queries
+in `RANKING_SYSTEM.md` remain unbuilt. The rank-history walk under "Surfaces"
+answers a narrower question — one level's position over time — and is not a
+substitute for either.
+
+**Anything in the spreadsheet import or export.** Events never round-trip: the
+import template must not accept them and the export must not emit them. An import
+still _emits_ a `RANKING_BULK_REPLACE`, which is the opposite direction — the
+import producing an event, not events being carried in a file.
 
 **Discord notifications and the event-type → channel mapping.** Not built. The
 `eventType` enum is the natural key for that mapping when it lands. The only
@@ -201,6 +244,95 @@ in the same one, and the column's `DEFAULT CURRENT_TIMESTAMP` is frozen at
 transaction start for anything inserted by raw SQL. Reading those two in the
 wrong order makes a reconstruction return indices from the stale coordinate
 system.
+
+### Ordering across the merge
+
+The Log page reads `activity_log` and `progress_updates` together, and keyset
+pagination over the pair needs a **total** order. `sequence` does not exist on
+`progress_updates`, so the key is three levels deep:
+
+1. **Timestamp, descending** — `created_at` for an event, `logged_at` for a
+   progress update. Never `progress_updates.date`: that is when the user says the
+   run happened, is optionally uncertain, and can be back-dated. This log records
+   when a thing was written down, not when it happened. A back-dated completion
+   therefore sits at the top of the day it was entered.
+2. **`activity_log` before `progress_updates`** on a tie. An event normally
+   follows the write that triggered it — a placement follows its completion — so
+   this reads in causal order.
+3. **Within one table:** `sequence` for events, `id` for progress updates.
+
+Key 3 only ever compares rows in the same table, because key 2 has already
+separated them. That is what makes a cursor whose third component is an `int` for
+one table and a `uuid` for the other sound.
+
+Key 3 is **not** optional. The spreadsheet import writes its progress updates in
+a single `createMany` (`services/importExport/import/processBatch.ts`), so an
+entire batch shares one `logged_at` — precisely the case where a page boundary
+landing mid-batch would skip or repeat rows.
+
+---
+
+## Surfaces
+
+Two read surfaces consume this schema. Both are scoped to the authenticated
+user's own data; neither has a public equivalent while `visibility` is inert.
+
+### The Log page
+
+`/log` — one merged, filtered, paginated feed of `activity_log` events and
+`progress_updates`, newest first by the order above.
+
+- **`RANKING_REBALANCE` is excluded in the query**, not styled quiet. It must
+  never reach a feed response.
+- **Filters key off `category`** (see "Filter on `category`, never on
+  `fieldName`"), plus a level and a date range. The range uses the same
+  recorded-time clock the ordering does.
+- **The level filter is a union, not a column match.** A `RANKING_BULK_REPLACE`
+  has a null `level_id` and belongs to every level its impact rows touched, so
+  filtering by a level must match `activity_log.level_id` **or**
+  `activity_log_level_impact.level_id`. Without the union, an import that moved a
+  level goes missing from that level's history.
+- `RATING_CONFIG_CHANGE` is account-scoped and drops out of a level-filtered feed
+  by definition. Say so in the UI rather than leaving a silent hole.
+
+A glossary explains this vocabulary in the user's terms. It must not name event
+types, and `RANKING_REBALANCE` must not appear in it at all.
+
+### Rank history on a level page
+
+The user's own level page only — never the Global Level Page. This is personal
+data.
+
+Direct events come straight from that level's impact rows. **Indirect shifts —
+the level moving because something else was placed above it — have no rows of
+their own** (`RANKING_SYSTEM.md` → "Direct events only"), and are reconstructed:
+walk that user's ranking events in `(created_at, sequence)` order maintaining a
+map of `level_id` → current `ranking_index`, applying every impact row; after
+each event the level's position is 1 + the count of indices ordered above it.
+
+**This is the first reader of `RANKING_REBALANCE`.** Index comparisons are only
+valid inside one coordinate system, and a rebalance rewrites all of them, so the
+walk must consume those events to re-anchor the map. The one type that is never
+_displayed_ is now one that must be _read_. `RANKING_BULK_REPLACE` updates the map
+wholesale for the same reason.
+
+Where a deleted entry has left a hole (see "Deletion and privacy" below), the
+recomputed position will disagree with a stored `position_before`. Trust the
+stored value and render the shift unattributed — "1 level placed above" rather
+than a name. The shift itself is never lost: a `position_before` that does not
+match the previous `position_after` is proof that drift happened, independent of
+the walk.
+
+### Keeping the surfaces fresh
+
+Every path that emits an event must invalidate the surfaces that read them — the
+client-side sibling of the rule at the top of this document. It needs its **own**
+exported constant, not extra entries in `INVALIDATE_ON_WRITE`
+(`apps/web/src/lib/api/logging.ts`), which means "affected by a
+completion/progress/drop write". The event surfaces are affected by a superset:
+ranking moves and rating-config saves emit events too, and a config save today
+invalidates the `me` query alone. Widening the older set would make a config save
+needlessly refetch the list and collections.
 
 ---
 
