@@ -6,6 +6,7 @@
 
 import type { ActivityFeedKind } from '@infernolog/core'
 import { Chip } from '@/components/generic/chip'
+import { DatePickerField } from '@/components/inputs/DatePickerField'
 import {
   Select,
   SelectContent,
@@ -14,11 +15,13 @@ import {
   SelectValue,
 } from '@/components/generic/select'
 import { cn } from '@/lib/utils'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
+import { LevelFilterBox } from './LevelFilterBox'
 import {
   ACTIVITY_RANGES,
-  ALL_LEVELS,
   KIND_CHIPS,
   type ActivityRangeKey,
+  type CustomRange,
   type LevelOption,
 } from './logFilters'
 
@@ -31,6 +34,9 @@ export interface FeedFiltersProps {
   levelOptions: LevelOption[]
   range: ActivityRangeKey
   onRangeChange: (range: ActivityRangeKey) => void
+  customRange: CustomRange
+  onCustomRangeChange: (range: CustomRange) => void
+  datePref: DateFormatPreference
   onClear: () => void
   canClear: boolean
   countLabel: string
@@ -54,11 +60,17 @@ export function FeedFilters({
   levelOptions,
   range,
   onRangeChange,
+  customRange,
+  onCustomRangeChange,
+  datePref,
   onClear,
   canClear,
   countLabel,
   className,
 }: FeedFiltersProps) {
+  const selected = levelOptions.find((o) => o.levelId === levelId) ?? null
+  const today = new Date().setHours(23, 59, 59, 999)
+
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
       <div className="flex flex-wrap items-center gap-1.5">
@@ -77,28 +89,17 @@ export function FeedFilters({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={levelId ?? ALL_LEVELS}
-          onValueChange={(v) => onLevelChange(v === ALL_LEVELS ? null : v)}
-        >
-          <SelectTrigger className="h-8 w-[190px] text-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL_LEVELS}>All levels</SelectItem>
-            {levelOptions.map((option) => (
-              <SelectItem key={option.levelId} value={option.levelId}>
-                {option.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <LevelFilterBox
+          options={levelOptions}
+          selected={selected}
+          onSelect={onLevelChange}
+        />
 
         <Select
           value={range}
           onValueChange={(v) => onRangeChange(v as ActivityRangeKey)}
         >
-          <SelectTrigger className="h-8 w-[140px] text-xs">
+          <SelectTrigger className="h-8 w-[150px] text-xs">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -122,6 +123,30 @@ export function FeedFilters({
 
         <span className="ml-auto text-xs text-text-tertiary">{countLabel}</span>
       </div>
+
+      {range === 'custom' && (
+        // Both ends optional: "everything since March" and "everything before
+        // June" are as ordinary a question as a closed range.
+        <div className="flex max-w-[320px] gap-2">
+          <DatePickerField
+            label="From"
+            value={customRange.from}
+            onChange={(from) => onCustomRangeChange({ ...customRange, from })}
+            datePref={datePref}
+            {...(customRange.to !== null ? { max: customRange.to } : {})}
+            placeholder="Any"
+          />
+          <DatePickerField
+            label="To"
+            value={customRange.to}
+            onChange={(to) => onCustomRangeChange({ ...customRange, to })}
+            datePref={datePref}
+            {...(customRange.from !== null ? { min: customRange.from } : {})}
+            max={today}
+            placeholder="Today"
+          />
+        </div>
+      )}
 
       {levelId !== null && (
         // Rating-setup changes belong to the account, not to any level, so they

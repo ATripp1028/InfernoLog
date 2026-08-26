@@ -41,7 +41,11 @@ const SheetOverlay = forwardRef<
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  'fixed z-50 flex flex-col bg-bg-surface shadow-xl transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
+  // No `transition` here: the enter/exit keyframes below already own the
+  // slide, and a transition on the same properties makes the browser animate
+  // transform twice over — which reads as a stutter on the frame the sheet
+  // opens. See the note at the MobileActionSheet call in pages/List.tsx.
+  'fixed z-50 flex flex-col bg-bg-surface shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
   {
     variants: {
       side: {

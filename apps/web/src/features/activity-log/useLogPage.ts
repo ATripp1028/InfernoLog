@@ -9,9 +9,12 @@ import { formatNumber } from '@/features/logging/format'
 import { groupByDay } from './feedContent'
 import type { FeedRowContext } from './FeedRow'
 import {
+  EMPTY_CUSTOM_RANGE,
   levelOptions,
-  rangeStart,
+  rangeBounds,
+  rangeIsActive,
   type ActivityRangeKey,
+  type CustomRange,
   type LevelOption,
 } from './logFilters'
 
@@ -29,21 +32,16 @@ export function useLogPage() {
   const [kinds, setKinds] = useState<ActivityFeedKind[]>([])
   const [levelId, setLevelId] = useState<string | null>(null)
   const [range, setRange] = useState<ActivityRangeKey>('any')
-  const [glossaryOpen, setGlossaryOpen] = useState(false)
+  const [customRange, setCustomRange] =
+    useState<CustomRange>(EMPTY_CUSTOM_RANGE)
 
-  // `from` is recomputed per render rather than stored, so a page left open
-  // across midnight does not keep filtering against yesterday's boundary. It
-  // is part of the query key, so the crossing refetches on its own.
-  const filters: ActivityFilters = useMemo(
-    () => ({
-      kinds,
-      categories: [],
-      levelId,
-      from: rangeStart(range),
-      to: null,
-    }),
-    [kinds, levelId, range]
-  )
+  // Recomputed per render rather than stored, so a page left open across
+  // midnight does not keep filtering against yesterday's boundary. The bounds
+  // are part of the query key, so the crossing refetches on its own.
+  const filters: ActivityFilters = useMemo(() => {
+    const { from, to } = rangeBounds(range, customRange)
+    return { kinds, categories: [], levelId, from, to }
+  }, [kinds, levelId, range, customRange])
 
   const feed = useActivityFeed(filters)
 
@@ -81,6 +79,7 @@ export function useLogPage() {
     setKinds([])
     setLevelId(null)
     setRange('any')
+    setCustomRange(EMPTY_CUSTOM_RANGE)
   }, [])
 
   // "12 entries" while more pages remain reads as a total, which it is not —
@@ -94,7 +93,11 @@ export function useLogPage() {
     days,
     items,
     context,
-    isLoading: feed.isLoading || me.isLoading,
+    datePref,
+    // Scoped to the feed, not the page: the filters stay usable — and stay put
+    // — while a filter change is loading. A page-level spinner would unmount
+    // the control the user just touched.
+    isLoading: feed.isLoading,
     isError: feed.isError,
     hasNextPage: feed.hasNextPage,
     isFetchingNextPage: feed.isFetchingNextPage,
@@ -107,10 +110,11 @@ export function useLogPage() {
     levelOptions: options,
     range,
     setRange,
+    customRange,
+    setCustomRange,
     clearAll,
-    canClear: kinds.length > 0 || levelId !== null || range !== 'any',
+    canClear:
+      kinds.length > 0 || levelId !== null || rangeIsActive(range, customRange),
     countLabel,
-    glossaryOpen,
-    setGlossaryOpen,
   }
 }

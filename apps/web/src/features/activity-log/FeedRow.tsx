@@ -9,7 +9,7 @@
 // diffs behind an edit and the levels behind an import are detail on the same
 // entry, not a separate page.
 
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   ChevronDown,
@@ -370,10 +370,14 @@ function EventRow({
 /**
  * One feed entry, whichever table it came from.
  *
+ * Memoised: a page holds thirty of these, each with its own expand state, and
+ * every filter change would otherwise re-render all of them. `context` is
+ * memoised by the page for the same reason.
+ *
  * @param context - The viewer's display preferences plus their current rating
  * categories, which per-category score rows are resolved against by id.
  */
-export function FeedRow({
+export const FeedRow = memo(function FeedRow({
   item,
   context,
 }: {
@@ -385,4 +389,4 @@ export function FeedRow({
   ) : (
     <EventRow event={item} context={context} />
   )
-}
+})

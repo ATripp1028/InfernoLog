@@ -1,5 +1,4 @@
-import { HelpCircle, Loader2 } from 'lucide-react'
-import { PageLoading } from '@/components/shell/PageLoading'
+import { Loader2 } from 'lucide-react'
 import { EmptyState } from '@/components/data/EmptyState'
 import { Button } from '@/components/generic/button'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
@@ -21,6 +20,7 @@ export function Log() {
     days,
     items,
     context,
+    datePref,
     isLoading,
     isError,
     hasNextPage,
@@ -34,14 +34,12 @@ export function Log() {
     levelOptions,
     range,
     setRange,
+    customRange,
+    setCustomRange,
     clearAll,
     canClear,
     countLabel,
-    glossaryOpen,
-    setGlossaryOpen,
   } = useLogPage()
-
-  if (isLoading) return <PageLoading />
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-6">
@@ -52,15 +50,7 @@ export function Log() {
             Everything you&rsquo;ve done, newest first.
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setGlossaryOpen(true)}
-          className="shrink-0 gap-1.5 text-xs"
-        >
-          <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-          What the log shows
-        </Button>
+        <GlossarySheet />
       </div>
 
       <FeedFilters
@@ -73,13 +63,27 @@ export function Log() {
         levelOptions={levelOptions}
         range={range}
         onRangeChange={setRange}
+        customRange={customRange}
+        onCustomRangeChange={setCustomRange}
+        datePref={datePref}
         onClear={clearAll}
         canClear={canClear}
         countLabel={countLabel}
       />
 
+      {/* Only this region swaps while a filter loads — the header and the
+          controls above stay mounted, so the chip the user just pressed does
+          not disappear out from under them. */}
       <div className="mt-5">
-        {isError ? (
+        {isLoading ? (
+          <div
+            className="flex justify-center py-16"
+            role="status"
+            aria-label="Loading your log"
+          >
+            <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
+          </div>
+        ) : isError ? (
           <EmptyState
             title="Couldn't load your log."
             description="Something went wrong fetching it. Try again in a moment."
@@ -128,8 +132,6 @@ export function Log() {
           </div>
         )}
       </div>
-
-      <GlossarySheet open={glossaryOpen} onOpenChange={setGlossaryOpen} />
     </div>
   )
 }
