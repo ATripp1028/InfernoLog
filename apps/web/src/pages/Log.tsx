@@ -4,7 +4,6 @@ import { Button } from '@/components/generic/button'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 import { FeedFilters } from '@/features/activity-log/FeedFilters'
 import { FeedRow } from '@/features/activity-log/FeedRow'
-import { GlossarySheet } from '@/features/activity-log/GlossarySheet'
 import { useLogPage } from '@/features/activity-log/useLogPage'
 
 /**
@@ -42,17 +41,7 @@ export function Log() {
   } = useLogPage()
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-6 md:px-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-text-primary">Log</h1>
-          <p className="mt-0.5 text-sm text-text-secondary">
-            Everything you&rsquo;ve done, newest first.
-          </p>
-        </div>
-        <GlossarySheet />
-      </div>
-
+    <div className="mx-auto w-full md:px-6">
       <FeedFilters
         className="mt-4"
         kinds={kinds}

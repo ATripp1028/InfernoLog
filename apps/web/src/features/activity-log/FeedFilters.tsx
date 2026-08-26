@@ -24,6 +24,7 @@ import {
   type CustomRange,
   type LevelOption,
 } from './logFilters'
+import { GlossarySheet } from './GlossarySheet'
 
 export interface FeedFiltersProps {
   kinds: ActivityFeedKind[]
@@ -73,19 +74,22 @@ export function FeedFilters({
 
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        <Chip selected={kinds.length === 0} onClick={onClearKinds}>
-          All
-        </Chip>
-        {KIND_CHIPS.map((chip) => (
-          <Chip
-            key={chip.kind}
-            selected={kinds.includes(chip.kind)}
-            onClick={() => onToggleKind(chip.kind)}
-          >
-            {chip.label}
+      <div className="justify-between flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Chip selected={kinds.length === 0} onClick={onClearKinds}>
+            All
           </Chip>
-        ))}
+          {KIND_CHIPS.map((chip) => (
+            <Chip
+              key={chip.kind}
+              selected={kinds.includes(chip.kind)}
+              onClick={() => onToggleKind(chip.kind)}
+            >
+              {chip.label}
+            </Chip>
+          ))}
+        </div>
+        <GlossarySheet />
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
