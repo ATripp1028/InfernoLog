@@ -35,13 +35,13 @@ export function useLogPage() {
   const [customRange, setCustomRange] =
     useState<CustomRange>(EMPTY_CUSTOM_RANGE)
 
-  // Recomputed per render rather than stored, so a page left open across
-  // midnight does not keep filtering against yesterday's boundary. The bounds
-  // are part of the query key, so the crossing refetches on its own.
-  const filters: ActivityFilters = useMemo(() => {
-    const { from, to } = rangeBounds(range, customRange)
-    return { kinds, categories: [], levelId, from, to }
-  }, [kinds, levelId, range, customRange])
+  // Recomputed per render rather than memoised, so a page left open across
+  // midnight does not keep filtering against yesterday's boundary. Safe to
+  // rebuild every render: the query key is hashed by value, and `rangeBounds`
+  // returns the same ISO strings for the whole of a day, so this only changes
+  // the key when the day (or a filter) actually changes.
+  const { from, to } = rangeBounds(range, customRange)
+  const filters: ActivityFilters = { kinds, categories: [], levelId, from, to }
 
   const feed = useActivityFeed(filters)
 

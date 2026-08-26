@@ -395,10 +395,10 @@ export function ratingConfigChangeData(
  * `ActivityLogLevelImpact.levelName`. The surviving levels' `rankingIndex`
  * values are untouched by the deletion, so reconstruction is unaffected.
  *
- * @param client - Prisma client or transaction client.
+ * @param client - The caller's transaction client.
  */
 export async function purgeLevelActivity(
-  client: Tx | Prisma.TransactionClient,
+  client: Tx,
   userId: string,
   levelId: string
 ): Promise<void> {

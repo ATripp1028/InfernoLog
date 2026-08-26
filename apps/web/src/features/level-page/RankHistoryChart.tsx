@@ -7,6 +7,7 @@
 // Inline SVG rather than a chart library: the app ships none, and one series
 // with a handful of points does not justify adding one.
 
+import { cn } from '@/lib/utils'
 import type { RankPoint } from './rankHistoryContent'
 
 const WIDTH = 100
@@ -17,6 +18,8 @@ const PAD_Y = 4
 interface Bounds {
   best: number
   worst: number
+  /** True when every recorded position is the same one. */
+  flat: boolean
   start: number
   end: number
 }
@@ -32,9 +35,11 @@ function bounds(points: RankPoint[]): Bounds | null {
   const times = points.map((p) => p.time)
   return {
     best,
+    worst,
     // A level that never moved has one position, and a zero-height range would
-    // divide by zero — give it a band so the line sits mid-chart.
-    worst: worst === best ? best + 1 : worst,
+    // divide by zero. Rather than inventing a second position it never held,
+    // the flat case is drawn mid-chart with a single axis label.
+    flat: worst === best,
     start: Math.min(...times),
     end: Math.max(...times),
   }
@@ -45,9 +50,10 @@ function project(point: RankPoint & { position: number }, b: Bounds) {
   const x = span === 0 ? WIDTH / 2 : ((point.time - b.start) / span) * WIDTH
   // #1 is the TOP of the chart: a smaller position is a higher place, which is
   // the opposite of how an SVG y axis runs.
-  const y =
-    PAD_Y +
-    ((point.position - b.best) / (b.worst - b.best)) * (HEIGHT - PAD_Y * 2)
+  const y = b.flat
+    ? HEIGHT / 2
+    : PAD_Y +
+      ((point.position - b.best) / (b.worst - b.best)) * (HEIGHT - PAD_Y * 2)
   return { x, y }
 }
 
@@ -114,9 +120,16 @@ export function RankHistoryChart({ points }: { points: RankPoint[] }) {
           />
         )}
       </svg>
-      <div className="pointer-events-none absolute inset-y-0 left-0 flex flex-col justify-between py-0.5 text-[9px] tabular-nums text-text-tertiary">
+      <div
+        className={cn(
+          'pointer-events-none absolute inset-y-0 left-0 flex flex-col py-0.5 text-[9px] tabular-nums text-text-tertiary',
+          // One label, centred against the line, when there is only one
+          // position to name.
+          b.flat ? 'justify-center' : 'justify-between'
+        )}
+      >
         <span>#{b.best}</span>
-        <span>#{b.worst}</span>
+        {!b.flat && <span>#{b.worst}</span>}
       </div>
     </div>
   )

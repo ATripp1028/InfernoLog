@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
-import { screen, waitForElementToBeRemoved } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/utils/testUtils'
 import { MotionSheet } from '../motion-sheet'
@@ -55,7 +55,12 @@ describe('MotionSheet', () => {
 
     // AnimatePresence keeps the node mounted until the exit spring finishes,
     // so this waits for the removal rather than asserting on the same tick.
-    await waitForElementToBeRemoved(() => screen.queryByText('Panel body'))
+    // waitFor rather than waitForElementToBeRemoved: the spring sometimes
+    // settles inside the act() flush of the keypress, and that helper throws
+    // when the node it was handed is already gone.
+    await waitFor(() =>
+      expect(screen.queryByText('Panel body')).not.toBeInTheDocument()
+    )
   })
 
   it('closes when the backdrop is clicked', async () => {
@@ -63,7 +68,9 @@ describe('MotionSheet', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Open it' }))
     await userEvent.click(screen.getByLabelText('Close Reference'))
 
-    await waitForElementToBeRemoved(() => screen.queryByText('Panel body'))
+    await waitFor(() =>
+      expect(screen.queryByText('Panel body')).not.toBeInTheDocument()
+    )
   })
 
   it('returns focus to whatever opened it', async () => {

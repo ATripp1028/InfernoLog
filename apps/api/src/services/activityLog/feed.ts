@@ -80,12 +80,18 @@ function decodeCursor(raw: string): Cursor | null {
       parsed &&
       typeof parsed === 'object' &&
       typeof (parsed as Cursor).t === 'string' &&
-      ((parsed as Cursor).s === 'E' || (parsed as Cursor).s === 'P') &&
-      (typeof (parsed as Cursor).k === 'number' ||
-        typeof (parsed as Cursor).k === 'string')
+      ((parsed as Cursor).s === 'E' || (parsed as Cursor).s === 'P')
     ) {
       const cursor = parsed as Cursor
-      if (!Number.isNaN(Date.parse(cursor.t))) return cursor
+      // The third key's type is decided by the source, not merely present: an
+      // event's is `sequence`, a progress update's is its uuid. A hand-made
+      // token pairing 'E' with a non-numeric k would otherwise reach
+      // `Number(k)` and put a NaN bind parameter into the query.
+      const keyOk =
+        cursor.s === 'E'
+          ? typeof cursor.k === 'number' && Number.isFinite(cursor.k)
+          : typeof cursor.k === 'string'
+      if (keyOk && !Number.isNaN(Date.parse(cursor.t))) return cursor
     }
   } catch {
     // Malformed cursor — start from the first page rather than erroring. The

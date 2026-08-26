@@ -71,6 +71,15 @@ export function MotionSheet({
   // Where focus was before the sheet opened, so closing puts it back on the
   // control that opened it rather than at the top of the document.
   const restoreRef = useRef<HTMLElement | null>(null)
+  // Callers pass `onClose` as an inline arrow, so it is a new function on every
+  // render. Held in a ref rather than listed as a dependency below: an effect
+  // that re-ran on it would run its cleanup — which restores focus to the
+  // trigger — on every re-render of the page behind an open sheet, yanking
+  // focus out of whatever the user was using inside it.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
 
   useEffect(() => {
     if (!open) return
@@ -78,14 +87,14 @@ export function MotionSheet({
     panelRef.current?.focus()
 
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('keydown', handleKeyDown)
     return () => {
       document.removeEventListener('keydown', handleKeyDown)
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose])
+  }, [open])
 
   return (
     <AnimatePresence>
