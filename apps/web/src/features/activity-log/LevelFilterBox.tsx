@@ -95,7 +95,7 @@ export function LevelFilterBox({
 }) {
   const [query, setQuery] = useState('')
   const [open, setOpen] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const anchorRef = useRef<HTMLDivElement>(null)
 
   if (selected) {
     return (
@@ -120,13 +120,15 @@ export function LevelFilterBox({
   return (
     <Popover open={open && suggestions.length > 0} onOpenChange={setOpen}>
       <PopoverAnchor asChild>
-        <div className="relative flex h-8 w-[240px] items-center">
+        <div
+          ref={anchorRef}
+          className="relative flex h-8 w-[240px] items-center"
+        >
           <Search
             className="absolute left-2 h-3.5 w-3.5 text-text-tertiary"
             aria-hidden
           />
           <input
-            ref={inputRef}
             value={query}
             placeholder="All levels"
             aria-label="Filter by level"
@@ -158,6 +160,18 @@ export function LevelFilterBox({
         // Focus must stay in the box while the list is open, or typing the
         // second character would close it.
         onOpenAutoFocus={(e) => e.preventDefault()}
+        // The click that opens the list is a pointerdown on the input, which
+        // sits OUTSIDE the popover content — so Radix's dismiss layer read it
+        // as a click-away and closed the list on the same gesture that opened
+        // it, which showed as a flash. Interactions inside the anchor are the
+        // box's own business.
+        onInteractOutside={(e) => {
+          if (anchorRef.current?.contains(e.target as Node)) e.preventDefault()
+        }}
+        // Likewise for focus: focusing the input is what opens the list.
+        onFocusOutside={(e) => {
+          if (anchorRef.current?.contains(e.target as Node)) e.preventDefault()
+        }}
       >
         <div className="max-h-[320px] overflow-y-auto">
           {suggestions.map((option) => (
@@ -173,6 +187,7 @@ export function LevelFilterBox({
                 epicValue: option.epicValue,
                 isRated: option.isRated,
               }}
+              compact
               onSelect={() => choose(option.levelId)}
             />
           ))}

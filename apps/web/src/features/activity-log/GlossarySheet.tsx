@@ -6,8 +6,9 @@
 //
 // The button and the sheet are ONE component on purpose. When the open state
 // lived on the page, toggling it re-rendered every feed row on the frame the
-// slide started, and the animation visibly stuttered. Keeping the state here
-// means opening the glossary re-renders the glossary.
+// slide started. That was half the stutter; the other half was the Radix
+// Dialog's body scroll-lock relaying out the whole feed on the same frame,
+// which is why this uses MotionSheet rather than the Radix Sheet.
 
 import { useState } from 'react'
 import {
@@ -22,12 +23,7 @@ import {
   Undo2,
   type LucideIcon,
 } from 'lucide-react'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetTitle,
-} from '@/components/generic/sheet'
+import { MotionSheet } from '@/components/generic/motion-sheet'
 import { Button } from '@/components/generic/button'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 import { useMediaQuery } from '@/lib/useMediaQuery'
@@ -175,56 +171,56 @@ export function GlossarySheet() {
         What the log shows
       </Button>
 
-      <Sheet open={open} onOpenChange={setOpen}>
-        <SheetContent
-          side={isDesktop ? 'right' : 'bottom'}
-          className="overflow-y-auto"
-        >
-          <div className="px-4 py-4">
-            <SheetTitle className="text-base font-semibold text-text-primary">
-              What the log shows
-            </SheetTitle>
-            <SheetDescription className="mt-1 text-xs text-text-secondary">
-              Everything you&rsquo;ve done, in the order you did it.
-            </SheetDescription>
+      <MotionSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        side={isDesktop ? 'right' : 'bottom'}
+        label="What the log shows"
+      >
+        <div className="overflow-y-auto px-4 py-4">
+          <h2 className="text-base font-semibold text-text-primary">
+            What the log shows
+          </h2>
+          <p className="mt-1 text-xs text-text-secondary">
+            Everything you&rsquo;ve done, in the order you did it.
+          </p>
 
-            <div className="mt-4 flex flex-col gap-4">
-              {GLOSSARY.map((section) => (
-                <div key={section.heading}>
-                  <SectionLabel size="xs">{section.heading}</SectionLabel>
-                  <dl className="mt-1.5 flex flex-col gap-2.5">
-                    {section.entries.map((entry) => (
-                      <div key={entry.term} className="flex gap-2.5">
-                        <span
-                          className={cn(
-                            'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
-                            TONE_CLASSES[entry.tone]
-                          )}
-                        >
-                          <entry.icon className="h-3.5 w-3.5" aria-hidden />
-                        </span>
-                        <div className="min-w-0">
-                          <dt className="text-xs font-medium text-text-primary">
-                            {entry.term}
-                          </dt>
-                          <dd className="text-xs text-text-secondary">
-                            {entry.meaning}
-                          </dd>
-                        </div>
+          <div className="mt-4 flex flex-col gap-4">
+            {GLOSSARY.map((section) => (
+              <div key={section.heading}>
+                <SectionLabel size="xs">{section.heading}</SectionLabel>
+                <dl className="mt-1.5 flex flex-col gap-2.5">
+                  {section.entries.map((entry) => (
+                    <div key={entry.term} className="flex gap-2.5">
+                      <span
+                        className={cn(
+                          'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full',
+                          TONE_CLASSES[entry.tone]
+                        )}
+                      >
+                        <entry.icon className="h-3.5 w-3.5" aria-hidden />
+                      </span>
+                      <div className="min-w-0">
+                        <dt className="text-xs font-medium text-text-primary">
+                          {entry.term}
+                        </dt>
+                        <dd className="text-xs text-text-secondary">
+                          {entry.meaning}
+                        </dd>
                       </div>
-                    ))}
-                  </dl>
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-5 border-t border-border-subtle pt-3 text-[11px] text-text-tertiary">
-              Collections aren&rsquo;t tracked — adding a level to Want to Beat
-              or Favorites doesn&rsquo;t appear here.
-            </p>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            ))}
           </div>
-        </SheetContent>
-      </Sheet>
+
+          <p className="mt-5 border-t border-border-subtle pt-3 text-[11px] text-text-tertiary">
+            Collections aren&rsquo;t tracked — adding a level to Want to Beat or
+            Favorites doesn&rsquo;t appear here.
+          </p>
+        </div>
+      </MotionSheet>
     </>
   )
 }
