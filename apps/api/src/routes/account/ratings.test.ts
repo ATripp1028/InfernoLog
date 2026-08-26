@@ -66,11 +66,31 @@ function putConfig(body: unknown) {
   })
 }
 
-/** Stubs the pre-write ownership read with the ids the user actually has. */
-function userOwns(...ids: string[]) {
+/**
+ * Stubs the pre-write ownership read with the ids the user actually has.
+ *
+ * That read also feeds the RATING_CONFIG_CHANGE diff, so the rows carry
+ * name/weight/sortOrder — a bare `{ id }` would make every save look like it
+ * renamed every category.
+ */
+function userOwns(
+  ...categories: Array<
+    string | { id: string; name: string; weight: number; sortOrder: number }
+  >
+) {
   prisma.ratingCategory.findMany.mockResolvedValue(
-    ids.map((id) => ({ id })) as never
+    categories.map((c, idx) =>
+      typeof c === 'string'
+        ? { id: c, name: `Category ${idx}`, weight: 0, sortOrder: idx }
+        : c
+    ) as never
   )
+}
+
+/** The `data` of the emitted RATING_CONFIG_CHANGE, or null when none was. */
+function configEventData(): Record<string, unknown> | null {
+  const call = prisma.activityLog.create.mock.lastCall
+  return call ? (call[0] as { data: Record<string, unknown> }).data : null
 }
 
 /** The `data` of each ratingCategory.update call, in call order. */
@@ -92,6 +112,14 @@ beforeEach(() => {
   prisma.listPreset.update.mockReset()
   prisma.user.update.mockReset()
   prisma.$transaction.mockReset().mockResolvedValue([] as never)
+  prisma.activityLog.create.mockReset()
+  // The pre-write read of the user's enjoyment settings, which the
+  // RATING_CONFIG_CHANGE diff compares against.
+  prisma.user.findUniqueOrThrow.mockReset().mockResolvedValue({
+    includeEnjoyment: false,
+    enjoymentWeight: decimal(0),
+    enjoymentSortOrder: 99,
+  } as never)
   prisma.user.findFirst.mockReset().mockResolvedValue({
     id: TEST_USER_ID,
     enjoymentWeight: decimal(0),
@@ -492,5 +520,54 @@ describe('PUT /me/rating-config — applying the config', () => {
     const res = await putConfig(config())
 
     expect(res.status).toBe(500)
+  })
+})
+
+// ─── the config-change event ─────────────────────────────────────────────────
+
+describe('PUT /me/rating-config — the RATING_CONFIG_CHANGE event', () => {
+  it('writes one user-scoped event with no impact rows', async () => {
+    userOwns({ id: CAT_A, name: 'Gameplay', weight: 1, sortOrder: 0 })
+
+    await putConfig(
+      config({
+        categories: [
+          { id: CAT_A, name: 'Gameplay', weight: 0.5 },
+          { name: 'Song', weight: 0.5 },
+        ],
+      })
+    )
+
+    const data = configEventData()
+    expect(data).toMatchObject({ eventType: 'RATING_CONFIG_CHANGE' })
+    // Rating config is a property of the account, not of any one level.
+    expect(data).not.toHaveProperty('levelId')
+    expect(data).not.toHaveProperty('levelImpacts')
+  })
+
+  it('writes nothing when the save changed nothing', async () => {
+    // An event with no field changes is a feed entry with nothing to say.
+    userOwns({ id: CAT_A, name: 'Gameplay', weight: 1, sortOrder: 0 })
+
+    await putConfig(
+      config({
+        categories: [{ id: CAT_A, name: 'Gameplay', weight: 1 }],
+        // Matching the stubbed user, so nothing at all differs.
+        enjoymentSortOrder: 99,
+      })
+    )
+
+    expect(configEventData()).toBeNull()
+  })
+
+  it('does not fire when the request is rejected before the write', async () => {
+    userOwns({ id: CAT_A, name: 'Gameplay', weight: 1, sortOrder: 0 })
+
+    const res = await putConfig(
+      config({ categories: [{ id: CAT_B, name: 'Gameplay', weight: 1 }] })
+    )
+
+    expect(res.status).toBe(404)
+    expect(configEventData()).toBeNull()
   })
 })

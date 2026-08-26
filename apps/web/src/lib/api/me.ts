@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import { presetsQueryKey } from './presets'
+import { invalidateOnEvent } from './activity'
 import type {
   DateFormatPreference,
   Device,
@@ -469,7 +470,12 @@ export function useUpdateMe() {
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
-    onSettled: () => {
+    onSettled: (_data, _err, input) => {
+      // A SIMPLE ↔ WEIGHTED switch is the one thing on this endpoint that
+      // emits an event — ratingMode lives here rather than in the rating-config
+      // payload, so PATCH /v1/me emits its own RATING_CONFIG_CHANGE for it.
+      // Nothing else here is logged, so nothing else invalidates the feed.
+      if (input.ratingMode !== undefined) void invalidateOnEvent(queryClient)
       // Refetch authoritative state only once the queue has drained.
       if (isLastPending(queryClient, UPDATE_ME_KEY)) {
         return queryClient.invalidateQueries({ queryKey: meQueryKey })
@@ -560,6 +566,11 @@ export function useUpdateRatingConfig() {
       // transaction. Nothing in this response reflects that, so the presets
       // have to be refetched or the List keeps rendering the stale copy.
       void queryClient.invalidateQueries({ queryKey: presetsQueryKey })
+      // The save emits a RATING_CONFIG_CHANGE, which belongs in the Log feed.
+      // This is exactly the case INVALIDATE_ON_EVENT exists for: widening the
+      // older INVALIDATE_ON_WRITE set instead would make a config save refetch
+      // the List and collections for nothing.
+      void invalidateOnEvent(queryClient)
     },
   })
 }

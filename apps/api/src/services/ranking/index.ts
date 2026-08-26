@@ -9,10 +9,22 @@
 // Inserts bisect the gap between the two neighbours the client drops between;
 // when that gap closes past REBALANCE_GAP the whole list is renormalised to
 // integers first. See RANKING_SYSTEM.md.
+//
+// Every write here emits an activity_log event (services/activityLog) inside
+// its own transaction — placement, reorder, unranking, AND the renormalisation,
+// which is why `rebalance` takes a userId it otherwise wouldn't need. That is a
+// hard requirement, not a convenience: a rankingIndex written without a
+// matching impact row is a hole in that level's history that nothing can fill
+// in afterwards. See docs/EVENT_LOG.md.
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { bisectIndices, gapTooTight } from '../../utils/fractionalIndex'
+import {
+  readRankingSnapshot,
+  recordRankingMove,
+  recordRankingRebalance,
+} from '../activityLog'
 import {
   levelSummarySelect,
   completionSelect,
@@ -71,7 +83,13 @@ async function neighbourIndex(
 // Renormalise the user's whole classic ranking to evenly spaced integers
 // (1 = easiest … N = hardest), preserving the current order. Runs inside the
 // caller's transaction so no read ever observes a half-rebalanced set.
+//
+// Emits an internal-only RANKING_REBALANCE event carrying every entry's new
+// index. Order doesn't change, so nothing user-facing happened — but every
+// index logged before this point is now in a stale coordinate system, and the
+// event is what keeps a later reconstruction from comparing the two.
 async function rebalance(tx: Tx, userId: string): Promise<void> {
+  const before = await readRankingSnapshot(tx, userId)
   const rows = await tx.classicRanking.findMany({
     where: { userId },
     orderBy: { rankingIndex: 'asc' },
@@ -87,6 +105,8 @@ async function rebalance(tx: Tx, userId: string): Promise<void> {
     })
     position++
   }
+  const after = await readRankingSnapshot(tx, userId)
+  await recordRankingRebalance(tx, userId, before, after)
 }
 
 // The index for a drop between `aboveId` (harder, higher index) and `belowId`
@@ -223,14 +243,26 @@ export async function placeCompletion(
         'Only classic levels appear in the classic ranking'
       )
 
+    // computeIndex may renormalise first, which emits its own event — so the
+    // "before" snapshot is taken AFTER it, in the coordinate system the
+    // placement actually lands in.
     const rankingIndex = await computeIndex(
       tx,
       userId,
       input.aboveId,
       input.belowId
     )
+    const before = await readRankingSnapshot(tx, userId)
     await tx.classicRanking.create({
       data: { userId, levelProgressId: input.levelProgressId, rankingIndex },
+    })
+    const after = await readRankingSnapshot(tx, userId)
+    await recordRankingMove(tx, {
+      userId,
+      eventType: 'RANKING_PLACEMENT',
+      moverLevelProgressId: input.levelProgressId,
+      before,
+      after,
     })
   })
   return getClassicRanking(userId)
@@ -254,15 +286,26 @@ export async function reorderEntry(
     })
     if (!existing) throw new RankingNotFoundError('Ranking entry not found')
 
+    // As in placeCompletion: snapshot after any renormalisation, so before/after
+    // describe the move alone.
     const rankingIndex = await computeIndex(
       tx,
       userId,
       input.aboveId,
       input.belowId
     )
+    const before = await readRankingSnapshot(tx, userId)
     await tx.classicRanking.update({
       where: { id: existing.id },
       data: { rankingIndex },
+    })
+    const after = await readRankingSnapshot(tx, userId)
+    await recordRankingMove(tx, {
+      userId,
+      eventType: 'RANKING_REORDER',
+      moverLevelProgressId: levelProgressId,
+      before,
+      after,
     })
   })
   return getClassicRanking(userId)
@@ -271,13 +314,29 @@ export async function reorderEntry(
 /**
  * UNPLACE — remove an entry from the ranking; it returns to the Unplaced panel.
  * The completion itself is untouched (only the ClassicRanking row is deleted).
+ *
+ * Transactional purely so the RANKING_UNRANKED event commits with the delete.
+ * Unranking runs the same neighbour-impact logic a placement does: the levels
+ * below close the gap and one of them may cross a milestone on the way up.
  */
 export async function unplaceEntry(userId: string, levelProgressId: string) {
-  const existing = await prisma.classicRanking.findFirst({
-    where: { userId, levelProgressId },
-    select: { id: true },
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.classicRanking.findFirst({
+      where: { userId, levelProgressId },
+      select: { id: true },
+    })
+    if (!existing) throw new RankingNotFoundError('Ranking entry not found')
+
+    const before = await readRankingSnapshot(tx, userId)
+    await tx.classicRanking.delete({ where: { id: existing.id } })
+    const after = await readRankingSnapshot(tx, userId)
+    await recordRankingMove(tx, {
+      userId,
+      eventType: 'RANKING_UNRANKED',
+      moverLevelProgressId: levelProgressId,
+      before,
+      after,
+    })
   })
-  if (!existing) throw new RankingNotFoundError('Ranking entry not found')
-  await prisma.classicRanking.delete({ where: { id: existing.id } })
   return getClassicRanking(userId)
 }

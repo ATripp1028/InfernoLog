@@ -1,14 +1,14 @@
 // The two input controls FilterPanel is built from: a dual-handle range
-// slider with editable end boxes, and the From/To date pair. Draft handling
-// and clamping live in useFilterInputs.
+// slider with editable end boxes, and the From/To date pair. The date box
+// itself is shared with the Log page's range and lives in
+// components/inputs/DatePickerField; the slider's draft handling and clamping
+// live in useFilterInputs.
 
-import { Calendar, X } from 'lucide-react'
 import { RangeSlider } from '@/components/generic/range-slider'
-import { formatDate } from '@/lib/dateFormat'
-import { cn } from '@/lib/utils'
+import { DatePickerField } from '@/components/inputs/DatePickerField'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { DateBounds, Range } from '@/features/list/types'
-import { toIso, useDateField, useRangeDrafts } from './useFilterInputs'
+import { useRangeDrafts } from './useFilterInputs'
 
 const inputCls =
   'w-full rounded border border-border bg-bg-elevated px-1.5 py-0.5 text-[11px] text-center text-text-primary outline-none focus:border-primary transition-colors'
@@ -81,79 +81,6 @@ export function RangeRow({
           <span>{format(value[1], 'max')}</span>
         </div>
       )}
-    </div>
-  )
-}
-
-function DatePickerField({
-  label,
-  value,
-  onChange,
-  datePref,
-  min,
-  max,
-  placeholder,
-}: {
-  label: string
-  value: number | null
-  onChange: (ms: number | null) => void
-  datePref: DateFormatPreference
-  min?: number
-  max?: number
-  placeholder: string
-}) {
-  const { draft, setDraft, commit, commitIso, clear, calRef, openCalendar } =
-    useDateField({ onChange, datePref, min, max })
-
-  return (
-    <div className="flex flex-1 flex-col gap-0.5">
-      <p className="text-[10px] text-text-tertiary">{label}</p>
-      <div className="relative flex items-center">
-        <input
-          className={cn(inputCls, 'pr-9')}
-          value={
-            draft ??
-            (value != null ? formatDate(new Date(value), datePref) : '')
-          }
-          placeholder={placeholder}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={(e) => commit(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') commit(e.currentTarget.value)
-          }}
-        />
-        <button
-          type="button"
-          className={cn(
-            'absolute cursor-pointer text-text-tertiary transition-colors hover:text-text-primary',
-            value != null ? 'right-5' : 'right-1.5'
-          )}
-          onClick={openCalendar}
-          aria-label="Open calendar"
-        >
-          <Calendar size={11} />
-        </button>
-        {value != null && (
-          <button
-            type="button"
-            className="absolute right-1 cursor-pointer text-text-tertiary transition-colors hover:text-text-primary"
-            onClick={clear}
-            aria-label={`Clear ${label}`}
-          >
-            <X size={10} />
-          </button>
-        )}
-        <input
-          ref={calRef}
-          type="date"
-          tabIndex={-1}
-          className="pointer-events-none absolute h-px w-px opacity-0"
-          value={value != null ? toIso(value) : ''}
-          {...(min != null && { min: toIso(min) })}
-          {...(max != null && { max: toIso(max) })}
-          onChange={(e) => commitIso(e.target.value)}
-        />
-      </div>
     </div>
   )
 }

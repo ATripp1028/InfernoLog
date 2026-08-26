@@ -17,6 +17,16 @@ import type {
   EditProgressInput,
 } from '@infernolog/core'
 import { toNum } from '../../utils/decimal'
+import {
+  buildFieldChanges,
+  buildRatingScoreChanges,
+  buildRatingStandingChanges,
+  purgeLevelActivity,
+  readRankingSnapshot,
+  readRatingStandings,
+  recordLogEdit,
+  recordRankingMove,
+} from '../activityLog'
 
 type Tx = Prisma.TransactionClient
 
@@ -354,6 +364,16 @@ export async function applyProgress(userId: string, input: ProgressInput) {
  * defaults rather than clearing (no `runFrom` means the run started at 0, no
  * `runTo` means it reached 100).
  *
+ * Emits ONE LOG_EDIT activity event per call, carrying a child row for each
+ * in-scope field whose value actually changed — see
+ * {@link recordLogEdit} and `services/activityLog/fieldScope.ts` for what is in
+ * scope. A save that changed nothing in scope emits nothing.
+ *
+ * A save that touches the rating additionally carries `weighted_average` and
+ * `rating_rank` rows, computed here from a before/after reading of the user's
+ * whole rating order ({@link readRatingStandings}). Neither figure is stored
+ * anywhere, so this is the only moment either can be recorded.
+ *
  * @param userId - Internal user UUID from the JWT.
  * @param levelId - GD level ID identifying the entry to edit.
  * @param input - Sparse patch; `progressUpdateId` targets a specific update,
@@ -416,6 +436,36 @@ export async function applyEdit(
     ) {
       throw new ProgressFieldsNotApplicableError(targetUpdateKind!)
     }
+
+    // Read the current values of everything a save can touch, so the LOG_EDIT
+    // event can diff against them. Selected wholesale rather than field by
+    // field: LOG_EDIT_FIELD_SCOPE decides what is in scope, and a second list
+    // here would be the copy that drifts.
+    const [beforeLp, beforePu] = await Promise.all([
+      tx.levelProgress.findUniqueOrThrow({ where: { id: lp.id } }),
+      tx.progressUpdate.findUniqueOrThrow({ where: { id: targetUpdateId } }),
+    ])
+    const beforeScores =
+      input.ratingScores === undefined
+        ? []
+        : await tx.ratingScore.findMany({
+            where: { levelProgressId: lp.id },
+            select: { categoryId: true, score: true },
+          })
+
+    // `weighted_average` and `rating_rank` are computed, not stored, so the
+    // only chance to record them is here — see services/activityLog/
+    // ratingStanding.ts. Read only when the save can actually move them: the
+    // three inputs below are the whole rating surface of an edit, and the rank
+    // is over every level the user owns, so this is a list-sized read that a
+    // notes-only save has no reason to pay for.
+    const touchesRating =
+      input.simpleRating !== undefined ||
+      input.enjoyment !== undefined ||
+      input.ratingScores !== undefined
+    const beforeStandings = touchesRating
+      ? await readRatingStandings(tx, userId)
+      : null
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
@@ -501,6 +551,35 @@ export async function applyEdit(
         })
       }
     }
+
+    // The second reading of the rating order, taken after the writes above so
+    // the pair can be diffed. Both readings are inside this transaction, so
+    // the rank recorded is the one that held at the instant of the save.
+    const ratingStandingChanges = beforeStandings
+      ? buildRatingStandingChanges(
+          levelId,
+          beforeStandings,
+          await readRatingStandings(tx, userId)
+        )
+      : []
+
+    // One LOG_EDIT per save, with one child row per field that actually
+    // changed. Diffed against the update payloads rather than the request body
+    // so the derived writes above — setting `percentage` clears `runFrom`/
+    // `runTo`, and vice versa — are recorded as the edits they are. Fields
+    // outside LOG_EDIT_FIELD_SCOPE (visibility, video and highlight URLs) never
+    // produce a row; a save that only touched those emits nothing.
+    await recordLogEdit(tx, {
+      userId,
+      levelId,
+      changes: [
+        ...buildFieldChanges(beforeLp, lpData),
+        ...buildFieldChanges(beforePu, puData),
+        ...buildRatingScoreChanges(beforeScores, input.ratingScores),
+        ...ratingStandingChanges,
+      ],
+    })
+
     return loadFullEntry(tx, lp.id, targetUpdateId)
   })
 }
@@ -556,6 +635,16 @@ export async function deleteProgressUpdate(
     })
 
     if (remaining.length === 0) {
+      // Deleting the last update deletes the whole entry, so this level's own
+      // event history goes with it — same rule DELETE /me/progress/:levelId
+      // follows. Other levels' impact rows that name this one survive on their
+      // denormalised levelName; see purgeLevelActivity.
+      //
+      // No RANKING_UNRANKED is emitted for the classic_ranking row the delete
+      // cascades away: the event would be scoped to this level and deleted in
+      // the same breath, and the surviving levels' rankingIndex values are
+      // untouched by a delete, so nothing about reconstruction changes.
+      await purgeLevelActivity(tx, userId, levelId)
       await tx.levelProgress.delete({ where: { id: lp.id } })
       return { deletedLevelProgress: true }
     }
@@ -586,7 +675,25 @@ export async function deleteProgressUpdate(
       })
     }
     if (uncompleting) {
-      await tx.classicRanking.deleteMany({ where: { levelProgressId: lp.id } })
+      // Walking status away from COMPLETED drops the level out of the classic
+      // ranking, which is an unranking however indirectly it was reached — so
+      // it emits the same event a manual unplace does. This is the write path
+      // most likely to be forgotten; the ranking sweep in
+      // invariants.integration.test.ts is what catches it if it is.
+      const before = await readRankingSnapshot(tx, userId)
+      const deleted = await tx.classicRanking.deleteMany({
+        where: { levelProgressId: lp.id },
+      })
+      if (deleted.count > 0) {
+        const after = await readRankingSnapshot(tx, userId)
+        await recordRankingMove(tx, {
+          userId,
+          eventType: 'RANKING_UNRANKED',
+          moverLevelProgressId: lp.id,
+          before,
+          after,
+        })
+      }
     }
 
     return { deletedLevelProgress: false }

@@ -38,11 +38,18 @@ const TARGET_ID = 'pu-target'
 
 type Kind = 'PROGRESS' | 'COMPLETION' | 'DROP'
 
-/** The transaction client the delete runs against. */
+/**
+ * The transaction client the delete runs against. `classicRanking.findMany`
+ * and the activityLog delegates are here because both delete paths emit
+ * activity events — the whole-entry path purges the level's history, the
+ * uncomplete path emits RANKING_UNRANKED.
+ */
 const tx = {
   levelProgress: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
   progressUpdate: { findFirst: vi.fn(), findMany: vi.fn(), delete: vi.fn() },
-  classicRanking: { deleteMany: vi.fn() },
+  classicRanking: { deleteMany: vi.fn(), findMany: vi.fn() },
+  activityLog: { create: vi.fn(), deleteMany: vi.fn() },
+  activityLogLevelImpact: { createMany: vi.fn() },
 }
 
 /**
@@ -76,6 +83,12 @@ beforeEach(() => {
   for (const model of Object.values(tx))
     for (const fn of Object.values(model)) fn.mockReset().mockResolvedValue({})
   tx.progressUpdate.findFirst.mockResolvedValue({ id: TARGET_ID })
+  // Ranking snapshots read through classicRanking.findMany; an empty ranking
+  // is enough for every case here except the mover row, which comes from the
+  // deleted entry itself.
+  tx.classicRanking.findMany.mockResolvedValue([])
+  tx.classicRanking.deleteMany.mockResolvedValue({ count: 1 })
+  tx.activityLog.create.mockResolvedValue({ id: 'event-1' })
   scenario('IN_PROGRESS', ['PROGRESS'])
 
   prisma.$transaction.mockReset().mockImplementation(
@@ -116,6 +129,19 @@ describe('deleteProgressUpdate — deleting the only update', () => {
       where: { id: LP_ID },
     })
     expect(tx.progressUpdate.delete).not.toHaveBeenCalled()
+  })
+
+  it('purges the level’s activity history along with the entry', async () => {
+    // The entry is gone at the user's request, so its event history goes with
+    // it. activity_log hangs off the user and the level, not the entry, so no
+    // cascade does this — only the explicit purge.
+    scenario('IN_PROGRESS', [])
+
+    await run()
+
+    expect(tx.activityLog.deleteMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, levelId: LEVEL_ID },
+    })
   })
 })
 
@@ -207,6 +233,32 @@ describe('deleteProgressUpdate — undoing a completion', () => {
     expect(tx.classicRanking.deleteMany).toHaveBeenCalledWith({
       where: { levelProgressId: LP_ID },
     })
+  })
+
+  it('emits RANKING_UNRANKED when the uncomplete drops it out of the ranking', async () => {
+    // Reaching an unranking indirectly is still an unranking — a rankingIndex
+    // that disappears without an event is a permanent hole in that level's
+    // history.
+    scenario('COMPLETED', ['PROGRESS'])
+    // The mover has to be in the "before" snapshot for an impact row to exist.
+    tx.classicRanking.findMany.mockResolvedValueOnce([
+      {
+        levelProgressId: LP_ID,
+        rankingIndex: { toNumber: () => 3 },
+        levelProgress: { levelId: LEVEL_ID, level: { name: 'Tartarus' } },
+      },
+    ])
+
+    await run()
+
+    expect(tx.activityLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: 'RANKING_UNRANKED',
+          levelId: LEVEL_ID,
+        }),
+      })
+    )
   })
 
   it('leaves the ranking alone when the level is still completed', async () => {

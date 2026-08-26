@@ -7,6 +7,7 @@ import { IdentityStrip } from '@/features/level-page/IdentityStrip'
 import { StatGrid } from '@/features/level-page/StatGrid'
 import { LevelNotes } from '@/features/level-page/LevelNotes'
 import { Timeline } from '@/features/level-page/Timeline'
+import { RankHistory } from '@/features/level-page/RankHistory'
 import { RunsGraph } from '@/features/level-page/RunsGraph'
 import { EditRunModal } from '@/features/level-page/EditRunModal'
 import { EditLevelModal } from '@/features/level-page/EditLevelModal'
@@ -153,6 +154,20 @@ export function LevelPage() {
           </div>
         </div>
 
+        {/* Rank history — the user's own level page only, never the Global
+            Level Page. Sits directly under the timeline in both layouts. */}
+        {isOwner && (
+          <div className="border-t border-border-subtle px-4 py-4">
+            <span className="text-[13px] font-medium text-text-primary">
+              Rank history
+            </span>
+            <RankHistory
+              levelId={data.level.inGameId}
+              datePref={dateFormatPreference}
+            />
+          </div>
+        )}
+
         {hasGraph && (
           <div className="border-t border-border-subtle px-4 py-4">
             <div className="mb-3 flex items-baseline gap-2">
@@ -227,6 +242,23 @@ export function LevelPage() {
                   />
                 </div>
               </div>
+
+              {/* Rank history panel */}
+              {isOwner && (
+                <div className="overflow-hidden rounded-card border border-border-subtle bg-bg-surface">
+                  <div className="flex items-baseline gap-2 border-b border-border-subtle px-5 py-4">
+                    <span className="text-[15px] font-medium text-text-primary">
+                      Rank history
+                    </span>
+                  </div>
+                  <div className="px-5 pb-5">
+                    <RankHistory
+                      levelId={data.level.inGameId}
+                      datePref={dateFormatPreference}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Runs graph panel */}
               {hasGraph && (

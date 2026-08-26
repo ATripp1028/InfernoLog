@@ -50,6 +50,7 @@ export function LevelResultRow({
   loading = false,
   disabled = false,
   dimmed = false,
+  compact = false,
 }: {
   level: LevelResultRowLevel
   onSelect: () => void
@@ -67,8 +68,16 @@ export function LevelResultRow({
   // Fades the row without blocking it. The GD escalation results use this to
   // mark unrated levels, which stay selectable.
   dimmed?: boolean
+  // Tightens the row for a narrow container — the Log page's level filter
+  // popover is 320px wide, where the song name and the full-width padding
+  // leave the name nowhere to go. Drops the song and pulls the face in; the
+  // dialogs and the search page, which have room, leave it off.
+  compact?: boolean
 }) {
-  const meta = [level.creator ? `by ${level.creator}` : null, level.songName]
+  const meta = [
+    level.creator ? `by ${level.creator}` : null,
+    compact ? null : level.songName,
+  ]
     .filter(Boolean)
     .join(' · ')
 
@@ -78,7 +87,8 @@ export function LevelResultRow({
       disabled={badge != null || disabled || loading}
       onClick={onSelect}
       className={cn(
-        'group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface px-4 text-left transition-colors last:border-b-0 disabled:opacity-60',
+        'group relative flex h-16 w-full items-center justify-between gap-3 overflow-hidden border-b border-border-subtle bg-bg-surface text-left transition-colors last:border-b-0 disabled:opacity-60',
+        compact ? 'px-2' : 'px-4',
         dimmed && 'opacity-70'
       )}
     >
@@ -97,21 +107,29 @@ export function LevelResultRow({
       <span className="absolute inset-0 bg-gradient-to-r from-bg-base/95 via-bg-base/85 to-bg-base/55" />
       <span className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/5" />
 
-      <span className="relative flex items-center gap-3">
+      {/* min-w-0 so the name can shrink: without it the flex item keeps its
+          content width and a long level name pushes the ID off the row. */}
+      <span className="relative flex min-w-0 items-center gap-3">
         <DifficultyFace
           difficulty={level.inGameDifficulty}
           featured={level.featured}
           epicValue={level.epicValue}
           rated={level.isRated}
-          size={100}
+          // The face is inset in its box (faceGeometry's FACE_FILL), so a
+          // smaller box is what closes the gap to the row's left edge —
+          // pulling the face over with a negative margin would clip the fire
+          // an epic level draws out to the box edge.
+          size={compact ? 80 : 100}
           className="translate-y-[3px] drop-shadow"
         />
-        <span>
-          <span className="block font-medium leading-tight text-text-primary">
+        <span className="min-w-0">
+          <span className="block truncate font-medium leading-tight text-text-primary">
             {level.name ?? `Level #${level.inGameId}`}
           </span>
           {meta && (
-            <span className="block text-xs text-text-secondary">{meta}</span>
+            <span className="block truncate text-xs text-text-secondary">
+              {meta}
+            </span>
           )}
         </span>
       </span>
@@ -126,7 +144,7 @@ export function LevelResultRow({
           {badge}
         </span>
       ) : (
-        <span className="relative font-mono text-xs text-text-secondary">
+        <span className="relative shrink-0 font-mono text-xs text-text-secondary">
           #{level.inGameId}
         </span>
       )}

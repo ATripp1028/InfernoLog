@@ -11,6 +11,7 @@ import rankingRoutes from './routes/ranking'
 import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
 import importExportRoutes from './routes/importExport'
+import activityRoutes from './routes/activity'
 import { discordCallbackRoutes, onboardingRoutes } from './routes/auth'
 import type { HonoVariables } from './types/hono'
 
@@ -43,6 +44,7 @@ app.route('/v1', rankingRoutes)
 app.route('/v1', collectionsRoutes)
 app.route('/v1', presetsRoutes)
 app.route('/v1', importExportRoutes)
+app.route('/v1', activityRoutes)
 
 // Catch-all for unmatched routes
 app.all('*', (c) => {

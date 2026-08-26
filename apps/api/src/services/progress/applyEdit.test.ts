@@ -45,6 +45,7 @@ const PU_ID = 'pu-1'
 const tx = {
   levelProgress: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
     findUniqueOrThrow: vi.fn(),
   },
@@ -53,8 +54,25 @@ const tx = {
     update: vi.fn(),
     findUniqueOrThrow: vi.fn(),
   },
-  ratingScore: { deleteMany: vi.fn(), createMany: vi.fn() },
+  ratingScore: { deleteMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
   ratingCategory: { count: vi.fn() },
+  // A save that touches the rating reads the user's whole rating order twice,
+  // before and after the write, to record `weighted_average` and `rating_rank`
+  // on the event. Both delegates have to exist for those paths.
+  user: { findUniqueOrThrow: vi.fn() },
+  // Every save emits at most one LOG_EDIT event, so the delegate has to exist
+  // even for the cases that change nothing in scope.
+  activityLog: { create: vi.fn() },
+}
+
+/** The LOG_EDIT field-change rows emitted, or null when no event was written. */
+function editedFields(): Array<Record<string, unknown>> | null {
+  const call = tx.activityLog.create.mock.lastCall
+  if (!call) return null
+  const { data } = call[0] as {
+    data: { fieldChanges: { create: Array<Record<string, unknown>> } }
+  }
+  return data.fieldChanges.create
 }
 
 /** Points the edit at an update of the given kind. */
@@ -94,6 +112,20 @@ beforeEach(() => {
     .mockResolvedValue({ id: PU_ID, percentage: null })
   tx.ratingScore.deleteMany.mockReset().mockResolvedValue({ count: 0 })
   tx.ratingScore.createMany.mockReset().mockResolvedValue({ count: 0 })
+  tx.ratingScore.findMany.mockReset().mockResolvedValue([])
+  // An empty rating order. The before/after readings are then identical, so no
+  // `weighted_average` or `rating_rank` row is produced and these tests see
+  // only the fields the save itself wrote. What those two rows actually hold is
+  // an integration concern — it depends on the write landing between the two
+  // readings, which a static mock cannot model.
+  tx.user.findUniqueOrThrow.mockReset().mockResolvedValue({
+    ratingMode: 'SIMPLE',
+    includeEnjoyment: false,
+    enjoymentWeight: 0,
+    ratingCategories: [],
+  })
+  tx.levelProgress.findMany.mockReset().mockResolvedValue([])
+  tx.activityLog.create.mockReset().mockResolvedValue({ id: 'event-1' })
   // Default: every category named in a payload is one of this user's own.
   // ownsCategories() below flips this to model a cross-account id.
   tx.ratingCategory.count
@@ -455,5 +487,86 @@ describe('progress service error types', () => {
 
     expect(err.name).toBe('ProgressFieldsNotApplicableError')
     expect(err.message).toContain('COMPLETION')
+  })
+})
+
+// ─── the edit event ──────────────────────────────────────────────────────────
+
+describe('applyEdit — the LOG_EDIT event', () => {
+  it('writes one event for the whole save, however many fields moved', async () => {
+    tx.progressUpdate.findUniqueOrThrow.mockResolvedValue({
+      id: PU_ID,
+      percentage: null,
+      attempts: 100,
+      notes: null,
+    })
+
+    await edit({ attempts: 250, notes: 'finally' })
+
+    expect(tx.activityLog.create).toHaveBeenCalledTimes(1)
+    expect(editedFields()).toEqual([
+      {
+        fieldName: 'attempts',
+        category: 'SESSION_DETAIL',
+        oldValue: '100',
+        newValue: '250',
+      },
+      {
+        fieldName: 'notes',
+        category: 'SESSION_DETAIL',
+        oldValue: null,
+        newValue: 'finally',
+      },
+    ])
+  })
+
+  it('scopes the event to the level being edited', async () => {
+    await edit({ notes: 'x' })
+
+    const [args] = tx.activityLog.create.mock.lastCall as unknown as [
+      { data: Record<string, unknown> },
+    ]
+    expect(args.data).toMatchObject({
+      userId: USER_ID,
+      levelId: LEVEL_ID,
+      eventType: 'LOG_EDIT',
+    })
+  })
+
+  it('writes no event when the save only touched out-of-scope fields', async () => {
+    // Privacy and media are edited on the same form and are deliberately not
+    // part of the story a feed tells.
+    await edit({ visibility: 'PRIVATE', videoUrl: 'https://youtu.be/abc' })
+
+    expect(editedFields()).toBeNull()
+  })
+
+  it('reads the rating order twice when a save touches the rating', async () => {
+    // Once before the write and once after, both inside the transaction —
+    // `weighted_average` and `rating_rank` are computed rather than stored, so
+    // the save is the only moment either can be recorded.
+    await edit({ simpleRating: 80 })
+
+    expect(tx.levelProgress.findMany).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not read the rating order for a save that leaves it alone', async () => {
+    // The rank is over every level the user owns, so a notes-only save has no
+    // reason to pay for a list-sized read.
+    await edit({ notes: 'x' })
+
+    expect(tx.levelProgress.findMany).not.toHaveBeenCalled()
+  })
+
+  it('writes no event when every value re-sent was already stored', async () => {
+    tx.progressUpdate.findUniqueOrThrow.mockResolvedValue({
+      id: PU_ID,
+      percentage: null,
+      notes: 'same',
+    })
+
+    await edit({ notes: 'same' })
+
+    expect(editedFields()).toBeNull()
   })
 })

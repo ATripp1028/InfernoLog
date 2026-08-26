@@ -6,6 +6,7 @@
 // Reminder: a new endpoint needs BOTH a Hono route in src/routes/*.ts AND an
 // api.route(...) entry here — otherwise API Gateway 404s before Hono sees it.
 import './account'
+import './activity'
 import './auth'
 import './collections'
 import './gddl'

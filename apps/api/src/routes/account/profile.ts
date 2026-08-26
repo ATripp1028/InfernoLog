@@ -26,6 +26,8 @@ import {
   type RawUser,
 } from '../../services/user/serialize'
 import { parseJsonBody } from '../../utils/requestBody'
+import { ratingConfigChangeData } from '../../services/activityLog'
+import { buildRatingModeChange } from '../../services/activityLog/ratingConfig'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -70,11 +72,29 @@ app.get('/me', async (c) => {
 })
 
 // PATCH /v1/me — partial update of user preferences (Privacy, Logging, Rating mode, etc.)
+//
+// `ratingMode` is the one preference here that is also rating CONFIGURATION, so
+// a mode switch emits a RATING_CONFIG_CHANGE the way PUT /v1/me/rating-config
+// does. Without this the event type would be lying by omission: the mode is the
+// single most consequential thing about a user's rating setup and it is not
+// part of that endpoint's payload. Nothing else on this route is logged.
 app.patch('/me', async (c) => {
   const userId = c.get('userId')
 
   const parsed = await parseJsonBody(c, UpdateMeSchema)
   if (!parsed.ok) return parsed.response
+
+  // Read before the write so the switch can be diffed. Only when the client
+  // actually sent a mode — every other preference edit stays a single write.
+  const previousMode =
+    parsed.data.ratingMode === undefined
+      ? undefined
+      : (
+          await prisma.user.findUniqueOrThrow({
+            where: { id: userId },
+            select: { ratingMode: true },
+          })
+        ).ratingMode
 
   // Seed default rating categories on first transition to WEIGHTED if the
   // user has none yet. Keeps the invariant that WEIGHTED mode always has
@@ -100,10 +120,23 @@ app.patch('/me', async (c) => {
     ;(data as { legalAcceptedAt?: Date }).legalAcceptedAt = new Date()
   }
 
-  const updated = await prisma.user.update({
-    where: { id: userId },
-    data,
-    select: meWithCategoriesSelect,
+  const modeChanges =
+    previousMode === undefined || parsed.data.ratingMode === undefined
+      ? []
+      : buildRatingModeChange(previousMode, parsed.data.ratingMode)
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.user.update({
+      where: { id: userId },
+      data,
+      select: meWithCategoriesSelect,
+    })
+    if (modeChanges.length > 0) {
+      await tx.activityLog.create({
+        data: ratingConfigChangeData(userId, modeChanges),
+      })
+    }
+    return row
   })
 
   logger.info(

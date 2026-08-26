@@ -1732,3 +1732,238 @@ export type ExportCollection = z.infer<typeof ExportCollectionSchema>
 export type ExportRating = z.infer<typeof ExportRatingSchema>
 export type ExportResponse = z.infer<typeof ExportResponseSchema>
 export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
+
+// ─────────────────────────────────────────────
+// ACTIVITY LOG — the Log page feed and the level-page rank history.
+// See docs/EVENT_LOG.md → "Surfaces". Both are scoped to the authenticated
+// user's own data; activity_log.visibility is inert and there is no public
+// equivalent of either.
+// ─────────────────────────────────────────────
+
+// Every user-facing event type, mirroring the ActivityEventType enum in
+// apps/api/prisma/schema.prisma minus RANKING_REBALANCE — the internal-only
+// renormalisation, which is filtered out in the feed query and can never reach
+// the wire. It is absent from this package entirely, so a legend or filter list
+// built from FEED_EVENT_TYPES cannot leak it by accident.
+export const FeedEventTypeSchema = z.enum([
+  'RANKING_PLACEMENT',
+  'RANKING_REORDER',
+  'RANKING_UNRANKED',
+  'RANKING_BULK_REPLACE',
+  'LOG_EDIT',
+  'RATING_CONFIG_CHANGE',
+])
+
+export const FEED_EVENT_TYPES = FeedEventTypeSchema.options
+
+// The filter key for field-change rows, mirroring ActivityFieldCategory in
+// schema.prisma. The feed's category filter keys off THIS and never off
+// fieldName, so a newly editable field only needs a category rather than an
+// entry in a hardcoded list on both sides of the wire. See docs/EVENT_LOG.md,
+// "Filter on category, never on fieldName".
+export const ActivityFieldCategorySchema = z.enum([
+  'RATING',
+  'SESSION_DETAIL',
+  'METADATA',
+  'RATING_CONFIG',
+])
+
+export const ACTIVITY_FIELD_CATEGORIES = ActivityFieldCategorySchema.options
+
+// Why a level appears on a ranking event: MOVER is the level the user acted on,
+// NEIGHBOR one immediately adjacent to it before or after the move.
+export const ActivityImpactRoleSchema = z.enum(['MOVER', 'NEIGHBOR'])
+
+// Event logging shipped on this date and history cannot be backfilled — the
+// previous values simply were not written down. Every activity surface has a
+// hard floor here, and an empty one means "nothing since then", not
+// "nothing ever". See docs/EVENT_LOG.md.
+export const ACTIVITY_LOG_EPOCH = new Date('2026-08-24T00:00:00.000Z')
+
+/** One field a save changed, as the feed renders it. */
+export const ActivityFieldChangeSchema = z.object({
+  // Raw snake_case identifier. Per-category weighted scores are
+  // `rating_score:<categoryId>` — resolve the id against the user's current
+  // categories, and render one that no longer exists as a removed category
+  // rather than guessing at a name. Never filter on this; filter on `category`.
+  fieldName: z.string(),
+  category: ActivityFieldCategorySchema,
+  oldValue: z.string().nullable(),
+  newValue: z.string().nullable(),
+})
+
+/** One level a ranking event touched. */
+export const ActivityLevelImpactSchema = z.object({
+  // Null once the level has left the shared cache; `levelName` is the
+  // write-time snapshot that keeps such a row readable.
+  levelId: z.string().nullable(),
+  levelName: z.string().nullable(),
+  role: ActivityImpactRoleSchema,
+  positionBefore: z.number().int().nullable(),
+  positionAfter: z.number().int().nullable(),
+  milestoneCrossed: z.number().int().nullable(),
+})
+
+// An activity_log row. `recordedAt` is when it was written down, which is what
+// the feed orders by — a progress update's user-entered `date` is row content,
+// never a sort key.
+export const ActivityFeedEventSchema = z.object({
+  source: z.literal('EVENT'),
+  id: z.string().uuid(),
+  recordedAt: z.coerce.date(),
+  // The intra-transaction tiebreaker, and the third key of the feed's total
+  // order. Echoed back so the client can rebuild a cursor if it needs to.
+  sequence: z.number().int(),
+  eventType: FeedEventTypeSchema,
+  // Null for RATING_CONFIG_CHANGE (account-scoped) and for RANKING_BULK_REPLACE
+  // (list-wide — its levels are its impact rows).
+  levelId: z.string().nullable(),
+  levelName: z.string().nullable(),
+  fieldChanges: z.array(ActivityFieldChangeSchema),
+  // Capped at ACTIVITY_IMPACT_PREVIEW — a bulk replace can touch the whole
+  // ranking. `impactCount` is the true total, so a row can say "42 levels
+  // reordered" without the response carrying all 42.
+  levelImpacts: z.array(ActivityLevelImpactSchema),
+  impactCount: z.number().int(),
+})
+
+// A progress_updates row. These are NOT duplicated into activity_log — they are
+// already events (kind + loggedAt) and the feed merges the two tables at read
+// time. See docs/EVENT_LOG.md, "Deliberately not tracked".
+export const ActivityFeedProgressSchema = z.object({
+  source: z.literal('PROGRESS'),
+  id: z.string().uuid(),
+  // `loggedAt` — when the user wrote it down. A back-dated completion therefore
+  // sits at the top of the day it was entered, not of the day it happened.
+  recordedAt: z.coerce.date(),
+  kind: z.nativeEnum(ProgressUpdateKind),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  // What the user says happened, and when they say it happened. Row content.
+  date: z.coerce.date().nullable(),
+  dateTimezone: z.string().nullable(),
+  dateUncertain: z.boolean(),
+  percentage: z.number().nullable(),
+  runFrom: z.number().int().nullable(),
+  runTo: z.number().int().nullable(),
+  attempts: z.number().int().nullable(),
+  enjoyment: z.number().int().nullable(), // 0–100 internal scale
+})
+
+export const ActivityFeedItemSchema = z.discriminatedUnion('source', [
+  ActivityFeedEventSchema,
+  ActivityFeedProgressSchema,
+])
+
+/** How many of a ranking event's impact rows one feed item carries. */
+export const ACTIVITY_IMPACT_PREVIEW = 10
+
+/** Feed items per page. */
+export const ACTIVITY_PAGE_SIZE = 30
+
+// The Log page's filter chips, in the order they are shown. Deliberately NOT
+// the event-type enum: the chips are the four things a user recognises having
+// done, and one of them ("Progress") is not an activity_log row at all.
+//
+//   PROGRESS — progress_updates, all three kinds
+//   RANKING  — the four visible RANKING_* event types
+//   EDITS    — LOG_EDIT, narrowed by field `category` when one is given
+//   SETTINGS — RATING_CONFIG_CHANGE
+//
+// Naming none of them is the "All" chip and means the whole feed.
+export const ActivityFeedKindSchema = z.enum([
+  'PROGRESS',
+  'RANKING',
+  'EDITS',
+  'SETTINGS',
+])
+
+export const ACTIVITY_FEED_KINDS = ActivityFeedKindSchema.options
+
+// The parsed query for GET /v1/me/activity. Every filter is optional; an
+// unfiltered request is the whole feed newest-first.
+export const ActivityFeedQuerySchema = z.object({
+  kind: z.array(ActivityFeedKindSchema).optional(),
+  // Narrows the EDITS group to saves that touched one of these categories, and
+  // affects nothing else — it is the sub-filter of one chip, not a filter over
+  // the whole feed. Keyed off `category` rather than off field names so a newly
+  // editable field needs no change on either side of the wire. Passing a
+  // category without also passing EDITS is meaningless and ignored.
+  category: z.array(ActivityFieldCategorySchema).optional(),
+  // A UNION, not a column match: a RANKING_BULK_REPLACE has a null levelId and
+  // belongs to every level its impact rows touched, so this matches
+  // activity_log.levelId OR activity_log_level_impact.levelId. Without the
+  // union an import that moved a level goes missing from that level's history.
+  // RATING_CONFIG_CHANGE is account-scoped and drops out by definition — say so
+  // in the UI rather than leaving a silent hole.
+  levelId: z.string().optional(),
+  // Both bounds are on recorded time, the same clock the ordering uses.
+  from: z.coerce.date().optional(),
+  to: z.coerce.date().optional(),
+  cursor: z.string().optional(),
+})
+
+// `nextCursor` is an opaque keyset token over (recordedAt, source, sequence|id);
+// null on the last page.
+export const ActivityFeedResponseSchema = z.object({
+  data: z.array(ActivityFeedItemSchema),
+  nextCursor: z.string().nullable(),
+})
+
+// ─── Rank history ───────────────────────────────────────────────────────────
+
+// How a level came to be where it is on one entry of its rank history.
+//
+//   DIRECT       — the user moved this level, so the event carries its own
+//                  impact row and the positions are read straight off it.
+//   INDIRECT     — the level shifted because something else moved past it.
+//                  Reconstructed: such shifts have no rows of their own (see
+//                  docs/RANKING_SYSTEM.md, "direct events only").
+//   UNATTRIBUTED — a shift the reconstruction can prove happened but cannot
+//                  name a cause for, because the entry that caused it has since
+//                  been deleted and took its events with it. The stored
+//                  position is trusted over the recomputed one.
+export const RankHistoryEntryKindSchema = z.enum([
+  'DIRECT',
+  'INDIRECT',
+  'UNATTRIBUTED',
+])
+
+export const RankHistoryEntrySchema = z.object({
+  // Stable per entry: the event id, suffixed for the unattributed shift an
+  // event can reveal alongside its own move.
+  id: z.string(),
+  recordedAt: z.coerce.date(),
+  kind: RankHistoryEntryKindSchema,
+  // Null on an UNATTRIBUTED entry: the shift is real, but it did not happen
+  // because of the event that revealed it.
+  eventType: FeedEventTypeSchema.nullable(),
+  // Null before an initial placement, and after an unranking.
+  positionBefore: z.number().int().nullable(),
+  positionAfter: z.number().int().nullable(),
+  // The tightest top-N boundary crossed, or null. Direction is read off the two
+  // positions — entering the top 10 and falling out of it are both `10`.
+  milestoneCrossed: z.number().int().nullable(),
+  // The level whose move caused an INDIRECT shift, from that event's MOVER row.
+  // Always null on DIRECT and UNATTRIBUTED entries.
+  cause: z
+    .object({
+      levelId: z.string().nullable(),
+      levelName: z.string().nullable(),
+    })
+    .nullable(),
+  // Levels recorded alongside this one on a DIRECT event — the neighbours the
+  // move sat between. Empty for a bulk replace, which has no neighbours.
+  neighbors: z.array(ActivityLevelImpactSchema),
+  // How many levels a list-wide event touched, for "42 levels reordered".
+  levelsTouched: z.number().int().nullable(),
+})
+
+export const RankHistoryResponseSchema = z.object({
+  // Newest first, the same direction the feed reads.
+  data: z.array(RankHistoryEntrySchema),
+  // The level's live position in the classic ranking, or null when it is not
+  // placed. Read from classic_ranking rather than from the walk, so the panel
+  // header states a fact rather than a reconstruction.
+  currentPosition: z.number().int().nullable(),
+})

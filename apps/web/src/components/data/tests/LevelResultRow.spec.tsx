@@ -121,4 +121,36 @@ describe('LevelResultRow', () => {
 
     expect(onSelect).toHaveBeenCalledOnce()
   })
+
+  it('shows the song alongside the creator by default', () => {
+    renderWithProviders(<LevelResultRow level={level()} onSelect={vi.fn()} />)
+
+    expect(
+      screen.getByText('by Riot · At the Speed of Light')
+    ).toBeInTheDocument()
+  })
+
+  it('drops the song when compact, keeping the creator', () => {
+    // The Log page's level filter is a 320px popover; the song is what pushes
+    // the name out of it.
+    renderWithProviders(
+      <LevelResultRow level={level()} onSelect={vi.fn()} compact />
+    )
+
+    expect(screen.getByText('by Riot')).toBeInTheDocument()
+    expect(screen.queryByText(/At the Speed of Light/)).not.toBeInTheDocument()
+  })
+
+  it('truncates rather than letting a long name push the id off the row', () => {
+    renderWithProviders(
+      <LevelResultRow
+        level={level({ name: 'A'.repeat(120) })}
+        onSelect={vi.fn()}
+      />
+    )
+
+    expect(screen.getByText('A'.repeat(120))).toHaveClass('truncate')
+    // The id keeps its place, which is what the truncation is protecting.
+    expect(screen.getByText('#4284013')).toBeInTheDocument()
+  })
 })

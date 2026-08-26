@@ -1,0 +1,221 @@
+// The two derived RATING rows a LOG_EDIT carries: `weighted_average` and
+// `rating_rank`.
+//
+// Neither is stored anywhere. The overall rating is computed at query time from
+// the user's config plus the entry's scores, and the rating rank is not
+// computed anywhere else at all — which is precisely why both have to be
+// written at save time. The average could in principle be recomputed later from
+// the field changes plus the config in force then; the rank could not, because
+// it depends on every OTHER level's average at that instant and nothing records
+// those.
+//
+// They are tagged `RATING` rather than a new `DERIVED` category on purpose:
+// LevelProgress is expected to gain stored columns for both, at which point
+// they stop being derived and become ordinary field changes — and `RATING` is
+// what they would have been all along.
+//
+// A ranked position is only comparable inside one rating-config era. A weight
+// change reshuffles every level's average and is deliberately not logged (see
+// ratingConfig.ts), so every rank logged before a reweight was measured on a
+// scale that no longer applies.
+
+import { ActivityFieldCategory, Prisma } from '@prisma/client'
+import {
+  computeOverallRating,
+  type OverallRatingConfig,
+} from '@infernolog/core'
+import { toNum } from '../../utils/decimal'
+import type { FieldChange } from './fieldScope'
+import { serializeFieldValue } from './fieldScope'
+
+type Tx = Prisma.TransactionClient
+
+/** One level's derived rating figures at a single point in time. */
+export interface RatingStanding {
+  /** The level's overall rating, or null when the user has not rated it. */
+  overallRating: number | null
+  /**
+   * 1-based position in the user's rating order (#1 = highest rated), or null
+   * when the level is unrated — an unrated level holds no position at all.
+   */
+  rank: number | null
+}
+
+/**
+ * Every level's overall rating and rank for one user, keyed by GD level id.
+ *
+ * Levels the user has not rated are present with a null `overallRating` and a
+ * null `rank`; they take part in no comparison.
+ */
+export type RatingStandings = Map<string, RatingStanding>
+
+// Everything the rating order is computed from. `progressUpdates` selects the
+// representative update, matching what GET /v1/me/progress and the level page's
+// StatGrid already use: the completion if there is one, else the most recently
+// logged update. Enjoyment is logged per event, so on a completed level only
+// the completion's enjoyment feeds the average — and the same update supplies
+// the date the order breaks ties on.
+const ratingOrderSelect = {
+  levelId: true,
+  simpleRating: true,
+  ratingScores: { select: { categoryId: true, score: true } },
+  progressUpdates: {
+    orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }] as const,
+    take: 1,
+    select: { enjoyment: true, date: true },
+  },
+} satisfies Prisma.LevelProgressSelect
+
+interface OrderRow {
+  levelId: string
+  overallRating: number | null
+  enjoyment: number | null
+  date: Date | null
+}
+
+// Rating order: highest rating first, ties broken on enjoyment (higher first),
+// then on the representative update's date (earlier first — a long-standing
+// rating outranks one just added), then on levelId, which is always unique and
+// is the number a user recognises. A missing value always sorts last within its
+// key, so an unrated or undated level never displaces one that has the value.
+function compareForRank(a: OrderRow, b: OrderRow): number {
+  const byRating = descNullsLast(a.overallRating, b.overallRating)
+  if (byRating !== 0) return byRating
+  const byEnjoyment = descNullsLast(a.enjoyment, b.enjoyment)
+  if (byEnjoyment !== 0) return byEnjoyment
+  const byDate = ascNullsLast(
+    a.date?.getTime() ?? null,
+    b.date?.getTime() ?? null
+  )
+  if (byDate !== 0) return byDate
+  return a.levelId < b.levelId ? -1 : a.levelId > b.levelId ? 1 : 0
+}
+
+function descNullsLast(a: number | null, b: number | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return b - a
+}
+
+function ascNullsLast(a: number | null, b: number | null): number {
+  if (a === b) return 0
+  if (a === null) return 1
+  if (b === null) return -1
+  return a - b
+}
+
+/**
+ * Reads every level's overall rating for one user and ranks them.
+ *
+ * Callers take one reading immediately before their write and one immediately
+ * after, both inside the same transaction, and hand the pair to
+ * {@link buildRatingStandingChanges} — the same before/after snapshot shape the
+ * ranking events use. Diffing two real readings is what keeps the rank honest
+ * when a save moves a level past its neighbours.
+ *
+ * @param tx - The caller's transaction client; this must not open its own.
+ * @returns Standings for every level the user has an entry for, including
+ * unrated ones (null rating, null rank).
+ */
+export async function readRatingStandings(
+  tx: Tx,
+  userId: string
+): Promise<RatingStandings> {
+  const [user, rows] = await Promise.all([
+    tx.user.findUniqueOrThrow({
+      where: { id: userId },
+      select: {
+        ratingMode: true,
+        includeEnjoyment: true,
+        enjoymentWeight: true,
+        ratingCategories: { select: { id: true, weight: true } },
+      },
+    }),
+    tx.levelProgress.findMany({
+      where: { userId },
+      select: ratingOrderSelect,
+    }),
+  ])
+
+  const config: OverallRatingConfig = {
+    ratingMode: user.ratingMode,
+    includeEnjoyment: user.includeEnjoyment,
+    enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
+    categoryWeights: new Map(
+      user.ratingCategories.map((cat) => [cat.id, toNum(cat.weight) ?? 0])
+    ),
+  }
+
+  const order: OrderRow[] = rows.map((row) => {
+    const update = row.progressUpdates[0] ?? null
+    return {
+      levelId: row.levelId,
+      overallRating: computeOverallRating(config, {
+        simpleRating: row.simpleRating,
+        enjoyment: update?.enjoyment ?? null,
+        ratingScores: row.ratingScores,
+      }),
+      enjoyment: update?.enjoyment ?? null,
+      date: update?.date ?? null,
+    }
+  })
+  order.sort(compareForRank)
+
+  const standings: RatingStandings = new Map()
+  let rank = 0
+  for (const row of order) {
+    // Unrated levels sort to the tail and never take a position, so the rank
+    // counter only advances while ratings are still present.
+    if (row.overallRating !== null) rank += 1
+    standings.set(row.levelId, {
+      overallRating: row.overallRating,
+      rank: row.overallRating === null ? null : rank,
+    })
+  }
+  return standings
+}
+
+/**
+ * Diffs one level's derived rating figures into `weighted_average` and
+ * `rating_rank` field-change rows.
+ *
+ * @param levelId - The level the LOG_EDIT is about.
+ * @param before - Standings read immediately before the save's writes.
+ * @param after - Standings read immediately after them.
+ * @returns Up to two rows, and only for the figures that actually moved — an
+ * edit that left the rating order alone contributes nothing. The two are
+ * diffed independently: an enjoyment change under `includeEnjoyment: false`
+ * shifts the tiebreak without touching the average, and can therefore produce a
+ * rank row on its own.
+ */
+export function buildRatingStandingChanges(
+  levelId: string,
+  before: RatingStandings,
+  after: RatingStandings
+): FieldChange[] {
+  const from = before.get(levelId)
+  const to = after.get(levelId)
+  const pairs: Array<[string, unknown, unknown]> = [
+    [
+      'weighted_average',
+      from?.overallRating ?? null,
+      to?.overallRating ?? null,
+    ],
+    ['rating_rank', from?.rank ?? null, to?.rank ?? null],
+  ]
+
+  const changes: FieldChange[] = []
+  for (const [fieldName, oldRaw, newRaw] of pairs) {
+    const oldValue = serializeFieldValue(oldRaw)
+    const newValue = serializeFieldValue(newRaw)
+    if (oldValue === newValue) continue
+    changes.push({
+      fieldName,
+      category: ActivityFieldCategory.RATING,
+      oldValue,
+      newValue,
+    })
+  }
+  return changes
+}

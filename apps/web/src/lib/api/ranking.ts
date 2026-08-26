@@ -8,6 +8,7 @@ import type {
 } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
+import { invalidateOnEvent } from './activity'
 import { toast } from '@/components/generic/sonner'
 
 export type {
@@ -137,6 +138,10 @@ export function usePlaceRanking() {
     },
     onSuccess: (data) => {
       qc.setQueryData(rankingQueryKey, data)
+      // Every ranking write emits an activity event, so the Log page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
+      // does not touch the List or collections.
+      void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
@@ -192,6 +197,10 @@ export function useReorderRanking() {
     },
     onSuccess: (data) => {
       qc.setQueryData(rankingQueryKey, data)
+      // Every ranking write emits an activity event, so the Log page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
+      // does not touch the List or collections.
+      void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
@@ -237,6 +246,10 @@ export function useUnplaceRanking() {
     },
     onSuccess: (data) => {
       qc.setQueryData(rankingQueryKey, data)
+      // Every ranking write emits an activity event, so the Log page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
+      // does not touch the List or collections.
+      void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) qc.setQueryData(rankingQueryKey, ctx.previous)
