@@ -6,29 +6,11 @@ import { useMe } from '@/lib/api/me'
 import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
 import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
 import { LevelHeader, StepBody, StepFooter } from '../components'
-import { starCountToDifficulty, difficultyLabel } from '@/lib/gdAssets'
+import { difficultyLabel } from '@/lib/gdAssets'
+import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber } from '../format'
 import { formatRating } from '@/lib/ratingScale'
-import { opinionToStars } from '@infernolog/core'
-
-const OPINION_LABELS: Record<string, string> = {
-  EASY: 'Easy',
-  MEDIUM: 'Medium',
-  HARD: 'Hard',
-  INSANE: 'Insane',
-  EXTREME: 'Extreme',
-}
-
-// The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
-// — shared mapping, see packages/core/src/difficultyOpinion.ts.
-function opinionLabel(opinion: string): string {
-  const stars = opinionToStars(opinion)
-  if (stars != null) {
-    return `Not demon-worthy · ${stars}★ ${starCountToDifficulty(stars)}`
-  }
-  return OPINION_LABELS[opinion] ?? opinion
-}
 
 /**
  * Completion step 5: everything about to be written, and the submit.

@@ -45,6 +45,7 @@ const PU_ID = 'pu-1'
 const tx = {
   levelProgress: {
     findUnique: vi.fn(),
+    findMany: vi.fn(),
     update: vi.fn(),
     findUniqueOrThrow: vi.fn(),
   },
@@ -55,6 +56,10 @@ const tx = {
   },
   ratingScore: { deleteMany: vi.fn(), createMany: vi.fn(), findMany: vi.fn() },
   ratingCategory: { count: vi.fn() },
+  // A save that touches the rating reads the user's whole rating order twice,
+  // before and after the write, to record `weighted_average` and `rating_rank`
+  // on the event. Both delegates have to exist for those paths.
+  user: { findUniqueOrThrow: vi.fn() },
   // Every save emits at most one LOG_EDIT event, so the delegate has to exist
   // even for the cases that change nothing in scope.
   activityLog: { create: vi.fn() },
@@ -108,6 +113,18 @@ beforeEach(() => {
   tx.ratingScore.deleteMany.mockReset().mockResolvedValue({ count: 0 })
   tx.ratingScore.createMany.mockReset().mockResolvedValue({ count: 0 })
   tx.ratingScore.findMany.mockReset().mockResolvedValue([])
+  // An empty rating order. The before/after readings are then identical, so no
+  // `weighted_average` or `rating_rank` row is produced and these tests see
+  // only the fields the save itself wrote. What those two rows actually hold is
+  // an integration concern — it depends on the write landing between the two
+  // readings, which a static mock cannot model.
+  tx.user.findUniqueOrThrow.mockReset().mockResolvedValue({
+    ratingMode: 'SIMPLE',
+    includeEnjoyment: false,
+    enjoymentWeight: 0,
+    ratingCategories: [],
+  })
+  tx.levelProgress.findMany.mockReset().mockResolvedValue([])
   tx.activityLog.create.mockReset().mockResolvedValue({ id: 'event-1' })
   // Default: every category named in a payload is one of this user's own.
   // ownsCategories() below flips this to model a cross-account id.
@@ -522,6 +539,23 @@ describe('applyEdit — the LOG_EDIT event', () => {
     await edit({ visibility: 'PRIVATE', videoUrl: 'https://youtu.be/abc' })
 
     expect(editedFields()).toBeNull()
+  })
+
+  it('reads the rating order twice when a save touches the rating', async () => {
+    // Once before the write and once after, both inside the transaction —
+    // `weighted_average` and `rating_rank` are computed rather than stored, so
+    // the save is the only moment either can be recorded.
+    await edit({ simpleRating: 80 })
+
+    expect(tx.levelProgress.findMany).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not read the rating order for a save that leaves it alone', async () => {
+    // The rank is over every level the user owns, so a notes-only save has no
+    // reason to pay for a list-sized read.
+    await edit({ notes: 'x' })
+
+    expect(tx.levelProgress.findMany).not.toHaveBeenCalled()
   })
 
   it('writes no event when every value re-sent was already stored', async () => {

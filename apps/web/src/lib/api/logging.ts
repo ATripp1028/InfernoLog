@@ -10,6 +10,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch, retryAfterSeconds } from './client'
+import { INVALIDATE_ON_EVENT } from './activity'
 import {
   browseApiQueryString,
   type SearchPageState,
@@ -436,8 +437,13 @@ export function useCreateManualLevel() {
  * "write failed" error.
  */
 export async function invalidateOnWrite(queryClient: QueryClient) {
+  // A progress write is also an event — it puts a row in the Log page's feed —
+  // so the activity surfaces refetch alongside the rest. They stay a SEPARATE
+  // constant because the reverse is not true: a ranking move or a rating-config
+  // save emits an event without touching the list, ranking or collections. See
+  // INVALIDATE_ON_EVENT in ./activity.
   await Promise.allSettled(
-    INVALIDATE_ON_WRITE.map(async (key) => {
+    [...INVALIDATE_ON_WRITE, ...INVALIDATE_ON_EVENT].map(async (key) => {
       await queryClient.cancelQueries({ queryKey: key as unknown[] })
       return queryClient.invalidateQueries({ queryKey: key as unknown[] })
     })

@@ -574,6 +574,125 @@ describe('log edits', () => {
   })
 })
 
+// ─── derived rating figures ──────────────────────────────────────────────────
+
+describe('log edits: weighted_average and rating_rank', () => {
+  // Both figures are computed rather than stored, so an edit is the only
+  // moment either can be recorded. The rank in particular depends on every
+  // OTHER level's rating at that instant and can never be recovered later.
+
+  async function seedRated(userId: string, simpleRating: number | null) {
+    const inGameId = String(levelSeq++)
+    await seedLevel(prisma, { inGameId })
+    const lp = await prisma.levelProgress.create({
+      data: { userId, levelId: inGameId, status: 'IN_PROGRESS', simpleRating },
+    })
+    await prisma.progressUpdate.create({
+      data: { levelProgressId: lp.id, kind: 'PROGRESS', attempts: 10 },
+    })
+    return { ...lp, inGameId }
+  }
+
+  function changeFor(
+    event: Awaited<ReturnType<typeof events>>[number],
+    fieldName: string
+  ) {
+    return event.fieldChanges.find((f) => f.fieldName === fieldName)
+  }
+
+  it('records both figures on the same event as the rating change', async () => {
+    const user = await seedUser(prisma)
+    await seedRated(user.id, 90)
+    await seedRated(user.id, 50)
+    const lp = await seedRated(user.id, 20)
+
+    await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
+      simpleRating: 70,
+    })
+
+    const event = await onlyEvent(user.id, 'LOG_EDIT')
+    expect(changeFor(event, 'weighted_average')).toMatchObject({
+      category: 'RATING',
+      oldValue: '20',
+      newValue: '70',
+    })
+    // 20 put it last of three; 70 puts it between the 90 and the 50.
+    expect(changeFor(event, 'rating_rank')).toMatchObject({
+      category: 'RATING',
+      oldValue: '3',
+      newValue: '2',
+    })
+  })
+
+  it('records the first rating a level is given as a move from no rank at all', async () => {
+    const user = await seedUser(prisma)
+    await seedRated(user.id, 90)
+    const lp = await seedRated(user.id, null)
+
+    await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
+      simpleRating: 95,
+    })
+
+    const event = await onlyEvent(user.id, 'LOG_EDIT')
+    expect(changeFor(event, 'weighted_average')).toMatchObject({
+      oldValue: null,
+      newValue: '95',
+    })
+    expect(changeFor(event, 'rating_rank')).toMatchObject({
+      oldValue: null,
+      newValue: '1',
+    })
+  })
+
+  it('records neither figure on a save that did not touch the rating', async () => {
+    const user = await seedUser(prisma)
+    const lp = await seedRated(user.id, 60)
+
+    await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
+      attempts: 999,
+    })
+
+    const event = await onlyEvent(user.id, 'LOG_EDIT')
+    expect(event.fieldChanges.map((f) => f.fieldName)).toEqual(['attempts'])
+  })
+
+  it('records neither figure when a rating is re-sent unchanged', async () => {
+    const user = await seedUser(prisma)
+    const lp = await seedRated(user.id, 60)
+
+    await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
+      simpleRating: 60,
+      notes: 'unrelated',
+    })
+
+    const event = await onlyEvent(user.id, 'LOG_EDIT')
+    expect(event.fieldChanges.map((f) => f.fieldName)).toEqual(['notes'])
+  })
+
+  it('records the rank alone when only the tie-break moved', async () => {
+    // Enjoyment is a tie-break on the rating order but, with includeEnjoyment
+    // off, contributes nothing to the average — so the two figures diverge.
+    const user = await seedUser(prisma)
+    const rival = await seedRated(user.id, 60)
+    await prisma.progressUpdate.updateMany({
+      where: { levelProgressId: rival.id },
+      data: { enjoyment: 50 },
+    })
+    const lp = await seedRated(user.id, 60)
+
+    await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
+      enjoyment: 90,
+    })
+
+    const event = await onlyEvent(user.id, 'LOG_EDIT')
+    expect(changeFor(event, 'weighted_average')).toBeUndefined()
+    expect(changeFor(event, 'rating_rank')).toMatchObject({
+      oldValue: '2',
+      newValue: '1',
+    })
+  })
+})
+
 // ─── deletion ────────────────────────────────────────────────────────────────
 
 describe('deleting an entry', () => {

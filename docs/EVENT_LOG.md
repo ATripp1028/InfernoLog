@@ -4,10 +4,11 @@ The event log is the record of things a user **did** that are not already
 recoverable from a timestamp somewhere else: ranking moves, edits to a log entry,
 and rating-configuration changes.
 
-The schema and its emission discipline came first; the surfaces that read it are
-specified below and being built now — the **Log page** (`/log`) and the **rank
-history** panel on a level page. See "Surfaces". Discord wiring is still later
-work, and the shape below is chosen so it can be added without a migration.
+The schema and its emission discipline came first; the two surfaces that read it
+are the **Log page** (`/log`, `GET /v1/me/activity`) and the **rank history**
+panel on a level page (`GET /v1/me/levels/{levelId}/rank-history`). See
+"Surfaces". Discord wiring is still later work, and the shape below is chosen so
+it can be added without a migration.
 
 Events have been written since 2026-08-24 regardless of what reads them, because
 history cannot be backfilled after the fact. Every surface therefore has a hard
@@ -284,9 +285,16 @@ user's own data; neither has a public equivalent while `visibility` is inert.
 
 - **`RANKING_REBALANCE` is excluded in the query**, not styled quiet. It must
   never reach a feed response.
-- **Filters key off `category`** (see "Filter on `category`, never on
-  `fieldName`"), plus a level and a date range. The range uses the same
-  recorded-time clock the ordering does.
+- **The chips are four things a user recognises having done**, not the event
+  types behind them: **Progress** (`progress_updates`, all three kinds),
+  **Ranking** (the four visible `RANKING_*` types), **Edits** (`LOG_EDIT`) and
+  **Settings** (`RATING_CONFIG_CHANGE`). Naming no chip is "All". They are a
+  hand-written list on purpose — anything that enumerated `ActivityEventType`
+  and rendered what it found would grow a chip for the hidden type.
+- **The Edits chip narrows on `category`** (see "Filter on `category`, never on
+  `fieldName`"), and on nothing else — it is the sub-filter of one chip, not a
+  filter over the whole feed. A level and a date range apply across all of them;
+  the range uses the same recorded-time clock the ordering does.
 - **The level filter is a union, not a column match.** A `RANKING_BULK_REPLACE`
   has a null `level_id` and belongs to every level its impact rows touched, so
   filtering by a level must match `activity_log.level_id` **or**
@@ -316,23 +324,67 @@ walk must consume those events to re-anchor the map. The one type that is never
 _displayed_ is now one that must be _read_. `RANKING_BULK_REPLACE` updates the map
 wholesale for the same reason.
 
+#### The baseline rebalance
+
+The map is only as complete as the impact rows it is built from, and those only
+exist from 2026-08-24. A ranking built before that date is invisible to it: a user
+with 200 placed levels of which 5 have been touched since gets a 5-entry map, and
+a level actually sitting at #8 reconstructs as #3. Worse, a level that has never
+been moved has no index in the map at all, so every shift past it is lost rather
+than merely misnumbered — and "a level the user has never moved" is exactly the
+level whose page is being looked at.
+
+So **every user's ranking starts with a baseline `RANKING_REBALANCE`** carrying an
+impact row for every placed level, written by
+`20260825120000_rank_history_baseline`. That is already what a rebalance means —
+"here is every level's index in the current coordinate system" — so it needs no
+new event type, and being the internal-only type it can never surface. The walk
+re-anchors the whole map on it and is exact from there on.
+
+The same migration **deletes the ranking events that predate the baseline**. A
+baseline written today records today's indices, not the ones that held a day ago,
+so older events would replay against the incomplete map and produce wrong
+positions with nothing in the data to flag which entries those are. One day of
+ranking history for two pre-release accounts was not worth a reconstruction that
+is quietly wrong. `LOG_EDIT` and `RATING_CONFIG_CHANGE` events were untouched —
+they carry field diffs, not positions.
+
+A user who places their first level after that migration needs no baseline: their
+map is complete from their first placement.
+
+#### Holes a deletion leaves
+
 Where a deleted entry has left a hole (see "Deletion and privacy" below), the
 recomputed position will disagree with a stored `position_before`. Trust the
 stored value and render the shift unattributed — "1 level placed above" rather
 than a name. The shift itself is never lost: a `position_before` that does not
-match the previous `position_after` is proof that drift happened, independent of
-the walk.
+match the reconstruction is proof that drift happened, independent of the walk.
+
+Deleting an entry removes that level's **own** events but leaves its impact rows
+on every other level's events standing, so the map goes on counting a level that
+is no longer ranked, and the deletion emits nothing of its own. Two things follow.
+The correction is carried forward once re-anchored, so one hole is not re-reported
+at every later event. And the walk ends with one more comparison — the
+reconstructed position against `classic_ranking` — because a hole opened after the
+level's last direct event has no later event to be caught at.
 
 ### Keeping the surfaces fresh
 
 Every path that emits an event must invalidate the surfaces that read them — the
-client-side sibling of the rule at the top of this document. It needs its **own**
-exported constant, not extra entries in `INVALIDATE_ON_WRITE`
+client-side sibling of the rule at the top of this document. That is
+`INVALIDATE_ON_EVENT` in `apps/web/src/lib/api/activity.ts`: its **own** exported
+constant, not extra entries in `INVALIDATE_ON_WRITE`
 (`apps/web/src/lib/api/logging.ts`), which means "affected by a
 completion/progress/drop write". The event surfaces are affected by a superset:
-ranking moves and rating-config saves emit events too, and a config save today
-invalidates the `me` query alone. Widening the older set would make a config save
-needlessly refetch the list and collections.
+ranking moves and rating-config saves emit events too, and a config save
+otherwise invalidates the `me` query alone. Widening the older set would make a
+config save needlessly refetch the list and collections.
+
+The relationship runs one way, and `lib/api/tests/activity.spec.ts` pins it:
+`invalidateOnWrite` covers **both** sets, because a progress write is also an
+event, while the ranking mutations, the rating-config save and the rating-mode
+switch on `PATCH /v1/me` call `invalidateOnEvent` alone. A later "just add it to
+the other list" edit is exactly what that test exists to catch.
 
 ---
 

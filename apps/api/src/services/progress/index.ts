@@ -20,8 +20,10 @@ import { toNum } from '../../utils/decimal'
 import {
   buildFieldChanges,
   buildRatingScoreChanges,
+  buildRatingStandingChanges,
   purgeLevelActivity,
   readRankingSnapshot,
+  readRatingStandings,
   recordLogEdit,
   recordRankingMove,
 } from '../activityLog'
@@ -367,6 +369,11 @@ export async function applyProgress(userId: string, input: ProgressInput) {
  * {@link recordLogEdit} and `services/activityLog/fieldScope.ts` for what is in
  * scope. A save that changed nothing in scope emits nothing.
  *
+ * A save that touches the rating additionally carries `weighted_average` and
+ * `rating_rank` rows, computed here from a before/after reading of the user's
+ * whole rating order ({@link readRatingStandings}). Neither figure is stored
+ * anywhere, so this is the only moment either can be recorded.
+ *
  * @param userId - Internal user UUID from the JWT.
  * @param levelId - GD level ID identifying the entry to edit.
  * @param input - Sparse patch; `progressUpdateId` targets a specific update,
@@ -445,6 +452,20 @@ export async function applyEdit(
             where: { levelProgressId: lp.id },
             select: { categoryId: true, score: true },
           })
+
+    // `weighted_average` and `rating_rank` are computed, not stored, so the
+    // only chance to record them is here — see services/activityLog/
+    // ratingStanding.ts. Read only when the save can actually move them: the
+    // three inputs below are the whole rating surface of an edit, and the rank
+    // is over every level the user owns, so this is a list-sized read that a
+    // notes-only save has no reason to pay for.
+    const touchesRating =
+      input.simpleRating !== undefined ||
+      input.enjoyment !== undefined ||
+      input.ratingScores !== undefined
+    const beforeStandings = touchesRating
+      ? await readRatingStandings(tx, userId)
+      : null
 
     const lpData: Prisma.LevelProgressUpdateInput = {}
     if (input.levelNotes !== undefined) lpData.levelNotes = input.levelNotes
@@ -531,6 +552,17 @@ export async function applyEdit(
       }
     }
 
+    // The second reading of the rating order, taken after the writes above so
+    // the pair can be diffed. Both readings are inside this transaction, so
+    // the rank recorded is the one that held at the instant of the save.
+    const ratingStandingChanges = beforeStandings
+      ? buildRatingStandingChanges(
+          levelId,
+          beforeStandings,
+          await readRatingStandings(tx, userId)
+        )
+      : []
+
     // One LOG_EDIT per save, with one child row per field that actually
     // changed. Diffed against the update payloads rather than the request body
     // so the derived writes above — setting `percentage` clears `runFrom`/
@@ -544,6 +576,7 @@ export async function applyEdit(
         ...buildFieldChanges(beforeLp, lpData),
         ...buildFieldChanges(beforePu, puData),
         ...buildRatingScoreChanges(beforeScores, input.ratingScores),
+        ...ratingStandingChanges,
       ],
     })
 

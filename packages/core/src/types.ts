@@ -45,6 +45,20 @@ import {
   CollectionDetailSchema,
   AddCollectionEntryInputSchema,
   ReorderCollectionEntryInputSchema,
+  ActivityFieldChangeSchema,
+  ActivityLevelImpactSchema,
+  ActivityFeedEventSchema,
+  ActivityFeedProgressSchema,
+  ActivityFeedItemSchema,
+  ActivityFeedQuerySchema,
+  ActivityFeedKindSchema,
+  ActivityFeedResponseSchema,
+  FeedEventTypeSchema,
+  ActivityFieldCategorySchema,
+  ActivityImpactRoleSchema,
+  RankHistoryEntryKindSchema,
+  RankHistoryEntrySchema,
+  RankHistoryResponseSchema,
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -108,3 +122,18 @@ export type AddCollectionEntryInput = z.infer<
 export type ReorderCollectionEntryInput = z.infer<
   typeof ReorderCollectionEntryInputSchema
 >
+
+export type ActivityFieldChange = z.infer<typeof ActivityFieldChangeSchema>
+export type ActivityLevelImpact = z.infer<typeof ActivityLevelImpactSchema>
+export type ActivityFeedEvent = z.infer<typeof ActivityFeedEventSchema>
+export type ActivityFeedProgress = z.infer<typeof ActivityFeedProgressSchema>
+export type ActivityFeedItem = z.infer<typeof ActivityFeedItemSchema>
+export type ActivityFeedKind = z.infer<typeof ActivityFeedKindSchema>
+export type ActivityFeedQuery = z.infer<typeof ActivityFeedQuerySchema>
+export type ActivityFeedResponse = z.infer<typeof ActivityFeedResponseSchema>
+export type FeedEventType = z.infer<typeof FeedEventTypeSchema>
+export type ActivityFieldCategory = z.infer<typeof ActivityFieldCategorySchema>
+export type ActivityImpactRole = z.infer<typeof ActivityImpactRoleSchema>
+export type RankHistoryEntryKind = z.infer<typeof RankHistoryEntryKindSchema>
+export type RankHistoryEntry = z.infer<typeof RankHistoryEntrySchema>
+export type RankHistoryResponse = z.infer<typeof RankHistoryResponseSchema>

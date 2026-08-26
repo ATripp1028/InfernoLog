@@ -13,9 +13,10 @@
 // and nothing can fill it in later. `invariants.integration.test.ts` sweeps the whole database for exactly
 // that gap.
 //
-// Reads, the timeline UI, the hybrid merge with ProgressUpdate, and Discord
-// notifications are all unbuilt — see docs/EVENT_LOG.md for what is deliberately
-// absent and why.
+// The read side lives beside this file rather than in it: feed.ts is the Log
+// page's merge of activity_log with progress_updates, and rankHistory.ts is one
+// level's position history. Discord notifications are still unbuilt — see
+// docs/EVENT_LOG.md for what is deliberately absent and why.
 
 import { ActivityEventType, ActivityImpactRole, Prisma } from '@prisma/client'
 import { milestoneCrossed } from './milestones'
@@ -413,3 +414,8 @@ export {
 } from './fieldScope'
 export type { FieldChange, FieldScopeEntry } from './fieldScope'
 export { MILESTONE_THRESHOLDS, milestoneCrossed } from './milestones'
+export {
+  readRatingStandings,
+  buildRatingStandingChanges,
+} from './ratingStanding'
+export type { RatingStanding, RatingStandings } from './ratingStanding'
