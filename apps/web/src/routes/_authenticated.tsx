@@ -122,7 +122,7 @@ function ReorderSyncWatcher() {
     }
     if (!rankingWasActive.current) return
     rankingWasActive.current = false
-    if (!rankingHadError.current) toast.success('Ranking saved')
+    if (!rankingHadError.current) toast.success('Demon list saved')
     rankingHadError.current = false
     void qc.invalidateQueries({ queryKey: demonListQueryKey })
   }, [pendingRanking, qc])

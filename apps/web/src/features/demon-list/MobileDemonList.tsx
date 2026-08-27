@@ -56,7 +56,9 @@ export function MobileDemonList({
   return (
     <div className="space-y-3 pb-[40px]">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-text-primary">My demon list</h1>
+        <h1 className="text-2xl font-semibold text-text-primary">
+          My demon list
+        </h1>
         <Button
           variant={editMode ? 'default' : 'outline'}
           size="sm"
@@ -207,7 +209,10 @@ export function MobileDemonList({
                             {formatNumber(entry.attempts)} att
                           </span>
                         )}
-                        <GddlTierBadge tier={entry.badge?.gddlTier ?? null} variant="inline" />
+                        <GddlTierBadge
+                          tier={entry.badge?.gddlTier ?? null}
+                          variant="inline"
+                        />
                       </div>
                     )}
                   </div>
@@ -283,7 +288,10 @@ function MobileRow({
                 {formatNumber(item.attempts)} att
               </span>
             )}
-            <GddlTierBadge tier={item.badge?.gddlTier ?? null} variant="inline" />
+            <GddlTierBadge
+              tier={item.badge?.gddlTier ?? null}
+              variant="inline"
+            />
           </div>
         )}
       </div>
@@ -339,7 +347,7 @@ function MobileRow({
               <IconBtn label="Jump to position" onClick={onStartJump}>
                 <Hash className="size-4" />
               </IconBtn>
-              <IconBtn label="Remove from ranking" onClick={onRemove}>
+              <IconBtn label="Remove from your demon list" onClick={onRemove}>
                 <X className="size-4" />
               </IconBtn>
             </div>

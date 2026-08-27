@@ -400,9 +400,14 @@ describe('PATCH /me/demon-list/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedPlaced(user.id, 1)
 
-    const res = await send(user.id, 'PATCH', `/me/demon-list/classic/${lp.id}`, {
-      aboveId: lp.id,
-    })
+    const res = await send(
+      user.id,
+      'PATCH',
+      `/me/demon-list/classic/${lp.id}`,
+      {
+        aboveId: lp.id,
+      }
+    )
     expect(res.status).toBe(400)
   })
 
@@ -410,7 +415,12 @@ describe('PATCH /me/demon-list/classic/:levelProgressId', () => {
     const user = await seedUser(prisma)
     const lp = await seedCompletion(user.id) // unplaced
 
-    const res = await send(user.id, 'PATCH', `/me/demon-list/classic/${lp.id}`, {})
+    const res = await send(
+      user.id,
+      'PATCH',
+      `/me/demon-list/classic/${lp.id}`,
+      {}
+    )
     expect(res.status).toBe(404)
   })
 })

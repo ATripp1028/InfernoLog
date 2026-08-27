@@ -181,7 +181,7 @@ enum ActivityEventType {
 // level immediately adjacent to the mover before or after the move, carried so
 // the event records the local context it changed. Levels further down the list
 // whose ordinal merely shifted are deliberately NOT recorded — see
-// docs/RANKING_SYSTEM.md, "direct events only".
+// docs/DEMON_LIST.md, "direct events only".
 enum ActivityImpactRole {
   MOVER
   NEIGHBOR

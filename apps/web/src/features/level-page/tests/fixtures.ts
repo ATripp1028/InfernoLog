@@ -105,7 +105,7 @@ export function levelPageData(
     completionTime: null,
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-03-14T10:00:00.000Z',
-    rankingIndex: null,
+    listIndex: null,
     rankPosition: null,
     completionVideoUrl: null,
     completionHighlightUrl: null,

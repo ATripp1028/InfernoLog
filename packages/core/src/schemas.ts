@@ -876,14 +876,14 @@ export const DemonListBadgeSchema = z
   .nullable()
 
 export const ClassicDemonListEntrySchema = z.object({
-  // 1-based position in the placed list (ordered by rankingIndex DESC, so
+  // 1-based position in the placed list (ordered by listIndex DESC, so
   // #1 = hardest). The client recomputes these numbers for the "Show unrated"
   // filtered view; the server number reflects the full placed set.
   rank: z.number().int(),
   levelProgressId: z.string().uuid(),
   // The fractional index itself — exposed for debugging/inspection. Placement
   // and reorder only ever send neighbour IDs, never a raw index.
-  rankingIndex: z.number(),
+  listIndex: z.number(),
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
@@ -1918,7 +1918,7 @@ export const ActivityFeedResponseSchema = z.object({
 //                  impact row and the positions are read straight off it.
 //   INDIRECT     — the level shifted because something else moved past it.
 //                  Reconstructed: such shifts have no rows of their own (see
-//                  docs/RANKING_SYSTEM.md, "direct events only").
+//                  docs/DEMON_LIST.md, "direct events only").
 //   UNATTRIBUTED — a shift the reconstruction can prove happened but cannot
 //                  name a cause for, because the entry that caused it has since
 //                  been deleted and took its events with it. The stored

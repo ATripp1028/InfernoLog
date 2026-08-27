@@ -70,7 +70,10 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
                 </span>
               )}
               {badge ? (
-                <GddlTierBadge tier={badge?.gddlTier ?? null} variant="inline" />
+                <GddlTierBadge
+                  tier={badge?.gddlTier ?? null}
+                  variant="inline"
+                />
               ) : (
                 <span className="text-[11px] text-text-secondary">
                   No list reference

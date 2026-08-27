@@ -31,10 +31,7 @@ function dateMs(item: LogItem): number | null {
   return Number.isFinite(ms) ? ms : null
 }
 
-function matchesRatedStatus(
-  item: LogItem,
-  status: RatedStatusFilter
-): boolean {
+function matchesRatedStatus(item: LogItem, status: RatedStatusFilter): boolean {
   const { isRated, featured, epicValue } = item.level
   switch (status) {
     case 'ALL':

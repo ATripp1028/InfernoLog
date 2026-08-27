@@ -252,7 +252,7 @@ function EventRow({
           headline={
             <span>
               <span className="font-medium text-text-primary">Placed</span>{' '}
-              {level} in your ranking
+              {level} on your demon list
             </span>
           }
           meta={move}
@@ -272,7 +272,7 @@ function EventRow({
           headline={
             <span>
               <span className="font-medium text-text-primary">Moved</span>{' '}
-              {level} {up ? 'up' : 'down'} your ranking
+              {level} {up ? 'up' : 'down'} your demon list
             </span>
           }
           meta={move}
@@ -289,7 +289,7 @@ function EventRow({
           headline={
             <span>
               <span className="font-medium text-text-primary">Removed</span>{' '}
-              {level} from your ranking
+              {level} from your demon list
             </span>
           }
           meta={move}

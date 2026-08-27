@@ -30,7 +30,8 @@ const { mockPlaceCompletion, mockReorderEntry } = vi.hoisted(() => ({
 }))
 
 vi.mock('../../services/demonList', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/demonList')>()
+  const actual =
+    await importOriginal<typeof import('../../services/demonList')>()
   return {
     ...actual,
     placeCompletion: mockPlaceCompletion,

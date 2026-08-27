@@ -37,15 +37,15 @@ feed entry; a missed ranking event corrupts every reconstruction that spans it.
 
 ## Event taxonomy
 
-| `eventType`            | Scope          | Children      | Emitted by                                                                                                         |
-| ---------------------- | -------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `eventType`               | Scope          | Children      | Emitted by                                                                                                            |
+| ------------------------- | -------------- | ------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `DEMON_LIST_PLACEMENT`    | One level      | Impact rows   | `POST /v1/me/demon-list/classic`                                                                                      |
 | `DEMON_LIST_REORDER`      | One level      | Impact rows   | `PATCH /v1/me/demon-list/classic/:levelProgressId`                                                                    |
-| `DEMON_LIST_REMOVED`     | One level      | Impact rows   | `DELETE /v1/me/demon-list/classic/:levelProgressId`, and deleting a completion that walks an entry out of `COMPLETED` |
+| `DEMON_LIST_REMOVED`      | One level      | Impact rows   | `DELETE /v1/me/demon-list/classic/:levelProgressId`, and deleting a completion that walks an entry out of `COMPLETED` |
 | `DEMON_LIST_BULK_REPLACE` | The whole list | Impact rows   | The spreadsheet import's full replace of the demon list                                                               |
-| `DEMON_LIST_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                   |
-| `LOG_EDIT`             | One level      | Field changes | `PATCH /v1/me/progress/:levelId`                                                                                   |
-| `RATING_CONFIG_CHANGE` | The account    | Field changes | `PUT /v1/me/rating-config`; a rating-mode switch on `PATCH /v1/me`                                                 |
+| `DEMON_LIST_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                      |
+| `LOG_EDIT`                | One level      | Field changes | `PATCH /v1/me/progress/:levelId`                                                                                      |
+| `RATING_CONFIG_CHANGE`    | The account    | Field changes | `PUT /v1/me/rating-config`; a rating-mode switch on `PATCH /v1/me`                                                    |
 
 `DEMON_LIST_REBALANCE` is **internal-only** — the one hidden type. It exists so
 every level's logged index values stay in one coordinate system; the order the

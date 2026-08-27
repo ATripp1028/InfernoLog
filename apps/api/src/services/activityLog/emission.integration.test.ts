@@ -146,11 +146,17 @@ describe('demon list placement', () => {
     const easy = await seedPlaced(user.id, 2, { name: 'Bloodbath' })
     const fresh = await seedCompletion(user.id, { name: 'Avernus' })
 
-    const res = await send(rankingApp, user.id, 'POST', '/me/demon-list/classic', {
-      levelProgressId: fresh.id,
-      aboveId: hard.id,
-      belowId: easy.id,
-    })
+    const res = await send(
+      rankingApp,
+      user.id,
+      'POST',
+      '/me/demon-list/classic',
+      {
+        levelProgressId: fresh.id,
+        aboveId: hard.id,
+        belowId: easy.id,
+      }
+    )
     expect(res.status).toBe(201)
 
     const event = await onlyEvent(user.id, 'DEMON_LIST_PLACEMENT')

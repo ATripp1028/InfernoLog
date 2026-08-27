@@ -68,13 +68,13 @@ export function Events() {
           <div
             className="flex justify-center py-16"
             role="status"
-            aria-label="Loading your log"
+            aria-label="Loading your events"
           >
             <Loader2 className="h-5 w-5 animate-spin text-text-tertiary" />
           </div>
         ) : isError ? (
           <EmptyState
-            title="Couldn't load your log."
+            title="Couldn't load your events."
             description="Something went wrong fetching it. Try again in a moment."
           />
         ) : items.length === 0 ? (

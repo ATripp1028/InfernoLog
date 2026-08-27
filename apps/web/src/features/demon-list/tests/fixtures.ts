@@ -51,7 +51,7 @@ export function placed(
   return {
     rank: 1,
     levelProgressId: id,
-    rankingIndex: 1,
+    listIndex: 1,
     level: level(),
     attempts: null,
     badge: null,
@@ -78,7 +78,10 @@ export function unplaced(
  */
 export function ranked(
   ids: string[],
-  overrides: (id: string, i: number) => Loose<ClassicDemonListEntry> = () => ({})
+  overrides: (
+    id: string,
+    i: number
+  ) => Loose<ClassicDemonListEntry> = () => ({})
 ): ClassicDemonListEntry[] {
   return ids.map((id, i) =>
     placed({

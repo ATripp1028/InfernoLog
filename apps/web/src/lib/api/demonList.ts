@@ -87,7 +87,7 @@ function toPlaced(
   return {
     rank,
     levelProgressId: card.levelProgressId,
-    rankingIndex: 0, // placeholder; reconciled from the server response
+    listIndex: 0, // placeholder; reconciled from the server response
     level: card.level,
     attempts: card.attempts,
     badge: card.badge,
@@ -119,7 +119,8 @@ export function usePlaceOnDemonList() {
     },
     onMutate: async (input): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: demonListQueryKey })
-      const previous = qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
+      const previous =
+        qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
       const card = previous?.unplaced.find(
         (u) => u.levelProgressId === input.levelProgressId
       )
@@ -177,7 +178,8 @@ export function useReorderDemonList() {
     },
     onMutate: async (vars): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: demonListQueryKey })
-      const previous = qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
+      const previous =
+        qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
       if (previous) {
         const placed = previous.placed.slice()
         const from = placed.findIndex(
@@ -230,7 +232,8 @@ export function useRemoveFromDemonList() {
     },
     onMutate: async (levelProgressId): Promise<OptimisticCtx> => {
       await qc.cancelQueries({ queryKey: demonListQueryKey })
-      const previous = qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
+      const previous =
+        qc.getQueryData<ClassicDemonListResponse>(demonListQueryKey)
       const entry = previous?.placed.find(
         (e) => e.levelProgressId === levelProgressId
       )

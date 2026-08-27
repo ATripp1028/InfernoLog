@@ -2,7 +2,7 @@
 //
 // A crossing is a property of ONE level on ONE ranking event, so it is a field
 // on that level's ActivityLogLevelImpact row rather than an event of its own —
-// see docs/RANKING_SYSTEM.md. A single move can produce a crossing for the
+// see docs/DEMON_LIST.md. A single move can produce a crossing for the
 // mover and for a neighbour it pushed over a boundary; each is recorded on its
 // own impact row.
 //

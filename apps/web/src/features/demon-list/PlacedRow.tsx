@@ -95,8 +95,8 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
           {onRemove && (
             <button
               type="button"
-              aria-label={`Remove ${level.name ?? 'level'} from ranking`}
-              title="Remove from ranking"
+              aria-label={`Remove ${level.name ?? 'level'} from your demon list`}
+              title="Remove from your demon list"
               onClick={onRemove}
               className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
             >

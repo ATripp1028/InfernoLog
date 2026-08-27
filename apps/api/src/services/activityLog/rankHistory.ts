@@ -9,7 +9,7 @@
 //   • INDIRECT — the level shifted because something else was placed above or
 //     below it. These have NO rows of their own, deliberately: recording the
 //     cascade would turn one drag into hundreds of rows saying nothing the
-//     mover's own row does not already imply (docs/RANKING_SYSTEM.md, "direct
+//     mover's own row does not already imply (docs/DEMON_LIST.md, "direct
 //     events only"). They are reconstructed here.
 //
 // The reconstruction walks the user's demon list events in (createdAt, sequence)
@@ -226,7 +226,8 @@ export async function readRankHistory(
 
   for (const event of events) {
     const own = event.impacts.find((r) => r.levelId === levelId)
-    const isRebalance = event.eventType === ActivityEventType.DEMON_LIST_REBALANCE
+    const isRebalance =
+      event.eventType === ActivityEventType.DEMON_LIST_REBALANCE
 
     const recomputedBefore = positionIn(indices, levelId)
     applyImpacts(indices, event.impacts)

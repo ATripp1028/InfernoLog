@@ -81,8 +81,8 @@ export function ReviewStep() {
           <ul className="space-y-1 text-xs text-warning-soft">
             {flags.legacyTabs.map((t) => (
               <li key={t.found}>
-                “{t.found}” is now “{t.expected}”. This tab will NOT be
-                imported — rename it, or re-download the template, to import it.
+                “{t.found}” is now “{t.expected}”. This tab will NOT be imported
+                — rename it, or re-download the template, to import it.
               </li>
             ))}
           </ul>

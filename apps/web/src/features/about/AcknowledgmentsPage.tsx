@@ -86,9 +86,9 @@ export function AcknowledgmentsPage() {
         to myself, ‘man, there must be a better way to do this.’ Later, I would
         watch Technical's VOD for his Acheron completion and realized how
         tedious recording so much data about each completion was after seeing
-        him manually drag Acheron to the correct spot in his demon list and input
-        all the data across all his sheets manually. That inspired me to create
-        InfernoLog to give the community a better way to log their demon
+        him manually drag Acheron to the correct spot in his demon list and
+        input all the data across all his sheets manually. That inspired me to
+        create InfernoLog to give the community a better way to log their demon
         completions.”
         <footer className="mt-2 text-sm not-italic text-foreground">
           — MrSp0rkMan (Alex)

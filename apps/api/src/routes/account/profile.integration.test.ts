@@ -324,9 +324,7 @@ describe('DELETE /me', () => {
     expect(
       await prisma.ratingCategory.count({ where: { userId: user.id } })
     ).toBe(0)
-    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(
-      0
-    )
+    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(0)
     expect(await prisma.importJob.count({ where: { userId: user.id } })).toBe(0)
     // Explicit deletes for the RESTRICT relations.
     expect(await prisma.gddlSyncJob.count({ where: { userId: user.id } })).toBe(

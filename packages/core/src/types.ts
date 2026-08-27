@@ -99,7 +99,9 @@ export type LevelProgressListResponse = z.infer<
 
 export type DemonListBadge = z.infer<typeof DemonListBadgeSchema>
 export type ClassicDemonListEntry = z.infer<typeof ClassicDemonListEntrySchema>
-export type UnplacedDemonListEntry = z.infer<typeof UnplacedDemonListEntrySchema>
+export type UnplacedDemonListEntry = z.infer<
+  typeof UnplacedDemonListEntrySchema
+>
 export type ClassicDemonListResponse = z.infer<
   typeof ClassicDemonListResponseSchema
 >

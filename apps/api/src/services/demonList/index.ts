@@ -8,7 +8,7 @@
 // higher = harder — so the displayed list is listIndex DESC (#1 = hardest).
 // Inserts bisect the gap between the two neighbours the client drops between;
 // when that gap closes past REBALANCE_GAP the whole list is renormalised to
-// integers first. See RANKING_SYSTEM.md.
+// integers first. See DEMON_LIST.md.
 //
 // Every write here emits an activity_log event (services/activityLog) inside
 // its own transaction — placement, reorder, unranking, AND the renormalisation,
@@ -32,7 +32,10 @@ import {
   completionAttempts,
   mapLevel,
 } from '../levels/row'
-import type { PlaceOnDemonListInput, ReorderDemonListInput } from '@infernolog/core'
+import type {
+  PlaceOnDemonListInput,
+  ReorderDemonListInput,
+} from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient
 

@@ -155,7 +155,7 @@ export type RankingMoveEventType =
  * for a reorder, which leaves one gap and opens another. Levels further down
  * the list whose ordinal merely shifted get nothing; recording the whole
  * cascade would turn a single drag into hundreds of rows saying nothing the
- * mover's row doesn't already imply. See docs/RANKING_SYSTEM.md.
+ * mover's row doesn't already imply. See docs/DEMON_LIST.md.
  *
  * Milestone crossings are computed per impact row, so a neighbour pushed out of
  * the top 10 by someone else's placement carries that crossing on its own row.

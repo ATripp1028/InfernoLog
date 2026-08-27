@@ -21,7 +21,7 @@ export function matchesLevel(level: LevelListSummary, q: string): boolean {
 /**
  * The displayed ranked list. `showUnrated` off hides in-game-unrated levels and
  * renumbers the remaining rows contiguously ("ranking numbers update for that
- * view" — RANKING_SYSTEM.md). Search then hides non-matches but keeps those
+ * view" — DEMON_LIST.md). Search then hides non-matches but keeps those
  * view numbers. The authoritative order/ranks for reordering stay on the
  * untouched query data (reorder is disabled while either is active).
  */

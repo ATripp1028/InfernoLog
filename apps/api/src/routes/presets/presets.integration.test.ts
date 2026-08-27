@@ -261,8 +261,6 @@ describe('DELETE /me/log-presets/:id', () => {
 
     await prisma.user.delete({ where: { id: user.id } })
 
-    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(
-      0
-    )
+    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(0)
   })
 })

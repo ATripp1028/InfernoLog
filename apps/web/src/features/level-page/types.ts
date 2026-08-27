@@ -17,7 +17,7 @@ export interface LevelPageData {
   completionTime: number | null
   createdAt: string
   updatedAt: string
-  rankingIndex: number | null
+  listIndex: number | null
   rankPosition: number | null
   completionVideoUrl: string | null
   completionHighlightUrl: string | null
