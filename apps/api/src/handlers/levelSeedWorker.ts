@@ -53,7 +53,10 @@ const RETRY_BACKOFF_MS = [1000, 3000]
 async function fetchRobtopLevelWithRetries(
   levelId: string
 ): Promise<RobtopFetchResult> {
-  let last: RobtopFetchResult = { status: 'unreachable' }
+  // FETCH_ATTEMPTS is >= 1, so the loop always overwrites this; it exists only
+  // to satisfy the compiler. 'limiter' is the honest reason for the state it
+  // describes — we have not called RobTop yet.
+  let last: RobtopFetchResult = { status: 'unreachable', reason: 'limiter' }
   for (let attempt = 0; attempt < FETCH_ATTEMPTS; attempt++) {
     if (attempt > 0) await sleep(RETRY_BACKOFF_MS[attempt - 1] ?? 1000)
     last = await fetchRobtopLevelResult(levelId)

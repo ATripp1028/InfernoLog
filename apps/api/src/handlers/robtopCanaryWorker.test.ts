@@ -41,7 +41,7 @@ describe('robtopCanaryWorker', () => {
     expect(logger.error).not.toHaveBeenCalled()
   })
 
-  it.each(['unreachable', 'cooling', 'level_missing'])(
+  it.each(['unreachable', 'cooling', 'recovered', 'level_missing'])(
     'succeeds on a %s result rather than failing the run',
     async (outcome) => {
       // The service already alerted; rethrowing would double-report it as a
