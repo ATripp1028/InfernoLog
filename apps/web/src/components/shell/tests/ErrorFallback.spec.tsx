@@ -15,7 +15,7 @@ vi.mock('@/lib/cacheOwner', () => ({
 const { releaseCacheOwner } = await import('@/lib/cacheOwner')
 
 beforeEach(() => {
-  vi.stubGlobal('location', { reload, assign, href: 'http://localhost/list' })
+  vi.stubGlobal('location', { reload, assign, href: 'http://localhost/log' })
 })
 
 describe('ErrorFallback', () => {

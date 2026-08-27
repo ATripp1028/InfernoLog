@@ -3,7 +3,7 @@
  *
  * The half worth testing here is the reconstruction, and it can only be tested
  * against real emission: an INDIRECT shift is by definition a move that wrote
- * NO row for this level, so it exists only as the gap between what the ranking
+ * NO row for this level, so it exists only as the gap between what the demon list
  * endpoints recorded and where the level actually ended up.
  *
  * The other two properties are about what must never appear. A rebalance is
@@ -12,7 +12,7 @@
  * an UNATTRIBUTED entry rather than being silently swallowed or wrongly blamed
  * on the event that revealed it.
  *
- * Every test seeds a baseline rebalance over the ranking it set up, because
+ * Every test seeds a baseline rebalance over the demon list it set up, because
  * that is what production has: migration 20260825120000_rank_history_baseline
  * writes one per user, and without it the index map holds only levels touched
  * since event logging shipped. A test that skipped it would be exercising a
@@ -39,7 +39,7 @@ vi.mock('../../utils/logger', () => ({
 }))
 
 const { default: activityApp } = await import('./index')
-const { default: rankingApp } = await import('../ranking/index')
+const { default: rankingApp } = await import('../demonList/index')
 const { default: progressApp } = await import('../progress/index')
 
 const prisma = getTestPrisma()
@@ -62,29 +62,29 @@ async function seedCompletion(userId: string, name?: string) {
   return { ...lp, inGameId }
 }
 
-async function seedPlaced(userId: string, rankingIndex: number, name?: string) {
+async function seedPlaced(userId: string, listIndex: number, name?: string) {
   const lp = await seedCompletion(userId, name)
-  await prisma.classicRanking.create({
+  await prisma.classicDemonList.create({
     data: {
       userId,
       levelProgressId: lp.id,
-      rankingIndex: String(rankingIndex),
+      listIndex: String(listIndex),
     },
   })
   return lp
 }
 
 /**
- * The baseline event the rank-history migration writes: one RANKING_REBALANCE
+ * The baseline event the rank-history migration writes: one DEMON_LIST_REBALANCE
  * carrying every currently placed level's index and position. Mirrors
  * 20260825120000_rank_history_baseline.
  */
 async function seedBaseline(userId: string) {
-  const placed = await prisma.classicRanking.findMany({
+  const placed = await prisma.classicDemonList.findMany({
     where: { userId },
-    orderBy: { rankingIndex: 'desc' },
+    orderBy: { listIndex: 'desc' },
     select: {
-      rankingIndex: true,
+      listIndex: true,
       levelProgress: {
         select: { levelId: true, level: { select: { name: true } } },
       },
@@ -94,13 +94,13 @@ async function seedBaseline(userId: string) {
   await prisma.activityLog.create({
     data: {
       userId,
-      eventType: 'RANKING_REBALANCE',
+      eventType: 'DEMON_LIST_REBALANCE',
       levelImpacts: {
         create: placed.map((row, i) => ({
           levelId: row.levelProgress.levelId,
           levelName: row.levelProgress.level.name,
           role: 'MOVER' as const,
-          rankingIndex: row.rankingIndex,
+          listIndex: row.listIndex,
           positionBefore: i + 1,
           positionAfter: i + 1,
         })),
@@ -157,7 +157,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     await seedBaseline(user.id)
     const fresh = await seedCompletion(user.id, 'Acheron')
 
-    await send(rankingApp, user.id, 'POST', '/me/ranking/classic', {
+    await send(rankingApp, user.id, 'POST', '/me/demon-list/classic', {
       levelProgressId: fresh.id,
       belowId: anchor.id,
     })
@@ -167,7 +167,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     expect(result.data).toHaveLength(1)
     expect(result.data[0]).toMatchObject({
       kind: 'DIRECT',
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       positionBefore: null,
       positionAfter: 1,
     })
@@ -180,7 +180,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
   it('reconstructs a shift caused by a level it has no row on', async () => {
     // Placing at the top records the mover and its one neighbour. The level two
     // positions further down gets no row at all, and its shift exists only as
-    // the difference between the ranking before and after.
+    // the difference between the demon list before and after.
     const user = await seedUser(prisma)
     const top = await seedPlaced(user.id, 30, 'Slaughterhouse')
     await seedPlaced(user.id, 20, 'Bloodbath')
@@ -188,7 +188,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     await seedBaseline(user.id)
     const fresh = await seedCompletion(user.id, 'Avernus')
 
-    await send(rankingApp, user.id, 'POST', '/me/ranking/classic', {
+    await send(rankingApp, user.id, 'POST', '/me/demon-list/classic', {
       levelProgressId: fresh.id,
       belowId: top.id,
     })
@@ -198,7 +198,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     expect(result.data).toHaveLength(1)
     expect(result.data[0]).toMatchObject({
       kind: 'INDIRECT',
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       positionBefore: 3,
       positionAfter: 4,
     })
@@ -213,7 +213,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     await seedBaseline(user.id)
     const fresh = await seedCompletion(user.id, 'Avernus')
 
-    await send(rankingApp, user.id, 'POST', '/me/ranking/classic', {
+    await send(rankingApp, user.id, 'POST', '/me/demon-list/classic', {
       levelProgressId: fresh.id,
       aboveId: bottom.id,
     })
@@ -223,7 +223,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     expect(result.data).toEqual([])
   })
 
-  it('records leaving the ranking and the position it left from', async () => {
+  it('records leaving the demon list and the position it left from', async () => {
     const user = await seedUser(prisma)
     const top = await seedPlaced(user.id, 30)
     const target = await seedPlaced(user.id, 20)
@@ -234,14 +234,14 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
       rankingApp,
       user.id,
       'DELETE',
-      `/me/ranking/classic/${target.id}`
+      `/me/demon-list/classic/${target.id}`
     )
 
     const result = await history(user.id, target.inGameId)
     expect(result.currentPosition).toBeNull()
     expect(result.data[0]).toMatchObject({
       kind: 'DIRECT',
-      eventType: 'RANKING_UNRANKED',
+      eventType: 'DEMON_LIST_REMOVED',
       positionBefore: 2,
       positionAfter: null,
     })
@@ -256,14 +256,14 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     await prisma.activityLog.create({
       data: {
         userId: user.id,
-        eventType: 'RANKING_REBALANCE',
+        eventType: 'DEMON_LIST_REBALANCE',
         levelImpacts: {
           create: [
             {
               levelId: target.levelId,
               levelName: 'Cataclysm',
               role: 'MOVER',
-              rankingIndex: '10',
+              listIndex: '10',
               positionBefore: 1,
               positionAfter: 1,
             },
@@ -284,25 +284,25 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     const other = await seedPlaced(user.id, 20, 'Other')
     await seedBaseline(user.id)
 
-    await prisma.classicRanking.updateMany({
+    await prisma.classicDemonList.updateMany({
       where: { levelProgressId: target.id },
-      data: { rankingIndex: '20' },
+      data: { listIndex: '20' },
     })
-    await prisma.classicRanking.updateMany({
+    await prisma.classicDemonList.updateMany({
       where: { levelProgressId: other.id },
-      data: { rankingIndex: '30' },
+      data: { listIndex: '30' },
     })
     await prisma.activityLog.create({
       data: {
         userId: user.id,
-        eventType: 'RANKING_BULK_REPLACE',
+        eventType: 'DEMON_LIST_BULK_REPLACE',
         levelImpacts: {
           create: [
             {
               levelId: target.levelId,
               levelName: 'Target',
               role: 'MOVER',
-              rankingIndex: '20',
+              listIndex: '20',
               positionBefore: 1,
               positionAfter: 2,
             },
@@ -310,7 +310,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
               levelId: other.levelId,
               levelName: 'Other',
               role: 'MOVER',
-              rankingIndex: '30',
+              listIndex: '30',
               positionBefore: 2,
               positionAfter: 1,
             },
@@ -324,7 +324,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     expect(result.data).toHaveLength(1)
     expect(result.data[0]).toMatchObject({
       kind: 'DIRECT',
-      eventType: 'RANKING_BULK_REPLACE',
+      eventType: 'DEMON_LIST_BULK_REPLACE',
       positionBefore: 1,
       positionAfter: 2,
       levelsTouched: 2,
@@ -343,7 +343,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     await seedBaseline(user.id)
     const target = await seedCompletion(user.id, 'Cataclysm')
 
-    await send(rankingApp, user.id, 'POST', '/me/ranking/classic', {
+    await send(rankingApp, user.id, 'POST', '/me/demon-list/classic', {
       levelProgressId: target.id,
       aboveId: middle.id,
     })
@@ -362,7 +362,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     // The move the user actually made is still reported, unchanged.
     expect(result.data[1]).toMatchObject({
       kind: 'DIRECT',
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       positionAfter: 3,
     })
   })
@@ -372,7 +372,7 @@ describe('GET /v1/me/levels/:levelId/rank-history', () => {
     const theirs = await seedUser(prisma)
     const anchor = await seedPlaced(theirs.id, 10)
     const fresh = await seedCompletion(theirs.id)
-    await send(rankingApp, theirs.id, 'POST', '/me/ranking/classic', {
+    await send(rankingApp, theirs.id, 'POST', '/me/demon-list/classic', {
       levelProgressId: fresh.id,
       belowId: anchor.id,
     })

@@ -242,7 +242,7 @@ export const LEVEL_TYPE_OPTIONS: { value: LevelTypeFilter; label: string }[] = [
 ]
 
 /**
- * The browse sort menu. Distinct from the List page's `LIST_SORT_OPTIONS`, which sorts logged rows rather than levels.
+ * The browse sort menu. Distinct from the Log page's `LIST_SORT_OPTIONS`, which sorts logged rows rather than levels.
  */
 export const LEVEL_SORT_OPTIONS: { value: LevelSort; label: string }[] = [
   { value: 'relevance', label: 'Relevance' },

@@ -127,8 +127,8 @@ function Column({
 }) {
   const { setNodeRef, isOver } = useDroppable({ id })
   return (
-    // Fixed width, not flex-1 — same treatment as RankingBoard's Unplaced
-    // column (see RankingBoard.tsx). Keeps every column wide enough for a
+    // Fixed width, not flex-1 — same treatment as DemonListBoard's Unplaced
+    // column (see DemonListBoard.tsx). Keeps every column wide enough for a
     // level name at any modal size instead of the three splitting whatever
     // width happens to be left over; the row scrolls horizontally instead
     // of squeezing columns down when it doesn't all fit.
@@ -138,7 +138,7 @@ function Column({
       </p>
       {/*
         Fixed max-height + its own scrollbar — same treatment as
-        RankingBoard's Unplaced panel (see UnplacedPanel.tsx), so a long list
+        DemonListBoard's Unplaced panel (see UnplacedPanel.tsx), so a long list
         scrolls within its own column instead of growing the row (and with
         it the whole modal) taller, which would otherwise push the title and
         Confirm/Cancel footer out of view.

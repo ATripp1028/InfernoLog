@@ -1,13 +1,13 @@
 // Event emission — the write half of the activity log.
 //
 // Nothing here is an endpoint. Every function is called from inside the
-// transaction of the mutation it describes (ranking placement/reorder/unranking
+// transaction of the mutation it describes (demon list placement/reorder/unranking
 // and the rebalances, the progress-edit save, the rating-config save), so an
 // event is committed with the change it records or not at all. That coupling is
 // the point: a rolled-back write must not leave an event behind, and — far more
 // importantly — a committed write must not be missing one.
 //
-// **Every write path that touches `ClassicRanking.rankingIndex` must go through
+// **Every write path that touches `ClassicDemonList.listIndex` must go through
 // `recordRankingMove`, `recordRankingBulkReplace` or `recordRankingRebalance`.**
 // A path that skips it leaves a permanent hole in that level's index history,
 // and nothing can fill it in later. `invariants.integration.test.ts` sweeps the whole database for exactly
@@ -24,23 +24,23 @@ import type { FieldChange } from './fieldScope'
 
 type Tx = Prisma.TransactionClient
 
-/** One placed entry in a point-in-time reading of the classic ranking. */
+/** One placed entry in a point-in-time reading of the classic demon list. */
 export interface RankingSnapshotEntry {
   levelProgressId: string
   levelId: string
   /** Snapshotted onto the impact row — see `ActivityLogLevelImpact.levelName`. */
   levelName: string | null
-  rankingIndex: Prisma.Decimal
+  listIndex: Prisma.Decimal
 }
 
 /**
- * A user's whole classic ranking in display order — hardest (#1) first, which
- * is `rankingIndex` DESC. Array position + 1 is the level's 1-based position.
+ * A user's whole classic demon list in display order — hardest (#1) first, which
+ * is `listIndex` DESC. Array position + 1 is the level's 1-based position.
  */
 export type RankingSnapshot = RankingSnapshotEntry[]
 
 /**
- * Reads the caller's classic ranking so a mutation can be diffed against it.
+ * Reads the caller's classic demon list so a mutation can be diffed against it.
  *
  * Callers take one snapshot immediately before their write and one immediately
  * after, both inside the same transaction, and hand the pair to
@@ -54,12 +54,12 @@ export async function readRankingSnapshot(
   tx: Tx,
   userId: string
 ): Promise<RankingSnapshot> {
-  const rows = await tx.classicRanking.findMany({
+  const rows = await tx.classicDemonList.findMany({
     where: { userId },
-    orderBy: { rankingIndex: 'desc' },
+    orderBy: { listIndex: 'desc' },
     select: {
       levelProgressId: true,
-      rankingIndex: true,
+      listIndex: true,
       levelProgress: {
         select: { levelId: true, level: { select: { name: true } } },
       },
@@ -69,7 +69,7 @@ export async function readRankingSnapshot(
     levelProgressId: row.levelProgressId,
     levelId: row.levelProgress.levelId,
     levelName: row.levelProgress.level.name,
-    rankingIndex: row.rankingIndex,
+    listIndex: row.listIndex,
   }))
 }
 
@@ -110,7 +110,7 @@ type ImpactRowData = {
   levelId: string
   levelName: string | null
   role: ActivityImpactRole
-  rankingIndex: Prisma.Decimal
+  listIndex: Prisma.Decimal
   positionBefore: number | null
   positionAfter: number | null
   milestoneCrossed: number | null
@@ -134,28 +134,28 @@ function impactRow(
     levelId: source.entry.levelId,
     levelName: source.entry.levelName,
     role,
-    rankingIndex: source.entry.rankingIndex,
+    listIndex: source.entry.listIndex,
     positionBefore,
     positionAfter,
     milestoneCrossed: milestoneCrossed(positionBefore, positionAfter),
   }
 }
 
-/** The three user-driven ranking events. Rebalances have their own function. */
+/** The three user-driven demon list events. Rebalances have their own function. */
 export type RankingMoveEventType =
-  | typeof ActivityEventType.RANKING_PLACEMENT
-  | typeof ActivityEventType.RANKING_REORDER
-  | typeof ActivityEventType.RANKING_UNRANKED
+  | typeof ActivityEventType.DEMON_LIST_PLACEMENT
+  | typeof ActivityEventType.DEMON_LIST_REORDER
+  | typeof ActivityEventType.DEMON_LIST_REMOVED
 
 /**
- * Records one ranking move: a placement, a reorder, or an unranking.
+ * Records one demon list move: a placement, a reorder, or an unranking.
  *
  * One event per move action, with an impact row for the mover and for each
  * level immediately adjacent to it in either snapshot — up to four neighbours
  * for a reorder, which leaves one gap and opens another. Levels further down
  * the list whose ordinal merely shifted get nothing; recording the whole
  * cascade would turn a single drag into hundreds of rows saying nothing the
- * mover's row doesn't already imply. See docs/RANKING_SYSTEM.md.
+ * mover's row doesn't already imply. See docs/DEMON_LIST.md.
  *
  * Milestone crossings are computed per impact row, so a neighbour pushed out of
  * the top 10 by someone else's placement carries that crossing on its own row.
@@ -219,10 +219,10 @@ export async function recordRankingMove(
   })
 }
 
-/** The two ranking events that rewrite every index at once. */
+/** The two demon list events that rewrite every index at once. */
 export type RankingListWideEventType =
-  | typeof ActivityEventType.RANKING_BULK_REPLACE
-  | typeof ActivityEventType.RANKING_REBALANCE
+  | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
+  | typeof ActivityEventType.DEMON_LIST_REBALANCE
 
 // One event covering a wholesale rewrite of the index space, with an impact row
 // per level in the list. Every row is a MOVER: nothing here is a bystander, and
@@ -255,7 +255,7 @@ async function recordListWideRankingEvent(
 }
 
 /**
- * Records the spreadsheet import replacing the user's classic ranking.
+ * Records the spreadsheet import replacing the user's classic demon list.
  *
  * ONE user-facing event for the whole replace, with an impact row per level —
  * not one event per level. The user performed a single import; a feed that
@@ -282,7 +282,7 @@ export async function recordRankingBulkReplace(
   return recordListWideRankingEvent(
     tx,
     userId,
-    ActivityEventType.RANKING_BULK_REPLACE,
+    ActivityEventType.DEMON_LIST_BULK_REPLACE,
     before,
     after
   )
@@ -290,7 +290,7 @@ export async function recordRankingBulkReplace(
 
 /**
  * Records the renormalisation that runs when a neighbour gap closes past
- * `REBALANCE_GAP`, carrying every entry's new `rankingIndex`.
+ * `REBALANCE_GAP`, carrying every entry's new `listIndex`.
  *
  * INTERNAL ONLY. The order the user sees is unchanged — only the numbers
  * underneath it move — so this must never reach a Log/timeline feed or a
@@ -317,7 +317,7 @@ export async function recordRankingRebalance(
   return recordListWideRankingEvent(
     tx,
     userId,
-    ActivityEventType.RANKING_REBALANCE,
+    ActivityEventType.DEMON_LIST_REBALANCE,
     before,
     after
   )
@@ -331,7 +331,7 @@ export async function recordRankingRebalance(
  * all, which is why `changes` being empty is a silent no-op rather than an
  * empty event.
  *
- * No ranking position or index is captured here, unlike the ranking events:
+ * No ranking position or index is captured here, unlike the demon list events:
  * weighted totals are computed at query time and rating history has no
  * reconstruction requirement, so there is nothing to snapshot.
  *
@@ -392,7 +392,7 @@ export function ratingConfigChangeData(
  * Impact rows on OTHER levels' events that happen to name this level are left
  * standing — they describe those levels' history, not this one's. They survive
  * readable because `levelName` was denormalised onto them at write time; see
- * `ActivityLogLevelImpact.levelName`. The surviving levels' `rankingIndex`
+ * `ActivityLogLevelImpact.levelName`. The surviving levels' `listIndex`
  * values are untouched by the deletion, so reconstruction is unaffected.
  *
  * @param client - The caller's transaction client.

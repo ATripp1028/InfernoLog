@@ -19,6 +19,11 @@ type NavStatus = 'enabled' | 'disabled'
 export interface NavItem {
   key: string
   label: string
+  // Shown by the mobile tab bar instead of `label` when set. The bar gives each
+  // tab 64px at 11px type, which a two-word label overflows into a second line
+  // and out of the bar's fixed height. The rail and the More sheet always use
+  // `label` — they have the room.
+  shortLabel?: string
   icon: LucideIcon
   to?: string
   status: NavStatus
@@ -41,17 +46,18 @@ export const NAV_ITEMS: NavItem[] = [
     activePrefixes: ['/levels'],
   },
   {
-    key: 'list',
-    label: 'List',
+    key: 'log',
+    label: 'Log',
     icon: LayoutList,
-    to: '/list',
+    to: '/log',
     status: 'enabled',
   },
   {
-    key: 'ranking',
-    label: 'Ranking',
+    key: 'demon-list',
+    label: 'Demon List',
+    shortLabel: 'Demons',
     icon: Trophy,
-    to: '/ranking',
+    to: '/demon-list',
     status: 'enabled',
   },
   {
@@ -62,10 +68,10 @@ export const NAV_ITEMS: NavItem[] = [
     status: 'enabled',
   },
   {
-    key: 'log',
-    label: 'Log',
+    key: 'events',
+    label: 'Events',
     icon: ScrollText,
-    to: '/log',
+    to: '/events',
     status: 'enabled',
   },
   { key: 'time', label: 'Time Machine', icon: History, status: 'disabled' },
@@ -80,11 +86,19 @@ export const NAV_ITEMS: NavItem[] = [
 ]
 
 /**
+ * The {@link NAV_ITEMS} keys with their own tab in the mobile bottom bar, in
+ * display order. The bar has room for exactly these three plus the FAB and the
+ * More button; everything else must appear in {@link MOBILE_OVERFLOW_KEYS} or
+ * it is unreachable on mobile.
+ */
+export const MOBILE_BAR_KEYS = ['log', 'demon-list', 'search'] as const
+
+/**
  * The {@link NAV_ITEMS} keys that move behind the mobile "More" sheet instead of getting their own tab.
  */
 export const MOBILE_OVERFLOW_KEYS = [
   'collections',
-  'log',
+  'events',
   'time',
   'stats',
   'picker',
@@ -107,7 +121,7 @@ export function navItemByKey(key: string): NavItem {
  * Whether the desktop rail should highlight `item` for this path.
  *
  * The rail stays lit while the user is drilled into a sub-page (a collection's
- * detail, a level's log), so `/list/abc` keeps List highlighted.
+ * detail, a level's log), so `/log/abc` keeps Log highlighted.
  */
 export function isRailItemActive(item: NavItem, pathname: string): boolean {
   if (!item.to) return false

@@ -13,7 +13,7 @@ import type { FixtureLevel } from './fixtures/levels'
  *
  * The FAB carries its own primary action's label as its accessible name
  * (`MobileNav`'s FabSlot), so `fabLabel` is which action set the page has
- * registered — the default logging set's "Log a completion" on List, Ranking
+ * registered — the default logging set's "Log a completion" on Log, Demon List
  * and the rest, and "Edit this entry" on a level page the user owns
  * (`useLevelDetailPage`'s override, whose first entry is the primary).
  * Tapping it opens a `role="menu"` sheet whose rows carry the same labels,
@@ -39,7 +39,7 @@ export async function openQuickAction(
  * and a `hidden md:block` desktop one, both always in the DOM — so anything
  * matched inside it matches twice and trips strict mode. Only text locators
  * need this: `getByRole` already skips elements `display: none` keeps out of
- * the accessibility tree, which is why the FAB and the List's two layouts
+ * the accessibility tree, which is why the FAB and the Log's two layouts
  * need no such handling elsewhere in the suite.
  */
 export function onScreen(locator: Locator): Locator {
@@ -47,11 +47,11 @@ export function onScreen(locator: Locator): Locator {
 }
 
 /**
- * A level's card in the List, located by the card's own accessible name.
+ * A level's card in the Log, located by the card's own accessible name.
  *
  * Mobile only, and that is not incidental: `MobilePager` is the one place in
  * the app that writes an `Open <name> details` label, so this locator does not
- * resolve at all above `md`, where the List is a table. Every spec that uses it
+ * resolve at all above `md`, where the Log is a table. Every spec that uses it
  * runs at a mobile viewport for its own reasons anyway.
  *
  * Exact, so a level whose name is a prefix of another's cannot match both.
@@ -64,16 +64,16 @@ export function levelCard(page: Page, level: FixtureLevel): Locator {
 }
 
 /**
- * The level's own page, reached by URL rather than through the List.
+ * The level's own page, reached by URL rather than through the Log.
  *
- * Deep-linking on purpose: the List's card for a given level is only reachable
+ * Deep-linking on purpose: the Log's card for a given level is only reachable
  * if it sorts onto the screen, which depends on what every other spec has
  * already logged. The fixture's in-game id is fixed, so this is the one route
- * in that cannot be perturbed by execution order. The List round trip is
+ * in that cannot be perturbed by execution order. The Log round trip is
  * completion.e2e.ts's assertion, not any level-page spec's.
  */
 export async function openLevelPage(page: Page, level: FixtureLevel) {
-  await page.goto(`/list/${level.inGameId}`)
+  await page.goto(`/log/${level.inGameId}`)
   // Past the skeleton — the callers read the timeline, and an absence asserted
   // against a page still loading is true for the wrong reason.
   await expect(onScreen(page.getByText('Progress timeline'))).toBeVisible()
@@ -147,7 +147,7 @@ export async function logCompletion(
  * Walks the two-step progress wizard from an already-picked level to the write.
  *
  * The caller opens the flow and picks the level, because the two paths in
- * differ: the List's FAB walks the find step, while a level page's own FAB
+ * differ: the Log's FAB walks the find step, while a level page's own FAB
  * resolves the level it is already on and skips it.
  *
  * Only the run percentage is required — `ProgressStep` defaults the date to

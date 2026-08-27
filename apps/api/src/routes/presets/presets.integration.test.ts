@@ -59,7 +59,7 @@ async function seedPreset(
   userId: string,
   overrides: Record<string, unknown> = {}
 ) {
-  return prisma.listPreset.create({
+  return prisma.logPreset.create({
     data: {
       userId,
       name: 'Seeded',
@@ -84,14 +84,14 @@ afterAll(async () => {
 
 // ─── create and read ─────────────────────────────────────────────────────────
 
-describe('POST /me/list-presets', () => {
+describe('POST /me/log-presets', () => {
   it('persists a preset owned by the caller', async () => {
     const user = await seedUser(prisma)
 
-    const res = await send(user.id, 'POST', '/me/list-presets', validBody())
+    const res = await send(user.id, 'POST', '/me/log-presets', validBody())
 
     expect(res.status).toBe(201)
-    const stored = await prisma.listPreset.findFirstOrThrow({
+    const stored = await prisma.logPreset.findFirstOrThrow({
       where: { userId: user.id },
     })
     expect(stored.name).toBe('My View')
@@ -111,11 +111,11 @@ describe('POST /me/list-presets', () => {
     await send(
       user.id,
       'POST',
-      '/me/list-presets',
+      '/me/log-presets',
       validBody({ sorts, filters })
     )
 
-    const res = await send(user.id, 'GET', '/me/list-presets')
+    const res = await send(user.id, 'GET', '/me/log-presets')
     const body = (await res.json()) as {
       data: { sorts: unknown; filters: unknown }[]
     }
@@ -126,22 +126,22 @@ describe('POST /me/list-presets', () => {
   it('stores a null description when none is given', async () => {
     const user = await seedUser(prisma)
 
-    await send(user.id, 'POST', '/me/list-presets', validBody())
+    await send(user.id, 'POST', '/me/log-presets', validBody())
 
-    const stored = await prisma.listPreset.findFirstOrThrow({
+    const stored = await prisma.logPreset.findFirstOrThrow({
       where: { userId: user.id },
     })
     expect(stored.description).toBeNull()
   })
 })
 
-describe('GET /me/list-presets', () => {
+describe('GET /me/log-presets', () => {
   it('returns the caller’s presets oldest first', async () => {
     const user = await seedUser(prisma)
     await seedPreset(user.id, { name: 'First' })
     await seedPreset(user.id, { name: 'Second' })
 
-    const res = await send(user.id, 'GET', '/me/list-presets')
+    const res = await send(user.id, 'GET', '/me/log-presets')
     const body = (await res.json()) as { data: { name: string }[] }
 
     expect(body.data.map((p) => p.name)).toEqual(['First', 'Second'])
@@ -152,7 +152,7 @@ describe('GET /me/list-presets', () => {
     const other = await seedUser(prisma)
     await seedPreset(other.id, { name: 'Theirs' })
 
-    const res = await send(user.id, 'GET', '/me/list-presets')
+    const res = await send(user.id, 'GET', '/me/log-presets')
 
     await expect(res.json()).resolves.toEqual({ data: [] })
   })
@@ -160,7 +160,7 @@ describe('GET /me/list-presets', () => {
 
 // ─── update ──────────────────────────────────────────────────────────────────
 
-describe('PATCH /me/list-presets/:id', () => {
+describe('PATCH /me/log-presets/:id', () => {
   it('applies a partial update and leaves the rest alone', async () => {
     const user = await seedUser(prisma)
     const preset = await seedPreset(user.id, {
@@ -168,12 +168,12 @@ describe('PATCH /me/list-presets/:id', () => {
       sorts: [{ field: 'date' }],
     })
 
-    const res = await send(user.id, 'PATCH', `/me/list-presets/${preset.id}`, {
+    const res = await send(user.id, 'PATCH', `/me/log-presets/${preset.id}`, {
       name: 'Renamed',
     })
 
     expect(res.status).toBe(200)
-    const stored = await prisma.listPreset.findUniqueOrThrow({
+    const stored = await prisma.logPreset.findUniqueOrThrow({
       where: { id: preset.id },
     })
     expect(stored.name).toBe('Renamed')
@@ -187,11 +187,11 @@ describe('PATCH /me/list-presets/:id', () => {
       filters: { difficulty: ['extreme'], stars: 10 },
     })
 
-    await send(user.id, 'PATCH', `/me/list-presets/${preset.id}`, {
+    await send(user.id, 'PATCH', `/me/log-presets/${preset.id}`, {
       filters: { length: ['long'] },
     })
 
-    const stored = await prisma.listPreset.findUniqueOrThrow({
+    const stored = await prisma.logPreset.findUniqueOrThrow({
       where: { id: preset.id },
     })
     expect(stored.filters).toEqual({ length: ['long'] })
@@ -202,12 +202,12 @@ describe('PATCH /me/list-presets/:id', () => {
     const other = await seedUser(prisma)
     const preset = await seedPreset(other.id, { name: 'Theirs' })
 
-    const res = await send(user.id, 'PATCH', `/me/list-presets/${preset.id}`, {
+    const res = await send(user.id, 'PATCH', `/me/log-presets/${preset.id}`, {
       name: 'Hijacked',
     })
 
     expect(res.status).toBe(404)
-    const stored = await prisma.listPreset.findUniqueOrThrow({
+    const stored = await prisma.logPreset.findUniqueOrThrow({
       where: { id: preset.id },
     })
     expect(stored.name).toBe('Theirs')
@@ -219,7 +219,7 @@ describe('PATCH /me/list-presets/:id', () => {
     const res = await send(
       user.id,
       'PATCH',
-      '/me/list-presets/11111111-2222-3333-4444-555555555555',
+      '/me/log-presets/11111111-2222-3333-4444-555555555555',
       { name: 'Renamed' }
     )
 
@@ -229,16 +229,16 @@ describe('PATCH /me/list-presets/:id', () => {
 
 // ─── delete ──────────────────────────────────────────────────────────────────
 
-describe('DELETE /me/list-presets/:id', () => {
+describe('DELETE /me/log-presets/:id', () => {
   it('removes the row and returns 204', async () => {
     const user = await seedUser(prisma)
     const preset = await seedPreset(user.id)
 
-    const res = await send(user.id, 'DELETE', `/me/list-presets/${preset.id}`)
+    const res = await send(user.id, 'DELETE', `/me/log-presets/${preset.id}`)
 
     expect(res.status).toBe(204)
     expect(
-      await prisma.listPreset.findUnique({ where: { id: preset.id } })
+      await prisma.logPreset.findUnique({ where: { id: preset.id } })
     ).toBeNull()
   })
 
@@ -247,11 +247,11 @@ describe('DELETE /me/list-presets/:id', () => {
     const other = await seedUser(prisma)
     const preset = await seedPreset(other.id)
 
-    const res = await send(user.id, 'DELETE', `/me/list-presets/${preset.id}`)
+    const res = await send(user.id, 'DELETE', `/me/log-presets/${preset.id}`)
 
     expect(res.status).toBe(404)
     expect(
-      await prisma.listPreset.findUnique({ where: { id: preset.id } })
+      await prisma.logPreset.findUnique({ where: { id: preset.id } })
     ).not.toBeNull()
   })
 
@@ -261,8 +261,6 @@ describe('DELETE /me/list-presets/:id', () => {
 
     await prisma.user.delete({ where: { id: user.id } })
 
-    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(
-      0
-    )
+    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(0)
   })
 })

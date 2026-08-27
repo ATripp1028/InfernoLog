@@ -17,7 +17,7 @@ const LEVEL_ID = '12345'
 
 const { navigate, back, openForEdit } = vi.hoisted(() => ({
   navigate: vi.fn(),
-  back: { href: '/list', replace: false, isOrigin: false, onClick: vi.fn() },
+  back: { href: '/log', replace: false, isOrigin: false, onClick: vi.fn() },
   openForEdit: vi.fn(),
 }))
 
@@ -149,13 +149,13 @@ describe('useGlobalLevelDetailPage', () => {
 
       act(() => result.current.goToList())
 
-      expect(navigate).toHaveBeenCalledWith({ to: '/list' })
+      expect(navigate).toHaveBeenCalledWith({ to: '/log' })
     })
 
     it('falls back to the list for the back affordance', () => {
       const { result } = render()
 
-      expect(useGoBack).toHaveBeenCalledWith('/list')
+      expect(useGoBack).toHaveBeenCalledWith('/log')
       expect(result.current.back).toBe(back)
     })
   })

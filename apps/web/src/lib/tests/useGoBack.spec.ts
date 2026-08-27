@@ -33,19 +33,19 @@ afterEach(() => {
   Reflect.deleteProperty(window.history, 'length')
 })
 
-const render = (fallback = '/list') => renderHook(() => useGoBack(fallback))
+const render = (fallback = '/log') => renderHook(() => useGoBack(fallback))
 
 describe('useGoBack', () => {
   // Reached via an in-app link, which recorded where from.
   describe('with a remembered origin', () => {
     beforeEach(() => {
-      location.state = backOriginState('/list?sort=likes')
+      location.state = backOriginState('/log?sort=likes')
       // Even with history available, the remembered origin wins.
       historyEntries(5)
     })
 
     it('goes to the remembered href', () => {
-      expect(render().result.current.href).toBe('/list?sort=likes')
+      expect(render().result.current.href).toBe('/log?sort=likes')
     })
 
     // Replaces so a Back-then-Back does not land the user right back on the
@@ -63,7 +63,7 @@ describe('useGoBack', () => {
       render().result.current.onClick()
 
       expect(navigate).toHaveBeenCalledWith({
-        href: '/list?sort=likes',
+        href: '/log?sort=likes',
         replace: true,
       })
     })
@@ -94,7 +94,7 @@ describe('useGoBack', () => {
   // A pasted link opened in a fresh tab: nothing to go back to at all.
   describe('with neither an origin nor history', () => {
     it('falls back to the caller’s route', () => {
-      expect(render('/list').result.current.href).toBe('/list')
+      expect(render('/log').result.current.href).toBe('/log')
     })
 
     it('pushes rather than replacing, so this page stays in history', () => {
@@ -102,9 +102,9 @@ describe('useGoBack', () => {
     })
 
     it('navigates to the fallback when clicked', () => {
-      render('/list').result.current.onClick()
+      render('/log').result.current.onClick()
 
-      expect(navigate).toHaveBeenCalledWith({ to: '/list' })
+      expect(navigate).toHaveBeenCalledWith({ to: '/log' })
       expect(historyBack).not.toHaveBeenCalled()
     })
 

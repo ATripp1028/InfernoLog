@@ -37,7 +37,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 - [x] Manual placement only — no auto-placement (every completion starts unplaced)
 - [x] Post-submit "Place in ranking now?" prompt (drag-and-drop ghost card, list reference sets starting scroll position)
 - [x] Unplaced side panel for completions the user chose to place later
-- [x] Ranking page with unrated toggle
+- [x] Demon list page with unrated toggle
 
 ### List Integrations (v1)
 

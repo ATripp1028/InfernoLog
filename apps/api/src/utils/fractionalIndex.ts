@@ -1,4 +1,4 @@
-// Fractional-index math shared by the classic ranking and collections.
+// Fractional-index math shared by the classic demon list and collections.
 //
 // An ordering is stored as Decimal(20,10) indices; inserting between two rows
 // bisects their gap instead of renumbering. When a gap closes past

@@ -26,7 +26,7 @@ authedRoute('POST /v1/me/drops')
 // CLASSIC RANKING — the personal difficulty-ordering page.
 // ─────────────────────────────────────────────
 // Placed + unplaced columns in one payload; place / reorder / unplace.
-authedRoute('GET /v1/me/ranking/classic')
-authedRoute('POST /v1/me/ranking/classic')
-authedRoute('PATCH /v1/me/ranking/classic/{levelProgressId}')
-authedRoute('DELETE /v1/me/ranking/classic/{levelProgressId}')
+authedRoute('GET /v1/me/demon-list/classic')
+authedRoute('POST /v1/me/demon-list/classic')
+authedRoute('PATCH /v1/me/demon-list/classic/{levelProgressId}')
+authedRoute('DELETE /v1/me/demon-list/classic/{levelProgressId}')

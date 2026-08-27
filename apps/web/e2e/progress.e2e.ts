@@ -55,7 +55,7 @@ const DROP_REASON = 'E2E: setting this one aside.'
 
 test.describe('progress and drops', () => {
   test('logs a run on an unbeaten level and edits it', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
     await openQuickAction(page, 'Log progress')
     await findLevel(page, ELECTRODYNAMIX)
 
@@ -148,7 +148,7 @@ test.describe('progress and drops', () => {
   })
 
   test('drops a level', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
     await openQuickAction(page, 'Drop a level')
     await findLevel(page, HEXAGON_FORCE)
 

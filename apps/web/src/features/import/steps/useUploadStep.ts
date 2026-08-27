@@ -69,6 +69,7 @@ export function useUploadStep() {
           lists: result.lists.flatMap((r) => r.flags),
           ratings: result.ratings.flatMap((r) => r.flags),
           duplicates: result.duplicateLevelIds,
+          legacyTabs: result.legacyTabs,
         })
       } catch (err) {
         setError(

@@ -8,15 +8,13 @@ import { expect, test } from './testBase'
 // If this file fails, no other spec's failure means anything.
 
 test.describe('e2e harness', () => {
-  test('boots already authenticated and lands on the list', async ({
-    page,
-  }) => {
+  test('boots already authenticated and lands on the log', async ({ page }) => {
     // `/` is the unauthenticated landing page and redirects signed-in users to
-    // their list, so arriving there proves both the Amplify session was read
+    // their log, so arriving there proves both the Amplify session was read
     // and GET /v1/me succeeded — `_authenticated` renders nothing until it has.
     await page.goto('/')
 
-    await expect(page).toHaveURL(/\/list$/)
+    await expect(page).toHaveURL(/\/log$/)
     await expect(
       page.getByRole('navigation', { name: 'Primary' })
     ).toBeVisible()

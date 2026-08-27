@@ -92,7 +92,7 @@ export function useLoadedCollection(
   const sensors = useSortableSensors()
 
   // Locally-controlled entry order so drag-end re-renders are immediate rather
-  // than waiting for the async onMutate cache update (mirrors RankingBoard's
+  // than waiting for the async onMutate cache update (mirrors DemonListBoard's
   // containers pattern). Sync back from the cache only when the queue is idle.
   const pendingCollectionsCount = useMutationState({
     filters: { mutationKey: ['collectionReorder'], status: 'pending' },

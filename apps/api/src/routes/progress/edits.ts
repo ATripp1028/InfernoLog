@@ -39,7 +39,7 @@ app.patch('/me/progress/:levelId', async (c) => {
 // DELETE /v1/me/progress/:levelId — remove the user's entire entry for a level.
 //
 // Deleting the LevelProgress cascades to its ProgressUpdates (and their rating
-// scores / list references) and its ClassicRanking, per the schema's
+// scores / list references) and its ClassicDemonList, per the schema's
 // onDelete: Cascade relations. The activity_log rows scoped to this level are
 // NOT cascaded (they hang off the user and the level, not the entry), so they
 // are purged explicitly in the same transaction — the user asked for the entry

@@ -49,7 +49,7 @@ export async function resetE2eUser(email: string) {
 
   await assertFixtureLevelsPresent()
 
-  // Everything hanging off LevelProgress (ProgressUpdate, ClassicRanking,
+  // Everything hanging off LevelProgress (ProgressUpdate, ClassicDemonList,
   // RatingScore) cascades from its delete; the rest is keyed on the user
   // directly. RatingScore is nevertheless cleared first and explicitly,
   // because its categoryId -> RatingCategory relation has no onDelete action:
@@ -63,7 +63,7 @@ export async function resetE2eUser(email: string) {
     prisma.collectionEntry.deleteMany({ where: { collection: { userId } } }),
     prisma.collection.deleteMany({ where: { userId, type: 'CUSTOM' } }),
     prisma.importJob.deleteMany({ where: { userId } }),
-    prisma.listPreset.deleteMany({ where: { userId } }),
+    prisma.logPreset.deleteMany({ where: { userId } }),
     prisma.gddlSyncJob.deleteMany({ where: { userId } }),
     prisma.apiKey.deleteMany({ where: { userId } }),
     // The per-user RobTop budget (utils/robtopUserBudget.ts). The suite is

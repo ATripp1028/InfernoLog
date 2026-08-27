@@ -27,13 +27,13 @@ export function entryLabel(entry: RankHistoryEntry): string {
   if (entry.kind === 'INDIRECT') return indirectLabel(entry)
 
   switch (entry.eventType) {
-    case 'RANKING_PLACEMENT':
-      return 'Placed in your ranking'
-    case 'RANKING_REORDER':
+    case 'DEMON_LIST_PLACEMENT':
+      return 'Placed on your demon list'
+    case 'DEMON_LIST_REORDER':
       return movedUp(entry) ? 'Moved up' : 'Moved down'
-    case 'RANKING_UNRANKED':
-      return 'Removed from your ranking'
-    case 'RANKING_BULK_REPLACE':
+    case 'DEMON_LIST_REMOVED':
+      return 'Removed from your demon list'
+    case 'DEMON_LIST_BULK_REPLACE':
       return 'A spreadsheet import moved it'
     default:
       return 'Moved'
@@ -58,15 +58,15 @@ function indirectLabel(entry: RankHistoryEntry): string {
   const up = movedUp(entry)
   const count = levelsMoved(entry)
 
-  if (entry.eventType === 'RANKING_BULK_REPLACE') {
-    return 'A spreadsheet import reordered your ranking'
+  if (entry.eventType === 'DEMON_LIST_BULK_REPLACE') {
+    return 'A spreadsheet import reordered your demon list'
   }
   if (!name) {
     return up
       ? `${count} level${count === 1 ? '' : 's'} left from above`
       : `${count} level${count === 1 ? '' : 's'} placed above`
   }
-  if (entry.eventType === 'RANKING_UNRANKED') return `${name} left from above`
+  if (entry.eventType === 'DEMON_LIST_REMOVED') return `${name} left from above`
   if (up) return `${name} moved below`
   return `${name} placed above`
 }

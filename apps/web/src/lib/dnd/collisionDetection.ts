@@ -55,7 +55,7 @@ import { useCallback, useRef } from 'react'
  *    `activeC === overC` check to settle the churn, until the pointer
  *    actually moves again.
  *
- * Originally written for RankingBoard's two-container (placed/unplaced)
+ * Originally written for DemonListBoard's two-container (placed/unplaced)
  * board; generalized here to an arbitrary set of container ids so
  * ListMergeBoard's three columns share the same well-tested logic.
  *

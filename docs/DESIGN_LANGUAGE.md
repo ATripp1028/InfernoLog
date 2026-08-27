@@ -248,7 +248,7 @@ No established community color convention. Use the primary/accent palette for th
 
 ### Level Entry Card
 
-The level entry card is the most frequently rendered component in the app — it appears in the List, the Ranking, the placement modal, the Level Picker results, and user lists. Getting it right is the highest-priority design task.
+The level entry card is the most frequently rendered component in the app — it appears in the Log, the demon list, the placement modal, the Level Picker results, and user lists. Getting it right is the highest-priority design task.
 
 ```
 ┌─────────────────────────────────────────────────────┐

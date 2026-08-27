@@ -40,6 +40,7 @@ const emptyFlags: AllFlags = {
   lists: [],
   ratings: [],
   duplicates: [],
+  legacyTabs: [],
 }
 
 const checkResult = (

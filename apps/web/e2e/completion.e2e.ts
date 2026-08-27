@@ -8,9 +8,9 @@ import {
   type FixtureLevel,
 } from './fixtures/levels'
 
-// Log a completion, then place it in the ranking — the two flows the suite
+// Log a completion, then place it on the demon list — the two flows the suite
 // exists for, in the order a user actually performs them ("Place now" on the
-// success card routes straight to /ranking).
+// success card routes straight to /demon-list).
 //
 // What is asserted is the round trip, not the rendering: every step here
 // crosses the wire to the staging API, so a response shape that changed on the
@@ -20,7 +20,7 @@ import {
 // The whole file runs at a mobile viewport. Not for coverage of the mobile
 // layout — the API calls are identical at both breakpoints — but because every
 // affordance these flows need is a real button below `md`, where on desktop
-// the ranking board places by drag-and-drop (dnd-kit). Driving a drag is the
+// the demon list board places by drag-and-drop (dnd-kit). Driving a drag is the
 // single most reliable way to make an E2E suite flaky, and it would be
 // asserting dnd-kit rather than our contract.
 test.use({ viewport: { width: 390, height: 844 } })
@@ -63,8 +63,8 @@ async function placeFromUnplaced(page: Page, level: FixtureLevel) {
 }
 
 test.describe('completion', () => {
-  test('logs a completion and shows it on the list', async ({ page }) => {
-    await page.goto('/list')
+  test('logs a completion and shows it on the log', async ({ page }) => {
+    await page.goto('/log')
 
     await logCompletion(page, CLUBSTEP, '1337')
     await page.getByRole('button', { name: 'Place later' }).click()
@@ -75,21 +75,21 @@ test.describe('completion', () => {
     await expect(levelCard(page, CLUBSTEP)).toBeVisible()
   })
 
-  test('places completions in the ranking and reorders them', async ({
+  test('places completions on the demon list and reorders them', async ({
     page,
   }) => {
-    await page.goto('/ranking')
+    await page.goto('/demon-list')
 
     // Two completions, not one: placement always drops a level in at #1, and
     // `move` is a no-op at either end of the list — so a single placed entry
     // can never be reordered and the PATCH would never be exercised.
     await logCompletion(page, THEORY_OF_EVERYTHING_2, '42')
     await page.getByRole('button', { name: 'Place now' }).click()
-    await expect(page).toHaveURL(/\/ranking/)
+    await expect(page).toHaveURL(/\/demon-list/)
     await placeFromUnplaced(page, THEORY_OF_EVERYTHING_2)
     await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
 
-    // "Place later" just closes the modal, leaving us on /ranking with the new
+    // "Place later" just closes the modal, leaving us on /demon-list with the new
     // completion sitting in Unplaced.
     await logCompletion(page, DEADLOCKED, '7')
     await page.getByRole('button', { name: 'Place later' }).click()
@@ -104,14 +104,14 @@ test.describe('completion', () => {
     // placing already turned edit mode on, so that toggle now reads "Done" —
     // clicking it would take the move buttons away.
     //
-    // Waiting on the response rather than the "Ranking saved" toast, because
+    // Waiting on the response rather than the "Demon list saved" toast, because
     // placing raises that same toast (place and reorder share a mutation key),
     // so a toast assertion here could match the earlier one and pass without
     // the reorder ever landing.
     const reordered = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        /\/v1\/me\/ranking\/classic\//.test(r.url())
+        /\/v1\/me\/demon-list\/classic\//.test(r.url())
     )
     await page.getByRole('button', { name: 'Move down' }).first().click()
     expect((await reordered).status()).toBe(200)

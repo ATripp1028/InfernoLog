@@ -195,8 +195,8 @@ describe('sortAndCapSearchResults', () => {
 // "back" anyway.
 describe('backOrigin', () => {
   it('round-trips the href it recorded', () => {
-    expect(readBackOrigin(backOriginState('/list?sort=likes'))).toEqual({
-      href: '/list?sort=likes',
+    expect(readBackOrigin(backOriginState('/log?sort=likes'))).toEqual({
+      href: '/log?sort=likes',
     })
   })
 

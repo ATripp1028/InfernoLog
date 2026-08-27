@@ -218,7 +218,7 @@ test.describe('spreadsheet import', () => {
     // Logged through the UI rather than seeded, so the conflict is between the
     // sheet and a completion written by the ordinary logging path — the two
     // producers whose disagreement the /check pass exists to describe.
-    await page.goto('/list')
+    await page.goto('/log')
     await logCompletion(page, AIRBORNE_ROBOTS, String(LOGGED_ATTEMPTS))
     await page.getByRole('button', { name: 'Place later' }).click()
 

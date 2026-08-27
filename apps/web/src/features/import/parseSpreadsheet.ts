@@ -282,6 +282,13 @@ export interface ParseResult {
   ratingCategories: string[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions'; levelId: string; rows: number[] }[]
+  /**
+   * Tabs named the way an older export named them, present in the workbook and
+   * NOT importable under that name. An absent tab means "leave this data
+   * alone", so without this the whole tab would be skipped in silence; the
+   * review step turns it into something the user can see and act on.
+   */
+  legacyTabs: { found: string; expected: string }[]
 }
 
 // ── Completions tab ────────────────────────────────────────────────────────
@@ -1136,10 +1143,17 @@ export function parseSpreadsheet(
       wb.SheetNames.find((n) => n.toLowerCase() === name.toLowerCase()) ?? ''
     ]
 
+  // Tabs an older export wrote under a name this version no longer reads.
+  // Detected, never imported — see ParseResult.legacyTabs.
+  const legacyTabs: ParseResult['legacyTabs'] = []
+  if (!findSheet('Demon List') && findSheet('Ranking')) {
+    legacyTabs.push({ found: 'Ranking', expected: 'Demon List' })
+  }
+
   const completionSheet = findSheet('Completions')
   const progressSheet = findSheet('Progress')
   const droppedSheet = findSheet('Dropped')
-  const rankingSheet = findSheet('Ranking')
+  const demonListSheet = findSheet('Demon List')
   const listsSheet = findSheet('Lists')
   const ratingsSheet = findSheet('Ratings')
 
@@ -1152,8 +1166,8 @@ export function parseSpreadsheet(
   const rawDropped: Record<string, unknown>[] = droppedSheet
     ? XLSX.utils.sheet_to_json(droppedSheet, { defval: null })
     : []
-  const rawRanking: Record<string, unknown>[] = rankingSheet
-    ? XLSX.utils.sheet_to_json(rankingSheet, { defval: null })
+  const rawRanking: Record<string, unknown>[] = demonListSheet
+    ? XLSX.utils.sheet_to_json(demonListSheet, { defval: null })
     : []
   const rawLists: Record<string, unknown>[] = listsSheet
     ? XLSX.utils.sheet_to_json(listsSheet, { defval: null })
@@ -1234,5 +1248,6 @@ export function parseSpreadsheet(
     ratings,
     ratingCategories,
     duplicateLevelIds,
+    legacyTabs,
   }
 }

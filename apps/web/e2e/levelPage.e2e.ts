@@ -129,7 +129,7 @@ test.describe('level page', () => {
   test('edits the level-scoped fields, reads them back, and deletes the level', async ({
     page,
   }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     // A completion rather than a run: the modal's GDDL tier and coin sections
     // render only for a beaten level, and they are half the payload this spec
@@ -236,15 +236,15 @@ test.describe('level page', () => {
     )
     expect(deleted.status()).toBe(200)
 
-    await expect(page).toHaveURL(/\/list$/)
+    await expect(page).toHaveURL(/\/log$/)
     await page.reload()
     await expect(levelCard(page, BLAST_PROCESSING)).toBeHidden()
   })
 
   test('deletes one logged entry, then the last one', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
-    // The first run goes in through the List's FAB, which walks the find step.
+    // The first run goes in through the Log's FAB, which walks the find step.
     await openQuickAction(page, 'Log progress')
     await findLevel(page, GEOMETRICAL_DOMINATOR)
     await logRun(page, FIRST_RUN, FIRST_RUN_DATE)
@@ -295,10 +295,10 @@ test.describe('level page', () => {
     )
     expect(removedLast.status()).toBe(200)
     // The other half of the flag: the last update taking the whole
-    // LevelProgress with it is what sends the client back to the List.
+    // LevelProgress with it is what sends the client back to the Log.
     expect((await removedLast.json()).data.deletedLevelProgress).toBe(true)
 
-    await expect(page).toHaveURL(/\/list$/)
+    await expect(page).toHaveURL(/\/log$/)
     await page.reload()
     await expect(levelCard(page, GEOMETRICAL_DOMINATOR)).toBeHidden()
   })

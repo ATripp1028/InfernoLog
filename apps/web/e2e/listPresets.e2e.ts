@@ -4,15 +4,15 @@ import { findLevel, levelCard, logRun, openQuickAction } from './flows'
 import { POWER_TRIP, VIKING_ARENA } from './fixtures/levels'
 
 // Saved List views across the wire: POST / PATCH / DELETE
-// /v1/me/list-presets, and the view a stored preset drives once it is read
+// /v1/me/log-presets, and the view a stored preset drives once it is read
 // back.
 //
 // What makes this worth its runtime is the shape, not the CRUD. A preset's
 // four view fields (`sorts`, `filters`, `columns`, `columnOrder`) are
-// `z.unknown()` in ListPresetInputSchema and `Json` columns in Prisma — the
+// `z.unknown()` in LogPresetInputSchema and `Json` columns in Prisma — the
 // API stores and returns them verbatim without ever looking inside. So the
 // only agreement about what a filter *is* holds between
-// features/list/types.ts, which writes it, and features/list/presets.ts,
+// features/log/types.ts, which writes it, and features/log/presets.ts,
 // which reads it back — with a database round trip in between that nothing
 // type-checks. Component specs stub lib/api/presets.ts at the module
 // boundary and would pass against a server that stored `{}`.
@@ -140,7 +140,7 @@ async function selectPreset(page: Page, name: string) {
 async function savePresetAs(page: Page, name: string) {
   const created = page.waitForResponse(
     (r) =>
-      r.request().method() === 'POST' && r.url().endsWith('/v1/me/list-presets')
+      r.request().method() === 'POST' && r.url().endsWith('/v1/me/log-presets')
   )
   await page.getByRole('button', { name: 'Save', exact: true }).click()
   await page.getByPlaceholder('My preset').fill(name)
@@ -152,7 +152,7 @@ test.describe('list presets', () => {
   test('saves the current view as a preset and re-applies it after a reload', async ({
     page,
   }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     // Two rows the status filter can tell apart, logged here rather than
     // assumed: the reset leaves no progress at all, and no other spec touches
@@ -219,7 +219,7 @@ test.describe('list presets', () => {
     await expect(levelCard(page, POWER_TRIP)).toBeVisible()
 
     // Re-applied from the picker. Nothing in this page load has seen the
-    // filter before: it came back from GET /v1/me/list-presets and drove the
+    // filter before: it came back from GET /v1/me/log-presets and drove the
     // view through cleanupPresetForCategories → applyPresetConfig.
     await selectPreset(page, VIEW_PRESET)
     await expect(levelCard(page, VIKING_ARENA)).toBeVisible()
@@ -234,7 +234,7 @@ test.describe('list presets', () => {
     const overwritten = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        r.url().includes('/v1/me/list-presets/')
+        r.url().includes('/v1/me/log-presets/')
     )
     const menu = await openPresetMenu(page)
     await menu
@@ -254,7 +254,7 @@ test.describe('list presets', () => {
   })
 
   test('renames a saved preset and deletes it', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     // No levels logged on purpose. The filter chips exist whether or not the
     // user has rows for them to act on, and everything asserted here is the
@@ -264,14 +264,14 @@ test.describe('list presets', () => {
     expect((await savePresetAs(page, META_PRESET)).status()).toBe(201)
 
     // The other arm of PATCH: name/description/colour only, with the four view
-    // blobs absent from the body. ListPresetUpdateSchema is
-    // `ListPresetInputSchema.partial()` and the route spreads each field in
+    // blobs absent from the body. LogPresetUpdateSchema is
+    // `LogPresetInputSchema.partial()` and the route spreads each field in
     // only when it is not undefined, so a regression here writes an empty
     // view over a good one rather than failing.
     const renamed = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        r.url().includes('/v1/me/list-presets/')
+        r.url().includes('/v1/me/log-presets/')
     )
     const menu = presetMenu(page)
     await openPresetMenu(page)
@@ -293,7 +293,7 @@ test.describe('list presets', () => {
     const deleted = page.waitForResponse(
       (r) =>
         r.request().method() === 'DELETE' &&
-        r.url().includes('/v1/me/list-presets/')
+        r.url().includes('/v1/me/log-presets/')
     )
     await menu
       .getByRole('button', {

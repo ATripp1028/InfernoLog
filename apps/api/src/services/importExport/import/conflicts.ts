@@ -22,7 +22,7 @@ import type {
 import { roundGddlTier } from '../../../utils/gddl'
 import { checkRatingConflicts } from '../../importExport/ratings'
 import { checkCollectionsMerge } from '../../importExport/collections'
-import { checkRankingMerge } from '../../importExport/ranking'
+import { checkRankingMerge } from '../../importExport/demonList'
 import {
   ExistingEventSnapshot,
   createFieldPusher,

@@ -31,7 +31,7 @@ describe('invalidateOnWrite', () => {
   it('refetches a view whose first load is still in flight, so the write is visible', async () => {
     const queryClient = new QueryClient()
     const { state, release, unsubscribe } = pendingQuery(queryClient, [
-      'ranking',
+      'demon-list',
     ])
 
     // The write lands while that first fetch is still open: its response was
@@ -42,7 +42,7 @@ describe('invalidateOnWrite', () => {
     await invalidated
 
     expect(state.calls).toBe(2)
-    expect(queryClient.getQueryData(['ranking'])).toBe('after')
+    expect(queryClient.getQueryData(['demon-list'])).toBe('after')
     unsubscribe()
   })
 

@@ -3,7 +3,7 @@
  *
  * Three things can only be checked here. The merge has to interleave two tables
  * by recorded time and stay stable across a page boundary, which needs real
- * rows with real timestamps. RANKING_REBALANCE has to be absent from every
+ * rows with real timestamps. DEMON_LIST_REBALANCE has to be absent from every
  * response, which is a property of the query rather than of any mapper. And the
  * level filter has to be a UNION over activity_log.levelId and the impact rows,
  * so an import that moved a level still appears in that level's history.
@@ -57,9 +57,9 @@ async function seedEvent(
   userId: string,
   opts: {
     eventType:
-      | 'RANKING_PLACEMENT'
-      | 'RANKING_REBALANCE'
-      | 'RANKING_BULK_REPLACE'
+      | 'DEMON_LIST_PLACEMENT'
+      | 'DEMON_LIST_REBALANCE'
+      | 'DEMON_LIST_BULK_REPLACE'
       | 'LOG_EDIT'
       | 'RATING_CONFIG_CHANGE'
     createdAt: Date
@@ -82,7 +82,7 @@ async function seedEvent(
           levelId,
           levelName: `Level ${levelId}`,
           role: 'MOVER' as const,
-          rankingIndex: String(10 - i),
+          listIndex: String(10 - i),
           positionBefore: i + 1,
           positionAfter: i + 1,
         })),
@@ -146,7 +146,7 @@ describe('GET /v1/me/activity', () => {
     const at = new Date('2026-08-25T12:00:00Z')
     const update = await seedProgressUpdate(user.id, { loggedAt: at })
     const event = await seedEvent(user.id, {
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       createdAt: at,
       levelId: update.inGameId,
       impactLevelIds: [update.inGameId],
@@ -163,7 +163,7 @@ describe('GET /v1/me/activity', () => {
       loggedAt: new Date('2026-08-25T09:00:00Z'),
     })
     await seedEvent(user.id, {
-      eventType: 'RANKING_REBALANCE',
+      eventType: 'DEMON_LIST_REBALANCE',
       createdAt: new Date('2026-08-25T12:00:00Z'),
       impactLevelIds: [level.inGameId],
     })
@@ -178,13 +178,13 @@ describe('GET /v1/me/activity', () => {
       loggedAt: new Date('2026-08-25T09:00:00Z'),
     })
     await seedEvent(user.id, {
-      eventType: 'RANKING_REBALANCE',
+      eventType: 'DEMON_LIST_REBALANCE',
       createdAt: new Date('2026-08-25T12:00:00Z'),
       impactLevelIds: [level.inGameId],
     })
 
     const { data } = await feed(user.id, `?levelId=${level.inGameId}`)
-    expect(data.every((r) => r.eventType !== 'RANKING_REBALANCE')).toBe(true)
+    expect(data.every((r) => r.eventType !== 'DEMON_LIST_REBALANCE')).toBe(true)
   })
 
   it('matches a level through its impact rows, not just the event column', async () => {
@@ -194,7 +194,7 @@ describe('GET /v1/me/activity', () => {
       loggedAt: new Date('2026-08-25T09:00:00Z'),
     })
     const replace = await seedEvent(user.id, {
-      eventType: 'RANKING_BULK_REPLACE',
+      eventType: 'DEMON_LIST_BULK_REPLACE',
       createdAt: new Date('2026-08-25T12:00:00Z'),
       impactLevelIds: [level.inGameId],
     })
@@ -212,7 +212,7 @@ describe('GET /v1/me/activity', () => {
       levelIds.push(inGameId)
     }
     await seedEvent(user.id, {
-      eventType: 'RANKING_BULK_REPLACE',
+      eventType: 'DEMON_LIST_BULK_REPLACE',
       createdAt: new Date('2026-08-25T12:00:00Z'),
       impactLevelIds: levelIds,
     })
@@ -251,7 +251,7 @@ describe('GET /v1/me/activity', () => {
       kind: 'COMPLETION',
     })
     await seedEvent(user.id, {
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       createdAt: new Date('2026-08-25T12:00:00Z'),
       levelId: update.inGameId,
       impactLevelIds: [update.inGameId],
@@ -269,18 +269,18 @@ describe('GET /v1/me/activity', () => {
       loggedAt: new Date('2026-08-25T08:00:00Z'),
     })
     const placement = await seedEvent(user.id, {
-      eventType: 'RANKING_PLACEMENT',
+      eventType: 'DEMON_LIST_PLACEMENT',
       createdAt: new Date('2026-08-25T09:00:00Z'),
       levelId: level.inGameId,
       impactLevelIds: [level.inGameId],
     })
     const replace = await seedEvent(user.id, {
-      eventType: 'RANKING_BULK_REPLACE',
+      eventType: 'DEMON_LIST_BULK_REPLACE',
       createdAt: new Date('2026-08-25T10:00:00Z'),
       impactLevelIds: [level.inGameId],
     })
     await seedEvent(user.id, {
-      eventType: 'RANKING_REBALANCE',
+      eventType: 'DEMON_LIST_REBALANCE',
       createdAt: new Date('2026-08-25T11:00:00Z'),
       impactLevelIds: [level.inGameId],
     })
@@ -291,7 +291,7 @@ describe('GET /v1/me/activity', () => {
       fieldChanges: [{ fieldName: 'notes', category: 'SESSION_DETAIL' }],
     })
 
-    const { data } = await feed(user.id, '?kind=RANKING')
+    const { data } = await feed(user.id, '?kind=DEMON_LIST')
     expect(data.map((r) => r.id)).toEqual([replace.id, placement.id])
   })
 

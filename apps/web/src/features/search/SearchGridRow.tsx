@@ -1,6 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
-import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
+import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { formatNumber } from '@/features/logging/format'
 import { gdStatIconSrc, difficultyLabel } from '@/lib/gdAssets'
 import { backOriginState } from '@/lib/backOrigin'

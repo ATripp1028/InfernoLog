@@ -1,7 +1,7 @@
 // GET /v1/me/progress/:levelId — the Level Page payload.
 //
 // Returns: level_progress fields, level metadata, ALL progress_updates (with
-// list_references and rating_scores, newest-first), classicRanking placement,
+// list_references and rating_scores, newest-first), classicDemonList placement,
 // and the computed runsGraph array (see computeRunsGraph).
 //
 // The Level Page timeline shows complete history without the "show
@@ -36,8 +36,8 @@ app.get('/me/progress/:levelId', async (c) => {
       completionTime: true,
       createdAt: true,
       updatedAt: true,
-      classicRanking: {
-        select: { id: true, rankingIndex: true },
+      classicDemonList: {
+        select: { id: true, listIndex: true },
       },
       ratingScores: {
         select: { categoryId: true, score: true },
@@ -155,14 +155,14 @@ app.get('/me/progress/:levelId', async (c) => {
 
   const runsGraph = computeRunsGraph(updatesForGraph, drops, worstFailForGraph)
 
-  // Derive rank position from rankingIndex: count how many of the user's
-  // placed completions have a higher (easier) rankingIndex. 1-based.
+  // Derive rank position from listIndex: count how many of the user's
+  // placed completions have a higher (easier) listIndex. 1-based.
   let rankPosition: number | null = null
-  if (lp.classicRanking) {
-    const count = await prisma.classicRanking.count({
+  if (lp.classicDemonList) {
+    const count = await prisma.classicDemonList.count({
       where: {
         userId,
-        rankingIndex: { gt: lp.classicRanking.rankingIndex },
+        listIndex: { gt: lp.classicDemonList.listIndex },
       },
     })
     rankPosition = count + 1
@@ -190,8 +190,8 @@ app.get('/me/progress/:levelId', async (c) => {
       createdAt: lp.createdAt,
       updatedAt: lp.updatedAt,
       // Ranking placement (null if unplaced or not completed)
-      rankingIndex: lp.classicRanking
-        ? toNum(lp.classicRanking.rankingIndex)
+      listIndex: lp.classicDemonList
+        ? toNum(lp.classicDemonList.listIndex)
         : null,
       rankPosition,
       // Completion media (video/highlight) — unambiguous in v1 (one completion

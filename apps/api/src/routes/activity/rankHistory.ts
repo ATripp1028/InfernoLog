@@ -1,5 +1,5 @@
 // GET /v1/me/levels/:levelId/rank-history — one level's position history in the
-// authenticated user's classic ranking.
+// authenticated user's classic demon list.
 //
 // The user's OWN level page only. There is deliberately no public equivalent:
 // activity_log.visibility is inert, and a ranking is personal data. The

@@ -108,8 +108,8 @@ beforeEach(() => {
   prisma.ratingCategory.create.mockReset()
   prisma.ratingCategory.deleteMany.mockReset()
   prisma.ratingScore.deleteMany.mockReset()
-  prisma.listPreset.findMany.mockReset().mockResolvedValue([] as never)
-  prisma.listPreset.update.mockReset()
+  prisma.logPreset.findMany.mockReset().mockResolvedValue([] as never)
+  prisma.logPreset.update.mockReset()
   prisma.user.update.mockReset()
   prisma.$transaction.mockReset().mockResolvedValue([] as never)
   prisma.activityLog.create.mockReset()
@@ -379,7 +379,7 @@ describe('PUT /me/rating-config — applying the config', () => {
 
   it('purges the dropped category out of the caller’s list presets', async () => {
     userOwns(CAT_A, CAT_B)
-    prisma.listPreset.findMany.mockResolvedValue([
+    prisma.logPreset.findMany.mockResolvedValue([
       {
         id: 'preset-1',
         sorts: [
@@ -399,7 +399,7 @@ describe('PUT /me/rating-config — applying the config', () => {
       config({ categories: [{ id: CAT_A, name: 'Gameplay', weight: 1 }] })
     )
 
-    expect(prisma.listPreset.update).toHaveBeenCalledWith({
+    expect(prisma.logPreset.update).toHaveBeenCalledWith({
       where: { id: 'preset-1' },
       data: {
         sorts: [{ key: 'date', dir: 'desc' }],
@@ -412,7 +412,7 @@ describe('PUT /me/rating-config — applying the config', () => {
 
   it('leaves presets that never referenced the dropped category alone', async () => {
     userOwns(CAT_A, CAT_B)
-    prisma.listPreset.findMany.mockResolvedValue([
+    prisma.logPreset.findMany.mockResolvedValue([
       {
         id: 'preset-1',
         sorts: [{ key: 'date', dir: 'desc' }],
@@ -426,7 +426,7 @@ describe('PUT /me/rating-config — applying the config', () => {
       config({ categories: [{ id: CAT_A, name: 'Gameplay', weight: 1 }] })
     )
 
-    expect(prisma.listPreset.update).not.toHaveBeenCalled()
+    expect(prisma.logPreset.update).not.toHaveBeenCalled()
   })
 
   it('issues no delete when nothing was dropped', async () => {
@@ -437,7 +437,7 @@ describe('PUT /me/rating-config — applying the config', () => {
     expect(prisma.ratingScore.deleteMany).not.toHaveBeenCalled()
     expect(prisma.ratingCategory.deleteMany).not.toHaveBeenCalled()
     // No categories dropped means the presets are never even read.
-    expect(prisma.listPreset.findMany).not.toHaveBeenCalled()
+    expect(prisma.logPreset.findMany).not.toHaveBeenCalled()
   })
 
   it('persists the enjoyment settings onto the user', async () => {

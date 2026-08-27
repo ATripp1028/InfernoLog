@@ -72,14 +72,14 @@ Cursor-based (keyset) pagination is the standard for **new** list endpoints. Off
 
 This is **not** universal today, and the exceptions are intentional:
 
-| Endpoint                     | Scheme                     | Why                                                                                                                                       |
-| ---------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /v1/levels/browse`      | cursor (keyset)            | The standard. Stable ordering over a large cache.                                                                                         |
-| `GET /v1/me/export`          | `offset` + `limit`         | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive.                                          |
-| `GET /v1/me/progress`        | **none** — full payload    | The List page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
-| `GET /v1/me/ranking/classic` | **none** — full payload    | Returns placed and unplaced columns together; the ranking UI is a drag-and-drop board over the whole set.                                 |
-| `GET /v1/levels/search`      | **none** — `LIMIT 20`      | Typeahead.                                                                                                                                |
-| `GET /v1/levels/gd-search`   | **none** — first page only | One upstream GD query; never paginated (see below).                                                                                       |
+| Endpoint                        | Scheme                     | Why                                                                                                                                      |
+| ------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/levels/browse`         | cursor (keyset)            | The standard. Stable ordering over a large cache.                                                                                        |
+| `GET /v1/me/export`             | `offset` + `limit`         | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive.                                         |
+| `GET /v1/me/progress`           | **none** — full payload    | The Log page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
+| `GET /v1/me/demon-list/classic` | **none** — full payload    | Returns placed and unplaced columns together; the demon list UI is a drag-and-drop board over the whole set.                             |
+| `GET /v1/levels/search`         | **none** — `LIMIT 20`      | Typeahead.                                                                                                                               |
+| `GET /v1/levels/gd-search`      | **none** — first page only | One upstream GD query; never paginated (see below).                                                                                      |
 
 ---
 
@@ -159,8 +159,8 @@ GET  /v1/me/progress
 GET  /v1/me/progress/{levelId}
 ```
 
-- `GET /v1/me/progress` — Backs the List page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata, the **representative** progress update (the completion update when `status = completed`, otherwise the most recent), its `listReferences`, a query-time-computed `overallRating` (simpleRating in SIMPLE mode; weighted average of `ratingScores` in WEIGHTED mode — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicRanking` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
-- `GET /v1/me/progress/{levelId}` — The Level Page payload: `level_progress` fields, level metadata, **all** progress updates (with list references and rating scores, newest-first), the `classicRanking` placement, and the computed `runsGraph` array (`utils/runsGraph.ts`). The Level Page timeline shows complete history without the "show non-completions" toggle — that toggle governs The List and The Ranking only.
+- `GET /v1/me/progress` — Backs the Log page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata, the **representative** progress update (the completion update when `status = completed`, otherwise the most recent), its `listReferences`, a query-time-computed `overallRating` (simpleRating in SIMPLE mode; weighted average of `ratingScores` in WEIGHTED mode — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicDemonList` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
+- `GET /v1/me/progress/{levelId}` — The Level Page payload: `level_progress` fields, level metadata, **all** progress updates (with list references and rating scores, newest-first), the `classicDemonList` placement, and the computed `runsGraph` array (`utils/runsGraph.ts`). The Level Page timeline shows complete history without the "show non-completions" toggle — that toggle governs the Log and the demon list only.
 
 **Writes** — per-action and me-scoped. The authenticated user always comes from the Cognito JWT, never from the path or payload:
 
@@ -179,7 +179,7 @@ An earlier spec had a single generic `POST /v1/users/{usernameOrId}/progress`. I
 - `POST /v1/me/progress` — Creates a non-completion progress update (`kind = progress`). Discriminated on `mode`: `from_zero` (single best `percentage`, floor 0) or `from_run` (`runFrom` / `runTo` segment, 0–100). Logging progress on a **dropped** level flips it back to `in_progress` (see `LOGGING_FLOW_RECONCILIATION.md`).
 - `POST /v1/me/drops` — Creates a `kind = drop` progress update with optional `date`, `attempts`, `notes`, and per-entry `visibility` (the same fields every progress update uses, not drop-specific ones), and sets `level_progress.status = dropped`. Drop-from-scratch is allowed (a level the user has never logged), and a level can be dropped more than once — each drop is its own row.
 - `PATCH /v1/me/progress/{levelId}` — Edits the most recent progress update and/or the `LevelProgress` metadata. All fields optional; only present keys are written. "Most recent" is the completion if one exists, then by `loggedAt` desc — matching the Level Page's display order.
-- `DELETE /v1/me/progress/{levelId}` — Deletes the whole entry: every progress update (and their rating scores / list references) plus the `ClassicRanking` row, per the schema's `onDelete: Cascade` relations. **GDDL caveat:** GDDL records cannot be deleted through the GDDL API; users must remove them on the GDDL platform directly. This is stated in the response body so the frontend can surface it in the delete confirmation.
+- `DELETE /v1/me/progress/{levelId}` — Deletes the whole entry: every progress update (and their rating scores / list references) plus the `ClassicDemonList` row, per the schema's `onDelete: Cascade` relations. **GDDL caveat:** GDDL records cannot be deleted through the GDDL API; users must remove them on the GDDL platform directly. This is stated in the response body so the frontend can surface it in the delete confirmation.
 - `DELETE /v1/me/progress/{levelId}/updates/{progressUpdateId}` — Removes a single logged entry rather than the whole level. Deleting the last remaining update deletes the entire `level_progress` instead.
 
 Each create returns the full resulting record (`{ levelProgress, progressUpdate }`) so the client can update the UI without a follow-up `GET`.
@@ -206,10 +206,10 @@ Want to Beat holds only unbeaten levels — every completion write path calls `r
 ## Rankings
 
 ```
-GET    /v1/me/ranking/classic
-POST   /v1/me/ranking/classic
-PATCH  /v1/me/ranking/classic/{levelProgressId}
-DELETE /v1/me/ranking/classic/{levelProgressId}
+GET    /v1/me/demon-list/classic
+POST   /v1/me/demon-list/classic
+PATCH  /v1/me/demon-list/classic/{levelProgressId}
+DELETE /v1/me/demon-list/classic/{levelProgressId}
 ```
 
 - `GET` — Returns both the placed and unplaced columns in one payload. No pagination, no query params.
@@ -217,7 +217,7 @@ DELETE /v1/me/ranking/classic/{levelProgressId}
 - `PATCH` — Reorder a placed entry.
 - `DELETE` — Unplace, returning it to the panel.
 
-All ordering and fractional-indexing logic lives in `services/ranking.ts`; the handlers only parse, dispatch, and map service errors to status codes. Platformer ranking is not implemented (see Planned).
+All ordering and fractional-indexing logic lives in `services/demonList.ts`; the handlers only parse, dispatch, and map service errors to status codes. Platformer ranking is not implemented (see Planned).
 
 ## Rating Configuration
 
@@ -266,13 +266,13 @@ POST   /v1/me/gddl-records/{levelId}
 ## List Presets
 
 ```
-GET    /v1/me/list-presets
-POST   /v1/me/list-presets
-PATCH  /v1/me/list-presets/{id}
-DELETE /v1/me/list-presets/{id}
+GET    /v1/me/log-presets
+POST   /v1/me/log-presets
+PATCH  /v1/me/log-presets/{id}
+DELETE /v1/me/log-presets/{id}
 ```
 
-Saved filter/sort/column configurations for the List page.
+Saved filter/sort/column configurations for the Log page.
 
 ## Import & Export
 
@@ -331,7 +331,7 @@ POST /v1/me/ranking/platformer
 ...
 ```
 
-Mirrors the classic ranking surface. Not implemented — only `ClassicRanking` exists in the schema.
+Mirrors the classic ranking surface. Not implemented — only `ClassicDemonList` exists in the schema.
 
 ## Cross-User Export
 

@@ -139,8 +139,8 @@ test.describe('collections', () => {
   test('drops a level from Want to Beat when its completion is logged', async ({
     page,
   }) => {
-    // /list keeps the default FAB actions, so Want to Beat is one tap away.
-    await page.goto('/list')
+    // /log keeps the default FAB actions, so Want to Beat is one tap away.
+    await page.goto('/log')
     await openQuickAction(page, 'Add to Want to Beat')
     await addLevel(page, FINGERDASH)
 
@@ -150,7 +150,7 @@ test.describe('collections', () => {
     await openCollection(page, 'Want to Beat')
     await expect(entryRow(page, FINGERDASH)).toBeVisible()
 
-    await page.goto('/list')
+    await page.goto('/log')
     await logCompletion(page, FINGERDASH, '203')
     await page.getByRole('button', { name: 'Place later' }).click()
 

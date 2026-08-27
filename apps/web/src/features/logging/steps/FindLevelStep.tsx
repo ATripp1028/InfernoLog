@@ -9,7 +9,7 @@ import {
   useLevelSearch,
   useResolveLevel,
 } from '@/lib/api/logging'
-import { useMyProgress } from '@/lib/api/list'
+import { useMyProgress } from '@/lib/api/log'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { GdSearchSection } from '@/features/search/GdSearchSection'

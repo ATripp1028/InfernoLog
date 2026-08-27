@@ -133,6 +133,7 @@ export function parseResult(overrides: Partial<ParseResult> = {}): ParseResult {
     ratings: [],
     ratingCategories: [],
     duplicateLevelIds: [],
+    legacyTabs: [],
     ...overrides,
   }
 }
@@ -197,6 +198,7 @@ export const EMPTY_FLAGS: AllFlags = {
   lists: [],
   ratings: [],
   duplicates: [],
+  legacyTabs: [],
 }
 
 /**

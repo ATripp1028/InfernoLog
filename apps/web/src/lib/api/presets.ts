@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
-import type { FilterState, SortSpec } from '@/features/list/types'
-import { normalizeFilterState } from '@/features/list/types'
-import type { ColumnId, ColumnVisibility } from '@/features/list/columns'
-import type { PresetColorId } from '@/features/list/presets'
+import type { FilterState, SortSpec } from '@/features/log/types'
+import { normalizeFilterState } from '@/features/log/types'
+import type { ColumnId, ColumnVisibility } from '@/features/log/columns'
+import type { PresetColorId } from '@/features/log/presets'
 
 /**
  * A saved List view: its sorts, filters, column set, and column order.
@@ -72,7 +72,7 @@ export function useListPresets() {
     queryFn: async (): Promise<ListPreset[]> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ListPreset[] }>(
-        '/v1/me/list-presets',
+        '/v1/me/log-presets',
         { token, method: 'GET' }
       )
       // Normalize stored filters so presets saved before a filter field was
@@ -97,7 +97,7 @@ export function useCreatePreset() {
     mutationFn: async (input: CreatePresetInput): Promise<ListPreset> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ListPreset }>(
-        '/v1/me/list-presets',
+        '/v1/me/log-presets',
         { token, method: 'POST', body: input }
       )
       return data
@@ -135,7 +135,7 @@ export function useUpdatePreset() {
     }): Promise<ListPreset> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: ListPreset }>(
-        `/v1/me/list-presets/${encodeURIComponent(id)}`,
+        `/v1/me/log-presets/${encodeURIComponent(id)}`,
         { token, method: 'PATCH', body: input }
       )
       return data
@@ -157,7 +157,7 @@ export function useDeletePreset() {
   return useMutation({
     mutationFn: async (id: string): Promise<void> => {
       const token = await getIdToken()
-      await apiFetch(`/v1/me/list-presets/${encodeURIComponent(id)}`, {
+      await apiFetch(`/v1/me/log-presets/${encodeURIComponent(id)}`, {
         token,
         method: 'DELETE',
       })

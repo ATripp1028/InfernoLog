@@ -15,7 +15,7 @@ const LEVEL_ID = '128'
 
 const { navigate, back, openForEdit } = vi.hoisted(() => ({
   navigate: vi.fn(),
-  back: { href: '/list', replace: false, isOrigin: false, onClick: vi.fn() },
+  back: { href: '/log', replace: false, isOrigin: false, onClick: vi.fn() },
   openForEdit: vi.fn(),
 }))
 
@@ -36,7 +36,7 @@ vi.mock('@/lib/api/levelPage', () => ({
   useLevelPage: vi.fn(),
   useDeleteProgressUpdate: vi.fn(),
 }))
-vi.mock('@/lib/api/list', () => ({ useDeleteProgress: vi.fn() }))
+vi.mock('@/lib/api/log', () => ({ useDeleteProgress: vi.fn() }))
 vi.mock('@/lib/api/logging', () => ({ useSubmitGddlRecord: vi.fn() }))
 
 const { toast } = await import('@/components/generic/sonner')
@@ -44,7 +44,7 @@ const { useFabActions } = await import('@/context/FabActionsContext')
 const { useMe } = await import('@/lib/api/me')
 const { useLevelPage, useDeleteProgressUpdate } =
   await import('@/lib/api/levelPage')
-const { useDeleteProgress } = await import('@/lib/api/list')
+const { useDeleteProgress } = await import('@/lib/api/log')
 const { useSubmitGddlRecord } = await import('@/lib/api/logging')
 const { useLevelDetailPage } = await import('../useLevelDetailPage')
 
@@ -429,7 +429,7 @@ describe('useLevelDetailPage', () => {
 
       expect(deleteLevel).toHaveBeenCalledWith(LEVEL_ID, expect.anything())
       expect(toast.success).toHaveBeenCalledWith('Level deleted')
-      expect(navigate).toHaveBeenCalledWith({ to: '/list' })
+      expect(navigate).toHaveBeenCalledWith({ to: '/log' })
       expect(result.current.pendingDelete).toBe(false)
     })
 
@@ -478,7 +478,7 @@ describe('useLevelDetailPage', () => {
       const { onSuccess } = deleteEntry.mock.calls[0]![1]
       act(() => onSuccess({ deletedLevelProgress: true }))
 
-      expect(navigate).toHaveBeenCalledWith({ to: '/list' })
+      expect(navigate).toHaveBeenCalledWith({ to: '/log' })
     })
 
     it('reports a failure and keeps the entry armed', () => {

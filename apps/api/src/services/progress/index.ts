@@ -597,7 +597,7 @@ export async function applyEdit(
  * `loggedAt` order under the same rules the write paths apply on create: a
  * COMPLETION or DROP sets status outright, a PROGRESS only flips DROPPED back
  * to IN_PROGRESS. If that walks status away from COMPLETED, the now-invalid
- * classic_ranking entry is deleted too — only COMPLETED entries may have one.
+ * classic_demon_list entry is deleted too — only COMPLETED entries may have one.
  *
  * RatingScore rows live on the LevelProgress (one current rating per level,
  * independent of any single event), so deleting a completion does NOT clear
@@ -640,9 +640,9 @@ export async function deleteProgressUpdate(
       // follows. Other levels' impact rows that name this one survive on their
       // denormalised levelName; see purgeLevelActivity.
       //
-      // No RANKING_UNRANKED is emitted for the classic_ranking row the delete
+      // No DEMON_LIST_REMOVED is emitted for the classic_demon_list row the delete
       // cascades away: the event would be scoped to this level and deleted in
-      // the same breath, and the surviving levels' rankingIndex values are
+      // the same breath, and the surviving levels' listIndex values are
       // untouched by a delete, so nothing about reconstruction changes.
       await purgeLevelActivity(tx, userId, levelId)
       await tx.levelProgress.delete({ where: { id: lp.id } })
@@ -678,17 +678,17 @@ export async function deleteProgressUpdate(
       // Walking status away from COMPLETED drops the level out of the classic
       // ranking, which is an unranking however indirectly it was reached — so
       // it emits the same event a manual unplace does. This is the write path
-      // most likely to be forgotten; the ranking sweep in
+      // most likely to be forgotten; the demon list sweep in
       // invariants.integration.test.ts is what catches it if it is.
       const before = await readRankingSnapshot(tx, userId)
-      const deleted = await tx.classicRanking.deleteMany({
+      const deleted = await tx.classicDemonList.deleteMany({
         where: { levelProgressId: lp.id },
       })
       if (deleted.count > 0) {
         const after = await readRankingSnapshot(tx, userId)
         await recordRankingMove(tx, {
           userId,
-          eventType: 'RANKING_UNRANKED',
+          eventType: 'DEMON_LIST_REMOVED',
           moverLevelProgressId: lp.id,
           before,
           after,

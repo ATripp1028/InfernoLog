@@ -50,7 +50,7 @@ vi.mock('../../utils/gddl', async (importOriginal) => {
 const { commitImportBatch, checkImportConflicts } =
   await import('../importExport/import')
 const { commitImportRanking, checkRankingMerge } =
-  await import('../importExport/ranking')
+  await import('../importExport/demonList')
 const { commitImportCollections, checkCollectionsMerge } =
   await import('../importExport/collections')
 const { commitImportRatings } = await import('../importExport/ratings')
@@ -1180,7 +1180,7 @@ describe('checkImportConflicts', () => {
 })
 
 describe('commitImportRanking', () => {
-  it('replaces the ranking and skips levels that are not completed', async () => {
+  it('replaces the demon list and skips levels that are not completed', async () => {
     await seedLevels()
     const user = await seedUser(prisma)
     await commitImportBatch(user.id, randomUUID(), [

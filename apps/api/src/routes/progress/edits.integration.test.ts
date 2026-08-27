@@ -213,7 +213,7 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
     ).toBeNull()
   })
 
-  it('reverts status and removes the classic ranking when the completion is deleted', async () => {
+  it('reverts status and removes the classic demon list when the completion is deleted', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '912' })
     const lp = await seedProgress(prisma, {
@@ -229,8 +229,8 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
       where: { id: lp.id },
       data: { coinsCollected: 3 },
     })
-    await prisma.classicRanking.create({
-      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
+    await prisma.classicDemonList.create({
+      data: { userId: user.id, levelProgressId: lp.id, listIndex: 1 },
     })
     const completion = await prisma.progressUpdate.findFirstOrThrow({
       where: { levelProgressId: lp.id, kind: 'COMPLETION' },
@@ -246,7 +246,7 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
     // Only meaningful once completed — cleared when the completion is undone.
     expect(remaining.coinsCollected).toBeNull()
     expect(
-      await prisma.classicRanking.findUnique({
+      await prisma.classicDemonList.findUnique({
         where: { levelProgressId: lp.id },
       })
     ).toBeNull()

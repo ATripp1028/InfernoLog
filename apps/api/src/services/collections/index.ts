@@ -2,13 +2,13 @@
 // (Want to Beat / Favorites / Least Favorites) plus custom named collections.
 //
 // Reads and writes live here; routes/collections.ts stays a thin HTTP shell,
-// mirroring the ranking.ts ↔ services/ranking.ts split.
+// mirroring the demon list.ts ↔ services/demonList.ts split.
 //
 // Ordering: CollectionEntry.rankingIndex is a fractional index displayed
 // ascending (lower = earlier). Adds append at the end; reorders bisect the gap
 // between the two neighbours the client drops between, renormalising to
 // integers when the gap closes past the rebalance threshold (the same pattern
-// as the classic ranking — see utils/fractionalIndex.ts).
+// as the classic demon list — see utils/fractionalIndex.ts).
 //
 // Want to Beat is the one collection with membership constraints: it only
 // accepts levels the user has NOT completed, and a level is auto-removed from

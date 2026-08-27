@@ -24,7 +24,7 @@ import { parseJsonBody } from '../../utils/requestBody'
 import {
   purgeCategoriesFromPreset,
   type PresetViewFields,
-} from '../../services/listPresets'
+} from '../../services/logPresets'
 import { ratingConfigChangeData } from '../../services/activityLog'
 import { buildRatingConfigChanges } from '../../services/activityLog/ratingConfig'
 
@@ -133,7 +133,7 @@ app.put('/me/rating-config', async (c) => {
   const deletedIds = new Set(toDelete)
   const presetPurges: Array<{ id: string; fields: PresetViewFields }> = []
   if (deletedIds.size > 0) {
-    const presets = await prisma.listPreset.findMany({
+    const presets = await prisma.logPreset.findMany({
       where: { userId },
       select: {
         id: true,
@@ -232,7 +232,7 @@ app.put('/me/rating-config', async (c) => {
       // Purge the deleted categories out of every preset that referenced
       // them. Ownership is already established by the userId-scoped read.
       ...presetPurges.map((p) =>
-        prisma.listPreset.update({
+        prisma.logPreset.update({
           where: { id: p.id },
           data: {
             sorts: p.fields.sorts as object,

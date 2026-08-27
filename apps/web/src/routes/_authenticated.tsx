@@ -9,7 +9,7 @@ import { setSentryUser } from '@/lib/sentry'
 import { useRouteGuard } from '@/lib/useRouteGuard'
 import { LoggingFlowProvider } from '@/features/logging/LoggingFlowProvider'
 import { toast } from '@/components/generic/sonner'
-import { rankingQueryKey } from '@/lib/api/ranking'
+import { demonListQueryKey } from '@/lib/api/demonList'
 import { collectionsQueryKey } from '@/lib/api/collections'
 import { ImportStatusToast } from '@/features/import/ImportStatusToast'
 import { GddlSyncProvider } from '@/features/settings/GddlSyncProvider'
@@ -122,9 +122,9 @@ function ReorderSyncWatcher() {
     }
     if (!rankingWasActive.current) return
     rankingWasActive.current = false
-    if (!rankingHadError.current) toast.success('Ranking saved')
+    if (!rankingHadError.current) toast.success('Demon list saved')
     rankingHadError.current = false
-    void qc.invalidateQueries({ queryKey: rankingQueryKey })
+    void qc.invalidateQueries({ queryKey: demonListQueryKey })
   }, [pendingRanking, qc])
 
   const pendingCollections = useMutationState({

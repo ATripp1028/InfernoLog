@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  MOBILE_BAR_KEYS,
   MOBILE_OVERFLOW_KEYS,
   NAV_ITEMS,
   isBarItemActive,
@@ -46,7 +47,7 @@ describe('NAV_ITEMS', () => {
 
 describe('navItemByKey', () => {
   it('finds a destination by key', () => {
-    expect(navItemByKey('list').label).toBe('List')
+    expect(navItemByKey('log').label).toBe('Log')
   })
 
   // The nav is a fixed table, so a miss is a typo in the caller rather than a
@@ -63,18 +64,18 @@ describe('MOBILE_OVERFLOW_KEYS', () => {
     }
   })
 
-  // The bar has four fixed slots (List, Ranking, Search, More) plus the FAB;
+  // The bar has four fixed slots (MOBILE_BAR_KEYS plus More) and the FAB;
   // everything else has to be reachable through the More sheet or it becomes
   // unreachable on mobile entirely.
   it('leaves no destination unreachable on mobile', () => {
-    const inBar = ['list', 'ranking', 'search']
+    const inBar = MOBILE_BAR_KEYS
     const reachable = new Set<string>([...inBar, ...MOBILE_OVERFLOW_KEYS])
 
     expect(NAV_ITEMS.filter((n) => !reachable.has(n.key))).toEqual([])
   })
 
   it('does not push a bar tab into the overflow sheet as well', () => {
-    for (const key of ['list', 'ranking', 'search']) {
+    for (const key of MOBILE_BAR_KEYS) {
       expect(MOBILE_OVERFLOW_KEYS).not.toContain(key)
     }
   })
@@ -84,7 +85,7 @@ describe('MOBILE_OVERFLOW_KEYS', () => {
 // see which section they are inside.
 describe('isRailItemActive', () => {
   it('lights the destination the user is on', () => {
-    expect(isRailItemActive(item('list'), '/list')).toBe(true)
+    expect(isRailItemActive(item('log'), '/log')).toBe(true)
   })
 
   it('stays lit on a detail sub-page', () => {
@@ -92,13 +93,13 @@ describe('isRailItemActive', () => {
   })
 
   it('does not light a different destination', () => {
-    expect(isRailItemActive(item('list'), '/ranking')).toBe(false)
+    expect(isRailItemActive(item('log'), '/demon-list')).toBe(false)
   })
 
-  // /listing is not inside /list — matching on a bare prefix would light the
+  // /logging is not inside /log — matching on a bare prefix would light the
   // wrong tab for any route whose name merely starts the same way.
   it('does not light a route that merely shares a prefix', () => {
-    expect(isRailItemActive(item('list'), '/listing')).toBe(false)
+    expect(isRailItemActive(item('log'), '/logging')).toBe(false)
   })
 
   // The Global Level Page is part of the Search tab but lives on its own
@@ -116,17 +117,17 @@ describe('isRailItemActive', () => {
 // sub-page — that page's own back affordance says where the user is.
 describe('isBarItemActive', () => {
   it('lights the destination the user is on', () => {
-    expect(isBarItemActive(item('list'), '/list')).toBe(true)
+    expect(isBarItemActive(item('log'), '/log')).toBe(true)
   })
 
   it('goes dark on a detail sub-page', () => {
-    expect(isBarItemActive(item('list'), '/list/abc')).toBe(false)
+    expect(isBarItemActive(item('log'), '/log/abc')).toBe(false)
   })
 
   // The one place the two rules deliberately disagree.
   it('differs from the rail exactly on sub-pages', () => {
-    expect(isRailItemActive(item('list'), '/list/abc')).toBe(true)
-    expect(isBarItemActive(item('list'), '/list/abc')).toBe(false)
+    expect(isRailItemActive(item('log'), '/log/abc')).toBe(true)
+    expect(isBarItemActive(item('log'), '/log/abc')).toBe(false)
   })
 
   // activePrefixes still counts — the Global Level Page is the Search tab, not
@@ -136,19 +137,19 @@ describe('isBarItemActive', () => {
   })
 
   it('does not light a different destination', () => {
-    expect(isBarItemActive(item('ranking'), '/list')).toBe(false)
+    expect(isBarItemActive(item('demon-list'), '/log')).toBe(false)
   })
 
   it('lights at most one bar tab at a time', () => {
-    const tabs = ['list', 'ranking', 'search'].map(item)
+    const tabs = MOBILE_BAR_KEYS.map(item)
 
-    for (const path of ['/list', '/ranking', '/search', '/levels/128']) {
+    for (const path of ['/log', '/demon-list', '/search', '/levels/128']) {
       expect(tabs.filter((t) => isBarItemActive(t, path))).toHaveLength(1)
     }
   })
 
   it('lights nothing on a page outside the nav', () => {
-    const tabs = ['list', 'ranking', 'search'].map(item)
+    const tabs = MOBILE_BAR_KEYS.map(item)
 
     expect(tabs.some((t) => isBarItemActive(t, '/settings'))).toBe(false)
   })

@@ -240,8 +240,8 @@ app.patch('/me/username', async (c) => {
 // and (via LevelProgress -> ProgressUpdate) RatingScore independently, and
 // Postgres validates the categoryId FK before the RatingScore side of that
 // cascade is guaranteed to have run, throwing P2003 otherwise. Everything
-// else (LevelProgress, ProgressUpdate, ClassicRanking,
-// Collection, ApiKey, RatingCategory, ListPreset, ImportJob, ...) cascades
+// else (LevelProgress, ProgressUpdate, ClassicDemonList,
+// Collection, ApiKey, RatingCategory, LogPreset, ImportJob, ...) cascades
 // from the `users` delete.
 app.delete('/me', async (c) => {
   const userId = c.get('userId')

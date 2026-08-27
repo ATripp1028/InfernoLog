@@ -21,7 +21,7 @@
 // is a shared cache):
 //
 //   User ──┬── LevelProgress ──┬── ProgressUpdate
-//          │                   ├── ClassicRanking
+//          │                   ├── ClassicDemonList
 //          │                   └── RatingScore ── RatingCategory
 //          └── Collection ── CollectionEntry
 //
@@ -151,37 +151,37 @@ enum EntryVisibility {
 // Two event types rewrite the whole fractional-index space at once, and they
 // are separate BECAUSE one is visible to the user and the other is not:
 //
-//   RANKING_BULK_REPLACE — the spreadsheet import replaced the user's ranking.
+//   DEMON_LIST_BULK_REPLACE — the spreadsheet import replaced the user's ranking.
 //     The order the user sees really did change, so this is a normal
 //     user-facing event. It is ONE event for the whole replace, not one per
 //     level: the user performed a single import, and a feed that spelled it out
 //     level by level would bury every other event they have. The levels it
 //     touched are its impact rows.
 //
-//   RANKING_REBALANCE — INTERNAL ONLY. The renormalisation inside
+//   DEMON_LIST_REBALANCE — INTERNAL ONLY. The renormalisation inside
 //     services/ranking, which rewrites every index while leaving the ORDER
-//     untouched. It exists so every level's logged rankingIndex history stays
+//     untouched. It exists so every level's logged listIndex history stays
 //     in one coordinate system and reconstruction can't silently drift. The
 //     user saw nothing and did nothing, so it must be filtered out of any
 //     Log/timeline surface and out of any future Discord event-type → channel
 //     mapping. It is the only hidden type in this enum.
 enum ActivityEventType {
-  RANKING_PLACEMENT
-  RANKING_REORDER
-  RANKING_UNRANKED
-  RANKING_BULK_REPLACE
-  RANKING_REBALANCE
+  DEMON_LIST_PLACEMENT
+  DEMON_LIST_REORDER
+  DEMON_LIST_REMOVED
+  DEMON_LIST_BULK_REPLACE
+  DEMON_LIST_REBALANCE
   LOG_EDIT
   RATING_CONFIG_CHANGE
 }
 
-// Why a level appears on a ranking event. MOVER is the level the user acted
-// on (and, on a RANKING_REBALANCE, every level whose index was rewritten —
+// Why a level appears on a demon list event. MOVER is the level the user acted
+// on (and, on a DEMON_LIST_REBALANCE, every level whose index was rewritten —
 // nothing "moved" there, but nothing is a bystander either). NEIGHBOR is a
 // level immediately adjacent to the mover before or after the move, carried so
 // the event records the local context it changed. Levels further down the list
 // whose ordinal merely shifted are deliberately NOT recorded — see
-// docs/RANKING_SYSTEM.md, "direct events only".
+// docs/DEMON_LIST.md, "direct events only".
 enum ActivityImpactRole {
   MOVER
   NEIGHBOR
@@ -415,11 +415,11 @@ model User {
 
   // Relations
   levelProgress         LevelProgress[]
-  classicRankings       ClassicRanking[]
+  classicDemonList      ClassicDemonList[]
   collections           Collection[]
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
-  listPresets           ListPreset[]
+  logPresets            LogPreset[]
   importJob             ImportJob?
   robtopBudget          RobtopUserBudget?
   reportsSubmitted      Report[]             @relation("ReporterRelation")
@@ -659,7 +659,7 @@ model LevelProgress {
   user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   level           Level                @relation(fields: [levelId], references: [inGameId])
   progressUpdates ProgressUpdate[]
-  classicRanking  ClassicRanking?
+  classicDemonList ClassicDemonList?
   ratingScores    RatingScore[]
 
   @@unique([userId, levelId]) // One LevelProgress per user per level
@@ -829,33 +829,33 @@ model RatingScore {
 // rebalance() in services/ranking. The spreadsheet import's full replace
 // rewrites the same index space the same way.
 //
-// EVERY write that touches rankingIndex must emit an ActivityLog event
+// EVERY write that touches listIndex must emit an ActivityLog event
 // (see services/activityLog and docs/EVENT_LOG.md). An index written without
 // one is a permanent hole in that level's history — the old value is gone.
 //
 // Only LevelProgress entries with status = COMPLETED appear here.
 // ─────────────────────────────────────────────
 
-model ClassicRanking {
+model ClassicDemonList {
   id                String          @id @default(uuid())
   userId            String
-  levelProgressId   String          @unique // One ranking entry per level
+  levelProgressId   String          @unique // One demon list entry per level
 
   // Fractional index — lower = easier, higher = harder
-  rankingIndex      Decimal         @db.Decimal(20, 10)
+  listIndex         Decimal         @db.Decimal(20, 10)
 
   // Relations
   user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
 
-  @@map("classic_ranking")
+  @@map("classic_demon_list")
 }
 
 // ─────────────────────────────────────────────
 // COLLECTIONS
 // Favorites, least favorites, want-to-beat, and custom collections.
 // Adding to want-to-beat does NOT create a LevelProgress entry.
-// Entry order uses fractional indexing (same pattern as ClassicRanking):
+// Entry order uses fractional indexing (same pattern as ClassicDemonList):
 // insert between two entries by averaging their indices; a renormalization
 // pass resets to integers when a gap shrinks past 0.0001.
 // ─────────────────────────────────────────────
@@ -919,7 +919,7 @@ model ActivityLog {
 
   // The level the event is about. Null for RATING_CONFIG_CHANGE (user-scoped,
   // not level-scoped) and for the two list-wide ranking types,
-  // RANKING_BULK_REPLACE and RANKING_REBALANCE, whose levels are their impact
+  // DEMON_LIST_BULK_REPLACE and DEMON_LIST_REBALANCE, whose levels are their impact
   // rows. A single-level ranking event's mover level is BOTH here
   // and in its MOVER impact row: here so "this level's history" is one indexed
   // query, there so the mover carries the same index/position payload every
@@ -935,12 +935,12 @@ model ActivityLog {
   createdAt         DateTime                @default(now())
   // Total-order tiebreaker, and the field reconstruction should actually order
   // by. One request routinely writes two events — a placement that trips a
-  // rebalance emits RANKING_REBALANCE then RANKING_PLACEMENT — and createdAt
+  // rebalance emits DEMON_LIST_REBALANCE then DEMON_LIST_PLACEMENT — and createdAt
   // cannot separate them reliably: Prisma stamps it per statement, so the two
   // are a millisecond apart at best and can land in the same one, and the
   // column DEFAULT is CURRENT_TIMESTAMP, which Postgres freezes at transaction
   // start for anything inserted by raw SQL. Ordering those two backwards makes
-  // "the most recent logged rankingIndex as of T" read the stale coordinate
+  // "the most recent logged listIndex as of T" read the stale coordinate
   // system. Order by (createdAt, sequence), or by sequence alone within a user.
   //
   // Int, not BigInt: 2^31 events is orders of magnitude beyond this app, and
@@ -965,9 +965,9 @@ model ActivityLog {
   @@map("activity_log")
 }
 
-// One row per level actually touched by a ranking event: the mover, plus the
+// One row per level actually touched by a demon list event: the mover, plus the
 // levels immediately adjacent to it before or after the move. The two
-// list-wide types (RANKING_BULK_REPLACE, RANKING_REBALANCE) instead carry one
+// list-wide types (DEMON_LIST_BULK_REPLACE, DEMON_LIST_REBALANCE) instead carry one
 // row per level in the list, since they rewrote every index. Children of the
 // ranking event types only — no other event type has these.
 model ActivityLogLevelImpact {
@@ -978,7 +978,7 @@ model ActivityLogLevelImpact {
   // level cache row.
   levelId           String?
   // DENORMALIZED, snapshotted at write time. This is what keeps the row
-  // displayable after the referenced level's LevelProgress/ClassicRanking is
+  // displayable after the referenced level's LevelProgress/ClassicDemonList is
   // deleted: deleting an entry deletes that level's OWN events, but every
   // other level's impact rows still name it, and there is no longer any
   // level_progress to join through for a name. Null only when the level cache
@@ -989,17 +989,17 @@ model ActivityLogLevelImpact {
 
   // The ACTUAL fractional index this level held after this event — never a
   // delta, never a boolean. Recording the real value on every write that
-  // touches classic_ranking.rankingIndex (bulk replaces and rebalances
+  // touches classic_demon_list.listIndex (bulk replaces and rebalances
   // included) is what makes
   // snapshot-at-T reconstruction possible later without a snapshot table: a
   // level's index at time T is its most recent impact row at or before T.
-  rankingIndex      Decimal             @db.Decimal(20, 10)
+  listIndex         Decimal             @db.Decimal(20, 10)
 
   // 1-based display positions (#1 = hardest), computed from the ordered
   // ranking before and after the event. positionBefore is null for an initial
-  // placement; positionAfter is null for RANKING_UNRANKED, and for a level a
-  // RANKING_BULK_REPLACE dropped out of the ranking. Both are present and
-  // equal on a RANKING_REBALANCE, which rewrites indices but no order.
+  // placement; positionAfter is null for DEMON_LIST_REMOVED, and for a level a
+  // DEMON_LIST_BULK_REPLACE dropped out of the demon list. Both are present and
+  // equal on a DEMON_LIST_REBALANCE, which rewrites indices but no order.
   positionBefore    Int?
   positionAfter     Int?
 
@@ -1235,7 +1235,7 @@ model ImportJobRow {
 // and filter state so the user can switch between named views.
 // ─────────────────────────────────────────────
 
-model ListPreset {
+model LogPreset {
   id          String   @id @default(uuid())
   userId      String
 
@@ -1261,5 +1261,5 @@ model ListPreset {
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("list_presets")
+  @@map("log_presets")
 }

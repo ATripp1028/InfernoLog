@@ -146,7 +146,7 @@ vocabulary.
 each other today but answer to different requirements should stay separate, and
 each surface keeps a deliberate example:
 
-- The `rebalance`/`neighbourIndex` pair in the ranking and collections services
+- The `rebalance`/`neighbourIndex` pair in the demon list and collections services
   is duplicated on purpose, because unifying it across two Prisma delegates
   costs more clarity than the ~20 lines it saves.
 

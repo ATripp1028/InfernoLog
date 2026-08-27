@@ -1,46 +1,46 @@
 // List preset CRUD:
 //
-//   GET    /v1/me/list-presets       — the authed user's saved presets
-//   POST   /v1/me/list-presets       — create a new preset
-//   PATCH  /v1/me/list-presets/:id   — overwrite / rename a preset
-//   DELETE /v1/me/list-presets/:id   — delete a preset
+//   GET    /v1/me/log-presets       — the authed user's saved presets
+//   POST   /v1/me/log-presets       — create a new preset
+//   PATCH  /v1/me/log-presets/:id   — overwrite / rename a preset
+//   DELETE /v1/me/log-presets/:id   — delete a preset
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are opaque
 // JSON blobs — the API stores and returns them verbatim without deep validation.
 // hideTime is a plain boolean display preference, validated normally.
 
 import { Hono } from 'hono'
-import { ListPresetInputSchema, ListPresetUpdateSchema } from '@infernolog/core'
+import { LogPresetInputSchema, LogPresetUpdateSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import type { HonoVariables } from '../../types/hono'
 import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-// ListPreset.id is a bare UUID, not scoped to the user, so every by-id route
+// LogPreset.id is a bare UUID, not scoped to the user, so every by-id route
 // must confirm ownership before touching the row. A preset belonging to
 // someone else is reported as 404 rather than 403 — a stranger's preset id
 // should be indistinguishable from a nonexistent one.
 async function ownsPreset(userId: string, id: string): Promise<boolean> {
-  const existing = await prisma.listPreset.findUnique({
+  const existing = await prisma.logPreset.findUnique({
     where: { id },
     select: { userId: true },
   })
   return existing?.userId === userId
 }
 
-app.get('/me/list-presets', async (c) => {
+app.get('/me/log-presets', async (c) => {
   const userId = c.get('userId')
-  const presets = await prisma.listPreset.findMany({
+  const presets = await prisma.logPreset.findMany({
     where: { userId },
     orderBy: { createdAt: 'asc' },
   })
   return c.json({ data: presets })
 })
 
-app.post('/me/list-presets', async (c) => {
+app.post('/me/log-presets', async (c) => {
   const userId = c.get('userId')
-  const parsed = await parseJsonBody(c, ListPresetInputSchema)
+  const parsed = await parseJsonBody(c, LogPresetInputSchema)
   if (!parsed.ok) return parsed.response
   const {
     name,
@@ -52,7 +52,7 @@ app.post('/me/list-presets', async (c) => {
     columnOrder,
     hideTime,
   } = parsed.data
-  const preset = await prisma.listPreset.create({
+  const preset = await prisma.logPreset.create({
     data: {
       userId,
       name,
@@ -68,14 +68,14 @@ app.post('/me/list-presets', async (c) => {
   return c.json({ data: preset }, 201)
 })
 
-app.patch('/me/list-presets/:id', async (c) => {
+app.patch('/me/log-presets/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
   if (!(await ownsPreset(userId, id))) {
     return c.json({ error: 'Not found' }, 404)
   }
 
-  const parsed = await parseJsonBody(c, ListPresetUpdateSchema)
+  const parsed = await parseJsonBody(c, LogPresetUpdateSchema)
   if (!parsed.ok) return parsed.response
 
   const {
@@ -88,7 +88,7 @@ app.patch('/me/list-presets/:id', async (c) => {
     columnOrder,
     hideTime,
   } = parsed.data
-  const preset = await prisma.listPreset.update({
+  const preset = await prisma.logPreset.update({
     where: { id },
     data: {
       ...(name !== undefined && { name }),
@@ -106,13 +106,13 @@ app.patch('/me/list-presets/:id', async (c) => {
   return c.json({ data: preset })
 })
 
-app.delete('/me/list-presets/:id', async (c) => {
+app.delete('/me/log-presets/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
   if (!(await ownsPreset(userId, id))) {
     return c.json({ error: 'Not found' }, 404)
   }
-  await prisma.listPreset.delete({ where: { id } })
+  await prisma.logPreset.delete({ where: { id } })
   return c.body(null, 204)
 })
 
