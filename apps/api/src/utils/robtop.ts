@@ -60,11 +60,12 @@ const FETCH_TIMEOUT_MS = 5000
  *
  * @param res - The non-OK response.
  * @param context - Caller identity for the log line (`levelId` or `name`).
+ * @returns Why the call failed, for callers that report on it.
  */
 async function reportNonOkResponse(
   res: Response,
   context: Record<string, string>
-): Promise<void> {
+): Promise<RobtopUnreachableReason> {
   let body = ''
   try {
     body = await res.text()
@@ -84,7 +85,7 @@ async function reportNonOkResponse(
     'fetchRobtopLevel: non-OK response'
   )
 
-  if (res.status !== 429 && res.status !== 403) return
+  if (res.status !== 429 && res.status !== 403) return 'http_error'
 
   const cooldownMs =
     res.status === 429
@@ -96,6 +97,7 @@ async function reportNonOkResponse(
   } catch (err) {
     logger.warn({ ...context, err }, 'fetchRobtopLevel: cooldown write failed')
   }
+  return res.status === 429 ? 'throttled' : 'blocked'
 }
 
 /**
@@ -451,10 +453,34 @@ export function parseGetGJLevels21(
  *                     non-OK response, network error, timeout, parse failure).
  *                     Retryable: says nothing about whether the level exists.
  */
+/**
+ * Why a RobTop call could not complete. Every one of these is retryable and says
+ * nothing about whether the level exists — but they are NOT interchangeable
+ * when reporting: `blocked`/`throttled` mean GD's edge refused us and the
+ * problem may be our egress or our request, while `timeout`/`network` mean
+ * nobody refused anything and the request simply didn't finish. The reachability
+ * canary alerts differently on each, because the runbook differs.
+ *
+ *   - 'limiter'    → the shared rate limiter gave us no slot (bucket drained, or
+ *                    a cooldown is open). We never called RobTop.
+ *   - 'blocked'    → HTTP 403. Cloudflare refused the request at the edge.
+ *   - 'throttled'  → HTTP 429. RobTop is rate-limiting our IP.
+ *   - 'http_error' → any other non-OK status; RobTop's origin answering badly.
+ *   - 'timeout'    → our own FETCH_TIMEOUT_MS aborted the request.
+ *   - 'network'    → the fetch threw, or the response could not be parsed.
+ */
+export type RobtopUnreachableReason =
+  | 'limiter'
+  | 'blocked'
+  | 'throttled'
+  | 'http_error'
+  | 'timeout'
+  | 'network'
+
 export type RobtopFetchResult =
   | { status: 'found'; level: RobtopLevel }
   | { status: 'not_found' }
-  | { status: 'unreachable' }
+  | { status: 'unreachable'; reason: RobtopUnreachableReason }
 
 /**
  * Lower-level fetch that preserves the not-found vs unreachable distinction.
@@ -475,7 +501,7 @@ export async function fetchRobtopLevelResult(
 ): Promise<RobtopFetchResult> {
   if (!(await acquireRobtopSlot(limiterWaitMs))) {
     logger.warn({ levelId }, 'fetchRobtopLevel: rate limiter timed out')
-    return { status: 'unreachable' }
+    return { status: 'unreachable', reason: 'limiter' }
   }
 
   const controller = new AbortController()
@@ -492,8 +518,8 @@ export async function fetchRobtopLevelResult(
       // "-1" body, handled below without logging). This is the branch a
       // Cloudflare block, rate limit, or RobTop outage takes; the helper logs
       // it and opens the shared cooldown when the status says to back off.
-      await reportNonOkResponse(res, { levelId })
-      return { status: 'unreachable' }
+      const reason = await reportNonOkResponse(res, { levelId })
+      return { status: 'unreachable', reason }
     }
 
     // Select the exact id — a numeric search can return name-matched levels too.
@@ -504,8 +530,14 @@ export async function fetchRobtopLevelResult(
     // Network error, timeout/abort, or parse failure — retryable, and says
     // nothing about whether the level exists. Log first so a persistent failure
     // is diagnosable instead of silently retried into oblivion.
-    logger.warn({ levelId, err }, 'fetchRobtopLevel: request failed')
-    return { status: 'unreachable' }
+    //
+    // An AbortError here is OUR timeout firing (FETCH_TIMEOUT_MS), not a
+    // refusal by anyone: worth separating, because a caller that pages a human
+    // must not describe a slow response as a block.
+    const reason =
+      err instanceof Error && err.name === 'AbortError' ? 'timeout' : 'network'
+    logger.warn({ levelId, err, reason }, 'fetchRobtopLevel: request failed')
+    return { status: 'unreachable', reason }
   } finally {
     clearTimeout(timeout)
   }
@@ -537,6 +569,11 @@ export async function fetchRobtopLevel(
  * couldn't complete (rate-limiter timeout, non-OK, network/timeout/parse) and
  * is retryable. The toolbar's GD escalation needs this split so a request
  * failure reads differently from a legitimate empty result set.
+ *
+ * Deliberately does NOT carry a `RobtopUnreachableReason`, unlike the by-id
+ * result: nothing alerts on a failed search — it degrades to "no results" in
+ * the UI — so the reason would be a field every consumer forwards and none
+ * reads. The failure is still logged in full by reportNonOkResponse.
  */
 export type RobtopSearchOutcome =
   | { status: 'ok'; results: RobtopSearchResult[] }

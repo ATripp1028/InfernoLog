@@ -267,6 +267,7 @@ describe('fetchRobtopLevelResult', () => {
     mockAcquireSlot.mockResolvedValue(false)
     await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
       status: 'unreachable',
+      reason: 'limiter',
     })
     expect(mockFetch).not.toHaveBeenCalled()
   })
@@ -275,18 +276,21 @@ describe('fetchRobtopLevelResult', () => {
     mockFetch.mockResolvedValueOnce(robtopResp(500, ''))
     await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
       status: 'unreachable',
+      reason: 'http_error',
     })
   })
 
-  it('returns "unreachable" on a network error or timeout', async () => {
+  it('separates a network error from our own timeout', async () => {
     mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'))
     await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
       status: 'unreachable',
+      reason: 'network',
     })
 
     mockFetch.mockRejectedValueOnce(new DOMException('aborted', 'AbortError'))
     await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
       status: 'unreachable',
+      reason: 'timeout',
     })
   })
 
@@ -341,6 +345,7 @@ describe('fetchRobtopLevelResult', () => {
       )
       await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
         status: 'unreachable',
+        reason: 'throttled',
       })
     })
 
@@ -358,6 +363,7 @@ describe('fetchRobtopLevelResult', () => {
       mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
       await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
         status: 'unreachable',
+        reason: 'blocked',
       })
       expect(mockReportThrottled).toHaveBeenCalledWith(300_000)
     })
@@ -377,6 +383,7 @@ describe('fetchRobtopLevelResult', () => {
       mockFetch.mockResolvedValueOnce(robtopResp(403, CF_BLOCK_PAGE))
       await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
         status: 'unreachable',
+        reason: 'blocked',
       })
     })
   })
@@ -450,6 +457,7 @@ describe('fetchRobtopLevelResult', () => {
       } as Response)
       await expect(fetchRobtopLevelResult('222')).resolves.toEqual({
         status: 'unreachable',
+        reason: 'http_error',
       })
     })
   })
@@ -629,7 +637,7 @@ describe('request timeouts', () => {
   it('reports a hung by-id fetch as unreachable', async () => {
     await expect(
       runPastTimeout(() => fetchRobtopLevelResult('222'))
-    ).resolves.toEqual({ status: 'unreachable' })
+    ).resolves.toEqual({ status: 'unreachable', reason: 'timeout' })
   })
 
   it('reports a hung name search as unreachable', async () => {

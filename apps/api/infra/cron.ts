@@ -69,9 +69,10 @@ if ($app.stage === 'production') {
       handler: 'src/handlers/robtopCanaryWorker.handler',
       link: sharedLinks,
       environment: sharedEnvironment,
-      // Bounds one limiter wait (CANARY_LIMITER_WAIT_MS, 30s) plus one fetch
-      // (5s) with room to spare.
-      timeout: '1 minute' as const,
+      // Worst case is two samples — the canary alerts only on a failed pair —
+      // at up to a 30s limiter wait plus a 5s fetch each, either side of the 3s
+      // retry delay: ~73s. See services/levels/canary.ts.
+      timeout: '2 minutes' as const,
       ...sharedNodeOptions,
     },
   })
