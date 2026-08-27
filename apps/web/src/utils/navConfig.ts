@@ -121,7 +121,7 @@ export function navItemByKey(key: string): NavItem {
  * Whether the desktop rail should highlight `item` for this path.
  *
  * The rail stays lit while the user is drilled into a sub-page (a collection's
- * detail, a level's log), so `/list/abc` keeps List highlighted.
+ * detail, a level's log), so `/log/abc` keeps Log highlighted.
  */
 export function isRailItemActive(item: NavItem, pathname: string): boolean {
   if (!item.to) return false

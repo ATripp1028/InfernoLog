@@ -96,7 +96,7 @@ describe('isRailItemActive', () => {
     expect(isRailItemActive(item('log'), '/demon-list')).toBe(false)
   })
 
-  // /listing is not inside /list — matching on a bare prefix would light the
+  // /logging is not inside /log — matching on a bare prefix would light the
   // wrong tab for any route whose name merely starts the same way.
   it('does not light a route that merely shares a prefix', () => {
     expect(isRailItemActive(item('log'), '/logging')).toBe(false)

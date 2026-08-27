@@ -139,7 +139,7 @@ test.describe('collections', () => {
   test('drops a level from Want to Beat when its completion is logged', async ({
     page,
   }) => {
-    // /list keeps the default FAB actions, so Want to Beat is one tap away.
+    // /log keeps the default FAB actions, so Want to Beat is one tap away.
     await page.goto('/log')
     await openQuickAction(page, 'Add to Want to Beat')
     await addLevel(page, FINGERDASH)
