@@ -9,6 +9,7 @@
 // that is noise, but it is the reason this must not grow into a multi-level
 // health sweep.
 
+import type { RobtopUnreachableReason } from '../../utils/robtop'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { isRobtopCooling } from '../../utils/robtopRateLimit'
 import { logger } from '../../utils/logger'
@@ -38,10 +39,29 @@ const CANARY_LEVEL_ID = '128'
  * that can deny the canary a slot — and a cooldown only ever opens on a real
  * 429 or Cloudflare block, which is exactly what this is here to report.
  *
- * Must stay comfortably inside the cron's Lambda timeout (see infra/cron.ts):
- * this wait plus one 5s fetch is the run's worst case.
+ * Must stay comfortably inside the cron's Lambda timeout (see infra/cron.ts).
+ * The run's worst case is TWO samples — this wait plus a 5s fetch each — either
+ * side of CANARY_RETRY_DELAY_MS, so ~73s of a 2-minute budget.
  */
 const CANARY_LIMITER_WAIT_MS = 30_000
+
+/**
+ * How long to wait before re-sampling after a failed check.
+ *
+ * The canary alerts on a FAILED PAIR, never on a single failure. RobTop answers
+ * in ~300ms against a 5s timeout, so a lone request occasionally overrunning it
+ * is upstream noise, not a state change — and on 15-minute runs that noise
+ * pages roughly every couple of days, which is how a canary gets ignored (the
+ * exact failure that let the Aug 2026 block go unnoticed for six hours). One
+ * observed false alarm, on 2026-08-27, was precisely this: a single AbortError
+ * between 191 healthy checks.
+ *
+ * A real refusal fails both samples, so this costs detection nothing — at most
+ * this delay plus one extra request, and only ever on the failure path.
+ */
+const CANARY_RETRY_DELAY_MS = 3_000
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /**
  * Outcome of one canary run:
@@ -49,7 +69,11 @@ const CANARY_LIMITER_WAIT_MS = 30_000
  *   - 'cooling'      → a shared cooldown is open, so we deliberately did not
  *                      call. Not an outage, and not alerted on: whatever opened
  *                      the cooldown has already reported itself.
- *   - 'unreachable'  → RobTop would not answer. This is the alarm.
+ *   - 'recovered'    → the first sample failed and the retry succeeded. Logged,
+ *                      never alerted: this is the transient blip the retry
+ *                      exists to absorb, and it is worth seeing in the logs if
+ *                      it starts happening often.
+ *   - 'unreachable'  → BOTH samples failed. This is the alarm.
  *   - 'level_missing' → RobTop answered, but says this level does not exist.
  *                      That is a canary-configuration problem (the level was
  *                      deleted), NOT an outage — alerted separately so it never
@@ -58,11 +82,86 @@ const CANARY_LIMITER_WAIT_MS = 30_000
 export type CanaryOutcome =
   | 'healthy'
   | 'cooling'
+  | 'recovered'
   | 'unreachable'
   | 'level_missing'
 
 /**
- * Runs one reachability check against RobTop.
+ * Classifies the result of one sample, so the run logic reads as three cases
+ * rather than a chain of status checks.
+ */
+type Sample =
+  | { kind: 'ok' }
+  | { kind: 'gone' }
+  | { kind: 'failed'; reason: RobtopUnreachableReason }
+
+/** Takes one sample: a single getGJLevels21 call for the canary level. */
+async function sample(): Promise<Sample> {
+  const result = await fetchRobtopLevelResult(
+    CANARY_LEVEL_ID,
+    CANARY_LIMITER_WAIT_MS
+  )
+  if (result.status === 'found') return { kind: 'ok' }
+  if (result.status === 'not_found') return { kind: 'gone' }
+  return { kind: 'failed', reason: result.reason }
+}
+
+/**
+ * Reports that the canary level itself no longer exists — a problem with this
+ * file, not with RobTop, so it is raised as a warning that cannot be mistaken
+ * for an outage.
+ */
+function reportLevelMissing(): CanaryOutcome {
+  logger.error(
+    { levelId: CANARY_LEVEL_ID },
+    'robtopCanary: canary level no longer exists; point CANARY_LEVEL_ID at a live level'
+  )
+  Sentry.captureMessage(
+    `robtopCanary: canary level ${CANARY_LEVEL_ID} no longer exists — point CANARY_LEVEL_ID (services/levels/canary.ts) at a live level`,
+    'warning'
+  )
+  return 'level_missing'
+}
+
+/**
+ * Raises the outage alarm, with the runbook that fits what actually happened.
+ *
+ * The distinction matters more than it looks. A refusal (`blocked`/`throttled`)
+ * is answerable ONLY by running the same request from elsewhere while it is
+ * still happening, so the alert says so. A timeout or network failure is not a
+ * refusal — nobody said no — and sending someone to compare egress IPs over one
+ * would waste the window and teach them to distrust the alert.
+ *
+ * Note a block usually shows as `blocked` then `limiter`: the 403 opens the
+ * shared cooldown, which then denies the retry its slot. Both reasons are
+ * reported so that sequence is legible rather than looking like two unrelated
+ * failures.
+ */
+function reportUnreachable(
+  first: RobtopUnreachableReason,
+  second: RobtopUnreachableReason
+): CanaryOutcome {
+  const refused =
+    first === 'blocked' ||
+    first === 'throttled' ||
+    second === 'blocked' ||
+    second === 'throttled'
+
+  logger.error(
+    { levelId: CANARY_LEVEL_ID, first, second, refused },
+    'robtopCanary: RobTop unreachable'
+  )
+  Sentry.captureMessage(
+    refused
+      ? `robtopCanary: RobTop REFUSED us (${first} then ${second}) — check the fetchRobtopLevel log line for status/cf-ray, then run \`pnpm probe:robtop\` from a non-AWS machine while this is still firing: if it succeeds, the block is on our egress IP rather than our request`
+      : `robtopCanary: RobTop did not answer twice (${first} then ${second}) — NOT a refusal, so this is a timeout or network failure rather than a block; check the fetchRobtopLevel log lines before treating it as one`,
+    'error'
+  )
+  return 'unreachable'
+}
+
+/**
+ * Runs one reachability check against RobTop, alerting only on a failed pair.
  *
  * No RobTop failure throws: `fetchRobtopLevelResult` swallows every one of
  * them, so an outage comes back as an outcome rather than as a Lambda error
@@ -81,37 +180,26 @@ export async function runRobtopCanary(): Promise<CanaryOutcome> {
     return 'cooling'
   }
 
-  const result = await fetchRobtopLevelResult(
-    CANARY_LEVEL_ID,
-    CANARY_LIMITER_WAIT_MS
-  )
-
-  if (result.status === 'found') {
+  const first = await sample()
+  if (first.kind === 'ok') {
     logger.info({ levelId: CANARY_LEVEL_ID }, 'robtopCanary: RobTop reachable')
     return 'healthy'
   }
+  // A not-found is a definite answer from a reachable server. Re-sampling would
+  // only ask a working server the same question twice.
+  if (first.kind === 'gone') return reportLevelMissing()
 
-  if (result.status === 'not_found') {
-    // The canary level itself is gone — pick a new one. Says nothing about
-    // RobTop's health, so it must not page as an outage.
-    logger.error(
-      { levelId: CANARY_LEVEL_ID },
-      'robtopCanary: canary level no longer exists; point CANARY_LEVEL_ID at a live level'
+  await sleep(CANARY_RETRY_DELAY_MS)
+  const second = await sample()
+
+  if (second.kind === 'ok') {
+    logger.warn(
+      { levelId: CANARY_LEVEL_ID, reason: first.reason },
+      'robtopCanary: first check failed, retry succeeded; not alerting'
     )
-    Sentry.captureMessage(
-      `robtopCanary: canary level ${CANARY_LEVEL_ID} no longer exists — point CANARY_LEVEL_ID (services/levels/canary.ts) at a live level`,
-      'warning'
-    )
-    return 'level_missing'
+    return 'recovered'
   }
+  if (second.kind === 'gone') return reportLevelMissing()
 
-  logger.error({ levelId: CANARY_LEVEL_ID }, 'robtopCanary: RobTop unreachable')
-  // The alert carries its own runbook: the comparison it asks for is only
-  // possible WHILE the block is happening, which is the window this alarm
-  // exists to open.
-  Sentry.captureMessage(
-    `robtopCanary: RobTop unreachable (level ${CANARY_LEVEL_ID}) — check the fetchRobtopLevel log line for status/cf-ray, then run \`pnpm probe:robtop\` from a non-AWS machine while this is still firing: if it succeeds, the block is on our egress IP rather than our request`,
-    'error'
-  )
-  return 'unreachable'
+  return reportUnreachable(first.reason, second.reason)
 }

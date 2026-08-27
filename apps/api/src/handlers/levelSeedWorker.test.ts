@@ -106,7 +106,7 @@ describe('levelSeedWorker', () => {
   })
 
   it('fails the batch so SQS redrives it when RobTop is unreachable', async () => {
-    mockFetch.mockResolvedValue({ status: 'unreachable' })
+    mockFetch.mockResolvedValue({ status: 'unreachable', reason: 'timeout' })
 
     await expect(runUnreachable(['12345'])).rejects.toThrow(/unreachable/i)
 
@@ -119,7 +119,7 @@ describe('levelSeedWorker', () => {
     mockFetch.mockImplementation(async (levelId) =>
       levelId === '111'
         ? { status: 'found', level: ROBTOP_LEVEL }
-        : { status: 'unreachable' }
+        : { status: 'unreachable', reason: 'timeout' }
     )
 
     await expect(runUnreachable(['111', '222'])).rejects.toThrow(/222/)
