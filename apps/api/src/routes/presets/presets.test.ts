@@ -1,7 +1,7 @@
 /**
  * Unit tests for list-preset CRUD.
  *
- * ListPreset.id is a bare UUID with no user scoping, so every by-id route has
+ * LogPreset.id is a bare UUID with no user scoping, so every by-id route has
  * to prove ownership before it touches the row — and report someone else's
  * preset as 404, not 403, so a stranger's id is indistinguishable from a
  * nonexistent one. That ownership gate is the bulk of what these tests pin.
@@ -66,47 +66,47 @@ function send(method: string, path: string, body?: unknown) {
 
 /** Stubs the ownership lookup with the given owner (or a missing row). */
 function ownedBy(userId: string | null) {
-  prisma.listPreset.findUnique.mockResolvedValue(
+  prisma.logPreset.findUnique.mockResolvedValue(
     userId === null ? null : ({ userId } as never)
   )
 }
 
 beforeEach(() => {
   vi.clearAllMocks()
-  prisma.listPreset.findMany.mockReset().mockResolvedValue([] as never)
-  prisma.listPreset.findUnique.mockReset()
-  prisma.listPreset.create
+  prisma.logPreset.findMany.mockReset().mockResolvedValue([] as never)
+  prisma.logPreset.findUnique.mockReset()
+  prisma.logPreset.create
     .mockReset()
     .mockResolvedValue({ id: PRESET_ID } as never)
-  prisma.listPreset.update
+  prisma.logPreset.update
     .mockReset()
     .mockResolvedValue({ id: PRESET_ID } as never)
-  prisma.listPreset.delete.mockReset().mockResolvedValue({} as never)
+  prisma.logPreset.delete.mockReset().mockResolvedValue({} as never)
 })
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
-describe('GET /me/list-presets', () => {
+describe('GET /me/log-presets', () => {
   it('returns the caller’s presets oldest-first', async () => {
-    prisma.listPreset.findMany.mockResolvedValue([
+    prisma.logPreset.findMany.mockResolvedValue([
       { id: 'a' },
       { id: 'b' },
     ] as never)
 
-    const res = await send('GET', '/me/list-presets')
+    const res = await send('GET', '/me/log-presets')
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
       data: [{ id: 'a' }, { id: 'b' }],
     })
-    expect(prisma.listPreset.findMany).toHaveBeenCalledWith({
+    expect(prisma.logPreset.findMany).toHaveBeenCalledWith({
       where: { userId: TEST_USER_ID },
       orderBy: { createdAt: 'asc' },
     })
   })
 
   it('returns an empty list rather than 404 when there are none', async () => {
-    const res = await send('GET', '/me/list-presets')
+    const res = await send('GET', '/me/log-presets')
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({ data: [] })
@@ -115,12 +115,12 @@ describe('GET /me/list-presets', () => {
 
 // ─── POST ────────────────────────────────────────────────────────────────────
 
-describe('POST /me/list-presets', () => {
+describe('POST /me/log-presets', () => {
   it('creates the preset against the caller and 201s', async () => {
-    const res = await send('POST', '/me/list-presets', validBody())
+    const res = await send('POST', '/me/log-presets', validBody())
 
     expect(res.status).toBe(201)
-    expect(prisma.listPreset.create).toHaveBeenCalledWith({
+    expect(prisma.logPreset.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         userId: TEST_USER_ID,
         name: 'My View',
@@ -133,9 +133,9 @@ describe('POST /me/list-presets', () => {
   it('stores the four view-config blobs verbatim', async () => {
     // They are opaque to the API — no deep validation, no normalization.
     const sorts = [{ field: 'attempts', dir: 'asc', nested: { deep: true } }]
-    await send('POST', '/me/list-presets', validBody({ sorts }))
+    await send('POST', '/me/log-presets', validBody({ sorts }))
 
-    const { data } = prisma.listPreset.create.mock.lastCall![0] as {
+    const { data } = prisma.logPreset.create.mock.lastCall![0] as {
       data: Record<string, unknown>
     }
     expect(data.sorts).toEqual(sorts)
@@ -145,9 +145,9 @@ describe('POST /me/list-presets', () => {
     const body = validBody()
     delete (body as Record<string, unknown>).hideTime
 
-    await send('POST', '/me/list-presets', body)
+    await send('POST', '/me/log-presets', body)
 
-    expect(prisma.listPreset.create).toHaveBeenCalledWith({
+    expect(prisma.logPreset.create).toHaveBeenCalledWith({
       data: expect.objectContaining({ description: null, hideTime: false }),
     })
   })
@@ -157,14 +157,14 @@ describe('POST /me/list-presets', () => {
     ['the name is too long', { name: 'x'.repeat(51) }],
     ['the color is not a known preset colour', { color: 'chartreuse' }],
   ])('400s and writes nothing when %s', async (_label, overrides) => {
-    const res = await send('POST', '/me/list-presets', validBody(overrides))
+    const res = await send('POST', '/me/log-presets', validBody(overrides))
 
     expect(res.status).toBe(400)
-    expect(prisma.listPreset.create).not.toHaveBeenCalled()
+    expect(prisma.logPreset.create).not.toHaveBeenCalled()
   })
 
   it('400s on a malformed JSON body instead of throwing', async () => {
-    const res = await app.request('/me/list-presets', {
+    const res = await app.request('/me/log-presets', {
       method: 'POST',
       body: '{not json',
       headers: { 'Content-Type': 'application/json' },
@@ -176,16 +176,16 @@ describe('POST /me/list-presets', () => {
 
 // ─── PATCH ───────────────────────────────────────────────────────────────────
 
-describe('PATCH /me/list-presets/:id', () => {
+describe('PATCH /me/log-presets/:id', () => {
   it('applies a partial update', async () => {
     ownedBy(TEST_USER_ID)
 
-    const res = await send('PATCH', `/me/list-presets/${PRESET_ID}`, {
+    const res = await send('PATCH', `/me/log-presets/${PRESET_ID}`, {
       name: 'Renamed',
     })
 
     expect(res.status).toBe(200)
-    expect(prisma.listPreset.update).toHaveBeenCalledWith({
+    expect(prisma.logPreset.update).toHaveBeenCalledWith({
       where: { id: PRESET_ID },
       data: { name: 'Renamed' },
     })
@@ -195,9 +195,9 @@ describe('PATCH /me/list-presets/:id', () => {
     // A partial update must not clear the blobs it says nothing about.
     ownedBy(TEST_USER_ID)
 
-    await send('PATCH', `/me/list-presets/${PRESET_ID}`, { hideTime: true })
+    await send('PATCH', `/me/log-presets/${PRESET_ID}`, { hideTime: true })
 
-    const { data } = prisma.listPreset.update.mock.lastCall![0] as {
+    const { data } = prisma.logPreset.update.mock.lastCall![0] as {
       data: Record<string, unknown>
     }
     expect(data).toEqual({ hideTime: true })
@@ -206,9 +206,9 @@ describe('PATCH /me/list-presets/:id', () => {
   it('applies an explicit null description', async () => {
     ownedBy(TEST_USER_ID)
 
-    await send('PATCH', `/me/list-presets/${PRESET_ID}`, { description: null })
+    await send('PATCH', `/me/log-presets/${PRESET_ID}`, { description: null })
 
-    const { data } = prisma.listPreset.update.mock.lastCall![0] as {
+    const { data } = prisma.logPreset.update.mock.lastCall![0] as {
       data: Record<string, unknown>
     }
     expect(data).toEqual({ description: null })
@@ -217,18 +217,18 @@ describe('PATCH /me/list-presets/:id', () => {
   it('404s for another user’s preset, without updating it', async () => {
     ownedBy(OTHER_USER)
 
-    const res = await send('PATCH', `/me/list-presets/${PRESET_ID}`, {
+    const res = await send('PATCH', `/me/log-presets/${PRESET_ID}`, {
       name: 'Hijacked',
     })
 
     expect(res.status).toBe(404)
-    expect(prisma.listPreset.update).not.toHaveBeenCalled()
+    expect(prisma.logPreset.update).not.toHaveBeenCalled()
   })
 
   it('404s for a preset that does not exist', async () => {
     ownedBy(null)
 
-    const res = await send('PATCH', `/me/list-presets/${PRESET_ID}`, {
+    const res = await send('PATCH', `/me/log-presets/${PRESET_ID}`, {
       name: 'Renamed',
     })
 
@@ -239,7 +239,7 @@ describe('PATCH /me/list-presets/:id', () => {
     // Otherwise a 400 vs 404 difference would leak whether an id exists.
     ownedBy(OTHER_USER)
 
-    const res = await send('PATCH', `/me/list-presets/${PRESET_ID}`, {
+    const res = await send('PATCH', `/me/log-presets/${PRESET_ID}`, {
       name: '',
     })
 
@@ -247,43 +247,43 @@ describe('PATCH /me/list-presets/:id', () => {
   })
 
   it('400s on an unparseable body rather than applying an empty update', async () => {
-    // ListPresetUpdateSchema is a `.partial()`, so a `{}` fallback would be
+    // LogPresetUpdateSchema is a `.partial()`, so a `{}` fallback would be
     // valid — parseJsonBody rejects the unparseable body before that point.
     ownedBy(TEST_USER_ID)
 
-    const res = await app.request(`/me/list-presets/${PRESET_ID}`, {
+    const res = await app.request(`/me/log-presets/${PRESET_ID}`, {
       method: 'PATCH',
       body: '{not json',
       headers: { 'Content-Type': 'application/json' },
     })
 
     expect(res.status).toBe(400)
-    expect(prisma.listPreset.update).not.toHaveBeenCalled()
+    expect(prisma.logPreset.update).not.toHaveBeenCalled()
   })
 
   it('400s on an invalid field for a preset the caller owns', async () => {
     ownedBy(TEST_USER_ID)
 
-    const res = await send('PATCH', `/me/list-presets/${PRESET_ID}`, {
+    const res = await send('PATCH', `/me/log-presets/${PRESET_ID}`, {
       color: 'chartreuse',
     })
 
     expect(res.status).toBe(400)
-    expect(prisma.listPreset.update).not.toHaveBeenCalled()
+    expect(prisma.logPreset.update).not.toHaveBeenCalled()
   })
 })
 
 // ─── DELETE ──────────────────────────────────────────────────────────────────
 
-describe('DELETE /me/list-presets/:id', () => {
+describe('DELETE /me/log-presets/:id', () => {
   it('deletes and returns 204 with no body', async () => {
     ownedBy(TEST_USER_ID)
 
-    const res = await send('DELETE', `/me/list-presets/${PRESET_ID}`)
+    const res = await send('DELETE', `/me/log-presets/${PRESET_ID}`)
 
     expect(res.status).toBe(204)
     await expect(res.text()).resolves.toBe('')
-    expect(prisma.listPreset.delete).toHaveBeenCalledWith({
+    expect(prisma.logPreset.delete).toHaveBeenCalledWith({
       where: { id: PRESET_ID },
     })
   })
@@ -291,18 +291,18 @@ describe('DELETE /me/list-presets/:id', () => {
   it('404s for another user’s preset, without deleting it', async () => {
     ownedBy(OTHER_USER)
 
-    const res = await send('DELETE', `/me/list-presets/${PRESET_ID}`)
+    const res = await send('DELETE', `/me/log-presets/${PRESET_ID}`)
 
     expect(res.status).toBe(404)
-    expect(prisma.listPreset.delete).not.toHaveBeenCalled()
+    expect(prisma.logPreset.delete).not.toHaveBeenCalled()
   })
 
   it('404s for a preset that does not exist', async () => {
     ownedBy(null)
 
-    const res = await send('DELETE', `/me/list-presets/${PRESET_ID}`)
+    const res = await send('DELETE', `/me/log-presets/${PRESET_ID}`)
 
     expect(res.status).toBe(404)
-    expect(prisma.listPreset.delete).not.toHaveBeenCalled()
+    expect(prisma.logPreset.delete).not.toHaveBeenCalled()
   })
 })

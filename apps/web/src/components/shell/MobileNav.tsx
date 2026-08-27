@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from '@tanstack/react-router'
 import { Menu, Plus, type LucideIcon } from 'lucide-react'
 import {
+  MOBILE_BAR_KEYS,
   MOBILE_OVERFLOW_KEYS,
   isBarItemActive,
   navItemByKey,
@@ -26,9 +27,10 @@ export function MobileNav() {
 
   const orderedActions = sheetActionOrder(primary, secondaryActions)
 
-  const list = navItemByKey('list')
-  const ranking = navItemByKey('ranking')
-  const search = navItemByKey('search')
+  const [listKey, demonListKey, searchKey] = MOBILE_BAR_KEYS
+  const list = navItemByKey(listKey)
+  const demonList = navItemByKey(demonListKey)
+  const search = navItemByKey(searchKey)
   const overflow = MOBILE_OVERFLOW_KEYS.map(navItemByKey)
 
   const isActive = (item: NavItem) => isBarItemActive(item, location.pathname)
@@ -82,7 +84,7 @@ export function MobileNav() {
         className="fixed inset-x-0 bottom-0 z-40 flex h-[72px] items-center justify-around border-t border-border-subtle bg-bg-surface px-2"
       >
         <BarTab item={list} active={isActive(list)} />
-        <BarTab item={ranking} active={isActive(ranking)} />
+        <BarTab item={demonList} active={isActive(demonList)} />
         <FabSlot
           active={fabMenuOpen}
           label={primary.label}
@@ -115,7 +117,9 @@ function BarTab({ item, active = false }: { item: NavItem; active?: boolean }) {
   const content = (
     <>
       <Icon size={22} />
-      <span className="text-[11px] font-medium">{item.label}</span>
+      <span className="text-[11px] font-medium">
+        {item.shortLabel ?? item.label}
+      </span>
     </>
   )
   const className = `flex w-16 flex-col items-center justify-center gap-1 ${colorClass}`

@@ -73,6 +73,22 @@ export function ReviewStep() {
         </div>
       </div>
 
+      {flags.legacyTabs.length > 0 && (
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-4">
+          <p className="mb-2 text-sm font-medium text-warning-soft">
+            Tabs from an older export
+          </p>
+          <ul className="space-y-1 text-xs text-warning-soft">
+            {flags.legacyTabs.map((t) => (
+              <li key={t.found}>
+                “{t.found}” is now “{t.expected}”. This tab will NOT be
+                imported — rename it, or re-download the template, to import it.
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {flags.duplicates.length > 0 && (
         <div className="rounded-lg border border-warning/40 bg-warning/5 p-4">
           <p className="text-sm font-medium text-warning-soft mb-2">

@@ -162,7 +162,7 @@ For Progress and Dropped specifically, a row with no `progress_id`/`drop_id` is 
 
 ### Order conflicts — Ranking, Lists
 
-Ranking and each collection in the Lists tab are ordered lists, so a "conflict" here means the sheet and your account disagree about relative order, not a single value. The resolution mirrors a git merge: a three-column board shows the imported order on the left, your existing order on the right, and a middle column pre-filled with everything both orderings already agree on. You drag the disputed (and any newly-added) entries into the middle to decide the final order — or, if reconciling by hand isn't worth it, two buttons above the board ("Use spreadsheet order" / "Use InfernoLog order") let you pick one side's order wholesale instead.
+The Demon List tab and each collection in the Lists tab are ordered lists, so a "conflict" here means the sheet and your account disagree about relative order, not a single value. The resolution mirrors a git merge: a three-column board shows the imported order on the left, your existing order on the right, and a middle column pre-filled with everything both orderings already agree on. You drag the disputed (and any newly-added) entries into the middle to decide the final order — or, if reconciling by hand isn't worth it, two buttons above the board ("Use spreadsheet order" / "Use InfernoLog order") let you pick one side's order wholesale instead.
 
 Nothing is forced — if you leave entries unplaced in either source column, they're simply excluded from the final list once you confirm; a required checkbox makes sure that's deliberate. A pure insertion (an entry only one side has, whose position relative to the agreed order is unambiguous) never shows the board at all — it's spliced into the final order automatically, with no review needed. Only a genuine order disagreement, or an existing entry the sheet omits entirely, triggers manual review.
 
@@ -299,7 +299,7 @@ Semantics:
 - **Merges with your existing ranking via the canonical order-conflict flow** (see Conflict Resolution above) whenever the two disagree on relative order. If you have no existing ranking, or the sheet's order and your existing order already agree once pure insertions are accounted for, the sheet's order is used directly with no review needed — the practical result is the same "sheet wins" outcome as a blind replace, just with a review step whenever something's genuinely at stake. Omit the tab (or leave it empty) to keep the account's existing ranking untouched entirely.
 - Ranking applies only to **completions** — a listed level you haven't completed (or that only appears in the Dropped tab) is skipped with a note.
 - Committed as one dedicated call **after** the completion/drop batches, so every ranked level already exists in your log.
-- Internally the order maps to `ClassicRanking.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
+- Internally the order maps to `ClassicDemonList.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
 
 ---
 

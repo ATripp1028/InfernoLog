@@ -34,7 +34,7 @@ import { toast } from '@/components/generic/sonner'
 export function useGlobalLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
-  const back = useGoBack('/list')
+  const back = useGoBack('/log')
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -140,7 +140,7 @@ export function useGlobalLevelDetailPage() {
     errorKind,
     retryAfterSeconds,
     retry: () => void query.refetch(),
-    goToList: () => void navigate({ to: '/list' }),
+    goToList: () => void navigate({ to: '/log' }),
     level,
     levelName: level?.name ?? `Level #${levelId}`,
     delisted: level?.delistedAt != null,

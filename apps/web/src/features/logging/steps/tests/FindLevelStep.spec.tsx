@@ -8,7 +8,7 @@ import {
   useLevelSearch,
   useResolveLevel,
 } from '@/lib/api/logging'
-import { useMyProgress } from '@/lib/api/list'
+import { useMyProgress } from '@/lib/api/log'
 import { useEscalation } from '@/features/search/useEscalation'
 import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
@@ -37,8 +37,8 @@ vi.mock('@/lib/api/logging', async (orig) => ({
   useLevelSearch: vi.fn(),
   useResolveLevel: vi.fn(),
 }))
-vi.mock('@/lib/api/list', async (orig) => ({
-  ...(await orig<typeof import('@/lib/api/list')>()),
+vi.mock('@/lib/api/log', async (orig) => ({
+  ...(await orig<typeof import('@/lib/api/log')>()),
   useMyProgress: vi.fn(),
 }))
 vi.mock('@/features/search/useEscalation')

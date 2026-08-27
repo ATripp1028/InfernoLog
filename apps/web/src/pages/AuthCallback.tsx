@@ -47,7 +47,7 @@ export function AuthCallback() {
           // signupStart returned the existing, already-onboarded row rather
           // than creating anything, so just log them in normally.
           navigate({
-            to: onboardingCompleted ? '/list' : '/onboarding',
+            to: onboardingCompleted ? '/log' : '/onboarding',
             replace: true,
           })
           return
@@ -55,7 +55,7 @@ export function AuthCallback() {
 
         try {
           await apiFetch<{ data: MeData }>('/v1/me', { token, method: 'GET' })
-          navigate({ to: '/list', replace: true })
+          navigate({ to: '/log', replace: true })
         } catch (err) {
           if (err instanceof ApiError && err.status === 404) {
             await signinReject(token)

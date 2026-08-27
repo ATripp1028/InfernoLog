@@ -153,9 +153,9 @@ export function RankHistory({
   if (isEmpty) {
     return (
       <div className="py-6 text-center">
-        <p className="text-sm text-text-secondary">Not in your ranking yet.</p>
+        <p className="text-sm text-text-secondary">Not on your demon list yet.</p>
         <p className="mt-1 text-xs text-text-tertiary">
-          Place it from the Ranking tab and its history starts here.
+          Place it from the Demon List tab and its history starts here.
         </p>
       </div>
     )

@@ -135,7 +135,7 @@ describe('GET /me/progress', () => {
     expect(completed.entry?.kind).toBe('COMPLETION')
     expect(completed.entry?.attempts).toBe(12000)
     expect(completed.overallRating).toBe(70) // SIMPLE → simpleRating
-    // Completed classic level with no ClassicRanking row.
+    // Completed classic level with no ClassicDemonList row.
     expect(completed.needsPlacement).toBe(true)
 
     const inProgress = byLevel['200']!
@@ -149,7 +149,7 @@ describe('GET /me/progress', () => {
     expect(dropped.entry).toBeNull()
   })
 
-  it('clears needsPlacement once a ClassicRanking row exists', async () => {
+  it('clears needsPlacement once a ClassicDemonList row exists', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '101' })
     const lp = await seedProgress(prisma, {
@@ -159,8 +159,8 @@ describe('GET /me/progress', () => {
       simpleRating: 50,
       updates: [{ kind: 'COMPLETION' }],
     })
-    await prisma.classicRanking.create({
-      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
+    await prisma.classicDemonList.create({
+      data: { userId: user.id, levelProgressId: lp.id, listIndex: 1 },
     })
 
     const list = await getList(user.id)

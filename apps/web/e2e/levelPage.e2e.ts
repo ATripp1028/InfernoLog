@@ -129,7 +129,7 @@ test.describe('level page', () => {
   test('edits the level-scoped fields, reads them back, and deletes the level', async ({
     page,
   }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     // A completion rather than a run: the modal's GDDL tier and coin sections
     // render only for a beaten level, and they are half the payload this spec
@@ -242,7 +242,7 @@ test.describe('level page', () => {
   })
 
   test('deletes one logged entry, then the last one', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     // The first run goes in through the List's FAB, which walks the find step.
     await openQuickAction(page, 'Log progress')

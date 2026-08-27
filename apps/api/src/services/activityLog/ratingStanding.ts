@@ -111,7 +111,7 @@ function ascNullsLast(a: number | null, b: number | null): number {
  * Callers take one reading immediately before their write and one immediately
  * after, both inside the same transaction, and hand the pair to
  * {@link buildRatingStandingChanges} — the same before/after snapshot shape the
- * ranking events use. Diffing two real readings is what keeps the rank honest
+ * demon list events use. Diffing two real readings is what keeps the rank honest
  * when a save moves a level past its neighbours.
  *
  * @param tx - The caller's transaction client; this must not open its own.

@@ -252,8 +252,8 @@ describe('DELETE /me', () => {
     await prisma.ratingScore.create({
       data: { levelProgressId: lp.id, categoryId: category.id, score: 80 },
     })
-    await prisma.classicRanking.create({
-      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 1 },
+    await prisma.classicDemonList.create({
+      data: { userId: user.id, levelProgressId: lp.id, listIndex: 1 },
     })
     const collection = await prisma.collection.create({
       data: { userId: user.id, name: 'Favorites', type: 'FAVORITES' },
@@ -261,7 +261,7 @@ describe('DELETE /me', () => {
     await prisma.collectionEntry.create({
       data: { collectionId: collection.id, levelId: '100', rankingIndex: 1 },
     })
-    await prisma.listPreset.create({
+    await prisma.logPreset.create({
       data: {
         userId: user.id,
         name: 'My View',
@@ -315,7 +315,7 @@ describe('DELETE /me', () => {
     expect(await prisma.progressUpdate.count()).toBe(0)
     expect(await prisma.ratingScore.count()).toBe(0)
     expect(
-      await prisma.classicRanking.count({ where: { userId: user.id } })
+      await prisma.classicDemonList.count({ where: { userId: user.id } })
     ).toBe(0)
     expect(await prisma.collection.count({ where: { userId: user.id } })).toBe(
       0
@@ -324,7 +324,7 @@ describe('DELETE /me', () => {
     expect(
       await prisma.ratingCategory.count({ where: { userId: user.id } })
     ).toBe(0)
-    expect(await prisma.listPreset.count({ where: { userId: user.id } })).toBe(
+    expect(await prisma.logPreset.count({ where: { userId: user.id } })).toBe(
       0
     )
     expect(await prisma.importJob.count({ where: { userId: user.id } })).toBe(0)

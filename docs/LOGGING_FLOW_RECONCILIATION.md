@@ -1,7 +1,7 @@
 # Logging Flow — Reconciliation Notes
 
 `LOGGING_FLOW.md` is the authoritative spec for the logging flow. Where it
-disagrees with older docs (e.g. `RANKING_SYSTEM.md`, `LEVEL_LOGGING.md`,
+disagrees with older docs (e.g. `DEMON_LIST.md`, `LEVEL_LOGGING.md`,
 `apps/api/prisma/schema.prisma`), this file records the resolved decision.
 
 ## Status transition: logging progress on a dropped level

@@ -258,9 +258,9 @@ async function exportDropped(userId: string, skip: number, take: number) {
 }
 
 async function exportRanking(userId: string, skip: number, take: number) {
-  const rows = await prisma.classicRanking.findMany({
+  const rows = await prisma.classicDemonList.findMany({
     where: { userId },
-    orderBy: { rankingIndex: 'desc' }, // hardest first
+    orderBy: { listIndex: 'desc' }, // hardest first
     skip,
     take,
     select: {

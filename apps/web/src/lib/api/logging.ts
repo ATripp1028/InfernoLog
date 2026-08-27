@@ -257,8 +257,8 @@ export interface LogResult {
  * invalidate the same set instead of duplicating — and drifting from — it.
  */
 export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
-  ['list'],
-  ['ranking'],
+  ['log'],
+  ['demon-list'],
   // A completion can auto-remove a level from Want to Beat.
   ['collections'],
   // Prefix match: invalidates ['level-page', levelId] for whichever level

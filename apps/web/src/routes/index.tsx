@@ -16,7 +16,7 @@ function IndexRoute() {
   const blockedByAuth = useRouteGuard({
     ready: !isAuthInitializing,
     when: isAuthenticated,
-    to: '/list',
+    to: '/log',
   })
 
   if (blockedByAuth) {

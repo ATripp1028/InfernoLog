@@ -23,7 +23,7 @@ vi.mock('@/components/generic/sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 vi.mock('@/features/search/useEscalation', () => ({ useEscalation: vi.fn() }))
-vi.mock('@/lib/api/list', () => ({ useMyProgress: vi.fn() }))
+vi.mock('@/lib/api/log', () => ({ useMyProgress: vi.fn() }))
 vi.mock('@/lib/api/logging', () => ({
   useLevelById: vi.fn(),
   useLevelSearch: vi.fn(),
@@ -39,7 +39,7 @@ vi.mock('@/lib/api/collections', async (importOriginal) => ({
 
 const { toast } = await import('@/components/generic/sonner')
 const { useEscalation } = await import('@/features/search/useEscalation')
-const { useMyProgress } = await import('@/lib/api/list')
+const { useMyProgress } = await import('@/lib/api/log')
 const { useLevelById, useLevelSearch, useResolveLevel } =
   await import('@/lib/api/logging')
 const { useAddCollectionEntry, useCollectionDetails, useCollections } =

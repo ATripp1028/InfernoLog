@@ -1,4 +1,4 @@
-// One level's position history in the user's classic ranking — the level page's
+// One level's position history in the user's classic demon list — the level page's
 // rank-history panel. The user's own level page only; there is no public
 // equivalent while activity_log.visibility is inert.
 //
@@ -12,19 +12,19 @@
 //     mover's own row does not already imply (docs/RANKING_SYSTEM.md, "direct
 //     events only"). They are reconstructed here.
 //
-// The reconstruction walks the user's ranking events in (createdAt, sequence)
-// order, maintaining a map of levelId → current rankingIndex and applying every
+// The reconstruction walks the user's demon list events in (createdAt, sequence)
+// order, maintaining a map of levelId → current listIndex and applying every
 // impact row. After each event the level's position is 1 + the count of indices
 // ordered above it.
 //
-// **This is the first reader of RANKING_REBALANCE.** Index comparisons are only
+// **This is the first reader of DEMON_LIST_REBALANCE.** Index comparisons are only
 // valid inside one coordinate system, and a rebalance rewrites all of them, so
 // the walk has to consume those events to re-anchor the map. The one type that
-// is never displayed is one that must be read. RANKING_BULK_REPLACE updates the
+// is never displayed is one that must be read. DEMON_LIST_BULK_REPLACE updates the
 // map wholesale for the same reason.
 //
 // The map is only as complete as the impact rows it is built from, which is why
-// every user's ranking starts with a baseline RANKING_REBALANCE carrying every
+// every user's ranking starts with a baseline DEMON_LIST_REBALANCE carrying every
 // placed level's index (migration 20260825120000_rank_history_baseline). Without
 // that baseline the map would hold whichever handful of levels had been touched
 // since event logging shipped, and a level actually sitting at #8 would
@@ -50,18 +50,18 @@ import prisma from '../../utils/prisma'
 // Every ranking event type, the hidden one included. A rebalance is never
 // returned, but the walk cannot skip it: it rewrites the whole index space.
 const RANKING_EVENT_TYPES = [
-  ActivityEventType.RANKING_PLACEMENT,
-  ActivityEventType.RANKING_REORDER,
-  ActivityEventType.RANKING_UNRANKED,
-  ActivityEventType.RANKING_BULK_REPLACE,
-  ActivityEventType.RANKING_REBALANCE,
+  ActivityEventType.DEMON_LIST_PLACEMENT,
+  ActivityEventType.DEMON_LIST_REORDER,
+  ActivityEventType.DEMON_LIST_REMOVED,
+  ActivityEventType.DEMON_LIST_BULK_REPLACE,
+  ActivityEventType.DEMON_LIST_REBALANCE,
 ] as const
 
 type RankingEventType = (typeof RANKING_EVENT_TYPES)[number]
 
 // An impact row plus the fractional index the wire shape has no use for but the
 // walk is built on.
-type WalkImpact = ActivityLevelImpact & { rankingIndex: Prisma.Decimal }
+type WalkImpact = ActivityLevelImpact & { listIndex: Prisma.Decimal }
 
 interface WalkEvent {
   id: string
@@ -97,7 +97,7 @@ function positionIn(indices: IndexMap, levelId: string): number | null {
   return above + 1
 }
 
-// A null positionAfter is what says a level left the ranking — on an unranking,
+// A null positionAfter is what says a level left the demon list — on an unranking,
 // and for a level a bulk replace dropped. Everything else takes the real index
 // the row recorded, which is the actual value the level held after the event
 // rather than any kind of delta.
@@ -107,12 +107,12 @@ function applyImpacts(indices: IndexMap, impacts: WalkImpact[]): void {
     // through levelName, but there is no key to file it under.
     if (impact.levelId === null) continue
     if (impact.positionAfter === null) indices.delete(impact.levelId)
-    else indices.set(impact.levelId, impact.rankingIndex)
+    else indices.set(impact.levelId, impact.listIndex)
   }
 }
 
 // The impact rows a DIRECT entry shows alongside the level's own — the
-// neighbours the move sat between. Capped, and ordered the way the ranking
+// neighbours the move sat between. Capped, and ordered the way the demon list
 // reads: nearest to #1 first.
 function neighborsOf(
   impacts: WalkImpact[],
@@ -132,14 +132,14 @@ function neighborsOf(
 function causeOf(
   event: WalkEvent
 ): { levelId: string | null; levelName: string | null } | null {
-  if (event.eventType === ActivityEventType.RANKING_BULK_REPLACE) return null
+  if (event.eventType === ActivityEventType.DEMON_LIST_BULK_REPLACE) return null
   const mover = event.impacts.find((r) => r.role === 'MOVER')
   return mover ? { levelId: mover.levelId, levelName: mover.levelName } : null
 }
 
 // How many levels a list-wide rewrite touched, for "42 levels reordered".
 function levelsTouchedBy(event: WalkEvent): number | null {
-  return event.eventType === ActivityEventType.RANKING_BULK_REPLACE
+  return event.eventType === ActivityEventType.DEMON_LIST_BULK_REPLACE
     ? event.impacts.length
     : null
 }
@@ -148,7 +148,7 @@ async function readWalkEvents(userId: string): Promise<WalkEvent[]> {
   // Every ranking event this user has, with every impact row — the map is only
   // correct if every rewrite is applied in full. The baseline rebalance and any
   // spreadsheet import carry one row per placed level, so this scales with the
-  // size of the ranking times the number of list-wide rewrites rather than with
+  // size of the demon list times the number of list-wide rewrites rather than with
   // the number of moves.
   const rows = await prisma.activityLog.findMany({
     where: { userId, eventType: { in: [...RANKING_EVENT_TYPES] } },
@@ -166,7 +166,7 @@ async function readWalkEvents(userId: string): Promise<WalkEvent[]> {
           levelId: true,
           levelName: true,
           role: true,
-          rankingIndex: true,
+          listIndex: true,
           positionBefore: true,
           positionAfter: true,
           milestoneCrossed: true,
@@ -189,13 +189,13 @@ async function readCurrentPosition(
   userId: string,
   levelId: string
 ): Promise<number | null> {
-  const entry = await prisma.classicRanking.findFirst({
+  const entry = await prisma.classicDemonList.findFirst({
     where: { userId, levelProgress: { levelId } },
-    select: { rankingIndex: true },
+    select: { listIndex: true },
   })
   if (!entry) return null
-  const above = await prisma.classicRanking.count({
-    where: { userId, rankingIndex: { gt: entry.rankingIndex } },
+  const above = await prisma.classicDemonList.count({
+    where: { userId, listIndex: { gt: entry.listIndex } },
   })
   return above + 1
 }
@@ -226,7 +226,7 @@ export async function readRankHistory(
 
   for (const event of events) {
     const own = event.impacts.find((r) => r.levelId === levelId)
-    const isRebalance = event.eventType === ActivityEventType.RANKING_REBALANCE
+    const isRebalance = event.eventType === ActivityEventType.DEMON_LIST_REBALANCE
 
     const recomputedBefore = positionIn(indices, levelId)
     applyImpacts(indices, event.impacts)
@@ -284,7 +284,7 @@ export async function readRankHistory(
     }
 
     // No row of its own. A rebalance rewrites indices but no order, so it can
-    // never shift anything; and a level not in the ranking on both sides of the
+    // never shift anything; and a level not in the demon list on both sides of the
     // event has no position to shift.
     if (isRebalance) continue
     if (recomputedBefore === null || recomputedAfter === null) continue

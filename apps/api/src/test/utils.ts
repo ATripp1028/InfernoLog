@@ -72,7 +72,7 @@ export function getTestPrisma(): PrismaClient {
 // into the next test.
 const TABLES = [
   'rating_scores',
-  'classic_ranking',
+  'classic_demon_list',
   'collection_entries',
   'collections',
   'progress_updates',

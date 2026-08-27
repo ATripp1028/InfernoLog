@@ -238,7 +238,7 @@ describe('useMultiContainerCollisionDetection', () => {
     })
   })
 
-  // ListMergeBoard has three columns, RankingBoard two — the container set is
+  // ListMergeBoard has three columns, DemonListBoard two — the container set is
   // whatever the caller declares.
   it('honours an arbitrary set of container ids', () => {
     const { result } = renderHook(() =>

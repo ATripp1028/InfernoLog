@@ -45,7 +45,7 @@ const {
 vi.mock('../services/importExport/import', () => ({
   processImportJobBatch: mockProcessBatch,
 }))
-vi.mock('../services/importExport/ranking', () => ({
+vi.mock('../services/importExport/demonList', () => ({
   commitImportRanking: mockCommitRanking,
 }))
 vi.mock('../services/importExport/collections', () => ({
@@ -384,7 +384,7 @@ describe('importWorker — failure handling', () => {
     expect(mockCaptureException).toHaveBeenCalledTimes(2)
   })
 
-  it('fails the job when the ranking pass throws', async () => {
+  it('fails the job when the demon list pass throws', async () => {
     prisma.importJob.findUnique.mockResolvedValue(
       job({ rankingPayload: [{ levelId: '1' }] }) as never
     )

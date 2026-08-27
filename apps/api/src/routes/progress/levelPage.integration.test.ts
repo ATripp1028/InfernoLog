@@ -8,7 +8,7 @@
 //   - level not logged by target user: 404
 //   - level_notes round-trip (set via direct DB update, read back via endpoint)
 //   - level_notes survives deletion of an individual progress_update
-//   - ranking placement returned when a ClassicRanking row exists
+//   - demon list placement returned when a ClassicDemonList row exists
 //   - DELETE /v1/me/progress/:levelId: GDDL caveat in response + cascade verified
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -45,7 +45,7 @@ type LevelPageBody = {
     visibility: string
     levelNotes: string | null
     worstFail: number | null
-    rankingIndex: number | null
+    listIndex: number | null
     rankPosition: number | null
     completionVideoUrl: string | null
     completionHighlightUrl: string | null
@@ -236,7 +236,7 @@ describe('GET /me/progress/:levelId — owner', () => {
     expect(body.data.progressUpdates).toHaveLength(0)
   })
 
-  it('returns ranking placement when a ClassicRanking row exists', async () => {
+  it('returns demon list placement when a ClassicDemonList row exists', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '1006', isDemon: true })
     const lp = await seedProgress(prisma, {
@@ -245,19 +245,19 @@ describe('GET /me/progress/:levelId — owner', () => {
       status: 'COMPLETED',
       updates: [{ kind: 'COMPLETION' }],
     })
-    await prisma.classicRanking.create({
-      data: { userId: user.id, levelProgressId: lp.id, rankingIndex: 3 },
+    await prisma.classicDemonList.create({
+      data: { userId: user.id, levelProgressId: lp.id, listIndex: 3 },
     })
 
     const res = await getLevelPage(user.id, '1006')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
-    expect(body.data.rankingIndex).toBe(3)
-    // rankPosition=1 because no other entries have a lower rankingIndex
+    expect(body.data.listIndex).toBe(3)
+    // rankPosition=1 because no other entries have a lower listIndex
     expect(body.data.rankPosition).toBe(1)
   })
 
-  it('returns null rankingIndex / rankPosition when level is unplaced', async () => {
+  it('returns null listIndex / rankPosition when level is unplaced', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '1007' })
     await seedProgress(prisma, {
@@ -270,7 +270,7 @@ describe('GET /me/progress/:levelId — owner', () => {
     const res = await getLevelPage(user.id, '1007')
     expect(res.status).toBe(200)
     const body = (await res.json()) as LevelPageBody
-    expect(body.data.rankingIndex).toBeNull()
+    expect(body.data.listIndex).toBeNull()
     expect(body.data.rankPosition).toBeNull()
   })
 

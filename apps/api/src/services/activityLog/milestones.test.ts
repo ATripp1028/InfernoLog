@@ -38,7 +38,7 @@ describe('milestoneCrossed', () => {
     expect(milestoneCrossed(null, 300)).toBeNull()
   })
 
-  it('treats leaving the ranking as leaving every threshold it was inside', () => {
+  it('treats leaving the demon list as leaving every threshold it was inside', () => {
     // #2 was inside 5, 10, 25… but never inside 1, so 5 is the tightest one it
     // actually crossed on the way out.
     expect(milestoneCrossed(2, null)).toBe(5)

@@ -2,7 +2,7 @@
 //
 // One page of activity_log events and progress_updates interleaved, newest
 // first by recorded time. Filters and the keyset cursor arrive as query params;
-// everything about the merge, the ordering and the RANKING_REBALANCE exclusion
+// everything about the merge, the ordering and the DEMON_LIST_REBALANCE exclusion
 // lives in services/activityLog/feed.ts.
 
 import { Hono } from 'hono'

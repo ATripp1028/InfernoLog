@@ -840,7 +840,7 @@ export const LevelProgressListItemSchema = z.object({
   // logging UI asks for it once and remembers it ("already logged" checkbox)
   // rather than re-asking on every completion/drop.
   worstFail: z.number().int().nullable(),
-  // Derived: a completed CLASSIC level with no ClassicRanking row yet.
+  // Derived: a completed CLASSIC level with no ClassicDemonList row yet.
   needsPlacement: z.boolean(),
   // The user's own GDDL tier opinion (set during completion logging or edit).
   userGddlTier: z.number().int().nullable(),
@@ -869,13 +869,13 @@ export const LevelProgressListResponseSchema = z.object({
 // The GDDL tier badge shown on a ranking row / unplaced card.
 // Sourced from LevelProgress.userGddlTier (the user's own opinion).
 // Null when the user has not given a GDDL tier opinion for this level.
-export const RankingBadgeSchema = z
+export const DemonListBadgeSchema = z
   .object({
     gddlTier: z.number().int(),
   })
   .nullable()
 
-export const ClassicRankingEntrySchema = z.object({
+export const ClassicDemonListEntrySchema = z.object({
   // 1-based position in the placed list (ordered by rankingIndex DESC, so
   // #1 = hardest). The client recomputes these numbers for the "Show unrated"
   // filtered view; the server number reflects the full placed set.
@@ -887,20 +887,20 @@ export const ClassicRankingEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
-  badge: RankingBadgeSchema,
+  badge: DemonListBadgeSchema,
 })
 
-export const UnplacedRankingEntrySchema = z.object({
+export const UnplacedDemonListEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
   attempts: z.number().int().nullable(),
-  badge: RankingBadgeSchema,
+  badge: DemonListBadgeSchema,
 })
 
 // Both columns in one round trip — the page always renders them together.
-export const ClassicRankingResponseSchema = z.object({
-  placed: z.array(ClassicRankingEntrySchema),
-  unplaced: z.array(UnplacedRankingEntrySchema),
+export const ClassicDemonListResponseSchema = z.object({
+  placed: z.array(ClassicDemonListEntrySchema),
+  unplaced: z.array(UnplacedDemonListEntrySchema),
 })
 
 // Drop-position neighbours, shared by place and reorder. The client identifies
@@ -911,17 +911,17 @@ export const ClassicRankingResponseSchema = z.object({
 // (easiest), or both for the first entry in an empty ranking. The server
 // computes the fractional index between the neighbours and renormalises the
 // whole list to integers when the gap closes past the rebalance threshold.
-const rankingNeighbours = {
+const demonListNeighbours = {
   aboveId: z.string().uuid().optional(),
   belowId: z.string().uuid().optional(),
 }
 
-export const PlaceRankingInputSchema = z.object({
+export const PlaceOnDemonListInputSchema = z.object({
   levelProgressId: z.string().uuid(),
-  ...rankingNeighbours,
+  ...demonListNeighbours,
 })
 
-export const ReorderRankingInputSchema = z.object(rankingNeighbours)
+export const ReorderDemonListInputSchema = z.object(demonListNeighbours)
 
 // ─────────────────────────────────────────────
 // COLLECTIONS — user-owned groupings of levels: the three built-ins
@@ -988,7 +988,7 @@ export const CollectionEntrySchema = z.object({
   rankingIndex: z.number(),
   addedAt: z.coerce.date(),
   level: LevelListSummarySchema,
-  badge: RankingBadgeSchema,
+  badge: DemonListBadgeSchema,
   // Whether the viewer's account has a completion for this level. Drives the
   // greyed "already completed" treatment in Want to Beat contexts.
   completed: z.boolean(),
@@ -1079,7 +1079,7 @@ const PresetBlobSchema = z.unknown().refine((value) => {
   }
 }, `View configuration must serialize to at most ${MAX_PRESET_BLOB_CHARS} characters`)
 
-export const ListPresetInputSchema = z.object({
+export const LogPresetInputSchema = z.object({
   name: z.string().min(1).max(50),
   description: z.string().max(200).optional().nullable(),
   color: z.enum(PRESET_COLOR_IDS),
@@ -1092,9 +1092,9 @@ export const ListPresetInputSchema = z.object({
   hideTime: z.boolean().default(false),
 })
 
-export const ListPresetUpdateSchema = ListPresetInputSchema.partial()
+export const LogPresetUpdateSchema = LogPresetInputSchema.partial()
 
-export const ListPresetSchema = z.object({
+export const LogPresetSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
   name: z.string(),
@@ -1741,15 +1741,15 @@ export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
 // ─────────────────────────────────────────────
 
 // Every user-facing event type, mirroring the ActivityEventType enum in
-// apps/api/prisma/schema.prisma minus RANKING_REBALANCE — the internal-only
+// apps/api/prisma/schema.prisma minus DEMON_LIST_REBALANCE — the internal-only
 // renormalisation, which is filtered out in the feed query and can never reach
 // the wire. It is absent from this package entirely, so a legend or filter list
 // built from FEED_EVENT_TYPES cannot leak it by accident.
 export const FeedEventTypeSchema = z.enum([
-  'RANKING_PLACEMENT',
-  'RANKING_REORDER',
-  'RANKING_UNRANKED',
-  'RANKING_BULK_REPLACE',
+  'DEMON_LIST_PLACEMENT',
+  'DEMON_LIST_REORDER',
+  'DEMON_LIST_REMOVED',
+  'DEMON_LIST_BULK_REPLACE',
   'LOG_EDIT',
   'RATING_CONFIG_CHANGE',
 ])
@@ -1815,7 +1815,7 @@ export const ActivityFeedEventSchema = z.object({
   // order. Echoed back so the client can rebuild a cursor if it needs to.
   sequence: z.number().int(),
   eventType: FeedEventTypeSchema,
-  // Null for RATING_CONFIG_CHANGE (account-scoped) and for RANKING_BULK_REPLACE
+  // Null for RATING_CONFIG_CHANGE (account-scoped) and for DEMON_LIST_BULK_REPLACE
   // (list-wide — its levels are its impact rows).
   levelId: z.string().nullable(),
   levelName: z.string().nullable(),
@@ -1866,14 +1866,14 @@ export const ACTIVITY_PAGE_SIZE = 30
 // done, and one of them ("Progress") is not an activity_log row at all.
 //
 //   PROGRESS — progress_updates, all three kinds
-//   RANKING  — the four visible RANKING_* event types
+//   DEMON_LIST — the four visible DEMON_LIST_* event types
 //   EDITS    — LOG_EDIT, narrowed by field `category` when one is given
 //   SETTINGS — RATING_CONFIG_CHANGE
 //
 // Naming none of them is the "All" chip and means the whole feed.
 export const ActivityFeedKindSchema = z.enum([
   'PROGRESS',
-  'RANKING',
+  'DEMON_LIST',
   'EDITS',
   'SETTINGS',
 ])
@@ -1890,7 +1890,7 @@ export const ActivityFeedQuerySchema = z.object({
   // editable field needs no change on either side of the wire. Passing a
   // category without also passing EDITS is meaningless and ignored.
   category: z.array(ActivityFieldCategorySchema).optional(),
-  // A UNION, not a column match: a RANKING_BULK_REPLACE has a null levelId and
+  // A UNION, not a column match: a DEMON_LIST_BULK_REPLACE has a null levelId and
   // belongs to every level its impact rows touched, so this matches
   // activity_log.levelId OR activity_log_level_impact.levelId. Without the
   // union an import that moved a level goes missing from that level's history.

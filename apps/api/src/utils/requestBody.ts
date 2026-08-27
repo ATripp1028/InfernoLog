@@ -6,7 +6,7 @@
 // against any schema whose fields are all optional — so an unparseable request
 // silently succeeded as a no-op. On POST /v1/me/import/check that meant
 // answering "no conflicts" without examining anything; on
-// PATCH /v1/me/ranking/classic/:id it moved the entry to the easiest end.
+// PATCH /v1/me/demon-list/classic/:id it moved the entry to the easiest end.
 
 import type { Context } from 'hono'
 

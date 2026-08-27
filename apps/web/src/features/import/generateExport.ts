@@ -200,7 +200,7 @@ export function downloadExport(
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.aoa_to_sheet(rows(RANKING_HEADERS, rankingRecords)),
-    'Ranking'
+    'Demon List'
   )
 
   // Lists

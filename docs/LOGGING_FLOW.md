@@ -5,7 +5,7 @@ moves through to log a completion, log progress, or drop a level, plus the two
 lightweight list-management workflows that share the same entry point.
 
 It supersedes the "Logging Flow" section of `LEVEL_LOGGING.md` and intersects with
-`RANKING_SYSTEM.md` (placement) and `DESIGN_LANGUAGE.md` (the FAB, modal, thumbnail
+`DEMON_LIST.md` (placement) and `DESIGN_LANGUAGE.md` (the FAB, modal, thumbnail
 treatment). Where this document and those disagree, this document is the newer decision —
 see `LOGGING_FLOW_RECONCILIATION.md` for the specific contradictions to resolve.
 
@@ -173,7 +173,7 @@ let me log this?" support burden) over a soft treatment.
   external list links are offered. It must never gate an action. Restrictions the user cannot
   predict or work around are worse than an unopinionated app.
 - Earlier drafts of this doc excluded non-demons from the difficulty ranking. That rule was
-  **dropped**: the ranking is the user's own difficulty order, and nothing in it depends on GD's
+  **dropped**: the demon list is the user's own difficulty order, and nothing in it depends on GD's
   demon flag. The classic/platformer split is a real separation and stays; demon-ness is not.
 
 ---
@@ -308,11 +308,11 @@ eligibility — nothing does, beyond being a completed classic level.
 
 After a completion is submitted, a compact confirm modal asks **"Place in ranking now?"**
 
-- **There is no auto-placement.** (This is the key change from `RANKING_SYSTEM.md`.) Every
+- **There is no auto-placement.** (This is the key change from `DEMON_LIST.md`.) Every
   completion starts **unplaced**; the user places all of them manually. A list reference is purely
   a convenience that sets the **starting scroll position** in the placement view — it does not place
   the level.
-- **Place now:** opens the ranking. With a list reference, the view is pre-scrolled to the matching
+- **Place now:** opens the demon list. With a list reference, the view is pre-scrolled to the matching
   tier spot (highest match, or just above the closest under). Without a reference, the view opens at
   the top and the user scrolls to place. Either way, placement is manual; **no list reference is
   required to place.**

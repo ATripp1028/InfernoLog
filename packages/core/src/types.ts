@@ -28,15 +28,15 @@ import {
   LevelProgressListEntrySchema,
   LevelProgressListItemSchema,
   LevelProgressListResponseSchema,
-  RankingBadgeSchema,
-  ClassicRankingEntrySchema,
-  UnplacedRankingEntrySchema,
-  ClassicRankingResponseSchema,
-  PlaceRankingInputSchema,
-  ReorderRankingInputSchema,
-  ListPresetInputSchema,
-  ListPresetUpdateSchema,
-  ListPresetSchema,
+  DemonListBadgeSchema,
+  ClassicDemonListEntrySchema,
+  UnplacedDemonListEntrySchema,
+  ClassicDemonListResponseSchema,
+  PlaceOnDemonListInputSchema,
+  ReorderDemonListInputSchema,
+  LogPresetInputSchema,
+  LogPresetUpdateSchema,
+  LogPresetSchema,
   CreateCollectionInputSchema,
   UpdateCollectionInputSchema,
   CollectionSummarySchema,
@@ -97,18 +97,18 @@ export type LevelProgressListResponse = z.infer<
   typeof LevelProgressListResponseSchema
 >
 
-export type RankingBadge = z.infer<typeof RankingBadgeSchema>
-export type ClassicRankingEntry = z.infer<typeof ClassicRankingEntrySchema>
-export type UnplacedRankingEntry = z.infer<typeof UnplacedRankingEntrySchema>
-export type ClassicRankingResponse = z.infer<
-  typeof ClassicRankingResponseSchema
+export type DemonListBadge = z.infer<typeof DemonListBadgeSchema>
+export type ClassicDemonListEntry = z.infer<typeof ClassicDemonListEntrySchema>
+export type UnplacedDemonListEntry = z.infer<typeof UnplacedDemonListEntrySchema>
+export type ClassicDemonListResponse = z.infer<
+  typeof ClassicDemonListResponseSchema
 >
-export type PlaceRankingInput = z.infer<typeof PlaceRankingInputSchema>
-export type ReorderRankingInput = z.infer<typeof ReorderRankingInputSchema>
+export type PlaceOnDemonListInput = z.infer<typeof PlaceOnDemonListInputSchema>
+export type ReorderDemonListInput = z.infer<typeof ReorderDemonListInputSchema>
 
-export type ListPresetInput = z.infer<typeof ListPresetInputSchema>
-export type ListPresetUpdate = z.infer<typeof ListPresetUpdateSchema>
-export type ListPresetRecord = z.infer<typeof ListPresetSchema>
+export type LogPresetInput = z.infer<typeof LogPresetInputSchema>
+export type LogPresetUpdate = z.infer<typeof LogPresetUpdateSchema>
+export type LogPresetRecord = z.infer<typeof LogPresetSchema>
 
 export type CreateCollectionInput = z.infer<typeof CreateCollectionInputSchema>
 export type UpdateCollectionInput = z.infer<typeof UpdateCollectionInputSchema>

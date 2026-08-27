@@ -6,7 +6,7 @@
 // duplicating it into activity_log would create two records of one fact that
 // can drift apart. See docs/EVENT_LOG.md, "Deliberately not tracked".
 //
-// **RANKING_REBALANCE is excluded in the query, not styled quiet.** It is the
+// **DEMON_LIST_REBALANCE is excluded in the query, not styled quiet.** It is the
 // one hidden event type: the order the user sees does not change and nothing
 // they did is described by it. It must never reach a feed response.
 //
@@ -156,7 +156,7 @@ export async function readActivityFeed(
   const eventConds: Prisma.Sql[] = [
     Prisma.sql`a."userId" = ${userId}`,
     // The one hidden event type, excluded here rather than downstream.
-    Prisma.sql`a."eventType" <> ${ActivityEventType.RANKING_REBALANCE}::"ActivityEventType"`,
+    Prisma.sql`a."eventType" <> ${ActivityEventType.DEMON_LIST_REBALANCE}::"ActivityEventType"`,
   ]
   const progressConds: Prisma.Sql[] = [Prisma.sql`lp."userId" = ${userId}`]
 
@@ -174,7 +174,7 @@ export async function readActivityFeed(
   }
 
   if (query.levelId) {
-    // A union, not a column match: a RANKING_BULK_REPLACE has a null levelId
+    // A union, not a column match: a DEMON_LIST_BULK_REPLACE has a null levelId
     // and belongs to every level its impact rows touched. Without the second
     // arm, an import that moved this level goes missing from its history.
     eventConds.push(Prisma.sql`(
@@ -195,13 +195,13 @@ export async function readActivityFeed(
   const kinds = query.kind?.length ? new Set(query.kind) : null
   if (kinds) {
     const arms: Prisma.Sql[] = []
-    if (kinds.has('RANKING')) {
+    if (kinds.has('DEMON_LIST')) {
       arms.push(
         Prisma.sql`a."eventType"::text IN (${Prisma.join([
-          ActivityEventType.RANKING_PLACEMENT,
-          ActivityEventType.RANKING_REORDER,
-          ActivityEventType.RANKING_UNRANKED,
-          ActivityEventType.RANKING_BULK_REPLACE,
+          ActivityEventType.DEMON_LIST_PLACEMENT,
+          ActivityEventType.DEMON_LIST_REORDER,
+          ActivityEventType.DEMON_LIST_REMOVED,
+          ActivityEventType.DEMON_LIST_BULK_REPLACE,
         ])})`
       )
     }
@@ -375,7 +375,7 @@ async function loadEvents(eventIds: string[], levelId: string | undefined) {
       id: row.id,
       recordedAt: row.createdAt,
       sequence: row.sequence,
-      // The merged query already excluded RANKING_REBALANCE, so the narrowing
+      // The merged query already excluded DEMON_LIST_REBALANCE, so the narrowing
       // here describes what the row can hold rather than filtering it again.
       eventType: row.eventType as FeedEventType,
       levelId: row.levelId,

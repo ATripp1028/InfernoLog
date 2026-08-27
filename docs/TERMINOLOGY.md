@@ -13,7 +13,7 @@ The parent record grouping all progress entries for a single level for a single 
 A single logged data point for a level at a specific point in time. Contains percentage, attempts, date, notes, ratings, and any other fields the user chooses to log. Multiple progress entries exist per Level Progress. The fundamental unit of logging in InfernoLog.
 
 **Completion**
-A progress entry marked `kind = completion`. The canonical beat of a level. Only completion entries appear in the List and Ranking by default. At most one per Level Progress in v1.
+A progress entry marked `kind = completion`. The canonical beat of a level. Only completion entries appear in the Log and on the demon list by default. At most one per Level Progress in v1.
 
 **In Progress**
 A level the user is actively attempting. A Level Progress with status `IN_PROGRESS` and no completion entry. Appears in the In Progress section of the app.
@@ -31,23 +31,28 @@ Not On NewGrounds. A level that uses a song the player must source and install m
 
 ## Views
 
-**The List**
-The user's primary view of their demon history. A collection of their Level Progress entries, showing completions by default, sortable by any metric. Default sort is by quality (rating). Not called "My Demons" or "Demon List" to avoid confusion with community lists or the implication that these are levels the user created.
-
 **The Log**
-A chronological feed of all changes made in the app. Purely time-ordered — not sortable by other metrics. Records actions such as logging a progress entry, updating a rating, reordering the ranking, etc.
+The user's primary view of their demon history. A collection of their Level Progress entries, showing completions by default, sortable by any metric. Default sort is by quality (rating). Route `/log`. Not called "My Demons" — that implies levels the user created.
+
+**The Events feed**
+A chronological feed of all changes made in the app. Purely time-ordered — not sortable by other metrics. Records actions such as logging a progress entry, updating a rating, reordering the demon list, etc. Route `/events`. Backed by the `activity_log` table, which keeps its name — "event log" is the data, "Events" is the page.
+
+**My Demon List**
+The user's personal difficulty ordering of their completed levels, arranged manually via drag-and-drop. Independent of any official list tier or rating. Only completion entries appear here by default. Route `/demon-list`.
+
+**Always possessive in UI copy** — "my demon list", "your demon list", "Alex's demon list". Never "the Demon List": with the definite article it reads as Pointercrate's list rather than the user's own. The possessive also carries over unchanged to public profiles, where another user's page shows "Alex's demon list".
 
 **The Ranking**
-The user's personal difficulty ordering of their completed levels, arranged manually via drag-and-drop. Independent of any official list tier or rating. Only completion entries appear here by default.
+The user's completed levels ordered by rating, highest first, every entry numbered. Derived from the rating in SIMPLE and WEIGHTED modes and stored directly in MANUAL mode. Route `/ranking`. Distinct from the demon list, which orders by difficulty rather than quality.
 
 **The Level Page**
-The full page for a single level in the context of the user's data (`/list/{levelId}`). Shows the complete progress history for that level — all progress entries in timeline form. Distinct from the Global Level Page.
+The full page for a single level in the context of the user's data (`/log/{levelId}`). Shows the complete progress history for that level — all progress entries in timeline form. Distinct from the Global Level Page.
 
 **The Global Level Page**
 A community-facing page for a level independent of any user (`/levels/{levelId}`). Shows cached level metadata and in v4 community aggregate data. Added in v2.
 
 **Time Machine**
-The historical visualization of a user's personal ranking over time. A multi-line graph showing how the user's top N hardest demons have evolved. Uses the mirror portal as its icon — a reference to the base game level "Time Machine" which introduces the mirror portal mechanic, and a visual metaphor for looking back in time.
+The historical visualization of a user's demon list over time. A multi-line graph showing how the user's top N hardest demons have evolved. Uses the mirror portal as its icon — a reference to the base game level "Time Machine" which introduces the mirror portal mechanic, and a visual metaphor for looking back in time.
 
 **Level Picker**
 The Akinator-style guided tool for choosing a next level to attempt. Asks sequential yes/no questions that filter a pool of levels until 5 or fewer remain, then presents the candidates. Operates in Personal Mode (from the user's Want to Beat collection, v2) or Discovery Mode (from the broader cached database, v4).
@@ -95,7 +100,7 @@ Floating Action Button. The primary logging trigger accessible from every page i
 The drag-and-drop interface that appears during the logging flow when a user wants to set their ranking position at the time of logging a completion.
 
 **Non-Completion Toggle**
-A UI toggle present on the List, Ranking, and Level Page that reveals progress entries where `kind != completion`. Off by default.
+A UI toggle present on the Log, demon list, and Level Page that reveals progress entries where `kind != completion`. Off by default.
 
 **In-Game Face**
 A level's difficulty icon as it appears in Geometry Dash: the combination of its **Difficulty Face** and its **Background Glow**. Rendered by the `DifficultyFace` React component (`apps/web/src/components/DifficultyFace.tsx`). Use "in-game face" when referring to the composite icon (face + glow together).
@@ -125,13 +130,13 @@ A level the sync jobs can no longer find on RobTop's servers. Its cached metadat
 
 | Avoid                                | Use Instead                      | Reason                                                                   |
 | ------------------------------------ | -------------------------------- | ------------------------------------------------------------------------ |
-| "Completion log" or "demon log"      | The List                         | Confuses List with Log                                                   |
-| "Activity log"                       | The Log                          | Too generic                                                              |
-| "My demons"                          | The List                         | Implies created levels                                                   |
-| "Demon list"                         | The List                         | Confuses with community lists                                            |
+| "The Demon List"                     | "my/your demon list"             | The definite article means Pointercrate; the possessive is the whole point |
+| "Ranking" for the difficulty order   | "my demon list"                  | Ranking is now the rating-ordered page                                   |
+| "The List"                           | The Log                          | Renamed; no view is called the List any more                             |
+| "The Log" for the event feed         | The Events feed                  | The Log is now the level view                                            |
+| "Completion log" or "demon log"      | The Log                          | Too vague, and collides with the Events feed                             |
+| "My demons"                          | The Log                          | Implies created levels                                                   |
 | "Entry" alone                        | "Progress entry" or "completion" | Too ambiguous                                                            |
 | "Rank" for GDDL                      | "Tier"                           | GDDL uses tiers, not ranks                                               |
 | "Tier" for Pointercrate              | "Rank"                           | Pointercrate uses ranks, not tiers                                       |
-| "Log" for List                       | The List                         | These are distinct views                                                 |
-| "List" for Log                       | The Log                          | These are distinct views                                                 |
 | "Difficulty face" for the whole icon | "In-game face"                   | The difficulty face is only the face; the in-game face includes the glow |

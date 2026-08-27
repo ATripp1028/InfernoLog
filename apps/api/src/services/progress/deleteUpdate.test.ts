@@ -6,7 +6,7 @@
  * but a later PROGRESS row means the user resumed it. Getting that wrong leaves
  * a level mislabelled in the list with nothing to hint why. The other rule is
  * that undoing a completion also clears the fields that only mean anything for
- * a completed level, and unplaces it from the ranking. Prisma is mocked.
+ * a completed level, and unplaces it from the demon list. Prisma is mocked.
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -39,15 +39,15 @@ const TARGET_ID = 'pu-target'
 type Kind = 'PROGRESS' | 'COMPLETION' | 'DROP'
 
 /**
- * The transaction client the delete runs against. `classicRanking.findMany`
+ * The transaction client the delete runs against. `classicDemonList.findMany`
  * and the activityLog delegates are here because both delete paths emit
  * activity events — the whole-entry path purges the level's history, the
- * uncomplete path emits RANKING_UNRANKED.
+ * uncomplete path emits DEMON_LIST_REMOVED.
  */
 const tx = {
   levelProgress: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
   progressUpdate: { findFirst: vi.fn(), findMany: vi.fn(), delete: vi.fn() },
-  classicRanking: { deleteMany: vi.fn(), findMany: vi.fn() },
+  classicDemonList: { deleteMany: vi.fn(), findMany: vi.fn() },
   activityLog: { create: vi.fn(), deleteMany: vi.fn() },
   activityLogLevelImpact: { createMany: vi.fn() },
 }
@@ -83,11 +83,11 @@ beforeEach(() => {
   for (const model of Object.values(tx))
     for (const fn of Object.values(model)) fn.mockReset().mockResolvedValue({})
   tx.progressUpdate.findFirst.mockResolvedValue({ id: TARGET_ID })
-  // Ranking snapshots read through classicRanking.findMany; an empty ranking
+  // Ranking snapshots read through classicDemonList.findMany; an empty ranking
   // is enough for every case here except the mover row, which comes from the
   // deleted entry itself.
-  tx.classicRanking.findMany.mockResolvedValue([])
-  tx.classicRanking.deleteMany.mockResolvedValue({ count: 1 })
+  tx.classicDemonList.findMany.mockResolvedValue([])
+  tx.classicDemonList.deleteMany.mockResolvedValue({ count: 1 })
   tx.activityLog.create.mockResolvedValue({ id: 'event-1' })
   scenario('IN_PROGRESS', ['PROGRESS'])
 
@@ -215,9 +215,9 @@ describe('deleteProgressUpdate — recomputing status', () => {
 // ─── undoing a completion ────────────────────────────────────────────────────
 
 describe('deleteProgressUpdate — undoing a completion', () => {
-  it('clears the completion-only fields and unplaces the ranking', async () => {
+  it('clears the completion-only fields and unplaces the demon list', async () => {
     // coinsCollected/completionTime only mean anything once completed, and a
-    // ranking entry for an uncompleted level is not a valid state.
+    // demon list entry for an uncompleted level is not a valid state.
     scenario('COMPLETED', ['PROGRESS'])
 
     await run()
@@ -230,21 +230,21 @@ describe('deleteProgressUpdate — undoing a completion', () => {
       coinsCollected: null,
       completionTime: null,
     })
-    expect(tx.classicRanking.deleteMany).toHaveBeenCalledWith({
+    expect(tx.classicDemonList.deleteMany).toHaveBeenCalledWith({
       where: { levelProgressId: LP_ID },
     })
   })
 
-  it('emits RANKING_UNRANKED when the uncomplete drops it out of the ranking', async () => {
-    // Reaching an unranking indirectly is still an unranking — a rankingIndex
+  it('emits DEMON_LIST_REMOVED when the uncomplete drops it out of the demon list', async () => {
+    // Reaching an unranking indirectly is still an unranking — a listIndex
     // that disappears without an event is a permanent hole in that level's
     // history.
     scenario('COMPLETED', ['PROGRESS'])
     // The mover has to be in the "before" snapshot for an impact row to exist.
-    tx.classicRanking.findMany.mockResolvedValueOnce([
+    tx.classicDemonList.findMany.mockResolvedValueOnce([
       {
         levelProgressId: LP_ID,
-        rankingIndex: { toNumber: () => 3 },
+        listIndex: { toNumber: () => 3 },
         levelProgress: { levelId: LEVEL_ID, level: { name: 'Tartarus' } },
       },
     ])
@@ -254,19 +254,19 @@ describe('deleteProgressUpdate — undoing a completion', () => {
     expect(tx.activityLog.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
-          eventType: 'RANKING_UNRANKED',
+          eventType: 'DEMON_LIST_REMOVED',
           levelId: LEVEL_ID,
         }),
       })
     )
   })
 
-  it('leaves the ranking alone when the level is still completed', async () => {
+  it('leaves the demon list alone when the level is still completed', async () => {
     scenario('COMPLETED', ['COMPLETION'])
 
     await run()
 
-    expect(tx.classicRanking.deleteMany).not.toHaveBeenCalled()
+    expect(tx.classicDemonList.deleteMany).not.toHaveBeenCalled()
   })
 
   it('does not clear those fields for a status change that is not an uncomplete', async () => {
@@ -278,6 +278,6 @@ describe('deleteProgressUpdate — undoing a completion', () => {
       { data: Record<string, unknown> },
     ]
     expect(args.data).toEqual({ status: 'DROPPED' })
-    expect(tx.classicRanking.deleteMany).not.toHaveBeenCalled()
+    expect(tx.classicDemonList.deleteMany).not.toHaveBeenCalled()
   })
 })

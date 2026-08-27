@@ -152,7 +152,7 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
 }
 
 /**
- * Ranking tab: your personal difficulty order of levels you've completed.
+ * Demon List tab: your personal difficulty order of levels you've completed.
  * Order is what matters (top = hardest); the rank number is just a convenience.
  */
 export const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
@@ -484,28 +484,28 @@ export const FIELD_DESCRIPTIONS = [
   ],
   ['', '', '', ''],
   [
-    'Ranking',
+    'Demon List',
     'rank',
     'no',
     'Optional number (1 = hardest). If present it sorts the tab; if absent, the row order is the order (top row = hardest).',
   ],
   [
-    'Ranking',
+    'Demon List',
     'level_id',
     'no*',
     'Numeric in-game level ID of a level you have completed.',
   ],
   [
-    'Ranking',
+    'Demon List',
     'level_name',
     'no*',
     'Level name — matched against your completed levels. Required when level_id is blank.',
   ],
   [
-    'Ranking',
+    'Demon List',
     '(note)',
     '',
-    'The Ranking tab replaces your whole ranking. Levels you haven’t completed are skipped. Omit the tab to keep your existing ranking.',
+    'The Demon List tab replaces your whole demon list. Levels you haven’t completed are skipped. Omit the tab to keep your existing demon list.',
   ],
   ['', '', '', ''],
   [
@@ -626,10 +626,10 @@ export function downloadTemplate(): void {
   const droppedSheet = XLSX.utils.aoa_to_sheet(droppedData)
   XLSX.utils.book_append_sheet(wb, droppedSheet, 'Dropped')
 
-  // Ranking tab: header row + a couple example rows (order = hardest first)
-  const rankingData = [RANKING_HEADERS, ...RANKING_EXAMPLE_ROWS]
-  const rankingSheet = XLSX.utils.aoa_to_sheet(rankingData)
-  XLSX.utils.book_append_sheet(wb, rankingSheet, 'Ranking')
+  // Demon List tab: header row + a couple example rows (order = hardest first)
+  const demonListData = [RANKING_HEADERS, ...RANKING_EXAMPLE_ROWS]
+  const rankingSheet = XLSX.utils.aoa_to_sheet(demonListData)
+  XLSX.utils.book_append_sheet(wb, rankingSheet, 'Demon List')
 
   // Lists tab: header row + example rows
   const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]

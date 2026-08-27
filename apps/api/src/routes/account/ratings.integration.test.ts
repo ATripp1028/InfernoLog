@@ -229,7 +229,7 @@ describe('PUT /me/rating-config — removing a category', () => {
     // category — nothing but this write path keeps the two in step.
     const user = await seedUser(prisma)
     const [keep, drop] = await seedCategories(user.id, ['Keep', 'Drop'])
-    const preset = await prisma.listPreset.create({
+    const preset = await prisma.logPreset.create({
       data: {
         userId: user.id,
         name: 'Mine',
@@ -256,7 +256,7 @@ describe('PUT /me/rating-config — removing a category', () => {
     )
 
     expect(res.status).toBe(200)
-    const stored = await prisma.listPreset.findUniqueOrThrow({
+    const stored = await prisma.logPreset.findUniqueOrThrow({
       where: { id: preset.id },
     })
     expect(stored.sorts).toEqual([{ key: 'date', dir: 'desc' }])
@@ -276,7 +276,7 @@ describe('PUT /me/rating-config — removing a category', () => {
     const [keep, drop] = await seedCategories(user.id, ['Keep', 'Drop'])
     // Same key shape, different owner — the purge is scoped by userId, so a
     // colliding id in someone else's preset must survive.
-    const theirs = await prisma.listPreset.create({
+    const theirs = await prisma.logPreset.create({
       data: {
         userId: other.id,
         name: 'Theirs',
@@ -294,7 +294,7 @@ describe('PUT /me/rating-config — removing a category', () => {
     )
 
     expect(res.status).toBe(200)
-    const stored = await prisma.listPreset.findUniqueOrThrow({
+    const stored = await prisma.logPreset.findUniqueOrThrow({
       where: { id: theirs.id },
     })
     expect(stored.sorts).toEqual([{ key: `cat:${drop!.id}`, dir: 'desc' }])

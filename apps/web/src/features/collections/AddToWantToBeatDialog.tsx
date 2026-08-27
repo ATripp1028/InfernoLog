@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { Loader2 } from 'lucide-react'
 import { useCollection, useCollections } from '@/lib/api/collections'
 import type { CollectionDetail } from '@/lib/api/collections'
-import { useMyProgress } from '@/lib/api/list'
+import { useMyProgress } from '@/lib/api/log'
 import { AddLevelsDialog } from './AddLevelsDialog'
 
 interface AddToWantToBeatDialogProps {

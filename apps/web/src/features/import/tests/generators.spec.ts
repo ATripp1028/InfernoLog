@@ -58,7 +58,7 @@ const TABS = [
   'Completions',
   'Progress',
   'Dropped',
-  'Ranking',
+  'Demon List',
   'Lists',
   'Ratings',
   'Field Descriptions',
@@ -87,7 +87,7 @@ describe('downloadTemplate', () => {
     ['Completions', () => COMPLETION_HEADERS],
     ['Progress', () => PROGRESS_HEADERS],
     ['Dropped', () => DROPPED_HEADERS],
-    ['Ranking', () => RANKING_HEADERS],
+    ['Demon List', () => RANKING_HEADERS],
     ['Lists', () => LIST_HEADERS],
   ])('heads the %s tab with its exported constant', (name, headers) => {
     downloadTemplate()
@@ -279,7 +279,7 @@ describe('downloadExport', () => {
     ['Completions', () => COMPLETION_HEADERS],
     ['Progress', () => PROGRESS_HEADERS],
     ['Dropped', () => DROPPED_HEADERS],
-    ['Ranking', () => RANKING_HEADERS],
+    ['Demon List', () => RANKING_HEADERS],
     ['Lists', () => LIST_HEADERS],
   ])('heads the %s tab exactly as the template does', (name, headers) => {
     downloadExport(exportData(), 'MDY')
@@ -292,7 +292,7 @@ describe('downloadExport', () => {
     const { wb } = written()
 
     expect(tab(wb, 'Completions')).toHaveLength(1)
-    expect(tab(wb, 'Ranking')).toHaveLength(1)
+    expect(tab(wb, 'Demon List')).toHaveLength(1)
   })
 
   describe('cell formatting', () => {

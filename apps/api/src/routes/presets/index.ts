@@ -2,10 +2,10 @@
 // visible columns, column order and the hideTime toggle so a user can switch
 // between named views of their list.
 //
-//   presets.ts  GET    /v1/me/list-presets
-//               POST   /v1/me/list-presets
-//               PATCH  /v1/me/list-presets/:id
-//               DELETE /v1/me/list-presets/:id
+//   presets.ts  GET    /v1/me/log-presets
+//               POST   /v1/me/log-presets
+//               PATCH  /v1/me/log-presets/:id
+//               DELETE /v1/me/log-presets/:id
 //
 // One sub-resource, so one implementation file — the directory exists to keep
 // every route module the same shape, not because this needs subdividing.

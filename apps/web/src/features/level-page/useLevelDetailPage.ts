@@ -9,7 +9,7 @@ import { Check, Flag, List, Pencil, Trash2, Upload, X } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useGoBack } from '@/lib/useGoBack'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
-import { useDeleteProgress } from '@/lib/api/list'
+import { useDeleteProgress } from '@/lib/api/log'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
 import { ApiError } from '@/lib/api/client'
@@ -36,9 +36,9 @@ export type LevelDetailStatus =
  * already taken by `lib/api/levelPage.ts`.
  */
 export function useLevelDetailPage() {
-  const { levelId } = useParams({ from: '/_authenticated/list/$levelId' })
+  const { levelId } = useParams({ from: '/_authenticated/log/$levelId' })
   const navigate = useNavigate()
-  const back = useGoBack('/list')
+  const back = useGoBack('/log')
   const me = useMe()
   const deleteProgress = useDeleteProgress()
   const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
@@ -68,7 +68,7 @@ export function useLevelDetailPage() {
       onSuccess: () => {
         toast.success('Level deleted')
         setPendingDelete(false)
-        void navigate({ to: '/list' })
+        void navigate({ to: '/log' })
       },
       onError: () => {
         toast.error('Failed to delete level')
@@ -82,7 +82,7 @@ export function useLevelDetailPage() {
       onSuccess: (result) => {
         toast.success('Entry deleted')
         setPendingDeleteUpdateId(null)
-        if (result.deletedLevelProgress) void navigate({ to: '/list' })
+        if (result.deletedLevelProgress) void navigate({ to: '/log' })
       },
       onError: () => {
         toast.error('Failed to delete entry')

@@ -1,4 +1,4 @@
-// Top-N milestone crossings on the classic ranking.
+// Top-N milestone crossings on the classic demon list.
 //
 // A crossing is a property of ONE level on ONE ranking event, so it is a field
 // on that level's ActivityLogLevelImpact row rather than an event of its own —
@@ -37,10 +37,10 @@ function isInside(position: number | null, threshold: number): boolean {
  * the rest.
  *
  * @param positionBefore - 1-based position before the event; `null` when the
- * level was not in the ranking (an initial placement), which reads as outside
+ * level was not in the demon list (an initial placement), which reads as outside
  * every threshold — so debuting at #3 crosses 5.
  * @param positionAfter - 1-based position after the event; `null` when the
- * level left the ranking.
+ * level left the demon list.
  */
 export function milestoneCrossed(
   positionBefore: number | null,

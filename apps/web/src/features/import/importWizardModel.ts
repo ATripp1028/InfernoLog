@@ -265,6 +265,8 @@ export type FlagsByTab = Record<FlagTab, ParseFlag[]>
  */
 export interface AllFlags extends FlagsByTab {
   duplicates: ParseResult['duplicateLevelIds']
+  /** Whole-workbook finding, like `duplicates`: tabs under a retired name. */
+  legacyTabs: ParseResult['legacyTabs']
 }
 
 /**

@@ -10,7 +10,7 @@ import {
 
 // Log a completion, then place it in the ranking — the two flows the suite
 // exists for, in the order a user actually performs them ("Place now" on the
-// success card routes straight to /ranking).
+// success card routes straight to /demon-list).
 //
 // What is asserted is the round trip, not the rendering: every step here
 // crosses the wire to the staging API, so a response shape that changed on the
@@ -64,7 +64,7 @@ async function placeFromUnplaced(page: Page, level: FixtureLevel) {
 
 test.describe('completion', () => {
   test('logs a completion and shows it on the list', async ({ page }) => {
-    await page.goto('/list')
+    await page.goto('/log')
 
     await logCompletion(page, CLUBSTEP, '1337')
     await page.getByRole('button', { name: 'Place later' }).click()
@@ -78,18 +78,18 @@ test.describe('completion', () => {
   test('places completions in the ranking and reorders them', async ({
     page,
   }) => {
-    await page.goto('/ranking')
+    await page.goto('/demon-list')
 
     // Two completions, not one: placement always drops a level in at #1, and
     // `move` is a no-op at either end of the list — so a single placed entry
     // can never be reordered and the PATCH would never be exercised.
     await logCompletion(page, THEORY_OF_EVERYTHING_2, '42')
     await page.getByRole('button', { name: 'Place now' }).click()
-    await expect(page).toHaveURL(/\/ranking/)
+    await expect(page).toHaveURL(/\/demon-list/)
     await placeFromUnplaced(page, THEORY_OF_EVERYTHING_2)
     await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
 
-    // "Place later" just closes the modal, leaving us on /ranking with the new
+    // "Place later" just closes the modal, leaving us on /demon-list with the new
     // completion sitting in Unplaced.
     await logCompletion(page, DEADLOCKED, '7')
     await page.getByRole('button', { name: 'Place later' }).click()
@@ -111,7 +111,7 @@ test.describe('completion', () => {
     const reordered = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        /\/v1\/me\/ranking\/classic\//.test(r.url())
+        /\/v1\/me\/demon-list\/classic\//.test(r.url())
     )
     await page.getByRole('button', { name: 'Move down' }).first().click()
     expect((await reordered).status()).toBe(200)

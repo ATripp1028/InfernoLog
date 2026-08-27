@@ -132,7 +132,7 @@ export function LandingPage() {
           </div>
         </section>
 
-        {/* Section 3 — The List (full-width, centered copy above image) */}
+        {/* Section 3 — The Log (full-width, centered copy above image) */}
         <section className="flex flex-col items-center gap-10 px-6 py-16 text-center md:px-16 lg:p-[100px]">
           <div className="flex max-w-[720px] flex-col gap-4">
             <LandingHeading>Your whole log, sorted your way</LandingHeading>
@@ -151,13 +151,13 @@ export function LandingPage() {
             />
             <img
               src={`${ASSETS}/desktop/list-page.png`}
-              alt="The List page showing tracked demons"
+              alt="The Log page showing tracked demons"
               className="mx-auto max-h-[450px] w-auto rounded-lg md:max-h-none md:w-full"
             />
           </picture>
         </section>
 
-        {/* Section 4 — The Ranking (full-width, centered copy above image) */}
+        {/* Section 4 — The demon list (full-width, centered copy above image) */}
         <section className="flex flex-col items-center gap-10 px-6 py-16 text-center md:px-16 lg:p-[100px]">
           <div className="flex max-w-[720px] flex-col gap-4">
             <LandingHeading>
@@ -176,7 +176,7 @@ export function LandingPage() {
             />
             <img
               src={`${ASSETS}/desktop/ranking-page.png`}
-              alt="The Ranking page with the Unplaced panel visible"
+              alt="The demon list page with the Unplaced panel visible"
               className="mx-auto max-h-[450px] w-auto rounded-lg md:max-h-none md:w-full"
             />
           </picture>

@@ -6,8 +6,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Loader2, X } from 'lucide-react'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
-import { RankingBadge } from '@/features/ranking/RankingBadge'
-import { ThumbnailWash } from '@/features/ranking/ThumbnailWash'
+import { DemonListBadge } from '@/features/demon-list/DemonListBadge'
+import { ThumbnailWash } from '@/features/demon-list/ThumbnailWash'
 import type { CollectionEntry } from '@/lib/api/collections'
 
 /**
@@ -111,7 +111,7 @@ export function Row({
               : 'Unknown creator'}
           </p>
         </div>
-        <RankingBadge badge={entry.badge} />
+        <DemonListBadge badge={entry.badge} />
         {onRemove && (
           <button
             type="button"

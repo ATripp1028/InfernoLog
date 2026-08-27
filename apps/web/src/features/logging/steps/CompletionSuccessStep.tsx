@@ -31,7 +31,7 @@ export function CompletionSuccessStep() {
           onClick={() => {
             close()
             void navigate({
-              to: '/ranking',
+              to: '/demon-list',
               search: lastCompletionLevelProgressId
                 ? { place: lastCompletionLevelProgressId }
                 : {},

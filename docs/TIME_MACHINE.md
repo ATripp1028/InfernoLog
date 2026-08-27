@@ -78,13 +78,13 @@ User sees their complete demon history on first login
 - **Hover** on a data point → tooltip showing level name, tier/rank, date beaten, thumbnail
 - **Click** on a data point → navigate to that completion's entry in the log
 - **Drag slider** → time window updates in real time, lines animate smoothly
-- **Toggle N** → add or remove lines from the top of the ranking
+- **Toggle N** → add or remove lines from the top of the demon list
 
 ---
 
 ## Y Axis: List Reference Priority
 
-The Y axis position of each completion is determined by its list references. When a completion has more than one, a **fixed reference ordering** picks which to plot (there is no user-configurable priority chain — that was tied to the removed auto-placement; see `RANKING_SYSTEM.md`):
+The Y axis position of each completion is determined by its list references. When a completion has more than one, a **fixed reference ordering** picks which to plot (there is no user-configurable priority chain — that was tied to the removed auto-placement; see `DEMON_LIST.md`):
 
 ```
 GDDL tier (if assigned)

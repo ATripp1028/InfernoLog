@@ -25,7 +25,7 @@ function entry(overrides: Partial<RankHistoryEntry> = {}): RankHistoryEntry {
     id: 'e1',
     recordedAt: new Date('2026-08-25T12:00:00Z'),
     kind: 'DIRECT',
-    eventType: 'RANKING_REORDER',
+    eventType: 'DEMON_LIST_REORDER',
     positionBefore: 8,
     positionAfter: 3,
     milestoneCrossed: null,
@@ -51,7 +51,7 @@ describe('entryLabel', () => {
       entryLabel(
         entry({
           kind: 'INDIRECT',
-          eventType: 'RANKING_PLACEMENT',
+          eventType: 'DEMON_LIST_PLACEMENT',
           positionBefore: 3,
           positionAfter: 4,
           cause: { levelId: '9', levelName: 'Avernus' },
@@ -65,7 +65,7 @@ describe('entryLabel', () => {
       entryLabel(
         entry({
           kind: 'INDIRECT',
-          eventType: 'RANKING_UNRANKED',
+          eventType: 'DEMON_LIST_REMOVED',
           positionBefore: 9,
           positionAfter: 8,
           cause: { levelId: '9', levelName: 'Bloodbath' },
@@ -105,11 +105,11 @@ describe('entryLabel', () => {
       entryLabel(
         entry({
           kind: 'INDIRECT',
-          eventType: 'RANKING_BULK_REPLACE',
+          eventType: 'DEMON_LIST_BULK_REPLACE',
           cause: null,
         })
       )
-    ).toBe('A spreadsheet import reordered your ranking')
+    ).toBe('A spreadsheet import reordered your demon list')
   })
 })
 
@@ -202,7 +202,7 @@ describe('rankSeries', () => {
       [
         entry({
           id: 'a',
-          eventType: 'RANKING_UNRANKED',
+          eventType: 'DEMON_LIST_REMOVED',
           positionBefore: 4,
           positionAfter: null,
         }),

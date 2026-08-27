@@ -38,7 +38,7 @@ export function OnboardingWizard() {
     // all (e.g. a Google account with an existing InfernoLog account went
     // through Sign Up by mistake instead of Sign In, or a direct nav here).
     if (me.data.onboardingCompleted) {
-      navigate({ to: '/list', replace: true })
+      navigate({ to: '/log', replace: true })
       return
     }
     if (step !== null) return
@@ -58,7 +58,7 @@ export function OnboardingWizard() {
     } else {
       void update
         .mutateAsync({ onboardingCompleted: true })
-        .then(() => navigate({ to: '/list', replace: true }))
+        .then(() => navigate({ to: '/log', replace: true }))
     }
   }
 

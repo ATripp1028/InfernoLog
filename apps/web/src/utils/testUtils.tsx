@@ -38,7 +38,7 @@ import type {
 } from '@/lib/api/logging'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import type { MeData } from '@/lib/api/me'
-import type { ListItem } from '@/features/list/types'
+import type { LogItem } from '@/features/log/types'
 import type { FlowContextValue } from '@/features/logging/useLoggingFlowState'
 import { emptyDraft } from '@/features/logging/types'
 
@@ -328,14 +328,14 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
 }
 
 /**
- * A `ListItem` — one row of the List, as the progress query returns it.
+ * A `LogItem` — one row of the List, as the progress query returns it.
  *
  * `entry` holds the per-run fields the row renders; pass `entry: null` for the
  * rare status row with no progress updates. Dates are real `Date`s and the
  * enum fields are real enum members, so a spec that gets either wrong fails at
  * typecheck rather than rendering something the API could never produce.
  */
-export function makeListItem(overrides: Partial<ListItem> = {}): ListItem {
+export function makeListItem(overrides: Partial<LogItem> = {}): LogItem {
   const level = makeLevel()
   const at = new Date('2026-01-01T00:00:00.000Z')
   return {

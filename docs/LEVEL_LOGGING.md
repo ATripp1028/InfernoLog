@@ -95,7 +95,7 @@ See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, 
 When `kind = completion`:
 
 - The `level_progress.status` is updated to `completed`
-- The entry becomes eligible for the personal difficulty ranking (placed manually — see `RANKING_SYSTEM.md`)
+- The entry becomes eligible for the personal difficulty ranking (placed manually — see `DEMON_LIST.md`)
 - Top 5 tracking snapshot is evaluated
 - The GDDL record submission option appears (if API key configured)
 - The post-submit "Place in ranking now?" prompt is offered
@@ -177,7 +177,7 @@ Completion entries only       All progress updates shown
                               distinguished (badge/tint)
 
 Applies to:
-  - The List
+  - The Log
   - The Ranking view
   - Stats
   - Export (user chooses at export time)

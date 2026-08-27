@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 /**
- * A slide-in drawer over Radix Dialog. Used by the List page for the filter
+ * A slide-in drawer over Radix Dialog. Used by the Log page for the filter
  * panel (right) on tablet/below and the mobile controls/filters sheets (bottom).
  */
 export const Sheet = DialogPrimitive.Root

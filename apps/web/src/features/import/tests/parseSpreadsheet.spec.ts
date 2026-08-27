@@ -50,6 +50,7 @@ describe('workbook structure', () => {
       ratings: [],
       ratingCategories: [],
       duplicateLevelIds: [],
+      legacyTabs: [],
     })
   })
 
@@ -64,12 +65,35 @@ describe('workbook structure', () => {
     }
   )
 
+  // A tab under a retired name is not imported. Without the report it would
+  // vanish in silence, because an absent tab legitimately means "leave this
+  // data alone" — so the user would see a clean import that quietly dropped
+  // their whole demon list.
+  it('reports a Ranking tab as the retired name for Demon List', () => {
+    const result = parse({ Ranking: [['level_id'], ['4']] })
+
+    expect(result.ranking).toHaveLength(0)
+    expect(result.legacyTabs).toEqual([
+      { found: 'Ranking', expected: 'Demon List' },
+    ])
+  })
+
+  it('does not report a legacy tab when the current one is present', () => {
+    const result = parse({
+      'Demon List': [['level_id'], ['4']],
+      Ranking: [['level_id'], ['9']],
+    })
+
+    expect(result.ranking).toHaveLength(1)
+    expect(result.legacyTabs).toEqual([])
+  })
+
   it('reads every tab it knows about', () => {
     const result = parse({
       Completions: [['level_id'], ['1']],
       Progress: [['level_id'], ['2']],
       Dropped: [['level_id'], ['3']],
-      Ranking: [['level_id'], ['4']],
+      'Demon List': [['level_id'], ['4']],
       Lists: [
         ['list', 'level_id'],
         ['Favorites', '5'],
@@ -430,9 +454,9 @@ describe('boolean fields', () => {
   })
 })
 
-describe('the ranking tab', () => {
+describe('the demon list tab', () => {
   const rankingOrder = (rows: unknown[][]) =>
-    parse({ Ranking: [['rank', 'level_id'], ...rows] }).ranking.map(
+    parse({ 'Demon List': [['rank', 'level_id'], ...rows] }).ranking.map(
       (r) => r.levelId
     )
 
@@ -459,14 +483,14 @@ describe('the ranking tab', () => {
   })
 
   it('keeps sheet order when the tab has no rank column at all', () => {
-    const result = parse({ Ranking: [['level_id'], ['3'], ['1'], ['2']] })
+    const result = parse({ 'Demon List': [['level_id'], ['3'], ['1'], ['2']] })
 
     expect(result.ranking.map((r) => r.levelId)).toEqual(['3', '1', '2'])
   })
 
   it('warns and falls back to row order for a non-numeric rank', () => {
     const result = parse({
-      Ranking: [
+      'Demon List': [
         ['rank', 'level_id'],
         ['first', '1'],
       ],
@@ -481,7 +505,7 @@ describe('the ranking tab', () => {
 
   it('errors on a ranking row identifying no level', () => {
     const result = parse({
-      Ranking: [
+      'Demon List': [
         ['level_id', 'level_name'],
         ['', ''],
       ],
@@ -658,7 +682,7 @@ describe('resilience', () => {
           ['', 'sometime', 'many', 'most of it', 'great'],
           [null, null, null, null, null],
         ],
-        Ranking: [
+        'Demon List': [
           ['rank', 'level_id'],
           ['first', 'abc'],
         ],

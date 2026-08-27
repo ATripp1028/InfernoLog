@@ -23,7 +23,7 @@ the columns; emission lives in `apps/api/src/services/activityLog`.
 
 ## The one rule that cannot be relaxed
 
-**Every write path that touches `classic_ranking.ranking_index` must emit an
+**Every write path that touches `classic_demon_list.ranking_index` must emit an
 event.** Not most of them. A `ranking_index` written without a matching impact
 row is a permanent hole in that level's history — the previous value is gone and
 nothing can reconstruct it later. `services/invariants.integration.test.ts`
@@ -39,21 +39,21 @@ feed entry; a missed ranking event corrupts every reconstruction that spans it.
 
 | `eventType`            | Scope          | Children      | Emitted by                                                                                                         |
 | ---------------------- | -------------- | ------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `RANKING_PLACEMENT`    | One level      | Impact rows   | `POST /v1/me/ranking/classic`                                                                                      |
-| `RANKING_REORDER`      | One level      | Impact rows   | `PATCH /v1/me/ranking/classic/:levelProgressId`                                                                    |
-| `RANKING_UNRANKED`     | One level      | Impact rows   | `DELETE /v1/me/ranking/classic/:levelProgressId`, and deleting a completion that walks an entry out of `COMPLETED` |
-| `RANKING_BULK_REPLACE` | The whole list | Impact rows   | The spreadsheet import's full replace of the ranking                                                               |
-| `RANKING_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                   |
+| `DEMON_LIST_PLACEMENT`    | One level      | Impact rows   | `POST /v1/me/demon-list/classic`                                                                                      |
+| `DEMON_LIST_REORDER`      | One level      | Impact rows   | `PATCH /v1/me/demon-list/classic/:levelProgressId`                                                                    |
+| `DEMON_LIST_REMOVED`     | One level      | Impact rows   | `DELETE /v1/me/demon-list/classic/:levelProgressId`, and deleting a completion that walks an entry out of `COMPLETED` |
+| `DEMON_LIST_BULK_REPLACE` | The whole list | Impact rows   | The spreadsheet import's full replace of the demon list                                                               |
+| `DEMON_LIST_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                   |
 | `LOG_EDIT`             | One level      | Field changes | `PATCH /v1/me/progress/:levelId`                                                                                   |
 | `RATING_CONFIG_CHANGE` | The account    | Field changes | `PUT /v1/me/rating-config`; a rating-mode switch on `PATCH /v1/me`                                                 |
 
-`RANKING_REBALANCE` is **internal-only** — the one hidden type. It exists so
+`DEMON_LIST_REBALANCE` is **internal-only** — the one hidden type. It exists so
 every level's logged index values stay in one coordinate system; the order the
 user sees does not change, and nothing they did is described by it. It must be
 filtered out of any Log/timeline surface and excluded from any future
 event-type → Discord channel mapping.
 
-**Every other type is user-facing**, `RANKING_BULK_REPLACE` included. That one
+**Every other type is user-facing**, `DEMON_LIST_BULK_REPLACE` included. That one
 produces rows structurally identical to a rebalance's — one event, one impact row
 per level in the list — and is a separate type anyway, precisely so one can be
 shown and the other suppressed: a spreadsheet import really does change the order
@@ -65,9 +65,9 @@ performed a single action, and a feed that listed every level it touched would
 bury everything else they have. The per-level detail lives in its impact rows,
 for a reader that wants to expand it into "42 levels reordered".
 
-The rest of the ranking half — direct-events-only, milestones as a field, the
+The rest of the demon list half — direct-events-only, milestones as a field, the
 denormalized level name, and the snapshot-at-T / retroactive-at-T reconstruction
-definitions — is documented in `RANKING_SYSTEM.md` → "Ranking Events". The rest
+definitions — is documented in `DEMON_LIST.md` → "Ranking Events". The rest
 of the taxonomy is below.
 
 ---
@@ -216,18 +216,18 @@ collection is not tracked at all, in any form. If it is ever wanted, it is a new
 `eventType` and (probably) no new tables.
 
 **Whole-ranking reconstruction.** The snapshot-at-T and retroactive-at-T queries
-in `RANKING_SYSTEM.md` remain unbuilt. The rank-history walk under "Surfaces"
+in `DEMON_LIST.md` remain unbuilt. The rank-history walk under "Surfaces"
 answers a narrower question — one level's position over time — and is not a
 substitute for either.
 
 **Anything in the spreadsheet import or export.** Events never round-trip: the
 import template must not accept them and the export must not emit them. An import
-still _emits_ a `RANKING_BULK_REPLACE`, which is the opposite direction — the
+still _emits_ a `DEMON_LIST_BULK_REPLACE`, which is the opposite direction — the
 import producing an event, not events being carried in a file.
 
 **Discord notifications and the event-type → channel mapping.** Not built. The
 `eventType` enum is the natural key for that mapping when it lands. The only
-constraint it inherits is that `RANKING_REBALANCE` must never be mapped to
+constraint it inherits is that `DEMON_LIST_REBALANCE` must never be mapped to
 anything — which is exactly why the import's bulk replace is its own type rather
 than sharing that one.
 
@@ -238,8 +238,8 @@ than sharing that one.
 Order by `(createdAt, sequence)`, or by `sequence` alone within one user.
 
 `sequence` is not decoration. One request routinely writes two events — a
-placement that trips a renormalization emits `RANKING_REBALANCE` and then
-`RANKING_PLACEMENT` — and `createdAt` cannot separate them reliably: Prisma
+placement that trips a renormalization emits `DEMON_LIST_REBALANCE` and then
+`DEMON_LIST_PLACEMENT` — and `createdAt` cannot separate them reliably: Prisma
 stamps it per statement, so the two are a millisecond apart at best and can land
 in the same one, and the column's `DEFAULT CURRENT_TIMESTAMP` is frozen at
 transaction start for anything inserted by raw SQL. Reading those two in the
@@ -283,11 +283,11 @@ user's own data; neither has a public equivalent while `visibility` is inert.
 `/log` — one merged, filtered, paginated feed of `activity_log` events and
 `progress_updates`, newest first by the order above.
 
-- **`RANKING_REBALANCE` is excluded in the query**, not styled quiet. It must
+- **`DEMON_LIST_REBALANCE` is excluded in the query**, not styled quiet. It must
   never reach a feed response.
 - **The chips are four things a user recognises having done**, not the event
   types behind them: **Progress** (`progress_updates`, all three kinds),
-  **Ranking** (the four visible `RANKING_*` types), **Edits** (`LOG_EDIT`) and
+  **Ranking** (the four visible `DEMON_LIST_*` types), **Edits** (`LOG_EDIT`) and
   **Settings** (`RATING_CONFIG_CHANGE`). Naming no chip is "All". They are a
   hand-written list on purpose — anything that enumerated `ActivityEventType`
   and rendered what it found would grow a chip for the hidden type.
@@ -295,7 +295,7 @@ user's own data; neither has a public equivalent while `visibility` is inert.
   `fieldName`"), and on nothing else — it is the sub-filter of one chip, not a
   filter over the whole feed. A level and a date range apply across all of them;
   the range uses the same recorded-time clock the ordering does.
-- **The level filter is a union, not a column match.** A `RANKING_BULK_REPLACE`
+- **The level filter is a union, not a column match.** A `DEMON_LIST_BULK_REPLACE`
   has a null `level_id` and belongs to every level its impact rows touched, so
   filtering by a level must match `activity_log.level_id` **or**
   `activity_log_level_impact.level_id`. Without the union, an import that moved a
@@ -304,7 +304,7 @@ user's own data; neither has a public equivalent while `visibility` is inert.
   by definition. Say so in the UI rather than leaving a silent hole.
 
 A glossary explains this vocabulary in the user's terms. It must not name event
-types, and `RANKING_REBALANCE` must not appear in it at all.
+types, and `DEMON_LIST_REBALANCE` must not appear in it at all.
 
 ### Rank history on a level page
 
@@ -313,15 +313,15 @@ data.
 
 Direct events come straight from that level's impact rows. **Indirect shifts —
 the level moving because something else was placed above it — have no rows of
-their own** (`RANKING_SYSTEM.md` → "Direct events only"), and are reconstructed:
+their own** (`DEMON_LIST.md` → "Direct events only"), and are reconstructed:
 walk that user's ranking events in `(created_at, sequence)` order maintaining a
 map of `level_id` → current `ranking_index`, applying every impact row; after
 each event the level's position is 1 + the count of indices ordered above it.
 
-**This is the first reader of `RANKING_REBALANCE`.** Index comparisons are only
+**This is the first reader of `DEMON_LIST_REBALANCE`.** Index comparisons are only
 valid inside one coordinate system, and a rebalance rewrites all of them, so the
 walk must consume those events to re-anchor the map. The one type that is never
-_displayed_ is now one that must be _read_. `RANKING_BULK_REPLACE` updates the map
+_displayed_ is now one that must be _read_. `DEMON_LIST_BULK_REPLACE` updates the map
 wholesale for the same reason.
 
 #### The baseline rebalance
@@ -334,14 +334,14 @@ been moved has no index in the map at all, so every shift past it is lost rather
 than merely misnumbered — and "a level the user has never moved" is exactly the
 level whose page is being looked at.
 
-So **every user's ranking starts with a baseline `RANKING_REBALANCE`** carrying an
+So **every user's ranking starts with a baseline `DEMON_LIST_REBALANCE`** carrying an
 impact row for every placed level, written by
 `20260825120000_rank_history_baseline`. That is already what a rebalance means —
 "here is every level's index in the current coordinate system" — so it needs no
 new event type, and being the internal-only type it can never surface. The walk
 re-anchors the whole map on it and is exact from there on.
 
-The same migration **deletes the ranking events that predate the baseline**. A
+The same migration **deletes the demon list events that predate the baseline**. A
 baseline written today records today's indices, not the ones that held a day ago,
 so older events would replay against the incomplete map and produce wrong
 positions with nothing in the data to flag which entries those are. One day of
@@ -365,7 +365,7 @@ on every other level's events standing, so the map goes on counting a level that
 is no longer ranked, and the deletion emits nothing of its own. Two things follow.
 The correction is carried forward once re-anchored, so one hole is not re-reported
 at every later event. And the walk ends with one more comparison — the
-reconstructed position against `classic_ranking` — because a hole opened after the
+reconstructed position against `classic_demon_list` — because a hole opened after the
 level's last direct event has no later event to be caught at.
 
 ### Keeping the surfaces fresh
@@ -382,7 +382,7 @@ config save needlessly refetch the list and collections.
 
 The relationship runs one way, and `lib/api/tests/activity.spec.ts` pins it:
 `invalidateOnWrite` covers **both** sets, because a progress write is also an
-event, while the ranking mutations, the rating-config save and the rating-mode
+event, while the demon list mutations, the rating-config save and the rating-mode
 switch on `PATCH /v1/me` call `invalidateOnEvent` alone. A later "just add it to
 the other list" edit is exactly what that test exists to catch.
 

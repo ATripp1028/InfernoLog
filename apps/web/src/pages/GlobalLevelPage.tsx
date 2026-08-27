@@ -101,7 +101,7 @@ export function GlobalLevelPage() {
               sits on the user-scoped page. */}
           {level.hasUserProgress && (
             <Link
-              to="/list/$levelId"
+              to="/log/$levelId"
               params={{ levelId }}
               state={true}
               className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
@@ -165,7 +165,7 @@ export function GlobalLevelPage() {
             </span>
             {level.hasUserProgress && (
               <Link
-                to="/list/$levelId"
+                to="/log/$levelId"
                 params={{ levelId }}
                 state={true}
                 className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"

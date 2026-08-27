@@ -2,7 +2,7 @@ import { forwardRef } from 'react'
 import * as SliderPrimitive from '@radix-ui/react-slider'
 import { cn } from '@/lib/utils'
 
-// Dual-thumb range slider used by the List page filters (rating, enjoyment,
+// Dual-thumb range slider used by the Log page filters (rating, enjoyment,
 // tier, attempts, date ranges). Built on the same Radix primitive as the
 // single-thumb Slider, but renders two thumbs from an array value.
 //
