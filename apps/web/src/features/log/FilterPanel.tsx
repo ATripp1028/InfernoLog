@@ -10,7 +10,7 @@ import { difficultyFaceSrc } from '@/lib/gdAssets'
 import { formatNumber } from '@/features/logging/format'
 import { formatRating } from '@/lib/ratingScale'
 import { FilterSection } from './FilterSection'
-import { gddlTrackGradient } from './tierColor'
+import { gddlTrackGradient } from '@/lib/tierColor'
 import { RangeRow, DatePickersRow } from './FilterInputs'
 import {
   DEVICES,

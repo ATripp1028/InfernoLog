@@ -11,7 +11,7 @@ import { getViewerTimezone } from '@/lib/timezone'
 import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
 import { NAME_COLOR } from './LevelCell'
-import { TierBadge } from './TierBadge'
+import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
 import type { ColumnVisibility } from './columns'
@@ -114,7 +114,7 @@ export function LogCard({
           )}
         </div>
         <div className="flex shrink-0 flex-col items-center gap-1.5">
-          {columns.tier && <TierBadge tier={gddlTier(item)} />}
+          {columns.tier && <GddlTierBadge tier={gddlTier(item)} />}
           {columns.status && <StatusIcons item={item} interactive={false} />}
         </div>
       </div>

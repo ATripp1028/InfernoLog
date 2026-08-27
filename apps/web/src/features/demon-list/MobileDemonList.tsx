@@ -8,8 +8,8 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/generic/sheet'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
 import { backOriginState } from '@/lib/backOrigin'
-import { DemonListBadge } from './DemonListBadge'
-import { ThumbnailWash } from './ThumbnailWash'
+import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { medalColor } from './medals'
 import { useMobileDemonList } from './useMobileDemonList'
 import type { DemonListItem } from './types'
@@ -207,7 +207,7 @@ export function MobileDemonList({
                             {formatNumber(entry.attempts)} att
                           </span>
                         )}
-                        {entry.badge && <DemonListBadge badge={entry.badge} />}
+                        <GddlTierBadge tier={entry.badge?.gddlTier ?? null} variant="inline" />
                       </div>
                     )}
                   </div>
@@ -283,7 +283,7 @@ function MobileRow({
                 {formatNumber(item.attempts)} att
               </span>
             )}
-            {item.badge && <DemonListBadge badge={item.badge} />}
+            <GddlTierBadge tier={item.badge?.gddlTier ?? null} variant="inline" />
           </div>
         )}
       </div>

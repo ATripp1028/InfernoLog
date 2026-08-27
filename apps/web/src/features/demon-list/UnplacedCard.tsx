@@ -4,8 +4,8 @@ import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
-import { DemonListBadge } from './DemonListBadge'
-import { ThumbnailWash } from './ThumbnailWash'
+import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import type { DemonListItem } from './types'
 
 interface UnplacedCardProps {
@@ -70,7 +70,7 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
                 </span>
               )}
               {badge ? (
-                <DemonListBadge badge={badge} />
+                <GddlTierBadge tier={badge?.gddlTier ?? null} variant="inline" />
               ) : (
                 <span className="text-[11px] text-text-secondary">
                   No list reference

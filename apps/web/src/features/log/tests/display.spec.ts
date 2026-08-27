@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { officialCoinSrc, userCoinSrc } from '@/lib/gdAssets'
 import { coinDisplay } from '../coins'
 import { LIST_SORT_OPTIONS, defaultDir, getSortLabel } from '../sortMeta'
-import { gddlTierColor, gddlTrackGradient } from '../tierColor'
+import { gddlTierColor, gddlTrackGradient } from '@/lib/tierColor'
 import { level } from './fixtures'
 
 describe('coinDisplay', () => {

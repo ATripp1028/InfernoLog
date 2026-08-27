@@ -7,8 +7,8 @@ import { DragHandle } from '@/features/settings/components/DragHandle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/features/logging/format'
 import { backOriginState } from '@/lib/backOrigin'
-import { DemonListBadge } from './DemonListBadge'
-import { ThumbnailWash } from './ThumbnailWash'
+import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { medalColor } from './medals'
 import type { DemonListItem } from './types'
 
@@ -90,7 +90,7 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
                 {formatNumber(attempts)} att
               </span>
             )}
-            <DemonListBadge badge={badge} />
+            <GddlTierBadge tier={badge?.gddlTier ?? null} variant="inline" />
           </Link>
           {onRemove && (
             <button

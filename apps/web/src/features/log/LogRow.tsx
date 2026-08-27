@@ -12,7 +12,7 @@ import { gddlTier } from './filtering'
 import { coinDisplay } from './coins'
 import { CopyableId } from '@/components/data/CopyableId'
 import { LevelCell } from './LevelCell'
-import { TierBadge } from './TierBadge'
+import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { StatusIcons } from './StatusIcons'
 import { RowWash } from './RowWash'
 import { LEVEL_MIN_WIDTH } from './tableLayout'
@@ -115,7 +115,7 @@ export function LogRow({
                 )}
                 style={{ width: col.width }}
               >
-                <TierBadge tier={gddlTier(item)} />
+                <GddlTierBadge tier={gddlTier(item)} />
                 <div className="text-[10px] text-text-tertiary">GDDL</div>
               </div>
             )
