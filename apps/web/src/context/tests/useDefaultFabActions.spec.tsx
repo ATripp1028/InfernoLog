@@ -111,8 +111,9 @@ describe('useDefaultFabActions', () => {
     expect(dialogOpen(result.current.dialogs, 'collection')).toBe('false')
   })
 
-  // Each caller (the desktop Fab, MobileNav) gets its own dialog state, since
-  // the two breakpoints are never both visible at once.
+  // The dialog state belongs to the hook instance, not a module-level store —
+  // `FabActionsProvider` is the only caller today, but a second one must not
+  // inherit the first's open dialog.
   it('gives each caller independent dialog state', () => {
     const first = renderHookUnderTest()
     const second = renderHookUnderTest()

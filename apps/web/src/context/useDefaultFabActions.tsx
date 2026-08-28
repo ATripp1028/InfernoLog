@@ -12,9 +12,9 @@ import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDia
  * Lives beside {@link FabActionsContext}, its only caller, rather than in
  * `features/logging`: the set spans two features (three logging paths plus
  * the two collection dialogs) and belongs to the app chrome, not to either
- * of them. Called
- * independently by the desktop Fab and MobileNav, each getting its own
- * dialog state — the two breakpoints are never both visible at once.
+ * of them. The dialog state is per-hook-instance rather than shared, so a
+ * second caller would get its own — today `FabActionsProvider` is the only
+ * one, and it renders the returned `dialogs` once for both breakpoints.
  */
 export function useDefaultFabActions(): {
   actions: FabAction[]
