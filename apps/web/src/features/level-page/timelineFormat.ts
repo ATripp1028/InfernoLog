@@ -5,7 +5,7 @@
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
-import type { ProgressUpdate } from './types'
+import type { ProgressUpdate } from '@/lib/api/levelPage'
 
 const VIEWER_TZ = getViewerTimezone()
 

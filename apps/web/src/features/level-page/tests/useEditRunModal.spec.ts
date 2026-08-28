@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi, type Mock } from 'vitest'
 import type { MeData } from '@/lib/api/me'
 import { stubMutation, stubQuery } from '@/utils/testUtils'
-import type { LevelPageData, ProgressUpdate } from '../types'
+import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
 import { levelMeta, levelPageData, progressUpdate } from './fixtures'
 
 vi.mock('@/components/generic/sonner', () => ({

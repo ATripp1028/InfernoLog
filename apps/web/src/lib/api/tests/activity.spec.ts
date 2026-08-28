@@ -78,13 +78,22 @@ describe('invalidateOnEvent', () => {
     unsubscribe()
   })
 
-  it('leaves the views a progress write owns alone', async () => {
+  it('leaves the views a progress write owns alone', () => {
     // A ranking move and a rating-config save both go through this set, and
-    // neither has any reason to refetch the List or collections. Widening the
+    // neither has any reason to refetch the Log or collections. Widening the
     // older set instead of adding this one is what that would cost.
-    expect(INVALIDATE_ON_EVENT.flat()).not.toContain('list')
-    expect(INVALIDATE_ON_EVENT.flat()).not.toContain('collections')
-    expect(INVALIDATE_ON_EVENT.flat()).not.toContain('ranking')
+    //
+    // Assert against INVALIDATE_ON_WRITE rather than a hand-written list of
+    // key names: this guard read `'list'`/`'ranking'` for a while after those
+    // views were renamed to `'log'`/`'demon-list'`, so it passed no matter
+    // what was in the set.
+    const writeOnly = INVALIDATE_ON_WRITE.map(([first]) => first).filter(
+      (key) => key !== 'level-page' && key !== 'global-level-page'
+    )
+    expect(writeOnly).not.toHaveLength(0)
+    for (const key of writeOnly) {
+      expect(INVALIDATE_ON_EVENT.flat()).not.toContain(key)
+    }
   })
 })
 

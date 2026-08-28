@@ -1,4 +1,4 @@
-import type { RunsGraphEntry } from './types'
+import type { RunsGraphEntry } from '@/lib/api/levelPage'
 import { barColor, entryKey, entryLabel, labelColor } from './runsGraphBars'
 
 const TICK_POSITIONS = [0, 25, 50, 75, 100]

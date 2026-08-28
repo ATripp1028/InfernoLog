@@ -1,7 +1,7 @@
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { CopyableId } from '@/components/data/CopyableId'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
-import type { LevelMeta } from './types'
+import type { LevelMeta } from '@/lib/api/levelPage'
 
 interface IdentityStripProps {
   level: LevelMeta

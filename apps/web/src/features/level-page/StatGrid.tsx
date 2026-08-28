@@ -7,7 +7,7 @@ import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 import { formatEntryDate } from './timelineFormat'
 
 function capitalize(s: string): string {

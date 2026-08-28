@@ -8,7 +8,7 @@ import type {
   LevelPageData,
   ProgressUpdate,
   RunsGraphEntry,
-} from '../types'
+} from '@/lib/api/levelPage'
 
 /** The level metadata the page renders. */
 export function levelMeta(overrides: Partial<LevelMeta> = {}): LevelMeta {

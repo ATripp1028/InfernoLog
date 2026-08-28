@@ -8,7 +8,7 @@ import {
   stubMutation,
   stubQuery,
 } from '@/utils/testUtils'
-import type { ProgressUpdate } from '../types'
+import type { ProgressUpdate } from '@/lib/api/levelPage'
 import { levelPageData, progressUpdate } from './fixtures'
 
 vi.mock('@/components/generic/sonner', () => ({

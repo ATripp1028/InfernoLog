@@ -15,7 +15,7 @@ import {
   entryChoices,
   type EntryChoice,
 } from './entryChoices'
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 import { useEditRunForm } from './useEditRunModal'
 import { useEditLevelForm } from './useEditLevelModal'
 
