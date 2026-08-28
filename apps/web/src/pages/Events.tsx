@@ -41,7 +41,7 @@ export function Events() {
   } = useEventsPage()
 
   return (
-    <div className="mx-auto w-full md:px-6">
+    <div className="mx-auto w-full px-4 pb-8 md:px-6 md:pb-0">
       <FeedFilters
         className="mt-4"
         kinds={kinds}
