@@ -7,7 +7,7 @@ const { defaultActions } = vi.hoisted(() => ({
   defaultActions: { current: [] as unknown[] },
 }))
 
-vi.mock('@/features/logging/useDefaultFabActions', () => ({
+vi.mock('../useDefaultFabActions', () => ({
   useDefaultFabActions: () => ({
     actions: defaultActions.current,
     dialogs: null,

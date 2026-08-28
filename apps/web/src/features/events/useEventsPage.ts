@@ -5,7 +5,7 @@ import type { ActivityFeedKind } from '@infernolog/core'
 import { useActivityFeed, type ActivityFilters } from '@/lib/api/activity'
 import { useMe } from '@/lib/api/me'
 import { useMyProgress } from '@/lib/api/log'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import { groupByDay } from './feedContent'
 import type { FeedRowContext } from './FeedRow'
 import {

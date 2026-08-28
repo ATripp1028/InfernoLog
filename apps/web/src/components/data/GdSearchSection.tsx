@@ -4,7 +4,7 @@ import { formatRetryWait } from '@/lib/api/client'
 import type { LevelSearchResult } from '@/lib/api/logging'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { EscalationRow } from './EscalationRow'
-import type { useEscalation } from './useEscalation'
+import type { useEscalation } from '@/lib/useEscalation'
 
 interface GdSearchSectionProps {
   escalation: ReturnType<typeof useEscalation>

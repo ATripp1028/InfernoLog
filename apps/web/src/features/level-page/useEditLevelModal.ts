@@ -6,17 +6,17 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
-import { maxValueError, MAX_GDDL_TIER } from '@/features/logging/format'
+import { maxValueError, MAX_GDDL_TIER } from '@/lib/numberFormat'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe, type RatingCategory } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import type { EntryVisibility, RatingDisplayScale } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { useResolveLevel } from '@/lib/api/logging'
 import { computeWeightedAvg } from '@/utils/weightHandling'
-import { isSameDayToggleOn } from '@/features/logging/types'
+import { isSameDayToggleOn } from '@/lib/sameDayToggle'
 import { getViewerTimezone } from '@/lib/timezone'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
-import type { LevelPageData, ProgressUpdate } from './types'
+import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
 
 /**
  * The edit-level form state. Ratings are held in DISPLAY units and converted on save.
@@ -32,7 +32,7 @@ export interface EditLevelForm {
   worstFailSameDay: boolean
   coinsCollected: number
   userGddlTier: string
-  visibility: 'PUBLIC' | 'PRIVATE'
+  visibility: EntryVisibility
 }
 
 // The entry the worst-fail "same day" shortcut anchors to — the completion

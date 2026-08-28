@@ -4,9 +4,9 @@
 // lib/api/logging.ts — apps/web pins zod@3 while core is on zod@4, and the
 // server is the source of truth for validation).
 
-import type { LevelTypeFilter } from './api/wireEnums'
+import type { LevelType } from './api/wireEnums'
 
-export type { LevelTypeFilter }
+export type { LevelType }
 
 /**
  * In-game difficulty as the browse endpoint filters on it — lowercase and hyphenated, unlike the display strings on a `Level`.
@@ -74,7 +74,7 @@ export interface LevelSearchFilters {
   coinCount?: number[] | undefined
   coinsVerified?: boolean | undefined
   length?: LevelLength[] | undefined
-  levelType?: LevelTypeFilter | undefined
+  levelType?: LevelType | undefined
   songType?: LevelSongType | undefined
 }
 
@@ -98,7 +98,7 @@ export interface LevelBrowseResult {
   coinsVerified: boolean | null
   twoPlayer: boolean | null
   isDemon: boolean
-  levelType: LevelTypeFilter
+  levelType: LevelType
 }
 
 /**
@@ -236,7 +236,7 @@ export const SONG_TYPE_OPTIONS: { value: LevelSongType; label: string }[] = [
 /**
  * Classic/Platformer filter chips.
  */
-export const LEVEL_TYPE_OPTIONS: { value: LevelTypeFilter; label: string }[] = [
+export const LEVEL_TYPE_OPTIONS: { value: LevelType; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
 ]

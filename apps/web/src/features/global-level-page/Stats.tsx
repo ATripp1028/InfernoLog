@@ -4,7 +4,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/generic/popover'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import {
   gdStatIconSrc,
   officialCoinSrc,

@@ -3,7 +3,7 @@
 
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatEntryDate, rangeLabel } from './timelineFormat'
-import type { LevelPageData, ProgressUpdate } from './types'
+import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
 
 /** One selectable entry, already labelled for display. */
 export interface EntryChoice {

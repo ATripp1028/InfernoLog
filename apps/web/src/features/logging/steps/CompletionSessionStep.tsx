@@ -3,7 +3,7 @@ import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { Textarea } from '@/components/generic/textarea'
 import { useMe } from '@/lib/api/me'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   FieldError,
   FieldHint,
@@ -14,8 +14,8 @@ import {
   StepFooter,
   ToggleRow,
 } from '../components'
-import { digitsOnly, maxValueError, MAX_FPS } from '../format'
-import { DevicePicker } from '../pickers'
+import { digitsOnly, maxValueError, MAX_FPS } from '@/lib/numberFormat'
+import { DevicePicker } from '@/components/inputs/pickers'
 
 /**
  * Completion step 4: what describes this run rather than the level — FPS, device, flags, media, notes.

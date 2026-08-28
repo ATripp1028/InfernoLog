@@ -15,7 +15,7 @@ import type {
 import { EditModalShell } from './EditModalShell'
 import { EditRunFields } from './EditRunFields'
 import { EditLevelFields } from './EditLevelFields'
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 import { useEditEntryModal, type EditEntryTab } from './useEditEntryModal'
 
 interface EditEntryModalProps {

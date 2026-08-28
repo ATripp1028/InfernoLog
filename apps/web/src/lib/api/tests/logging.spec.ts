@@ -46,6 +46,23 @@ describe('invalidateOnWrite', () => {
     unsubscribe()
   })
 
+  // The iterating test below can only prove the set works, never that it is
+  // complete — it derives its expectations from the same constant. This one
+  // names the keys, which is what a missing entry actually looks like: the
+  // level page was absent once and went minutes showing pre-write data.
+  it.each([
+    ['the Log', 'log'],
+    ['the demon list', 'demon-list'],
+    ['collections, which a completion can drop a level out of', 'collections'],
+    ['the user-scoped level page', 'level-page'],
+    // The Global Level Page's FAB opens the logging flow for the level it is
+    // showing, and the page stays mounted behind the modal — so the write
+    // lands on the very view that reports `hasUserProgress`.
+    ['the global level page', 'global-level-page'],
+  ])('invalidates %s', (_label, key) => {
+    expect(INVALIDATE_ON_WRITE.map(([first]) => first)).toContain(key)
+  })
+
   it('covers every view a write can change', async () => {
     const queryClient = new QueryClient()
     const queries = INVALIDATE_ON_WRITE.map((key) => ({

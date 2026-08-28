@@ -18,7 +18,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/generic/popover'
-import type { FlowPath } from '@/features/logging/types'
+import type { FlowPath } from '@/context/LoggingFlowContext'
 
 /**
  * The actions a List row can trigger, passed down so the row itself stays presentational.

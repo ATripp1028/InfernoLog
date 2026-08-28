@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FindLevelStep } from '../FindLevelStep'
-import { useLoggingFlow } from '../../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   useLevelById,
   useLevelSearch,
   useResolveLevel,
 } from '@/lib/api/logging'
 import { useMyProgress } from '@/lib/api/log'
-import { useEscalation } from '@/features/search/useEscalation'
+import { useEscalation } from '@/lib/useEscalation'
 import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import type { ResolveLevelResponse } from '@/lib/api/logging'
@@ -30,7 +30,7 @@ import {
 // there is no logic hook to stub — the boundaries are the lib/api hooks it
 // calls, the flow context, and the escalation hook. `sortAndCapSearchResults`
 // stays real; the ordering it produces is part of what these tests claim.
-vi.mock('../../LoggingFlowProvider')
+vi.mock('@/context/LoggingFlowContext')
 vi.mock('@/lib/api/logging', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/logging')>()),
   useLevelById: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock('@/lib/api/log', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/log')>()),
   useMyProgress: vi.fn(),
 }))
-vi.mock('@/features/search/useEscalation')
+vi.mock('@/lib/useEscalation')
 vi.mock('@/components/generic/sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))

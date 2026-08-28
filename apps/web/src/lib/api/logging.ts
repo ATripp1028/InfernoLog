@@ -14,12 +14,13 @@ import { INVALIDATE_ON_EVENT } from './activity'
 import {
   browseApiQueryString,
   type SearchPageState,
-} from '../levelSearchParams'
+} from '@/lib/levelSearchParams'
 import type {
   Device,
   DifficultyOpinion,
   EntryVisibility,
   GdVersion,
+  LevelType,
 } from './wireEnums'
 
 /**
@@ -32,7 +33,7 @@ import type {
  */
 export interface Level {
   inGameId: string
-  levelType: 'CLASSIC' | 'PLATFORMER'
+  levelType: LevelType
   isRated: boolean
   isDemon: boolean
   name: string | null
@@ -264,6 +265,12 @@ export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   // Prefix match: invalidates ['level-page', levelId] for whichever level
   // was open, without needing to know its id here.
   ['level-page'],
+  // The Global Level Page reports `hasUserProgress`, which a first write on
+  // that level flips — and its FAB opens the logging flow for the level it is
+  // showing, so the page is still mounted when the write lands. Without this
+  // the "Your page for this level" cross-link stays hidden for a staleTime
+  // after the completion that earned it. Prefix match, as above.
+  ['global-level-page'],
 ]
 
 // Level entry support

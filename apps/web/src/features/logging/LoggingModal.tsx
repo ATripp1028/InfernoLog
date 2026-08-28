@@ -8,7 +8,7 @@ import {
 import { Button } from '@/components/generic/button'
 import { DialogCloseButton } from '@/components/generic/dialog-close-button'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
-import { useLoggingFlow } from './LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import type { FlowPath, FlowStep } from './types'
 import { FindLevelStep } from './steps/FindLevelStep'
 import { ResolvingStep } from './steps/ResolvingStep'

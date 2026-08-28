@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useRef,
-  type ReactNode,
-} from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import { toast } from '@/components/generic/sonner'
 import {
   useGddlSyncStatus,
@@ -12,13 +6,8 @@ import {
   type GddlSyncJobStatus,
 } from '@/lib/api/me'
 import { useInvalidateOnWrite } from '@/lib/api/logging'
-import { buildSyncToast } from './gddlSyncToast'
-
-interface GddlSyncContextValue {
-  isSyncing: boolean
-}
-
-const GddlSyncContext = createContext<GddlSyncContextValue | null>(null)
+import { buildSyncToast } from '@/lib/gddlSyncToast'
+import { GddlSyncContext } from '@/context/GddlSyncContext'
 
 /**
  * Polls GET /v1/me/gddl-sync (the user's current/most-recent job, no id
@@ -83,15 +72,4 @@ export function GddlSyncProvider({ children }: { children: ReactNode }) {
       {children}
     </GddlSyncContext.Provider>
   )
-}
-
-/**
- * The app-wide GDDL sync job state. Throws outside its provider.
- */
-export function useGddlSyncContext(): GddlSyncContextValue {
-  const ctx = useContext(GddlSyncContext)
-  if (!ctx) {
-    throw new Error('useGddlSyncContext must be used within GddlSyncProvider')
-  }
-  return ctx
 }

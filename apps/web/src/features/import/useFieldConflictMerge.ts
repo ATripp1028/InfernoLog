@@ -11,7 +11,7 @@
 
 import { useMemo, useState } from 'react'
 import { MAX_ATTEMPTS } from '@infernolog/core'
-import { maxValueError } from '@/features/logging/format'
+import { maxValueError } from '@/lib/numberFormat'
 import {
   describeField,
   type FieldDescriptor,

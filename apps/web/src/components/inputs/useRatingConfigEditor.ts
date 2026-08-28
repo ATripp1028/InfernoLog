@@ -12,7 +12,7 @@ import {
   useUpdateRatingConfig,
   type MeData,
 } from '@/lib/api/me'
-import { useSortableSensors } from '../hooks/useSortableSensors'
+import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 
 /**
  * The editor renders a single unified list where categories and (optionally)

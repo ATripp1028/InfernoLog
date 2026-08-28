@@ -122,7 +122,7 @@ export function Log() {
   return (
     <TooltipProvider delayDuration={300}>
       <div ref={containerRef} className="flex">
-        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 md:p-6 max-h-[calc(100dvh-64px)]">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 pb-8 md:p-6 md:max-h-[calc(100dvh-64px)]">
           <Toolbar
             search={search}
             onSearch={setSearch}

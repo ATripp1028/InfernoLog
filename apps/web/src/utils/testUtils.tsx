@@ -30,7 +30,7 @@ import {
   type CollectionSummary,
 } from '@infernolog/core'
 import { ApiError } from '@/lib/api/client'
-import type { useEscalation } from '@/features/search/useEscalation'
+import type { useEscalation } from '@/lib/useEscalation'
 import type {
   Level,
   LevelSearchResult,

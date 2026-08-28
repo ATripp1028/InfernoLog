@@ -4,7 +4,7 @@ import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { toast } from '@/components/generic/sonner'
 import { useLogDrop } from '@/lib/api/logging'
-import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   DateTimeField,
   FieldError,
@@ -20,7 +20,7 @@ import {
   digitsOnly,
   maxValueError,
   MAX_ATTEMPTS,
-} from '../format'
+} from '@/lib/numberFormat'
 
 /**
  * The drop path: date, attempts, worst fail, and an optional reason.

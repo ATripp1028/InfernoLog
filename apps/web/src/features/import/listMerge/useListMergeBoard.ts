@@ -11,7 +11,7 @@
 import { useMemo, useState } from 'react'
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
+import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 
 /**

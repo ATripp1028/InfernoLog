@@ -4,7 +4,7 @@ import type {
 } from '@/lib/api/wireEnums'
 import { EditModalShell } from './EditModalShell'
 import { EditRunFields } from './EditRunFields'
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 import { useEditRunModal } from './useEditRunModal'
 
 interface EditRunModalProps {

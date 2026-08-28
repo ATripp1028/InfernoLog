@@ -9,7 +9,7 @@ import {
   type MeData,
 } from '@/lib/api/me'
 import { formatDate } from '@/lib/dateFormat'
-import { COOLDOWN_DAYS, cooldownEnd, usernameError } from '../usernameRules'
+import { COOLDOWN_DAYS, cooldownEnd, usernameError } from '@/lib/usernameRules'
 
 interface UsernameEditorProps {
   me: MeData

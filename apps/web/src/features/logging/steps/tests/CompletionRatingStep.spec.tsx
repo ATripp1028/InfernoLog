@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CompletionRatingStep } from '../CompletionRatingStep'
-import { useLoggingFlow } from '../../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { emptyDraft, type FlowDraft } from '../../types'
 import { useMe } from '@/lib/api/me'
 import {
@@ -16,7 +16,7 @@ import {
 // Boundaries only: the flow context and `useMe`. `toDisplay`/`toInternal` and
 // `computeWeightedAvg` stay real — the unit conversion at this component's
 // edge is most of what these assertions are claiming.
-vi.mock('../../LoggingFlowProvider')
+vi.mock('@/context/LoggingFlowContext')
 vi.mock('@/lib/api/me', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/me')>()),
   useMe: vi.fn(),

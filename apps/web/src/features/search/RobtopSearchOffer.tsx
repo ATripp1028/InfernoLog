@@ -1,7 +1,7 @@
 import { Loader2, Server } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SearchPageState } from '@/lib/levelSearchParams'
-import type { useEscalation } from './useEscalation'
+import type { useEscalation } from '@/lib/useEscalation'
 
 interface RobtopSearchOfferProps {
   escalation: ReturnType<typeof useEscalation>

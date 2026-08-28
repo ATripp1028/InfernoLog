@@ -7,7 +7,7 @@ import {
 
 /**
  * Shared GD-server escalation state, reused by every cache-search call site
- * (toolbar, logging-flow entry, collections add). Tracks *which* query was
+ * (toolbar, /search, logging-flow entry, collections add). Tracks *which* query was
  * escalated so that editing the query after an escalated search drops the
  * result and re-requires an explicit confirm — escalation is an action, never
  * a mode the user is left "in" (locked decision 2.3).

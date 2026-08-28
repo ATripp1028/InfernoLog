@@ -11,11 +11,11 @@ import { useGoBack } from '@/lib/useGoBack'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useDeleteProgress } from '@/lib/api/log'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { ApiError } from '@/lib/api/client'
 import { toast } from '@/components/generic/sonner'
 import { useFabActions } from '@/context/FabActionsContext'
-import { findPrimaryProgressUpdateId } from '@/features/level-page/primaryEntry'
+import { findPrimaryProgressUpdateId } from './primaryEntry'
 
 /**
  * Which of the page's mutually exclusive top-level renders applies.

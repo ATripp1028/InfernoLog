@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { ProgressUpdate } from '../types'
+import type { ProgressUpdate } from '@/lib/api/levelPage'
 import { levelPageData, progressUpdate } from './fixtures'
 
 vi.mock('@/lib/timezone', async (importOriginal) => ({

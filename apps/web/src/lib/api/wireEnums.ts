@@ -65,5 +65,20 @@ export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
 /** How calendar dates are ordered for display. Also selects 12h vs 24h time (`ISO` alone is 24h). */
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
 
-/** Whether a level is a classic (percentage) or platformer (time) level. */
-export type LevelTypeFilter = 'CLASSIC' | 'PLATFORMER'
+/**
+ * Whether a level is a classic (percentage) or platformer (time) level.
+ *
+ * Named for the field it types (`Level.levelType`), not for the List and
+ * /search filters that happen to be its most visible readers — it was
+ * `LevelTypeFilter` until the level page's wire shape became a second
+ * consumer that has nothing to do with filtering.
+ */
+export type LevelType = 'CLASSIC' | 'PLATFORMER'
+
+/**
+ * Where a level stands for the user. Mirrors core's `LevelProgressStatus`.
+ *
+ * Declared here rather than in the List's own types because the level page's
+ * wire shape carries it too — it had inlined its own copy of the union.
+ */
+export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'

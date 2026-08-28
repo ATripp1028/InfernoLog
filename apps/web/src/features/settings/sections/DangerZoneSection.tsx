@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { signOut } from 'aws-amplify/auth'
-import { SettingsSection } from '../components/SettingsSection'
+import { SettingsSection } from '@/components/generic/settings-section'
 import { AlertDialog } from '@/components/generic/alert-dialog'
 import { Button } from '@/components/generic/button'
 import { toast } from '@/components/generic/sonner'

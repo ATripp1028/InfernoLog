@@ -1,12 +1,8 @@
 import type { LevelProgressListItem } from '@infernolog/core'
-import type { Device, LevelTypeFilter } from '@/lib/api/wireEnums'
+import type { Device, LevelType, ProgressStatus } from '@/lib/api/wireEnums'
 
-export type { LevelTypeFilter }
+export type { LevelType, ProgressStatus }
 
-/**
- * Where a level stands for the user. Mirrors core's `LevelProgressStatus`.
- */
-export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
 /**
  * The rated-status filter. `ALL` means no constraint, which is why it is a single value rather than an empty array like the other multi-selects.
  */
@@ -52,7 +48,7 @@ export type DateBounds = { from: number | null; to: number | null }
  */
 export interface FilterState {
   statuses: ProgressStatus[] // empty = all
-  levelTypes: LevelTypeFilter[] // empty = all
+  levelTypes: LevelType[] // empty = all
   devices: Device[] // empty = all
   ratedStatus: RatedStatusFilter // 'ALL' = no constraint
   flags: StatusFlag[] // all selected must be true (AND)

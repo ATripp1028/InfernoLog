@@ -1,7 +1,7 @@
 import { Button } from '@/components/generic/button'
 import { RatingRow } from '@/components/data/RatingRow'
 import { useMe } from '@/lib/api/me'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
 import { formatRating, toDisplay, toInternal } from '@/lib/ratingScale'
 import { computeWeightedAvg } from '@/utils/weightHandling'

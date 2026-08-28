@@ -6,9 +6,7 @@ import {
   formatNumber,
   maxValueError,
   numberExceedsMax,
-} from '../format'
-import { GD_22_RELEASE_DATE, isPreTwoTwo } from '../gdVersion'
-import { LOGGING_ACTIONS } from '../loggingActions'
+} from '../numberFormat'
 
 describe('digitsOnly', () => {
   it.each([
@@ -128,77 +126,5 @@ describe('formatNumber', () => {
   // Pinned to en-US so the grouping does not follow the runner's locale.
   it('groups in en-US regardless of the reader', () => {
     expect(formatNumber(1234.5)).toBe('1,234.5')
-  })
-})
-
-describe('isPreTwoTwo', () => {
-  // A pre-2.2 date pins the percentage basis to 2.1, since 2.2's time-based
-  // percentages did not exist yet.
-  it.each([
-    ['well before the release', '2020-01-01'],
-    ['the day before', '2023-12-18'],
-  ])('reports %s as pre-2.2', (_label, date) => {
-    expect(isPreTwoTwo(date)).toBe(true)
-  })
-
-  it.each([
-    ['release day itself', GD_22_RELEASE_DATE],
-    ['the day after', '2023-12-20'],
-    ['well after', '2026-03-14'],
-  ])('reports %s as not pre-2.2', (_label, date) => {
-    expect(isPreTwoTwo(date)).toBe(false)
-  })
-
-  it('reads the calendar date out of a full ISO string', () => {
-    expect(isPreTwoTwo('2023-12-18T23:59:59.000Z')).toBe(true)
-    expect(isPreTwoTwo('2023-12-19T00:00:00.000Z')).toBe(false)
-  })
-
-  // Callers pass whatever the form holds, so a blank date answers "nothing to
-  // pin yet" rather than throwing.
-  it.each([
-    ['null', null],
-    ['undefined', undefined],
-    ['an empty string', ''],
-  ])('reports %s as not pre-2.2', (_label, date) => {
-    expect(isPreTwoTwo(date)).toBe(false)
-  })
-})
-
-describe('LOGGING_ACTIONS', () => {
-  // The FAB renders actions[0] as its own button, so completion leading is
-  // load-bearing rather than cosmetic.
-  it('puts logging a completion first', () => {
-    expect(LOGGING_ACTIONS[0]).toMatchObject({
-      key: 'completion',
-      path: 'completion',
-    })
-  })
-
-  it('declares each action exactly once', () => {
-    const keys = LOGGING_ACTIONS.map((a) => a.key)
-
-    expect(new Set(keys).size).toBe(keys.length)
-  })
-
-  it('gives every action a label and an icon', () => {
-    for (const action of LOGGING_ACTIONS) {
-      expect(action.label).toBeTruthy()
-      expect(action.icon).toBeTruthy()
-    }
-  })
-
-  it('offers all three logging paths', () => {
-    const paths = LOGGING_ACTIONS.map((a) => a.path).filter(Boolean)
-
-    expect(paths).toEqual(['completion', 'progress', 'drop'])
-  })
-
-  // The two collection actions open dialogs rather than the logging flow, so
-  // they carry no path.
-  it('leaves the collection actions pathless', () => {
-    const pathless = LOGGING_ACTIONS.filter((a) => !a.path).map((a) => a.key)
-
-    expect(pathless).toEqual(['want-to-beat', 'add-to-list'])
   })
 })

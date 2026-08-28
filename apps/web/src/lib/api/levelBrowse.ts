@@ -5,7 +5,7 @@ import {
   browseApiQueryString,
   type LevelBrowseResponse,
   type SearchPageState,
-} from '../levelSearchParams'
+} from '@/lib/levelSearchParams'
 
 /**
  * The /search page's cursor-paginated cache search (GET /v1/levels/browse).

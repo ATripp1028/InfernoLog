@@ -12,9 +12,9 @@ import {
 import { useMyProgress } from '@/lib/api/log'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
-import { GdSearchSection } from '@/features/search/GdSearchSection'
-import { useEscalation } from '@/features/search/useEscalation'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { GdSearchSection } from '@/components/data/GdSearchSection'
+import { useEscalation } from '@/lib/useEscalation'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import type { ResolvedLevel } from '../types'
 import { FieldHint, FieldLabel, StepBody, StepFooter } from '../components'
 

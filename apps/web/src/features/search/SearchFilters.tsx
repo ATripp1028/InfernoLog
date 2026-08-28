@@ -10,7 +10,7 @@ import {
   RATE_STATUS_FACE,
   RATE_STATUS_OPTIONS,
   SONG_TYPE_OPTIONS,
-  type LevelTypeFilter,
+  type LevelType,
   type LevelSongType,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
@@ -199,7 +199,7 @@ export function SearchFilters({
           value={state.levelType ?? 'any'}
           onChange={(v) =>
             onChange({
-              levelType: v === 'any' ? undefined : (v as LevelTypeFilter),
+              levelType: v === 'any' ? undefined : (v as LevelType),
             })
           }
         />

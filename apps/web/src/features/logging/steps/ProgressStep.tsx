@@ -3,7 +3,7 @@ import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { Label } from '@/components/generic/label'
 import { useMe } from '@/lib/api/me'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   DateTimeField,
   FieldError,
@@ -12,17 +12,20 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { digitsOnly, maxValueError, MAX_ATTEMPTS } from '../format'
-import { GdVersionPicker, GdVersionInfoButton } from '../pickers'
-import { isPreTwoTwo } from '../gdVersion'
+import { digitsOnly, maxValueError, MAX_ATTEMPTS } from '@/lib/numberFormat'
+import {
+  GdVersionPicker,
+  GdVersionInfoButton,
+} from '@/components/inputs/pickers'
+import { isPreTwoTwo } from '@/lib/gdVersion'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/generic/popover'
 import { Info } from 'lucide-react'
-import { RunInput } from '../RunInput'
-import { formatRunInputValue, type ParsedRun } from '../runParsing'
+import { RunInput } from '@/components/inputs/RunInput'
+import { formatRunInputValue, type ParsedRun } from '@/lib/runParsing'
 
 /**
  * Progress step 1: how far the run got, from 0% or from partway through.

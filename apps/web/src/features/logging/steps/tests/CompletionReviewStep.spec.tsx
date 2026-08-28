@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { CompletionReviewStep } from '../CompletionReviewStep'
-import { useLoggingFlow } from '../../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { emptyDraft, type FlowDraft } from '../../types'
 import { useMe } from '@/lib/api/me'
 import {
@@ -24,7 +24,7 @@ import {
 // Boundaries only: the flow context the step reads, the two lib/api hooks, and
 // the toast channel. `buildCompletionInput` and `loggingErrorMessage` stay real
 // — what they produce is half of what these assertions claim.
-vi.mock('../../LoggingFlowProvider')
+vi.mock('@/context/LoggingFlowContext')
 vi.mock('@/lib/api/me', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/me')>()),
   useMe: vi.fn(),

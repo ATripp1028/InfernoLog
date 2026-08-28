@@ -48,3 +48,11 @@ export function FieldLabel({
     </div>
   )
 }
+
+/**
+ * Muted helper text under a form control. Pairs with {@link FieldLabel} above
+ * it — used throughout the logging steps and by {@link DateTimeField}.
+ */
+export function FieldHint({ children }: { children: React.ReactNode }) {
+  return <p className="mt-1.5 text-xs text-text-tertiary">{children}</p>
+}

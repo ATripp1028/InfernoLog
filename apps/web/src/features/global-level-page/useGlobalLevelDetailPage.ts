@@ -13,7 +13,7 @@ import {
 } from '@/lib/api/globalLevelPage'
 import { useGoBack } from '@/lib/useGoBack'
 import { useFabActions } from '@/context/FabActionsContext'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   useCollections,
   useAddCollectionEntry,

@@ -27,7 +27,7 @@ vi.mock('@tanstack/react-router', () => ({
 }))
 vi.mock('@/lib/useGoBack', () => ({ useGoBack: vi.fn(() => back) }))
 vi.mock('@/context/FabActionsContext', () => ({ useFabActions: vi.fn() }))
-vi.mock('@/features/logging/LoggingFlowProvider', () => ({
+vi.mock('@/context/LoggingFlowContext', () => ({
   useLoggingFlow: () => ({ openForEdit }),
 }))
 vi.mock('@/components/generic/sonner', () => ({

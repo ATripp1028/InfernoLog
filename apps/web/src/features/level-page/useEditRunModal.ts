@@ -6,23 +6,27 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
-import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/features/logging/format'
+import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/lib/numberFormat'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
-import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { formatEntryDateTime } from '@/lib/dateFormat'
-import { isPreTwoTwo } from '@/features/logging/gdVersion'
+import { isPreTwoTwo } from '@/lib/gdVersion'
 import { getViewerTimezone } from '@/lib/timezone'
-import type { Device, DifficultyOpinion } from '@/lib/api/wireEnums'
+import type {
+  DateFormatPreference,
+  Device,
+  DifficultyOpinion,
+  GdVersion,
+  RatingDisplayScale,
+} from '@/lib/api/wireEnums'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
 import {
   formatRunInputValue,
   parseRunInput,
   type ParsedRun,
-} from '@/features/logging/runParsing'
-import type { LevelPageData, ProgressUpdate } from './types'
+} from '@/lib/runParsing'
+import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
 
 /**
  * The edit-run form state. Ratings are held in DISPLAY units and converted on save.
@@ -34,7 +38,7 @@ export interface EditRunForm {
   dateUncertain: boolean
   attempts: string
   fps: string
-  percentageVersion: 'TWO_ONE' | 'TWO_TWO' | null
+  percentageVersion: GdVersion | null
   onStream: boolean
   difficultyOpinion: DifficultyOpinion | null
   enjoyment: number | null
@@ -77,8 +81,7 @@ function initForm(
     dateUncertain: update.dateUncertain,
     attempts: update.attempts != null ? String(update.attempts) : '',
     fps: update.fps != null ? String(update.fps) : '',
-    percentageVersion:
-      (update.percentageVersion as 'TWO_ONE' | 'TWO_TWO' | null) ?? 'TWO_TWO',
+    percentageVersion: update.percentageVersion ?? 'TWO_TWO',
     onStream: update.onStream,
     difficultyOpinion:
       (update.difficultyOpinion as DifficultyOpinion | null) ?? null,

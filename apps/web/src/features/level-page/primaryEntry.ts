@@ -1,4 +1,4 @@
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 
 /**
  * Which entry the level page's FAB targets, being the one "edit this entry"

@@ -1,8 +1,8 @@
 import { ExternalLink, Film, Pencil, Trash2 } from 'lucide-react'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { safeHref } from '@/lib/safeUrl'
-import type { LevelPageData, ProgressUpdate } from './types'
+import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
 import { formatEntryDate, rangeLabel } from './timelineFormat'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 

@@ -7,7 +7,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { ArrowDown, ArrowUp, GripVertical, Plus, X } from 'lucide-react'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
+import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 import {
   Popover,
   PopoverContent,

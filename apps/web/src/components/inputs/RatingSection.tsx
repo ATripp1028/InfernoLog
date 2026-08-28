@@ -1,9 +1,12 @@
 import { forwardRef, useImperativeHandle, useRef } from 'react'
-import { SettingStack, SettingsSection } from '../components/SettingsSection'
+import {
+  SettingStack,
+  SettingsSection,
+} from '@/components/generic/settings-section'
 import {
   RatingConfigEditor,
   type RatingConfigEditorHandle,
-} from '../components/RatingConfigEditor'
+} from './RatingConfigEditor'
 import { Button } from '@/components/generic/button'
 import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'

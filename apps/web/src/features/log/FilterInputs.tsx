@@ -7,7 +7,7 @@
 import { RangeSlider } from '@/components/generic/range-slider'
 import { DatePickerField } from '@/components/inputs/DatePickerField'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
-import type { DateBounds, Range } from '@/features/log/types'
+import type { DateBounds, Range } from './types'
 import { useRangeDrafts } from './useFilterInputs'
 
 const inputCls =

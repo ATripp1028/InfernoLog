@@ -1,7 +1,7 @@
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { EditModalShell } from './EditModalShell'
 import { EditLevelFields } from './EditLevelFields'
-import type { LevelPageData } from './types'
+import type { LevelPageData } from '@/lib/api/levelPage'
 import { useEditLevelModal } from './useEditLevelModal'
 
 interface EditLevelModalProps {

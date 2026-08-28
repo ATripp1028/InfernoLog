@@ -14,8 +14,11 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { clampPercent, digitsOnly } from '../format'
-import { GdVersionPicker, GdVersionInfoButton } from '../pickers'
+import { clampPercent, digitsOnly } from '@/lib/numberFormat'
+import {
+  GdVersionPicker,
+  GdVersionInfoButton,
+} from '@/components/inputs/pickers'
 import { useCompletionBasicsStep } from './useCompletionBasicsStep'
 import { CoinsSection, TwoPlayerSection } from './CompletionBasicsFields'
 import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'

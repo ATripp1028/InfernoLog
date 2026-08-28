@@ -6,7 +6,7 @@ import { RatingRow } from '@/components/data/RatingRow'
 import { toast } from '@/components/generic/sonner'
 import { useLogProgress } from '@/lib/api/logging'
 import { useMe } from '@/lib/api/me'
-import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   FieldError,
   FieldHint,
@@ -18,9 +18,9 @@ import {
   ToggleRow,
 } from '../components'
 import { buildProgressInput, loggingErrorMessage } from '../payload'
-import { digitsOnly, maxValueError, MAX_FPS } from '../format'
+import { digitsOnly, maxValueError, MAX_FPS } from '@/lib/numberFormat'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
-import { DevicePicker } from '../pickers'
+import { DevicePicker } from '@/components/inputs/pickers'
 
 /**
  * Progress step 2: enjoyment plus the same run-describing fields the completion path collects, then the submit.

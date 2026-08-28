@@ -8,12 +8,12 @@ import {
   TIER_DOMAIN,
   defaultFilterState,
   type FilterState,
-  type LevelTypeFilter,
+  type LevelType,
   type ProgressStatus,
   type RatedStatusFilter,
   type StatusFlag,
-} from '@/features/log/types'
-import { countActiveFilters } from '@/features/log/filtering'
+} from './types'
+import { countActiveFilters } from './filtering'
 import { displayMax, toInternal } from '@/lib/ratingScale'
 import type { Device, RatingDisplayScale } from '@/lib/api/wireEnums'
 
@@ -28,7 +28,7 @@ export const PROGRESS: { value: ProgressStatus; label: string }[] = [
 /**
  * Classic/Platformer filter chips.
  */
-export const LEVEL_TYPES: { value: LevelTypeFilter; label: string }[] = [
+export const LEVEL_TYPES: { value: LevelType; label: string }[] = [
   { value: 'CLASSIC', label: 'Classic' },
   { value: 'PLATFORMER', label: 'Platformer' },
 ]

@@ -5,7 +5,7 @@
 // Named runsGraphBars rather than runsGraph so it cannot collide with
 // RunsGraph.tsx on a case-insensitive filesystem.
 
-import type { RunsGraphEntry } from './types'
+import type { RunsGraphEntry } from '@/lib/api/levelPage'
 
 /**
  * Bar fill. A drop takes precedence over everything — it is the outcome the

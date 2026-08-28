@@ -6,6 +6,7 @@ import type {
   GdVersion,
 } from '@/lib/api/wireEnums'
 import { getViewerTimezone, getZonedParts } from '@/lib/timezone'
+import { isSameDayToggleOn } from '@/lib/sameDayToggle'
 
 /**
  * Which of the three things the user is logging. Chosen up front and decides the step sequence.
@@ -165,30 +166,6 @@ function isoToDateTimeInput(
   const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   const time = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
   return { date, time }
-}
-
-/**
- * "Same day" toggle produces a worst-fail instant exactly one second before
- * the completion/drop instant (bare dates with no time just match exactly) —
- * used to pre-check the toggle when reopening an entry saved that way.
- */
-export function isSameDayToggleOn(
-  anchorDateRaw: string | null,
-  anchorTimezone: string | null,
-  worstFailDateRaw: string | null,
-  worstFailTimezone: string | null
-): boolean {
-  if (anchorDateRaw == null || worstFailDateRaw == null) return false
-  // The toggle always writes matching timezones for both fields (see
-  // sessionDateFields/worstFailDateFields in payload.ts) — a mismatched pair
-  // was never produced by the toggle itself (imported/legacy data, most
-  // likely), so it can't be "same day toggle on" regardless of timestamps.
-  if (anchorTimezone !== worstFailTimezone) return false
-  if (anchorTimezone == null) return anchorDateRaw === worstFailDateRaw
-  return (
-    new Date(worstFailDateRaw).getTime() ===
-    new Date(anchorDateRaw).getTime() - 1000
-  )
 }
 
 /**

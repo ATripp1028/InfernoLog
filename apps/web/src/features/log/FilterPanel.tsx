@@ -7,7 +7,7 @@ import type {
 import { Chip } from '@/components/generic/chip'
 import { cn } from '@/lib/utils'
 import { difficultyFaceSrc } from '@/lib/gdAssets'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from '@/lib/tierColor'
