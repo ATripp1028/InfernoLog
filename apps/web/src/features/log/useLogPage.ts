@@ -255,9 +255,8 @@ export function useLogPage() {
   )
 
   const visible = useMemo(
-    () =>
-      sortItems(applyFilters(items, filters, search), sorts, activeCategories),
-    [items, filters, search, sorts, activeCategories]
+    () => sortItems(applyFilters(items, filters, search), sorts),
+    [items, filters, search, sorts]
   )
 
   const availableLengths = useMemo(() => {

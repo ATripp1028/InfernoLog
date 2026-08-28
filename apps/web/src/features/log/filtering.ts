@@ -1,6 +1,10 @@
 // Pure filter/sort logic for the Log page. All data is client-side, so this is
 // plain array work over LevelProgressListItem rows. Kept framework-free.
 
+import {
+  compareRatingOrder,
+  type RatingOrderItem,
+} from '@infernolog/core'
 import type {
   FilterState,
   LogItem,
@@ -268,6 +272,18 @@ const STATUS_ORDER: Record<LogItem['status'], number> = {
   DROPPED: 2,
 }
 
+// The canonical rating order's view of a row. `entry` is the representative
+// progress update — the same one the server ranks from, which is what lets the
+// two agree.
+function toRatingOrderItem(item: LogItem): RatingOrderItem {
+  return {
+    levelId: item.level.inGameId,
+    overallRating: item.overallRating ?? null,
+    enjoyment: item.entry?.enjoyment ?? null,
+    dateMs: dateMs(item),
+  }
+}
+
 function sortValue(item: LogItem, key: SortKey): number | string | null {
   switch (key) {
     case 'name':
@@ -337,48 +353,42 @@ function compareValues(
 }
 
 /**
- * Minimal category info needed for tie-breaking; avoids importing API types.
- */
-export interface RatingCategoryTiebreaker {
-  id: string
-  sortOrder: number
-}
-
-/**
  * Stable multi-key sort: specs are applied in priority order.
- * When sorting by 'rating' with ratingCategories provided, ties in the weighted
- * average are broken by category score in priority order (lowest sortOrder first).
+ *
+ * The `rating` key is special: it defers to {@link compareRatingOrder}, the
+ * canonical rating order shared with the Ranking page and with the
+ * `rating_rank` the event log records. Sorting the Log by rating descending
+ * therefore produces exactly the Ranking page's order, so "Up 43 in your
+ * ranking" in the Events feed names a position the user can go and see.
+ *
+ * Ties beyond that chain are resolved by level id, which is unique — so the
+ * rating sort is total and needs no further spec behind it.
  */
-export function sortItems(
-  items: LogItem[],
-  sorts: SortSpec[],
-  ratingCategories?: RatingCategoryTiebreaker[]
-): LogItem[] {
+export function sortItems(items: LogItem[], sorts: SortSpec[]): LogItem[] {
   if (!sorts.length) return items
-  // Pre-sort categories by priority (lowest sortOrder = highest priority).
-  const tiebreakerCats = ratingCategories
-    ? [...ratingCategories].sort((a, b) => a.sortOrder - b.sortOrder)
-    : []
   return [...items].sort((x, y) => {
     for (const spec of sorts) {
-      let cmp = compareValues(
-        sortValue(x, spec.key),
-        sortValue(y, spec.key),
-        spec.dir
-      )
-      // Break weighted-rating ties by category priority order.
-      if (cmp === 0 && spec.key === 'rating' && tiebreakerCats.length > 0) {
-        for (const cat of tiebreakerCats) {
-          const aScore =
-            x.ratingScores.find((r) => r.categoryId === cat.id)?.score ?? null
-          const bScore =
-            y.ratingScores.find((r) => r.categoryId === cat.id)?.score ?? null
-          cmp = compareValues(aScore, bScore, spec.dir)
-          if (cmp !== 0) break
-        }
-      }
+      const cmp =
+        spec.key === 'rating'
+          ? compareRating(x, y, spec.dir)
+          : compareValues(sortValue(x, spec.key), sortValue(y, spec.key), spec.dir)
       if (cmp !== 0) return cmp
     }
     return 0
   })
+}
+
+// The rating column, ordered canonically. `asc` is the exact reverse of the
+// ranking rather than a differently-tiebroken sort — except for unrated rows,
+// which stay pinned to the bottom in both directions the way every other
+// column's nulls do.
+function compareRating(x: LogItem, y: LogItem, dir: 'asc' | 'desc'): number {
+  const a = x.overallRating ?? null
+  const b = y.overallRating ?? null
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+
+  const canonical = compareRatingOrder(toRatingOrderItem(x), toRatingOrderItem(y))
+  return dir === 'desc' ? canonical : -canonical
 }

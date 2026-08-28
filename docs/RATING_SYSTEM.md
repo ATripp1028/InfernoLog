@@ -103,9 +103,55 @@ If a user deletes a rating category, associated `rating_scores` rows are soft-de
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | Completion entry card               | Single score badge                                                                                                   | Weighted average + breakdown on hover |
 | Log list view                       | Score column                                                                                                         | Weighted average column               |
-| Sorting                             | By simple_rating                                                                                                     | By computed weighted avg              |
+| Sorting                             | By simple_rating (see "The Canonical Rating Order")                                                                  | By computed weighted avg (same order) |
 | No rating entered                   | Blank (not 0)                                                                                                        | Blank (not 0)                         |
 | Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same                                  |
+
+---
+
+## The Canonical Rating Order
+
+Sorting by rating is not just "highest first" — ratings tie, and three surfaces
+have to agree on what happens then:
+
+- the **Ranking** page (`/ranking`), whose row numbers _are_ the order,
+- the **Log** page's `rating` sort column,
+- the `rating_rank` field change the event log records on a `LOG_EDIT`, which is
+  what lets the Events feed say "Up 43 in your ranking".
+
+One comparator serves all three: `compareRatingOrder` in
+`packages/core/src/ratingOrder.ts`. The chain, best first:
+
+1. **Overall rating**, highest first.
+2. **Enjoyment**, highest first. A genuinely separate signal — it is logged per
+   event and excluded from the average unless the user opts in — so it breaks a
+   tie rather than restating the first key.
+3. **Date**, earliest first. A long-standing rating outranks one just added.
+4. **Level id**, ascending. Arbitrary, but total.
+
+A missing value sorts last within its own link, so an unrated or undated level
+never displaces one that has the value.
+
+**The order must be total.** `rating_rank` is the one figure in the event log
+that cannot be recomputed afterwards — it depends on every other level's rating
+at that instant, and nothing records those. An order that left ties unresolved
+would make a logged rank depend on the row order Postgres happened to return.
+
+Two consequences worth knowing:
+
+- Sorting the Log page by rating **descending** reproduces the Ranking page's
+  order exactly. Ascending is the exact reverse, except that unrated rows stay
+  pinned to the bottom in both directions, as every other column's blanks do.
+- A ranked position is only comparable inside one rating-config era. A weight
+  change reshuffles every average and is deliberately not logged (see
+  `EVENT_LOG.md`), so a rank recorded before a reweight was measured on a scale
+  that no longer applies.
+
+The Log page previously broke weighted-average ties by category score in
+priority order. That was retired when the comparator was shared: it applied to
+one surface only, and it is recoverable explicitly — the Log page's sort stack
+accepts `cat:{categoryId}` keys, so a user who wants category ordering can add
+it as a real secondary sort rather than receiving it invisibly.
 
 ---
 
