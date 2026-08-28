@@ -24,6 +24,7 @@ import {
   computeOverallRating,
   rankByRatingOrder,
   type OverallRatingConfig,
+  type RatingOrderCategory,
   type RatingOrderItem,
 } from '@infernolog/core'
 import { toNum } from '../../utils/decimal'
@@ -92,7 +93,9 @@ export async function readRatingStandings(
         ratingMode: true,
         includeEnjoyment: true,
         enjoymentWeight: true,
-        ratingCategories: { select: { id: true, weight: true } },
+        ratingCategories: {
+          select: { id: true, weight: true, sortOrder: true },
+        },
       },
     }),
     tx.levelProgress.findMany({
@@ -121,11 +124,18 @@ export async function readRatingStandings(
       }),
       enjoyment: update?.enjoyment ?? null,
       dateMs: update?.date?.getTime() ?? null,
+      ratingScores: row.ratingScores,
     }
   })
 
+  // Per-category scores only break ties in WEIGHTED mode. In SIMPLE mode the
+  // rows can still be there — switching modes preserves them — but they carry
+  // no meaning, so they must not influence the order.
+  const tiebreakCategories: RatingOrderCategory[] =
+    user.ratingMode === 'WEIGHTED' ? user.ratingCategories : []
+
   const standings: RatingStandings = new Map()
-  for (const { item, rank } of rankByRatingOrder(order)) {
+  for (const { item, rank } of rankByRatingOrder(order, tiebreakCategories)) {
     standings.set(item.levelId, { overallRating: item.overallRating, rank })
   }
   return standings

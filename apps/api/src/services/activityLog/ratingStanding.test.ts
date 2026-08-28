@@ -31,7 +31,7 @@ type Config = {
   ratingMode?: 'SIMPLE' | 'WEIGHTED'
   includeEnjoyment?: boolean
   enjoymentWeight?: number
-  categories?: { id: string; weight: number }[]
+  categories?: { id: string; weight: number; sortOrder?: number }[]
 }
 
 // A stand-in transaction client. readRatingStandings takes its client as a
@@ -44,7 +44,12 @@ function fakeTx(levels: Level[], config: Config = {}) {
         ratingMode: config.ratingMode ?? 'SIMPLE',
         includeEnjoyment: config.includeEnjoyment ?? false,
         enjoymentWeight: config.enjoymentWeight ?? 0.5,
-        ratingCategories: config.categories ?? [],
+        // sortOrder defaults to declaration order, which is what the priority
+        // tie-break reads; a test that cares states it explicitly.
+        ratingCategories: (config.categories ?? []).map((c, i) => ({
+          ...c,
+          sortOrder: c.sortOrder ?? i,
+        })),
       }),
     },
     levelProgress: {
@@ -91,6 +96,99 @@ describe('readRatingStandings', () => {
     )
     expect(standings.get('2')).toEqual({ overallRating: null, rank: null })
     expect(ranks(standings)).toEqual({ '1': 1, '3': 2, '2': null })
+  })
+
+  // The weighted convention: two levels that average out the same are
+  // separated by the category the user ranked highest, ahead of every other
+  // tie-break. This is the same chain the Log and Ranking pages sort by.
+  it('breaks a weighted tie on the highest-priority category', async () => {
+    const weighted: Config = {
+      ratingMode: 'WEIGHTED',
+      categories: [
+        { id: 'gameplay', weight: 0.5, sortOrder: 0 },
+        { id: 'design', weight: 0.5, sortOrder: 1 },
+      ],
+    }
+    const standings = await readRatingStandings(
+      fakeTx(
+        [
+          {
+            levelId: '1',
+            scores: [
+              { categoryId: 'gameplay', score: 10 },
+              { categoryId: 'design', score: 90 },
+            ],
+          },
+          {
+            levelId: '2',
+            scores: [
+              { categoryId: 'gameplay', score: 90 },
+              { categoryId: 'design', score: 10 },
+            ],
+          },
+        ],
+        weighted
+      ),
+      'u1'
+    )
+    // Both average 50; gameplay outranks design, so '2' takes #1.
+    expect(ranks(standings)).toEqual({ '2': 1, '1': 2 })
+  })
+
+  it('reads the categories by priority, not by declaration order', async () => {
+    const weighted: Config = {
+      ratingMode: 'WEIGHTED',
+      categories: [
+        { id: 'gameplay', weight: 0.5, sortOrder: 1 },
+        { id: 'design', weight: 0.5, sortOrder: 0 },
+      ],
+    }
+    const standings = await readRatingStandings(
+      fakeTx(
+        [
+          {
+            levelId: '1',
+            scores: [
+              { categoryId: 'gameplay', score: 10 },
+              { categoryId: 'design', score: 90 },
+            ],
+          },
+          {
+            levelId: '2',
+            scores: [
+              { categoryId: 'gameplay', score: 90 },
+              { categoryId: 'design', score: 10 },
+            ],
+          },
+        ],
+        weighted
+      ),
+      'u1'
+    )
+    // design is now highest priority, so the winner flips.
+    expect(ranks(standings)).toEqual({ '1': 1, '2': 2 })
+  })
+
+  // Switching WEIGHTED → SIMPLE preserves the per-category scores, so they are
+  // still present here. They must not influence a SIMPLE-mode order.
+  it('ignores per-category scores in SIMPLE mode', async () => {
+    const standings = await readRatingStandings(
+      fakeTx([
+        {
+          levelId: '20',
+          simpleRating: 80,
+          scores: [{ categoryId: 'gameplay', score: 90 }],
+        },
+        {
+          levelId: '10',
+          simpleRating: 80,
+          scores: [{ categoryId: 'gameplay', score: 10 }],
+        },
+      ]),
+      'u1'
+    )
+    // Falls through to levelId rather than to the gameplay score.
+    expect(ranks(standings)).toEqual({ '10': 1, '20': 2 })
   })
 
   it('breaks a rating tie on enjoyment, higher first', async () => {

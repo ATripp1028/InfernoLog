@@ -119,18 +119,26 @@ have to agree on what happens then:
 - the `rating_rank` field change the event log records on a `LOG_EDIT`, which is
   what lets the Events feed say "Up 43 in your ranking".
 
-One comparator serves all three: `compareRatingOrder` in
+One comparator serves all three: `ratingOrderComparator` in
 `packages/core/src/ratingOrder.ts`. The chain, best first:
 
 1. **Overall rating**, highest first.
-2. **Enjoyment**, highest first. A genuinely separate signal — it is logged per
+2. **Category scores**, highest first, each category taken in the user's own
+   priority order (the drag order in the rating config editor, top =
+   highest). The established convention for weighted ratings: two levels that
+   average out the same are separated by the category the user cares most
+   about. WEIGHTED mode only — switching modes preserves per-category scores,
+   so they are usually still present in SIMPLE mode, where they carry no
+   meaning and this link drops out.
+3. **Enjoyment**, highest first. A genuinely separate signal — it is logged per
    event and excluded from the average unless the user opts in — so it breaks a
    tie rather than restating the first key.
-3. **Date**, earliest first. A long-standing rating outranks one just added.
-4. **Level id**, ascending. Arbitrary, but total.
+4. **Date**, earliest first. A long-standing rating outranks one just added.
+5. **Level id**, ascending. Arbitrary, but total.
 
-A missing value sorts last within its own link, so an unrated or undated level
-never displaces one that has the value.
+A missing value sorts last within its own link, so an unrated or undated level,
+or one with no score in a given category, never displaces one that has the
+value.
 
 **The order must be total.** `rating_rank` is the one figure in the event log
 that cannot be recomputed afterwards — it depends on every other level's rating
@@ -142,16 +150,17 @@ Two consequences worth knowing:
 - Sorting the Log page by rating **descending** reproduces the Ranking page's
   order exactly. Ascending is the exact reverse, except that unrated rows stay
   pinned to the bottom in both directions, as every other column's blanks do.
-- A ranked position is only comparable inside one rating-config era. A weight
-  change reshuffles every average and is deliberately not logged (see
-  `EVENT_LOG.md`), so a rank recorded before a reweight was measured on a scale
-  that no longer applies.
+- A ranked position is only comparable inside one rating-config era. Weights,
+  category priority and the set of categories all feed this order, so any
+  config change reshuffles it — and a reweight is deliberately not logged (see
+  `EVENT_LOG.md`). A rank recorded before such a change was measured on a scale
+  that no longer applies. Reordering categories is itself a
+  `RATING_CONFIG_CHANGE`, since `sortOrder` is part of the logged config.
 
-The Log page previously broke weighted-average ties by category score in
-priority order. That was retired when the comparator was shared: it applied to
-one surface only, and it is recoverable explicitly — the Log page's sort stack
-accepts `cat:{categoryId}` keys, so a user who wants category ordering can add
-it as a real secondary sort rather than receiving it invisibly.
+The category link used to live on the Log page alone, applied after its rating
+sort rather than as part of any shared definition — which is exactly why the
+three surfaces could disagree. Folding it into the canonical chain keeps the
+weighted convention and makes the Ranking page and `rating_rank` observe it too.
 
 ---
 

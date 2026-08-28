@@ -11,10 +11,11 @@
 // records those), so an order that left ties unresolved would make a logged
 // rank depend on the row order Postgres happened to return.
 //
-// A ranked position is only comparable inside one rating-config era. A weight
-// change reshuffles every level's average and is deliberately not logged, so a
-// rank recorded before a reweight was measured on a scale that no longer
-// applies. See docs/RATING_SYSTEM.md and docs/EVENT_LOG.md.
+// A ranked position is only comparable inside one rating-config era. Weights,
+// category priority and the set of categories all feed this order, and a change
+// to any of them reshuffles it — which is why a rank recorded before a config
+// change was measured on a scale that no longer applies. See
+// docs/RATING_SYSTEM.md and docs/EVENT_LOG.md.
 
 /**
  * One level's inputs to the rating order.
@@ -37,38 +38,75 @@ export interface RatingOrderItem {
    * value compare identically.
    */
   dateMs: number | null
+  /** Per-category scores. Only consulted in WEIGHTED mode — see the factory. */
+  ratingScores: readonly { categoryId: string; score: number }[]
 }
 
 /**
- * Compares two levels in the canonical rating order — best first.
+ * A weighted-mode rating category, for the priority tiebreak.
+ *
+ * `sortOrder` is the user's own priority ordering — the drag order in the
+ * rating config editor, where the top item is highest priority. Lower sorts
+ * first.
+ */
+export interface RatingOrderCategory {
+  id: string
+  sortOrder: number
+}
+
+/**
+ * Builds the canonical rating comparator — best first.
  *
  * The chain, in order:
  *
  * 1. **Overall rating**, highest first. The whole point of the order.
- * 2. **Enjoyment**, highest first. A separate signal from the rating (it is
+ * 2. **Category scores**, highest first, each category taken in the user's
+ *    priority order. This is the long-standing convention for weighted
+ *    ratings: two levels that average out the same are separated by the
+ *    category the user cares most about, not left in arbitrary order.
+ * 3. **Enjoyment**, highest first. A separate signal from the rating (it is
  *    logged per event and excluded from the average unless the user opts in),
  *    so it breaks a genuine tie rather than restating the first key.
- * 3. **Date**, earliest first — a long-standing rating outranks one just added.
- * 4. **Level id**, ascending. Arbitrary but total, and it is the number a user
+ * 4. **Date**, earliest first — a long-standing rating outranks one just added.
+ * 5. **Level id**, ascending. Arbitrary but total, and it is the number a user
  *    recognises.
  *
- * A missing value always sorts last within its own key, so an unrated or
- * undated level never displaces one that has the value.
+ * A missing value always sorts last within its own link, so an unrated or
+ * undated level, or one with no score in a given category, never displaces one
+ * that has the value.
  *
- * @returns Negative when `a` ranks above `b`, positive when below, 0 only when
- * the two are the same level.
+ * @param categories - The user's rating categories, in any order; this sorts
+ * them by priority once, rather than per comparison. Pass none (the default) in
+ * SIMPLE mode, where per-category scores may still exist as preserved data but
+ * carry no meaning — step 2 then drops out and the chain runs 1, 3, 4, 5.
+ * @returns A comparator returning negative when `a` ranks above `b`, positive
+ * when below, and 0 only when the two are the same level.
  */
-export function compareRatingOrder(
-  a: RatingOrderItem,
-  b: RatingOrderItem
-): number {
-  const byRating = descNullsLast(a.overallRating, b.overallRating)
-  if (byRating !== 0) return byRating
-  const byEnjoyment = descNullsLast(a.enjoyment, b.enjoyment)
-  if (byEnjoyment !== 0) return byEnjoyment
-  const byDate = ascNullsLast(a.dateMs, b.dateMs)
-  if (byDate !== 0) return byDate
-  return a.levelId < b.levelId ? -1 : a.levelId > b.levelId ? 1 : 0
+export function ratingOrderComparator(
+  categories: readonly RatingOrderCategory[] = []
+): (a: RatingOrderItem, b: RatingOrderItem) => number {
+  // Sorted once here rather than inside the comparator, which a sort of n rows
+  // calls O(n log n) times.
+  const byPriority = [...categories].sort((a, b) => a.sortOrder - b.sortOrder)
+
+  return function compareRatingOrder(a, b) {
+    const byRating = descNullsLast(a.overallRating, b.overallRating)
+    if (byRating !== 0) return byRating
+
+    for (const category of byPriority) {
+      const cmp = descNullsLast(
+        scoreFor(a, category.id),
+        scoreFor(b, category.id)
+      )
+      if (cmp !== 0) return cmp
+    }
+
+    const byEnjoyment = descNullsLast(a.enjoyment, b.enjoyment)
+    if (byEnjoyment !== 0) return byEnjoyment
+    const byDate = ascNullsLast(a.dateMs, b.dateMs)
+    if (byDate !== 0) return byDate
+    return a.levelId < b.levelId ? -1 : a.levelId > b.levelId ? 1 : 0
+  }
 }
 
 /**
@@ -79,12 +117,14 @@ export function compareRatingOrder(
  * returned with a null `rank` rather than being dropped, because a caller
  * showing every logged level still has to render them somewhere.
  *
+ * @param categories - As {@link ratingOrderComparator}.
  * @returns The items in order, each paired with its rank.
  */
 export function rankByRatingOrder<T extends RatingOrderItem>(
-  items: readonly T[]
+  items: readonly T[],
+  categories: readonly RatingOrderCategory[] = []
 ): { item: T; rank: number | null }[] {
-  const ordered = [...items].sort(compareRatingOrder)
+  const ordered = [...items].sort(ratingOrderComparator(categories))
 
   let rank = 0
   return ordered.map((item) => {
@@ -93,6 +133,10 @@ export function rankByRatingOrder<T extends RatingOrderItem>(
     if (item.overallRating !== null) rank += 1
     return { item, rank: item.overallRating === null ? null : rank }
   })
+}
+
+function scoreFor(item: RatingOrderItem, categoryId: string): number | null {
+  return item.ratingScores.find((s) => s.categoryId === categoryId)?.score ?? null
 }
 
 function descNullsLast(a: number | null, b: number | null): number {

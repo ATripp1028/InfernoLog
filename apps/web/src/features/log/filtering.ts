@@ -2,7 +2,8 @@
 // plain array work over LevelProgressListItem rows. Kept framework-free.
 
 import {
-  compareRatingOrder,
+  ratingOrderComparator,
+  type RatingOrderCategory,
   type RatingOrderItem,
 } from '@infernolog/core'
 import type {
@@ -281,6 +282,7 @@ function toRatingOrderItem(item: LogItem): RatingOrderItem {
     overallRating: item.overallRating ?? null,
     enjoyment: item.entry?.enjoyment ?? null,
     dateMs: dateMs(item),
+    ratingScores: item.ratingScores,
   }
 }
 
@@ -355,23 +357,39 @@ function compareValues(
 /**
  * Stable multi-key sort: specs are applied in priority order.
  *
- * The `rating` key is special: it defers to {@link compareRatingOrder}, the
- * canonical rating order shared with the Ranking page and with the
- * `rating_rank` the event log records. Sorting the Log by rating descending
- * therefore produces exactly the Ranking page's order, so "Up 43 in your
- * ranking" in the Events feed names a position the user can go and see.
+ * The `rating` key is special: it defers to the canonical rating order shared
+ * with the Ranking page and with the `rating_rank` the event log records — so
+ * sorting the Log by rating descending produces exactly the Ranking page's
+ * order, and "Up 43 in your ranking" in the Events feed names a position the
+ * user can go and see. That chain breaks weighted ties on category score in
+ * the user's priority order before anything else, so it preserves the weighted
+ * rating convention rather than overriding it.
  *
  * Ties beyond that chain are resolved by level id, which is unique — so the
  * rating sort is total and needs no further spec behind it.
+ *
+ * @param ratingCategories - The user's rating categories, for the weighted tie
+ * break. Empty in SIMPLE mode, where per-category scores carry no meaning.
  */
-export function sortItems(items: LogItem[], sorts: SortSpec[]): LogItem[] {
+export function sortItems(
+  items: LogItem[],
+  sorts: SortSpec[],
+  ratingCategories: readonly RatingOrderCategory[] = []
+): LogItem[] {
   if (!sorts.length) return items
+  // Built once, not per comparison — the factory sorts the categories.
+  const byRatingOrder = ratingOrderComparator(ratingCategories)
+
   return [...items].sort((x, y) => {
     for (const spec of sorts) {
       const cmp =
         spec.key === 'rating'
-          ? compareRating(x, y, spec.dir)
-          : compareValues(sortValue(x, spec.key), sortValue(y, spec.key), spec.dir)
+          ? compareRating(x, y, spec.dir, byRatingOrder)
+          : compareValues(
+              sortValue(x, spec.key),
+              sortValue(y, spec.key),
+              spec.dir
+            )
       if (cmp !== 0) return cmp
     }
     return 0
@@ -382,13 +400,18 @@ export function sortItems(items: LogItem[], sorts: SortSpec[]): LogItem[] {
 // ranking rather than a differently-tiebroken sort — except for unrated rows,
 // which stay pinned to the bottom in both directions the way every other
 // column's nulls do.
-function compareRating(x: LogItem, y: LogItem, dir: 'asc' | 'desc'): number {
+function compareRating(
+  x: LogItem,
+  y: LogItem,
+  dir: 'asc' | 'desc',
+  byRatingOrder: (a: RatingOrderItem, b: RatingOrderItem) => number
+): number {
   const a = x.overallRating ?? null
   const b = y.overallRating ?? null
   if (a == null && b == null) return 0
   if (a == null) return 1
   if (b == null) return -1
 
-  const canonical = compareRatingOrder(toRatingOrderItem(x), toRatingOrderItem(y))
+  const canonical = byRatingOrder(toRatingOrderItem(x), toRatingOrderItem(y))
   return dir === 'desc' ? canonical : -canonical
 }

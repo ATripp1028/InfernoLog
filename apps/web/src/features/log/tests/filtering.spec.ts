@@ -564,8 +564,11 @@ describe('countActiveFilters', () => {
 })
 
 describe('sortItems', () => {
-  const sorted = (items: LogItem[], sorts: SortSpec[]) =>
-    sortItems(items, sorts).map((i) => i.level.inGameId)
+  const sorted = (
+    items: LogItem[],
+    sorts: SortSpec[],
+    cats: { id: string; sortOrder: number }[] = []
+  ) => sortItems(items, sorts, cats).map((i) => i.level.inGameId)
 
   it('returns the rows untouched with no sorts', () => {
     const rows = [item({ level: level({ inGameId: 'b' }) })]
@@ -724,9 +727,85 @@ describe('sortItems', () => {
     ).toEqual(['a', 'b', 'z'])
   })
 
-  // The rating column defers to the canonical order shared with the Ranking
-  // page and the event log's `rating_rank`. These assert the chain itself, so
-  // a change here changes what a quoted rank position means.
+  // Weighted ties break on category score in the user's priority order before
+  // any other link in the chain — the established convention for weighted
+  // ratings, and now part of the canonical order rather than a Log-page-only
+  // flourish, so the Ranking page and `rating_rank` observe it too.
+  describe('breaking weighted-rating ties on category priority', () => {
+    const tied = (id: string, gameplay: number, design: number) =>
+      item({
+        level: level({ inGameId: id }),
+        overallRating: 80,
+        ratingScores: [
+          { categoryId: 'gameplay', score: gameplay },
+          { categoryId: 'design', score: design },
+        ],
+      })
+
+    const cats = [
+      { id: 'gameplay', sortOrder: 0 },
+      { id: 'design', sortOrder: 1 },
+    ]
+
+    it('falls through to the highest-priority category', () => {
+      const rows = [tied('low', 10, 90), tied('high', 90, 10)]
+
+      expect(
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
+      ).toEqual(['high', 'low'])
+    })
+
+    it('moves to the next category when the first also ties', () => {
+      const rows = [tied('low', 50, 10), tied('high', 50, 90)]
+
+      expect(
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
+      ).toEqual(['high', 'low'])
+    })
+
+    it('reads the categories in priority order, not declaration order', () => {
+      const rows = [tied('a', 10, 90), tied('b', 90, 10)]
+      const reversed = [
+        { id: 'design', sortOrder: 0 },
+        { id: 'gameplay', sortOrder: 1 },
+      ]
+
+      expect(
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], reversed)
+      ).toEqual(['a', 'b'])
+    })
+
+    it('breaks ties in the sort’s own direction', () => {
+      const rows = [tied('low', 10, 0), tied('high', 90, 0)]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'asc' }], cats)).toEqual([
+        'low',
+        'high',
+      ])
+    })
+
+    // SIMPLE mode preserves per-category scores but they carry no meaning, so
+    // passing no categories must leave them out of the order entirely.
+    it('ignores category scores when no categories are given', () => {
+      const rows = [tied('b', 10, 90), tied('a', 90, 10)]
+
+      // Falls all the way through to level id rather than to gameplay.
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual(['a', 'b'])
+    })
+
+    // The tiebreaker is scoped to the rating column; another column that
+    // happens to tie is left to the next explicit sort spec.
+    it('does not break ties on any other column', () => {
+      const rows = [tied('first', 10, 90), tied('second', 90, 10)]
+
+      expect(
+        sorted(rows, [{ key: 'attempts', dir: 'desc' }], cats)
+      ).toEqual(['first', 'second'])
+    })
+  })
+
+  // The rest of the canonical chain, below the category stage. These assert
+  // what a quoted rank position means, so a change here changes that.
   describe('breaking rating ties', () => {
     const tied = (
       id: string,
