@@ -6,7 +6,7 @@
 // Log page's range needed the same control.
 
 import { useState } from 'react'
-import type { Range } from '@/features/log/types'
+import type { Range } from './types'
 
 /**
  * The two number boxes under a range slider. While the user types, the draft

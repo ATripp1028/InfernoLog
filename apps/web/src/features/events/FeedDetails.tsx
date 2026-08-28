@@ -11,7 +11,7 @@ import type {
 } from '@infernolog/core'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 import type { RatingCategory } from '@/lib/api/me'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import {
   configCategoryLabel,
   fieldLabel,

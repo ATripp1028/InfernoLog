@@ -8,7 +8,7 @@ import {
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 import { useSearchPageBar } from '@/features/search/useSearchPageBar'
-import { useEscalation } from '@/features/search/useEscalation'
+import { useEscalation } from '@/lib/useEscalation'
 import { SearchPageBar } from '@/features/search/SearchPageBar'
 import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'

@@ -1,13 +1,18 @@
 import { useState, type ReactNode } from 'react'
-import { useLoggingFlow } from './LoggingFlowProvider'
-import { LOGGING_ACTIONS } from './loggingActions'
-import type { FabAction } from '@/context/FabActionsContext'
+import { useLoggingFlow } from './LoggingFlowContext'
+import { LOGGING_ACTIONS } from '@/features/logging/loggingActions'
+import type { FabAction } from './FabActionsContext'
 import { AddToWantToBeatDialog } from '@/features/collections/AddToWantToBeatDialog'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 
 /**
  * The FAB's default action set — shown on any page that doesn't register
- * its own actions via useFabActions (List, Ranking, etc). Called
+ * its own actions via useFabActions (List, Ranking, etc).
+ *
+ * Lives beside {@link FabActionsContext}, its only caller, rather than in
+ * `features/logging`: the set spans two features (three logging paths plus
+ * the two collection dialogs) and belongs to the app chrome, not to either
+ * of them. Called
  * independently by the desktop Fab and MobileNav, each getting its own
  * dialog state — the two breakpoints are never both visible at once.
  */

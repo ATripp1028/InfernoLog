@@ -1,14 +1,14 @@
 import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
-import { digitsOnly } from '@/features/logging/format'
+import { digitsOnly } from '@/lib/numberFormat'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import {
   DevicePicker,
   GdVersionPicker,
   GdVersionInfoButton,
-} from '@/features/logging/pickers'
-import { DateTimeField } from '@/features/logging/components'
+} from '@/components/inputs/pickers'
+import { DateTimeField } from '@/components/inputs/DateTimeField'
 import {
   Section,
   FieldLabel,
@@ -17,8 +17,8 @@ import {
   TwoPlayerPicker,
 } from './EditShared'
 import { DifficultyOpinionSelect } from '@/components/inputs/DifficultyOpinionSelect'
-import { RunInput } from '@/features/logging/RunInput'
-import { formatRunInputValue } from '@/features/logging/runParsing'
+import { RunInput } from '@/components/inputs/RunInput'
+import { formatRunInputValue } from '@/lib/runParsing'
 import type { EditRunFormState } from './useEditRunModal'
 
 /**

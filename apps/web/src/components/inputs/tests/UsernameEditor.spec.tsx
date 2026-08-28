@@ -8,7 +8,7 @@ import {
   type MeData,
 } from '@/lib/api/me'
 import { ApiError } from '@/lib/api/client'
-import { COOLDOWN_DAYS } from '../../usernameRules'
+import { COOLDOWN_DAYS } from '@/lib/usernameRules'
 import { makeMe, renderWithProviders, stubMutation } from '@/utils/testUtils'
 
 // `usernameError` and `cooldownEnd` stay real — the rules they encode are half

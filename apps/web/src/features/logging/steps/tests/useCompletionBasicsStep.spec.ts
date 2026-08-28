@@ -8,10 +8,10 @@ import { draft, level, me as meData } from '../../tests/fixtures'
 
 // The step reads the flow through context and the viewer through /me;
 // stubbing those two is enough to drive it.
-vi.mock('../../LoggingFlowProvider', () => ({ useLoggingFlow: vi.fn() }))
+vi.mock('@/context/LoggingFlowContext', () => ({ useLoggingFlow: vi.fn() }))
 vi.mock('@/lib/api/me', () => ({ useMe: vi.fn() }))
 
-const { useLoggingFlow } = await import('../../LoggingFlowProvider')
+const { useLoggingFlow } = await import('@/context/LoggingFlowContext')
 const { useMe } = await import('@/lib/api/me')
 const { useCompletionBasicsStep } = await import('../useCompletionBasicsStep')
 

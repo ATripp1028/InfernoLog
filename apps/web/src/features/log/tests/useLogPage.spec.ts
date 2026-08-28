@@ -16,7 +16,7 @@ vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   useLocation: () => ({ href: '/log' }),
 }))
-vi.mock('@/features/logging/LoggingFlowProvider', () => ({
+vi.mock('@/context/LoggingFlowContext', () => ({
   useLoggingFlow: () => ({ openForEdit }),
 }))
 vi.mock('@/components/generic/sonner', () => ({

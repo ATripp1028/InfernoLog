@@ -13,7 +13,7 @@ import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { StepperInput } from '@/components/generic/stepper-input'
 import { type MeData } from '@/lib/api/me'
-import { DragHandle } from './DragHandle'
+import { DragHandle } from '@/components/generic/drag-handle'
 import {
   ENJOYMENT_KEY,
   useRatingConfigEditor,

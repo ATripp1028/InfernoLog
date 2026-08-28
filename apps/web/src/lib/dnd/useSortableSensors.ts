@@ -8,7 +8,9 @@ import {
 import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 
 /**
- * Shared sensor setup for every settings-page sortable list.
+ * Shared sensor setup for every sortable list in the app — the settings
+ * rating categories, the demon list board, collection detail, the log's sort
+ * chips, and the import wizard's list merge.
  *
  * MouseSensor (with a small distance constraint) lets mouse users start a
  * drag with a quick mousedown + slight move. TouchSensor uses a delay

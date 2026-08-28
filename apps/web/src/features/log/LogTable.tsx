@@ -5,7 +5,7 @@ import type {
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
-import type { FlowPath } from '@/features/logging/types'
+import type { FlowPath } from '@/context/LoggingFlowContext'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { LogRow } from './LogRow'
 import {

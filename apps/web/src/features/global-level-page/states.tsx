@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { formatRetryWait } from '@/lib/api/client'
 import { Button } from '@/components/generic/button'
-import { DesktopSectionHeader } from '@/features/global-level-page/CollapsibleSection'
+import { DesktopSectionHeader } from './CollapsibleSection'
 
 /**
  * The amber "this level is delisted" banner. Delisting is a fact about GD's

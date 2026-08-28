@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { AlertCircle, Check } from 'lucide-react'
 import { Button } from '@/components/generic/button'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
-import { useFlowBusy, useLoggingFlow } from '../LoggingFlowProvider'
+import { useFlowBusy, useLoggingFlow } from '@/context/LoggingFlowContext'
 import { ApiError } from '@/lib/api/client'
 
 /**

@@ -15,7 +15,7 @@ import type {
 } from '@/lib/api/wireEnums'
 import { formatDate } from '@/lib/dateFormat'
 import { formatRating } from '@/lib/ratingScale'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 
 const FIELD_LABELS: Record<string, string> = {

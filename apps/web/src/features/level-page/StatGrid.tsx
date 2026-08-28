@@ -1,6 +1,6 @@
 import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
 import type { RatingCategory } from '@/lib/api/me'
 import type {

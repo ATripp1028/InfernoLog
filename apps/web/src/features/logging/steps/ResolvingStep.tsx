@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
 import { useResolveLevel } from '@/lib/api/logging'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { StepBody } from '../components'
 
 /**

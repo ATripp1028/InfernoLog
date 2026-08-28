@@ -2,10 +2,10 @@ import { Input } from '@/components/generic/input'
 import { Label } from '@/components/generic/label'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
-import { clampPercent, digitsOnly } from '@/features/logging/format'
+import { clampPercent, digitsOnly } from '@/lib/numberFormat'
 import { formatDisplayRating } from '@/lib/ratingScale'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
-import { DateTimeField } from '@/features/logging/components'
+import { DateTimeField } from '@/components/inputs/DateTimeField'
 import {
   Section,
   FieldLabel,

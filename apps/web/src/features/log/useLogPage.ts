@@ -18,17 +18,17 @@ import {
   type ListPreset,
 } from '@/lib/api/presets'
 import { useLevelPage } from '@/lib/api/levelPage'
-import { useLoggingFlow } from '@/features/logging/LoggingFlowProvider'
-import type { FlowPath } from '@/features/logging/types'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
+import type { FlowPath } from '@/context/LoggingFlowContext'
 import { toast } from '@/components/generic/sonner'
 import { useMediaQuery } from '@/lib/useMediaQuery'
-import { tableMinWidth } from '@/features/log/tableLayout'
+import { tableMinWidth } from './tableLayout'
 import {
   applyFilters,
   countActiveFilters,
   difficultyRank,
   sortItems,
-} from '@/features/log/filtering'
+} from './filtering'
 import {
   COLUMNS,
   defaultColumnVisibility,
@@ -37,8 +37,8 @@ import {
   type ColumnId,
   type ColumnDef,
   type ColumnVisibility,
-} from '@/features/log/columns'
-import { defaultDir } from '@/features/log/sortMeta'
+} from './columns'
+import { defaultDir } from './sortMeta'
 import {
   ATTEMPTS_DOMAIN,
   DATE_MIN_MS,
@@ -48,7 +48,7 @@ import {
   type LogItem,
   type SortKey,
   type SortSpec,
-} from '@/features/log/types'
+} from './types'
 import {
   viewConfigsEqual,
   defaultViewConfig,
@@ -56,7 +56,7 @@ import {
   cleanupPresetForCategories,
   type PresetColorId,
   type ViewConfig,
-} from '@/features/log/presets'
+} from './presets'
 import { getPresetCookie, setPresetCookie } from '@/lib/presetCookie'
 
 // The docked filter panel is 320px wide; the content column adds ~48px

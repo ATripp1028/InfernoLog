@@ -1,5 +1,5 @@
-// The 2.1-vs-2.2 percentage-basis rule. Lives here rather than beside a step
-// because four modules across two features need it — the completion and
+// The 2.1-vs-2.2 percentage-basis rule. Lives in lib/ rather than beside a
+// logging step because modules in two features need it — the completion and
 // progress steps, their logic hooks, and the level page's edit-run modal.
 
 /** The date GD 2.2 shipped. Anything logged before it is on 2.1 percentages. */

@@ -12,9 +12,9 @@ import {
   gddlSyncStatusQueryKey,
   type MeData,
 } from '@/lib/api/me'
-import { useGddlSyncContext } from '../GddlSyncProvider'
-import { ConnectedAccountRow } from './ConnectedAccountRow'
-import { buildListSyncToast } from '../gddlSyncToast'
+import { useGddlSyncContext } from '@/context/GddlSyncContext'
+import { ConnectedAccountRow } from '@/components/data/ConnectedAccountRow'
+import { buildListSyncToast } from '@/lib/gddlSyncToast'
 
 interface GddlApiKeyEditorProps {
   me: MeData

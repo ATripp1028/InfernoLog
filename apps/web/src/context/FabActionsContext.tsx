@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { useDefaultFabActions } from '@/features/logging/useDefaultFabActions'
+import { useDefaultFabActions } from './useDefaultFabActions'
 import { actionsSignature, resolveFabActions } from './fabActionResolution'
 
 /**

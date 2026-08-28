@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Input } from '@/components/generic/input'
 import { cn } from '@/lib/utils'
-import { parseRunInput, type ParsedRun } from './runParsing'
+import { parseRunInput, type ParsedRun } from '@/lib/runParsing'
 
 /**
  * Props for the run input. See {@link parseRunInput} for the accepted syntax.

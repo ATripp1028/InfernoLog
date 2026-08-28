@@ -10,7 +10,7 @@ import { useMutationState } from '@tanstack/react-query'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { toast } from '@/components/generic/sonner'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
+import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 import { ApiError } from '@/lib/api/client'
 import {
   useCollection,
@@ -20,8 +20,8 @@ import {
   useUpdateCollection,
   type CollectionDetail as CollectionDetailData,
 } from '@/lib/api/collections'
-import { isBuiltIn } from '@/features/collections/identity'
-import { collectionDetailActions } from '@/features/collections/collectionDetailActions'
+import { isBuiltIn } from './identity'
+import { collectionDetailActions } from './collectionDetailActions'
 import { useFabActions } from '@/context/FabActionsContext'
 
 /**

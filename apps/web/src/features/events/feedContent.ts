@@ -14,7 +14,7 @@ import type {
 } from '@infernolog/core'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatDate } from '@/lib/dateFormat'
-import { formatNumber } from '@/features/logging/format'
+import { formatNumber } from '@/lib/numberFormat'
 
 /** The colour family a row's icon and accents use. */
 export type FeedTone =

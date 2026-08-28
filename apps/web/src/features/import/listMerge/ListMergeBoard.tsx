@@ -8,7 +8,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/generic/button'
 import { cn } from '@/lib/utils'
-import { DragHandle } from '@/features/settings/components/DragHandle'
+import { DragHandle } from '@/components/generic/drag-handle'
 import { levelThumbnailUrl } from '@/lib/gdAssets'
 import {
   useListMergeBoard,

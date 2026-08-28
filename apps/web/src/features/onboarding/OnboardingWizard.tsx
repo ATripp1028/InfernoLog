@@ -3,15 +3,15 @@ import { useNavigate } from '@tanstack/react-router'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { Button } from '@/components/generic/button'
 import { useMe, useUpdateMe } from '@/lib/api/me'
-import { UsernameEditor } from '@/features/settings/components/UsernameEditor'
-import { LoggingPreferencesFields } from '@/features/settings/sections/LoggingSection'
+import { UsernameEditor } from '@/components/inputs/UsernameEditor'
+import { LoggingPreferencesFields } from '@/components/inputs/LoggingPreferencesFields'
 import {
   RatingSection,
   type RatingSectionHandle,
-} from '@/features/settings/sections/RatingSection'
-import { GddlApiKeyEditor } from '@/features/settings/components/GddlApiKeyEditor'
-import { SettingsSection } from '@/features/settings/components/SettingsSection'
-import { ImportWizard } from '@/features/import/ImportWizard'
+} from '@/components/inputs/RatingSection'
+import { GddlApiKeyEditor } from '@/components/inputs/GddlApiKeyEditor'
+import { SettingsSection } from '@/components/generic/settings-section'
+import { ImportWizard } from '@/features/import'
 import { LegalAcceptance } from './LegalAcceptance'
 import {
   STEPS,

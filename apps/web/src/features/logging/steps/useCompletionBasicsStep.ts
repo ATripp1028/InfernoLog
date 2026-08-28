@@ -4,9 +4,9 @@
 
 import { useEffect } from 'react'
 import { useMe } from '@/lib/api/me'
-import { useLoggingFlow } from '../LoggingFlowProvider'
-import { maxValueError, MAX_ATTEMPTS } from '../format'
-import { isPreTwoTwo } from '../gdVersion'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
+import { maxValueError, MAX_ATTEMPTS } from '@/lib/numberFormat'
+import { isPreTwoTwo } from '@/lib/gdVersion'
 
 /**
  * Draft rules the completion-basics step enforces while open: seeding the percentage basis, and pinning it to 2.1 for a pre-2.2 date.

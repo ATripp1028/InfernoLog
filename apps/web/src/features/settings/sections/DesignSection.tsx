@@ -1,4 +1,7 @@
-import { SettingsSection, SettingRow } from '../components/SettingsSection'
+import {
+  SettingsSection,
+  SettingRow,
+} from '@/components/generic/settings-section'
 import { Switch } from '@/components/generic/switch'
 import { toast } from '@/components/generic/sonner'
 import { useUpdateMe, type MeData } from '@/lib/api/me'

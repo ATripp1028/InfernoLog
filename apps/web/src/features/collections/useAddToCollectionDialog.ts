@@ -19,7 +19,7 @@ import {
 } from '@/lib/api/collections'
 import { useMyProgress } from '@/lib/api/log'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
-import { useEscalation } from '@/features/search/useEscalation'
+import { useEscalation } from '@/lib/useEscalation'
 import { isBuiltIn } from './identity'
 
 import type {

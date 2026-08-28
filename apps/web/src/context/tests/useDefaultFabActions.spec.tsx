@@ -2,12 +2,12 @@ import { act, render as renderTree, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ReactNode } from 'react'
 import type { FabAction } from '@/context/FabActionsContext'
-import { LOGGING_ACTIONS } from '../loggingActions'
+import { LOGGING_ACTIONS } from '@/features/logging/loggingActions'
 
 // The two dialogs are rendered by this hook, not driven by it — stub them to
 // trivial markers so the spec is about the action set and the open state it
 // hands them, rather than their internals.
-vi.mock('../LoggingFlowProvider', () => ({ useLoggingFlow: vi.fn() }))
+vi.mock('@/context/LoggingFlowContext', () => ({ useLoggingFlow: vi.fn() }))
 vi.mock('@/features/collections/AddToWantToBeatDialog', () => ({
   AddToWantToBeatDialog: (props: { open: boolean }) => (
     <div data-testid="wtb" data-open={String(props.open)} />
@@ -19,7 +19,7 @@ vi.mock('@/features/collections/AddToCollectionDialog', () => ({
   ),
 }))
 
-const { useLoggingFlow } = await import('../LoggingFlowProvider')
+const { useLoggingFlow } = await import('@/context/LoggingFlowContext')
 const { useDefaultFabActions } = await import('../useDefaultFabActions')
 
 let open: ReturnType<typeof vi.fn>

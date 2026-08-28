@@ -1,7 +1,7 @@
 import { Check } from 'lucide-react'
 import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/generic/button'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 
 /**
  * Screen 09. "Place now" routes to the ranking page, passing the new

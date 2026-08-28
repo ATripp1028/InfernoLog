@@ -372,13 +372,13 @@ extract it.
 `src/components/` is grouped by what a component is, not by which feature first
 needed it — nothing sits loose at its root:
 
-| Directory  | Holds                                                                                                                              |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| `generic/` | Unstyled-by-domain primitives — the shadcn layer, plus `segmented`, `stepper-input`, `toast`                                       |
-| `inputs/`  | Domain form controls and their labelling: `CoinPicker`, `DifficultyOpinionSelect`, `FieldLabel`, `SectionLabel`, `TwoPlayerPicker` |
-| `data/`    | Components that render domain data: `LevelResultRow`, `DifficultyFace`, `RatingRow`, `CopyableId`, `EmptyState`                    |
-| `shell/`   | App chrome — header, sidebar, mobile nav, FAB, sheets, `Shell` itself                                                              |
-| `public/`  | Signed-out chrome: `PublicPageShell`, `LegalDocPage`                                                                               |
+| Directory  | Holds                                                                                                                                                                                                         |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `generic/` | Unstyled-by-domain primitives — the shadcn layer, plus `segmented`, `stepper-input`, `toast`, `drag-handle`, `settings-section`                                                                               |
+| `inputs/`  | Domain form controls and their labelling: `CoinPicker`, `DifficultyOpinionSelect`, `FieldLabel`, `SectionLabel`, `TwoPlayerPicker`, `DateTimeField`, `RunInput`, `pickers`, `UsernameEditor`, `RatingSection` |
+| `data/`    | Components that render domain data: `LevelResultRow`, `DifficultyFace`, `RatingRow`, `CopyableId`, `EmptyState`, `GdSearchSection`, `ConnectedAccountRow`                                                     |
+| `shell/`   | App chrome — header, sidebar, mobile nav, FAB, sheets, `Shell` itself                                                                                                                                         |
+| `public/`  | Signed-out chrome: `PublicPageShell`, `LegalDocPage`                                                                                                                                                          |
 
 Before writing a row, picker, label, or dialog chrome, look in `inputs/` and
 `data/` first. Express per-caller differences as props (`badge`, `loading`,
@@ -388,8 +388,39 @@ Before writing a row, picker, label, or dialog chrome, look in `inputs/` and
 
 Feature code lives under `src/features/<feature>/`, with the component, its
 logic file, and its feature-local helpers together. Steps go in a `steps/`
-subdirectory; anything shared across features moves to `src/components/` (see
-§3) or `src/lib/`.
+subdirectory.
+
+**No feature imports from another feature.** `@/features/<other>/...` inside
+`src/features/` is the signal that something has outgrown its feature, and the
+fix is always to move that something, never to deepen the path. The three
+destinations, in the order to try them:
+
+| Destination       | For                                                                                                                                                      |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/lib/`        | Pure logic and standalone hooks — `numberFormat`, `gdVersion`, `runParsing`, `sameDayToggle`, `usernameRules`, `useEscalation`, `dnd/useSortableSensors` |
+| `src/components/` | Anything that renders (see §3)                                                                                                                           |
+| `src/context/`    | The read side of an app-global provider, when the provider itself is a feature's                                                                         |
+
+The `context/` case is the least obvious. `LoggingFlowProvider` and
+`GddlSyncProvider` are mounted once by the authenticated shell but read from
+several features, so the `createContext` call and its `use*` hook live in
+`context/LoggingFlowContext.ts` / `context/GddlSyncContext.ts` while the
+provider component stays in its feature and imports the context back. Splitting
+it that way — rather than moving the whole provider — is what keeps the runtime
+import graph acyclic: the context module reaches into a feature only for types,
+which erase. `useDefaultFabActions` moved to `context/` outright for the same
+reason: it composes three logging paths with two collection dialogs, so it
+belongs to neither feature and sits beside its only caller,
+`FabActionsContext`.
+
+**The one exception is a feature's own barrel.** A multi-step flow that a
+second feature embeds whole does not move — `features/import/` is a wizard
+provider, seven steps, spreadsheet parsing and a list-merge board, and none of
+that is a shared component. It instead declares a public API in
+`features/import/index.ts`, and the two outside callers (the Settings logging
+section, the onboarding wizard's Import step) import `@/features/import` and
+nothing deeper. Reach for this only when the thing being shared is a whole
+flow; a component, a hook, or a helper goes in the table above.
 
 Files that are neither component nor hook are named for what they hold —
 `filtering.ts`, `columns.ts`, `identity.ts`, `importWizardModel.ts` — and a

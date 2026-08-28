@@ -10,7 +10,7 @@ import { useMutationState } from '@tanstack/react-query'
 import type { DragEndEvent, DragOverEvent, DragStartEvent } from '@dnd-kit/core'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { ClassicDemonListResponse } from '@infernolog/core'
-import { useSortableSensors } from '@/features/settings/hooks/useSortableSensors'
+import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 import { useMultiContainerCollisionDetection } from '@/lib/dnd/collisionDetection'
 import {
   usePlaceOnDemonList,

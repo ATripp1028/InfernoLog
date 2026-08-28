@@ -3,7 +3,7 @@ import type { LevelSearchResult } from '@/lib/api/logging'
 import { backOriginState } from '@/lib/backOrigin'
 import { LevelResultRow } from '@/components/data/LevelResultRow'
 import { formatRetryWait } from '@/lib/api/client'
-import type { useEscalation } from './useEscalation'
+import type { useEscalation } from '@/lib/useEscalation'
 import { SectionLabel } from '@/components/inputs/SectionLabel'
 
 /**

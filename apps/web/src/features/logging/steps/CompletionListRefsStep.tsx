@@ -1,6 +1,6 @@
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
-import { useLoggingFlow } from '../LoggingFlowProvider'
+import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
   FieldError,
   FieldHint,
@@ -9,7 +9,7 @@ import {
   StepBody,
   StepFooter,
 } from '../components'
-import { digitsOnly, maxValueError, MAX_GDDL_TIER } from '../format'
+import { digitsOnly, maxValueError, MAX_GDDL_TIER } from '@/lib/numberFormat'
 
 /**
  * Completion step 3: the community difficulty-list tiers for this completion.

@@ -6,14 +6,14 @@
 
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
-import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/features/logging/format'
+import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/lib/numberFormat'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe } from '@/lib/api/me'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { formatEntryDateTime } from '@/lib/dateFormat'
-import { isPreTwoTwo } from '@/features/logging/gdVersion'
+import { isPreTwoTwo } from '@/lib/gdVersion'
 import { getViewerTimezone } from '@/lib/timezone'
 import type { Device, DifficultyOpinion } from '@/lib/api/wireEnums'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
@@ -21,7 +21,7 @@ import {
   formatRunInputValue,
   parseRunInput,
   type ParsedRun,
-} from '@/features/logging/runParsing'
+} from '@/lib/runParsing'
 import type { LevelPageData, ProgressUpdate } from './types'
 
 /**

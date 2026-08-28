@@ -17,7 +17,7 @@ import {
   type CollectionDetail,
 } from '@/lib/api/collections'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
-import { useEscalation } from '@/features/search/useEscalation'
+import { useEscalation } from '@/lib/useEscalation'
 
 import type { SeededLevel } from './SeededLevelPreviewCard'
 
