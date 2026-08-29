@@ -41,9 +41,9 @@ describe('buildRanking', () => {
     expect(ids(entries)).toEqual(['done'])
   })
 
-  // An unrated level holds no position — the same rule the server applies when
-  // it records rating_rank.
-  it('drops unrated completions and counts them instead', () => {
+  // An unranked level — one with no rating of the user's own — holds no
+  // position, the same rule the server applies when it records rating_rank.
+  it('drops unranked completions and counts them instead', () => {
     const model = buildRanking([
       rated('a', 90),
       rated('none', null),
@@ -52,11 +52,11 @@ describe('buildRanking', () => {
 
     expect(ids(model.entries)).toEqual(['a', 'b'])
     expect(model.entries.map((e) => e.rank)).toEqual([1, 2])
-    expect(model.unratedCount).toBe(1)
+    expect(model.unrankedCount).toBe(1)
   })
 
-  it('counts no unrated completions when every one is rated', () => {
-    expect(buildRanking([rated('a', 90)]).unratedCount).toBe(0)
+  it('counts nothing unranked when every completion is rated', () => {
+    expect(buildRanking([rated('a', 90)]).unrankedCount).toBe(0)
   })
 
   // The tie-break chain itself is core's; this only checks the page hands it

@@ -19,7 +19,7 @@ export function Ranking() {
     scale,
     entries,
     visible,
-    unratedCount,
+    unrankedCount,
     search,
     setSearch,
   } = useRankingPage()
@@ -33,12 +33,14 @@ export function Ranking() {
           <h1 className="text-2xl font-semibold text-text-primary">Ranking</h1>
           <p className="mt-1 text-xs text-text-secondary">
             {entries.length === 0
-              ? 'Rated completions, best first.'
-              : `${entries.length} rated ${entries.length === 1 ? 'completion' : 'completions'}, best first.`}
-            {/* A user looking for a level they know they rated needs to be
-                told why it is not here, rather than left to wonder. */}
-            {unratedCount > 0 &&
-              ` ${unratedCount} unrated ${unratedCount === 1 ? 'completion is' : 'completions are'} not ranked.`}
+              ? 'Ranked completions, best first.'
+              : `${entries.length} ranked ${entries.length === 1 ? 'completion' : 'completions'}, best first.`}
+            {/* A user looking for a level they know they finished needs to be
+                told why it is not here, rather than left to wonder. "Unranked"
+                rather than "unrated": in Geometry Dash an unrated level is one
+                RobTop has not starred, which has nothing to do with this. */}
+            {unrankedCount > 0 &&
+              ` ${unrankedCount} unranked ${unrankedCount === 1 ? 'completion has' : 'completions have'} no rating yet.`}
           </p>
         </div>
 
@@ -68,7 +70,7 @@ export function Ranking() {
         />
       ) : entries.length === 0 ? (
         <EmptyState
-          title="Nothing rated yet."
+          title="Nothing ranked yet."
           description="Rate a completion and it takes its place here automatically — there is nothing to arrange by hand."
         />
       ) : visible.length === 0 ? (

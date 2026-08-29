@@ -22,11 +22,16 @@ export interface RankedEntry {
 export interface RankingModel {
   entries: RankedEntry[]
   /**
-   * Completions carrying no rating. They are excluded from the order rather
-   * than ranked last, but the page still says how many there are — a user who
-   * expects a level to appear needs to know why it does not.
+   * **Unranked** completions: ones carrying no rating of the user's own, so
+   * they hold no position. Excluded from the order rather than ranked last,
+   * but counted — a user who expects a level to appear needs to know why it
+   * does not.
+   *
+   * Deliberately not "unrated", which in Geometry Dash means a level RobTop
+   * has not given stars to (`level.isRated`). Such a level can be ranked here
+   * perfectly well; the two senses are unrelated.
    */
-  unratedCount: number
+  unrankedCount: number
 }
 
 /**
@@ -34,9 +39,9 @@ export interface RankingModel {
  *
  * Only **completions** take part, matching the demon list's rule: a rating on
  * an in-progress level is a legitimate thing to have logged, but a ranking of
- * levels you have not finished is not the same list. Unrated completions are
- * counted and dropped — an unrated level holds no position, exactly as
- * `rankByRatingOrder` treats it server-side.
+ * levels you have not finished is not the same list. Completions with no rating
+ * are counted as unranked and dropped — an unranked level holds no position,
+ * exactly as `rankByRatingOrder` treats it server-side.
  *
  * @param categories - The user's rating categories, for the weighted tie
  * break. Empty in SIMPLE mode.
@@ -67,7 +72,7 @@ export function buildRanking(
       rank: rank ?? 0,
       item: item.item,
     })),
-    unratedCount: completions.length - rated.length,
+    unrankedCount: completions.length - rated.length,
   }
 }
 

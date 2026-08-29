@@ -44,7 +44,7 @@ export function useRankingPage() {
     scale: me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN',
     entries: model.entries,
     visible,
-    unratedCount: model.unratedCount,
+    unrankedCount: model.unrankedCount,
     search,
     setSearch,
   }
