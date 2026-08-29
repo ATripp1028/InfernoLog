@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { RankedRow } from '@/features/ranking/RankedRow'
@@ -17,11 +18,18 @@ export function Ranking() {
     isPending,
     isError,
     scale,
+    config,
+    categories,
     entries,
     visible,
     unrankedCount,
     search,
     setSearch,
+    editingLevelId,
+    startEdit,
+    cancelEdit,
+    save,
+    saving,
   } = useRankingPage()
 
   if (isPending) return <PageLoading />
@@ -79,14 +87,33 @@ export function Ranking() {
           description="Try a different name or level ID."
         />
       ) : (
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
-          {visible.map((entry) => (
-            <RankedRow
-              key={entry.item.level.inGameId}
-              entry={entry}
-              scale={scale}
-            />
-          ))}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* `layout` is what makes a re-rated row slide to its new position
+              rather than jumping there. Nothing on this page is virtualized, so
+              both the row's old and new neighbours stay mounted and Framer can
+              animate between them. */}
+          <AnimatePresence initial={false}>
+            {visible.map((entry) => (
+              <motion.div
+                key={entry.item.level.inGameId}
+                layout
+                transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+                className="mb-2"
+              >
+                <RankedRow
+                  entry={entry}
+                  scale={scale}
+                  config={config}
+                  categories={categories}
+                  editing={editingLevelId === entry.item.level.inGameId}
+                  onEdit={startEdit}
+                  onCancel={cancelEdit}
+                  onSave={save}
+                  saving={saving}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
     </div>

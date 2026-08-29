@@ -2,6 +2,25 @@ import { describe, expect, it } from 'vitest'
 import { screen } from '@testing-library/react'
 import { RankedRow } from '../RankedRow'
 import { makeLevel, makeListItem, renderWithProviders } from '@/utils/testUtils'
+import type { OverallRatingConfig } from '@infernolog/core'
+
+const SIMPLE: OverallRatingConfig = {
+  ratingMode: 'SIMPLE',
+  includeEnjoyment: false,
+  enjoymentWeight: 0,
+  categoryWeights: new Map(),
+}
+
+// The props every case shares; a case that cares about one overrides it.
+const base = {
+  config: SIMPLE,
+  categories: [],
+  editing: false,
+  onEdit: () => {},
+  onCancel: () => {},
+  onSave: () => {},
+  saving: false,
+}
 
 const entry = (rank: number, rating: number | null, tier: number | null = null) => ({
   rank,
@@ -15,7 +34,7 @@ const entry = (rank: number, rating: number | null, tier: number | null = null) 
 describe('RankedRow', () => {
   it('leads with the position and the level name', async () => {
     await renderWithProviders(
-      <RankedRow entry={entry(3, 84.2)} scale="ZERO_TO_TEN" />,
+      <RankedRow entry={entry(3, 84.2)} scale="ZERO_TO_TEN" {...base} />,
       { router: true }
     )
 
@@ -29,14 +48,14 @@ describe('RankedRow', () => {
     // 84.2 internal — a weighted average, which carries decimals where a
     // simple rating would be a whole integer.
     const { unmount } = await renderWithProviders(
-      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_TEN" />,
+      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_TEN" {...base} />,
       { router: true }
     )
     expect(screen.getByText('8.42')).toBeInTheDocument()
     unmount()
 
     await renderWithProviders(
-      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_HUNDRED" />,
+      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_HUNDRED" {...base} />,
       { router: true }
     )
     expect(screen.getByText('84.2')).toBeInTheDocument()
@@ -44,7 +63,7 @@ describe('RankedRow', () => {
 
   it('links to the level’s own page', async () => {
     await renderWithProviders(
-      <RankedRow entry={entry(1, 90)} scale="ZERO_TO_TEN" />,
+      <RankedRow entry={entry(1, 90)} scale="ZERO_TO_TEN" {...base} />,
       { router: true }
     )
 
@@ -53,14 +72,14 @@ describe('RankedRow', () => {
 
   it('shows a tier badge only when a tier is logged', async () => {
     const { unmount } = await renderWithProviders(
-      <RankedRow entry={entry(1, 90, 35)} scale="ZERO_TO_TEN" />,
+      <RankedRow entry={entry(1, 90, 35)} scale="ZERO_TO_TEN" {...base} />,
       { router: true }
     )
     expect(screen.getByText('35')).toBeInTheDocument()
     unmount()
 
     await renderWithProviders(
-      <RankedRow entry={entry(1, 90, null)} scale="ZERO_TO_TEN" />,
+      <RankedRow entry={entry(1, 90, null)} scale="ZERO_TO_TEN" {...base} />,
       { router: true }
     )
     // The inline badge renders nothing rather than a placeholder dash.
