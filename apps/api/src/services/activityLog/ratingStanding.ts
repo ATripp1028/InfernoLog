@@ -22,7 +22,10 @@
 import { ActivityFieldCategory, Prisma } from '@prisma/client'
 import {
   computeOverallRating,
+  rankByRatingOrder,
   type OverallRatingConfig,
+  type RatingOrderCategory,
+  type RatingOrderItem,
 } from '@infernolog/core'
 import { toNum } from '../../utils/decimal'
 import type { FieldChange } from './fieldScope'
@@ -66,45 +69,6 @@ const ratingOrderSelect = {
   },
 } satisfies Prisma.LevelProgressSelect
 
-interface OrderRow {
-  levelId: string
-  overallRating: number | null
-  enjoyment: number | null
-  date: Date | null
-}
-
-// Rating order: highest rating first, ties broken on enjoyment (higher first),
-// then on the representative update's date (earlier first — a long-standing
-// rating outranks one just added), then on levelId, which is always unique and
-// is the number a user recognises. A missing value always sorts last within its
-// key, so an unrated or undated level never displaces one that has the value.
-function compareForRank(a: OrderRow, b: OrderRow): number {
-  const byRating = descNullsLast(a.overallRating, b.overallRating)
-  if (byRating !== 0) return byRating
-  const byEnjoyment = descNullsLast(a.enjoyment, b.enjoyment)
-  if (byEnjoyment !== 0) return byEnjoyment
-  const byDate = ascNullsLast(
-    a.date?.getTime() ?? null,
-    b.date?.getTime() ?? null
-  )
-  if (byDate !== 0) return byDate
-  return a.levelId < b.levelId ? -1 : a.levelId > b.levelId ? 1 : 0
-}
-
-function descNullsLast(a: number | null, b: number | null): number {
-  if (a === b) return 0
-  if (a === null) return 1
-  if (b === null) return -1
-  return b - a
-}
-
-function ascNullsLast(a: number | null, b: number | null): number {
-  if (a === b) return 0
-  if (a === null) return 1
-  if (b === null) return -1
-  return a - b
-}
-
 /**
  * Reads every level's overall rating for one user and ranks them.
  *
@@ -129,7 +93,9 @@ export async function readRatingStandings(
         ratingMode: true,
         includeEnjoyment: true,
         enjoymentWeight: true,
-        ratingCategories: { select: { id: true, weight: true } },
+        ratingCategories: {
+          select: { id: true, weight: true, sortOrder: true },
+        },
       },
     }),
     tx.levelProgress.findMany({
@@ -147,7 +113,7 @@ export async function readRatingStandings(
     ),
   }
 
-  const order: OrderRow[] = rows.map((row) => {
+  const order: RatingOrderItem[] = rows.map((row) => {
     const update = row.progressUpdates[0] ?? null
     return {
       levelId: row.levelId,
@@ -157,21 +123,20 @@ export async function readRatingStandings(
         ratingScores: row.ratingScores,
       }),
       enjoyment: update?.enjoyment ?? null,
-      date: update?.date ?? null,
+      dateMs: update?.date?.getTime() ?? null,
+      ratingScores: row.ratingScores,
     }
   })
-  order.sort(compareForRank)
+
+  // Per-category scores only break ties in WEIGHTED mode. In SIMPLE mode the
+  // rows can still be there — switching modes preserves them — but they carry
+  // no meaning, so they must not influence the order.
+  const tiebreakCategories: RatingOrderCategory[] =
+    user.ratingMode === 'WEIGHTED' ? user.ratingCategories : []
 
   const standings: RatingStandings = new Map()
-  let rank = 0
-  for (const row of order) {
-    // Unrated levels sort to the tail and never take a position, so the rank
-    // counter only advances while ratings are still present.
-    if (row.overallRating !== null) rank += 1
-    standings.set(row.levelId, {
-      overallRating: row.overallRating,
-      rank: row.overallRating === null ? null : rank,
-    })
+  for (const { item, rank } of rankByRatingOrder(order, tiebreakCategories)) {
+    standings.set(item.levelId, { overallRating: item.overallRating, rank })
   }
   return standings
 }

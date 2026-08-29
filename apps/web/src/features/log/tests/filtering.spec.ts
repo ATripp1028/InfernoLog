@@ -564,8 +564,11 @@ describe('countActiveFilters', () => {
 })
 
 describe('sortItems', () => {
-  const sorted = (items: LogItem[], sorts: SortSpec[], cats?: never) =>
-    sortItems(items, sorts, cats).map((i) => i.level.inGameId)
+  const sorted = (
+    items: LogItem[],
+    sorts: SortSpec[],
+    cats: { id: string; sortOrder: number }[] = []
+  ) => sortItems(items, sorts, cats).map((i) => i.level.inGameId)
 
   it('returns the rows untouched with no sorts', () => {
     const rows = [item({ level: level({ inGameId: 'b' }) })]
@@ -724,7 +727,11 @@ describe('sortItems', () => {
     ).toEqual(['a', 'b', 'z'])
   })
 
-  describe('breaking weighted-rating ties', () => {
+  // Weighted ties break on category score in the user's priority order before
+  // any other link in the chain — the established convention for weighted
+  // ratings, and now part of the canonical order rather than a Log-page-only
+  // flourish, so the Ranking page and `rating_rank` observe it too.
+  describe('breaking weighted-rating ties on category priority', () => {
     const tied = (id: string, gameplay: number, design: number) =>
       item({
         level: level({ inGameId: id }),
@@ -740,15 +747,11 @@ describe('sortItems', () => {
       { id: 'design', sortOrder: 1 },
     ]
 
-    // Two levels with the same weighted average are separated by their
-    // highest-priority category, not left in arbitrary order.
     it('falls through to the highest-priority category', () => {
       const rows = [tied('low', 10, 90), tied('high', 90, 10)]
 
       expect(
-        sortItems(rows, [{ key: 'rating', dir: 'desc' }], cats).map(
-          (i) => i.level.inGameId
-        )
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
       ).toEqual(['high', 'low'])
     })
 
@@ -756,9 +759,7 @@ describe('sortItems', () => {
       const rows = [tied('low', 50, 10), tied('high', 50, 90)]
 
       expect(
-        sortItems(rows, [{ key: 'rating', dir: 'desc' }], cats).map(
-          (i) => i.level.inGameId
-        )
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
       ).toEqual(['high', 'low'])
     })
 
@@ -770,32 +771,142 @@ describe('sortItems', () => {
       ]
 
       expect(
-        sortItems(rows, [{ key: 'rating', dir: 'desc' }], reversed).map(
-          (i) => i.level.inGameId
-        )
+        sorted(rows, [{ key: 'rating', dir: 'desc' }], reversed)
       ).toEqual(['a', 'b'])
     })
 
     it('breaks ties in the sort’s own direction', () => {
       const rows = [tied('low', 10, 0), tied('high', 90, 0)]
 
-      expect(
-        sortItems(rows, [{ key: 'rating', dir: 'asc' }], cats).map(
-          (i) => i.level.inGameId
-        )
-      ).toEqual(['low', 'high'])
+      expect(sorted(rows, [{ key: 'rating', dir: 'asc' }], cats)).toEqual([
+        'low',
+        'high',
+      ])
     })
 
-    // The tiebreaker is scoped to the weighted average; another column that
+    // SIMPLE mode preserves per-category scores but they carry no meaning, so
+    // passing no categories must leave them out of the order entirely.
+    it('ignores category scores when no categories are given', () => {
+      const rows = [tied('b', 10, 90), tied('a', 90, 10)]
+
+      // Falls all the way through to level id rather than to gameplay.
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual(['a', 'b'])
+    })
+
+    // The tiebreaker is scoped to the rating column; another column that
     // happens to tie is left to the next explicit sort spec.
     it('does not break ties on any other column', () => {
       const rows = [tied('first', 10, 90), tied('second', 90, 10)]
 
       expect(
-        sortItems(rows, [{ key: 'attempts', dir: 'desc' }], cats).map(
-          (i) => i.level.inGameId
-        )
+        sorted(rows, [{ key: 'attempts', dir: 'desc' }], cats)
       ).toEqual(['first', 'second'])
+    })
+  })
+
+  // The rest of the canonical chain, below the category stage. These assert
+  // what a quoted rank position means, so a change here changes that.
+  describe('breaking rating ties', () => {
+    const tied = (
+      id: string,
+      over: { enjoyment?: number | null; date?: Date | null } = {}
+    ) =>
+      item({
+        level: level({ inGameId: id }),
+        overallRating: 80,
+        entry: entry({
+          enjoyment: over.enjoyment ?? null,
+          date: over.date ?? null,
+        }),
+      })
+
+    it('breaks a tied rating on enjoyment, highest first', () => {
+      const rows = [
+        tied('low', { enjoyment: 10 }),
+        tied('high', { enjoyment: 90 }),
+      ]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual([
+        'high',
+        'low',
+      ])
+    })
+
+    // A long-standing rating outranks one just added.
+    it('falls through to the earlier date when enjoyment also ties', () => {
+      const rows = [
+        tied('new', { enjoyment: 50, date: new Date('2026-08-01') }),
+        tied('old', { enjoyment: 50, date: new Date('2025-01-01') }),
+      ]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual([
+        'old',
+        'new',
+      ])
+    })
+
+    // Without this last link the order is not total, and a rank position would
+    // depend on the order the rows happened to arrive in.
+    it('falls through to level id when everything else ties', () => {
+      const rows = [tied('222'), tied('111')]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual([
+        '111',
+        '222',
+      ])
+    })
+
+    it('sorts a missing value last within its own link', () => {
+      const rows = [tied('none'), tied('some', { enjoyment: 10 })]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual([
+        'some',
+        'none',
+      ])
+    })
+
+    it('reverses the whole chain when sorted ascending', () => {
+      const rows = [
+        tied('low', { enjoyment: 10 }),
+        tied('high', { enjoyment: 90 }),
+      ]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'asc' }])).toEqual([
+        'low',
+        'high',
+      ])
+    })
+
+    // Unrated rows are the exception to that reversal: they pin to the bottom
+    // in both directions, the way every other column's nulls do.
+    it('keeps unrated rows last in both directions', () => {
+      const rows = [
+        item({ level: level({ inGameId: 'unrated' }), overallRating: null }),
+        tied('rated'),
+      ]
+
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }])).toEqual([
+        'rated',
+        'unrated',
+      ])
+      expect(sorted(rows, [{ key: 'rating', dir: 'asc' }])).toEqual([
+        'rated',
+        'unrated',
+      ])
+    })
+
+    // The chain is scoped to the rating column; another column that ties is
+    // left to the next explicit sort spec.
+    it('does not break ties on any other column', () => {
+      const rows = [
+        tied('first', { enjoyment: 10 }),
+        tied('second', { enjoyment: 90 }),
+      ]
+
+      expect(sorted(rows, [{ key: 'attempts', dir: 'desc' }])).toEqual([
+        'first',
+        'second',
+      ])
     })
   })
 })

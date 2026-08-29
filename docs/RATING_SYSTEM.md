@@ -103,9 +103,64 @@ If a user deletes a rating category, associated `rating_scores` rows are soft-de
 | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
 | Completion entry card               | Single score badge                                                                                                   | Weighted average + breakdown on hover |
 | Log list view                       | Score column                                                                                                         | Weighted average column               |
-| Sorting                             | By simple_rating                                                                                                     | By computed weighted avg              |
+| Sorting                             | By simple_rating (see "The Canonical Rating Order")                                                                  | By computed weighted avg (same order) |
 | No rating entered                   | Blank (not 0)                                                                                                        | Blank (not 0)                         |
 | Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same                                  |
+
+---
+
+## The Canonical Rating Order
+
+Sorting by rating is not just "highest first" — ratings tie, and three surfaces
+have to agree on what happens then:
+
+- the **Ranking** page (`/ranking`), whose row numbers _are_ the order,
+- the **Log** page's `rating` sort column,
+- the `rating_rank` field change the event log records on a `LOG_EDIT`, which is
+  what lets the Events feed say "Up 43 in your ranking".
+
+One comparator serves all three: `ratingOrderComparator` in
+`packages/core/src/ratingOrder.ts`. The chain, best first:
+
+1. **Overall rating**, highest first.
+2. **Category scores**, highest first, each category taken in the user's own
+   priority order (the drag order in the rating config editor, top =
+   highest). The established convention for weighted ratings: two levels that
+   average out the same are separated by the category the user cares most
+   about. WEIGHTED mode only — switching modes preserves per-category scores,
+   so they are usually still present in SIMPLE mode, where they carry no
+   meaning and this link drops out.
+3. **Enjoyment**, highest first. A genuinely separate signal — it is logged per
+   event and excluded from the average unless the user opts in — so it breaks a
+   tie rather than restating the first key.
+4. **Date**, earliest first. A long-standing rating outranks one just added.
+5. **Level id**, ascending. Arbitrary, but total.
+
+A missing value sorts last within its own link, so an unrated or undated level,
+or one with no score in a given category, never displaces one that has the
+value.
+
+**The order must be total.** `rating_rank` is the one figure in the event log
+that cannot be recomputed afterwards — it depends on every other level's rating
+at that instant, and nothing records those. An order that left ties unresolved
+would make a logged rank depend on the row order Postgres happened to return.
+
+Two consequences worth knowing:
+
+- Sorting the Log page by rating **descending** reproduces the Ranking page's
+  order exactly. Ascending is the exact reverse, except that unrated rows stay
+  pinned to the bottom in both directions, as every other column's blanks do.
+- A ranked position is only comparable inside one rating-config era. Weights,
+  category priority and the set of categories all feed this order, so any
+  config change reshuffles it — and a reweight is deliberately not logged (see
+  `EVENT_LOG.md`). A rank recorded before such a change was measured on a scale
+  that no longer applies. Reordering categories is itself a
+  `RATING_CONFIG_CHANGE`, since `sortOrder` is part of the logged config.
+
+The category link used to live on the Log page alone, applied after its rating
+sort rather than as part of any shared definition — which is exactly why the
+three surfaces could disagree. Folding it into the canonical chain keeps the
+weighted convention and makes the Ranking page and `rating_rank` observe it too.
 
 ---
 

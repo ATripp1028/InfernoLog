@@ -136,7 +136,7 @@ carrying `category = RATING`:
 | `fieldName`        | Holds                                                             |
 | ------------------ | ----------------------------------------------------------------- |
 | `weighted_average` | The level's overall rating, before and after the save             |
-| `rating_rank`      | Its 1-based position in the user's rating order, before and after |
+| `rating_rank`      | Its 1-based position in the user's rating order, before and after. That order is defined once, by `ratingOrderComparator` in `packages/core/src/ratingOrder.ts`, and is the same one the Ranking page renders — see `RATING_SYSTEM.md` → "The Canonical Rating Order" |
 
 These are the one deliberate exception to "actually changed is measured against
 the values already stored" — nothing stores them today, so they are computed
