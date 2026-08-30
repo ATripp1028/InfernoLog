@@ -5,6 +5,12 @@
 // in @infernolog/core, the single definition shared with the Log page's rating
 // sort and with the `rating_rank` the event log records. This module only
 // decides who is in the running and folds the result into rows.
+//
+// The comparator is shared; the POPULATION is not. This page ranks completions
+// alone (see `buildRanking`), while the server's `rating_rank` and the Log
+// page's rating sort run over every logged level. A user with a rated
+// in-progress or dropped level will therefore see a position here that is
+// higher than the one the Events feed quotes for the same level.
 
 import {
   rankByRatingOrder,
@@ -39,9 +45,12 @@ export interface RankingModel {
  *
  * Only **completions** take part, matching the demon list's rule: a rating on
  * an in-progress level is a legitimate thing to have logged, but a ranking of
- * levels you have not finished is not the same list. Completions with no rating
- * are counted as unranked and dropped — an unranked level holds no position,
- * exactly as `rankByRatingOrder` treats it server-side.
+ * levels you have not finished is not the same list. That narrowing is this
+ * page's alone — the server ranks over every level the user has logged when it
+ * records `rating_rank` — so the two numbers only agree while nothing unbeaten
+ * carries a rating. Completions with no rating are counted as unranked and
+ * dropped — an unranked level holds no position, exactly as `rankByRatingOrder`
+ * treats it server-side.
  *
  * @param categories - The user's rating categories, for the weighted tie
  * break. Empty in SIMPLE mode.

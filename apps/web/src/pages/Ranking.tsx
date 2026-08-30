@@ -12,9 +12,9 @@ import { useRankingPage } from '@/features/ranking/useRankingPage'
  * The Ranking — every rated completion ordered by rating, best first.
  *
  * The difficulty counterpart is the demon list, which the user arranges by
- * hand. This order is derived instead: it is the same one the Log page's rating
- * sort produces and the same one the event log quotes as `rating_rank`, so a
- * position named anywhere in the app is the position shown here.
+ * hand. This order is derived instead, from the same comparator the Log page's
+ * rating sort and the event log's `rating_rank` use — over a narrower
+ * population, though: completions only. See `rankingModel.buildRanking`.
  */
 export function Ranking() {
   const {

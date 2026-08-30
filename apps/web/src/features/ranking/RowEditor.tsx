@@ -18,6 +18,8 @@ interface RowEditorProps {
   categories: RatingCategory[]
   overallRating: number | null
   ratingScores: readonly { categoryId: string; score: number }[]
+  /** The row's enjoyment, internal 0–100 — an input to the live preview. */
+  enjoyment: number | null
   onSave: (edit: RatingEdit) => void
   onCancel: () => void
   saving: boolean
@@ -43,6 +45,7 @@ export function RowEditor({
   categories,
   overallRating,
   ratingScores,
+  enjoyment,
   onSave,
   onCancel,
   saving,
@@ -55,6 +58,7 @@ export function RowEditor({
       categories,
       overallRating,
       ratingScores,
+      enjoyment,
     })
 
   const max = displayMax(scale)

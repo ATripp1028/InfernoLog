@@ -20,6 +20,14 @@ interface UseRowEditorArgs {
   overallRating: number | null
   /** The level's current per-category scores, internal 0–100. */
   ratingScores: readonly { categoryId: string; score: number }[]
+  /**
+   * The representative update's enjoyment, internal 0–100.
+   *
+   * Not editable here, but it is an input to the weighted average whenever the
+   * user opted in — so the preview has to carry it or it computes a different
+   * number than the save returns.
+   */
+  enjoyment: number | null
 }
 
 /**
@@ -36,6 +44,7 @@ export function useRowEditor({
   categories,
   overallRating,
   ratingScores,
+  enjoyment,
 }: UseRowEditorArgs) {
   const isWeighted = config.ratingMode === 'WEIGHTED'
 
@@ -68,8 +77,11 @@ export function useRowEditor({
 
   const preview = computeOverallRating(config, {
     simpleRating: draftSimple,
-    // Enjoyment is not editable here, and only counts when the user opted in.
-    enjoyment: null,
+    // Passed through unchanged rather than as null: enjoyment is not editable
+    // here, but `includeEnjoyment` folds it into the weighted average, and a
+    // preview that dropped it would settle on a different number after the
+    // save — which is exactly what the preview exists to rule out.
+    enjoyment,
     ratingScores: draftScores,
   })
 

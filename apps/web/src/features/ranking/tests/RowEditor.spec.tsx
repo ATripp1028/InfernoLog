@@ -37,6 +37,7 @@ const render = (props: Partial<Parameters<typeof RowEditor>[0]> = {}) =>
       categories={[]}
       overallRating={80}
       ratingScores={[]}
+      enjoyment={null}
       onSave={vi.fn()}
       onCancel={vi.fn()}
       saving={false}
@@ -84,6 +85,29 @@ describe('RowEditor', () => {
     // would explain nothing.
     render()
     expect(screen.queryByTitle('Overall')).not.toBeInTheDocument()
+  })
+
+  // The preview exists to promise the row will settle where it says. Enjoyment
+  // is not editable here, but `includeEnjoyment` folds it into the weighted
+  // average, so dropping it would break that promise on save.
+  it('folds enjoyment into the preview when the user opted in', () => {
+    render({
+      config: {
+        ...WEIGHTED,
+        includeEnjoyment: true,
+        enjoymentWeight: 1,
+      },
+      categories: CATEGORIES,
+      ratingScores: [
+        { categoryId: 'gameplay', score: 60 },
+        { categoryId: 'design', score: 60 },
+      ],
+      enjoyment: 90,
+    })
+
+    // (60×0.5 + 60×0.5 + 90×1) / 2 = 75 internal → 7.5 on the 0–10 scale.
+    // Ignoring enjoyment would read 6 instead.
+    expect(screen.getByTitle('Overall')).toHaveTextContent('7.5')
   })
 
   it('sends the simple rating back on the internal scale', async () => {

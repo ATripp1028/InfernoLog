@@ -153,7 +153,12 @@ export function useRankingPage() {
 
   return {
     isPending: progress.isPending || me.isPending,
-    isError: progress.isError,
+    // `me` counts as a failure, not just as missing: the progress list is
+    // persisted to localStorage and so can render from cache while GET /v1/me
+    // is unavailable (it does not retry). Falling back to the SIMPLE defaults
+    // there would show a WEIGHTED user a single-rating editor and then PATCH a
+    // `simpleRating` their overall rating is not computed from.
+    isError: progress.isError || me.isError,
     scale: me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN',
     config,
     categories,

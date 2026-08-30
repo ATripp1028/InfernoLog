@@ -89,6 +89,7 @@ export function RankedRow({
           categories={categories}
           overallRating={overallRating}
           ratingScores={item.ratingScores}
+          enjoyment={item.entry?.enjoyment ?? null}
           onSave={onSave}
           onCancel={onCancel}
           saving={saving}
