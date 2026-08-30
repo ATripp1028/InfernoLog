@@ -1,5 +1,6 @@
-import { Check, X } from 'lucide-react'
+import { Check, Loader2, X } from 'lucide-react'
 import { StepperInput } from '@/components/generic/stepper-input'
+import { ACTION_WIDTH, OVERALL_WIDTH } from './columns'
 import { ratingRampColor } from '@/lib/ratingColor'
 import { displayMax, formatRating } from '@/lib/ratingScale'
 import { useRowEditor } from './useRowEditor'
@@ -10,6 +11,8 @@ import type { OverallRatingConfig } from '@infernolog/core'
 
 interface RowEditorProps {
   levelId: string
+  /** The row's face/name/creator block, rendered by the row so both modes share it. */
+  identity: React.ReactNode
   scale: RatingDisplayScale
   config: OverallRatingConfig
   categories: RatingCategory[]
@@ -27,9 +30,14 @@ interface RowEditorProps {
  * Steppers rather than the sliders the edit modals use — a slider needs width
  * this row does not have, and the value being edited here is usually a nudge
  * to an existing score rather than a first pass.
+ *
+ * While a save is in flight the whole thing locks: the submit button becomes a
+ * spinner and cancel is disabled, so the row cannot be abandoned or re-opened
+ * between sending the change and learning whether it took.
  */
 export function RowEditor({
   levelId,
+  identity,
   scale,
   config,
   categories,
@@ -59,12 +67,39 @@ export function RowEditor({
 
   return (
     <form
-      className="flex flex-wrap items-end gap-x-4 gap-y-2"
+      className="relative z-10 flex flex-col gap-3 px-2 py-3"
       onSubmit={(e) => {
         e.preventDefault()
         onSave(edit)
       }}
     >
+      {/* The identity line, with the figure being edited alongside it: the
+          overall rating is the outcome of every control below, so it belongs
+          with the level it describes rather than at the end of a row of
+          inputs. */}
+      <div className="flex items-center gap-3">
+        {identity}
+        {/* WEIGHTED only: in SIMPLE mode the single stepper below IS the
+            overall rating, and showing the same number twice explains
+            nothing. */}
+        {isWeighted && (
+          <>
+            {/* Sized and spaced like the row's own Overall cell, so the figure
+                does not jump sideways when the editor opens — it stays in the
+                column the header labels. */}
+            <span
+              title="Overall"
+              className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
+              style={{ color: ratingRampColor(preview) }}
+            >
+              {preview == null ? '—' : formatRating(preview, scale)}
+            </span>
+            <span className={`${ACTION_WIDTH} shrink-0`} aria-hidden />
+          </>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
       {isWeighted ? (
         categories.map((category) => (
           <Field key={category.id} label={category.name}>
@@ -93,24 +128,12 @@ export function RowEditor({
         </Field>
       )}
 
-      {/* Weighted mode hides its own arithmetic, so the figure that decides the
-          row's position is spelled out rather than left to be inferred. */}
-      {isWeighted && (
-        <Field label="Overall">
-          <span
-            className="flex h-9 items-center text-lg font-semibold tabular-nums text-text-primary"
-            style={{ color: ratingRampColor(preview) }}
-          >
-            {preview == null ? '—' : formatRating(preview, scale)}
-          </span>
-        </Field>
-      )}
-
       <div className="ml-auto flex items-center gap-1.5">
         <button
           type="button"
           onClick={onCancel}
-          className="flex size-8 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
+          disabled={saving}
+          className="flex size-8 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary disabled:pointer-events-none disabled:opacity-40"
           aria-label="Cancel"
           title="Cancel"
         >
@@ -119,12 +142,17 @@ export function RowEditor({
         <button
           type="submit"
           disabled={saving}
-          className="flex size-8 items-center justify-center rounded-md bg-primary text-text-primary transition-colors hover:bg-primary-hover disabled:opacity-60"
-          aria-label="Save rating"
-          title="Save rating"
+          className="flex size-8 items-center justify-center rounded-md bg-primary text-text-primary transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-80"
+          aria-label={saving ? 'Saving rating' : 'Save rating'}
+          title={saving ? 'Saving…' : 'Save rating'}
         >
-          <Check size={16} />
+          {saving ? (
+            <Loader2 size={16} className="animate-spin" />
+          ) : (
+            <Check size={16} />
+          )}
         </button>
+      </div>
       </div>
     </form>
   )

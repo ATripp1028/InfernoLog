@@ -31,6 +31,7 @@ const render = (props: Partial<Parameters<typeof RowEditor>[0]> = {}) =>
   renderWithProviders(
     <RowEditor
       levelId="128"
+      identity={<span>Tartarus</span>}
       scale="ZERO_TO_TEN"
       config={SIMPLE}
       categories={[]}
@@ -76,12 +77,13 @@ describe('RowEditor', () => {
         { categoryId: 'design', score: 70 },
       ],
     })
-    expect(screen.getByText('Overall')).toBeInTheDocument()
-    expect(screen.getByText('8')).toBeInTheDocument()
+    expect(screen.getByTitle('Overall')).toHaveTextContent('8')
     unmount()
 
+    // SIMPLE mode's single stepper IS the overall rating; showing it twice
+    // would explain nothing.
     render()
-    expect(screen.queryByText('Overall')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Overall')).not.toBeInTheDocument()
   })
 
   it('sends the simple rating back on the internal scale', async () => {
@@ -113,6 +115,33 @@ describe('RowEditor', () => {
         { categoryId: 'design', score: 0 },
       ],
     })
+  })
+
+  // A save in flight must not be abandonable: the row is mid-commit, and
+  // closing the editor would leave nothing for a failure to fail back into.
+  it('locks both buttons while a save is in flight', () => {
+    render({ saving: true })
+
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Saving rating' })).toBeDisabled()
+  })
+
+  it('swaps the submit button for a spinner while saving', () => {
+    const { unmount } = render({ saving: true })
+    expect(
+      screen.getByRole('button', { name: 'Saving rating' })
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save rating' })).toBeNull()
+    unmount()
+
+    render()
+    expect(screen.getByRole('button', { name: 'Save rating' })).toBeInTheDocument()
+  })
+
+  it('renders the identity block it is given', () => {
+    render({ identity: <span>Tartarus</span> })
+
+    expect(screen.getByText('Tartarus')).toBeInTheDocument()
   })
 
   it('cancels without saving', async () => {

@@ -1,6 +1,5 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { Pencil } from 'lucide-react'
-import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { backOriginState } from '@/lib/backOrigin'
 import { overallColor, scoreColor } from '@/lib/ratingColor'
@@ -9,10 +8,10 @@ import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import {
   ACTION_WIDTH,
   CATEGORY_COLUMNS_AT,
-  FACE_SIZE,
   OVERALL_WIDTH,
   SCORE_WIDTH,
 } from './columns'
+import { LevelIdentity } from './LevelIdentity'
 import { RowEditor } from './RowEditor'
 import { rowDomId } from './useRankingPage'
 import type { RankedEntry } from './rankingModel'
@@ -72,34 +71,28 @@ export function RankedRow({
     <div
       id={rowDomId(level.inGameId)}
       className={`group relative overflow-hidden rounded-card border bg-bg-surface ${
-        editing
-          ? 'border-primary p-3'
-          : 'h-[72px] border-border-subtle'
+        // No padding here in either mode: the row's inner container and the
+        // editor's form each supply their own, and doubling it would shift the
+        // columns sideways the moment the editor opened.
+        editing ? 'border-primary' : 'h-[72px] border-border-subtle'
       }`}
     >
-      {!editing && <ThumbnailWash levelId={level.inGameId} />}
+      <ThumbnailWash levelId={level.inGameId} />
       {editing ? (
-        <div className="relative z-10 flex flex-col gap-3">
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-text-primary">
-              #{rank} — {level.name ?? `Level #${level.inGameId}`}
-            </div>
-            <div className="truncate text-xs text-text-secondary">
-              {level.creator ? `Published by ${level.creator}` : 'Unknown creator'}
-            </div>
-          </div>
-          <RowEditor
-            levelId={level.inGameId}
-            scale={scale}
-            config={config}
-            categories={categories}
-            overallRating={overallRating}
-            ratingScores={item.ratingScores}
-            onSave={onSave}
-            onCancel={onCancel}
-            saving={saving}
-          />
-        </div>
+        <RowEditor
+          levelId={level.inGameId}
+          identity={
+            <LevelIdentity rank={rank} level={level} nameColor={overall} />
+          }
+          scale={scale}
+          config={config}
+          categories={categories}
+          overallRating={overallRating}
+          ratingScores={item.ratingScores}
+          onSave={onSave}
+          onCancel={onCancel}
+          saving={saving}
+        />
       ) : (
       <div className="relative z-10 flex h-full items-center gap-3 px-2">
         <Link
@@ -108,27 +101,7 @@ export function RankedRow({
           state={backOriginState(location.href)}
           className="flex min-w-0 flex-1 items-center gap-3 self-stretch"
         >
-          <DifficultyFace
-            difficulty={level.inGameDifficulty}
-            featured={level.featured}
-            epicValue={level.epicValue}
-            rated={level.isRated}
-            size={FACE_SIZE}
-            className="shrink-0"
-          />
-          <div className="min-w-0 flex-1">
-            <div
-              className="truncate text-sm font-semibold text-text-primary"
-              style={{ color: overall }}
-            >
-              #{rank} — {level.name ?? `Level #${level.inGameId}`}
-            </div>
-            <div className="truncate text-xs text-text-secondary">
-              {level.creator
-                ? `Published by ${level.creator}`
-                : 'Unknown creator'}
-            </div>
-          </div>
+          <LevelIdentity rank={rank} level={level} nameColor={overall} />
         </Link>
 
         {/* Per-category breakdown, in the user's priority order — the same

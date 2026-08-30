@@ -3,9 +3,14 @@
 // There is no ranking endpoint. A rating lives on `LevelProgress`, so this
 // patches the same `PATCH /v1/me/progress/:levelId` the level page's edit modal
 // uses — the server recomputes the order and records the `rating_rank` move
-// itself. What is special here is the optimism: the row has to slide to its new
-// position the moment the user saves, so the cached rating is updated locally
-// first and the list re-sorts off that.
+// itself.
+//
+// The cached rating is rewritten on SUCCESS, not on mutate. A rating edit is a
+// deliberate act with a form behind it, and the row moving out from under an
+// open editor — before the server has agreed — makes a save that then fails
+// look like one that worked. Writing the cache the moment the response lands
+// still moves the row immediately from the user's point of view, without
+// claiming anything the server has not confirmed.
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -28,9 +33,9 @@ export interface RatingEdit {
 }
 
 /**
- * Saves a rating edit and moves the row immediately.
+ * Saves a rating edit, then moves the row.
  *
- * The optimistic `overallRating` is computed with the **same**
+ * The `overallRating` written on success is computed with the **same**
  * `computeOverallRating` the server serializes with, from the same config — so
  * the position the row slides to is the position the refetch confirms, rather
  * than a guess that visibly corrects itself a moment later.
@@ -52,29 +57,18 @@ export function useEditRating(config: OverallRatingConfig) {
       })
     },
 
-    onMutate: async (edit) => {
-      // Stop an in-flight refetch from landing on top of the optimistic write.
-      await queryClient.cancelQueries({ queryKey: logQueryKey })
-      const previous =
-        queryClient.getQueryData<LevelProgressListItem[]>(logQueryKey)
-
+    onSuccess: (_data, edit) => {
+      // Stop an in-flight refetch from landing on top of this write.
+      void queryClient.cancelQueries({ queryKey: logQueryKey })
       queryClient.setQueryData<LevelProgressListItem[]>(logQueryKey, (rows) =>
         rows?.map((row) =>
           row.level.inGameId === edit.levelId ? applyEdit(row, edit, config) : row
         )
       )
-      return { previous }
+      // The server owns the real figure — its rounding, and any field the patch
+      // touched indirectly. This reconciles the locally computed one.
+      invalidate()
     },
-
-    onError: (_err, _edit, context) => {
-      if (context?.previous) {
-        queryClient.setQueryData(logQueryKey, context.previous)
-      }
-    },
-
-    // The server owns the real figure — its rounding, and any field the patch
-    // touched indirectly. Reconciles the optimistic guess either way.
-    onSettled: invalidate,
   })
 }
 

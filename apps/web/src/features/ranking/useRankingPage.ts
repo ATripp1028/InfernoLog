@@ -106,14 +106,29 @@ export function useRankingPage() {
     setPendingScrollId(null)
   }, [pendingScrollId, visible])
 
+  /**
+   * Saves the open row's edit, holding the editor open until the server answers.
+   *
+   * The editor is the user's work in progress; closing it the instant they
+   * press save would mean a failure has nothing left to fail back into. It
+   * closes on success, and on failure stays exactly as it was so the values can
+   * be corrected and sent again.
+   */
   const save = useCallback(
     (edit: RatingEdit) => {
-      setEditingLevelId(null)
       scrolledFor.current = null
       editRating.mutate(edit, {
-        onSuccess: () => setPendingScrollId(edit.levelId),
-        onError: () =>
-          toast.error("Couldn't save that rating. Your change was undone."),
+        onSuccess: () => {
+          setEditingLevelId(null)
+          setPendingScrollId(edit.levelId)
+          toast.success('Rating saved.')
+        },
+        onError: (error) =>
+          toast.error(
+            error instanceof Error && error.message
+              ? error.message
+              : "Couldn't save that rating."
+          ),
       })
     },
     [editRating]
@@ -136,8 +151,18 @@ export function useRankingPage() {
     sort,
     toggleSort,
     editingLevelId,
-    startEdit: setEditingLevelId,
-    cancelEdit: useCallback(() => setEditingLevelId(null), []),
+    // Both guarded while a save is in flight: the row is mid-commit, and
+    // moving to another one — or abandoning this one — would leave the user
+    // unable to see what happened to it.
+    startEdit: useCallback(
+      (levelId: string) => {
+        if (!editRating.isPending) setEditingLevelId(levelId)
+      },
+      [editRating.isPending]
+    ),
+    cancelEdit: useCallback(() => {
+      if (!editRating.isPending) setEditingLevelId(null)
+    }, [editRating.isPending]),
     save,
     saving: editRating.isPending,
   }
