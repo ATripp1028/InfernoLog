@@ -3,7 +3,6 @@ import {
   CATEGORY_COLUMNS_AT,
   OVERALL_WIDTH,
   SCORE_WIDTH,
-  TIER_WIDTH,
 } from './columns'
 import type { RatingCategory } from '@/lib/api/me'
 
@@ -36,7 +35,6 @@ export function RankingHeader({
         </span>
       ))}
       <span className={`${OVERALL_WIDTH} shrink-0 text-right`}>Overall</span>
-      <span className={`${TIER_WIDTH} shrink-0 text-right`}>Tier</span>
       <span className={`${ACTION_WIDTH} shrink-0`} aria-hidden />
     </div>
   )

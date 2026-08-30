@@ -19,7 +19,6 @@ describe('RankingHeader', () => {
       'Decoration',
       'Song',
       'Overall',
-      'Tier',
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument()
     }
@@ -40,7 +39,6 @@ describe('RankingHeader', () => {
       'Decoration',
       'Song',
       'Overall',
-      'Tier',
     ])
   })
 })

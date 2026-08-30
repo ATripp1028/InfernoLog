@@ -1,7 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { Pencil } from 'lucide-react'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
-import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { backOriginState } from '@/lib/backOrigin'
 import { medalColor } from '@/lib/medals'
@@ -10,9 +9,9 @@ import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import {
   ACTION_WIDTH,
   CATEGORY_COLUMNS_AT,
+  FACE_SIZE,
   OVERALL_WIDTH,
   SCORE_WIDTH,
-  TIER_WIDTH,
 } from './columns'
 import { RowEditor } from './RowEditor'
 import { rowDomId } from './useRankingPage'
@@ -102,7 +101,7 @@ export function RankedRow({
             featured={level.featured}
             epicValue={level.epicValue}
             rated={level.isRated}
-            size={80}
+            size={FACE_SIZE}
             className="shrink-0"
           />
           <div className="min-w-0 flex-1">
@@ -144,9 +143,6 @@ export function RankedRow({
           className={`${OVERALL_WIDTH} shrink-0 text-right text-lg font-semibold tabular-nums text-text-primary`}
         >
           {overallRating == null ? '—' : formatRating(overallRating, scale)}
-        </span>
-        <span className={`${TIER_WIDTH} flex shrink-0 justify-end`}>
-          <GddlTierBadge tier={item.userGddlTier ?? null} variant="inline" />
         </span>
         <button
           type="button"

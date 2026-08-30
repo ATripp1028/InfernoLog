@@ -12,13 +12,22 @@
 export const SCORE_WIDTH = 'w-14'
 
 /**
- * The overall rating. Wider than a category score: it is a weighted average, so
- * it carries up to three decimals where a raw score carries one.
+ * The overall rating. Wider than a category score at desktop widths, since a
+ * weighted average carries up to three decimals where a raw score carries one —
+ * but narrower on a phone, where those pixels are the level's name instead and
+ * a value that long is rare enough to wrap the column rather than the row.
  */
-export const OVERALL_WIDTH = 'w-20'
+export const OVERALL_WIDTH = 'w-16 lg:w-20'
 
-/** The GDDL tier badge. */
-export const TIER_WIDTH = 'w-9'
+/**
+ * The difficulty face's box.
+ *
+ * `DifficultyFace` sizes a square that the glow fills and the face sits inset
+ * within, so the number is mostly padding around a smaller icon. Kept tight
+ * here because this row's job is a name and a number, and on a phone every
+ * pixel the face takes is a pixel the level's name does not get.
+ */
+export const FACE_SIZE = 56
 
 /** The edit button, and the header's spacer standing in for it. */
 export const ACTION_WIDTH = 'w-7'

@@ -22,12 +22,11 @@ const base = {
   saving: false,
 }
 
-const entry = (rank: number, rating: number | null, tier: number | null = null) => ({
+const entry = (rank: number, rating: number | null) => ({
   rank,
   item: makeListItem({
     level: makeLevel({ inGameId: '128', name: 'Tartarus', creator: 'Riot' }),
     overallRating: rating,
-    userGddlTier: tier,
   }),
 })
 
@@ -121,19 +120,4 @@ describe('RankedRow', () => {
     expect(screen.queryByText('9')).not.toBeInTheDocument()
   })
 
-  it('shows a tier badge only when a tier is logged', async () => {
-    const { unmount } = await renderWithProviders(
-      <RankedRow entry={entry(1, 90, 35)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
-    expect(screen.getByText('35')).toBeInTheDocument()
-    unmount()
-
-    await renderWithProviders(
-      <RankedRow entry={entry(1, 90, null)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
-    // The inline badge renders nothing rather than a placeholder dash.
-    expect(screen.queryByText('—')).not.toBeInTheDocument()
-  })
 })
