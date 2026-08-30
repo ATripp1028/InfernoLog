@@ -1,5 +1,6 @@
 import { Check, X } from 'lucide-react'
 import { StepperInput } from '@/components/generic/stepper-input'
+import { ratingColor } from '@/lib/ratingColor'
 import { displayMax, formatRating } from '@/lib/ratingScale'
 import { useRowEditor } from './useRowEditor'
 import type { RatingCategory } from '@/lib/api/me'
@@ -96,7 +97,10 @@ export function RowEditor({
           row's position is spelled out rather than left to be inferred. */}
       {isWeighted && (
         <Field label="Overall">
-          <span className="flex h-9 items-center text-lg font-semibold tabular-nums text-text-primary">
+          <span
+            className="flex h-9 items-center text-lg font-semibold tabular-nums text-text-primary"
+            style={{ color: ratingColor(preview) }}
+          >
             {preview == null ? '—' : formatRating(preview, scale)}
           </span>
         </Field>

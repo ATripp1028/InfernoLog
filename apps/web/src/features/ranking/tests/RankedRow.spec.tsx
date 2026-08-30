@@ -60,6 +60,24 @@ describe('RankedRow', () => {
     expect(screen.getByText('84.2')).toBeInTheDocument()
   })
 
+  // The exceptions at either end of the scale are the point of it — a 10 and
+  // a 0 have to be recognisable at a glance, not just the ends of a ramp.
+  it('tints the name and the overall rating by the rating itself', async () => {
+    const { unmount } = await renderWithProviders(
+      <RankedRow entry={entry(1, 100)} scale="ZERO_TO_TEN" {...base} />,
+      { router: true }
+    )
+    expect(screen.getByText('#1 — Tartarus')).toHaveStyle({ color: '#ffd43b' })
+    expect(screen.getByText('10')).toHaveStyle({ color: '#ffd43b' })
+    unmount()
+
+    await renderWithProviders(
+      <RankedRow entry={entry(1, 0)} scale="ZERO_TO_TEN" {...base} />,
+      { router: true }
+    )
+    expect(screen.getByText('#1 — Tartarus')).toHaveStyle({ color: '#dc143c' })
+  })
+
   it('links to the level’s own page', async () => {
     await renderWithProviders(
       <RankedRow entry={entry(1, 90)} scale="ZERO_TO_TEN" {...base} />,
