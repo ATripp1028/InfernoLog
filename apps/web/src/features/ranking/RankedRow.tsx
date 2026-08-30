@@ -129,7 +129,7 @@ export function RankedRow({
           return (
             <span
               key={category.id}
-              className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-end text-right text-sm tabular-nums text-text-secondary`}
+              className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-center text-center text-sm tabular-nums text-text-secondary`}
             >
               {score == null ? '—' : formatRating(score, scale)}
             </span>
@@ -140,7 +140,7 @@ export function RankedRow({
             headline figure rather than as one more badge. */}
         <span
           title="Rating"
-          className={`${OVERALL_WIDTH} shrink-0 text-right text-lg font-semibold tabular-nums text-text-primary`}
+          className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
         >
           {overallRating == null ? '—' : formatRating(overallRating, scale)}
         </span>

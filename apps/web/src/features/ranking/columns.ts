@@ -6,10 +6,15 @@
 // up once a user has enough categories to notice.
 
 /**
- * One category score. Wide enough for "10.0" on the 0–10 scale and "100" on the
- * 0–100 one, which are the longest values either can hold.
+ * One category score.
+ *
+ * Sized by the sticky header's label rather than by the value: the widest
+ * default category name ("Decoration") needs ~58px at 11px type, and a column
+ * narrower than its own heading clips the heading and reads as misaligned.
+ * Values are far shorter — "10.0" is the longest either scale holds. A longer
+ * custom category name still truncates, with the full name on hover.
  */
-export const SCORE_WIDTH = 'w-14'
+export const SCORE_WIDTH = 'w-16'
 
 /**
  * The overall rating. Wider than a category score at desktop widths, since a
