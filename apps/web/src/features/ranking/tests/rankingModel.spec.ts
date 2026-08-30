@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { LevelProgressStatus } from '@infernolog/core'
 import {
   buildRanking,
+  filterByDifficulty,
   filterRanking,
   sortRanking,
+  toggleDifficulty,
+  NON_DEMON,
   OVERALL_SORT,
 } from '../rankingModel'
 import { makeLevel, makeListItem } from '@/utils/testUtils'
@@ -200,5 +203,77 @@ describe('sortRanking', () => {
     sortRanking(entries, { key: 'gameplay', dir: 'desc' })
 
     expect(entries).toEqual(before)
+  })
+})
+
+describe('filterByDifficulty', () => {
+  const level = (id: string, difficulty: string, isDemon: boolean) =>
+    makeListItem({
+      level: makeLevel({ inGameId: id, inGameDifficulty: difficulty, isDemon }),
+      overallRating: 80,
+    })
+
+  const { entries } = buildRanking([
+    level('x', 'Extreme Demon', true),
+    level('e', 'Easy Demon', true),
+    level('h', 'Harder', false),
+    level('a', 'Auto', false),
+  ])
+
+  const ids = (selected: string[]) =>
+    filterByDifficulty(entries, selected)
+      .map((e) => e.item.level.inGameId)
+      .sort()
+
+  it('shows everything when nothing is selected', () => {
+    expect(ids([])).toEqual(['a', 'e', 'h', 'x'])
+  })
+
+  it('narrows to one difficulty', () => {
+    expect(ids(['Easy Demon'])).toEqual(['e'])
+  })
+
+  it('takes several difficulties at once', () => {
+    expect(ids(['Easy Demon', 'Extreme Demon'])).toEqual(['e', 'x'])
+  })
+
+  // Keyed off the level's own isDemon flag, so it stays right for a level whose
+  // difficulty string is missing or unexpected.
+  it('takes every non-demon under the aggregate', () => {
+    expect(ids([NON_DEMON])).toEqual(['a', 'h'])
+  })
+
+  it('leaves positions alone', () => {
+    expect(filterByDifficulty(entries, ['Easy Demon'])[0]?.rank).toBe(2)
+  })
+})
+
+describe('toggleDifficulty', () => {
+  it('adds and removes a difficulty', () => {
+    expect(toggleDifficulty([], 'Easy Demon')).toEqual(['Easy Demon'])
+    expect(toggleDifficulty(['Easy Demon'], 'Easy Demon')).toEqual([])
+  })
+
+  it('accumulates several', () => {
+    expect(toggleDifficulty(['Easy Demon'], 'Hard Demon')).toEqual([
+      'Easy Demon',
+      'Hard Demon',
+    ])
+  })
+
+  // The two readings cannot both hold: "only non-demons" and "only Easy Demons"
+  // would leave nothing, so picking either clears the other.
+  it('replaces the whole selection with the non-demon aggregate', () => {
+    expect(toggleDifficulty(['Easy Demon', 'Hard Demon'], NON_DEMON)).toEqual([
+      NON_DEMON,
+    ])
+  })
+
+  it('drops the non-demon aggregate when a demon is picked', () => {
+    expect(toggleDifficulty([NON_DEMON], 'Easy Demon')).toEqual(['Easy Demon'])
+  })
+
+  it('turns the aggregate off back to All', () => {
+    expect(toggleDifficulty([NON_DEMON], NON_DEMON)).toEqual([])
   })
 })

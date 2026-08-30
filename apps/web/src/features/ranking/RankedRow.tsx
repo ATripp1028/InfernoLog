@@ -142,6 +142,17 @@ export function RankedRow({
         </button>
       </div>
       )}
+      {/* The demon list's hover treatment, matched deliberately: an inset warm
+          glow rather than a background change, so the thumbnail underneath
+          still reads. Suppressed while editing, where the row is already
+          outlined and a hover glow would just be noise. */}
+      {!editing && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity group-hover:opacity-100"
+          style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
+        />
+      )}
     </div>
   )
 }

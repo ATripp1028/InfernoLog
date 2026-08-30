@@ -2,6 +2,7 @@ import { Search } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
+import { DifficultyFilter } from '@/features/ranking/DifficultyFilter'
 import { RankedRow } from '@/features/ranking/RankedRow'
 import { RankingHeader } from '@/features/ranking/RankingHeader'
 import { useRankingPage } from '@/features/ranking/useRankingPage'
@@ -29,6 +30,9 @@ export function Ranking() {
     setSearch,
     sort,
     toggleSort,
+    difficulties,
+    toggleDifficulty,
+    clearDifficulties,
     editingLevelId,
     startEdit,
     cancelEdit,
@@ -57,7 +61,13 @@ export function Ranking() {
         </div>
 
         {entries.length > 0 && (
-          <label className="relative w-full max-w-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <DifficultyFilter
+              selected={difficulties}
+              onToggle={toggleDifficulty}
+              onClear={clearDifficulties}
+            />
+            <label className="relative w-full sm:w-64">
             <span className="sr-only">Search your ranking</span>
             <Search
               size={14}
@@ -69,9 +79,10 @@ export function Ranking() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search your ranking…"
-              className="h-9 w-full rounded-btn border border-border-subtle bg-bg-surface pl-8 pr-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
-            />
-          </label>
+                className="h-9 w-full rounded-btn border border-border-subtle bg-bg-surface pl-8 pr-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
+              />
+            </label>
+          </div>
         )}
       </div>
 

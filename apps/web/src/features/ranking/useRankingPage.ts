@@ -10,8 +10,10 @@ import { useEditRating, type RatingEdit } from '@/lib/api/ranking'
 import { toast } from '@/components/generic/sonner'
 import {
   buildRanking,
+  filterByDifficulty,
   filterRanking,
   sortRanking,
+  toggleDifficulty,
   DEFAULT_SORT,
 } from './rankingModel'
 import type { RankedEntry, RankingSort } from './rankingModel'
@@ -33,6 +35,8 @@ export function useRankingPage() {
   const [search, setSearch] = useState('')
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
   const [sort, setSort] = useState<RankingSort>(DEFAULT_SORT)
+  // Empty is "All", the default view.
+  const [difficulties, setDifficulties] = useState<string[]>([])
 
   // Empty in SIMPLE mode, where per-category scores carry no meaning even
   // though switching modes preserves them.
@@ -69,8 +73,12 @@ export function useRankingPage() {
   )
 
   const visible: RankedEntry[] = useMemo(
-    () => sortRanking(filterRanking(model.entries, search), sort),
-    [model.entries, search, sort]
+    () =>
+      sortRanking(
+        filterRanking(filterByDifficulty(model.entries, difficulties), search),
+        sort
+      ),
+    [model.entries, difficulties, search, sort]
   )
 
   /**
@@ -150,6 +158,13 @@ export function useRankingPage() {
     setSearch,
     sort,
     toggleSort,
+    difficulties,
+    toggleDifficulty: useCallback(
+      (difficulty: string) =>
+        setDifficulties((current) => toggleDifficulty(current, difficulty)),
+      []
+    ),
+    clearDifficulties: useCallback(() => setDifficulties([]), []),
     editingLevelId,
     // Both guarded while a save is in flight: the row is mid-commit, and
     // moving to another one — or abandoning this one — would leave the user
