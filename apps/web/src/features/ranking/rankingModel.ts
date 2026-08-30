@@ -102,3 +102,65 @@ function dateMs(item: LevelProgressListItem): number | null {
   const ms = new Date(d).getTime()
   return Number.isFinite(ms) ? ms : null
 }
+
+/** The sort key meaning "the ranking's own order". Never a category id. */
+export const OVERALL_SORT = 'overall'
+
+/** Which column the view is sorted by, and which way. */
+export interface RankingSort {
+  /** {@link OVERALL_SORT}, or a rating category's id. */
+  key: string
+  dir: 'asc' | 'desc'
+}
+
+/** The order the page opens in: the ranking itself, best first. */
+export const DEFAULT_SORT: RankingSort = { key: OVERALL_SORT, dir: 'desc' }
+
+/**
+ * Reorders ranked rows by one column, **without renumbering them**.
+ *
+ * A row's `rank` is its position in the ranking, not its position in the view.
+ * Sorting by Gameplay shows #3, #1, #7 — which is the point: the user is
+ * looking at how their ranking scores on one axis, and renumbering would throw
+ * away the very thing they are comparing against.
+ *
+ * Ties fall through to overall standing, then stop: `rank` is unique, so the
+ * order is total and a re-sort never reshuffles equal rows.
+ *
+ * Levels with no score in the sorted category sort last in **both**
+ * directions, the way a blank does everywhere else in the app — ascending
+ * means "worst first", and an absent score is not a worst score.
+ */
+export function sortRanking(
+  entries: readonly RankedEntry[],
+  sort: RankingSort
+): RankedEntry[] {
+  const rows = [...entries]
+
+  if (sort.key === OVERALL_SORT) {
+    // Rank already IS the overall order, so this needs no scores at all.
+    return rows.sort((a, b) =>
+      sort.dir === 'desc' ? a.rank - b.rank : b.rank - a.rank
+    )
+  }
+
+  return rows.sort((a, b) => {
+    const x = categoryScore(a, sort.key)
+    const y = categoryScore(b, sort.key)
+    if (x == null && y == null) return a.rank - b.rank
+    if (x == null) return 1
+    if (y == null) return -1
+
+    // Highest score first, then better overall standing first — reversed as a
+    // whole for an ascending sort, so `asc` is a true mirror of `desc`.
+    const cmp = y - x || a.rank - b.rank
+    return sort.dir === 'desc' ? cmp : -cmp
+  })
+}
+
+function categoryScore(entry: RankedEntry, categoryId: string): number | null {
+  return (
+    entry.item.ratingScores.find((s) => s.categoryId === categoryId)?.score ??
+    null
+  )
+}

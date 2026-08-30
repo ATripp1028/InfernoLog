@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import { LevelProgressStatus } from '@infernolog/core'
-import { buildRanking, filterRanking } from '../rankingModel'
+import {
+  buildRanking,
+  filterRanking,
+  sortRanking,
+  OVERALL_SORT,
+} from '../rankingModel'
 import { makeLevel, makeListItem } from '@/utils/testUtils'
 
 const rated = (
@@ -106,5 +111,94 @@ describe('filterRanking', () => {
   // level's real place rather than renumbering 1..n over the matches.
   it('keeps each row’s real position when filtered', () => {
     expect(filterRanking(entries, 'blood')[0]?.rank).toBe(2)
+  })
+})
+
+describe('sortRanking', () => {
+  // rank 1..4 by overall; the category scores deliberately disagree with it.
+  const scored = (id: string, overall: number, gameplay: number | null) =>
+    makeListItem({
+      level: makeLevel({ inGameId: id }),
+      overallRating: overall,
+      ratingScores:
+        gameplay == null ? [] : [{ categoryId: 'gameplay', score: gameplay }],
+    })
+
+  const { entries } = buildRanking([
+    scored('a', 90, 40),
+    scored('b', 80, 90),
+    scored('c', 70, 60),
+    scored('d', 60, null),
+  ])
+
+  const order = (sort: Parameters<typeof sortRanking>[1]) =>
+    sortRanking(entries, sort).map((e) => e.item.level.inGameId)
+
+  const ranks = (sort: Parameters<typeof sortRanking>[1]) =>
+    sortRanking(entries, sort).map((e) => e.rank)
+
+  it('sorts by the ranking itself by default', () => {
+    expect(order({ key: OVERALL_SORT, dir: 'desc' })).toEqual([
+      'a',
+      'b',
+      'c',
+      'd',
+    ])
+  })
+
+  it('sorts by a category, against the ranking order', () => {
+    expect(order({ key: 'gameplay', dir: 'desc' })).toEqual([
+      'b',
+      'c',
+      'a',
+      'd',
+    ])
+  })
+
+  // The whole point: a row keeps its position in the RANKING while the view is
+  // ordered by something else.
+  it('does not renumber the rows it reorders', () => {
+    expect(ranks({ key: 'gameplay', dir: 'desc' })).toEqual([2, 3, 1, 4])
+  })
+
+  it('reverses on an ascending sort', () => {
+    expect(order({ key: 'gameplay', dir: 'asc' })).toEqual([
+      'a',
+      'c',
+      'b',
+      'd',
+    ])
+  })
+
+  // A blank is not a worst score, so it stays at the bottom either way.
+  it('keeps an unscored category last in both directions', () => {
+    const last = (sort: Parameters<typeof sortRanking>[1]) => {
+      const ids = order(sort)
+      return ids[ids.length - 1]
+    }
+
+    expect(last({ key: 'gameplay', dir: 'desc' })).toBe('d')
+    expect(last({ key: 'gameplay', dir: 'asc' })).toBe('d')
+  })
+
+  it('breaks a category tie on overall standing', () => {
+    const tied = buildRanking([
+      scored('better', 90, 50),
+      scored('worse', 40, 50),
+    ])
+
+    expect(
+      sortRanking(tied.entries, { key: 'gameplay', dir: 'desc' }).map(
+        (e) => e.item.level.inGameId
+      )
+    ).toEqual(['better', 'worse'])
+  })
+
+  it('leaves the input array untouched', () => {
+    const before = [...entries]
+
+    sortRanking(entries, { key: 'gameplay', dir: 'desc' })
+
+    expect(entries).toEqual(before)
   })
 })

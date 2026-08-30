@@ -8,8 +8,13 @@ import { useMe } from '@/lib/api/me'
 import { useMyProgress } from '@/lib/api/log'
 import { useEditRating, type RatingEdit } from '@/lib/api/ranking'
 import { toast } from '@/components/generic/sonner'
-import { buildRanking, filterRanking } from './rankingModel'
-import type { RankedEntry } from './rankingModel'
+import {
+  buildRanking,
+  filterRanking,
+  sortRanking,
+  DEFAULT_SORT,
+} from './rankingModel'
+import type { RankedEntry, RankingSort } from './rankingModel'
 
 /** The DOM id of a row, for the scroll that follows a save. */
 export const rowDomId = (levelId: string) => `rank-${levelId}`
@@ -27,6 +32,7 @@ export function useRankingPage() {
   const progress = useMyProgress()
   const [search, setSearch] = useState('')
   const [editingLevelId, setEditingLevelId] = useState<string | null>(null)
+  const [sort, setSort] = useState<RankingSort>(DEFAULT_SORT)
 
   // Empty in SIMPLE mode, where per-category scores carry no meaning even
   // though switching modes preserves them.
@@ -63,9 +69,23 @@ export function useRankingPage() {
   )
 
   const visible: RankedEntry[] = useMemo(
-    () => filterRanking(model.entries, search),
-    [model.entries, search]
+    () => sortRanking(filterRanking(model.entries, search), sort),
+    [model.entries, search, sort]
   )
+
+  /**
+   * Sorts by a column, or flips it if it is already the active one.
+   *
+   * A fresh column starts descending — best first, which is what someone
+   * clicking "Gameplay" is asking to see.
+   */
+  const toggleSort = useCallback((key: string) => {
+    setSort((current) =>
+      current.key === key
+        ? { key, dir: current.dir === 'desc' ? 'asc' : 'desc' }
+        : { key, dir: 'desc' }
+    )
+  }, [])
 
   // Set when a save moves a row, cleared once the row has been brought into
   // view. Held as state rather than acted on inline because the row has to be
@@ -113,6 +133,8 @@ export function useRankingPage() {
     unrankedCount: model.unrankedCount,
     search,
     setSearch,
+    sort,
+    toggleSort,
     editingLevelId,
     startEdit: setEditingLevelId,
     cancelEdit: useCallback(() => setEditingLevelId(null), []),

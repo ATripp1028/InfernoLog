@@ -27,6 +27,8 @@ export function Ranking() {
     unrankedCount,
     search,
     setSearch,
+    sort,
+    toggleSort,
     editingLevelId,
     startEdit,
     cancelEdit,
@@ -92,7 +94,13 @@ export function Ranking() {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* Sticky inside this scroll container, so the labels stay put while
               the ranking scrolls under them. */}
-          {categories.length > 0 && <RankingHeader categories={categories} />}
+          {categories.length > 0 && (
+            <RankingHeader
+              categories={categories}
+              sort={sort}
+              onSort={toggleSort}
+            />
+          )}
           {/* `layout` is what makes a re-rated row slide to its new position
               rather than jumping there. Nothing on this page is virtualized, so
               both the row's old and new neighbours stay mounted and Framer can
