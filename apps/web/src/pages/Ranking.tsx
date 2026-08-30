@@ -127,8 +127,8 @@ export function Ranking() {
         />
       ) : visible.length === 0 ? (
         <EmptyState
-          title="No levels match that search."
-          description="Try a different name or level ID."
+          title="No levels match your filters."
+          description="Try removing a filter to see more levels."
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
