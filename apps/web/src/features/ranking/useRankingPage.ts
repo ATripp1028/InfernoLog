@@ -11,12 +11,14 @@ import { toast } from '@/components/generic/sonner'
 import {
   buildRanking,
   filterByDifficulty,
+  filterByRatedStatus,
   filterRanking,
+  renumberInView,
   sortRanking,
   toggleDifficulty,
   DEFAULT_SORT,
 } from './rankingModel'
-import type { RankedEntry, RankingSort } from './rankingModel'
+import type { RankedEntry, RankNumbering, RankingSort } from './rankingModel'
 
 /** The DOM id of a row, for the scroll that follows a save. */
 export const rowDomId = (levelId: string) => `rank-${levelId}`
@@ -37,6 +39,10 @@ export function useRankingPage() {
   const [sort, setSort] = useState<RankingSort>(DEFAULT_SORT)
   // Empty is "All", the default view.
   const [difficulties, setDifficulties] = useState<string[]>([])
+  // On by default, as on the demon list: a user who went out of their way to
+  // log an in-game-unrated level almost certainly wants to see it.
+  const [showUnrated, setShowUnrated] = useState(true)
+  const [numbering, setNumbering] = useState<RankNumbering>('overall')
 
   // Empty in SIMPLE mode, where per-category scores carry no meaning even
   // though switching modes preserves them.
@@ -72,14 +78,17 @@ export function useRankingPage() {
     [progress.data, categories]
   )
 
-  const visible: RankedEntry[] = useMemo(
-    () =>
-      sortRanking(
-        filterRanking(filterByDifficulty(model.entries, difficulties), search),
-        sort
+  const visible: RankedEntry[] = useMemo(() => {
+    const narrowed = filterRanking(
+      filterByDifficulty(
+        filterByRatedStatus(model.entries, showUnrated),
+        difficulties
       ),
-    [model.entries, difficulties, search, sort]
-  )
+      search
+    )
+    const ordered = sortRanking(narrowed, sort)
+    return numbering === 'filtered' ? renumberInView(ordered) : ordered
+  }, [model.entries, showUnrated, difficulties, search, sort, numbering])
 
   /**
    * Sorts by a column, or flips it if it is already the active one.
@@ -149,15 +158,22 @@ export function useRankingPage() {
     config,
     categories,
     entries: model.entries,
-    // The lowest position in the WHOLE ranking, not the filtered view — a
-    // search must not promote whatever it matched last to "worst rated".
-    lastRank: model.entries.length,
+    // The bottom of whatever the numbers are counting: the whole ranking when
+    // numbering by it, the visible rows when numbering those. Keeping the two
+    // in step is what stops a filtered view from marking a mid-table level
+    // crimson, or a whole-ranking view from marking one that is merely last on
+    // screen.
+    lastRank: numbering === 'filtered' ? visible.length : model.entries.length,
     visible,
     unrankedCount: model.unrankedCount,
     search,
     setSearch,
     sort,
     toggleSort,
+    showUnrated,
+    setShowUnrated,
+    numbering,
+    setNumbering,
     difficulties,
     toggleDifficulty: useCallback(
       (difficulty: string) =>

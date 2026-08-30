@@ -3,7 +3,9 @@ import { LevelProgressStatus } from '@infernolog/core'
 import {
   buildRanking,
   filterByDifficulty,
+  filterByRatedStatus,
   filterRanking,
+  renumberInView,
   sortRanking,
   toggleDifficulty,
   NON_DEMON,
@@ -275,5 +277,55 @@ describe('toggleDifficulty', () => {
 
   it('turns the aggregate off back to All', () => {
     expect(toggleDifficulty([NON_DEMON], NON_DEMON)).toEqual([])
+  })
+})
+
+describe('filterByRatedStatus', () => {
+  const level = (id: string, isRated: boolean) =>
+    makeListItem({
+      level: makeLevel({ inGameId: id, isRated }),
+      overallRating: 80,
+    })
+
+  const { entries } = buildRanking([level('rated', true), level('un', false)])
+
+  it('shows everything when unrated levels are allowed', () => {
+    expect(
+      filterByRatedStatus(entries, true).map((e) => e.item.level.inGameId)
+    ).toEqual(['rated', 'un'])
+  })
+
+  // The in-game sense: no stars from RobTop. A level the USER has not rated is
+  // unranked and never reaches this list at all.
+  it('drops in-game-unrated levels when they are hidden', () => {
+    expect(
+      filterByRatedStatus(entries, false).map((e) => e.item.level.inGameId)
+    ).toEqual(['rated'])
+  })
+
+  it('leaves positions alone', () => {
+    expect(filterByRatedStatus(entries, false)[0]?.rank).toBe(1)
+  })
+})
+
+describe('renumberInView', () => {
+  const { entries } = buildRanking([
+    makeListItem({ level: makeLevel({ inGameId: 'a' }), overallRating: 90 }),
+    makeListItem({ level: makeLevel({ inGameId: 'b' }), overallRating: 80 }),
+    makeListItem({ level: makeLevel({ inGameId: 'c' }), overallRating: 70 }),
+  ])
+
+  it('counts the rows it is given, in the order it is given them', () => {
+    const view = [entries[1]!, entries[2]!]
+
+    expect(renumberInView(view).map((e) => e.rank)).toEqual([1, 2])
+  })
+
+  it('leaves the rows themselves untouched', () => {
+    const view = [entries[1]!]
+
+    expect(renumberInView(view)[0]?.item).toBe(entries[1]!.item)
+    // …and does not mutate the originals.
+    expect(entries[1]!.rank).toBe(2)
   })
 })

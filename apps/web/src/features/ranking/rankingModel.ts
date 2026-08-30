@@ -238,3 +238,42 @@ export function toggleDifficulty(
     ? withoutNonDemon.filter((d) => d !== difficulty)
     : [...withoutNonDemon, difficulty]
 }
+
+/**
+ * Drops levels Geometry Dash has not rated, when the user has asked to hide
+ * them.
+ *
+ * "Unrated" here is the **in-game** sense — RobTop has given the level no stars
+ * (`level.isRated`) — matching the demon list's toggle of the same name. It has
+ * nothing to do with whether the user has rated it: a level with no rating of
+ * their own is *unranked*, and never reaches this list at all. See
+ * docs/TERMINOLOGY.md.
+ */
+export function filterByRatedStatus(
+  entries: readonly RankedEntry[],
+  showUnrated: boolean
+): RankedEntry[] {
+  if (showUnrated) return [...entries]
+  return entries.filter((e) => e.item.level.isRated)
+}
+
+/**
+ * What the number on each row counts.
+ *
+ * `overall` is the level's place in the whole ranking, which stays put however
+ * the view is narrowed — the default, because a position is only meaningful
+ * against the whole list. `filtered` counts the rows actually on screen, for
+ * answering "where does this sit among my extreme demons".
+ */
+export type RankNumbering = 'overall' | 'filtered'
+
+/**
+ * Renumbers rows 1..n in view order, for {@link RankNumbering} `filtered`.
+ *
+ * The rewritten `rank` is what the row displays *and* what its colour keys off,
+ * so the gold and crimson marks land on the top and bottom of what the user is
+ * actually looking at rather than on levels that may not even be in view.
+ */
+export function renumberInView(entries: readonly RankedEntry[]): RankedEntry[] {
+  return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
+}

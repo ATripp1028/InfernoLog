@@ -1,4 +1,5 @@
 import { Search } from 'lucide-react'
+import { Switch } from '@/components/generic/switch'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
@@ -33,6 +34,10 @@ export function Ranking() {
     difficulties,
     toggleDifficulty,
     clearDifficulties,
+    showUnrated,
+    setShowUnrated,
+    numbering,
+    setNumbering,
     editingLevelId,
     startEdit,
     cancelEdit,
@@ -62,6 +67,30 @@ export function Ranking() {
 
         {entries.length > 0 && (
           <div className="flex flex-wrap items-center gap-3">
+            {/* "Unrated" is the in-game sense — no stars from RobTop — the same
+                toggle the demon list carries. A level the user has not rated is
+                unranked, and never appears here at all. */}
+            <label
+              className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"
+              title="Include levels Geometry Dash has not rated"
+            >
+              <span>Show unrated</span>
+              <Switch checked={showUnrated} onCheckedChange={setShowUnrated} />
+            </label>
+
+            <label
+              className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"
+              title="Number rows by their place in this view instead of by their place in the whole ranking"
+            >
+              <span>Number in view</span>
+              <Switch
+                checked={numbering === 'filtered'}
+                onCheckedChange={(on) =>
+                  setNumbering(on ? 'filtered' : 'overall')
+                }
+              />
+            </label>
+
             <DifficultyFilter
               selected={difficulties}
               onToggle={toggleDifficulty}
