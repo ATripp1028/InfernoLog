@@ -3,7 +3,7 @@ import { Pencil } from 'lucide-react'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { backOriginState } from '@/lib/backOrigin'
-import { ratingColor } from '@/lib/ratingColor'
+import { overallColor, scoreColor } from '@/lib/ratingColor'
 import { formatRating } from '@/lib/ratingScale'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import {
@@ -22,6 +22,8 @@ import type { OverallRatingConfig } from '@infernolog/core'
 
 interface RankedRowProps {
   entry: RankedEntry
+  /** The lowest position in the ranking, for the bottom-of-the-list colour. */
+  lastRank: number
   scale: RatingDisplayScale
   config: OverallRatingConfig
   categories: RatingCategory[]
@@ -48,6 +50,7 @@ interface RankedRowProps {
  */
 export function RankedRow({
   entry,
+  lastRank,
   scale,
   config,
   categories,
@@ -60,6 +63,10 @@ export function RankedRow({
   const { rank, item } = entry
   const { level, overallRating } = item
   const location = useLocation()
+
+  // The name carries the same colour as the overall rating it is tinted by —
+  // they are the same figure, and disagreeing would read as a bug.
+  const overall = overallColor(overallRating, rank, lastRank)
 
   return (
     <div
@@ -112,7 +119,7 @@ export function RankedRow({
           <div className="min-w-0 flex-1">
             <div
               className="truncate text-sm font-semibold text-text-primary"
-              style={{ color: ratingColor(overallRating) }}
+              style={{ color: overall }}
             >
               #{rank} — {level.name ?? `Level #${level.inGameId}`}
             </div>
@@ -135,7 +142,7 @@ export function RankedRow({
             <span
               key={category.id}
               className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-center text-center text-sm tabular-nums text-text-secondary`}
-              style={{ color: ratingColor(score ?? null) }}
+              style={{ color: scoreColor(score ?? null) }}
             >
               {score == null ? '—' : formatRating(score, scale)}
             </span>
@@ -147,7 +154,7 @@ export function RankedRow({
         <span
           title="Rating"
           className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
-          style={{ color: ratingColor(overallRating) }}
+          style={{ color: overall }}
         >
           {overallRating == null ? '—' : formatRating(overallRating, scale)}
         </span>

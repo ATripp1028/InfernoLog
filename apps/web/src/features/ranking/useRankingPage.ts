@@ -106,6 +106,9 @@ export function useRankingPage() {
     config,
     categories,
     entries: model.entries,
+    // The lowest position in the WHOLE ranking, not the filtered view — a
+    // search must not promote whatever it matched last to "worst rated".
+    lastRank: model.entries.length,
     visible,
     unrankedCount: model.unrankedCount,
     search,

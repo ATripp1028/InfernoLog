@@ -22,6 +22,7 @@ export function Ranking() {
     config,
     categories,
     entries,
+    lastRank,
     visible,
     unrankedCount,
     search,
@@ -106,6 +107,7 @@ export function Ranking() {
               >
                 <RankedRow
                   entry={entry}
+                  lastRank={lastRank}
                   scale={scale}
                   config={config}
                   categories={categories}

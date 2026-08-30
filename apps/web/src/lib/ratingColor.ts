@@ -3,47 +3,86 @@
 // default, which is what these ratings looked like before they lived in an app.
 //
 // Ratings are stored as integers 0–100 internally whatever the user's display
-// scale (see lib/ratingScale), so this takes the internal value and needs no
-// scale argument: a perfect score is 100 and a zero is 0 on both the 0–10 and
-// the 0–100 display.
+// scale (see lib/ratingScale), so these take the internal value and need no
+// scale argument: the top of the scale is 100 and the bottom is 0 on both the
+// 0–10 and the 0–100 display.
+//
+// The gradient is shared, but what counts as an extreme is not, which is why
+// there are two entry points rather than one:
+//
+//   scoreColor   — a single category score, where a flat 10 or 0 is a real
+//                  thing a user types, so the exceptions sit at the ends of the
+//                  SCALE.
+//   overallColor — a weighted average, where landing on exactly 10 or 0 needs
+//                  every category to agree and so almost never happens. Its
+//                  exceptions sit at the ends of the RANKING instead: the
+//                  user's best-rated level and their worst-rated one.
 
 /** Sheets' three-colour scale: the low, middle and high stops. */
 const LOW = [248, 105, 107] as const // #f8696b
 const MID = [255, 255, 255] as const // #ffffff
 const HIGH = [99, 190, 123] as const // #63be7b
 
-/**
- * A flawless score — lifted out of the gradient because the top of a green ramp
- * is not visibly different from a 9.8, and a 10 is worth seeing.
- */
-const PERFECT = '#ffd43b'
+/** The best thing on the list. */
+const BEST = '#ffd43b'
+
+/** The worst thing on the list. */
+const WORST = '#dc143c'
 
 /**
- * The other end, for the same reason. The gradient's low stop is a soft salmon
- * that reads as "poor"; an outright zero deserves to read as a verdict.
- */
-const ZERO = '#dc143c'
-
-/**
- * The colour a rating should be drawn in, or `undefined` for no rating — which
- * leaves the caller's own text colour in place rather than inventing one.
+ * The gradient alone, with no exceptions applied.
  *
- * @param internal - The rating on the internal 0–100 scale. Values outside it
- * are clamped, so a weighted average that rounds a hair past 100 still reads as
- * perfect rather than wrapping.
+ * For a value with no position to judge it by — the live preview while a rating
+ * is being edited, where the rank it will land at is the thing in flux.
  */
-export function ratingColor(internal: number | null): string | undefined {
+export function ratingRampColor(internal: number | null): string | undefined {
   if (internal == null) return undefined
-
   const value = Math.min(100, Math.max(0, internal))
-  if (value >= 100) return PERFECT
-  if (value <= 0) return ZERO
-
   // Two half-ramps meeting at white in the middle, which is what makes a
   // mid-table rating read as neutral rather than as a weak green.
   return value < 50
     ? mix(LOW, MID, value / 50)
     : mix(MID, HIGH, (value - 50) / 50)
+}
+
+/**
+ * The colour for one category score: the gradient, with a flat top mark gold
+ * and a flat zero crimson.
+ *
+ * @param internal - The score on the internal 0–100 scale, or null for none —
+ * which returns `undefined` and leaves the caller's own text colour in place
+ * rather than inventing one.
+ */
+export function scoreColor(internal: number | null): string | undefined {
+  if (internal == null) return undefined
+  if (internal >= 100) return BEST
+  if (internal <= 0) return WORST
+  return ratingRampColor(internal)
+}
+
+/**
+ * The colour for an overall rating: the gradient, with the top of the ranking
+ * gold and the bottom crimson.
+ *
+ * Position rather than value, because a weighted average only reaches a flat 10
+ * or 0 if every category agrees exactly — so anchoring on the scale would leave
+ * both marks essentially unused. Anchoring on the ranking spends them on the
+ * two levels they mean the most for.
+ *
+ * @param rank - This level's 1-based position.
+ * @param lastRank - The position of the lowest-rated level. A ranking of one
+ * has `rank === lastRank`, and gold wins: a solitary entry is the user's best
+ * before it is their worst.
+ */
+export function overallColor(
+  internal: number | null,
+  rank: number,
+  lastRank: number
+): string | undefined {
+  if (internal == null) return undefined
+  if (rank === 1) return BEST
+  if (rank === lastRank) return WORST
+  return ratingRampColor(internal)
 }
 
 function mix(
