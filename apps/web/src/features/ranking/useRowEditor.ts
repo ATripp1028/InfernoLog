@@ -5,7 +5,10 @@
 // integer happens once, at save.
 
 import { useState } from 'react'
-import { computeOverallRating, type OverallRatingConfig } from '@infernolog/core'
+import {
+  computeOverallRating,
+  type OverallRatingConfig,
+} from '@infernolog/core'
 import { toDisplay, toInternal } from '@/lib/ratingScale'
 import type { RatingCategory } from '@/lib/api/me'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'

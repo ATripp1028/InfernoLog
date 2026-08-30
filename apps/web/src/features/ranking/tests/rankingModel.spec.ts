@@ -167,12 +167,7 @@ describe('sortRanking', () => {
   })
 
   it('reverses on an ascending sort', () => {
-    expect(order({ key: 'gameplay', dir: 'asc' })).toEqual([
-      'a',
-      'c',
-      'b',
-      'd',
-    ])
+    expect(order({ key: 'gameplay', dir: 'asc' })).toEqual(['a', 'c', 'b', 'd'])
   })
 
   // A blank is not a worst score, so it stays at the bottom either way.

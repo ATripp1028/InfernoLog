@@ -97,17 +97,17 @@ export function Ranking() {
               onClear={clearDifficulties}
             />
             <label className="relative w-full sm:w-64">
-            <span className="sr-only">Search your ranking</span>
-            <Search
-              size={14}
-              aria-hidden
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
-            />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search your ranking…"
+              <span className="sr-only">Search your ranking</span>
+              <Search
+                size={14}
+                aria-hidden
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary"
+              />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search your ranking…"
                 className="h-9 w-full rounded-btn border border-border-subtle bg-bg-surface pl-8 pr-3 text-sm text-text-primary placeholder:text-text-tertiary focus:border-primary focus:outline-none"
               />
             </label>

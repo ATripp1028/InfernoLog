@@ -36,9 +36,12 @@ describe('RankingHeader', () => {
   it('renders the categories in the order it is given', () => {
     render()
 
-    expect(
-      screen.getAllByRole('button').map((b) => b.textContent)
-    ).toEqual(['Gameplay', 'Decoration', 'Song', 'Overall'])
+    expect(screen.getAllByRole('button').map((b) => b.textContent)).toEqual([
+      'Gameplay',
+      'Decoration',
+      'Song',
+      'Overall',
+    ])
   })
 
   it('asks to sort by the column that was clicked', async () => {

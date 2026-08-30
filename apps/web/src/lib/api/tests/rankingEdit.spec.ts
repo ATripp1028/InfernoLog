@@ -24,7 +24,11 @@ describe('applyEdit', () => {
   it('takes the new simple rating as the overall rating', () => {
     const row = makeListItem({ overallRating: 40 })
 
-    const next = applyEdit(row, { levelId: row.level.inGameId, simpleRating: 90 }, SIMPLE)
+    const next = applyEdit(
+      row,
+      { levelId: row.level.inGameId, simpleRating: 90 },
+      SIMPLE
+    )
 
     expect(next.overallRating).toBe(90)
   })
@@ -86,7 +90,11 @@ describe('applyEdit', () => {
   it('leaves other rows’ shape untouched', () => {
     const row = makeListItem({ overallRating: 40 })
 
-    const next = applyEdit(row, { levelId: row.level.inGameId, simpleRating: 90 }, SIMPLE)
+    const next = applyEdit(
+      row,
+      { levelId: row.level.inGameId, simpleRating: 90 },
+      SIMPLE
+    )
 
     expect(next.level).toBe(row.level)
     expect(next.levelProgressId).toBe(row.levelProgressId)

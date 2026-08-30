@@ -159,7 +159,9 @@ describe('RowEditor', () => {
     unmount()
 
     render()
-    expect(screen.getByRole('button', { name: 'Save rating' })).toBeInTheDocument()
+    expect(
+      screen.getByRole('button', { name: 'Save rating' })
+    ).toBeInTheDocument()
   })
 
   it('renders the identity block it is given', () => {

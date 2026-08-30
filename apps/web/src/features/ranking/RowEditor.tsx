@@ -104,59 +104,59 @@ export function RowEditor({
       </div>
 
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-      {isWeighted ? (
-        categories.map((category) => (
-          <Field key={category.id} label={category.name}>
+        {isWeighted ? (
+          categories.map((category) => (
+            <Field key={category.id} label={category.name}>
+              <StepperInput
+                value={scores[category.id] ?? 0}
+                onChange={(v) => setScore(category.id, v)}
+                min={0}
+                max={max}
+                precision={precision}
+                deltas={step}
+                aria-label={`${category.name} score`}
+              />
+            </Field>
+          ))
+        ) : (
+          <Field label="Rating">
             <StepperInput
-              value={scores[category.id] ?? 0}
-              onChange={(v) => setScore(category.id, v)}
+              value={simple}
+              onChange={setSimple}
               min={0}
               max={max}
               precision={precision}
               deltas={step}
-              aria-label={`${category.name} score`}
+              aria-label="Rating score"
             />
           </Field>
-        ))
-      ) : (
-        <Field label="Rating">
-          <StepperInput
-            value={simple}
-            onChange={setSimple}
-            min={0}
-            max={max}
-            precision={precision}
-            deltas={step}
-            aria-label="Rating score"
-          />
-        </Field>
-      )}
+        )}
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={saving}
-          className="flex size-8 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary disabled:pointer-events-none disabled:opacity-40"
-          aria-label="Cancel"
-          title="Cancel"
-        >
-          <X size={16} />
-        </button>
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex size-8 items-center justify-center rounded-md bg-primary text-text-primary transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-80"
-          aria-label={saving ? 'Saving rating' : 'Save rating'}
-          title={saving ? 'Saving…' : 'Save rating'}
-        >
-          {saving ? (
-            <Loader2 size={16} className="animate-spin" />
-          ) : (
-            <Check size={16} />
-          )}
-        </button>
-      </div>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="flex size-8 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary disabled:pointer-events-none disabled:opacity-40"
+            aria-label="Cancel"
+            title="Cancel"
+          >
+            <X size={16} />
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex size-8 items-center justify-center rounded-md bg-primary text-text-primary transition-colors hover:bg-primary-hover disabled:pointer-events-none disabled:opacity-80"
+            aria-label={saving ? 'Saving rating' : 'Save rating'}
+            title={saving ? 'Saving…' : 'Save rating'}
+          >
+            {saving ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <Check size={16} />
+            )}
+          </button>
+        </div>
       </div>
     </form>
   )

@@ -137,17 +137,17 @@ A level the sync jobs can no longer find on RobTop's servers. Its cached metadat
 
 ## Terms to Avoid
 
-| Avoid                                | Use Instead                      | Reason                                                                     |
-| ------------------------------------ | -------------------------------- | -------------------------------------------------------------------------- |
-| "The Demon List"                     | "my/your demon list"             | The definite article means Pointercrate; the possessive is the whole point |
-| "Unrated" for a level the user has not rated | "Unranked"                | "Unrated" is the in-game sense — no stars from RobTop                    |
-| "Unrated" for a level not on the demon list | "Unplaced"                 | Same reason; "unplaced" is the demon list's own word                     |
-| "Ranking" for the difficulty order   | "my demon list"                  | Ranking is now the rating-ordered page                                     |
-| "The List"                           | The Log                          | Renamed; no view is called the List any more                               |
-| "The Log" for the event feed         | The Events feed                  | The Log is now the level view                                              |
-| "Completion log" or "demon log"      | The Log                          | Too vague, and collides with the Events feed                               |
-| "My demons"                          | The Log                          | Implies created levels                                                     |
-| "Entry" alone                        | "Progress entry" or "completion" | Too ambiguous                                                              |
-| "Rank" for GDDL                      | "Tier"                           | GDDL uses tiers, not ranks                                                 |
-| "Tier" for Pointercrate              | "Rank"                           | Pointercrate uses ranks, not tiers                                         |
-| "Difficulty face" for the whole icon | "In-game face"                   | The difficulty face is only the face; the in-game face includes the glow   |
+| Avoid                                        | Use Instead                      | Reason                                                                     |
+| -------------------------------------------- | -------------------------------- | -------------------------------------------------------------------------- |
+| "The Demon List"                             | "my/your demon list"             | The definite article means Pointercrate; the possessive is the whole point |
+| "Unrated" for a level the user has not rated | "Unranked"                       | "Unrated" is the in-game sense — no stars from RobTop                      |
+| "Unrated" for a level not on the demon list  | "Unplaced"                       | Same reason; "unplaced" is the demon list's own word                       |
+| "Ranking" for the difficulty order           | "my demon list"                  | Ranking is now the rating-ordered page                                     |
+| "The List"                                   | The Log                          | Renamed; no view is called the List any more                               |
+| "The Log" for the event feed                 | The Events feed                  | The Log is now the level view                                              |
+| "Completion log" or "demon log"              | The Log                          | Too vague, and collides with the Events feed                               |
+| "My demons"                                  | The Log                          | Implies created levels                                                     |
+| "Entry" alone                                | "Progress entry" or "completion" | Too ambiguous                                                              |
+| "Rank" for GDDL                              | "Tier"                           | GDDL uses tiers, not ranks                                                 |
+| "Tier" for Pointercrate                      | "Rank"                           | Pointercrate uses ranks, not tiers                                         |
+| "Difficulty face" for the whole icon         | "In-game face"                   | The difficulty face is only the face; the in-game face includes the glow   |

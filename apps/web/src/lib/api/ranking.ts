@@ -62,7 +62,9 @@ export function useEditRating(config: OverallRatingConfig) {
       void queryClient.cancelQueries({ queryKey: logQueryKey })
       queryClient.setQueryData<LevelProgressListItem[]>(logQueryKey, (rows) =>
         rows?.map((row) =>
-          row.level.inGameId === edit.levelId ? applyEdit(row, edit, config) : row
+          row.level.inGameId === edit.levelId
+            ? applyEdit(row, edit, config)
+            : row
         )
       )
       // The server owns the real figure — its rounding, and any field the patch

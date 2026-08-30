@@ -90,7 +90,9 @@ function SortButton({
       type="button"
       onClick={() => onSort(sortKey)}
       title={`Sort by ${label}`}
-      aria-sort={active ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'}
+      aria-sort={
+        active ? (sort.dir === 'desc' ? 'descending' : 'ascending') : 'none'
+      }
       className={`${className} relative shrink-0 items-center justify-center truncate text-center transition-colors hover:text-text-primary ${
         active ? 'text-text-primary' : ''
       }`}

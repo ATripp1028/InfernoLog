@@ -107,7 +107,12 @@ describe('RankedRow', () => {
     e.item.ratingScores = [{ categoryId: 'gameplay', score: 100 }]
 
     await renderWithProviders(
-      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} categories={categories} />,
+      <RankedRow
+        entry={e}
+        scale="ZERO_TO_TEN"
+        {...base}
+        categories={categories}
+      />,
       { router: true }
     )
 
@@ -137,7 +142,12 @@ describe('RankedRow', () => {
     ]
 
     await renderWithProviders(
-      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} categories={categories} />,
+      <RankedRow
+        entry={e}
+        scale="ZERO_TO_TEN"
+        {...base}
+        categories={categories}
+      />,
       { router: true }
     )
 
@@ -154,7 +164,12 @@ describe('RankedRow', () => {
     e.item.ratingScores = []
 
     await renderWithProviders(
-      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} categories={categories} />,
+      <RankedRow
+        entry={e}
+        scale="ZERO_TO_TEN"
+        {...base}
+        categories={categories}
+      />,
       { router: true }
     )
 
@@ -173,5 +188,4 @@ describe('RankedRow', () => {
 
     expect(screen.queryByText('9')).not.toBeInTheDocument()
   })
-
 })

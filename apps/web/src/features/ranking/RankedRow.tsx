@@ -95,53 +95,53 @@ export function RankedRow({
           saving={saving}
         />
       ) : (
-      <div className="relative z-10 flex h-full items-center gap-3 px-2">
-        <Link
-          to="/log/$levelId"
-          params={{ levelId: level.inGameId }}
-          state={backOriginState(location.href)}
-          className="flex min-w-0 flex-1 items-center gap-3 self-stretch"
-        >
-          <LevelIdentity rank={rank} level={level} nameColor={overall} />
-        </Link>
+        <div className="relative z-10 flex h-full items-center gap-3 px-2">
+          <Link
+            to="/log/$levelId"
+            params={{ levelId: level.inGameId }}
+            state={backOriginState(location.href)}
+            className="flex min-w-0 flex-1 items-center gap-3 self-stretch"
+          >
+            <LevelIdentity rank={rank} level={level} nameColor={overall} />
+          </Link>
 
-        {/* Per-category breakdown, in the user's priority order — the same
+          {/* Per-category breakdown, in the user's priority order — the same
             order the ranking breaks ties in. WEIGHTED mode only; in SIMPLE the
             scores exist but carry no meaning. */}
-        {categories.map((category) => {
-          const score = item.ratingScores.find(
-            (s) => s.categoryId === category.id
-          )?.score
-          return (
-            <span
-              key={category.id}
-              className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-center text-center text-sm tabular-nums text-text-secondary`}
-              style={{ color: scoreColor(score ?? null) }}
-            >
-              {score == null ? '—' : formatRating(score, scale)}
-            </span>
-          )
-        })}
+          {categories.map((category) => {
+            const score = item.ratingScores.find(
+              (s) => s.categoryId === category.id
+            )?.score
+            return (
+              <span
+                key={category.id}
+                className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-center text-center text-sm tabular-nums text-text-secondary`}
+                style={{ color: scoreColor(score ?? null) }}
+              >
+                {score == null ? '—' : formatRating(score, scale)}
+              </span>
+            )
+          })}
 
-        {/* The rating is what earned the position, so it reads as the row's
+          {/* The rating is what earned the position, so it reads as the row's
             headline figure rather than as one more badge. */}
-        <span
-          title="Rating"
-          className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
-          style={{ color: overall }}
-        >
-          {overallRating == null ? '—' : formatRating(overallRating, scale)}
-        </span>
-        <button
-          type="button"
-          onClick={() => onEdit(level.inGameId)}
-          aria-label={`Edit rating for ${level.name ?? `Level #${level.inGameId}`}`}
-          title="Edit rating"
-          className={`${ACTION_WIDTH} flex h-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary`}
-        >
-          <Pencil size={14} />
-        </button>
-      </div>
+          <span
+            title="Rating"
+            className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
+            style={{ color: overall }}
+          >
+            {overallRating == null ? '—' : formatRating(overallRating, scale)}
+          </span>
+          <button
+            type="button"
+            onClick={() => onEdit(level.inGameId)}
+            aria-label={`Edit rating for ${level.name ?? `Level #${level.inGameId}`}`}
+            title="Edit rating"
+            className={`${ACTION_WIDTH} flex h-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary`}
+          >
+            <Pencil size={14} />
+          </button>
+        </div>
       )}
       {/* The demon list's hover treatment, matched deliberately: an inset warm
           glow rather than a background change, so the thumbnail underneath
