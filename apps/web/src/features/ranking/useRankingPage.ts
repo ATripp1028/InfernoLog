@@ -30,11 +30,18 @@ export function useRankingPage() {
 
   // Empty in SIMPLE mode, where per-category scores carry no meaning even
   // though switching modes preserves them.
-  const categories = useMemo(
-    () =>
-      me.data?.ratingMode === 'WEIGHTED' ? (me.data.ratingCategories ?? []) : [],
-    [me.data]
-  )
+  //
+  // Sorted by priority here rather than relying on the order they arrive in.
+  // `GET /v1/me` does order by `sortOrder`, but the column order has to match
+  // the order the ranking breaks ties in — core's comparator sorts defensively
+  // for the same reason — and that agreement should not rest on a server-side
+  // `orderBy` clause staying put.
+  const categories = useMemo(() => {
+    if (me.data?.ratingMode !== 'WEIGHTED') return []
+    return [...(me.data.ratingCategories ?? [])].sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    )
+  }, [me.data])
 
   // The same shape the server ranks with, so an optimistic reorder lands where
   // the refetch will confirm.

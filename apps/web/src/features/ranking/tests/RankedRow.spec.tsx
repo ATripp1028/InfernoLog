@@ -70,6 +70,57 @@ describe('RankedRow', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', '/log/128')
   })
 
+  // WEIGHTED mode only. The per-category breakdown is what the sticky header
+  // labels, so the two have to carry the same columns in the same order.
+  it('shows one cell per category, in the order given', async () => {
+    const categories = [
+      { id: 'gameplay', name: 'Gameplay', weight: 0.5, sortOrder: 0 },
+      { id: 'song', name: 'Song', weight: 0.5, sortOrder: 1 },
+    ]
+    const e = entry(1, 84.2)
+    e.item.ratingScores = [
+      { categoryId: 'song', score: 70 },
+      { categoryId: 'gameplay', score: 90 },
+    ]
+
+    await renderWithProviders(
+      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} categories={categories} />,
+      { router: true }
+    )
+
+    // Column order follows `categories`, not the order the scores arrived in.
+    expect(screen.getByText('9')).toBeInTheDocument()
+    expect(screen.getByText('7')).toBeInTheDocument()
+  })
+
+  it('dashes a category the level has no score for', async () => {
+    const categories = [
+      { id: 'gameplay', name: 'Gameplay', weight: 1, sortOrder: 0 },
+    ]
+    const e = entry(1, 84.2)
+    e.item.ratingScores = []
+
+    await renderWithProviders(
+      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} categories={categories} />,
+      { router: true }
+    )
+
+    expect(screen.getByText('—')).toBeInTheDocument()
+  })
+
+  // SIMPLE mode passes no categories, and the row must not invent columns.
+  it('renders no category cells without categories', async () => {
+    const e = entry(1, 84.2)
+    e.item.ratingScores = [{ categoryId: 'gameplay', score: 90 }]
+
+    await renderWithProviders(
+      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} />,
+      { router: true }
+    )
+
+    expect(screen.queryByText('9')).not.toBeInTheDocument()
+  })
+
   it('shows a tier badge only when a tier is logged', async () => {
     const { unmount } = await renderWithProviders(
       <RankedRow entry={entry(1, 90, 35)} scale="ZERO_TO_TEN" {...base} />,

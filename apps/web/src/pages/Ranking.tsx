@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { RankedRow } from '@/features/ranking/RankedRow'
+import { RankingHeader } from '@/features/ranking/RankingHeader'
 import { useRankingPage } from '@/features/ranking/useRankingPage'
 
 /**
@@ -88,6 +89,9 @@ export function Ranking() {
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto">
+          {/* Sticky inside this scroll container, so the labels stay put while
+              the ranking scrolls under them. */}
+          {categories.length > 0 && <RankingHeader categories={categories} />}
           {/* `layout` is what makes a re-rated row slide to its new position
               rather than jumping there. Nothing on this page is virtualized, so
               both the row's old and new neighbours stay mounted and Framer can
