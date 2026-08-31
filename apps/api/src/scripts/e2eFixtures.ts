@@ -124,6 +124,17 @@ export const E2E_LEVELS = {
    */
   airborneRobots: { inGameId: '25', name: 'Airborne Robots' },
   payload: { inGameId: '26', name: 'Payload' },
+  /**
+   * The ranking spec's pair, and nothing else's. Each is logged with a rating
+   * of its own, so neither can be shared: a completed level reopens the
+   * wizard on the existing completion rather than a fresh one.
+   *
+   * Both are Normal difficulty, which the spec filters the ranking down to in
+   * order to read exact positions out of a population it fully controls. See
+   * the note beside them in apps/web/e2e/fixtures/levels.ts.
+   */
+  polargeist: { inGameId: '3', name: 'Polargeist' },
+  machina: { inGameId: '28', name: 'Machina' },
 } as const
 
 /** Every fixture level ID, in the order they are declared above. */

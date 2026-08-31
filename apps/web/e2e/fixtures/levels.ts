@@ -141,3 +141,25 @@ export const PAYLOAD: FixtureLevel = {
   name: 'Payload',
   creator: 'RobTop',
 }
+
+// The ranking spec's pair, and nothing else's. Both are logged with a rating
+// of their own, so they cannot be shared for the usual reason — a completed
+// level reopens the wizard on the existing completion rather than a fresh one.
+//
+// Both are **Normal**, and that is the load-bearing part: the spec filters the
+// ranking to that difficulty and then reads exact positions out of the
+// filtered view, which only holds while these two are the sole *completed*
+// Normal levels in the suite. Viking Arena is the only other Normal fixture
+// and listPresets.e2e.ts leaves it in progress, so it never reaches the
+// ranking at all. A new spec that completes a Normal level breaks this one.
+export const POLARGEIST: FixtureLevel = {
+  inGameId: '3',
+  name: 'Polargeist',
+  creator: 'RobTop',
+}
+
+export const MACHINA: FixtureLevel = {
+  inGameId: '28',
+  name: 'Machina',
+  creator: 'RobTop',
+}

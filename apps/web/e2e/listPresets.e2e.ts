@@ -1,6 +1,12 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './testBase'
-import { findLevel, levelCard, logRun, openQuickAction } from './flows'
+import {
+  coldReload,
+  findLevel,
+  levelCard,
+  logRun,
+  openQuickAction,
+} from './flows'
 import { POWER_TRIP, VIKING_ARENA } from './fixtures/levels'
 
 // Saved List views across the wire: POST / PATCH / DELETE
@@ -37,31 +43,6 @@ test.use({ viewport: { width: 390, height: 844 } })
 const VIEW_PRESET = 'E2E Unbeaten'
 const META_PRESET = 'E2E Scratch'
 const META_PRESET_RENAMED = 'E2E Scratch (renamed)'
-
-// lib/persister.ts's localStorage key, duplicated rather than imported for the
-// reason fixtures/levels.ts gives about the API's constants — and because it
-// is not exported. src/lib/tests/persister.spec.ts hardcodes it too.
-const QUERY_CACHE_KEY = 'infernolog:query-cache'
-
-/**
- * Reloads with the persisted react-query cache dropped, so the page that comes
- * back is the server's answer.
- *
- * A bare `page.reload()` is not a server read here. The query client persists
- * to localStorage (main.tsx's PersistQueryClientProvider) with a two-minute
- * `staleTime`, and every preset mutation writes the result straight into the
- * cache with `setQueryData` rather than invalidating — so a spec that saves a
- * preset and reloads inside the same minute is re-reading what it just wrote,
- * and would pass against a server that persisted nothing at all. Clearing the
- * one key forces the GET.
- *
- * Amplify's session lives under its own `CognitoIdentityServiceProvider.*`
- * keys, so this does not sign the page out.
- */
-async function coldReload(page: Page) {
-  await page.evaluate((key) => localStorage.removeItem(key), QUERY_CACHE_KEY)
-  await page.reload()
-}
 
 /**
  * Toggles Progress-status filter chips, then closes the filter panel.
