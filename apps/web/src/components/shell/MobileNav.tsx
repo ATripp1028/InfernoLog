@@ -27,9 +27,9 @@ export function MobileNav() {
 
   const orderedActions = sheetActionOrder(primary, secondaryActions)
 
-  const [listKey, demonListKey, searchKey] = MOBILE_BAR_KEYS
-  const list = navItemByKey(listKey)
-  const demonList = navItemByKey(demonListKey)
+  const [logKey, rankingKey, searchKey] = MOBILE_BAR_KEYS
+  const log = navItemByKey(logKey)
+  const ranking = navItemByKey(rankingKey)
   const search = navItemByKey(searchKey)
   const overflow = MOBILE_OVERFLOW_KEYS.map(navItemByKey)
 
@@ -83,8 +83,8 @@ export function MobileNav() {
         aria-label="Primary mobile"
         className="fixed inset-x-0 bottom-0 z-40 flex h-[72px] items-center justify-around border-t border-border-subtle bg-bg-surface px-2"
       >
-        <BarTab item={list} active={isActive(list)} />
-        <BarTab item={demonList} active={isActive(demonList)} />
+        <BarTab item={log} active={isActive(log)} />
+        <BarTab item={ranking} active={isActive(ranking)} />
         <FabSlot
           active={fabMenuOpen}
           label={primary.label}
@@ -117,9 +117,7 @@ function BarTab({ item, active = false }: { item: NavItem; active?: boolean }) {
   const content = (
     <>
       <Icon size={22} />
-      <span className="text-[11px] font-medium">
-        {item.shortLabel ?? item.label}
-      </span>
+      <span className="text-[11px] font-medium">{item.label}</span>
     </>
   )
   const className = `flex w-16 flex-col items-center justify-center gap-1 ${colorClass}`

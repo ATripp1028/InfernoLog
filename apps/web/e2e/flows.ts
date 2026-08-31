@@ -8,6 +8,31 @@
 import { expect, type Locator, type Page } from '@playwright/test'
 import type { FixtureLevel } from './fixtures/levels'
 
+// lib/persister.ts's localStorage key, duplicated rather than imported for the
+// reason fixtures/levels.ts gives about the API's constants — and because it
+// is not exported. src/lib/tests/persister.spec.ts hardcodes it too.
+const QUERY_CACHE_KEY = 'infernolog:query-cache'
+
+/**
+ * Reloads with the persisted react-query cache dropped, so the page that comes
+ * back is the server's answer.
+ *
+ * A bare `page.reload()` is not a server read here. The query client persists
+ * to localStorage (main.tsx's PersistQueryClientProvider) with a two-minute
+ * `staleTime`, and a mutation that writes its result straight into the cache
+ * with `setQueryData` rather than invalidating never went to the server at all
+ * — so a spec that writes and reloads inside the same minute is re-reading
+ * what it just wrote, and would pass against a server that persisted nothing.
+ * Clearing the one key forces the GET.
+ *
+ * Amplify's session lives under its own `CognitoIdentityServiceProvider.*`
+ * keys, so this does not sign the page out.
+ */
+export async function coldReload(page: Page) {
+  await page.evaluate((key) => localStorage.removeItem(key), QUERY_CACHE_KEY)
+  await page.reload()
+}
+
 /**
  * Opens one of the FAB's quick actions from the mobile bottom sheet.
  *
@@ -120,17 +145,35 @@ export async function findLevel(page: Page, level: FixtureLevel) {
  * reset script clears it.
  *
  * Leaves the success card open: the caller picks "Place now" or "Place later".
+ *
+ * @param rating - The rating to give the level, in **display** units — 0–10 on
+ * the scale the reset leaves the user with — and SIMPLE mode only, which is
+ * the mode it leaves them in. Omitted, the step is walked past and takes its
+ * own default of the middle of the scale, which is what every completion in
+ * this suite carries except the ones ranking.e2e.ts logs.
  */
 export async function logCompletion(
   page: Page,
   level: FixtureLevel,
-  attempts: string
+  attempts: string,
+  rating?: string
 ) {
   await openQuickAction(page, 'Log a completion')
   await findLevel(page, level)
 
   await page.getByLabel('Attempts').fill(attempts)
   await page.getByRole('button', { name: 'Continue' }).click() // basics → rating
+
+  if (rating != null) {
+    // The stepper is a free-form text field that parses and commits on blur,
+    // not per keystroke (components/generic/stepper-input.tsx), so a fill
+    // alone leaves the draft holding the default. Enter blurs it; letting the
+    // Continue click do the blurring would race its own step change.
+    const field = page.getByLabel('Rating Score')
+    await field.fill(rating)
+    await field.press('Enter')
+  }
+
   await page.getByRole('button', { name: 'Continue' }).click() // rating → session
   await page.getByRole('button', { name: 'Continue' }).click() // session → refs
   await page.getByRole('button', { name: 'Continue' }).click() // refs → review

@@ -1,5 +1,6 @@
 import {
   LayoutList,
+  Star,
   Library,
   Trophy,
   ScrollText,
@@ -19,11 +20,6 @@ type NavStatus = 'enabled' | 'disabled'
 export interface NavItem {
   key: string
   label: string
-  // Shown by the mobile tab bar instead of `label` when set. The bar gives each
-  // tab 64px at 11px type, which a two-word label overflows into a second line
-  // and out of the bar's fixed height. The rail and the More sheet always use
-  // `label` — they have the room.
-  shortLabel?: string
   icon: LucideIcon
   to?: string
   status: NavStatus
@@ -53,9 +49,15 @@ export const NAV_ITEMS: NavItem[] = [
     status: 'enabled',
   },
   {
+    key: 'ranking',
+    label: 'Ranking',
+    icon: Star,
+    to: '/ranking',
+    status: 'enabled',
+  },
+  {
     key: 'demon-list',
     label: 'Demon List',
-    shortLabel: 'Demons',
     icon: Trophy,
     to: '/demon-list',
     status: 'enabled',
@@ -91,12 +93,13 @@ export const NAV_ITEMS: NavItem[] = [
  * More button; everything else must appear in {@link MOBILE_OVERFLOW_KEYS} or
  * it is unreachable on mobile.
  */
-export const MOBILE_BAR_KEYS = ['log', 'demon-list', 'search'] as const
+export const MOBILE_BAR_KEYS = ['log', 'ranking', 'search'] as const
 
 /**
  * The {@link NAV_ITEMS} keys that move behind the mobile "More" sheet instead of getting their own tab.
  */
 export const MOBILE_OVERFLOW_KEYS = [
+  'demon-list',
   'collections',
   'events',
   'time',

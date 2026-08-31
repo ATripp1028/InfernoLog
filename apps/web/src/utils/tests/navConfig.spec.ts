@@ -143,9 +143,17 @@ describe('isBarItemActive', () => {
   it('lights at most one bar tab at a time', () => {
     const tabs = MOBILE_BAR_KEYS.map(item)
 
-    for (const path of ['/log', '/demon-list', '/search', '/levels/128']) {
+    for (const path of ['/log', '/ranking', '/search', '/levels/128']) {
       expect(tabs.filter((t) => isBarItemActive(t, path))).toHaveLength(1)
     }
+  })
+
+  // The demon list lives in the More sheet, not the bar, so its own page
+  // lights no tab — the sheet is where the user finds it again.
+  it('lights no bar tab on an overflow destination', () => {
+    const tabs = MOBILE_BAR_KEYS.map(item)
+
+    expect(tabs.some((t) => isBarItemActive(t, '/demon-list'))).toBe(false)
   })
 
   it('lights nothing on a page outside the nav', () => {

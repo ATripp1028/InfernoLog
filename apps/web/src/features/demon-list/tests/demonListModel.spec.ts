@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { filterPlaced, filterUnplaced, reorderDisabled } from '../filtering'
-import { medalColor } from '../medals'
+import { medalColor } from '@/lib/medals'
 import { neighboursAround } from '../neighbours'
 import { preScrollIndex } from '../placement'
 import { level, placed, ranked, unplaced } from './fixtures'

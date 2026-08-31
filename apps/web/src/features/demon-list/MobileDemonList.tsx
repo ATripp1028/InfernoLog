@@ -10,7 +10,7 @@ import { formatNumber } from '@/lib/numberFormat'
 import { backOriginState } from '@/lib/backOrigin'
 import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
-import { medalColor } from './medals'
+import { medalColor } from '@/lib/medals'
 import { useMobileDemonList } from './useMobileDemonList'
 import type { DemonListItem } from './types'
 
