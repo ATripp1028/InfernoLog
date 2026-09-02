@@ -27,6 +27,10 @@ export function CompletionRatingStep() {
           patchDraft({ ratingScores: me.data.ratingCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 50 }), {}) })
         }
         break
+      case 'MANUAL':
+        // Nothing to seed: there is no number in manual mode. The completion is
+        // rated by being placed in the ranking, which happens afterwards.
+        break
       default:
         console.error(`Unknown rating mode: ${me.data.ratingMode}`)
     }
@@ -38,6 +42,7 @@ export function CompletionRatingStep() {
 
   const scale = me.data.ratingDisplayScale
   const weighted = me.data.ratingMode === 'WEIGHTED'
+  const manual = me.data.ratingMode === 'MANUAL'
   const categories = me.data.ratingCategories
 
   const weightedAvg = weighted
@@ -61,7 +66,9 @@ export function CompletionRatingStep() {
 
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <SectionLabel>Rating{weighted ? ' · weighted' : ''}</SectionLabel>
+            <SectionLabel>
+              Rating{weighted ? ' · weighted' : manual ? ' · manual' : ''}
+            </SectionLabel>
             {weightedAvg != null && (
               <span className="text-sm text-text-secondary">
                 weighted avg:{' '}
@@ -72,7 +79,16 @@ export function CompletionRatingStep() {
             )}
           </div>
 
-          {weighted ? (
+          {/* Manual mode has no score to type — the rating IS the position, and
+              it is chosen on the Ranking page rather than here. Saying so beats
+              showing a control whose value would be thrown away on save. */}
+          {manual ? (
+            <p className="text-sm text-text-tertiary">
+              You rate by arranging your ranking, so there is no score to enter
+              here. This completion will be waiting to be placed on the Ranking
+              page once it is logged.
+            </p>
+          ) : weighted ? (
             categories.length === 0 ? (
               <p className="text-sm text-text-tertiary">
                 No rating categories configured. Add some in Settings to rate by
