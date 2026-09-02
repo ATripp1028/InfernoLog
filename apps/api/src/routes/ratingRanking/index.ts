@@ -1,13 +1,20 @@
 // The MANUAL rating mode's ordering — the user's own arrangement of their
 // completions by quality, where the position IS the rating.
 //
-//   GET    /v1/me/ranking          — ranked + unranked columns
+//   GET    /v1/me/ranking          — ranked + unranked columns, ANY mode
 //   POST   /v1/me/ranking          — place an unranked entry
 //   PATCH  /v1/me/ranking/:levelProgressId   — reorder a ranked entry
 //   DELETE /v1/me/ranking/:levelProgressId   — remove (back to the panel)
 //
-// Ordering uses a fractional index (RatingRanking.ratingIndex): higher =
-// better, so the displayed list is ratingIndex DESC with #1 = best rated. See
+// The READ serves all three rating modes: SIMPLE and WEIGHTED derive the order
+// from the ratings (the same comparator the clients and `rating_rank` use),
+// MANUAL returns the order the user arranged. The WRITES are MANUAL-only and
+// answer 409 otherwise — there is no stored order to rearrange when it is
+// derived. The response says which mode produced it and whether it is editable,
+// so a consumer need not guess.
+//
+// MANUAL ordering uses a fractional index (RatingRanking.ratingIndex): higher =
+// better, so the list comes back ratingIndex DESC with #1 = best rated. See
 // services/ratingRanking and utils/fractionalIndex.
 //
 // One onError for the module maps the service's error classes to statuses, so
@@ -28,6 +35,7 @@ import {
   removeRating,
   reorderRating,
   RatingRankingError,
+  RatingRankingModeError,
   RatingRankingNotFoundError,
 } from '../../services/ratingRanking'
 import { parseJsonBody } from '../../utils/requestBody'
@@ -39,6 +47,10 @@ app.onError(
     // The targeted completion / ranking row doesn't exist for this user.
     if (error instanceof RatingRankingNotFoundError) {
       return c.json({ error: error.message }, 404)
+    }
+    // The read serves every mode; the writes only make sense in MANUAL.
+    if (error instanceof RatingRankingModeError) {
+      return c.json({ error: error.message }, 409)
     }
     // Caller-fixable rule violation (already ranked, bad neighbours, etc.).
     if (error instanceof RatingRankingError) {

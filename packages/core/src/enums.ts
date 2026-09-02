@@ -13,6 +13,9 @@ export enum AccountStatus {
 export enum RatingMode {
   SIMPLE = 'SIMPLE',
   WEIGHTED = 'WEIGHTED',
+  // The user orders their completions by hand and the POSITION is the rating.
+  // computeOverallRating returns null; the order lives in rating_ranking.
+  MANUAL = 'MANUAL',
 }
 
 export enum RatingDisplayScale {

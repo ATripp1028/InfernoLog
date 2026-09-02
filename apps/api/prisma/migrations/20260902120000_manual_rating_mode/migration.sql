@@ -19,6 +19,10 @@
 ALTER TYPE "ActivityEventType" ADD VALUE 'RATING_PLACEMENT';
 ALTER TYPE "ActivityEventType" ADD VALUE 'RATING_REORDER';
 ALTER TYPE "ActivityEventType" ADD VALUE 'RATING_REMOVED';
+-- Symmetry with DEMON_LIST_BULK_REPLACE: the spreadsheet import will replace a
+-- MANUAL user's whole order in one write. Added now rather than in the import
+-- slice because a second migration to append one enum value is pure churn.
+ALTER TYPE "ActivityEventType" ADD VALUE 'RATING_BULK_REPLACE';
 ALTER TYPE "ActivityEventType" ADD VALUE 'RATING_REBALANCE';
 
 ALTER TYPE "RatingMode" ADD VALUE 'MANUAL';

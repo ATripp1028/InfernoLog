@@ -267,6 +267,7 @@ export async function recordRankingMove(
 export type RankingListWideEventType =
   | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
   | typeof ActivityEventType.DEMON_LIST_REBALANCE
+  | typeof ActivityEventType.RATING_BULK_REPLACE
   | typeof ActivityEventType.RATING_REBALANCE
 
 // One event covering a wholesale rewrite of the index space, with an impact row

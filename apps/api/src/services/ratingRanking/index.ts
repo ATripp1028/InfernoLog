@@ -32,7 +32,15 @@ import {
   completionAttempts,
   mapLevel,
 } from '../levels/row'
-import type { PlaceRatingInput, ReorderRatingInput } from '@infernolog/core'
+import {
+  computeOverallRating,
+  rankByRatingOrder,
+  type OverallRatingConfig,
+  type PlaceRatingInput,
+  type RatingOrderItem,
+  type ReorderRatingInput,
+} from '@infernolog/core'
+import { toNum } from '../../utils/decimal'
 
 type Tx = Prisma.TransactionClient
 
@@ -44,11 +52,46 @@ export class RatingRankingError extends Error {
   }
 }
 
+/**
+ * 409 — the write makes no sense in the user's current rating mode.
+ *
+ * SIMPLE and WEIGHTED DERIVE the ranking from the ratings, so there is no order
+ * to rearrange by hand; only MANUAL stores one. The read endpoint serves all
+ * three modes, which is why this distinction has to be reported rather than
+ * assumed.
+ */
+export class RatingRankingModeError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'RatingRankingModeError'
+  }
+}
+
 /** 404 — the targeted entry doesn't exist for this user. */
 export class RatingRankingNotFoundError extends Error {
   constructor(message: string) {
     super(message)
     this.name = 'RatingRankingNotFoundError'
+  }
+}
+
+/**
+ * Refuses a hand-arranged write from a user whose ranking is derived.
+ *
+ * Checked inside each write's own transaction rather than at the route, so a
+ * mode change racing a drag cannot slip a manual index into a derived-mode
+ * account — which would then be invisible until they switched to MANUAL and
+ * found an order they never made.
+ */
+async function assertManualMode(tx: Tx, userId: string): Promise<void> {
+  const user = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { ratingMode: true },
+  })
+  if (user.ratingMode !== 'MANUAL') {
+    throw new RatingRankingModeError(
+      'Your ranking is derived from your ratings. Switch to manual rating mode to arrange it by hand.'
+    )
   }
 }
 
@@ -129,12 +172,125 @@ async function computeIndex(
 }
 
 /**
- * The MANUAL ranking: the user's ranked completions best first, plus the
- * completions still waiting to be placed.
+ * The user's ranking, in whichever mode they are in.
+ *
+ * **This read serves all three rating modes**, which is the whole point of the
+ * endpoint carrying the name. SIMPLE and WEIGHTED derive the order from the
+ * ratings, using the same comparator the clients and the event log's
+ * `rating_rank` use (packages/core `ratingOrderComparator`) so a position means
+ * one thing everywhere. MANUAL reads the order the user arranged by hand.
+ *
+ * A ranking endpoint that only answered for one of three modes would be a trap
+ * for anyone consuming the public API: they would get an empty list for two
+ * thirds of users and no indication why.
  *
  * @param userId - Internal user UUID from the JWT.
  */
 export async function getRatingRanking(userId: string) {
+  const user = await prisma.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: {
+      ratingMode: true,
+      includeEnjoyment: true,
+      enjoymentWeight: true,
+      ratingCategories: {
+        select: { id: true, weight: true, sortOrder: true },
+      },
+    },
+  })
+
+  return user.ratingMode === 'MANUAL'
+    ? readManualRanking(userId)
+    : readDerivedRanking(userId, user)
+}
+
+/** SIMPLE and WEIGHTED: the order falls out of the ratings themselves. */
+async function readDerivedRanking(
+  userId: string,
+  user: {
+    ratingMode: 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
+    includeEnjoyment: boolean
+    enjoymentWeight: Prisma.Decimal | number
+    ratingCategories: { id: string; weight: Prisma.Decimal | number; sortOrder: number }[]
+  }
+) {
+  const rows = await prisma.levelProgress.findMany({
+    where: { userId, status: 'COMPLETED', level: { levelType: 'CLASSIC' } },
+    select: {
+      id: true,
+      levelId: true,
+      simpleRating: true,
+      ratingScores: { select: { categoryId: true, score: true } },
+      level: { select: levelSummarySelect },
+      // Wider than the shared `completionSelect`: the order breaks ties on
+      // enjoyment and date, so those have to come back too. Every row here is
+      // COMPLETED, so the completion IS the representative update the
+      // comparator expects.
+      progressUpdates: {
+        where: { kind: 'COMPLETION' as const },
+        take: 1,
+        select: { attempts: true, enjoyment: true, date: true },
+      },
+    },
+  })
+
+  const config: OverallRatingConfig = {
+    ratingMode: user.ratingMode,
+    includeEnjoyment: user.includeEnjoyment,
+    enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
+    categoryWeights: new Map(
+      user.ratingCategories.map((c) => [c.id, toNum(c.weight) ?? 0])
+    ),
+  }
+
+  type Row = (typeof rows)[number]
+  const items: (RatingOrderItem & { row: Row })[] = rows.map((row) => {
+    const update = row.progressUpdates[0] ?? null
+    return {
+      levelId: row.levelId,
+      overallRating: computeOverallRating(config, {
+        simpleRating: row.simpleRating,
+        enjoyment: update?.enjoyment ?? null,
+        ratingScores: row.ratingScores,
+      }),
+      enjoyment: update?.enjoyment ?? null,
+      dateMs: update?.date?.getTime() ?? null,
+      ratingScores: row.ratingScores,
+      row,
+    }
+  })
+
+  const categories =
+    user.ratingMode === 'WEIGHTED' ? user.ratingCategories : []
+  const ordered = rankByRatingOrder(items, categories)
+
+  const ranked = []
+  const unranked = []
+  for (const { item, rank } of ordered) {
+    // An unrated completion holds no position — the same rule MANUAL applies to
+    // one the user has not placed.
+    if (rank === null) {
+      unranked.push({
+        levelProgressId: item.row.id,
+        level: mapLevel(item.row.level),
+        attempts: completionAttempts(item.row.progressUpdates),
+      })
+      continue
+    }
+    ranked.push({
+      rank,
+      levelProgressId: item.row.id,
+      overallRating: item.overallRating,
+      level: mapLevel(item.row.level),
+      attempts: completionAttempts(item.row.progressUpdates),
+    })
+  }
+
+  return { ratingMode: user.ratingMode, editable: false, ranked, unranked }
+}
+
+/** MANUAL: the order the user arranged by hand. */
+async function readManualRanking(userId: string) {
   const [rankedRows, unrankedRows] = await Promise.all([
     prisma.ratingRanking.findMany({
       where: { userId },
@@ -167,10 +323,13 @@ export async function getRatingRanking(userId: string) {
   ])
 
   return {
+    ratingMode: 'MANUAL' as const,
+    editable: true,
     ranked: rankedRows.map((row, i) => ({
       rank: i + 1,
       levelProgressId: row.levelProgress.id,
-      ratingIndex: row.ratingIndex.toNumber(),
+      // MANUAL has no number: the position above IS the rating.
+      overallRating: null,
       level: mapLevel(row.levelProgress.level),
       attempts: completionAttempts(row.levelProgress.progressUpdates),
     })),
@@ -187,6 +346,7 @@ export async function getRatingRanking(userId: string) {
  */
 export async function placeRating(userId: string, input: PlaceRatingInput) {
   await prisma.$transaction(async (tx) => {
+    await assertManualMode(tx, userId)
     const lp = await tx.levelProgress.findFirst({
       where: { id: input.levelProgressId, userId },
       select: {
@@ -240,6 +400,7 @@ export async function reorderRating(
     throw new RatingRankingError('An entry cannot be its own neighbour')
   }
   await prisma.$transaction(async (tx) => {
+    await assertManualMode(tx, userId)
     const existing = await tx.ratingRanking.findFirst({
       where: { userId, levelProgressId },
       select: { id: true },
@@ -276,6 +437,7 @@ export async function reorderRating(
  */
 export async function removeRating(userId: string, levelProgressId: string) {
   await prisma.$transaction(async (tx) => {
+    await assertManualMode(tx, userId)
     const existing = await tx.ratingRanking.findFirst({
       where: { userId, levelProgressId },
       select: { id: true },

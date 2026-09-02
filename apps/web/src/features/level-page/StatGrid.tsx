@@ -4,6 +4,7 @@ import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
 import type { RatingCategory } from '@/lib/api/me'
 import type {
+  RatingMode,
   DateFormatPreference,
   RatingDisplayScale,
 } from '@/lib/api/wireEnums'
@@ -36,7 +37,11 @@ interface StatGridProps {
   data: LevelPageData
   datePref: DateFormatPreference
   scale: RatingDisplayScale
-  ratingMode: 'SIMPLE' | 'WEIGHTED'
+  // Widened for MANUAL, where computeOverallRating returns null and the RATING
+  // cell falls back to its own blank. Showing the level's manual POSITION here
+  // instead is a display concern, and belongs with the rest of the MANUAL
+  // display work rather than with the schema.
+  ratingMode: RatingMode
   includeEnjoyment: boolean
   enjoymentWeight: number
   ratingCategories: RatingCategory[]

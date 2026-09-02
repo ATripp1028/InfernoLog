@@ -943,10 +943,12 @@ export const PlaceRatingInputSchema = z.object({
 export const ReorderRatingInputSchema = z.object(ratingNeighbours)
 
 export const RatingRankingEntrySchema = z.object({
-  // 1-based position, ratingIndex DESC, so #1 is the best rated.
+  // 1-based position, best first.
   rank: z.number().int(),
   levelProgressId: z.string().uuid(),
-  ratingIndex: z.number(),
+  // The computed rating in SIMPLE/WEIGHTED. Null in MANUAL, where the position
+  // IS the rating and no number exists — see RATING_SYSTEM.md.
+  overallRating: z.number().nullable(),
   level: LevelListSummarySchema,
   attempts: z.number().int().nullable(),
 })
@@ -958,7 +960,21 @@ export const UnrankedRatingEntrySchema = z.object({
 })
 
 export const RatingRankingResponseSchema = z.object({
+  // Which mode produced this order, so a consumer knows what it is looking at
+  // without a second call.
+  ratingMode: z.nativeEnum(RatingMode),
+  /**
+   * Whether the order can be rearranged by hand — MANUAL only. In SIMPLE and
+   * WEIGHTED the order is DERIVED from the ratings, so the write endpoints
+   * refuse; this is what tells a client that up front rather than by 409.
+   */
+  editable: z.boolean(),
   ranked: z.array(RatingRankingEntrySchema),
+  /**
+   * Completions that hold no position: unrated ones in SIMPLE/WEIGHTED, ones
+   * not yet placed in MANUAL. The same idea either way — a completion the
+   * ranking has nothing to say about yet.
+   */
   unranked: z.array(UnrankedRatingEntrySchema),
 })
 

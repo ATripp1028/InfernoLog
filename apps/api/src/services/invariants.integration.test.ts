@@ -189,7 +189,7 @@ async function expectRatingRankingFullyLogged() {
           -- event, which is exactly why these are listed rather than matched.
           AND e."eventType" IN (
             'RATING_PLACEMENT', 'RATING_REORDER', 'RATING_REMOVED',
-            'RATING_REBALANCE'
+            'RATING_BULK_REPLACE', 'RATING_REBALANCE'
           )
         ORDER BY e."sequence" DESC
         LIMIT 1
@@ -597,7 +597,13 @@ describe('INVARIANT: every classic_demon_list write is logged', () => {
 // because the whole point of the sweep is that a path which forgets to emit an
 // event turns this file red rather than silently losing a level's history.
 describe('INVARIANT: every rating_ranking write is logged', () => {
+  // The write endpoints are MANUAL-only — the order is derived in the other
+  // modes, so there is nothing to arrange. seedWorld's user defaults to SIMPLE.
   async function rankedEntry(userId: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { ratingMode: 'MANUAL' },
+    })
     await logCompletion(userId, { attempts: 100 })
     const lp = await prisma.levelProgress.findFirstOrThrow({
       where: { userId, levelId: LEVEL_ID },
