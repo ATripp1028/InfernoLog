@@ -13,7 +13,7 @@
 //     events only"). They are reconstructed here.
 //
 // The reconstruction walks the user's demon list events in (createdAt, sequence)
-// order, maintaining a map of levelId → current listIndex and applying every
+// order, maintaining a map of levelId → current orderIndex and applying every
 // impact row. After each event the level's position is 1 + the count of indices
 // ordered above it.
 //
@@ -61,7 +61,7 @@ type RankingEventType = (typeof RANKING_EVENT_TYPES)[number]
 
 // An impact row plus the fractional index the wire shape has no use for but the
 // walk is built on.
-type WalkImpact = ActivityLevelImpact & { listIndex: Prisma.Decimal }
+type WalkImpact = ActivityLevelImpact & { orderIndex: Prisma.Decimal }
 
 interface WalkEvent {
   id: string
@@ -107,7 +107,7 @@ function applyImpacts(indices: IndexMap, impacts: WalkImpact[]): void {
     // through levelName, but there is no key to file it under.
     if (impact.levelId === null) continue
     if (impact.positionAfter === null) indices.delete(impact.levelId)
-    else indices.set(impact.levelId, impact.listIndex)
+    else indices.set(impact.levelId, impact.orderIndex)
   }
 }
 
@@ -166,7 +166,7 @@ async function readWalkEvents(userId: string): Promise<WalkEvent[]> {
           levelId: true,
           levelName: true,
           role: true,
-          listIndex: true,
+          orderIndex: true,
           positionBefore: true,
           positionAfter: true,
           milestoneCrossed: true,

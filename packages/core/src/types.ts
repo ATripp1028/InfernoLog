@@ -34,6 +34,11 @@ import {
   ClassicDemonListResponseSchema,
   PlaceOnDemonListInputSchema,
   ReorderDemonListInputSchema,
+  PlaceRatingInputSchema,
+  ReorderRatingInputSchema,
+  RatingRankingEntrySchema,
+  UnrankedRatingEntrySchema,
+  RatingRankingResponseSchema,
   LogPresetInputSchema,
   LogPresetUpdateSchema,
   LogPresetSchema,
@@ -107,6 +112,11 @@ export type ClassicDemonListResponse = z.infer<
 >
 export type PlaceOnDemonListInput = z.infer<typeof PlaceOnDemonListInputSchema>
 export type ReorderDemonListInput = z.infer<typeof ReorderDemonListInputSchema>
+export type PlaceRatingInput = z.infer<typeof PlaceRatingInputSchema>
+export type ReorderRatingInput = z.infer<typeof ReorderRatingInputSchema>
+export type RatingRankingEntry = z.infer<typeof RatingRankingEntrySchema>
+export type UnrankedRatingEntry = z.infer<typeof UnrankedRatingEntrySchema>
+export type RatingRankingResponse = z.infer<typeof RatingRankingResponseSchema>
 
 export type LogPresetInput = z.infer<typeof LogPresetInputSchema>
 export type LogPresetUpdate = z.infer<typeof LogPresetUpdateSchema>

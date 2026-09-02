@@ -134,10 +134,52 @@ export async function readRatingStandings(
   const tiebreakCategories: RatingOrderCategory[] =
     user.ratingMode === 'WEIGHTED' ? user.ratingCategories : []
 
+  // MANUAL mode has no numbers to rank by — computeOverallRating returns null
+  // for every level — so the standing comes from the order the user arranged by
+  // hand. Without this branch every rank would be null and `rating_rank` would
+  // silently stop recording anything for these users.
+  if (user.ratingMode === 'MANUAL') {
+    return readManualStandings(tx, userId, order)
+  }
+
   const standings: RatingStandings = new Map()
   for (const { item, rank } of rankByRatingOrder(order, tiebreakCategories)) {
     standings.set(item.levelId, { overallRating: item.overallRating, rank })
   }
+  return standings
+}
+
+/**
+ * Standings for a MANUAL-mode user: position from `rating_ranking`, rating
+ * always null.
+ *
+ * A level the user has not placed yet holds no position, exactly as an unrated
+ * level does in the other modes — so the two shapes stay interchangeable to
+ * every caller.
+ */
+async function readManualStandings(
+  tx: Tx,
+  userId: string,
+  order: RatingOrderItem[]
+): Promise<RatingStandings> {
+  const ranked = await tx.ratingRanking.findMany({
+    where: { userId },
+    orderBy: { ratingIndex: 'desc' },
+    select: { levelProgress: { select: { levelId: true } } },
+  })
+
+  const standings: RatingStandings = new Map()
+  // Every level the user has an entry for, so unplaced ones are present with a
+  // null rank rather than missing.
+  for (const item of order) {
+    standings.set(item.levelId, { overallRating: null, rank: null })
+  }
+  ranked.forEach((row, index) => {
+    standings.set(row.levelProgress.levelId, {
+      overallRating: null,
+      rank: index + 1,
+    })
+  })
   return standings
 }
 

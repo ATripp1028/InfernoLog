@@ -924,6 +924,45 @@ export const PlaceOnDemonListInputSchema = z.object({
 export const ReorderDemonListInputSchema = z.object(demonListNeighbours)
 
 // ─────────────────────────────────────────────
+// RATING RANKING — the MANUAL rating mode's ordering, where the user's chosen
+// POSITION is the rating and no number exists. Same neighbour-pair shape as the
+// demon list: omit aboveId to drop at the very top (best), belowId for the very
+// bottom (worst), or both for the first entry in an empty ranking.
+// ─────────────────────────────────────────────
+
+const ratingNeighbours = {
+  aboveId: z.string().uuid().optional(),
+  belowId: z.string().uuid().optional(),
+}
+
+export const PlaceRatingInputSchema = z.object({
+  levelProgressId: z.string().uuid(),
+  ...ratingNeighbours,
+})
+
+export const ReorderRatingInputSchema = z.object(ratingNeighbours)
+
+export const RatingRankingEntrySchema = z.object({
+  // 1-based position, ratingIndex DESC, so #1 is the best rated.
+  rank: z.number().int(),
+  levelProgressId: z.string().uuid(),
+  ratingIndex: z.number(),
+  level: LevelListSummarySchema,
+  attempts: z.number().int().nullable(),
+})
+
+export const UnrankedRatingEntrySchema = z.object({
+  levelProgressId: z.string().uuid(),
+  level: LevelListSummarySchema,
+  attempts: z.number().int().nullable(),
+})
+
+export const RatingRankingResponseSchema = z.object({
+  ranked: z.array(RatingRankingEntrySchema),
+  unranked: z.array(UnrankedRatingEntrySchema),
+})
+
+// ─────────────────────────────────────────────
 // COLLECTIONS — user-owned groupings of levels: the three built-ins
 // (Want to Beat / Favorites / Least Favorites) plus custom named collections.
 // Entry order is a fractional index (same pattern as the classic ranking);
