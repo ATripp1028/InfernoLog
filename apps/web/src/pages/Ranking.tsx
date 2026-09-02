@@ -18,6 +18,7 @@ import { useRankingPage } from '@/features/ranking/useRankingPage'
  */
 export function Ranking() {
   const {
+    isManual,
     isPending,
     isError,
     scale,
@@ -156,6 +157,7 @@ export function Ranking() {
                 <RankedRow
                   entry={entry}
                   lastRank={lastRank}
+                  showRating={!isManual}
                   scale={scale}
                   config={config}
                   categories={categories}

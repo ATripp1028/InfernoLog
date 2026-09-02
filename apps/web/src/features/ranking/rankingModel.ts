@@ -286,3 +286,40 @@ export type RankNumbering = 'overall' | 'filtered'
 export function renumberInView(entries: readonly RankedEntry[]): RankedEntry[] {
   return entries.map((entry, index) => ({ ...entry, rank: index + 1 }))
 }
+
+/**
+ * Builds the ranked list for MANUAL mode, where the order is stored rather than
+ * derived.
+ *
+ * The server supplies only the ORDER — a sequence of levelProgressIds — and the
+ * rows themselves come from the progress list the page already has cached. That
+ * keeps `/v1/me/ranking` lean for API consumers and means a row renders from
+ * exactly the same data in every mode, so nothing about it can differ.
+ *
+ * Completions the user has not placed are counted as unranked, exactly as
+ * unrated ones are in the derived modes — from the caller's point of view the
+ * two modes report the same shape.
+ */
+export function buildManualRanking(
+  items: readonly LevelProgressListItem[],
+  orderedLevelProgressIds: readonly string[]
+): RankingModel {
+  const byId = new Map(items.map((item) => [item.levelProgressId, item]))
+  const entries: RankedEntry[] = []
+
+  for (const levelProgressId of orderedLevelProgressIds) {
+    const item = byId.get(levelProgressId)
+    // A placed level the progress list has not got is a cache skew, not a
+    // ranking error: skip it rather than rendering a hole, and let the next
+    // refetch reconcile.
+    if (!item) continue
+    entries.push({ rank: entries.length + 1, item })
+  }
+
+  const placed = new Set(orderedLevelProgressIds)
+  const unrankedCount = items.filter(
+    (item) => item.status === 'COMPLETED' && !placed.has(item.levelProgressId)
+  ).length
+
+  return { entries, unrankedCount }
+}

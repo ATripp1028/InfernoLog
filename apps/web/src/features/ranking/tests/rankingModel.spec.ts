@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LevelProgressStatus } from '@infernolog/core'
 import {
+  buildManualRanking,
   buildRanking,
   filterByDifficulty,
   filterByRatedStatus,
@@ -322,5 +323,49 @@ describe('renumberInView', () => {
     expect(renumberInView(view)[0]?.item).toBe(entries[1]!.item)
     // …and does not mutate the originals.
     expect(entries[1]!.rank).toBe(2)
+  })
+})
+
+describe('buildManualRanking', () => {
+  const completion = (id: string) =>
+    makeListItem({
+      levelProgressId: `lp-${id}`,
+      level: makeLevel({ inGameId: id }),
+      // MANUAL has no numbers at all; the order carries the meaning.
+      overallRating: null,
+    })
+
+  const items = [completion('a'), completion('b'), completion('c')]
+
+  it('takes its order from the server, not from any rating', () => {
+    const { entries } = buildManualRanking(items, ['lp-c', 'lp-a', 'lp-b'])
+
+    expect(entries.map((e) => e.item.level.inGameId)).toEqual(['c', 'a', 'b'])
+    expect(entries.map((e) => e.rank)).toEqual([1, 2, 3])
+  })
+
+  it('counts completions the user has not placed as unranked', () => {
+    const model = buildManualRanking(items, ['lp-a'])
+
+    expect(model.entries).toHaveLength(1)
+    expect(model.unrankedCount).toBe(2)
+  })
+
+  // A placed level the progress list has not caught up with is cache skew, not
+  // a ranking error — better a short list than a hole in it.
+  it('skips a placed level the progress list does not have', () => {
+    const { entries } = buildManualRanking(items, ['lp-a', 'lp-missing'])
+
+    expect(entries.map((e) => e.item.level.inGameId)).toEqual(['a'])
+    expect(entries.map((e) => e.rank)).toEqual([1])
+  })
+
+  it('ignores non-completions when counting unranked', () => {
+    const inProgress = makeListItem({
+      levelProgressId: 'lp-wip',
+      status: LevelProgressStatus.IN_PROGRESS,
+    })
+
+    expect(buildManualRanking([...items, inProgress], []).unrankedCount).toBe(3)
   })
 })

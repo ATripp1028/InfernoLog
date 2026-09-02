@@ -15,6 +15,7 @@ const SIMPLE: OverallRatingConfig = {
 const base = {
   // Far enough down that a rank-1 row under test is not also the last one.
   lastRank: 10,
+  showRating: true,
   config: SIMPLE,
   categories: [],
   editing: false,
@@ -117,6 +118,24 @@ describe('RankedRow', () => {
     )
 
     expect(screen.getByText('10')).toHaveStyle({ color: '#ffd43b' })
+  })
+
+  // MANUAL has no rating number: the position IS the rating, so the column and
+  // the edit affordance would both be showing nothing.
+  it('drops the rating column and the edit button when there is no rating', async () => {
+    await renderWithProviders(
+      <RankedRow
+        entry={entry(3, 84.2)}
+        scale="ZERO_TO_TEN"
+        {...base}
+        showRating={false}
+      />,
+      { router: true }
+    )
+
+    expect(screen.getByText('#3 — Tartarus')).toBeInTheDocument()
+    expect(screen.queryByText('8.42')).toBeNull()
+    expect(screen.queryByRole('button', { name: /Edit rating/ })).toBeNull()
   })
 
   it('links to the level’s own page', async () => {
