@@ -16,7 +16,12 @@ export function LevelIdentity({
   level,
   nameColor,
 }: {
-  rank: number
+  /**
+   * The level's position, or null where it has none — the unranked pile and the
+   * drag overlay, which show the same identity block without a number in front
+   * of it.
+   */
+  rank: number | null
   level: LevelProgressListItem['level']
   /** From `overallColor` — the rating's colour, which the name shares. */
   nameColor: string | undefined
@@ -36,7 +41,8 @@ export function LevelIdentity({
           className="truncate text-sm font-semibold text-text-primary"
           style={{ color: nameColor }}
         >
-          #{rank} — {level.name ?? `Level #${level.inGameId}`}
+          {rank === null ? '' : `#${rank} — `}
+          {level.name ?? `Level #${level.inGameId}`}
         </div>
         <div className="truncate text-xs text-text-secondary">
           {level.creator ? `Published by ${level.creator}` : 'Unknown creator'}

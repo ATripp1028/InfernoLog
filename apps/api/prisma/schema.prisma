@@ -484,7 +484,7 @@ model Level {
   // For DEMONS and UNRATED levels this column is the only representation there
   // is: all five demon tiers share 10 stars, and "Unrated" has no stars at all.
   //
-  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion,
+  // The per-user difficulty *opinion* lives on LevelProgress.difficultyOpinion,
   // and is on a DIFFERENT, subjective 1-9 star scale. Don't mix the two.
   inGameDifficulty      String?
   // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or

@@ -17,7 +17,7 @@ import {
   useReorderDemonList,
   useRemoveFromDemonList,
 } from '@/lib/api/demonList'
-import { neighboursAround } from './neighbours'
+import { neighboursAround } from '@/lib/neighbours'
 import {
   filterPlaced,
   filterUnplaced,

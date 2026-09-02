@@ -178,6 +178,17 @@ export function useRankingPage() {
     config,
     categories,
     entries: model.entries,
+    // MANUAL's editor needs the pile itself, not just how big it is.
+    unrankedItems: useMemo(() => {
+      if (!isManual) return []
+      const placed = new Set(
+        (manual.data?.ranked ?? []).map((r) => r.levelProgressId)
+      )
+      return (progress.data ?? []).filter(
+        (item) =>
+          item.status === 'COMPLETED' && !placed.has(item.levelProgressId)
+      )
+    }, [isManual, manual.data, progress.data]),
     // The bottom of whatever the numbers are counting: the whole ranking when
     // numbering by it, the visible rows when numbering those. Keeping the two
     // in step is what stops a filtered view from marking a mid-table level
