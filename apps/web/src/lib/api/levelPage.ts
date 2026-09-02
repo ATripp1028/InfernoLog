@@ -24,6 +24,9 @@ export interface LevelPageData {
   worstFailDate: string | null
   worstFailDateTimezone: string | null
   userGddlTier: number | null
+  // The user's own difficulty opinion. Level-scoped, not per-event — it is
+  // their read of the LEVEL, not of one run.
+  difficultyOpinion: string | null
   // One current value per level, not per event.
   simpleRating: number | null
   ratingScores: RatingScore[]
@@ -79,7 +82,6 @@ export interface ProgressUpdate {
   fps: number | null
   percentageVersion: GdVersion | null
   enjoyment: number | null
-  difficultyOpinion: string | null
   notes: string | null
   videoUrl: string | null
   highlightUrl: string | null

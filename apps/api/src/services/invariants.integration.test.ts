@@ -1,14 +1,15 @@
 /**
  * Integration tests for the application-layer invariants.
  *
- * These three rules are enforced in code, not by a database constraint, which
- * means every write path has to uphold them independently and a new path can
- * break them silently. So rather than assert per-path behaviour, each test
- * drives one real write path against a real database and then runs a
- * whole-database sweep (`expectNoDuplicateCompletions` /
- * `expectWantToBeatUnbeaten` / `expectRankingFullyLogged`) that fails if ANY
- * row violates the rule. Adding a further write path without upholding them
- * should turn this file red.
+ * These rules are enforced in code, not by a database constraint, which means
+ * every write path has to uphold them independently and a new path can break
+ * them silently. So rather than assert per-path behaviour, each test drives one
+ * real write path against a real database and then runs a whole-database sweep
+ * (`expectNoDuplicateCompletions` / `expectWantToBeatUnbeaten` /
+ * `expectRankingFullyLogged` / `expectRatingRankingFullyLogged` /
+ * `expectCompletionOnlyFieldsOnCompletions`) that fails if ANY row violates the
+ * rule. Adding a further write path without upholding them should turn this
+ * file red.
  *
  * Only the external network is mocked; Postgres is real.
  */
@@ -94,6 +95,27 @@ async function expectNoDuplicateCompletions() {
     WHERE kind = 'COMPLETION'
     GROUP BY "levelProgressId"
     HAVING COUNT(*) > 1
+  `
+  expect(rows).toEqual([])
+}
+
+/**
+ * Fails if ANY non-COMPLETION progress_update carries a completion-only field.
+ *
+ * videoUrl and the 2-player pair describe beating the level, so they only mean
+ * anything on the row that records beating it. Nothing in the database enforces
+ * that — the edit form gated it and the server did not, which is what
+ * CompletionFieldsNotApplicableError now closes. A new write path that copies
+ * the old shape would reopen it silently, hence the sweep.
+ */
+async function expectCompletionOnlyFieldsOnCompletions() {
+  const rows = await prisma.$queryRaw<{ id: string; kind: string }[]>`
+    SELECT id, kind
+    FROM "progress_updates"
+    WHERE kind <> 'COMPLETION'
+      AND ("videoUrl" IS NOT NULL
+        OR "twoPlayerSolo" IS NOT NULL
+        OR "twoPlayerPartner" IS NOT NULL)
   `
   expect(rows).toEqual([])
 }
@@ -235,6 +257,39 @@ function logCompletion(userId: string, payload: Record<string, unknown> = {}) {
       ...payload,
     }),
   })
+}
+
+function logProgress(userId: string, payload: Record<string, unknown> = {}) {
+  return buildApp(loggingApp, { userId }).request('/me/progress', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      levelId: LEVEL_ID,
+      mode: 'from_zero',
+      percentage: 42,
+      dateUncertain: false,
+      ...payload,
+    }),
+  })
+}
+
+function logDrop(userId: string, payload: Record<string, unknown> = {}) {
+  return buildApp(loggingApp, { userId }).request('/me/drops', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ levelId: LEVEL_ID, ...payload }),
+  })
+}
+
+function editEntry(userId: string, payload: Record<string, unknown>) {
+  return buildApp(loggingApp, { userId }).request(
+    `/me/progress/${LEVEL_ID}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  )
 }
 
 /** A GDDL submission for LEVEL_ID. */
@@ -399,6 +454,21 @@ describe('the invariant sweeps', () => {
     })
 
     await expect(expectRankingFullyLogged()).rejects.toThrow()
+  })
+
+  it('expectCompletionOnlyFieldsOnCompletions catches a planted video on a drop', async () => {
+    const { user } = await seedWorld()
+    await logDrop(user.id)
+    const drop = await prisma.progressUpdate.findFirstOrThrow({
+      where: { kind: 'DROP', levelProgress: { userId: user.id } },
+    })
+
+    await prisma.progressUpdate.update({
+      where: { id: drop.id },
+      data: { videoUrl: 'https://youtu.be/abc' },
+    })
+
+    await expect(expectCompletionOnlyFieldsOnCompletions()).rejects.toThrow()
   })
 
   it('does not fire on a Want to Beat entry the user has not completed', async () => {
@@ -667,6 +737,96 @@ describe('INVARIANT: every rating_ranking write is logged', () => {
     })
 
     await expect(expectRatingRankingFullyLogged()).rejects.toThrow()
+  })
+})
+
+// ─── completion-only fields live on completions ──────────────────────────────
+
+describe('INVARIANT: completion-only fields only on COMPLETION rows', () => {
+  // Each test drives one real write path and then sweeps the WHOLE database,
+  // so a path that starts writing these onto the wrong row turns this red
+  // wherever it lives.
+
+  it('accepts them on a completion', async () => {
+    const { user } = await seedWorld()
+
+    const res = await logCompletion(user.id, {
+      videoUrl: 'https://youtu.be/abc',
+      twoPlayerSolo: false,
+      twoPlayerPartner: 'friend',
+    })
+
+    expect(res.status).toBe(201)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it.each(['videoUrl', 'twoPlayerSolo', 'twoPlayerPartner'] as const)(
+    'rejects a %s edit aimed at a progress row',
+    async (field) => {
+      const { user } = await seedWorld()
+      await logProgress(user.id)
+
+      const res = await editEntry(user.id, {
+        [field]: field === 'twoPlayerSolo' ? false : 'x',
+      })
+
+      expect(res.status).toBe(400)
+      await expectCompletionOnlyFieldsOnCompletions()
+    }
+  )
+
+  it('rejects them when the level was dropped', async () => {
+    const { user } = await seedWorld()
+    await logDrop(user.id)
+
+    const res = await editEntry(user.id, { videoUrl: 'https://youtu.be/abc' })
+
+    expect(res.status).toBe(400)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('still allows the edit once the level is completed', async () => {
+    // The gate is about which ROW is targeted, not about locking the fields —
+    // the same payload refused above lands once a completion exists.
+    const { user } = await seedWorld()
+    await logCompletion(user.id, { attempts: 100 })
+
+    const res = await editEntry(user.id, { videoUrl: 'https://youtu.be/abc' })
+
+    expect(res.status).toBe(200)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('leaves progress and drop rows clean when an import commits', async () => {
+    const { user } = await seedWorld()
+
+    await runImport(user.id, [
+      {
+        rowIndex: 0,
+        data: {
+          levelId: LEVEL_ID,
+          attempts: 100,
+          videoUrl: 'https://youtu.be/abc',
+          twoPlayerSolo: false,
+          twoPlayerPartner: 'friend',
+        },
+      },
+    ])
+
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('leaves them clean when GDDL sync records a completion', async () => {
+    // GDDL supplies a proof URL, which becomes videoUrl — the one non-user
+    // write path that sets a completion-only field.
+    const { user } = await seedWorld()
+    mockFetchSubmissions.mockResolvedValue([
+      gddlSubmission({ Proof: 'https://youtu.be/abc' }),
+    ])
+
+    await syncGddlSubmissions(user.id, 'gddl-key')
+
+    await expectCompletionOnlyFieldsOnCompletions()
   })
 })
 

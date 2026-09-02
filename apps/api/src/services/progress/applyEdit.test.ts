@@ -28,6 +28,7 @@ vi.mock('../../utils/logger', () => ({
 const {
   applyEdit,
   ProgressFieldsNotApplicableError,
+  CompletionFieldsNotApplicableError,
   LevelNotFoundError,
   RatingCategoryNotOwnedError,
 } = await import('./index')
@@ -229,6 +230,48 @@ describe('applyEdit — percentage fields are PROGRESS-only', () => {
   })
 })
 
+// ─── the COMPLETION-only fields ──────────────────────────────────────────────
+
+describe('applyEdit — media/2-player fields are COMPLETION-only', () => {
+  it.each(['videoUrl', 'twoPlayerSolo', 'twoPlayerPartner'])(
+    'rejects a %s edit on a PROGRESS entry',
+    async (field) => {
+      // The mirror of the percentage gate above: a video of the winning run
+      // and how the level was beaten in 2-player only mean anything on the row
+      // that records beating it. The edit form gates this on isCompletion, but
+      // a frontend guard is not an authorization decision.
+      await expect(edit({ [field]: 'x' })).rejects.toBeInstanceOf(
+        CompletionFieldsNotApplicableError
+      )
+      expect(tx.progressUpdate.update).not.toHaveBeenCalled()
+    }
+  )
+
+  it('rejects them on a DROP entry too, naming the kind', async () => {
+    targetKind('DROP')
+
+    await expect(edit({ videoUrl: 'https://youtu.be/abc' })).rejects.toThrow(
+      /DROP/
+    )
+  })
+
+  it('allows highlightUrl on a PROGRESS entry', async () => {
+    // Deliberately not in the gated set: a highlight reel of an ordinary
+    // session is a coherent thing, ProgressInputSchema accepts one, and the
+    // import format carries it per progress row.
+    await edit({ highlightUrl: 'https://twitch.tv/x' })
+
+    expect(puData()).toEqual({ highlightUrl: 'https://twitch.tv/x' })
+  })
+
+  it('allows difficultyOpinion on a PROGRESS entry', async () => {
+    // It moved to LevelProgress — level-scoped, so every entry can edit it.
+    await edit({ difficultyOpinion: 'EXTREME' })
+
+    expect(lpData()).toEqual({ difficultyOpinion: 'EXTREME' })
+  })
+})
+
 // ─── sparse updates ──────────────────────────────────────────────────────────
 
 describe('applyEdit — sparse field handling', () => {
@@ -273,6 +316,7 @@ describe('applyEdit — sparse field handling', () => {
     'simpleRating',
     'coinsCollected',
     'completionTime',
+    'difficultyOpinion',
   ])('carries %s onto the LevelProgress', async (field) => {
     await edit({ [field]: 1 })
 
@@ -283,18 +327,27 @@ describe('applyEdit — sparse field handling', () => {
     'dateUncertain',
     'percentageVersion',
     'onStream',
-    'difficultyOpinion',
     'enjoyment',
-    'videoUrl',
     'highlightUrl',
-    'twoPlayerSolo',
-    'twoPlayerPartner',
     'device',
   ])('carries %s onto the ProgressUpdate', async (field) => {
     await edit({ [field]: 1 })
 
     expect(puData()).toHaveProperty(field)
   })
+
+  // The completion-only trio reaches the same row, but only from a COMPLETION
+  // target — see the rejection tests below.
+  it.each(['videoUrl', 'twoPlayerSolo', 'twoPlayerPartner'])(
+    'carries %s onto the ProgressUpdate of a completion',
+    async (field) => {
+      targetKind('COMPLETION')
+
+      await edit({ [field]: 1 })
+
+      expect(puData()).toHaveProperty(field)
+    }
+  )
 })
 
 // ─── date and timezone are written together ──────────────────────────────────
@@ -488,6 +541,13 @@ describe('progress service error types', () => {
     expect(err.name).toBe('ProgressFieldsNotApplicableError')
     expect(err.message).toContain('COMPLETION')
   })
+
+  it('CompletionFieldsNotApplicableError names the kind it rejected', async () => {
+    const err = new CompletionFieldsNotApplicableError('DROP')
+
+    expect(err.name).toBe('CompletionFieldsNotApplicableError')
+    expect(err.message).toContain('DROP')
+  })
 })
 
 // ─── the edit event ──────────────────────────────────────────────────────────
@@ -535,8 +595,10 @@ describe('applyEdit — the LOG_EDIT event', () => {
 
   it('writes no event when the save only touched out-of-scope fields', async () => {
     // Privacy and media are edited on the same form and are deliberately not
-    // part of the story a feed tells.
-    await edit({ visibility: 'PRIVATE', videoUrl: 'https://youtu.be/abc' })
+    // part of the story a feed tells. `highlightUrl` rather than `videoUrl`
+    // because the default target here is a PROGRESS row, and videoUrl is
+    // completion-only — a distinction this test has no opinion about.
+    await edit({ visibility: 'PRIVATE', highlightUrl: 'https://twitch.tv/x' })
 
     expect(editedFields()).toBeNull()
   })

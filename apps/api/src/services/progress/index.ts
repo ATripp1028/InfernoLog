@@ -57,6 +57,26 @@ export class ProgressFieldsNotApplicableError extends Error {
 }
 
 /**
+ * Thrown when an edit tries to write a completion-only field onto a
+ * ProgressUpdate that isn't kind=COMPLETION.
+ *
+ * The mirror image of {@link ProgressFieldsNotApplicableError}: a video of the
+ * winning run and how the level was beaten in 2-player only mean anything on
+ * the row that records beating it. The edit form has always gated these on
+ * `isCompletion` (useEditRunModal), but the endpoint is public and a frontend
+ * guard is not an authorization decision — without this check a caller could
+ * hang a completion video off a drop. Client-input error → 400, not 500.
+ */
+export class CompletionFieldsNotApplicableError extends Error {
+  constructor(kind: string) {
+    super(
+      `videoUrl/twoPlayerSolo/twoPlayerPartner only apply to COMPLETION entries, not ${kind}`
+    )
+    this.name = 'CompletionFieldsNotApplicableError'
+  }
+}
+
+/**
  * Thrown when a write names a rating category that isn't one of the caller's.
  *
  * `RatingScore.categoryId` is a bare FK to `rating_categories` with no user
@@ -209,7 +229,6 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
       enjoyment: input.enjoyment ?? null,
-      difficultyOpinion: input.difficultyOpinion ?? null,
       inGameDifficulty: level
         ? resolveLevelDifficulty({ ...level, inGameId: input.levelId })
         : null,
@@ -265,6 +284,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
         status: 'COMPLETED',
         visibility: input.visibility,
         userGddlTier: input.userGddlTier ?? null,
+        difficultyOpinion: input.difficultyOpinion ?? null,
         simpleRating: input.simpleRating ?? null,
         coinsCollected: input.coinsCollected ?? null,
         completionTime: input.completionTime ?? null,
@@ -383,6 +403,8 @@ export async function applyProgress(userId: string, input: ProgressInput) {
  * this level (or the targeted update isn't theirs) — the caller maps that to a 404.
  * @throws {ProgressFieldsNotApplicableError} percentage/runFrom/runTo were sent
  * for an update that isn't kind=PROGRESS.
+ * @throws {CompletionFieldsNotApplicableError} videoUrl/twoPlayerSolo/
+ * twoPlayerPartner were sent for an update that isn't kind=COMPLETION.
  * @throws {RatingCategoryNotOwnedError} A `ratingScores` entry names a category
  * belonging to another account.
  */
@@ -437,6 +459,20 @@ export async function applyEdit(
       throw new ProgressFieldsNotApplicableError(targetUpdateKind!)
     }
 
+    // The mirror of the check above: videoUrl and the 2-player pair describe
+    // beating the level, so they only apply to the completion. `highlightUrl`
+    // is deliberately NOT in this set — a highlight reel of an ordinary session
+    // is a coherent thing, ProgressInputSchema accepts one, and the import
+    // format carries it per progress row.
+    if (
+      (input.videoUrl !== undefined ||
+        input.twoPlayerSolo !== undefined ||
+        input.twoPlayerPartner !== undefined) &&
+      targetUpdateKind !== 'COMPLETION'
+    ) {
+      throw new CompletionFieldsNotApplicableError(targetUpdateKind!)
+    }
+
     // Read the current values of everything a save can touch, so the LOG_EDIT
     // event can diff against them. Selected wholesale rather than field by
     // field: LOG_EDIT_FIELD_SCOPE decides what is in scope, and a second list
@@ -481,6 +517,8 @@ export async function applyEdit(
     if (input.visibility !== undefined) lpData.visibility = input.visibility
     if (input.userGddlTier !== undefined)
       lpData.userGddlTier = input.userGddlTier
+    if (input.difficultyOpinion !== undefined)
+      lpData.difficultyOpinion = input.difficultyOpinion
     if (input.simpleRating !== undefined)
       lpData.simpleRating = input.simpleRating
     if (input.coinsCollected !== undefined)
@@ -501,8 +539,6 @@ export async function applyEdit(
     if (input.percentageVersion !== undefined)
       puData.percentageVersion = input.percentageVersion
     if (input.onStream !== undefined) puData.onStream = input.onStream
-    if (input.difficultyOpinion !== undefined)
-      puData.difficultyOpinion = input.difficultyOpinion
     if (input.enjoyment !== undefined) puData.enjoyment = input.enjoyment
     if (input.videoUrl !== undefined) puData.videoUrl = input.videoUrl
     if (input.highlightUrl !== undefined)
@@ -602,7 +638,10 @@ export async function applyEdit(
  * RatingScore rows live on the LevelProgress (one current rating per level,
  * independent of any single event), so deleting a completion does NOT clear
  * them. Only `coinsCollected`/`completionTime` are cleared, being meaningless
- * once the level is no longer completed.
+ * once the level is no longer completed. `difficultyOpinion` is level-scoped
+ * too but deliberately survives: it is what the user thinks of the LEVEL, which
+ * outlives any one entry — the same reason `levelNotes` and `userGddlTier` are
+ * left alone.
  *
  * @param userId - Internal user UUID from the JWT.
  * @param levelId - GD level ID of the entry.

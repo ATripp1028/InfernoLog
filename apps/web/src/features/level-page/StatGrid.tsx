@@ -115,9 +115,9 @@ export function StatGrid({
   // WORST FAIL
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'
 
-  // YOUR OPINION
-  const opinionDisplay = completion?.difficultyOpinion
-    ? capitalize(completion.difficultyOpinion)
+  // YOUR OPINION — level-scoped, so it shows whether or not the level is beaten
+  const opinionDisplay = data.difficultyOpinion
+    ? capitalize(data.difficultyOpinion)
     : '—'
 
   // RANKED

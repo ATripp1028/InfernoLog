@@ -373,12 +373,12 @@ export const CompletionInputSchema = z.object({
   // means no time was entered.
   worstFailDateTimezone: timezoneField,
   videoUrl: HttpUrlSchema.nullable().optional(),
-  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-  // no separate paired field.
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // enjoyment is logged per-event on the ProgressUpdate (see schema.prisma).
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
   // LevelProgress fields — one current value per level, not per event.
+  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+  // no separate paired field.
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // SIMPLE mode: a single rating. WEIGHTED mode: per-category scores. We store
   // whichever the client sends and never pre-compute the weighted average.
   simpleRating: z.number().int().min(0).max(100).nullable().optional(),
@@ -487,6 +487,10 @@ export const EditProgressInputSchema = z
       .max(MAX_GDDL_TIER)
       .nullable()
       .optional(),
+    // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
+    // no separate paired field. Level-scoped: the user's read of the LEVEL, not
+    // of one run, so it is editable from any entry on the level.
+    difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
     // ProgressUpdate fields
     date: z.coerce.date().nullable().optional(),
     dateTimezone: timezoneField,
@@ -501,9 +505,6 @@ export const EditProgressInputSchema = z
     fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
     percentageVersion: z.nativeEnum(GdVersion).nullable().optional(),
     onStream: z.boolean().optional(),
-    // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-    // no separate paired field.
-    difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
     enjoyment: z.number().int().min(0).max(100).nullable().optional(),
     videoUrl: HttpUrlSchema.nullable().optional(),
     highlightUrl: HttpUrlSchema.nullable().optional(),
@@ -731,7 +732,6 @@ export const ExistingCompletionSchema = z.object({
   worstFail: z.number().int().nullable(),
   worstFailDate: z.coerce.date().nullable(),
   worstFailDateTimezone: z.string().nullable(),
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   enjoyment: z.number().int().nullable(),
   fps: z.number().int().nullable(),
   onStream: z.boolean(),
@@ -741,6 +741,7 @@ export const ExistingCompletionSchema = z.object({
   visibility: z.nativeEnum(EntryVisibility),
   device: z.nativeEnum(Device).nullable(),
   // LevelProgress fields
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   simpleRating: z.number().int().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
@@ -819,7 +820,6 @@ export const LevelProgressListEntrySchema = z.object({
   runFrom: z.number().int().nullable(),
   runTo: z.number().int().nullable(),
   enjoyment: z.number().int().nullable(), // 0–100 internal scale
-  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   onStream: z.boolean(),
   fps: z.number().int().nullable(),
   percentageVersion: z.nativeEnum(GdVersion).nullable(),
@@ -844,6 +844,9 @@ export const LevelProgressListItemSchema = z.object({
   needsPlacement: z.boolean(),
   // The user's own GDDL tier opinion (set during completion logging or edit).
   userGddlTier: z.number().int().nullable(),
+  // The user's own difficulty opinion. Level-scoped (LevelProgress), not per
+  // logged event — so it sits here rather than on `entry`.
+  difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
   // Computed at query time (never stored): simpleRating in SIMPLE mode, the
   // weighted average of ratingScores in WEIGHTED mode. 0–100 internal scale.
   // One value per level (LevelProgress), not per logged event.

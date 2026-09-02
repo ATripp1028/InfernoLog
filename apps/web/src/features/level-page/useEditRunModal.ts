@@ -71,7 +71,10 @@ const EMPTY_FORM: EditRunForm = {
 
 function initForm(
   update: ProgressUpdate,
-  scale: RatingDisplayScale
+  scale: RatingDisplayScale,
+  // Level-scoped (LevelProgress), unlike everything else here — so it is
+  // passed in rather than read off the update.
+  difficultyOpinion: string | null
 ): EditRunForm {
   const session = zonedDateTimeInput(update.date, update.dateTimezone)
   return {
@@ -83,8 +86,7 @@ function initForm(
     fps: update.fps != null ? String(update.fps) : '',
     percentageVersion: update.percentageVersion ?? 'TWO_TWO',
     onStream: update.onStream,
-    difficultyOpinion:
-      (update.difficultyOpinion as DifficultyOpinion | null) ?? null,
+    difficultyOpinion: (difficultyOpinion as DifficultyOpinion | null) ?? null,
     enjoyment:
       update.enjoyment != null ? toDisplay(update.enjoyment, scale) : null,
     videoUrl: update.videoUrl ?? '',
@@ -145,13 +147,13 @@ export function useEditRunForm({
   // reset-on-open effect, so a cancel-then-reopen never shows stale edits.
   useEffect(() => {
     if (!open || !update) return
-    const initialForm = initForm(update, scale)
+    const initialForm = initForm(update, scale, data.difficultyOpinion)
     const initialRun = initParsedRun(update)
     setForm(initialForm)
     setParsedRun(initialRun)
     setPristine({ form: initialForm, run: initialRun })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, progressUpdateId, scale])
+  }, [open, progressUpdateId, scale, data.difficultyOpinion])
 
   const isCompletion = update?.kind === 'COMPLETION'
   const isDrop = update?.kind === 'DROP'

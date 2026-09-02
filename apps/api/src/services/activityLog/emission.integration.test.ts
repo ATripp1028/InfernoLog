@@ -549,7 +549,8 @@ describe('log edits', () => {
 
   it('writes nothing for a save that only touched out-of-scope fields', async () => {
     // Privacy and media are edited on the same form and are not part of the
-    // story a feed tells.
+    // story a feed tells. `highlightUrl` rather than `videoUrl` because this
+    // level is in progress and videoUrl is completion-only.
     const user = await seedUser(prisma)
     const lp = await seedInProgress(user.id)
 
@@ -560,7 +561,7 @@ describe('log edits', () => {
       `/me/progress/${lp.inGameId}`,
       {
         visibility: 'PRIVATE',
-        videoUrl: 'https://youtu.be/abc',
+        highlightUrl: 'https://twitch.tv/x',
       }
     )
     expect(res.status).toBe(200)

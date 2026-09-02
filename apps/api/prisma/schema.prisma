@@ -653,6 +653,16 @@ model LevelProgress {
   // The user's own opinion on the level's GDDL tier. Set during completion
   // logging or via the edit form. Null when the user has not given an opinion.
   userGddlTier    Int?
+  // The user's subjective difficulty opinion (the only difficulty they edit).
+  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
+  // than a separate paired field. See LOGGING_FLOW.md.
+  //
+  // Level-scoped, not per-event: this is the user's read of the LEVEL, not of
+  // one run — the same classification the activity log has always given it
+  // (ActivityFieldCategory.METADATA, alongside userGddlTier and levelNotes,
+  // both of which already live here). It lived on ProgressUpdate until
+  // 2026-09-02; see that migration for the backfill.
+  difficultyOpinion DifficultyOpinion?
 
   // The user's single rating for this level (SIMPLE mode) — one score per
   // level, not one per logged event. WEIGHTED mode scores live in
@@ -729,7 +739,6 @@ model ProgressUpdate {
   // Which GD version's percentage system was used. Only meaningful for classic
   // levels (percentage/runFrom/runTo). Null = not recorded (legacy entries).
   percentageVersion     GdVersion?
-  peakHeartRateBpm      Int?            // v2 — heart rate monitor data
 
   // Ratings
   // enjoyment: logged per-event (any progress update, not just completions) —
@@ -742,10 +751,6 @@ model ProgressUpdate {
   // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
   // Populated automatically from the Level cache — never user-edited.
   inGameDifficulty      String?
-  // The user's subjective difficulty opinion (the only difficulty they edit).
-  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
-  // than a separate paired field. See LOGGING_FLOW.md.
-  difficultyOpinion     DifficultyOpinion?
   notes                 String?
 
   // Media

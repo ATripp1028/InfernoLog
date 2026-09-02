@@ -15,7 +15,7 @@
 // name-based level resolution, and GDDL tier autofill.
 
 import { randomUUID } from 'node:crypto'
-import type { Prisma } from '@prisma/client'
+import type { DifficultyOpinion, Prisma } from '@prisma/client'
 import type {
   ImportCompletionRow,
   ImportConflictAction,
@@ -49,6 +49,7 @@ interface LpFields {
   visibility?: 'PUBLIC' | 'PRIVATE'
   levelNotes?: string | null
   userGddlTier?: number | null
+  difficultyOpinion?: DifficultyOpinion | null
   // One current value per level, not per event — see schema.prisma.
   simpleRating?: number | null
   coinsCollected?: number | null
@@ -199,7 +200,6 @@ function buildCompletionProgressUpdateFields(
     highlightUrl: row.highlightUrl ?? null,
     notes: row.notes ?? null,
     enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
-    difficultyOpinion: row.difficultyOpinion ?? null,
     twoPlayerSolo: row.twoPlayerSolo ?? null,
     twoPlayerPartner: row.twoPlayerPartner ?? null,
     device: row.device ?? null,
@@ -235,6 +235,7 @@ function buildCompletionLpFields(
     visibility: row.visibility ?? fallbackVisibility,
     levelNotes: row.levelNotes ?? null,
     userGddlTier,
+    difficultyOpinion: row.difficultyOpinion ?? null,
     simpleRating:
       row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     coinsCollected,
@@ -267,8 +268,6 @@ function buildCompletionMergePatch(
   if (row.runFrom != null) merge.runFrom = row.runFrom
   if (row.runTo != null) merge.runTo = row.runTo
   if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
-  if (row.difficultyOpinion != null)
-    merge.difficultyOpinion = row.difficultyOpinion
   if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
   if (row.twoPlayerPartner != null)
     merge.twoPlayerPartner = row.twoPlayerPartner
@@ -297,6 +296,9 @@ function buildCompletionMergeLpFields(
     ...(row.visibility != null ? { visibility: row.visibility } : {}),
     ...(row.levelNotes != null ? { levelNotes: row.levelNotes } : {}),
     ...(userGddlTier != null ? { userGddlTier } : {}),
+    ...(row.difficultyOpinion != null
+      ? { difficultyOpinion: row.difficultyOpinion }
+      : {}),
     ...(row.simpleRating != null
       ? { simpleRating: Math.round(row.simpleRating * 10) }
       : {}),
