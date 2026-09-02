@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { filterPlaced, filterUnplaced, reorderDisabled } from '../filtering'
+import { filterPlaced, filterUnplaced, reorderDisabled } from '@/lib/ordering/filters'
 import { medalColor } from '@/lib/medals'
 import { neighboursAround } from '@/lib/neighbours'
 import { preScrollIndex } from '../placement'

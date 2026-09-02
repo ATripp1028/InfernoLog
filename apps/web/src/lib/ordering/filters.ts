@@ -1,8 +1,5 @@
-import type {
-  ClassicDemonListEntry,
-  UnplacedDemonListEntry,
-  LevelListSummary,
-} from '@infernolog/core'
+import type { LevelListSummary } from '@infernolog/core'
+import type { OrderedItem } from './types'
 
 /**
  * Whether a level matches a search box — name, creator, or in-game id, the
@@ -25,11 +22,11 @@ export function matchesLevel(level: LevelListSummary, q: string): boolean {
  * view numbers. The authoritative order/ranks for reordering stay on the
  * untouched query data (reorder is disabled while either is active).
  */
-export function filterPlaced(
-  placed: ClassicDemonListEntry[],
+export function filterPlaced<T extends OrderedItem & { rank: number }>(
+  placed: T[],
   query: string,
   showUnrated: boolean
-): ClassicDemonListEntry[] {
+): T[] {
   const base = showUnrated ? placed : placed.filter((e) => e.level.isRated)
   const numbered =
     base.length === placed.length
@@ -48,10 +45,10 @@ export function filterPlaced(
  * while either control is active, so the board never writes an order derived
  * from a filtered view.
  */
-export function filterUnplaced(
-  unplaced: UnplacedDemonListEntry[],
+export function filterUnplaced<T extends OrderedItem>(
+  unplaced: T[],
   query: string
-): UnplacedDemonListEntry[] {
+): T[] {
   const q = query.trim().toLowerCase()
   if (!q) return unplaced
   return unplaced.filter((e) => matchesLevel(e.level, q))

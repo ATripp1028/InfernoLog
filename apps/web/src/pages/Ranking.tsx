@@ -4,7 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { DifficultyFilter } from '@/features/ranking/DifficultyFilter'
-import { ManualRankingList } from '@/features/ranking/ManualRankingList'
+import { ManualRankingBoard } from '@/features/ranking/ManualRankingBoard'
 import { RankedRow } from '@/features/ranking/RankedRow'
 import { RankingHeader } from '@/features/ranking/RankingHeader'
 import { useRankingPage } from '@/features/ranking/useRankingPage'
@@ -135,13 +135,14 @@ export function Ranking() {
              lives inside, because an empty MANUAL ranking with a full pile
              below it is the normal way to start. */
       isManual ? (
-        <ManualRankingList
-          entries={entries}
-          visible={visible}
-          unranked={unrankedItems}
-          scale={scale}
-          config={config}
-        />
+        <div className="min-h-0 flex-1">
+          <ManualRankingBoard
+            ranked={entries.map((e) => e.item)}
+            unranked={unrankedItems}
+            search={search}
+            showUnrated={showUnrated}
+          />
+        </div>
       ) : entries.length === 0 ? (
         <EmptyState
           title="Nothing ranked yet."
