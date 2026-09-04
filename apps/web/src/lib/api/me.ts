@@ -3,6 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import { presetsQueryKey } from './presets'
 import { invalidateOnEvent } from './activity'
+import { invalidateOnWrite } from './logging'
 import type {
   DateFormatPreference,
   Device,
@@ -471,11 +472,21 @@ export function useUpdateMe() {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
     onSettled: (_data, _err, input) => {
-      // A SIMPLE ↔ WEIGHTED switch is the one thing on this endpoint that
-      // emits an event — ratingMode lives here rather than in the rating-config
-      // payload, so PATCH /v1/me emits its own RATING_CONFIG_CHANGE for it.
-      // Nothing else here is logged, so nothing else invalidates the feed.
-      if (input.ratingMode !== undefined) void invalidateOnEvent(queryClient)
+      // A rating-mode switch is the one thing on this endpoint that emits an
+      // event — ratingMode lives here rather than in the rating-config payload,
+      // so PATCH /v1/me emits its own RATING_CONFIG_CHANGE for it. Nothing else
+      // here is logged, so nothing else invalidates the feed.
+      //
+      // It also invalidates every rating-bearing view, which is NOT cosmetic:
+      // `GET /v1/me/progress` computes `overallRating` server-side FROM THE
+      // MODE, so a cache filled under the old mode holds figures the new mode
+      // would never produce — nulls everywhere after a switch to manual, and
+      // stale nulls still showing after switching back. That reads as every
+      // rating having been deleted, which is exactly what it is not.
+      if (input.ratingMode !== undefined) {
+        void invalidateOnEvent(queryClient)
+        void invalidateOnWrite(queryClient)
+      }
       // Refetch authoritative state only once the queue has drained.
       if (isLastPending(queryClient, UPDATE_ME_KEY)) {
         return queryClient.invalidateQueries({ queryKey: meQueryKey })
