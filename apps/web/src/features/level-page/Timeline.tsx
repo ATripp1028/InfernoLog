@@ -67,7 +67,7 @@ function CompletionEntry({
       <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-[22px] items-center rounded bg-success-dim px-2 text-[11px] font-medium text-success-soft">
-            🏆 Completion
+            Completion
           </span>
           <span className="text-[13px] font-medium text-text-primary">
             100%
@@ -141,7 +141,7 @@ function CompletionEntry({
           )}
           {update.onStream && (
             <span className="inline-flex h-[22px] items-center rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary">
-              📡 On stream
+              On stream
             </span>
           )}
         </div>
@@ -264,7 +264,7 @@ function ProgressEntry({
           )}
           {update.onStream && (
             <span className="inline-flex h-[22px] items-center rounded bg-white/4 px-2 text-[11px] font-medium text-text-secondary">
-              📡 On stream
+              On stream
             </span>
           )}
         </div>
