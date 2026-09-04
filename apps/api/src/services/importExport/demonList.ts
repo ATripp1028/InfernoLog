@@ -25,108 +25,14 @@ import prisma from '../../utils/prisma'
 import type { ImportRankingEntry, ImportListMerge } from '@infernolog/core'
 import { computeListMerge } from '../../utils/listMerge'
 import { readRankingSnapshot, recordRankingBulkReplace } from '../activityLog'
+import {
+  resolveOrderingOrder,
+  resolveOrderingTargets,
+  type ImportOrderingResult,
+} from './orderingImport'
 
-/** Outcome of committing a spreadsheet's Ranking tab. */
-export interface ImportRankingResult {
-  placed: number
-  skipped: { rank: number; label: string; reason: string }[]
-}
-
-interface RankingTargets {
-  byLevelId: Map<string, string> // levelId -> levelProgressId
-  byName: Map<string, string[]> // lowercased level name -> levelProgressId[]
-  levelIdByLpId: Map<string, string> // levelProgressId -> levelId, for merge display
-}
-
-// Shared by commitImportRanking and checkRankingMerge — the user's completed
-// classic levels, resolvable by levelId or (ambiguity-checked) by name.
-//
-// Scoped to CLASSIC to match what the demon list board itself offers: the
-// platformer ranking is a separate list, and without this filter a Ranking tab
-// naming a platformer completion would inject it into the classic demon list,
-// where nothing downstream filters it back out. Non-demons are in scope — the
-// classic demon list accepts them on every path (see services/demonList).
-async function resolveRankingTargets(userId: string): Promise<RankingTargets> {
-  const completed = await prisma.levelProgress.findMany({
-    where: {
-      userId,
-      progressUpdates: { some: { kind: 'COMPLETION' } },
-      level: { levelType: 'CLASSIC' },
-    },
-    select: { id: true, levelId: true, level: { select: { name: true } } },
-  })
-
-  const byLevelId = new Map(completed.map((c) => [c.levelId, c.id]))
-  const byName = new Map<string, string[]>()
-  const levelIdByLpId = new Map<string, string>()
-  for (const c of completed) {
-    levelIdByLpId.set(c.id, c.levelId)
-    const n = c.level.name?.trim().toLowerCase()
-    if (!n) continue
-    const list = byName.get(n)
-    if (list) list.push(c.id)
-    else byName.set(n, [c.id])
-  }
-
-  return { byLevelId, byName, levelIdByLpId }
-}
-
-// Resolves entries to an ordered list of levelProgressIds, skipping any entry
-// that's ambiguous, unresolvable, or a duplicate of an already-ranked-higher
-// entry — the exact same rules commitImportRanking enforces, shared so
-// checkRankingMerge diffs against the same resolved order that would
-// actually be written.
-function resolveRankingOrder(
-  targets: RankingTargets,
-  entries: ImportRankingEntry[]
-): { orderedLpIds: string[]; skipped: ImportRankingResult['skipped'] } {
-  const skipped: ImportRankingResult['skipped'] = []
-  const orderedLpIds: string[] = []
-  const seen = new Set<string>()
-
-  entries.forEach((entry, i) => {
-    const rank = i + 1
-    const label =
-      entry.levelName ??
-      (entry.levelId ? `level ${entry.levelId}` : `rank ${rank}`)
-
-    let lpId = entry.levelId ? targets.byLevelId.get(entry.levelId) : undefined
-    if (!lpId && entry.levelName) {
-      const matches = targets.byName.get(entry.levelName.trim().toLowerCase())
-      if (matches && matches.length === 1) lpId = matches[0]
-      else if (matches && matches.length > 1) {
-        skipped.push({
-          rank,
-          label,
-          reason:
-            'Matches more than one of your completed levels — add a level_id',
-        })
-        return
-      }
-    }
-    if (!lpId) {
-      skipped.push({
-        rank,
-        label,
-        reason:
-          'Not among your completed classic levels — rank only applies to classic completions',
-      })
-      return
-    }
-    if (seen.has(lpId)) {
-      skipped.push({
-        rank,
-        label,
-        reason: 'Duplicate — this level is already ranked higher up',
-      })
-      return
-    }
-    seen.add(lpId)
-    orderedLpIds.push(lpId)
-  })
-
-  return { orderedLpIds, skipped }
-}
+/** Outcome of committing a spreadsheet's Demon List tab. */
+export type ImportRankingResult = ImportOrderingResult
 
 /**
  * Replaces the user's classic demon list with the spreadsheet's ordering.
@@ -148,8 +54,8 @@ export async function commitImportRanking(
   userId: string,
   entries: ImportRankingEntry[]
 ): Promise<ImportRankingResult> {
-  const targets = await resolveRankingTargets(userId)
-  const { orderedLpIds, skipped } = resolveRankingOrder(targets, entries)
+  const targets = await resolveOrderingTargets(userId)
+  const { orderedLpIds, skipped } = resolveOrderingOrder(targets, entries)
   const n = orderedLpIds.length
 
   // Only replace when at least one entry resolved — otherwise a ranking tab full
@@ -189,8 +95,8 @@ export async function checkRankingMerge(
 ): Promise<ImportListMerge | null> {
   if (entries.length === 0) return null
 
-  const targets = await resolveRankingTargets(userId)
-  const { orderedLpIds } = resolveRankingOrder(targets, entries)
+  const targets = await resolveOrderingTargets(userId)
+  const { orderedLpIds } = resolveOrderingOrder(targets, entries)
   if (orderedLpIds.length === 0) return null
   const importedLevelIds = orderedLpIds.map(
     (lpId) => targets.levelIdByLpId.get(lpId)!

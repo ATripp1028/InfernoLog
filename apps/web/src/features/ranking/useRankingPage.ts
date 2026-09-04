@@ -7,8 +7,10 @@ import type { OverallRatingConfig } from '@infernolog/core'
 import { useMe } from '@/lib/api/me'
 import { useMyProgress } from '@/lib/api/log'
 import { useEditRating, type RatingEdit } from '@/lib/api/ranking'
+import { useRatingRanking } from '@/lib/api/ratingRanking'
 import { toast } from '@/components/generic/sonner'
 import {
+  buildManualRanking,
   buildRanking,
   filterByDifficulty,
   filterByRatedStatus,
@@ -73,10 +75,21 @@ export function useRankingPage() {
 
   const editRating = useEditRating(config)
 
-  const model = useMemo(
-    () => buildRanking(progress.data ?? [], categories),
-    [progress.data, categories]
-  )
+  // MANUAL is the one mode whose order is stored rather than derived, so it is
+  // the one mode that has to be fetched. The other two would only be paying a
+  // round trip for an answer they can already compute.
+  const isManual = me.data?.ratingMode === 'MANUAL'
+  const manual = useRatingRanking(isManual)
+
+  const model = useMemo(() => {
+    if (isManual) {
+      return buildManualRanking(
+        progress.data ?? [],
+        (manual.data?.ranked ?? []).map((r) => r.levelProgressId)
+      )
+    }
+    return buildRanking(progress.data ?? [], categories)
+  }, [isManual, manual.data, progress.data, categories])
 
   const visible: RankedEntry[] = useMemo(() => {
     const narrowed = filterRanking(
@@ -152,7 +165,9 @@ export function useRankingPage() {
   )
 
   return {
-    isPending: progress.isPending || me.isPending,
+    isManual,
+    isPending:
+      progress.isPending || me.isPending || (isManual && manual.isPending),
     // `me` counts as a failure, not just as missing: the progress list is
     // persisted to localStorage and so can render from cache while GET /v1/me
     // is unavailable (it does not retry). Falling back to the SIMPLE defaults
@@ -163,6 +178,23 @@ export function useRankingPage() {
     config,
     categories,
     entries: model.entries,
+    // MANUAL's editor needs the pile itself, not just how big it is.
+    unrankedItems: useMemo(() => {
+      if (!isManual) return []
+      const placed = new Set(
+        (manual.data?.ranked ?? []).map((r) => r.levelProgressId)
+      )
+      return (progress.data ?? []).filter(
+        (item) =>
+          item.status === 'COMPLETED' &&
+          // Classic only, matching what the server will accept: POST
+          // /v1/me/ranking rejects a platformer with "Only classic levels
+          // appear in the ranking", so offering one in the unplaced pile is
+          // offering a drag that can only 400.
+          item.level.levelType === 'CLASSIC' &&
+          !placed.has(item.levelProgressId)
+      )
+    }, [isManual, manual.data, progress.data]),
     // The bottom of whatever the numbers are counting: the whole ranking when
     // numbering by it, the visible rows when numbering those. Keeping the two
     // in step is what stops a filtered view from marking a mid-table level

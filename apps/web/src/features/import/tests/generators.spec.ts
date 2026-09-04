@@ -21,7 +21,7 @@ const {
   LIST_HEADERS,
   PROGRESS_HEADERS,
   RANKING_HEADERS,
-  RATING_IDENTITY_HEADERS,
+  RATING_RANKING_HEADERS,
   downloadTemplate,
 } = await import('../generateTemplate')
 const { downloadExport } = await import('../generateExport')
@@ -59,8 +59,8 @@ const TABS = [
   'Progress',
   'Dropped',
   'Demon List',
+  'Ranking',
   'Lists',
-  'Ratings',
   'Field Descriptions',
 ]
 
@@ -95,14 +95,16 @@ describe('downloadTemplate', () => {
     expect(headerRow(written().wb, name)).toEqual(headers())
   })
 
-  it('leads the Ratings tab with the identity columns', () => {
+  // The Ranking tab carries every rating figure: position, simple score, and
+  // one column per category after the fixed ones.
+  it('leads the Ranking tab with its fixed columns, then the categories', () => {
     downloadTemplate()
-    const headers = headerRow(written().wb, 'Ratings')
+    const headers = headerRow(written().wb, 'Ranking')
 
-    expect(headers.slice(0, RATING_IDENTITY_HEADERS.length)).toEqual(
-      RATING_IDENTITY_HEADERS
+    expect(headers.slice(0, RATING_RANKING_HEADERS.length)).toEqual(
+      RATING_RANKING_HEADERS
     )
-    expect(headers.length).toBeGreaterThan(RATING_IDENTITY_HEADERS.length)
+    expect(headers.length).toBeGreaterThan(RATING_RANKING_HEADERS.length)
   })
 
   it('gives every tab at least one example row', () => {
@@ -158,7 +160,7 @@ describe('downloadTemplate', () => {
       expect(result.dropped).toHaveLength(1)
       expect(result.ranking.length).toBeGreaterThan(0)
       expect(result.lists.length).toBeGreaterThan(0)
-      expect(result.ratings).toHaveLength(1)
+      expect(result.ratings.length).toBeGreaterThan(0)
     })
 
     it('recognizes the seeded rating categories, and no identity column', () => {
@@ -245,9 +247,9 @@ const exportData = (overrides: Partial<ExportResponse> = {}): ExportResponse =>
     progress: [],
     dropped: [],
     ranking: [],
+    ratingRanking: [],
     collections: [],
     ratingCategories: [],
-    ratings: [],
     ...overrides,
   }) as ExportResponse
 
@@ -414,26 +416,29 @@ describe('downloadExport', () => {
     })
   })
 
-  describe('the ratings tab', () => {
+  describe('the Ranking tab', () => {
     it('adds one column per category, after the identity columns', () => {
       downloadExport(
         exportData({
           ratingCategories: ['Gameplay', 'Design'],
-          ratings: [
+          ratingRanking: [
             {
+              rank: null,
               levelId: '128',
               levelName: 'Bloodbath',
               creator: null,
               inGameDifficulty: null,
+              simpleRating: null,
               scores: { Gameplay: 80, Design: 60 },
             },
+
           ],
         }),
         'MDY'
       )
 
-      expect(headerRow(written().wb, 'Ratings')).toEqual([
-        ...RATING_IDENTITY_HEADERS,
+      expect(headerRow(written().wb, 'Ranking')).toEqual([
+        ...RATING_RANKING_HEADERS,
         'Gameplay',
         'Design',
       ])
@@ -443,42 +448,46 @@ describe('downloadExport', () => {
       downloadExport(
         exportData({
           ratingCategories: ['Gameplay'],
-          ratings: [
+          ratingRanking: [
             {
+              rank: null,
               levelId: '128',
               levelName: null,
               creator: null,
               inGameDifficulty: null,
+              simpleRating: null,
               scores: { Gameplay: 95 },
             },
           ],
         }),
         'MDY'
       )
-      const [, row] = tab(written().wb, 'Ratings')
+      const [, row] = tab(written().wb, 'Ranking')
 
-      expect(row![RATING_IDENTITY_HEADERS.length]).toBe(9.5)
+      expect(row![RATING_RANKING_HEADERS.length]).toBe(9.5)
     })
 
     it('blanks a category the level was never scored on', () => {
       downloadExport(
         exportData({
           ratingCategories: ['Gameplay', 'Design'],
-          ratings: [
+          ratingRanking: [
             {
+              rank: null,
               levelId: '128',
               levelName: null,
               creator: null,
               inGameDifficulty: null,
+              simpleRating: null,
               scores: { Gameplay: 80 },
             },
           ],
         }),
         'MDY'
       )
-      const [, row] = tab(written().wb, 'Ratings')
+      const [, row] = tab(written().wb, 'Ranking')
 
-      expect(row![RATING_IDENTITY_HEADERS.length + 1]).toBe('')
+      expect(row![RATING_RANKING_HEADERS.length + 1]).toBe('')
     })
   })
 
@@ -516,12 +525,14 @@ describe('downloadExport', () => {
           },
         ],
         ratingCategories: ['Gameplay'],
-        ratings: [
+        ratingRanking: [
           {
+            rank: null,
             levelId: '128',
             levelName: 'Bloodbath',
             creator: 'Riot',
             inGameDifficulty: 'Extreme Demon',
+            simpleRating: null,
             scores: { Gameplay: 80 },
           },
         ],
@@ -538,7 +549,7 @@ describe('downloadExport', () => {
       expect(result.dropped).toHaveLength(1)
       expect(result.ranking).toHaveLength(2)
       expect(result.lists).toHaveLength(1)
-      expect(result.ratings).toHaveLength(1)
+      expect(result.ratings.length).toBeGreaterThan(0)
 
       const allFlags = [
         ...result.completions.flatMap((r) => r.flags),

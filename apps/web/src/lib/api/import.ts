@@ -379,6 +379,8 @@ export interface ImportStatusResponse {
   }
   flaggedRows: ImportFlaggedRow[]
   rankingResult: ImportRankingResponse | null
+  /** The MANUAL rating order's outcome — same shape as the demon list's. */
+  ratingRankingResult: ImportRankingResponse | null
   collectionsResult: ImportCollectionsResponse | null
   ratingsResult: ImportRatingsResponse | null
 }
@@ -455,6 +457,17 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
+  // The "Ranking" tab: every rating figure for a level in one place — manual
+  // position (null when it has none), simple score, per-category scores.
+  ratingRanking: {
+    rank: number | null
+    levelId: string
+    levelName: string | null
+    creator: string | null
+    inGameDifficulty: string | null
+    simpleRating: number | null
+    scores: Record<string, number>
+  }[]
   collections: {
     list: string
     levelId: string
@@ -462,13 +475,6 @@ export interface ExportResponse {
     position: number
   }[]
   ratingCategories: string[]
-  ratings: {
-    levelId: string
-    levelName: string | null
-    creator: string | null
-    inGameDifficulty: string | null
-    scores: Record<string, number>
-  }[]
 }
 
 /**
@@ -529,16 +535,16 @@ export function useImportApi() {
       progress,
       dropped,
       ranking,
+      ratingRanking,
       collections,
-      ratings,
       categories,
     ] = await Promise.all([
       fetchAll('completions'),
       fetchAll('progress'),
       fetchAll('dropped'),
       fetchAll('ranking'),
+      fetchAll('ratingRanking'),
       fetchAll('collections'),
-      fetchAll('ratings'),
       fetchAll('categories'),
     ])
     return {
@@ -546,8 +552,8 @@ export function useImportApi() {
       progress: progress as ExportResponse['progress'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
+      ratingRanking: ratingRanking as ExportResponse['ratingRanking'],
       collections: collections as ExportResponse['collections'],
-      ratings: ratings as ExportResponse['ratings'],
       ratingCategories: categories as string[],
     }
   }, [getIdToken])

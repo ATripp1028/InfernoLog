@@ -32,6 +32,7 @@ const levelProgressListSelect = {
   // Presence of a ranking row → !needsPlacement for completed classic levels.
   classicDemonList: { select: { id: true } },
   userGddlTier: true,
+  difficultyOpinion: true,
   simpleRating: true,
   ratingScores: { select: { categoryId: true, score: true } },
   level: { select: levelSummarySelect },
@@ -66,7 +67,6 @@ function serializeEntry(update: RawRow['progressUpdates'][number]) {
     runFrom: update.runFrom,
     runTo: update.runTo,
     enjoyment: update.enjoyment,
-    difficultyOpinion: update.difficultyOpinion,
     onStream: update.onStream,
     fps: update.fps,
     percentageVersion: update.percentageVersion,
@@ -93,6 +93,8 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
       level.levelType === 'CLASSIC' &&
       row.classicDemonList === null,
     userGddlTier: row.userGddlTier,
+    // Level-scoped, not per-event — so it rides on the row, not on `entry`.
+    difficultyOpinion: row.difficultyOpinion,
     // One rating per level (LevelProgress), not per event — enjoyment still
     // comes from the representative update since it's logged per-event.
     overallRating: computeOverallRating(ratingConfig, {

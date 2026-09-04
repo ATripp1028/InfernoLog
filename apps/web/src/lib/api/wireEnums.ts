@@ -53,7 +53,7 @@ export type Device = 'pc' | 'mobile'
 export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
 
 /** Whether a user's overall rating is a single number or a weighted average of categories. */
-export type RatingMode = 'SIMPLE' | 'WEIGHTED'
+export type RatingMode = 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
 
 /**
  * The scale ratings are shown on. Ratings are always stored as integers 0–100

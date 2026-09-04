@@ -6,10 +6,10 @@ import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
 import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
-import type { DemonListItem } from './types'
+import type { OrderedItem } from '@/lib/ordering/types'
 
 interface UnplacedCardProps {
-  item: DemonListItem
+  item: OrderedItem
   handle?: React.ReactNode
   highlight?: boolean | undefined
   isDragging?: boolean
@@ -95,7 +95,7 @@ export function SortableUnplacedCard({
   item,
   highlight,
 }: {
-  item: DemonListItem
+  item: OrderedItem
   highlight?: boolean
 }) {
   const {

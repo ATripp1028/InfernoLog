@@ -260,6 +260,9 @@ export interface LogResult {
 export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   ['log'],
   ['demon-list'],
+  // The MANUAL ranking's stored order — a fresh completion lands in its
+  // unplaced pile, exactly as it does the demon list's.
+  ['rating-ranking'],
   // A completion can auto-remove a level from Want to Beat.
   ['collections'],
   // Prefix match: invalidates ['level-page', levelId] for whichever level

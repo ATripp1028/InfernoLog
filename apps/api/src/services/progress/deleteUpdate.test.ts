@@ -39,15 +39,16 @@ const TARGET_ID = 'pu-target'
 type Kind = 'PROGRESS' | 'COMPLETION' | 'DROP'
 
 /**
- * The transaction client the delete runs against. `classicDemonList.findMany`
- * and the activityLog delegates are here because both delete paths emit
- * activity events — the whole-entry path purges the level's history, the
- * uncomplete path emits DEMON_LIST_REMOVED.
+ * The transaction client the delete runs against. `classicDemonList.findMany`,
+ * `ratingRanking.findMany` and the activityLog delegates are here because both
+ * delete paths emit activity events — the whole-entry path purges the level's
+ * history, the uncomplete path emits DEMON_LIST_REMOVED and RATING_REMOVED.
  */
 const tx = {
   levelProgress: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
   progressUpdate: { findFirst: vi.fn(), findMany: vi.fn(), delete: vi.fn() },
   classicDemonList: { deleteMany: vi.fn(), findMany: vi.fn() },
+  ratingRanking: { deleteMany: vi.fn(), findMany: vi.fn() },
   activityLog: { create: vi.fn(), deleteMany: vi.fn() },
   activityLogLevelImpact: { createMany: vi.fn() },
 }
@@ -88,6 +89,11 @@ beforeEach(() => {
   // deleted entry itself.
   tx.classicDemonList.findMany.mockResolvedValue([])
   tx.classicDemonList.deleteMany.mockResolvedValue({ count: 1 })
+  // Same for the MANUAL rating ordering, which the uncomplete path unplaces
+  // alongside the demon list. Nothing ranked by default; the cases that care
+  // override it.
+  tx.ratingRanking.findMany.mockResolvedValue([])
+  tx.ratingRanking.deleteMany.mockResolvedValue({ count: 0 })
   tx.activityLog.create.mockResolvedValue({ id: 'event-1' })
   scenario('IN_PROGRESS', ['PROGRESS'])
 
@@ -261,12 +267,42 @@ describe('deleteProgressUpdate — undoing a completion', () => {
     )
   })
 
-  it('leaves the demon list alone when the level is still completed', async () => {
+  it('emits RATING_REMOVED when the uncomplete drops it out of the ranking', async () => {
+    // The MANUAL rating ordering follows the demon list's rule for the same
+    // reason: only completions can be ranked, and a ratingIndex that vanishes
+    // without an event is a hole nothing can fill in afterwards.
+    scenario('COMPLETED', ['PROGRESS'])
+    tx.ratingRanking.deleteMany.mockResolvedValue({ count: 1 })
+    tx.ratingRanking.findMany.mockResolvedValueOnce([
+      {
+        levelProgressId: LP_ID,
+        ratingIndex: { toNumber: () => 3 },
+        levelProgress: { levelId: LEVEL_ID, level: { name: 'Tartarus' } },
+      },
+    ])
+
+    await run()
+
+    expect(tx.ratingRanking.deleteMany).toHaveBeenCalledWith({
+      where: { levelProgressId: LP_ID },
+    })
+    expect(tx.activityLog.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          eventType: 'RATING_REMOVED',
+          levelId: LEVEL_ID,
+        }),
+      })
+    )
+  })
+
+  it('leaves both orderings alone when the level is still completed', async () => {
     scenario('COMPLETED', ['COMPLETION'])
 
     await run()
 
     expect(tx.classicDemonList.deleteMany).not.toHaveBeenCalled()
+    expect(tx.ratingRanking.deleteMany).not.toHaveBeenCalled()
   })
 
   it('does not clear those fields for a status change that is not an uncomplete', async () => {
@@ -279,5 +315,6 @@ describe('deleteProgressUpdate — undoing a completion', () => {
     ]
     expect(args.data).toEqual({ status: 'DROPPED' })
     expect(tx.classicDemonList.deleteMany).not.toHaveBeenCalled()
+    expect(tx.ratingRanking.deleteMany).not.toHaveBeenCalled()
   })
 })

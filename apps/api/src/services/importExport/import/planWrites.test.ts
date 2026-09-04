@@ -143,6 +143,9 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
     })
 
     expect(result).toEqual({ status: 'updated' })
+    // difficultyOpinion is level-scoped, so it lands on the LevelProgress
+    // half of the plan rather than in the ProgressUpdate patch.
+    expect(lpFields(ctx)).toMatchObject({ difficultyOpinion: 'harder' })
     expect(onlyUpdate(ctx).data).toEqual({
       date: new Date('2026-08-12'),
       dateTimezone: null,
@@ -156,7 +159,6 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
       runFrom: 43,
       runTo: 100,
       enjoyment: 85,
-      difficultyOpinion: 'harder',
       twoPlayerSolo: false,
       twoPlayerPartner: 'friend',
       device: 'pc',
@@ -186,6 +188,7 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
 
     expect(result.status).toBe('updated')
     expect(ctx.writes.progressUpdateUpdates).toHaveLength(0)
+    expect(lpFields(ctx)).not.toHaveProperty('difficultyOpinion')
   })
 })
 

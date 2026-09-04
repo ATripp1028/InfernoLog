@@ -24,13 +24,19 @@ import type { FieldChange } from './fieldScope'
 
 type Tx = Prisma.TransactionClient
 
-/** One placed entry in a point-in-time reading of the classic demon list. */
+/**
+ * One placed entry in a point-in-time reading of an ordering.
+ *
+ * Deliberately not demon-list-specific: the MANUAL rating ranking is the same
+ * shape on a different axis, and both feed the same impact rows.
+ */
 export interface RankingSnapshotEntry {
   levelProgressId: string
   levelId: string
   /** Snapshotted onto the impact row — see `ActivityLogLevelImpact.levelName`. */
   levelName: string | null
-  listIndex: Prisma.Decimal
+  /** Whichever fractional index this ordering uses. */
+  orderIndex: Prisma.Decimal
 }
 
 /**
@@ -69,7 +75,39 @@ export async function readRankingSnapshot(
     levelProgressId: row.levelProgressId,
     levelId: row.levelProgress.levelId,
     levelName: row.levelProgress.level.name,
-    listIndex: row.listIndex,
+    orderIndex: row.listIndex,
+  }))
+}
+
+/**
+ * Reads the caller's MANUAL rating ranking so a mutation can be diffed against
+ * it — the rating-axis twin of {@link readRankingSnapshot}.
+ *
+ * Ordered `ratingIndex` DESC, so array position + 1 is the level's 1-based
+ * place with #1 the best rated.
+ *
+ * @param tx - The caller's transaction client; this must not open its own.
+ */
+export async function readRatingSnapshot(
+  tx: Tx,
+  userId: string
+): Promise<RankingSnapshot> {
+  const rows = await tx.ratingRanking.findMany({
+    where: { userId },
+    orderBy: { ratingIndex: 'desc' },
+    select: {
+      levelProgressId: true,
+      ratingIndex: true,
+      levelProgress: {
+        select: { levelId: true, level: { select: { name: true } } },
+      },
+    },
+  })
+  return rows.map((row) => ({
+    levelProgressId: row.levelProgressId,
+    levelId: row.levelProgress.levelId,
+    levelName: row.levelProgress.level.name,
+    orderIndex: row.ratingIndex,
   }))
 }
 
@@ -110,7 +148,10 @@ type ImpactRowData = {
   levelId: string
   levelName: string | null
   role: ActivityImpactRole
-  listIndex: Prisma.Decimal
+  // The index in whichever ordering the event concerns — see the column's own
+  // comment in schema.prisma. Demon list events pass a listIndex here; the
+  // MANUAL rating events pass a ratingIndex.
+  orderIndex: Prisma.Decimal
   positionBefore: number | null
   positionAfter: number | null
   milestoneCrossed: number | null
@@ -134,7 +175,7 @@ function impactRow(
     levelId: source.entry.levelId,
     levelName: source.entry.levelName,
     role,
-    listIndex: source.entry.listIndex,
+    orderIndex: source.entry.orderIndex,
     positionBefore,
     positionAfter,
     milestoneCrossed: milestoneCrossed(positionBefore, positionAfter),
@@ -146,6 +187,9 @@ export type RankingMoveEventType =
   | typeof ActivityEventType.DEMON_LIST_PLACEMENT
   | typeof ActivityEventType.DEMON_LIST_REORDER
   | typeof ActivityEventType.DEMON_LIST_REMOVED
+  | typeof ActivityEventType.RATING_PLACEMENT
+  | typeof ActivityEventType.RATING_REORDER
+  | typeof ActivityEventType.RATING_REMOVED
 
 /**
  * Records one demon list move: a placement, a reorder, or an unranking.
@@ -223,6 +267,8 @@ export async function recordRankingMove(
 export type RankingListWideEventType =
   | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
   | typeof ActivityEventType.DEMON_LIST_REBALANCE
+  | typeof ActivityEventType.RATING_BULK_REPLACE
+  | typeof ActivityEventType.RATING_REBALANCE
 
 // One event covering a wholesale rewrite of the index space, with an impact row
 // per level in the list. Every row is a MOVER: nothing here is a bystander, and
@@ -277,15 +323,13 @@ export async function recordRankingBulkReplace(
   tx: Tx,
   userId: string,
   before: RankingSnapshot,
-  after: RankingSnapshot
+  after: RankingSnapshot,
+  /** Which ordering the import replaced. Defaults to the demon list. */
+  eventType:
+    | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
+    | typeof ActivityEventType.RATING_BULK_REPLACE = ActivityEventType.DEMON_LIST_BULK_REPLACE
 ): Promise<void> {
-  return recordListWideRankingEvent(
-    tx,
-    userId,
-    ActivityEventType.DEMON_LIST_BULK_REPLACE,
-    before,
-    after
-  )
+  return recordListWideRankingEvent(tx, userId, eventType, before, after)
 }
 
 /**
@@ -312,15 +356,13 @@ export async function recordRankingRebalance(
   tx: Tx,
   userId: string,
   before: RankingSnapshot,
-  after: RankingSnapshot
+  after: RankingSnapshot,
+  /** Which ordering was renormalised. Defaults to the demon list. */
+  eventType:
+    | typeof ActivityEventType.DEMON_LIST_REBALANCE
+    | typeof ActivityEventType.RATING_REBALANCE = ActivityEventType.DEMON_LIST_REBALANCE
 ): Promise<void> {
-  return recordListWideRankingEvent(
-    tx,
-    userId,
-    ActivityEventType.DEMON_LIST_REBALANCE,
-    before,
-    after
-  )
+  return recordListWideRankingEvent(tx, userId, eventType, before, after)
 }
 
 /**

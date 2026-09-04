@@ -69,7 +69,6 @@ export function useImportFlowState({
     lists: [],
     ratings: [],
     duplicates: [],
-    legacyTabs: [],
   })
   const conflicts = useConflictResolution()
   const listMerges = useListMergeResolution()

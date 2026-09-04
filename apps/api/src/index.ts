@@ -8,6 +8,7 @@ import accountRoutes from './routes/account'
 import levelsRoutes from './routes/levels'
 import progressRoutes from './routes/progress'
 import rankingRoutes from './routes/demonList'
+import ratingRankingRoutes from './routes/ratingRanking'
 import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
 import importExportRoutes from './routes/importExport'
@@ -41,6 +42,7 @@ app.route('/v1', accountRoutes)
 app.route('/v1', levelsRoutes)
 app.route('/v1', progressRoutes)
 app.route('/v1', rankingRoutes)
+app.route('/v1', ratingRankingRoutes)
 app.route('/v1', collectionsRoutes)
 app.route('/v1', presetsRoutes)
 app.route('/v1', importExportRoutes)

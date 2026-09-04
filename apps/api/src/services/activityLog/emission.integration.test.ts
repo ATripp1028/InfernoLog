@@ -8,7 +8,7 @@
  * the emission at all, and that the positions and fractional indices recorded
  * match what the demon list actually holds afterwards.
  *
- * The reconstruction-integrity sweep ("every current listIndex is the latest
+ * The reconstruction-integrity sweep ("every current orderIndex is the latest
  * one logged for that level") lives in services/invariants.integration.test.ts,
  * beside the other whole-database invariant sweeps.
  */
@@ -165,7 +165,7 @@ describe('demon list placement', () => {
     const mover = impactsByLevel(event).get(fresh.inGameId)!
     expect(mover.role).toBe('MOVER')
     // The value actually assigned, not a delta — bisecting 2 and 10 gives 6.
-    expect(Number(mover.listIndex)).toBe(6)
+    expect(Number(mover.orderIndex)).toBe(6)
     expect(mover.positionBefore).toBeNull()
     expect(mover.positionAfter).toBe(2)
     // It debuted inside the top 5, which is a crossing from "not ranked".
@@ -253,7 +253,7 @@ describe('ranking reorder', () => {
     const mover = impactsByLevel(event).get(bottom.inGameId)!
     expect(mover.positionBefore).toBe(3)
     expect(mover.positionAfter).toBe(2)
-    expect(Number(mover.listIndex)).toBe(25)
+    expect(Number(mover.orderIndex)).toBe(25)
   })
 
   it('records neighbours at both the origin and the destination', async () => {
@@ -302,7 +302,7 @@ describe('ranking unranking', () => {
     const mover = impactsByLevel(event).get(target.inGameId)!
     expect(mover.positionBefore).toBe(2)
     expect(mover.positionAfter).toBeNull()
-    expect(Number(mover.listIndex)).toBe(20)
+    expect(Number(mover.orderIndex)).toBe(20)
   })
 
   it('runs the same neighbour logic a placement does', async () => {
@@ -370,8 +370,8 @@ describe('ranking rebalance', () => {
     expect(rebalance.levelId).toBeNull()
     const byLevel = impactsByLevel(rebalance)
     expect(byLevel.get(above.inGameId)!.role).toBe('MOVER')
-    expect(Number(byLevel.get(above.inGameId)!.listIndex)).toBe(2)
-    expect(Number(byLevel.get(below.inGameId)!.listIndex)).toBe(1)
+    expect(Number(byLevel.get(above.inGameId)!.orderIndex)).toBe(2)
+    expect(Number(byLevel.get(below.inGameId)!.orderIndex)).toBe(1)
     // Indices moved, order did not.
     expect(byLevel.get(above.inGameId)!.positionBefore).toBe(1)
     expect(byLevel.get(above.inGameId)!.positionAfter).toBe(1)
@@ -414,10 +414,10 @@ describe('ranking bulk replace', () => {
     // List-wide, so no single level owns it — the levels are the impact rows.
     expect(event.levelId).toBeNull()
     const byLevel = impactsByLevel(event)
-    expect(Number(byLevel.get(kept.inGameId)!.listIndex)).toBe(1)
+    expect(Number(byLevel.get(kept.inGameId)!.orderIndex)).toBe(1)
     // Still recorded, with the index it last held and no position after.
     expect(byLevel.get(dropped.inGameId)!.positionAfter).toBeNull()
-    expect(Number(byLevel.get(dropped.inGameId)!.listIndex)).toBe(3)
+    expect(Number(byLevel.get(dropped.inGameId)!.orderIndex)).toBe(3)
   })
 
   it('does not spell the replace out as one event per level', async () => {
@@ -549,7 +549,8 @@ describe('log edits', () => {
 
   it('writes nothing for a save that only touched out-of-scope fields', async () => {
     // Privacy and media are edited on the same form and are not part of the
-    // story a feed tells.
+    // story a feed tells. `highlightUrl` rather than `videoUrl` because this
+    // level is in progress and videoUrl is completion-only.
     const user = await seedUser(prisma)
     const lp = await seedInProgress(user.id)
 
@@ -560,7 +561,7 @@ describe('log edits', () => {
       `/me/progress/${lp.inGameId}`,
       {
         visibility: 'PRIVATE',
-        videoUrl: 'https://youtu.be/abc',
+        highlightUrl: 'https://twitch.tv/x',
       }
     )
     expect(res.status).toBe(200)

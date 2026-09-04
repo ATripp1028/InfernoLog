@@ -83,3 +83,14 @@ describe('invalidateOnWrite', () => {
     }
   })
 })
+
+// A rating-mode switch changes what the SERVER computes for `overallRating`,
+// so a cache filled under the old mode is not merely stale — it holds figures
+// the new mode would never produce. Left un-invalidated it reads as every
+// rating having been deleted.
+describe('rating mode switch invalidation', () => {
+  it('covers the views whose values the server derives from the mode', () => {
+    expect(INVALIDATE_ON_WRITE).toContainEqual(['log'])
+    expect(INVALIDATE_ON_WRITE).toContainEqual(['rating-ranking'])
+  })
+})

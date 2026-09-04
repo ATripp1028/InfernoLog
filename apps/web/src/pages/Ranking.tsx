@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { EmptyState } from '@/components/data/EmptyState'
 import { PageLoading } from '@/components/shell/PageLoading'
 import { DifficultyFilter } from '@/features/ranking/DifficultyFilter'
+import { ManualRankingBoard } from '@/features/ranking/ManualRankingBoard'
 import { RankedRow } from '@/features/ranking/RankedRow'
 import { RankingHeader } from '@/features/ranking/RankingHeader'
 import { useRankingPage } from '@/features/ranking/useRankingPage'
@@ -18,12 +19,14 @@ import { useRankingPage } from '@/features/ranking/useRankingPage'
  */
 export function Ranking() {
   const {
+    isManual,
     isPending,
     isError,
     scale,
     config,
     categories,
     entries,
+    unrankedItems,
     lastRank,
     visible,
     unrankedCount,
@@ -54,14 +57,18 @@ export function Ranking() {
           <h1 className="text-2xl font-semibold text-text-primary">Ranking</h1>
           <p className="mt-1 text-xs text-text-secondary">
             {entries.length === 0
-              ? 'Ranked completions, best first.'
+              ? isManual
+                ? 'Arrange your completions best first.'
+                : 'Ranked completions, best first.'
               : `${entries.length} ranked ${entries.length === 1 ? 'completion' : 'completions'}, best first.`}
             {/* A user looking for a level they know they finished needs to be
                 told why it is not here, rather than left to wonder. "Unranked"
                 rather than "unrated": in Geometry Dash an unrated level is one
                 RobTop has not starred, which has nothing to do with this. */}
             {unrankedCount > 0 &&
-              ` ${unrankedCount} unranked ${unrankedCount === 1 ? 'completion has' : 'completions have'} no rating yet.`}
+              (isManual
+                ? ` ${unrankedCount} ${unrankedCount === 1 ? 'completion is' : 'completions are'} not placed yet.`
+                : ` ${unrankedCount} unranked ${unrankedCount === 1 ? 'completion has' : 'completions have'} no rating yet.`)}
           </p>
         </div>
 
@@ -78,6 +85,7 @@ export function Ranking() {
               <Switch checked={showUnrated} onCheckedChange={setShowUnrated} />
             </label>
 
+            {!isManual && (
             <label
               className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"
               title="Number rows by their place in this view instead of by their place in the whole ranking"
@@ -90,6 +98,7 @@ export function Ranking() {
                 }
               />
             </label>
+            )}
 
             <DifficultyFilter
               selected={difficulties}
@@ -120,6 +129,20 @@ export function Ranking() {
           title="Couldn't load your ranking."
           description="Something went wrong fetching it. Try again in a moment."
         />
+      ) : /* MANUAL is an editor, not a report: the order is the user's own
+             work, so the page hands it to them to arrange rather than
+             presenting a conclusion drawn from numbers. Its own empty state
+             lives inside, because an empty MANUAL ranking with a full pile
+             below it is the normal way to start. */
+      isManual ? (
+        <div className="min-h-0 flex-1">
+          <ManualRankingBoard
+            ranked={entries.map((e) => e.item)}
+            unranked={unrankedItems}
+            search={search}
+            showUnrated={showUnrated}
+          />
+        </div>
       ) : entries.length === 0 ? (
         <EmptyState
           title="Nothing ranked yet."
@@ -156,6 +179,7 @@ export function Ranking() {
                 <RankedRow
                   entry={entry}
                   lastRank={lastRank}
+                  showRating={!isManual}
                   scale={scale}
                   config={config}
                   categories={categories}

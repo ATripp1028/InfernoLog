@@ -43,6 +43,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
           worstFailDate: true,
           worstFailDateTimezone: true,
           userGddlTier: true,
+          difficultyOpinion: true,
           simpleRating: true,
           coinsCollected: true,
           completionTime: true,
@@ -62,7 +63,6 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     worstFail: completion.levelProgress.worstFail,
     worstFailDate: completion.levelProgress.worstFailDate,
     worstFailDateTimezone: completion.levelProgress.worstFailDateTimezone,
-    difficultyOpinion: completion.difficultyOpinion,
     enjoyment: completion.enjoyment,
     fps: completion.fps,
     onStream: completion.onStream,
@@ -72,6 +72,7 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     visibility: completion.levelProgress.visibility,
     device: completion.device,
     // LevelProgress fields — one current value per level, not per event.
+    difficultyOpinion: completion.levelProgress.difficultyOpinion,
     simpleRating: completion.levelProgress.simpleRating,
     ratingScores: completion.levelProgress.ratingScores,
     coinsCollected: completion.levelProgress.coinsCollected,

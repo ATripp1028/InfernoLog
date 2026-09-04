@@ -31,6 +31,7 @@ app.get('/me/progress/:levelId', async (c) => {
       worstFailDate: true,
       worstFailDateTimezone: true,
       userGddlTier: true,
+      difficultyOpinion: true,
       simpleRating: true,
       coinsCollected: true,
       completionTime: true,
@@ -90,7 +91,6 @@ app.get('/me/progress/:levelId', async (c) => {
           fps: true,
           percentageVersion: true,
           enjoyment: true,
-          difficultyOpinion: true,
           notes: true,
           videoUrl: true,
           highlightUrl: true,
@@ -182,6 +182,8 @@ app.get('/me/progress/:levelId', async (c) => {
       worstFailDate: lp.worstFailDate,
       worstFailDateTimezone: lp.worstFailDateTimezone,
       userGddlTier: lp.userGddlTier,
+      // Level-scoped, not per-event: the user's read of the level itself.
+      difficultyOpinion: lp.difficultyOpinion,
       // One current value per level, not per event.
       simpleRating: lp.simpleRating,
       ratingScores: lp.ratingScores,
@@ -214,7 +216,6 @@ app.get('/me/progress/:levelId', async (c) => {
         fps: u.fps,
         percentageVersion: u.percentageVersion,
         enjoyment: u.enjoyment,
-        difficultyOpinion: u.difficultyOpinion,
         notes: u.notes,
         videoUrl: u.videoUrl,
         highlightUrl: u.highlightUrl,

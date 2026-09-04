@@ -1,14 +1,15 @@
 /**
  * Integration tests for the application-layer invariants.
  *
- * These three rules are enforced in code, not by a database constraint, which
- * means every write path has to uphold them independently and a new path can
- * break them silently. So rather than assert per-path behaviour, each test
- * drives one real write path against a real database and then runs a
- * whole-database sweep (`expectNoDuplicateCompletions` /
- * `expectWantToBeatUnbeaten` / `expectRankingFullyLogged`) that fails if ANY
- * row violates the rule. Adding a further write path without upholding them
- * should turn this file red.
+ * These rules are enforced in code, not by a database constraint, which means
+ * every write path has to uphold them independently and a new path can break
+ * them silently. So rather than assert per-path behaviour, each test drives one
+ * real write path against a real database and then runs a whole-database sweep
+ * (`expectNoDuplicateCompletions` / `expectWantToBeatUnbeaten` /
+ * `expectRankingFullyLogged` / `expectRatingRankingFullyLogged` /
+ * `expectCompletionOnlyFieldsOnCompletions`) that fails if ANY row violates the
+ * rule. Adding a further write path without upholding them should turn this
+ * file red.
  *
  * Only the external network is mocked; Postgres is real.
  */
@@ -72,6 +73,9 @@ vi.mock('./importExport/import/levelResolution', async (importOriginal) => ({
 
 const { default: loggingApp } = await import('../routes/progress/index')
 const { default: rankingApp } = await import('../routes/demonList/index')
+const { default: ratingRankingApp } = await import(
+  '../routes/ratingRanking/index'
+)
 const { default: collectionsApp } = await import('../routes/collections/index')
 const { syncGddlSubmissions } = await import('./gddl/sync')
 const { processImportJobBatch } = await import('./importExport/import')
@@ -91,6 +95,27 @@ async function expectNoDuplicateCompletions() {
     WHERE kind = 'COMPLETION'
     GROUP BY "levelProgressId"
     HAVING COUNT(*) > 1
+  `
+  expect(rows).toEqual([])
+}
+
+/**
+ * Fails if ANY non-COMPLETION progress_update carries a completion-only field.
+ *
+ * videoUrl and the 2-player pair describe beating the level, so they only mean
+ * anything on the row that records beating it. Nothing in the database enforces
+ * that — the edit form gated it and the server did not, which is what
+ * CompletionFieldsNotApplicableError now closes. A new write path that copies
+ * the old shape would reopen it silently, hence the sweep.
+ */
+async function expectCompletionOnlyFieldsOnCompletions() {
+  const rows = await prisma.$queryRaw<{ id: string; kind: string }[]>`
+    SELECT id, kind
+    FROM "progress_updates"
+    WHERE kind <> 'COMPLETION'
+      AND ("videoUrl" IS NOT NULL
+        OR "twoPlayerSolo" IS NOT NULL
+        OR "twoPlayerPartner" IS NOT NULL)
   `
   expect(rows).toEqual([])
 }
@@ -136,15 +161,63 @@ async function expectRankingFullyLogged() {
       lp."levelId",
       cr."listIndex"::text AS current,
       (
-        SELECT i."listIndex"::text
+        SELECT i."orderIndex"::text
         FROM "activity_log_level_impact" i
         JOIN "activity_log" e ON e.id = i."eventId"
-        WHERE i."levelId" = lp."levelId" AND e."userId" = cr."userId"
+        WHERE i."levelId" = lp."levelId"
+          AND e."userId" = cr."userId"
+          -- Impact rows carry the index of whichever ordering their event
+          -- concerns, so this must not read a rating event's ratingIndex and
+          -- compare it against a demon list index. Listed explicitly rather
+          -- than matched by prefix: LIKE treats '_' as a wildcard, and a
+          -- pattern loose enough to be convenient is loose enough to be wrong.
+          AND e."eventType" IN (
+            'DEMON_LIST_PLACEMENT', 'DEMON_LIST_REORDER', 'DEMON_LIST_REMOVED',
+            'DEMON_LIST_BULK_REPLACE', 'DEMON_LIST_REBALANCE'
+          )
         ORDER BY e."sequence" DESC
         LIMIT 1
       ) AS logged
     FROM "classic_demon_list" cr
     JOIN "level_progress" lp ON lp.id = cr."levelProgressId"
+  `
+  const unlogged = rows.filter((r) => r.logged !== r.current)
+  expect(unlogged).toEqual([])
+}
+
+/**
+ * The same rule on the MANUAL rating ordering: every `rating_ranking.ratingIndex`
+ * must be the most recent value logged for that level by a RATING_* event.
+ *
+ * Split from the demon list sweep rather than generalised because the two read
+ * different tables, and a single query that guessed which ordering an impact
+ * row described would be the very ambiguity the event-type filter exists to
+ * remove.
+ */
+async function expectRatingRankingFullyLogged() {
+  const rows = await prisma.$queryRaw<
+    { levelId: string; current: string; logged: string | null }[]
+  >`
+    SELECT
+      lp."levelId",
+      rr."ratingIndex"::text AS current,
+      (
+        SELECT i."orderIndex"::text
+        FROM "activity_log_level_impact" i
+        JOIN "activity_log" e ON e.id = i."eventId"
+        WHERE i."levelId" = lp."levelId"
+          AND e."userId" = rr."userId"
+          -- RATING_CONFIG_CHANGE shares the prefix but is not an ordering
+          -- event, which is exactly why these are listed rather than matched.
+          AND e."eventType" IN (
+            'RATING_PLACEMENT', 'RATING_REORDER', 'RATING_REMOVED',
+            'RATING_BULK_REPLACE', 'RATING_REBALANCE'
+          )
+        ORDER BY e."sequence" DESC
+        LIMIT 1
+      ) AS logged
+    FROM "rating_ranking" rr
+    JOIN "level_progress" lp ON lp.id = rr."levelProgressId"
   `
   const unlogged = rows.filter((r) => r.logged !== r.current)
   expect(unlogged).toEqual([])
@@ -184,6 +257,39 @@ function logCompletion(userId: string, payload: Record<string, unknown> = {}) {
       ...payload,
     }),
   })
+}
+
+function logProgress(userId: string, payload: Record<string, unknown> = {}) {
+  return buildApp(loggingApp, { userId }).request('/me/progress', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      levelId: LEVEL_ID,
+      mode: 'from_zero',
+      percentage: 42,
+      dateUncertain: false,
+      ...payload,
+    }),
+  })
+}
+
+function logDrop(userId: string, payload: Record<string, unknown> = {}) {
+  return buildApp(loggingApp, { userId }).request('/me/drops', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ levelId: LEVEL_ID, ...payload }),
+  })
+}
+
+function editEntry(userId: string, payload: Record<string, unknown>) {
+  return buildApp(loggingApp, { userId }).request(
+    `/me/progress/${LEVEL_ID}`,
+    {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    }
+  )
 }
 
 /** A GDDL submission for LEVEL_ID. */
@@ -252,6 +358,15 @@ async function completionCount(userId: string) {
       kind: 'COMPLETION',
       levelProgress: { userId, levelId: LEVEL_ID },
     },
+  })
+}
+
+/** Ranks a completion through the real endpoint, at the top of the ranking. */
+function placeInRatingRanking(userId: string, levelProgressId: string) {
+  return buildApp(ratingRankingApp, { userId }).request('/me/ranking', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ levelProgressId }),
   })
 }
 
@@ -339,6 +454,21 @@ describe('the invariant sweeps', () => {
     })
 
     await expect(expectRankingFullyLogged()).rejects.toThrow()
+  })
+
+  it('expectCompletionOnlyFieldsOnCompletions catches a planted video on a drop', async () => {
+    const { user } = await seedWorld()
+    await logDrop(user.id)
+    const drop = await prisma.progressUpdate.findFirstOrThrow({
+      where: { kind: 'DROP', levelProgress: { userId: user.id } },
+    })
+
+    await prisma.progressUpdate.update({
+      where: { id: drop.id },
+      data: { videoUrl: 'https://youtu.be/abc' },
+    })
+
+    await expect(expectCompletionOnlyFieldsOnCompletions()).rejects.toThrow()
   })
 
   it('does not fire on a Want to Beat entry the user has not completed', async () => {
@@ -528,6 +658,175 @@ describe('INVARIANT: every classic_demon_list write is logged', () => {
     await commitImportRanking(user.id, [{ levelId: LEVEL_ID }])
 
     await expectRankingFullyLogged()
+  })
+})
+
+// ─── every ratingIndex write is logged ───────────────────────────────────────
+//
+// The MANUAL ordering's half of the same rule. Every write path gets a case,
+// because the whole point of the sweep is that a path which forgets to emit an
+// event turns this file red rather than silently losing a level's history.
+describe('INVARIANT: every rating_ranking write is logged', () => {
+  // The write endpoints are MANUAL-only — the order is derived in the other
+  // modes, so there is nothing to arrange. seedWorld's user defaults to SIMPLE.
+  async function rankedEntry(userId: string) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { ratingMode: 'MANUAL' },
+    })
+    await logCompletion(userId, { attempts: 100 })
+    const lp = await prisma.levelProgress.findFirstOrThrow({
+      where: { userId, levelId: LEVEL_ID },
+    })
+    await placeInRatingRanking(userId, lp.id)
+    return lp
+  }
+
+  it('holds after a placement', async () => {
+    const { user } = await seedWorld()
+    await rankedEntry(user.id)
+
+    await expectRatingRankingFullyLogged()
+  })
+
+  it('holds after a reorder', async () => {
+    const { user } = await seedWorld()
+    const first = await rankedEntry(user.id)
+
+    const second = await seedLevel(prisma, { inGameId: '222' })
+    await logCompletion(user.id, { attempts: 5, levelId: second.inGameId })
+    const secondLp = await prisma.levelProgress.findFirstOrThrow({
+      where: { userId: user.id, levelId: second.inGameId },
+    })
+    await placeInRatingRanking(user.id, secondLp.id)
+
+    // Move the first entry below the second.
+    await buildApp(ratingRankingApp, { userId: user.id }).request(
+      `/me/ranking/${first.id}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ aboveId: secondLp.id }),
+      }
+    )
+
+    await expectRatingRankingFullyLogged()
+  })
+
+  it('holds after a removal', async () => {
+    const { user } = await seedWorld()
+    const lp = await rankedEntry(user.id)
+
+    await buildApp(ratingRankingApp, { userId: user.id }).request(
+      `/me/ranking/${lp.id}`,
+      { method: 'DELETE' }
+    )
+
+    await expectRatingRankingFullyLogged()
+  })
+
+  // The sweep has to be able to FAIL, or it proves nothing. An index moved
+  // behind the service's back is exactly the hole it exists to catch.
+  it('catches a ratingIndex written without an event', async () => {
+    const { user } = await seedWorld()
+    const lp = await rankedEntry(user.id)
+
+    await prisma.ratingRanking.updateMany({
+      where: { levelProgressId: lp.id },
+      data: { ratingIndex: 99 },
+    })
+
+    await expect(expectRatingRankingFullyLogged()).rejects.toThrow()
+  })
+})
+
+// ─── completion-only fields live on completions ──────────────────────────────
+
+describe('INVARIANT: completion-only fields only on COMPLETION rows', () => {
+  // Each test drives one real write path and then sweeps the WHOLE database,
+  // so a path that starts writing these onto the wrong row turns this red
+  // wherever it lives.
+
+  it('accepts them on a completion', async () => {
+    const { user } = await seedWorld()
+
+    const res = await logCompletion(user.id, {
+      videoUrl: 'https://youtu.be/abc',
+      twoPlayerSolo: false,
+      twoPlayerPartner: 'friend',
+    })
+
+    expect(res.status).toBe(201)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it.each(['videoUrl', 'twoPlayerSolo', 'twoPlayerPartner'] as const)(
+    'rejects a %s edit aimed at a progress row',
+    async (field) => {
+      const { user } = await seedWorld()
+      await logProgress(user.id)
+
+      const res = await editEntry(user.id, {
+        [field]: field === 'twoPlayerSolo' ? false : 'x',
+      })
+
+      expect(res.status).toBe(400)
+      await expectCompletionOnlyFieldsOnCompletions()
+    }
+  )
+
+  it('rejects them when the level was dropped', async () => {
+    const { user } = await seedWorld()
+    await logDrop(user.id)
+
+    const res = await editEntry(user.id, { videoUrl: 'https://youtu.be/abc' })
+
+    expect(res.status).toBe(400)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('still allows the edit once the level is completed', async () => {
+    // The gate is about which ROW is targeted, not about locking the fields —
+    // the same payload refused above lands once a completion exists.
+    const { user } = await seedWorld()
+    await logCompletion(user.id, { attempts: 100 })
+
+    const res = await editEntry(user.id, { videoUrl: 'https://youtu.be/abc' })
+
+    expect(res.status).toBe(200)
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('leaves progress and drop rows clean when an import commits', async () => {
+    const { user } = await seedWorld()
+
+    await runImport(user.id, [
+      {
+        rowIndex: 0,
+        data: {
+          levelId: LEVEL_ID,
+          attempts: 100,
+          videoUrl: 'https://youtu.be/abc',
+          twoPlayerSolo: false,
+          twoPlayerPartner: 'friend',
+        },
+      },
+    ])
+
+    await expectCompletionOnlyFieldsOnCompletions()
+  })
+
+  it('leaves them clean when GDDL sync records a completion', async () => {
+    // GDDL supplies a proof URL, which becomes videoUrl — the one non-user
+    // write path that sets a completion-only field.
+    const { user } = await seedWorld()
+    mockFetchSubmissions.mockResolvedValue([
+      gddlSubmission({ Proof: 'https://youtu.be/abc' }),
+    ])
+
+    await syncGddlSubmissions(user.id, 'gddl-key')
+
+    await expectCompletionOnlyFieldsOnCompletions()
   })
 })
 

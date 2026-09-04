@@ -82,7 +82,7 @@ async function seedEvent(
           levelId,
           levelName: `Level ${levelId}`,
           role: 'MOVER' as const,
-          listIndex: String(10 - i),
+          orderIndex: String(10 - i),
           positionBefore: i + 1,
           positionAfter: i + 1,
         })),

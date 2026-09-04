@@ -79,8 +79,8 @@ describe('GET /me/export — sections', () => {
     'progress',
     'dropped',
     'ranking',
+    'ratingRanking',
     'collections',
-    'ratings',
     'categories',
   ])('serves the %s section for an empty account', async (section) => {
     const user = await seedUser(prisma)

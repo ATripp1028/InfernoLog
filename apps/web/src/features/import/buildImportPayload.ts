@@ -141,6 +141,33 @@ export function buildImportPayload({
         )
         .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
 
+  // The rating order gets the same treatment, from its own tab. No merge board
+  // for it yet, so it is always the sheet's rows: a Ranking tab replaces the
+  // stored order outright, which is the documented "sheet wins" rule.
+  //
+  // Only rows that CARRY a rank take part. The Ranking tab is wider than the
+  // ordering — it also holds the simple score and the per-category ones, and an
+  // export writes a row there for every rated level whether or not it holds a
+  // manual position (`rank` blank). Sending those too would turn an
+  // export → import round trip into a whole-order replace for someone who has
+  // no manual order at all: a SIMPLE-mode user would come back with one
+  // invented in level-id order, and a MANUAL user would find their unplaced
+  // pile silently placed. A blank rank means "no position", exactly as the
+  // template's own example rows show.
+  const ratingRankingEntries = (parseResult?.ratingRanking ?? [])
+    .filter(
+      (r) =>
+        r.rank != null &&
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.levelId || r.levelName)
+    )
+    // Sorted here rather than relying on the sheet's row order: once the
+    // rank-less rows are dropped, the numbers are the only statement of order
+    // the tab makes, and parseSpreadsheet only sorts a tab whose every
+    // importable row carries one.
+    .sort((a, b) => (a.rank ?? 0) - (b.rank ?? 0))
+    .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
+
   // Lists/Collections: same idea, but per-collection — a sheet can touch
   // several collections and only some of them needed merging. Rows for a
   // collection with a resolved order are dropped from the original sheet
@@ -203,6 +230,9 @@ export function buildImportPayload({
   return {
     rows,
     ...(rankingEntries.length > 0 ? { ranking: rankingEntries } : {}),
+    ...(ratingRankingEntries.length > 0
+      ? { ratingRanking: ratingRankingEntries }
+      : {}),
     ...(listEntries.length > 0 ? { collections: listEntries } : {}),
     ...(ratingRows.length > 0
       ? {
@@ -210,6 +240,7 @@ export function buildImportPayload({
             levelId: r.levelId,
             levelName: r.levelName,
             creator: r.creator,
+            simpleRating: r.simpleRating,
             inGameDifficulty: r.inGameDifficulty,
             scores: r.scores,
           })),

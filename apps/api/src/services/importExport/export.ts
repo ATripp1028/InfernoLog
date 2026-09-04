@@ -58,6 +58,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       visibility: true,
       levelNotes: true,
       userGddlTier: true,
+      difficultyOpinion: true,
       simpleRating: true,
       coinsCollected: true,
       // stars + the label together resolve the difficulty cell; see
@@ -84,7 +85,6 @@ async function exportCompletions(userId: string, skip: number, take: number) {
           fps: true,
           device: true,
           enjoyment: true,
-          difficultyOpinion: true,
           twoPlayerSolo: true,
           twoPlayerPartner: true,
           notes: true,
@@ -119,7 +119,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         device: pu.device,
         enjoyment: pu.enjoyment,
         simpleRating: lp.simpleRating,
-        difficultyOpinion: pu.difficultyOpinion,
+        difficultyOpinion: lp.difficultyOpinion,
         coinsCollected: lp.coinsCollected,
         twoPlayerSolo: pu.twoPlayerSolo,
         twoPlayerPartner: pu.twoPlayerPartner,
@@ -276,6 +276,86 @@ async function exportRanking(userId: string, skip: number, take: number) {
   }))
 }
 
+// The "Ranking" tab: everything about how the user rates a level, in one place
+// — the manual position, the simple score, and the per-category scores.
+//
+// Covers every level with a manual position OR any rating at all, because the
+// two do not imply each other: a MANUAL user has positions and no numbers, a
+// SIMPLE user has numbers and no positions, and both belong in this tab. Rows
+// with a position come first, in that order; the rest follow by level id, which
+// is stable across exports.
+async function exportRatingRanking(
+  userId: string,
+  skip: number,
+  take: number
+) {
+  const categories = await prisma.ratingCategory.findMany({
+    where: { userId },
+    select: { id: true, name: true },
+  })
+  const catNameById = new Map(categories.map((c) => [c.id, c.name]))
+
+  const lps = await prisma.levelProgress.findMany({
+    where: {
+      userId,
+      OR: [
+        { ratingRanking: { isNot: null } },
+        { ratingScores: { some: {} } },
+        { simpleRating: { not: null } },
+      ],
+    },
+    select: {
+      levelId: true,
+      simpleRating: true,
+      ratingRanking: { select: { ratingIndex: true } },
+      // stars + the label together resolve the difficulty cell; see
+      // toSheetDifficulty.
+      level: {
+        select: {
+          name: true,
+          creator: true,
+          stars: true,
+          inGameDifficulty: true,
+        },
+      },
+      ratingScores: { select: { categoryId: true, score: true } },
+    },
+  })
+
+  // Sorted here rather than in the query: the ordering key is a nullable
+  // relation, and "placed rows first, by index" is not expressible as one
+  // orderBy that also falls back to level id for the rest.
+  const ordered = [...lps].sort((a, b) => {
+    const ai = a.ratingRanking?.ratingIndex
+    const bi = b.ratingRanking?.ratingIndex
+    if (ai && bi) return bi.comparedTo(ai) // higher index = better = first
+    if (ai) return -1
+    if (bi) return 1
+    return a.levelId.localeCompare(b.levelId)
+  })
+
+  return ordered.slice(skip, skip + take).map((lp, i) => {
+    const scores: Record<string, number> = {}
+    for (const s of lp.ratingScores) {
+      const name = catNameById.get(s.categoryId)
+      if (name) scores[name] = s.score
+    }
+    return {
+      // Only placed rows carry a position; the rest are ordered but unranked.
+      rank: lp.ratingRanking ? skip + i + 1 : null,
+      levelId: lp.levelId,
+      levelName: lp.level.name,
+      creator: lp.level.creator,
+      inGameDifficulty: toSheetDifficulty({
+        ...lp.level,
+        inGameId: lp.levelId,
+      }),
+      simpleRating: lp.simpleRating,
+      scores,
+    }
+  })
+}
+
 async function exportCollections(userId: string, skip: number, take: number) {
   const entries = await prisma.collectionEntry.findMany({
     where: { collection: { userId } },
@@ -324,60 +404,6 @@ async function exportCollections(userId: string, skip: number, take: number) {
   })
 }
 
-async function exportRatings(userId: string, skip: number, take: number) {
-  const categories = await prisma.ratingCategory.findMany({
-    where: { userId },
-    select: { id: true, name: true },
-  })
-  const catNameById = new Map(categories.map((c) => [c.id, c.name]))
-
-  const lps = await prisma.levelProgress.findMany({
-    where: {
-      userId,
-      ratingScores: { some: {} },
-    },
-    orderBy: { createdAt: 'asc' },
-    skip,
-    take,
-    select: {
-      levelId: true,
-      // stars + the label together resolve the difficulty cell; see
-      // toSheetDifficulty.
-      level: {
-        select: {
-          name: true,
-          creator: true,
-          stars: true,
-          inGameDifficulty: true,
-        },
-      },
-      ratingScores: { select: { categoryId: true, score: true } },
-    },
-  })
-
-  return lps.flatMap((lp) => {
-    if (lp.ratingScores.length === 0) return []
-    const scores: Record<string, number> = {}
-    for (const s of lp.ratingScores) {
-      const name = catNameById.get(s.categoryId)
-      if (name) scores[name] = s.score
-    }
-    if (Object.keys(scores).length === 0) return []
-    return [
-      {
-        levelId: lp.levelId,
-        levelName: lp.level.name,
-        creator: lp.level.creator,
-        inGameDifficulty: toSheetDifficulty({
-          ...lp.level,
-          inGameId: lp.levelId,
-        }),
-        scores,
-      },
-    ]
-  })
-}
-
 async function exportCategories(userId: string): Promise<string[]> {
   const categories = await prisma.ratingCategory.findMany({
     where: { userId },
@@ -406,8 +432,8 @@ export async function exportSection(
     progress: exportProgress,
     dropped: exportDropped,
     ranking: exportRanking,
+    ratingRanking: exportRatingRanking,
     collections: exportCollections,
-    ratings: exportRatings,
   } as const
 
   const items = await fetchers[section](userId, offset, limit)

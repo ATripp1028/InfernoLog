@@ -30,3 +30,12 @@ authedRoute('GET /v1/me/demon-list/classic')
 authedRoute('POST /v1/me/demon-list/classic')
 authedRoute('PATCH /v1/me/demon-list/classic/{levelProgressId}')
 authedRoute('DELETE /v1/me/demon-list/classic/{levelProgressId}')
+
+// ─────────────────────────────────────────────
+// RATING RANKING — the MANUAL rating mode's ordering.
+// ─────────────────────────────────────────────
+// Ranked + unranked columns in one payload; place / reorder / remove.
+authedRoute('GET /v1/me/ranking')
+authedRoute('POST /v1/me/ranking')
+authedRoute('PATCH /v1/me/ranking/{levelProgressId}')
+authedRoute('DELETE /v1/me/ranking/{levelProgressId}')

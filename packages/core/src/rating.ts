@@ -17,7 +17,7 @@
 // `ratingMode` is a plain string union rather than a nominal enum so the
 // helper accepts values from either app's enum without a type mismatch.
 export interface OverallRatingConfig {
-  ratingMode: 'SIMPLE' | 'WEIGHTED'
+  ratingMode: 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
   includeEnjoyment: boolean
   enjoymentWeight: number
   // categoryId → weight, for the user's current rating categories.
@@ -34,6 +34,10 @@ export function computeOverallRating(
   config: OverallRatingConfig,
   update: RatingUpdate
 ): number | null {
+  // MANUAL mode has no number at all: the user's chosen POSITION is the rating,
+  // and it lives in rating_ranking.ratingIndex rather than on the update. Null
+  // rather than 0 — the level is not rated badly, it is rated by where it sits.
+  if (config.ratingMode === 'MANUAL') return null
   if (config.ratingMode === 'SIMPLE') {
     return update.simpleRating
   }

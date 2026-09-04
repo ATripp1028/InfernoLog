@@ -10,11 +10,11 @@ import { backOriginState } from '@/lib/backOrigin'
 import { GddlTierBadge } from '@/components/data/GddlTierBadge'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { medalColor } from '@/lib/medals'
-import type { DemonListItem } from './types'
+import type { OrderedItem } from '@/lib/ordering/types'
 
 interface PlacedRowProps {
   rank: number
-  item: DemonListItem
+  item: OrderedItem
   // Drag affordance — omitted when the list is read-only (filtered).
   handle?: React.ReactNode
   highlight?: boolean | undefined
@@ -26,6 +26,11 @@ interface PlacedRowProps {
   // Unplace affordance — omitted on the drag overlay, where a click target
   // sitting under the cursor would be nonsense.
   onRemove?: (() => void) | undefined
+  /**
+   * What this ordering is called, for the remove control's label — "demon
+   * list" or "ranking". The rest of the row is identical either way.
+   */
+  listLabel: string
 }
 
 /**
@@ -33,7 +38,17 @@ interface PlacedRowProps {
  */
 export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
   (
-    { rank, item, handle, highlight, isDragging, style, domId, onRemove },
+    {
+      rank,
+      item,
+      handle,
+      highlight,
+      isDragging,
+      style,
+      domId,
+      onRemove,
+      listLabel,
+    },
     ref
   ) => {
     const { level, badge, attempts } = item
@@ -95,8 +110,8 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
           {onRemove && (
             <button
               type="button"
-              aria-label={`Remove ${level.name ?? 'level'} from your demon list`}
-              title="Remove from your demon list"
+              aria-label={`Remove ${level.name ?? 'level'} from your ${listLabel}`}
+              title={`Remove from your ${listLabel}`}
               onClick={onRemove}
               className="flex size-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary"
             >
@@ -123,11 +138,17 @@ export function SortablePlacedRow({
   item,
   highlight,
   onRemove,
+  listLabel,
 }: {
   rank: number
-  item: DemonListItem
+  item: OrderedItem
   highlight?: boolean
   onRemove?: (() => void) | undefined
+  /**
+   * What this ordering is called, for the remove control's label — "demon
+   * list" or "ranking". The rest of the row is identical either way.
+   */
+  listLabel: string
 }) {
   const {
     attributes,
@@ -146,6 +167,7 @@ export function SortablePlacedRow({
       highlight={highlight}
       isDragging={isDragging}
       onRemove={onRemove}
+      listLabel={listLabel}
       domId={`rk-${item.levelProgressId}`}
       style={{
         transform: CSS.Transform.toString(transform),

@@ -70,9 +70,17 @@ enum AccountStatus {
   BANNED
 }
 
+// SIMPLE = one score per level (LevelProgress.simpleRating).
+// WEIGHTED = per-category scores (RatingScore rows) that are combined into a
+// weighted average.
+// MANUAL = the user orders their completions by hand and the POSITION is the
+// rating — there is no number. computeOverallRating returns null in this mode,
+// and the Ranking page reads rating_ranking.ratingIndex instead. See RATING_SYSTEM.md.
+// Works identically to the demon list
 enum RatingMode {
   SIMPLE
   WEIGHTED
+  MANUAL
 }
 
 enum DateFormatPreference {
@@ -158,7 +166,7 @@ enum EntryVisibility {
 //     level by level would bury every other event they have. The levels it
 //     touched are its impact rows.
 //
-//   DEMON_LIST_REBALANCE — INTERNAL ONLY. The renormalisation inside
+//   DEMON_LIST_REBALANCE, RATING_REBALANCE — INTERNAL ONLY. The renormalisation inside
 //     services/ranking, which rewrites every index while leaving the ORDER
 //     untouched. It exists so every level's logged listIndex history stays
 //     in one coordinate system and reconstruction can't silently drift. The
@@ -171,6 +179,11 @@ enum ActivityEventType {
   DEMON_LIST_REMOVED
   DEMON_LIST_BULK_REPLACE
   DEMON_LIST_REBALANCE
+  RATING_PLACEMENT
+  RATING_REORDER
+  RATING_REMOVED
+  RATING_BULK_REPLACE
+  RATING_REBALANCE
   LOG_EDIT
   RATING_CONFIG_CHANGE
 }
@@ -416,6 +429,7 @@ model User {
   // Relations
   levelProgress         LevelProgress[]
   classicDemonList      ClassicDemonList[]
+  ratingRanking         RatingRanking[]
   collections           Collection[]
   apiKeys               ApiKey[]
   ratingCategories      RatingCategory[]
@@ -470,7 +484,7 @@ model Level {
   // For DEMONS and UNRATED levels this column is the only representation there
   // is: all five demon tiers share 10 stars, and "Unrated" has no stars at all.
   //
-  // The per-user difficulty *opinion* lives on ProgressUpdate.difficultyOpinion,
+  // The per-user difficulty *opinion* lives on LevelProgress.difficultyOpinion,
   // and is on a DIFFERENT, subjective 1-9 star scale. Don't mix the two.
   inGameDifficulty      String?
   // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
@@ -639,6 +653,16 @@ model LevelProgress {
   // The user's own opinion on the level's GDDL tier. Set during completion
   // logging or via the edit form. Null when the user has not given an opinion.
   userGddlTier    Int?
+  // The user's subjective difficulty opinion (the only difficulty they edit).
+  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
+  // than a separate paired field. See LOGGING_FLOW.md.
+  //
+  // Level-scoped, not per-event: this is the user's read of the LEVEL, not of
+  // one run — the same classification the activity log has always given it
+  // (ActivityFieldCategory.METADATA, alongside userGddlTier and levelNotes,
+  // both of which already live here). It lived on ProgressUpdate until
+  // 2026-09-02; see that migration for the backfill.
+  difficultyOpinion DifficultyOpinion?
 
   // The user's single rating for this level (SIMPLE mode) — one score per
   // level, not one per logged event. WEIGHTED mode scores live in
@@ -660,6 +684,7 @@ model LevelProgress {
   level           Level                @relation(fields: [levelId], references: [inGameId])
   progressUpdates ProgressUpdate[]
   classicDemonList ClassicDemonList?
+  ratingRanking    RatingRanking?
   ratingScores    RatingScore[]
 
   @@unique([userId, levelId]) // One LevelProgress per user per level
@@ -714,7 +739,6 @@ model ProgressUpdate {
   // Which GD version's percentage system was used. Only meaningful for classic
   // levels (percentage/runFrom/runTo). Null = not recorded (legacy entries).
   percentageVersion     GdVersion?
-  peakHeartRateBpm      Int?            // v2 — heart rate monitor data
 
   // Ratings
   // enjoyment: logged per-event (any progress update, not just completions) —
@@ -727,10 +751,6 @@ model ProgressUpdate {
   // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
   // Populated automatically from the Level cache — never user-edited.
   inGameDifficulty      String?
-  // The user's subjective difficulty opinion (the only difficulty they edit).
-  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
-  // than a separate paired field. See LOGGING_FLOW.md.
-  difficultyOpinion     DifficultyOpinion?
   notes                 String?
 
   // Media
@@ -859,6 +879,41 @@ model ClassicDemonList {
 // insert between two entries by averaging their indices; a renormalization
 // pass resets to integers when a gap shrinks past 0.0001.
 // ─────────────────────────────────────────────
+
+// ─────────────────────────────────────────────
+// RATING RANKING
+// The MANUAL rating mode's ordering: the user's completions arranged by hand,
+// best first, where the POSITION is the rating and no number exists.
+//
+// Deliberately the same shape as ClassicDemonList, because it is the same
+// problem on a different axis — quality rather than difficulty. Fractional
+// index, bisect to insert, inline renormalisation when a gap closes past
+// 0.0001 (utils/fractionalIndex).
+//
+// EVERY write that touches ratingIndex must emit an ActivityLog event (the
+// RATING_* types), rebalances included. An index written without one is a
+// permanent hole in that level's history — the old value is simply gone.
+// services/invariants.integration.test.ts sweeps for it.
+//
+// Rows exist only while the user is in MANUAL mode; switching away leaves them
+// in place, so switching back restores the order rather than losing it — the
+// same "mode switching preserves all data" rule simple/weighted already follow.
+// ─────────────────────────────────────────────
+
+model RatingRanking {
+  id                String          @id @default(uuid())
+  userId            String
+  levelProgressId   String          @unique // One rating position per level
+
+  // Fractional index — higher = better rated, so display order is DESC.
+  ratingIndex       Decimal         @db.Decimal(20, 10)
+
+  // Relations
+  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+
+  @@map("rating_ranking")
+}
 
 model Collection {
   id          String          @id @default(uuid())
@@ -989,11 +1044,15 @@ model ActivityLogLevelImpact {
 
   // The ACTUAL fractional index this level held after this event — never a
   // delta, never a boolean. Recording the real value on every write that
-  // touches classic_demon_list.listIndex (bulk replaces and rebalances
-  // included) is what makes
+  // touches an ordering (bulk replaces and rebalances included) is what makes
   // snapshot-at-T reconstruction possible later without a snapshot table: a
   // level's index at time T is its most recent impact row at or before T.
-  listIndex         Decimal             @db.Decimal(20, 10)
+  //
+  // WHICH ordering it indexes is read off the event's type: DEMON_LIST_* events
+  // carry classic_demon_list.listIndex, RATING_* events carry
+  // rating_ranking.ratingIndex. One column rather than two nullable ones so the
+  // NOT NULL keeps its teeth — an impact row always records a real index.
+  orderIndex        Decimal             @db.Decimal(20, 10)
 
   // 1-based display positions (#1 = hardest), computed from the ordered
   // ranking before and after the event. positionBefore is null for an initial
@@ -1192,9 +1251,14 @@ model ImportJob {
   // present if that tab of the spreadsheet had rows), plus their results
   // once the worker runs them.
   rankingPayload     Json?
+  // The MANUAL rating order. Separate from rankingPayload, which is the demon
+  // list: a workbook can legitimately carry both, and they replace different
+  // orderings.
+  ratingRankingPayload Json?
   collectionsPayload Json?
   ratingsPayload     Json?
   rankingResult      Json?
+  ratingRankingResult Json?
   collectionsResult  Json?
   ratingsResult      Json?
   createdAt          DateTime       @default(now())

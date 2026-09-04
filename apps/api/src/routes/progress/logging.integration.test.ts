@@ -73,7 +73,8 @@ describe('POST /me/completions', () => {
     if (!pu) throw new Error('expected a completion update')
     expect(pu.kind).toBe('COMPLETION')
     expect(pu.attempts).toBe(12000)
-    expect(pu.difficultyOpinion).toBe('EXTREME')
+    // Level-scoped, not per-event.
+    expect(lp.difficultyOpinion).toBe('EXTREME')
     // In-game difficulty is snapshotted from the cached level, not the client.
     expect(pu.inGameDifficulty).toBe('Insane Demon')
     // Rating scores live on LevelProgress — one current set per level.

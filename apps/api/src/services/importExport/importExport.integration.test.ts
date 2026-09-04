@@ -51,6 +51,9 @@ const { commitImportBatch, checkImportConflicts } =
   await import('../importExport/import')
 const { commitImportRanking, checkRankingMerge } =
   await import('../importExport/demonList')
+const { commitImportRatingRanking } = await import(
+  '../importExport/ratingRanking'
+)
 const { commitImportCollections, checkCollectionsMerge } =
   await import('../importExport/collections')
 const { commitImportRatings } = await import('../importExport/ratings')
@@ -80,8 +83,10 @@ async function fullExport(userId: string): Promise<ExportResponse> {
     progress: (await all('progress')) as ExportResponse['progress'],
     dropped: (await all('dropped')) as ExportResponse['dropped'],
     ranking: (await all('ranking')) as ExportResponse['ranking'],
+    ratingRanking: (await all(
+      'ratingRanking'
+    )) as ExportResponse['ratingRanking'],
     collections: (await all('collections')) as ExportResponse['collections'],
-    ratings: (await all('ratings')) as ExportResponse['ratings'],
     ratingCategories: categories.items as string[],
   }
 }
@@ -225,6 +230,13 @@ async function importFullAccount(userId: string) {
     { levelId: '200' },
     { levelId: '100' },
   ] satisfies ImportRankingEntry[])
+  // A DIFFERENT order from the demon list's, deliberately: the round trip has
+  // to prove the two orderings survive independently rather than one standing
+  // in for the other.
+  await commitImportRatingRanking(userId, [
+    { levelId: '100' },
+    { levelId: '200' },
+  ] satisfies ImportRankingEntry[])
   await commitImportCollections(userId, [
     { list: 'want_to_beat', levelId: '300', position: 1 },
     { list: 'favorites', levelId: '100', position: 1 },
@@ -359,7 +371,14 @@ function normalize(exp: ExportResponse) {
         a.list.localeCompare(b.list) || a.levelId.localeCompare(b.levelId)
     ),
     ratingCategories: [...exp.ratingCategories].sort(),
-    ratings: [...exp.ratings].sort(byLevel),
+    // Order matters — the Ranking tab is ordered — and it now carries the
+    // simple score and the category scores as well.
+    ratingRanking: exp.ratingRanking.map((r) => ({
+      levelId: r.levelId,
+      rank: r.rank,
+      simpleRating: r.simpleRating,
+      scores: r.scores,
+    })),
   }
 }
 
@@ -377,6 +396,16 @@ describe('import → export round-trip', () => {
     expect(expA.dropped.map((d) => d.levelId).sort()).toEqual(['100', '300'])
     expect(expA.ranking.map((r) => r.rank)).toEqual([1, 2])
     expect(expA.ranking.map((r) => r.levelId)).toEqual(['200', '100']) // hardest first
+    // The rating order is its own list, and the reverse of the demon list's —
+    // so an export that confused the two would fail here rather than passing by
+    // coincidence.
+    expect(expA.ratingRanking.map((r) => r.rank)).toEqual([1, 2])
+    expect(expA.ratingRanking.map((r) => r.levelId)).toEqual(['100', '200']) // best first
+    // The tab carries every rating figure, not just the order: the category
+    // scores and the simple score ride on the same rows.
+    expect(
+      expA.ratingRanking.find((r) => r.levelId === '100')!.scores
+    ).toEqual({ Gameplay: 80, Decoration: 90 })
     const bb = expA.completions.find((c) => c.levelId === '100')!
     expect(bb.enjoyment).toBe(90) // stored internal 0-100
     expect(bb.percentage).toBe(99)
@@ -388,7 +417,9 @@ describe('import → export round-trip', () => {
     expect(bbDrop.droppedAt).toBe('2024-06-01')
     expect(bbDrop.reason).toBe('too hard at the time')
     expect(bbDrop.attemptsAtDrop).toBe(500)
-    expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+    expect(
+      expA.ratingRanking.find((r) => r.levelId === '100')!.scores
+    ).toEqual({
       Gameplay: 80,
       Decoration: 90,
     })
@@ -404,6 +435,10 @@ describe('import → export round-trip', () => {
       userB.id,
       expA.ranking.map((r) => ({ levelId: r.levelId }))
     )
+    await commitImportRatingRanking(
+      userB.id,
+      expA.ratingRanking.map((r) => ({ levelId: r.levelId }))
+    )
     await commitImportCollections(
       userB.id,
       expA.collections.map((l) => ({
@@ -414,7 +449,11 @@ describe('import → export round-trip', () => {
     )
     await commitImportRatings(
       userB.id,
-      expA.ratings.map((r) => ({ levelId: r.levelId, scores: r.scores }))
+      expA.ratingRanking.map((r) => ({
+        levelId: r.levelId,
+        simpleRating: r.simpleRating,
+        scores: r.scores,
+      }))
     )
     const expB = await fullExport(userB.id)
 
@@ -547,7 +586,7 @@ describe('commitImportBatch — completion conflict resolution', () => {
     expect(c.enjoyment).toBe(70) // untouched (not in the merge row)
     expect(c.notes).toBe('first') // untouched
     // Category rating survives the merge entirely.
-    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+    expect(exp.ratingRanking.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
     })
   })
@@ -584,7 +623,7 @@ describe('commitImportBatch — completion conflict resolution', () => {
     expect(c.enjoyment).toBeNull() // cleared
     expect(c.notes).toBeNull() // cleared
     // Rating scores live on a different table entirely — untouched regardless.
-    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+    expect(exp.ratingRanking.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 80,
     })
   })
@@ -1429,7 +1468,7 @@ describe('commitImportRatings', () => {
       { levelId: '100', scores: { Gameplay: 60, Song: 50 } },
     ])
     const exp = await fullExport(user.id)
-    expect(exp.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+    expect(exp.ratingRanking.find((r) => r.levelId === '100')!.scores).toEqual({
       Gameplay: 60,
       Decoration: 90,
       Song: 50,
