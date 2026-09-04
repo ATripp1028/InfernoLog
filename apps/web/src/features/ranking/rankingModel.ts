@@ -317,8 +317,14 @@ export function buildManualRanking(
   }
 
   const placed = new Set(orderedLevelProgressIds)
+  // Classic only, matching the endpoint's own rule — a platformer completion
+  // can never be placed, so counting it as "not placed yet" would send the user
+  // looking for a row that cannot exist.
   const unrankedCount = items.filter(
-    (item) => item.status === 'COMPLETED' && !placed.has(item.levelProgressId)
+    (item) =>
+      item.status === 'COMPLETED' &&
+      item.level.levelType === 'CLASSIC' &&
+      !placed.has(item.levelProgressId)
   ).length
 
   return { entries, unrankedCount }

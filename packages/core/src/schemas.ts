@@ -1634,6 +1634,11 @@ export const ImportStatusResponseSchema = z.object({
   }),
   flaggedRows: z.array(ImportFlaggedRowSchema),
   rankingResult: ImportRankingResponseSchema.nullable(),
+  // The MANUAL rating order's outcome. Same shape as the demon list's, and
+  // reported separately for the same reason the payloads are separate: a
+  // workbook can replace both orderings, and a row skipped from one says
+  // nothing about the other.
+  ratingRankingResult: ImportRankingResponseSchema.nullable(),
   collectionsResult: ImportCollectionsResponseSchema.nullable(),
   ratingsResult: ImportRatingsResponseSchema.nullable(),
 })

@@ -167,6 +167,9 @@ app.get('/me/import/status', async (c) => {
     })),
     rankingResult:
       (job.rankingResult as ImportStatusResponse['rankingResult']) ?? null,
+    ratingRankingResult:
+      (job.ratingRankingResult as ImportStatusResponse['ratingRankingResult']) ??
+      null,
     collectionsResult:
       (job.collectionsResult as ImportStatusResponse['collectionsResult']) ??
       null,

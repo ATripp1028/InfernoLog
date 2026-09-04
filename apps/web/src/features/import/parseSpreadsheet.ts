@@ -1178,7 +1178,6 @@ export function parseSpreadsheet(
   const ratingRankingSheet = findSheet('Ranking')
   const listsSheet = findSheet('Lists')
 
-
   const rawCompletions: Record<string, unknown>[] = completionSheet
     ? XLSX.utils.sheet_to_json(completionSheet, { defval: null })
     : []

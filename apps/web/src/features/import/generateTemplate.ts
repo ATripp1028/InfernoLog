@@ -492,31 +492,6 @@ export const FIELD_DESCRIPTIONS = [
     'Level name — matched against your completed levels. Required when level_id is blank.',
   ],
   [
-    'Ranking',
-    'rank',
-    'no',
-    'Optional number (1 = best rated). If present it sorts the tab; if absent, the row order is the order (top row = best).',
-  ],
-  [
-    'Ranking',
-    'level_id',
-    'no*',
-    'Numeric in-game level ID of a level you have completed.',
-  ],
-  [
-    'Ranking',
-    'level_name',
-    'no*',
-    'Level name — matched against your completed levels. Required when level_id is blank.',
-  ],
-  [
-    'Ranking',
-    '(note)',
-    '',
-    'Your manual rating order, used when your rating mode is Manual. The tab replaces the whole order. Omit it to keep your existing one. Separate from the Demon List tab, which is your difficulty order.',
-  ],
-  ['', '', '', ''],
-  [
     'Demon List',
     '(note)',
     '',
@@ -570,7 +545,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ranking',
     'rank',
     'no',
-    'Optional number (1 = best rated), used in Manual rating mode. If present it sorts the tab; if absent, the row order is the order. Blank for a level with no manual position.',
+    'Number, 1 = best rated, used in Manual rating mode. Rows carrying one make up your manual order, in that order. Leave it blank for a level with no manual position — a blank row still imports its scores, it just takes no place in the order.',
   ],
   [
     'Ranking',
@@ -612,7 +587,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ranking',
     '(note)',
     '',
-    'Everything about how you rate a level, in one tab: its manual position, its simple score, and a column per category. The rank column replaces your whole manual order; omit the tab to keep it. New categories are added with weight 0 — set weights in Settings. Separate from the Demon List tab, which is your difficulty order.',
+    'Everything about how you rate a level, in one tab: its manual position, its simple score, and a column per category. The ranked rows replace your whole manual order; a tab with no rank anywhere leaves that order alone and imports only the scores. New categories are added with weight 0 — set weights in Settings. Separate from the Demon List tab, which is your difficulty order.',
   ],
   ['', '', '', ''],
   [

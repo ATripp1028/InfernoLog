@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react'
 import {
+  ratingReorderMutationKey,
   usePlaceRating,
   useRemoveRating,
   useReorderRating,
@@ -68,8 +69,10 @@ export function useManualBoard({
       reorder,
       unplace,
       // Its own key, so an in-flight demon list move cannot freeze this board's
-      // resync and vice versa.
-      reorderMutationKey: ['ratingReorder'],
+      // resync and vice versa. Taken from the api module rather than retyped,
+      // so the key the board watches and the key the mutations register under
+      // cannot drift.
+      reorderMutationKey: ratingReorderMutationKey,
     },
     search,
     showUnrated,

@@ -23,6 +23,7 @@ import {
   buildRatingStandingChanges,
   purgeLevelActivity,
   readRankingSnapshot,
+  readRatingSnapshot,
   readRatingStandings,
   recordLogEdit,
   recordRankingMove,
@@ -731,6 +732,26 @@ export async function deleteProgressUpdate(
           moverLevelProgressId: lp.id,
           before,
           after,
+        })
+      }
+
+      // The MANUAL rating ordering follows the same rule for the same reason:
+      // only completions can be ranked (services/ratingRanking refuses anything
+      // else), so a level walked back out of COMPLETED cannot keep its
+      // position. Emitted as a RATING_REMOVED, because a ratingIndex that
+      // disappears without an event is a hole in that level's history.
+      const ratingBefore = await readRatingSnapshot(tx, userId)
+      const ratingDeleted = await tx.ratingRanking.deleteMany({
+        where: { levelProgressId: lp.id },
+      })
+      if (ratingDeleted.count > 0) {
+        const ratingAfter = await readRatingSnapshot(tx, userId)
+        await recordRankingMove(tx, {
+          userId,
+          eventType: 'RATING_REMOVED',
+          moverLevelProgressId: lp.id,
+          before: ratingBefore,
+          after: ratingAfter,
         })
       }
     }

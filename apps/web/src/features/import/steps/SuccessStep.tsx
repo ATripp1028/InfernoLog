@@ -14,6 +14,7 @@ export function SuccessStep() {
   const { committed, updated, skipped, failed } = status.outcomeCounts
   const {
     rankingResult,
+    ratingRankingResult,
     collectionsResult: listsResult,
     ratingsResult,
   } = status
@@ -35,6 +36,14 @@ export function SuccessStep() {
             ranked
             {rankingResult.skipped.length > 0 &&
               `, ${rankingResult.skipped.length} not ranked`}
+          </p>
+        )}
+        {ratingRankingResult && (
+          <p className="text-sm text-muted-foreground">
+            {ratingRankingResult.placed} level
+            {ratingRankingResult.placed !== 1 ? 's' : ''} placed in your ranking
+            {ratingRankingResult.skipped.length > 0 &&
+              `, ${ratingRankingResult.skipped.length} not placed`}
           </p>
         )}
         {listsResult && listsResult.lists.length > 0 && (
@@ -63,6 +72,19 @@ export function SuccessStep() {
         <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
           <p className="font-medium text-warning-soft">Not ranked</p>
           {rankingResult.skipped.map((s, i) => (
+            <div key={i} className="text-warning-soft">
+              {s.label} — {s.reason}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {ratingRankingResult && ratingRankingResult.skipped.length > 0 && (
+        <div className="rounded-lg border border-warning/40 bg-warning/5 p-3 max-h-40 overflow-y-auto text-xs space-y-1">
+          <p className="font-medium text-warning-soft">
+            Not placed in your ranking
+          </p>
+          {ratingRankingResult.skipped.map((s, i) => (
             <div key={i} className="text-warning-soft">
               {s.label} — {s.reason}
             </div>

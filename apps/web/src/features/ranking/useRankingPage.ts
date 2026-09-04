@@ -186,7 +186,13 @@ export function useRankingPage() {
       )
       return (progress.data ?? []).filter(
         (item) =>
-          item.status === 'COMPLETED' && !placed.has(item.levelProgressId)
+          item.status === 'COMPLETED' &&
+          // Classic only, matching what the server will accept: POST
+          // /v1/me/ranking rejects a platformer with "Only classic levels
+          // appear in the ranking", so offering one in the unplaced pile is
+          // offering a drag that can only 400.
+          item.level.levelType === 'CLASSIC' &&
+          !placed.has(item.levelProgressId)
       )
     }, [isManual, manual.data, progress.data]),
     // The bottom of whatever the numbers are counting: the whole ranking when

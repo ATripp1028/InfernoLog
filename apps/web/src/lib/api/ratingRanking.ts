@@ -23,6 +23,17 @@ export type { RatingRankingResponse }
 export const ratingRankingQueryKey = ['rating-ranking'] as const
 
 /**
+ * The mutation key every rating-ranking write is registered under.
+ *
+ * `useOrderingBoard` reads in-flight state from it (`useMutationState`) to
+ * freeze its resync effect while a drag is being persisted, so the three
+ * mutations below MUST declare it — the demon list's writes do the same under
+ * `['rankingReorder']`. Its own key, so an in-flight demon list move cannot
+ * freeze this board and vice versa.
+ */
+export const ratingReorderMutationKey = ['ratingReorder'] as const
+
+/**
  * The user's ranking as the server sees it.
  *
  * @param enabled - Pass false outside MANUAL mode; the other modes derive their
@@ -59,6 +70,10 @@ export function usePlaceRating() {
   const qc = useQueryClient()
   const invalidate = useInvalidateOnWrite()
   return useMutation({
+    // Shared by all three writes, and the key useOrderingBoard watches to know
+    // a move is in flight — without it the board's resync effect fires straight
+    // away and snaps the dragged row back to its pre-drag position.
+    mutationKey: ratingReorderMutationKey,
     mutationFn: async (vars: PlaceVars): Promise<RatingRankingResponse> => {
       const token = await getIdToken()
       const { data } = await apiFetch<{ data: RatingRankingResponse }>(
@@ -80,6 +95,7 @@ export function useReorderRating() {
   const qc = useQueryClient()
   const invalidate = useInvalidateOnWrite()
   return useMutation({
+    mutationKey: ratingReorderMutationKey,
     mutationFn: async ({
       levelProgressId,
       ...body
@@ -104,6 +120,7 @@ export function useRemoveRating() {
   const qc = useQueryClient()
   const invalidate = useInvalidateOnWrite()
   return useMutation({
+    mutationKey: ratingReorderMutationKey,
     mutationFn: async (
       levelProgressId: string
     ): Promise<RatingRankingResponse> => {

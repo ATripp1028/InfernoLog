@@ -379,6 +379,8 @@ export interface ImportStatusResponse {
   }
   flaggedRows: ImportFlaggedRow[]
   rankingResult: ImportRankingResponse | null
+  /** The MANUAL rating order's outcome — same shape as the demon list's. */
+  ratingRankingResult: ImportRankingResponse | null
   collectionsResult: ImportCollectionsResponse | null
   ratingsResult: ImportRatingsResponse | null
 }
@@ -473,13 +475,6 @@ export interface ExportResponse {
     position: number
   }[]
   ratingCategories: string[]
-  ratings: {
-    levelId: string
-    levelName: string | null
-    creator: string | null
-    inGameDifficulty: string | null
-    scores: Record<string, number>
-  }[]
 }
 
 /**
@@ -542,7 +537,6 @@ export function useImportApi() {
       ranking,
       ratingRanking,
       collections,
-      ratings,
       categories,
     ] = await Promise.all([
       fetchAll('completions'),
@@ -551,7 +545,6 @@ export function useImportApi() {
       fetchAll('ranking'),
       fetchAll('ratingRanking'),
       fetchAll('collections'),
-      fetchAll('ratings'),
       fetchAll('categories'),
     ])
     return {
@@ -561,7 +554,6 @@ export function useImportApi() {
       ranking: ranking as ExportResponse['ranking'],
       ratingRanking: ratingRanking as ExportResponse['ratingRanking'],
       collections: collections as ExportResponse['collections'],
-      ratings: ratings as ExportResponse['ratings'],
       ratingCategories: categories as string[],
     }
   }, [getIdToken])

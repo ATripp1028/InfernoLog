@@ -244,7 +244,6 @@ export function downloadExport(
     'Lists'
   )
 
-
   // Descriptions (same as the template) so the file is self-documenting.
   XLSX.utils.book_append_sheet(
     wb,
