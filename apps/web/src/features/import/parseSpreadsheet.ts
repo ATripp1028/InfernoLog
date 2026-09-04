@@ -261,6 +261,8 @@ export interface ParsedRatingRow {
   inGameDifficulty: string | null
   /** Category name → score on the internal 0-100 scale. */
   scores: Record<string, number>
+  /** SIMPLE mode's single score, internal 0-100. Null when the cell is blank. */
+  simpleRating: number | null
   flags: ParseFlag[]
 }
 
@@ -287,13 +289,6 @@ export interface ParseResult {
   ratingRanking: ParsedRankingRow[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions'; levelId: string; rows: number[] }[]
-  /**
-   * Tabs named the way an older export named them, present in the workbook and
-   * NOT importable under that name. An absent tab means "leave this data
-   * alone", so without this the whole tab would be skipped in silence; the
-   * review step turns it into something the user can see and act on.
-   */
-  legacyTabs: { found: string; expected: string }[]
 }
 
 // ── Completions tab ────────────────────────────────────────────────────────
@@ -1033,13 +1028,17 @@ function parseListRow(
 // ── Ratings tab ────────────────────────────────────────────────────────────
 
 // Columns in the Ratings tab that identify the level rather than a category.
+// The Ranking tab's fixed columns. Everything else in its header row is a
+// rating category name.
 const RESERVED_RATING_COLS = new Set([
+  'rank',
   'level_id',
   'level_name',
   'creator',
   'publisher',
   'level_author',
   'in_game_difficulty',
+  'simple_rating',
 ])
 
 // Parses a rating cell to the internal 0-100 scale, accepting either a 0-10
@@ -1059,6 +1058,9 @@ function parseRatingRow(
   categoryNames: string[]
 ): ParsedRatingRow {
   const flags: ParseFlag[] = []
+  // The simple score shares this tab with the category columns — the two are
+  // the same subject expressed by whichever mode the user is in.
+  const simpleRating = toScore100(getField(raw, 'simple_rating'))
   const rawLevelId = toStr(getField(raw, 'level_id'))
   const levelName = toStr(getField(raw, 'level_name'))
   const label = rowLabelFor(levelName, rawLevelId, rowIndex)
@@ -1122,6 +1124,7 @@ function parseRatingRow(
     creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
     inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     scores,
+    simpleRating,
     flags,
   }
 }
@@ -1168,24 +1171,13 @@ export function parseSpreadsheet(
       wb.SheetNames.find((n) => n.toLowerCase() === name.toLowerCase()) ?? ''
     ]
 
-  // "Ranking" is the MANUAL rating order's tab. It ALSO used to be the demon
-  // list's, before that tab was renamed — so a workbook carrying a Ranking tab
-  // and no Demon List tab is genuinely ambiguous. It is read as the rating
-  // order, which is what the name means now, and the ambiguity is reported so a
-  // user with a pre-rename export can catch it rather than silently having
-  // their difficulty order written over their quality one.
-  const legacyTabs: ParseResult['legacyTabs'] = []
-  if (!findSheet('Demon List') && findSheet('Ranking')) {
-    legacyTabs.push({ found: 'Ranking', expected: 'Demon List' })
-  }
-
   const completionSheet = findSheet('Completions')
   const progressSheet = findSheet('Progress')
   const droppedSheet = findSheet('Dropped')
   const demonListSheet = findSheet('Demon List')
   const ratingRankingSheet = findSheet('Ranking')
   const listsSheet = findSheet('Lists')
-  const ratingsSheet = findSheet('Ratings')
+
 
   const rawCompletions: Record<string, unknown>[] = completionSheet
     ? XLSX.utils.sheet_to_json(completionSheet, { defval: null })
@@ -1234,21 +1226,22 @@ export function parseSpreadsheet(
     parseListRow(r as Record<string, unknown>, i)
   )
 
-  // Ratings tab is "wide": every header that isn't a level-identity column is a
-  // category. Read the header row to discover the category columns.
+  // The Ranking tab is "wide": every header that is not one of its fixed
+  // columns is a rating category. It yields TWO things — the manual order and
+  // the scores — because one level's rating is one subject however the user's
+  // mode chooses to express it.
   let ratingCategories: string[] = []
   let ratings: ParsedRatingRow[] = []
-  if (ratingsSheet) {
-    const headerRow = (XLSX.utils.sheet_to_json(ratingsSheet, {
+  if (ratingRankingSheet) {
+    const headerRow = (XLSX.utils.sheet_to_json(ratingRankingSheet, {
       header: 1,
     })[0] ?? []) as unknown[]
     ratingCategories = headerRow
       .map((h) => (h == null ? '' : String(h).trim()))
       .filter((h) => h && !RESERVED_RATING_COLS.has(normalizeKey(h)))
-    const rawRatings = XLSX.utils.sheet_to_json(ratingsSheet, {
-      defval: null,
-    }) as Record<string, unknown>[]
-    ratings = rawRatings.map((r, i) => parseRatingRow(r, i, ratingCategories))
+    ratings = rawRatingRanking.map((r, i) =>
+      parseRatingRow(r, i, ratingCategories)
+    )
   }
 
   // Detect intra-tab duplicate level IDs. Dropped is additive (like Progress),
@@ -1277,6 +1270,5 @@ export function parseSpreadsheet(
     ratings,
     ratingCategories,
     duplicateLevelIds,
-    legacyTabs,
   }
 }

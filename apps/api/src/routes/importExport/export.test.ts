@@ -56,8 +56,8 @@ describe('GET /me/export — section', () => {
     'progress',
     'dropped',
     'ranking',
+    'ratingRanking',
     'collections',
-    'ratings',
     'categories',
   ])('accepts the %s section', async (section) => {
     const res = await app.request(`/me/export?section=${section}`)

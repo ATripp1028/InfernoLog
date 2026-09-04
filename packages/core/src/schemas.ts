@@ -1444,6 +1444,9 @@ export const ImportRatingEntrySchema = z.object({
   levelName: z.string().nullable().optional(),
   creator: z.string().nullable().optional(),
   inGameDifficulty: z.string().nullable().optional(),
+  // SIMPLE mode's single score, 0-100 internal. It arrives here rather than on
+  // the completion row because every rating figure now shares one tab.
+  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   // category name → score (0-100, internal scale).
   //
   // Category names are matched case-insensitively against the user's existing
@@ -1724,19 +1727,41 @@ export const ExportRatingSchema = z.object({
   scores: z.record(z.string(), z.number().int()), // 0-100 internal
 })
 
+/**
+ * One row of the sheet's "Ranking" tab: everything about how the user rates one
+ * level, in one place.
+ *
+ * `rank` is the MANUAL ordering's position, or null for a level that holds no
+ * manual position — a user in SIMPLE or WEIGHTED mode has ratings but no
+ * hand-arranged order, and their rows still belong here.
+ */
+export const ExportRatingRankingSchema = z.object({
+  rank: z.number().int().nullable(),
+  levelId: z.string(),
+  levelName: z.string().nullable(),
+  creator: z.string().nullable(),
+  inGameDifficulty: z.string().nullable(),
+  // SIMPLE mode's single score, 0-100 internal. Null when unset.
+  simpleRating: z.number().nullable(),
+  // WEIGHTED mode's per-category scores, 0-100 internal.
+  scores: z.record(z.string(), z.number().int()),
+})
+
 export const ExportResponseSchema = z.object({
   completions: z.array(ExportCompletionSchema),
   progress: z.array(ExportProgressSchema),
   dropped: z.array(ExportDroppedSchema),
   // Feeds the sheet's "Demon List" tab — the difficulty ordering.
   ranking: z.array(ExportRankingSchema),
-  // Feeds the sheet's "Ranking" tab — the MANUAL rating ordering. Same row
-  // shape as `ranking`; they are the same kind of list on different axes.
-  ratingRanking: z.array(ExportRankingSchema),
+  // Feeds the sheet's "Ranking" tab, which carries EVERYTHING about how the
+  // user rates a level: the manual position, the simple score and the
+  // per-category scores. One tab rather than three places, because they are one
+  // subject and a user editing their ratings should not have to find them in
+  // the Completions tab and a Ratings tab as well.
+  ratingRanking: z.array(ExportRatingRankingSchema),
   // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
   collections: z.array(ExportCollectionSchema),
   ratingCategories: z.array(z.string()),
-  ratings: z.array(ExportRatingSchema),
 })
 
 // The export is fetched section by section with offset pagination, so no single
@@ -1751,7 +1776,6 @@ export const EXPORT_SECTIONS = [
   // The MANUAL rating order — a separate ordering of the same completions.
   'ratingRanking',
   'collections',
-  'ratings',
   'categories',
 ] as const
 export type ExportSection = (typeof EXPORT_SECTIONS)[number]

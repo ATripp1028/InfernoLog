@@ -21,7 +21,6 @@ export const COMPLETION_HEADERS = [
   'fps',
   'device',
   'enjoyment',
-  'simple_rating',
   'difficulty_opinion',
   'difficulty_opinion_stars',
   'coin_1',
@@ -98,7 +97,6 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   fps: 360,
   device: 'pc',
   enjoyment: 9.5,
-  simple_rating: 9,
   difficulty_opinion: 'extreme',
   difficulty_opinion_stars: '',
   coin_1: '',
@@ -157,6 +155,23 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
  */
 export const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
 
+/**
+ * The Ranking tab's fixed columns, before the per-category ones.
+ *
+ * Everything about how a level is rated lives on this one tab: its manual
+ * position, its simple score, and a column per rating category. `rank` is blank
+ * for a level with no manual position — a user in simple or weighted mode has
+ * ratings and no hand-arranged order, and their rows still belong here.
+ */
+export const RATING_RANKING_HEADERS = [
+  'rank',
+  'level_id',
+  'level_name',
+  'creator',
+  'in_game_difficulty',
+  'simple_rating',
+]
+
 const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
   [1, '', 'Tartarus'],
   [2, '', 'Acheron'],
@@ -179,30 +194,6 @@ const LIST_EXAMPLE_ROWS: (string | number)[][] = [
   ['want_to_beat', '', 'Slaughterhouse', 'Icedcave', 'Extreme Demon', 1],
   ['favorites', '', 'Sonic Wave', 'Cyclic', 'Extreme Demon', 1],
   ['My Custom List', '', 'Bloodbath', 'Riot', 'Extreme Demon', 1],
-]
-
-/**
- * Ratings tab: weighted category scores. Identity columns first, then one column
- * per rating category (headers named after your categories). The category
- * columns here are just the seeded defaults — rename / add / remove to match yours.
- * Identity columns shared by the Ratings tab; the category columns follow.
- */
-export const RATING_IDENTITY_HEADERS = [
-  'level_id',
-  'level_name',
-  'creator',
-  'in_game_difficulty',
-]
-
-const RATING_HEADERS = [
-  ...RATING_IDENTITY_HEADERS,
-  'Gameplay',
-  'Decoration',
-  'Song',
-]
-
-const RATING_EXAMPLE_ROWS: (string | number)[][] = [
-  ['', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 9, 7],
 ]
 
 /**
@@ -258,7 +249,6 @@ export const FIELD_DESCRIPTIONS = [
   ['Completions', 'fps', 'no', 'Integer (e.g. 360)'],
   ['Completions', 'device', 'no', 'pc or mobile'],
   ['Completions', 'enjoyment', 'no', '0-10 (decimals OK, e.g. 9.5)'],
-  ['Completions', 'simple_rating', 'no', '0-10 (decimals OK)'],
   [
     'Completions',
     'difficulty_opinion',
@@ -577,40 +567,52 @@ export const FIELD_DESCRIPTIONS = [
   ],
   ['', '', '', ''],
   [
-    'Ratings',
+    'Ranking',
+    'rank',
+    'no',
+    'Optional number (1 = best rated), used in Manual rating mode. If present it sorts the tab; if absent, the row order is the order. Blank for a level with no manual position.',
+  ],
+  [
+    'Ranking',
     'level_id',
     'no*',
     'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).',
   ],
   [
-    'Ratings',
+    'Ranking',
     'level_name',
     'no*',
-    'The level — matched against your completed levels. Scores attach to the completion.',
+    'The level — matched against your completed levels. Ratings attach to the completion.',
   ],
   [
-    'Ratings',
+    'Ranking',
     'creator',
     'no',
     'Creator name — narrows name resolution when level_name matches multiple levels.',
   ],
   [
-    'Ratings',
+    'Ranking',
     'in_game_difficulty',
     'no',
     'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — or mark the face when the count is unknown ("Hard (non-demon)"). Used to filter name resolution when level_id is blank.',
   ],
   [
-    'Ratings',
+    'Ranking',
+    'simple_rating',
+    'no',
+    'Your single 0-10 score for the level (decimals OK), used in Simple rating mode.',
+  ],
+  [
+    'Ranking',
     '(category columns)',
     'no',
     'Every other column header is a rating category name; the cell is that level’s score (0-10 or 0-100 — both accepted). Categories are matched by name and created if missing.',
   ],
   [
-    'Ratings',
+    'Ranking',
     '(note)',
     '',
-    'Only the categories you include are written; a level must be completed to be rated. New categories are added with weight 0 — set weights in Settings.',
+    'Everything about how you rate a level, in one tab: its manual position, its simple score, and a column per category. The rank column replaces your whole manual order; omit the tab to keep it. New categories are added with weight 0 — set weights in Settings. Separate from the Demon List tab, which is your difficulty order.',
   ],
   ['', '', '', ''],
   [
@@ -656,11 +658,12 @@ export function downloadTemplate(): void {
   const rankingSheet = XLSX.utils.aoa_to_sheet(demonListData)
   XLSX.utils.book_append_sheet(wb, rankingSheet, 'Demon List')
 
-  // Ranking tab: the MANUAL rating order. Same columns as Demon List — the same
-  // kind of ordering, on quality rather than difficulty.
+  // Ranking tab: the fixed columns, then one per default category.
   const ratingRankingSheet = XLSX.utils.aoa_to_sheet([
-    RANKING_HEADERS,
-    ...RANKING_EXAMPLE_ROWS,
+    [...RATING_RANKING_HEADERS, 'Gameplay', 'Decoration', 'Song'],
+    [1, '', 'Tartarus', 'Riot', 'Extreme Demon', 9.5, 10, 9, 9.5],
+    [2, '', 'Acheron', 'Ryamu', 'Extreme Demon', 8.8, 9, 8.5, 9],
+    ['', '', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 8, 7.5, 8.5],
   ])
   XLSX.utils.book_append_sheet(wb, ratingRankingSheet, 'Ranking')
 
@@ -668,11 +671,6 @@ export function downloadTemplate(): void {
   const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]
   const listSheet = XLSX.utils.aoa_to_sheet(listData)
   XLSX.utils.book_append_sheet(wb, listSheet, 'Lists')
-
-  // Ratings tab: identity columns + one column per category
-  const ratingData = [RATING_HEADERS, ...RATING_EXAMPLE_ROWS]
-  const ratingSheet = XLSX.utils.aoa_to_sheet(ratingData)
-  XLSX.utils.book_append_sheet(wb, ratingSheet, 'Ratings')
 
   // Descriptions tab
   const descSheet = XLSX.utils.aoa_to_sheet(FIELD_DESCRIPTIONS)

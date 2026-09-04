@@ -127,6 +127,10 @@ export async function commitImportRatings(
   }
   const pending: Score[] = []
   const scoredLpIds = new Set<string>()
+  // SIMPLE-mode scores, which live on level_progress rather than in
+  // rating_scores. Collected alongside the category scores because the sheet
+  // now carries both on one tab.
+  const simpleRatings = new Map<string, number>()
   // Preserve first-seen order + original casing for any categories we create.
   const newCategoryNames = new Map<string, string>()
   // Categories already reported as over the cap. The cap is a property of the
@@ -156,6 +160,11 @@ export async function commitImportRatings(
           'Not among your completed levels — scores attach to completions',
       })
       continue
+    }
+
+    if (entry.simpleRating != null) {
+      simpleRatings.set(lpId, entry.simpleRating)
+      scoredLpIds.add(lpId)
     }
 
     for (const [rawName, score] of Object.entries(entry.scores)) {
@@ -192,7 +201,7 @@ export async function commitImportRatings(
     categoriesCreated: [],
     skipped,
   }
-  if (pending.length === 0) return result
+  if (pending.length === 0 && simpleRatings.size === 0) return result
 
   await prisma.$transaction(async (tx) => {
     // Create any missing categories (weight 0, appended in sheet order).
@@ -230,7 +239,16 @@ export async function commitImportRatings(
     })
     await tx.ratingScore.createMany({ data: rows })
 
-    result.scored = rows.length
+    // The simple score is one column on the same tab, written to the same
+    // rows — one update each, since they carry different values.
+    for (const [lpId, simpleRating] of simpleRatings) {
+      await tx.levelProgress.update({
+        where: { id: lpId },
+        data: { simpleRating },
+      })
+    }
+
+    result.scored = rows.length + simpleRatings.size
     result.levels = scoredLpIds.size
   })
 

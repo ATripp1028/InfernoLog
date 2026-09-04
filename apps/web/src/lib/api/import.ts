@@ -455,8 +455,17 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
-  // The MANUAL rating order — a second ordering of the same completions.
-  ratingRanking: { rank: number; levelId: string; levelName: string | null }[]
+  // The "Ranking" tab: every rating figure for a level in one place — manual
+  // position (null when it has none), simple score, per-category scores.
+  ratingRanking: {
+    rank: number | null
+    levelId: string
+    levelName: string | null
+    creator: string | null
+    inGameDifficulty: string | null
+    simpleRating: number | null
+    scores: Record<string, number>
+  }[]
   collections: {
     list: string
     levelId: string

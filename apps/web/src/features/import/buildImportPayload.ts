@@ -224,6 +224,7 @@ export function buildImportPayload({
             levelId: r.levelId,
             levelName: r.levelName,
             creator: r.creator,
+            simpleRating: r.simpleRating,
             inGameDifficulty: r.inGameDifficulty,
             scores: r.scores,
           })),

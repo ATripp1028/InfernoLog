@@ -51,7 +51,6 @@ describe('workbook structure', () => {
       ratings: [],
       ratingCategories: [],
       duplicateLevelIds: [],
-      legacyTabs: [],
     })
   })
 
@@ -66,28 +65,7 @@ describe('workbook structure', () => {
     }
   )
 
-  // A tab under a retired name is not imported. Without the report it would
-  // vanish in silence, because an absent tab legitimately means "leave this
-  // data alone" — so the user would see a clean import that quietly dropped
-  // their whole demon list.
-  it('reports a Ranking tab as the retired name for Demon List', () => {
-    const result = parse({ Ranking: [['level_id'], ['4']] })
 
-    expect(result.ranking).toHaveLength(0)
-    expect(result.legacyTabs).toEqual([
-      { found: 'Ranking', expected: 'Demon List' },
-    ])
-  })
-
-  it('does not report a legacy tab when the current one is present', () => {
-    const result = parse({
-      'Demon List': [['level_id'], ['4']],
-      Ranking: [['level_id'], ['9']],
-    })
-
-    expect(result.ranking).toHaveLength(1)
-    expect(result.legacyTabs).toEqual([])
-  })
 
   // The Demon List and Ranking tabs are two orderings of the same completions.
   // Reading one into the other would quietly overwrite a user's difficulty
@@ -114,27 +92,7 @@ describe('workbook structure', () => {
     expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['111', '222'])
   })
 
-  // A "Ranking" tab used to BE the demon list, before that tab was renamed, so
-  // a workbook with one and no Demon List tab is genuinely ambiguous. It is
-  // read as the rating order — the name's current meaning — and the ambiguity
-  // is reported so a pre-rename export can be spotted.
-  it('reports the ambiguity when only a Ranking tab is present', () => {
-    const result = parse({ Ranking: [['level_id'], ['222']] })
 
-    expect(result.ratingRanking).toHaveLength(1)
-    expect(result.legacyTabs).toEqual([
-      { found: 'Ranking', expected: 'Demon List' },
-    ])
-  })
-
-  it('reports no ambiguity when both tabs are present', () => {
-    const result = parse({
-      'Demon List': [['level_id'], ['111']],
-      Ranking: [['level_id'], ['222']],
-    })
-
-    expect(result.legacyTabs).toEqual([])
-  })
 
   it('reads every tab it knows about', () => {
     const result = parse({
@@ -146,7 +104,7 @@ describe('workbook structure', () => {
         ['list', 'level_id'],
         ['Favorites', '5'],
       ],
-      Ratings: [
+      'Ranking': [
         ['level_id', 'Gameplay'],
         ['6', 9],
       ],
@@ -568,7 +526,7 @@ describe('the ratings tab', () => {
   // rating category, discovered from the header row.
   it('discovers category columns from the header row', () => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         ['level_id', 'level_name', 'creator', 'Gameplay', 'Design'],
         ['128', 'Bloodbath', 'Riot', 9, 8],
       ],
@@ -586,7 +544,7 @@ describe('the ratings tab', () => {
     'in_game_difficulty',
   ])('does not mistake the reserved column %s for a category', (header) => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         [header, 'Gameplay'],
         ['x', 9],
       ],
@@ -597,7 +555,7 @@ describe('the ratings tab', () => {
 
   it('matches reserved columns however they are cased or spaced', () => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         ['Level ID', 'In Game Difficulty', 'Gameplay'],
         ['128', 'EXTREME_DEMON', 9],
       ],
@@ -611,7 +569,7 @@ describe('the ratings tab', () => {
   // category named " level_id ".
   it('does not turn a padded reserved column into a category', () => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         [' level_id ', 'Gameplay'],
         ['128', 9],
       ],
@@ -628,7 +586,7 @@ describe('the ratings tab', () => {
     [10, 100],
   ])('reads a score of %s as %s on the internal scale', (given, expected) => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         ['level_id', 'Gameplay'],
         ['128', given],
       ],
@@ -639,7 +597,7 @@ describe('the ratings tab', () => {
 
   it('leaves a level with no scores an empty score map', () => {
     const result = parse({
-      Ratings: [
+      'Ranking': [
         ['level_id', 'Gameplay'],
         ['128', ''],
       ],
@@ -738,7 +696,7 @@ describe('resilience', () => {
           ['list', 'level_id'],
           ['', ''],
         ],
-        Ratings: [
+        'Ranking': [
           ['level_id', 'Gameplay'],
           ['', 'good'],
         ],
