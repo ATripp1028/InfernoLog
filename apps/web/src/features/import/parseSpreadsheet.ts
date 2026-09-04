@@ -280,6 +280,11 @@ export interface ParseResult {
   ratings: ParsedRatingRow[]
   /** Category column names discovered in the Ratings tab, in sheet order. */
   ratingCategories: string[]
+  /**
+   * Ranking tab entries, ordered best → worst — the MANUAL rating order.
+   * Parsed exactly like `ranking`, which is the same shape on the other axis.
+   */
+  ratingRanking: ParsedRankingRow[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions'; levelId: string; rows: number[] }[]
   /**
@@ -1131,6 +1136,26 @@ function parseRatingRow(
  * @param dateFormat - How to read date cells. The sheet carries no format
  * marker, so this comes from the user's choice on the upload step.
  */
+/**
+ * Puts an ordering tab's rows in order, best/hardest first.
+ *
+ * If every importable row carries a rank number, the numbers are authoritative
+ * (rank 1 first); otherwise the sheet's own row order is the order. Shared by
+ * both ordering tabs so a workbook's Demon List and Ranking tabs cannot be read
+ * by different rules.
+ */
+function orderRankingRows(rows: ParsedRankingRow[]): ParsedRankingRow[] {
+  const candidates = rows.filter(
+    (r) =>
+      !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+  )
+  const allHaveRank =
+    candidates.length > 0 && candidates.every((r) => r.rank != null)
+  return allHaveRank
+    ? [...rows].sort((a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity))
+    : rows
+}
+
 export function parseSpreadsheet(
   buffer: ArrayBuffer,
   dateFormat: DateFormat
@@ -1143,8 +1168,12 @@ export function parseSpreadsheet(
       wb.SheetNames.find((n) => n.toLowerCase() === name.toLowerCase()) ?? ''
     ]
 
-  // Tabs an older export wrote under a name this version no longer reads.
-  // Detected, never imported — see ParseResult.legacyTabs.
+  // "Ranking" is the MANUAL rating order's tab. It ALSO used to be the demon
+  // list's, before that tab was renamed — so a workbook carrying a Ranking tab
+  // and no Demon List tab is genuinely ambiguous. It is read as the rating
+  // order, which is what the name means now, and the ambiguity is reported so a
+  // user with a pre-rename export can catch it rather than silently having
+  // their difficulty order written over their quality one.
   const legacyTabs: ParseResult['legacyTabs'] = []
   if (!findSheet('Demon List') && findSheet('Ranking')) {
     legacyTabs.push({ found: 'Ranking', expected: 'Demon List' })
@@ -1154,6 +1183,7 @@ export function parseSpreadsheet(
   const progressSheet = findSheet('Progress')
   const droppedSheet = findSheet('Dropped')
   const demonListSheet = findSheet('Demon List')
+  const ratingRankingSheet = findSheet('Ranking')
   const listsSheet = findSheet('Lists')
   const ratingsSheet = findSheet('Ratings')
 
@@ -1168,6 +1198,9 @@ export function parseSpreadsheet(
     : []
   const rawRanking: Record<string, unknown>[] = demonListSheet
     ? XLSX.utils.sheet_to_json(demonListSheet, { defval: null })
+    : []
+  const rawRatingRanking: Record<string, unknown>[] = ratingRankingSheet
+    ? XLSX.utils.sheet_to_json(ratingRankingSheet, { defval: null })
     : []
   const rawLists: Record<string, unknown>[] = listsSheet
     ? XLSX.utils.sheet_to_json(listsSheet, { defval: null })
@@ -1189,18 +1222,13 @@ export function parseSpreadsheet(
   // Order hardest → easiest. If every importable row carries a rank number, the
   // numbers are authoritative (rank 1 = hardest); otherwise the sheet's row
   // order is the order (top row = hardest).
-  const rankingCandidates = rankingRows.filter(
-    (r) =>
-      !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+  const ranking = orderRankingRows(rankingRows)
+
+  // The rating order, ordered best → worst by exactly the same rule: explicit
+  // rank numbers when every importable row has one, otherwise sheet order.
+  const ratingRanking = orderRankingRows(
+    rawRatingRanking.map((r, i) => parseRankingRow(r as Record<string, unknown>, i))
   )
-  const allHaveRank =
-    rankingCandidates.length > 0 &&
-    rankingCandidates.every((r) => r.rank != null)
-  const ranking = allHaveRank
-    ? [...rankingRows].sort(
-        (a, b) => (a.rank ?? Infinity) - (b.rank ?? Infinity)
-      )
-    : rankingRows
 
   const lists = rawLists.map((r, i) =>
     parseListRow(r as Record<string, unknown>, i)
@@ -1244,6 +1272,7 @@ export function parseSpreadsheet(
     progress,
     dropped,
     ranking,
+    ratingRanking,
     lists,
     ratings,
     ratingCategories,

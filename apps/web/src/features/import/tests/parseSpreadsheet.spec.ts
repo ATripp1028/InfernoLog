@@ -46,6 +46,7 @@ describe('workbook structure', () => {
       progress: [],
       dropped: [],
       ranking: [],
+      ratingRanking: [],
       lists: [],
       ratings: [],
       ratingCategories: [],
@@ -85,6 +86,53 @@ describe('workbook structure', () => {
     })
 
     expect(result.ranking).toHaveLength(1)
+    expect(result.legacyTabs).toEqual([])
+  })
+
+  // The Demon List and Ranking tabs are two orderings of the same completions.
+  // Reading one into the other would quietly overwrite a user's difficulty
+  // order with their quality one, or the reverse.
+  it('keeps the two ordering tabs apart', () => {
+    const result = parse({
+      'Demon List': [['level_id'], ['111']],
+      Ranking: [['level_id'], ['222']],
+    })
+
+    expect(result.ranking.map((r) => r.levelId)).toEqual(['111'])
+    expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['222'])
+  })
+
+  it('orders the Ranking tab by rank when every row carries one', () => {
+    const result = parse({
+      Ranking: [
+        ['rank', 'level_id'],
+        [2, '222'],
+        [1, '111'],
+      ],
+    })
+
+    expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['111', '222'])
+  })
+
+  // A "Ranking" tab used to BE the demon list, before that tab was renamed, so
+  // a workbook with one and no Demon List tab is genuinely ambiguous. It is
+  // read as the rating order — the name's current meaning — and the ambiguity
+  // is reported so a pre-rename export can be spotted.
+  it('reports the ambiguity when only a Ranking tab is present', () => {
+    const result = parse({ Ranking: [['level_id'], ['222']] })
+
+    expect(result.ratingRanking).toHaveLength(1)
+    expect(result.legacyTabs).toEqual([
+      { found: 'Ranking', expected: 'Demon List' },
+    ])
+  })
+
+  it('reports no ambiguity when both tabs are present', () => {
+    const result = parse({
+      'Demon List': [['level_id'], ['111']],
+      Ranking: [['level_id'], ['222']],
+    })
+
     expect(result.legacyTabs).toEqual([])
   })
 

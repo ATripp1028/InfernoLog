@@ -59,6 +59,7 @@ const TABS = [
   'Progress',
   'Dropped',
   'Demon List',
+  'Ranking',
   'Lists',
   'Ratings',
   'Field Descriptions',
@@ -245,6 +246,7 @@ const exportData = (overrides: Partial<ExportResponse> = {}): ExportResponse =>
     progress: [],
     dropped: [],
     ranking: [],
+    ratingRanking: [],
     collections: [],
     ratingCategories: [],
     ratings: [],
@@ -503,6 +505,7 @@ describe('downloadExport', () => {
             reason: 'burnout',
           },
         ],
+        ratingRanking: [],
         ranking: [
           { rank: 1, levelId: '128', levelName: 'Bloodbath' },
           { rank: 2, levelId: '200', levelName: 'Cataclysm' },

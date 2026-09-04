@@ -1251,9 +1251,14 @@ model ImportJob {
   // present if that tab of the spreadsheet had rows), plus their results
   // once the worker runs them.
   rankingPayload     Json?
+  // The MANUAL rating order. Separate from rankingPayload, which is the demon
+  // list: a workbook can legitimately carry both, and they replace different
+  // orderings.
+  ratingRankingPayload Json?
   collectionsPayload Json?
   ratingsPayload     Json?
   rankingResult      Json?
+  ratingRankingResult Json?
   collectionsResult  Json?
   ratingsResult      Json?
   createdAt          DateTime       @default(now())

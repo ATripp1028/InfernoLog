@@ -129,6 +129,7 @@ export function parseResult(overrides: Partial<ParseResult> = {}): ParseResult {
     progress: [],
     dropped: [],
     ranking: [],
+    ratingRanking: [],
     lists: [],
     ratings: [],
     ratingCategories: [],

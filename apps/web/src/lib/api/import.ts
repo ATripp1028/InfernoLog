@@ -455,6 +455,8 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
+  // The MANUAL rating order — a second ordering of the same completions.
+  ratingRanking: { rank: number; levelId: string; levelName: string | null }[]
   collections: {
     list: string
     levelId: string
@@ -529,6 +531,7 @@ export function useImportApi() {
       progress,
       dropped,
       ranking,
+      ratingRanking,
       collections,
       ratings,
       categories,
@@ -537,6 +540,7 @@ export function useImportApi() {
       fetchAll('progress'),
       fetchAll('dropped'),
       fetchAll('ranking'),
+      fetchAll('ratingRanking'),
       fetchAll('collections'),
       fetchAll('ratings'),
       fetchAll('categories'),
@@ -546,6 +550,7 @@ export function useImportApi() {
       progress: progress as ExportResponse['progress'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
+      ratingRanking: ratingRanking as ExportResponse['ratingRanking'],
       collections: collections as ExportResponse['collections'],
       ratings: ratings as ExportResponse['ratings'],
       ratingCategories: categories as string[],

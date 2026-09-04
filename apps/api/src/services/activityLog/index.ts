@@ -323,15 +323,13 @@ export async function recordRankingBulkReplace(
   tx: Tx,
   userId: string,
   before: RankingSnapshot,
-  after: RankingSnapshot
+  after: RankingSnapshot,
+  /** Which ordering the import replaced. Defaults to the demon list. */
+  eventType:
+    | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
+    | typeof ActivityEventType.RATING_BULK_REPLACE = ActivityEventType.DEMON_LIST_BULK_REPLACE
 ): Promise<void> {
-  return recordListWideRankingEvent(
-    tx,
-    userId,
-    ActivityEventType.DEMON_LIST_BULK_REPLACE,
-    before,
-    after
-  )
+  return recordListWideRankingEvent(tx, userId, eventType, before, after)
 }
 
 /**

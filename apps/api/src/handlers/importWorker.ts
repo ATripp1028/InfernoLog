@@ -13,6 +13,7 @@ import * as Sentry from '@sentry/aws-serverless'
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda'
 import { processImportJobBatch } from '../services/importExport/import'
 import { commitImportRanking } from '../services/importExport/demonList'
+import { commitImportRatingRanking } from '../services/importExport/ratingRanking'
 import { commitImportCollections } from '../services/importExport/collections'
 import { commitImportRatings } from '../services/importExport/ratings'
 import type { Prisma } from '@prisma/client'
@@ -148,6 +149,14 @@ export const handler = async (
           job.rankingPayload as unknown as ImportRankingEntry[]
         )
       : null
+    // The MANUAL rating order. A workbook can carry both orderings; they
+    // replace different tables and neither implies the other.
+    const ratingRankingResult = job.ratingRankingPayload
+      ? await commitImportRatingRanking(
+          job.userId,
+          job.ratingRankingPayload as unknown as ImportRankingEntry[]
+        )
+      : null
     const collectionsResult = job.collectionsPayload
       ? await commitImportCollections(
           job.userId,
@@ -168,6 +177,12 @@ export const handler = async (
         finishedAt: new Date(),
         ...(rankingResult
           ? { rankingResult: rankingResult as unknown as Prisma.InputJsonValue }
+          : {}),
+        ...(ratingRankingResult
+          ? {
+              ratingRankingResult:
+                ratingRankingResult as unknown as Prisma.InputJsonValue,
+            }
           : {}),
         ...(collectionsResult
           ? {

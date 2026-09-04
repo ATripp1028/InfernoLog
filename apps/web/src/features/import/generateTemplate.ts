@@ -502,6 +502,31 @@ export const FIELD_DESCRIPTIONS = [
     'Level name — matched against your completed levels. Required when level_id is blank.',
   ],
   [
+    'Ranking',
+    'rank',
+    'no',
+    'Optional number (1 = best rated). If present it sorts the tab; if absent, the row order is the order (top row = best).',
+  ],
+  [
+    'Ranking',
+    'level_id',
+    'no*',
+    'Numeric in-game level ID of a level you have completed.',
+  ],
+  [
+    'Ranking',
+    'level_name',
+    'no*',
+    'Level name — matched against your completed levels. Required when level_id is blank.',
+  ],
+  [
+    'Ranking',
+    '(note)',
+    '',
+    'Your manual rating order, used when your rating mode is Manual. The tab replaces the whole order. Omit it to keep your existing one. Separate from the Demon List tab, which is your difficulty order.',
+  ],
+  ['', '', '', ''],
+  [
     'Demon List',
     '(note)',
     '',
@@ -630,6 +655,14 @@ export function downloadTemplate(): void {
   const demonListData = [RANKING_HEADERS, ...RANKING_EXAMPLE_ROWS]
   const rankingSheet = XLSX.utils.aoa_to_sheet(demonListData)
   XLSX.utils.book_append_sheet(wb, rankingSheet, 'Demon List')
+
+  // Ranking tab: the MANUAL rating order. Same columns as Demon List — the same
+  // kind of ordering, on quality rather than difficulty.
+  const ratingRankingSheet = XLSX.utils.aoa_to_sheet([
+    RANKING_HEADERS,
+    ...RANKING_EXAMPLE_ROWS,
+  ])
+  XLSX.utils.book_append_sheet(wb, ratingRankingSheet, 'Ranking')
 
   // Lists tab: header row + example rows
   const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]

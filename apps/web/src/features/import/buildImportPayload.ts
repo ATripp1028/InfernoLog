@@ -141,6 +141,17 @@ export function buildImportPayload({
         )
         .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
 
+  // The rating order gets the same treatment, from its own tab. No merge board
+  // for it yet, so it is always the sheet's rows: a Ranking tab replaces the
+  // stored order outright, which is the documented "sheet wins" rule.
+  const ratingRankingEntries = (parseResult?.ratingRanking ?? [])
+    .filter(
+      (r) =>
+        !r.flags.some((f) => f.severity === 'error') &&
+        (r.levelId || r.levelName)
+    )
+    .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
+
   // Lists/Collections: same idea, but per-collection — a sheet can touch
   // several collections and only some of them needed merging. Rows for a
   // collection with a resolved order are dropped from the original sheet
@@ -203,6 +214,9 @@ export function buildImportPayload({
   return {
     rows,
     ...(rankingEntries.length > 0 ? { ranking: rankingEntries } : {}),
+    ...(ratingRankingEntries.length > 0
+      ? { ratingRanking: ratingRankingEntries }
+      : {}),
     ...(listEntries.length > 0 ? { collections: listEntries } : {}),
     ...(ratingRows.length > 0
       ? {

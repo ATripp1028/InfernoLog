@@ -203,6 +203,19 @@ export function downloadExport(
     'Demon List'
   )
 
+  // Ranking — the MANUAL rating order. Same columns as the Demon List tab
+  // because it is the same kind of ordering on the other axis.
+  const ratingRankingRecords = data.ratingRanking.map((r) => ({
+    rank: r.rank,
+    level_id: r.levelId,
+    level_name: r.levelName ?? '',
+  }))
+  XLSX.utils.book_append_sheet(
+    wb,
+    XLSX.utils.aoa_to_sheet(rows(RANKING_HEADERS, ratingRankingRecords)),
+    'Ranking'
+  )
+
   // Lists
   const listRecords = data.collections.map((l) => ({
     list: l.list,

@@ -1596,7 +1596,11 @@ export const ImportCheckResponseSchema = z.object({
 
 export const ImportStartRequestSchema = z.object({
   rows: z.array(ImportCommitRowSchema).min(1).max(20000),
+  // The demon list's order, hardest first.
   ranking: z.array(ImportRankingEntrySchema).optional(),
+  // The MANUAL rating order, best first. A workbook can carry both: they are
+  // separate orderings of the same completions and neither implies the other.
+  ratingRanking: z.array(ImportRankingEntrySchema).optional(),
   collections: z.array(ImportCollectionEntrySchema).optional(),
   ratings: z.array(ImportRatingEntrySchema).optional(),
 })
@@ -1724,7 +1728,11 @@ export const ExportResponseSchema = z.object({
   completions: z.array(ExportCompletionSchema),
   progress: z.array(ExportProgressSchema),
   dropped: z.array(ExportDroppedSchema),
+  // Feeds the sheet's "Demon List" tab — the difficulty ordering.
   ranking: z.array(ExportRankingSchema),
+  // Feeds the sheet's "Ranking" tab — the MANUAL rating ordering. Same row
+  // shape as `ranking`; they are the same kind of list on different axes.
+  ratingRanking: z.array(ExportRankingSchema),
   // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
   collections: z.array(ExportCollectionSchema),
   ratingCategories: z.array(z.string()),
@@ -1738,7 +1746,10 @@ export const EXPORT_SECTIONS = [
   'completions',
   'progress',
   'dropped',
+  // The demon list's order.
   'ranking',
+  // The MANUAL rating order — a separate ordering of the same completions.
+  'ratingRanking',
   'collections',
   'ratings',
   'categories',

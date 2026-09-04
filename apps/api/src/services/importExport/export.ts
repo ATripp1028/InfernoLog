@@ -276,6 +276,32 @@ async function exportRanking(userId: string, skip: number, take: number) {
   }))
 }
 
+// The MANUAL rating order. Same shape as the demon list's tab — rank, id, name
+// — because it is the same kind of ordering, just on quality rather than
+// difficulty, and a user reading both should not have to learn two layouts.
+async function exportRatingRanking(
+  userId: string,
+  skip: number,
+  take: number
+) {
+  const rows = await prisma.ratingRanking.findMany({
+    where: { userId },
+    orderBy: { ratingIndex: 'desc' }, // best first
+    skip,
+    take,
+    select: {
+      levelProgress: {
+        select: { levelId: true, level: { select: { name: true } } },
+      },
+    },
+  })
+  return rows.map((r, i) => ({
+    rank: skip + i + 1,
+    levelId: r.levelProgress.levelId,
+    levelName: r.levelProgress.level.name,
+  }))
+}
+
 async function exportCollections(userId: string, skip: number, take: number) {
   const entries = await prisma.collectionEntry.findMany({
     where: { collection: { userId } },
@@ -406,6 +432,7 @@ export async function exportSection(
     progress: exportProgress,
     dropped: exportDropped,
     ranking: exportRanking,
+    ratingRanking: exportRatingRanking,
     collections: exportCollections,
     ratings: exportRatings,
   } as const
