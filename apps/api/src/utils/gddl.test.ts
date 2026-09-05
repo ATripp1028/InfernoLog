@@ -440,6 +440,7 @@ describe('submitGddlRecord', () => {
       progress: 100,
       isSolo: true,
       device: 'pc',
+      status: 'beaten',
     })
   })
 
@@ -484,6 +485,7 @@ describe('submitGddlRecord', () => {
       enjoyment: 9, // 85 / 10, rounded
       rating: 18,
       proof: 'https://youtu.be/abc',
+      status: 'beaten',
     })
   })
 
