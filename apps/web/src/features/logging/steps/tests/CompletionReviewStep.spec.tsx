@@ -155,7 +155,6 @@ describe('CompletionReviewStep', () => {
     expect(rowValue('Rating')).toHaveTextContent('7.5')
   })
 
-
   it('renormalizes over the categories that were actually scored', () => {
     render({
       me: weightedMe(),
@@ -164,7 +163,6 @@ describe('CompletionReviewStep', () => {
 
     expect(rowValue('Rating')).toHaveTextContent('6')
   })
-
 
   it('ignores a score whose category is no longer configured', () => {
     render({

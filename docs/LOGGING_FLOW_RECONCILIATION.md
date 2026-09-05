@@ -18,11 +18,30 @@ displaying as dropped.
 **Scope of the flip:**
 
 - `dropped → in_progress` on any progress log. ✅
-- `completed` is left untouched — logging extra progress on a beaten level does
-  not un-complete it.
 - A brand-new `level_progress` created by a progress log starts `in_progress`.
+- `completed` never comes up — see below.
 
-Implemented in `apps/api/src/services/progress.ts` (`applyProgress`).
+Implemented in `apps/api/src/services/progress/index.ts` (`applyProgress`).
+
+## Logging progress on a beaten level
+
+**Decision:** `POST /v1/me/progress` **refuses** a level the caller has already
+completed, with a 409 (`LevelAlreadyCompletedError`).
+
+**Why:** the completion row is the user's best run on that level, so a later
+progress entry is either a duplicate of it or a lower number that means nothing.
+Both level pages already drop the "Log progress" action once a level is beaten
+(`resolveLevelOwnership`, `useGlobalLevelDetailPage`), and a frontend guard is
+not an authorization decision — so the endpoint enforces the same rule.
+
+Earlier the write was accepted and merely left `status = completed` untouched.
+That is still the rule the **delete** path replays (a stray `PROGRESS` after a
+`COMPLETION` must not un-complete a level), because the importer can still
+produce that shape: it writes its progress rows directly and deliberately
+accepts historical session data on a beaten level — see `IMPORT_EXPORT.md`.
+
+Keyed on the existence of a `kind = COMPLETION` update, not on `status`, so a
+level dropped after being beaten is refused too.
 
 ## Drop-from-scratch
 

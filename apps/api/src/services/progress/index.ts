@@ -78,6 +78,32 @@ export class CompletionFieldsNotApplicableError extends Error {
 }
 
 /**
+ * Thrown when a progress log targets a level the caller has already beaten.
+ *
+ * A completion is the end of a level's history: the completion row IS the
+ * user's best run, so a later "best progress" entry on the same level is
+ * either a duplicate of it or a lower number that means nothing. Both UI
+ * surfaces drop the "Log progress" action once a level is beaten
+ * (`resolveLevelOwnership` / `useGlobalLevelDetailPage`), and the endpoint is
+ * public — a frontend guard is not an authorization decision — so the rule is
+ * enforced here as well.
+ *
+ * Keyed on the existence of a `kind = COMPLETION` update rather than on
+ * `status`, so a level dropped after being beaten (status `DROPPED`, completion
+ * intact) is still refused. State conflict rather than bad input → 409.
+ *
+ * Note this covers only the interactive endpoint. The importer writes its
+ * progress rows directly and deliberately still accepts historical session data
+ * on a beaten level (see `docs/IMPORT_EXPORT.md`).
+ */
+export class LevelAlreadyCompletedError extends Error {
+  constructor(levelId: string) {
+    super(`Level ${levelId} is already completed — progress can't be logged`)
+    this.name = 'LevelAlreadyCompletedError'
+  }
+}
+
+/**
  * Thrown when a write names a rating category that isn't one of the caller's.
  *
  * `RatingScore.categoryId` is a bare FK to `rating_categories` with no user
@@ -315,9 +341,11 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
 /**
  * Logs a non-completion progress update (a run, an attempt count, a new best).
  *
+ * Refused outright on a level that already has a completion — see
+ * {@link LevelAlreadyCompletedError}.
+ *
  * Status rule: logging progress on a DROPPED level flips it back to
- * IN_PROGRESS, since logging implies active play. COMPLETED is left alone —
- * extra progress on a beaten level does not un-complete it.
+ * IN_PROGRESS, since logging implies active play.
  *
  * A run is recorded either as `percentage` (from_zero mode) or as a
  * `runFrom`/`runTo` pair, never both.
@@ -326,6 +354,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
  * @param input - Validated progress payload.
  * @returns The full level_progress + the created progress_update.
  * @throws {LevelNotFoundError} The level isn't in the cache yet.
+ * @throws {LevelAlreadyCompletedError} The caller has already beaten the level.
  */
 export async function applyProgress(userId: string, input: ProgressInput) {
   return prisma.$transaction(async (tx) => {
@@ -337,9 +366,19 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       'IN_PROGRESS'
     )
 
+    // A beaten level takes no further progress logs. Checked after the
+    // find-or-create for the sake of reusing it — a row created a moment ago
+    // has no updates to find, and the transaction rolls that creation back
+    // when this throws, so no empty level_progress survives the rejection.
+    const completion = await tx.progressUpdate.findFirst({
+      where: { levelProgressId: lp.id, kind: 'COMPLETION' },
+      select: { id: true },
+    })
+    if (completion) throw new LevelAlreadyCompletedError(input.levelId)
+
     // STATUS DECISION: logging progress on a DROPPED level flips it back to
-    // IN_PROGRESS — logging progress implies active play. COMPLETED is left
-    // untouched (extra progress on a beaten level doesn't un-complete it).
+    // IN_PROGRESS — logging progress implies active play. Only DROPPED and
+    // IN_PROGRESS reach this line now that completions are refused above.
     // See LOGGING_FLOW_RECONCILIATION.md.
     const status = lp.status === 'DROPPED' ? 'IN_PROGRESS' : lp.status
 

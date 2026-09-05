@@ -229,6 +229,87 @@ describe('POST /me/progress', () => {
     expect(pu.percentage).toBeNull()
   })
 
+  it('refuses a progress log on a level that already has a completion', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '203' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '203',
+        status: 'COMPLETED',
+        progressUpdates: { create: { kind: 'COMPLETION' } },
+      },
+    })
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '203',
+      percentage: 30,
+    })
+
+    expect(res.status).toBe(409)
+    // Nothing written: the completion is the only update left behind.
+    const kinds = await prisma.progressUpdate.findMany({
+      where: { levelProgress: { userId: user.id, levelId: '203' } },
+      select: { kind: true },
+    })
+    expect(kinds).toEqual([{ kind: 'COMPLETION' }])
+  })
+
+  it('refuses it on a level dropped after being beaten — the completion still stands', async () => {
+    // status is DROPPED here, so the rule can't key on status alone.
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '204' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '204',
+        status: 'DROPPED',
+        progressUpdates: {
+          create: [{ kind: 'COMPLETION' }, { kind: 'DROP' }],
+        },
+      },
+    })
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '204',
+      percentage: 30,
+    })
+
+    expect(res.status).toBe(409)
+    const count = await prisma.progressUpdate.count({
+      where: {
+        levelProgress: { userId: user.id, levelId: '204' },
+        kind: 'PROGRESS',
+      },
+    })
+    expect(count).toBe(0)
+  })
+
+  it("leaves another user's completion out of it", async () => {
+    // The completion lookup is scoped to the caller's own level_progress.
+    const owner = await seedUser(prisma)
+    const other = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '205' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: other.id,
+        levelId: '205',
+        status: 'COMPLETED',
+        progressUpdates: { create: { kind: 'COMPLETION' } },
+      },
+    })
+
+    const res = await post(owner.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '205',
+      percentage: 30,
+    })
+
+    expect(res.status).toBe(201)
+  })
+
   it('flips a dropped level back to in_progress when progress is logged', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '202' })
