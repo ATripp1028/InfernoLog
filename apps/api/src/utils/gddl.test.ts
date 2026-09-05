@@ -405,6 +405,7 @@ const RECORD = {
   fps: null,
   enjoyment: null,
   gddlTier: null,
+  status: 'beaten' as const,
 }
 
 /** submitGddlRecord resolves the GDDL user id first; queue that response. */
@@ -470,6 +471,7 @@ describe('submitGddlRecord', () => {
       gddlTier: 18,
       isSolo: false,
       device: 'mobile',
+      status: 'beaten',
     })
 
     expect(lastRequestBody()).toEqual({

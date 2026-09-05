@@ -61,6 +61,7 @@ export async function submitCompletionRecordToGddl(params: {
     enjoyment: update?.enjoyment ?? null,
     gddlTier: Number.isNaN(gddlTier ?? NaN) ? null : gddlTier,
     device: update?.device ?? null,
+    status: 'beaten',
   })
 
   logger.info({ userId, progressUpdateId }, 'GDDL record submitted')
