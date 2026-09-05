@@ -75,7 +75,6 @@ app.post('/me/gddl-records/:levelId', async (c) => {
       gddlTier,
       isSolo: completion.twoPlayerSolo ?? true,
       device: completion.device ?? null,
-      status: 'beaten',
     })
   } catch (err) {
     if (err instanceof GddlError) {
