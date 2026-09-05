@@ -57,7 +57,8 @@ describe('invalidateOnWrite', () => {
     ['the user-scoped level page', 'level-page'],
     // The Global Level Page's FAB opens the logging flow for the level it is
     // showing, and the page stays mounted behind the modal — so the write
-    // lands on the very view that reports `hasUserProgress`.
+    // lands on the very view that reports `userProgressStatus`, which decides
+    // both its cross-link and which FAB actions it offers.
     ['the global level page', 'global-level-page'],
   ])('invalidates %s', (_label, key) => {
     expect(INVALIDATE_ON_WRITE.map(([first]) => first)).toContain(key)

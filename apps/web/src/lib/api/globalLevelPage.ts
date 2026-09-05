@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { LevelProgressStatus } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import type { Level } from './logging'
@@ -8,15 +9,16 @@ export { ApiError }
 /**
  * The Global Level Page wire shape: the full cached Level, plus two fields the
  * logging flow omits as internal — delistedAt (drives the frozen-as-of banner)
- * and lastCheckedAt (its date) — and hasUserProgress, an EXISTENCE check against
- * the user's level_progress (no progress values are sent). Dates are ISO
- * strings. Mirrors packages/core's GlobalLevelPageSchema (see logging.ts for why
- * we hand-mirror rather than import the Zod type).
+ * and lastCheckedAt (its date) — and userProgressStatus, the status of the
+ * viewer's level_progress row for this level, or null when they have none (no
+ * progress values are sent). Dates are ISO strings. Mirrors packages/core's
+ * GlobalLevelPageSchema (see logging.ts for why we hand-mirror rather than
+ * import the Zod type).
  */
 export interface GlobalLevelPageData extends Level {
   delistedAt: string | null
   lastCheckedAt: string | null
-  hasUserProgress: boolean
+  userProgressStatus: LevelProgressStatus | null
 }
 
 /**

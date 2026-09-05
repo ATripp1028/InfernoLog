@@ -63,29 +63,43 @@ describe('GET /levels/:levelId/page', () => {
     expect(mockFindOrResolveLevel).not.toHaveBeenCalled()
   })
 
-  it('returns the level with a false progress flag when the user has none', async () => {
+  it('returns the level with a null progress status when the user has none', async () => {
     const res = await app.request('/levels/12345/page')
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
-      data: { ...LEVEL, hasUserProgress: false },
+      data: { ...LEVEL, userProgressStatus: null },
     })
   })
 
-  it('flags progress in any state, not just completions', async () => {
-    // The page renders no values — only the cross-link — so a row in any
-    // state counts.
-    prisma.levelProgress.findUnique.mockResolvedValue({ id: 'lp-1' } as never)
+  it('reports the status of a row in any state, not just completions', async () => {
+    // The page renders no values — only the status — so a row in any state
+    // is reported.
+    prisma.levelProgress.findUnique.mockResolvedValue({
+      status: 'DROPPED',
+    } as never)
 
     const body = (await (await app.request('/levels/12345/page')).json()) as {
-      data: { hasUserProgress: boolean }
+      data: { userProgressStatus: string | null }
     }
 
-    expect(body.data.hasUserProgress).toBe(true)
+    expect(body.data.userProgressStatus).toBe('DROPPED')
     expect(prisma.levelProgress.findUnique).toHaveBeenCalledWith({
       where: { userId_levelId: { userId: TEST_USER_ID, levelId: '12345' } },
-      select: { id: true },
+      select: { status: true },
     })
+  })
+
+  it("reports COMPLETED, which is what suppresses the page's logging actions", async () => {
+    prisma.levelProgress.findUnique.mockResolvedValue({
+      status: 'COMPLETED',
+    } as never)
+
+    const body = (await (await app.request('/levels/12345/page')).json()) as {
+      data: { userProgressStatus: string | null }
+    }
+
+    expect(body.data.userProgressStatus).toBe('COMPLETED')
   })
 
   it('404s with a terminal reason when GD has no such level', async () => {

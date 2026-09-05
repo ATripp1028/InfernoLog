@@ -37,6 +37,7 @@ export function GlobalLevelPage() {
     level,
     levelName,
     delisted,
+    hasUserProgress,
     preselectedLevel,
     addToCollectionOpen,
     setAddToCollectionOpen,
@@ -99,7 +100,7 @@ export function GlobalLevelPage() {
           </span>
           {/* Cross-link — right-aligned to match where the reciprocal link
               sits on the user-scoped page. */}
-          {level.hasUserProgress && (
+          {hasUserProgress && (
             <Link
               to="/log/$levelId"
               params={{ levelId }}
@@ -163,7 +164,7 @@ export function GlobalLevelPage() {
             <span className="truncate text-sm font-medium text-text-primary">
               {levelName}
             </span>
-            {level.hasUserProgress && (
+            {hasUserProgress && (
               <Link
                 to="/log/$levelId"
                 params={{ levelId }}

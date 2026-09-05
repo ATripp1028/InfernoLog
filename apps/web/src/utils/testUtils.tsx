@@ -197,7 +197,7 @@ export function makeGlobalLevel(
     ...makeCachedLevel(),
     delistedAt: null,
     lastCheckedAt: '2026-01-01T00:00:00.000Z',
-    hasUserProgress: false,
+    userProgressStatus: null,
     ...overrides,
   } as GlobalLevelPageData
 }

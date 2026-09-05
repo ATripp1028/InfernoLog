@@ -1,6 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { CollectionType } from '@infernolog/core'
+import { CollectionType, LevelProgressStatus } from '@infernolog/core'
 import type { FabAction } from '@/context/FabActionsContext'
 import type { CollectionSummary } from '@/lib/api/collections'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
@@ -217,6 +217,31 @@ describe('useGlobalLevelDetailPage', () => {
       expect(result.current.levelName).toBe(`Level #${LEVEL_ID}`)
     })
 
+    // Any logged state at all earns the "Your page for this level" cross-link
+    // — being beaten is not the condition.
+    it.each([
+      [LevelProgressStatus.IN_PROGRESS],
+      [LevelProgressStatus.DROPPED],
+      [LevelProgressStatus.COMPLETED],
+    ])('reports user progress for a %s level', (status) => {
+      resolvesTo({ userProgressStatus: status })
+
+      const { result } = render()
+
+      expect(result.current.hasUserProgress).toBe(true)
+    })
+
+    it.each([
+      ['an unlogged level', () => resolvesTo({ userProgressStatus: null })],
+      ['an unresolved level', () => isPending()],
+    ])('reports no user progress for %s', (_label, setup) => {
+      setup()
+
+      const { result } = render()
+
+      expect(result.current.hasUserProgress).toBe(false)
+    })
+
     it('flags a delisted level', () => {
       resolvesTo({ delistedAt: '2026-01-01T00:00:00.000Z' })
 
@@ -293,6 +318,38 @@ describe('useGlobalLevelDetailPage', () => {
         'add-collection',
       ])
     })
+
+    // A level holds at most one completion, and Want to Beat holds only
+    // unbeaten levels — so on a level the user has already beaten, all four
+    // of those actions are writes the API would reject.
+    it('drops every action a completion rules out once the level is beaten', () => {
+      resolvesTo({ userProgressStatus: LevelProgressStatus.COMPLETED })
+
+      render()
+
+      expect(registeredFab().actions?.map((a) => a.key)).toEqual([
+        'add-collection',
+      ])
+    })
+
+    // Only a completion closes those paths — an abandoned or in-flight
+    // attempt can still be logged, and can still sit in Want to Beat.
+    it.each([[LevelProgressStatus.IN_PROGRESS], [LevelProgressStatus.DROPPED]])(
+      'keeps the full set for a %s level',
+      (status) => {
+        resolvesTo({ userProgressStatus: status })
+
+        render()
+
+        expect(registeredFab().actions?.map((a) => a.key)).toEqual([
+          'log-completion',
+          'log-progress',
+          'log-drop',
+          'want-to-beat',
+          'add-collection',
+        ])
+      }
+    )
 
     // Nothing on the page is actionable once the resolve has terminally
     // failed, so the FAB steps aside rather than showing disabled actions.

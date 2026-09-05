@@ -69,12 +69,15 @@ export const LevelSchema = z.object({
 // The Global Level Page (`GET /v1/levels/:levelId/page`) wire shape: everything
 // LevelSchema carries, plus two fields the logging flow treats as internal —
 // delistedAt (drives the frozen-as-of banner) and lastCheckedAt (its date) —
-// and hasUserProgress, an EXISTENCE check against the user's level_progress (no
-// progress values are sent). Dates arrive as ISO strings.
+// and userProgressStatus, the status of the viewer's level_progress row for
+// this level (null when they have none). No progress values are sent: the
+// status is the whole of it, and it is what the page needs to know both that
+// the user has an entry (the cross-link) and that the level is already beaten
+// (which logging actions its FAB may offer). Dates arrive as ISO strings.
 export const GlobalLevelPageSchema = LevelSchema.extend({
   delistedAt: z.string().nullable(),
   lastCheckedAt: z.string().nullable(),
-  hasUserProgress: z.boolean(),
+  userProgressStatus: z.nativeEnum(LevelProgressStatus).nullable(),
 })
 export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 

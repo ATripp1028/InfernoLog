@@ -268,11 +268,12 @@ export const INVALIDATE_ON_WRITE: ReadonlyArray<readonly string[]> = [
   // Prefix match: invalidates ['level-page', levelId] for whichever level
   // was open, without needing to know its id here.
   ['level-page'],
-  // The Global Level Page reports `hasUserProgress`, which a first write on
-  // that level flips — and its FAB opens the logging flow for the level it is
-  // showing, so the page is still mounted when the write lands. Without this
-  // the "Your page for this level" cross-link stays hidden for a staleTime
-  // after the completion that earned it. Prefix match, as above.
+  // The Global Level Page reports `userProgressStatus`, which any write on
+  // that level changes — and its FAB opens the logging flow for the level it
+  // is showing, so the page is still mounted when the write lands. Without
+  // this the "Your page for this level" cross-link stays hidden for a
+  // staleTime after the completion that earned it, and the FAB keeps offering
+  // the logging actions that completion just ruled out. Prefix match, as above.
   ['global-level-page'],
 ]
 
