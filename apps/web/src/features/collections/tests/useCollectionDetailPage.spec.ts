@@ -69,7 +69,9 @@ beforeEach(() => {
 /** The action set the page last registered with the FAB (null while loading). */
 function registeredFabActions(): FabAction[] | null {
   const calls = vi.mocked(useFabActions).mock.calls
-  return calls[calls.length - 1]?.[0] ?? null
+  const last = calls[calls.length - 1]?.[0]
+  // This page never registers 'pending'; anything but a set reads as none.
+  return Array.isArray(last) ? last : null
 }
 
 describe('useCollectionDetailPage', () => {

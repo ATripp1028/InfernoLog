@@ -26,6 +26,17 @@ export function resolveFabActions(actions: readonly FabAction[]): {
 }
 
 /**
+ * The same action set, with every action greyed out.
+ *
+ * Used for the `'pending'` registration (see {@link useFabActions}): a page
+ * that cannot yet say which actions apply keeps the FAB looking the same but
+ * inert, rather than offering actions it is about to replace.
+ */
+export function disableAll(actions: readonly FabAction[]): FabAction[] {
+  return actions.map((action) => ({ ...action, disabled: true }))
+}
+
+/**
  * A cheap identity for an action set, for use as an effect dependency.
  *
  * Action arrays are rebuilt every render (fresh `onClick` closures), so keying
@@ -34,8 +45,11 @@ export function resolveFabActions(actions: readonly FabAction[]): {
  * catches only what changes *which* actions are shown, never closure identity.
  */
 export function actionsSignature(
-  actions: readonly FabAction[] | null
+  actions: readonly FabAction[] | 'pending' | null
 ): string | null {
   if (!actions) return null
+  // A sentinel, not a set — it never collides with a real signature because
+  // a real one always contains a ':'.
+  if (actions === 'pending') return 'pending'
   return actions.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|')
 }

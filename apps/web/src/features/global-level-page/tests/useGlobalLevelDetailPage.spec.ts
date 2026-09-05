@@ -112,7 +112,12 @@ function registeredFab(): {
 } {
   const calls = vi.mocked(useFabActions).mock.calls
   const last = calls[calls.length - 1]
-  return { actions: last?.[0] ?? null, sheetHeader: last?.[1] }
+  const actions = last?.[0]
+  return {
+    // This page never registers 'pending'; anything but a set reads as none.
+    actions: Array.isArray(actions) ? actions : null,
+    sheetHeader: last?.[1],
+  }
 }
 
 const fabAction = (key: string) =>

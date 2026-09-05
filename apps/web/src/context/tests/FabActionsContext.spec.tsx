@@ -59,11 +59,14 @@ describe('the resolved FAB actions', () => {
 describe('a page registering its own actions', () => {
   /** Mounts a page's override alongside a reader of the resolved set. */
   function renderWithOverride(
-    actions: FabAction[] | null,
+    actions: FabAction[] | 'pending' | null,
     header?: string | null
   ) {
     return renderHook(
-      (props: { actions: FabAction[] | null; header?: string | null }) => {
+      (props: {
+        actions: FabAction[] | 'pending' | null
+        header?: string | null
+      }) => {
         useFabActions(props.actions, props.header)
         return useResolvedFabActions()
       },
@@ -143,6 +146,66 @@ describe('a page registering its own actions', () => {
     rerender({ n: 2 })
 
     expect(result.current.primary.key).toBe(before.key)
+  })
+})
+
+// A page that cannot yet say which actions apply — the level page before it
+// knows whether the viewer owns the level — keeps the FAB looking the same
+// but inert, rather than offering a set it is about to swap out.
+describe('a page registering as pending', () => {
+  function renderPending(actions: FabAction[] | 'pending' | null = 'pending') {
+    return renderHook(
+      (props: { actions: FabAction[] | 'pending' | null }) => {
+        useFabActions(props.actions)
+        return useResolvedFabActions()
+      },
+      { wrapper, initialProps: { actions } }
+    )
+  }
+
+  it('keeps showing the default action set', () => {
+    const { result } = renderPending()
+
+    expect(result.current.primary.key).toBe('log')
+    expect(keys(result.current.secondaryActions)).toEqual(['collect', 'want'])
+  })
+
+  it('disables every one of them', () => {
+    const { result } = renderPending()
+
+    const shown = [result.current.primary, ...result.current.secondaryActions]
+
+    expect(shown.map((a) => a.disabled)).toEqual([true, true, true])
+  })
+
+  it('carries no sheet header of its own', () => {
+    const { result } = renderHook(
+      () => {
+        useFabActions('pending', 'Bloodbath')
+        return useResolvedFabActions()
+      },
+      { wrapper }
+    )
+
+    expect(result.current.sheetHeader).toBeNull()
+  })
+
+  it('hands over as soon as the page resolves', () => {
+    const { result, rerender } = renderPending()
+
+    rerender({ actions: [action('edit'), action('delete')] })
+
+    expect(result.current.primary.key).toBe('edit')
+    expect(result.current.primary.disabled).toBeUndefined()
+  })
+
+  // Resolving to "not mine" is just as much an answer as resolving to a set.
+  it('re-enables the defaults when the page resolves to none', () => {
+    const { result, rerender } = renderPending()
+
+    rerender({ actions: null })
+
+    expect(result.current.primary.disabled).toBeUndefined()
   })
 })
 

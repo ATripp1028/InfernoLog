@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { FabAction } from '../FabActionsContext'
-import { actionsSignature, resolveFabActions } from '../fabActionResolution'
+import {
+  actionsSignature,
+  disableAll,
+  resolveFabActions,
+} from '../fabActionResolution'
 import { sheetActionOrder } from '@/components/shell/fabSheetOrder'
 
 const action = (key: string, overrides: Partial<FabAction> = {}): FabAction =>
@@ -71,6 +75,36 @@ describe('resolveFabActions', () => {
   })
 })
 
+describe('disableAll', () => {
+  it('greys out every action', () => {
+    const disabled = disableAll([action('log'), action('edit')])
+
+    expect(disabled.map((a) => a.disabled)).toEqual([true, true])
+  })
+
+  it('overrides an action that was explicitly enabled', () => {
+    expect(disableAll([action('log', { disabled: false })])[0]?.disabled).toBe(
+      true
+    )
+  })
+
+  it('keeps everything else about each action', () => {
+    const onClick = () => {}
+
+    const [disabled] = disableAll([action('del', { danger: true, onClick })])
+
+    expect(disabled).toMatchObject({ key: 'del', danger: true, onClick })
+  })
+
+  it('leaves the caller’s actions untouched', () => {
+    const actions = [action('log')]
+
+    disableAll(actions)
+
+    expect(actions[0]?.disabled).toBeUndefined()
+  })
+})
+
 // Action arrays are rebuilt every render with fresh onClick closures, so the
 // array reference is useless as an effect dependency — it would re-register
 // and re-render every FAB consumer on every render of the calling page.
@@ -137,5 +171,24 @@ describe('actionsSignature', () => {
 
   it('distinguishes no override from an empty one', () => {
     expect(actionsSignature([])).not.toBe(actionsSignature(null))
+  })
+
+  // 'pending' is a state, not a set — it has to re-register when the page
+  // resolves, and must not read as "no override".
+  describe('the pending registration', () => {
+    it('has a signature of its own', () => {
+      expect(actionsSignature('pending')).not.toBeNull()
+      expect(actionsSignature('pending')).not.toBe(actionsSignature([]))
+    })
+
+    it('is stable while the page stays unresolved', () => {
+      expect(actionsSignature('pending')).toBe(actionsSignature('pending'))
+    })
+
+    it('changes once a real set arrives', () => {
+      expect(actionsSignature('pending')).not.toBe(
+        actionsSignature([action('edit')])
+      )
+    })
   })
 })

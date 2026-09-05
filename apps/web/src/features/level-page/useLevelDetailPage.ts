@@ -9,13 +9,15 @@ import { Check, Flag, List, Pencil, Trash2, Upload, X } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useGoBack } from '@/lib/useGoBack'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
-import { useDeleteProgress } from '@/lib/api/log'
+import { useCachedLogRow, useDeleteProgress } from '@/lib/api/log'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { ApiError } from '@/lib/api/client'
 import { toast } from '@/components/generic/sonner'
-import { useFabActions } from '@/context/FabActionsContext'
+import { useFabActions, type FabAction } from '@/context/FabActionsContext'
+import { disableAll } from '@/context/fabActionResolution'
 import { findPrimaryProgressUpdateId } from './primaryEntry'
+import { resolveLevelOwnership } from './ownership'
 
 /**
  * Which of the page's mutually exclusive top-level renders applies.
@@ -93,7 +95,7 @@ export function useLevelDetailPage() {
   // FAB's "Edit this entry" — resolves the primary entry (completion-first,
   // else newest) since the FAB isn't scoped to any one Timeline card. Uses
   // `query.data` directly since this runs before the page's loading/error
-  // branches, same reason `isOwner`/`hasCompletion` below do.
+  // branches, same reason `ownership` below does.
   function handleEditRun() {
     if (!query.data) return
     const id = findPrimaryProgressUpdateId(query.data)
@@ -122,75 +124,101 @@ export function useLevelDetailPage() {
     })
   }
 
-  // Computed with optional chaining (rather than off a narrowed `data`) so
-  // this — and the useFabActions call — can run unconditionally, before the
-  // page's loading/error branches.
-  const isOwner = query.data?.levelProgressId != null
-  const hasCompletion =
-    query.data?.progressUpdates.some((u) => u.kind === 'COMPLETION') ?? false
+  // The level query answers ownership authoritatively, but only once it has
+  // landed — a beat during which the FAB would show the default (app-wide
+  // logging) actions and then swap. The Log is already cached (and persisted)
+  // for almost every way of reaching this page, and carries the same two
+  // facts, so it stands in until then. Resolved unconditionally, before the
+  // page's loading/error branches, since useFabActions runs unconditionally.
+  const cachedLog = useCachedLogRow(levelId)
+  const ownership = resolveLevelOwnership({
+    levelQuerySettled: !query.isPending,
+    levelData: query.data,
+    logCached: cachedLog.known,
+    logRow: cachedLog.row,
+  })
+  const isOwner = ownership?.isOwner ?? false
+  const hasCompletion = ownership?.hasCompletion ?? false
   const canSubmitToGddl =
     isOwner && hasCompletion && (me.data?.hasGddlApiKey ?? false)
 
+  // Every owner action either opens a modal the page renders only once its
+  // payload is in (LevelPage returns the skeleton until `status === 'ready'`)
+  // or acts on an entry nothing has read yet, so the set goes up greyed until
+  // the level query lands — right options immediately, live a beat later.
+  // `me` is in the condition because it decides whether the GDDL item belongs
+  // in the set at all.
+  const ownerActionsPending = !query.data || me.isPending
+
   // FAB — shown for owned entries; falls back to the default (logging)
   // actions for everyone else. Delete is listed farthest from the FAB.
-  useFabActions(
-    isOwner
+  const ownerActions: FabAction[] = [
+    {
+      key: 'edit',
+      label: 'Edit this entry',
+      icon: Pencil,
+      onClick: handleEditRun,
+    },
+    // A level can only hold one completion — once it's beaten there's
+    // nothing new left to log.
+    ...(!hasCompletion
       ? [
           {
-            key: 'edit',
-            label: 'Edit this entry',
-            icon: Pencil,
-            onClick: handleEditRun,
+            key: 'log-completion',
+            label: 'Log a completion',
+            icon: Check,
+            onClick: () => openForEdit(levelId, 'completion'),
           },
-          // A level can only hold one completion — once it's beaten there's
-          // nothing new left to log.
-          ...(!hasCompletion
-            ? [
-                {
-                  key: 'log-completion',
-                  label: 'Log a completion',
-                  icon: Check,
-                  onClick: () => openForEdit(levelId, 'completion'),
-                },
-                {
-                  key: 'log-progress',
-                  label: 'Log progress',
-                  icon: Flag,
-                  onClick: () => openForEdit(levelId, 'progress'),
-                },
-                {
-                  key: 'log-drop',
-                  label: 'Drop this level',
-                  icon: X,
-                  onClick: () => openForEdit(levelId, 'drop'),
-                },
-              ]
-            : []),
           {
-            key: 'add-collection',
-            label: 'Add to a Collection',
-            icon: List,
-            onClick: () => setAddToCollectionOpen(true),
+            key: 'log-progress',
+            label: 'Log progress',
+            icon: Flag,
+            onClick: () => openForEdit(levelId, 'progress'),
           },
-          ...(canSubmitToGddl
-            ? [
-                {
-                  key: 'gddl-submit',
-                  label: 'Submit to GDDL',
-                  icon: Upload,
-                  onClick: () => setPendingGddlSubmit(true),
-                },
-              ]
-            : []),
           {
-            key: 'delete',
-            label: 'Delete this level',
-            icon: Trash2,
-            danger: true,
-            onClick: () => setPendingDelete(true),
+            key: 'log-drop',
+            label: 'Drop this level',
+            icon: X,
+            onClick: () => openForEdit(levelId, 'drop'),
           },
         ]
-      : null
+      : []),
+    {
+      key: 'add-collection',
+      label: 'Add to a Collection',
+      icon: List,
+      onClick: () => setAddToCollectionOpen(true),
+    },
+    ...(canSubmitToGddl
+      ? [
+          {
+            key: 'gddl-submit',
+            label: 'Submit to GDDL',
+            icon: Upload,
+            onClick: () => setPendingGddlSubmit(true),
+          },
+        ]
+      : []),
+    {
+      key: 'delete',
+      label: 'Delete this level',
+      icon: Trash2,
+      danger: true,
+      onClick: () => setPendingDelete(true),
+    },
+  ]
+
+  // 'pending' — the default set, greyed — only when neither the level query
+  // nor the cached Log can yet say whether this level is the viewer's. Any
+  // other state has an answer, so the FAB shows the set that answer implies.
+  useFabActions(
+    ownership === null
+      ? 'pending'
+      : isOwner
+        ? ownerActionsPending
+          ? disableAll(ownerActions)
+          : ownerActions
+        : null
   )
 
   const status: LevelDetailStatus =
