@@ -44,8 +44,8 @@ export type RatingScoresDraft = Record<string, number>
  */
 export interface FlowDraft {
   date: string | null
-  // Time-of-day for `date` — `HH:mm` or `''` (no time entered, the common
-  // case). `timezone` is only meaningful once `time !== ''`.
+  // Time-of-day for `date` — `HH:mm`, or `''` when the user cleared it to log
+  // a bare date. `timezone` is only meaningful once `time !== ''`.
   time: string
   timezone: string
   dateUncertain: boolean
@@ -91,23 +91,37 @@ export interface FlowDraft {
   device: Device | null
 }
 
-function todayDateInput(): string {
-  // Local calendar date, not UTC — otherwise "today" can land a day ahead in
-  // the evening for negative-UTC timezones (the ISO string has already rolled).
+// The current local date and time, as the `yyyy-MM-dd`/`HH:mm` strings the
+// DateTimeField inputs take. Both are read off ONE `Date` so a call landing
+// on the stroke of midnight can't pair yesterday's date with today's time.
+// Local, not UTC — otherwise "today" can land a day ahead in the evening for
+// negative-UTC timezones (the ISO string has already rolled).
+function nowDateTimeInput(): { date: string; time: string } {
   const d = new Date()
   const yyyy = d.getFullYear()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd}`
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` }
 }
 
 /**
- * A fresh {@link FlowDraft}. A function, not a constant, so reopening the flow cannot inherit the last run's state.
+ * A fresh {@link FlowDraft}. A function, not a constant, so reopening the flow
+ * cannot inherit the last run's state.
+ *
+ * A new entry is seeded with the current date AND time — most logging happens
+ * right after the run it describes, and the native time input gives nothing
+ * until it is deliberately filled in. The user can still clear the time field
+ * to store a bare date. Editing an existing entry overwrites both from what
+ * was stored (see {@link draftFromExistingCompletion}), so an entry logged
+ * without a time never gains one just by being reopened.
  */
 export function emptyDraft(): FlowDraft {
+  const now = nowDateTimeInput()
   return {
-    date: todayDateInput(),
-    time: '',
+    date: now.date,
+    time: now.time,
     timezone: getViewerTimezone(),
     dateUncertain: false,
     attempts: '',

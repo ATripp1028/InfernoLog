@@ -18,15 +18,38 @@ describe('emptyDraft', () => {
     expect(emptyDraft().date).toBe(today)
   })
 
+  // Most logging happens right after the run, and the native time input
+  // stays empty until it is deliberately filled in — so a new entry is
+  // seeded with the current time rather than a bare date.
+  it('starts at the current time of day', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-03-14T18:30:00.000Z'))
+
+      expect(emptyDraft().time).toBe('18:30')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  // Both halves come off one Date, so a call at the stroke of midnight can't
+  // pair the previous day's date with the new day's time.
+  it('reads the date and time from the same instant', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-03-14T23:59:59.999Z'))
+
+      expect(emptyDraft()).toMatchObject({ date: '2026-03-14', time: '23:59' })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('seeds both timezones from the viewer’s own', () => {
     const d = emptyDraft()
 
     expect(d.timezone).toBe('America/New_York')
     expect(d.worstFailTimezone).toBe('America/New_York')
-  })
-
-  it('starts with no time of day', () => {
-    expect(emptyDraft().time).toBe('')
   })
 
   it('leaves every optional numeric field blank rather than zero', () => {
