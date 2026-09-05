@@ -411,6 +411,7 @@ export async function submitGddlRecord(
     progress: 100,
     isSolo: record.isSolo ?? true,
     device: record.device ?? 'pc',
+    status: 'beaten',
   }
   if (record.attempts != null) payload.attempts = record.attempts
   if (record.fps != null) payload.refreshRate = record.fps
