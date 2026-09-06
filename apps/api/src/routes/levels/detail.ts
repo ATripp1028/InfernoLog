@@ -60,13 +60,26 @@ app.get('/levels/:levelId/page', async (c) => {
     )
   }
 
-  // Status ONLY — the page renders no progress values. Its presence drives the
-  // cross-link to the user's own page for this level (a row in any state
-  // counts), and COMPLETED tells the page's FAB the level is already beaten,
-  // so the actions a completion rules out are left off.
+  // Status and beaten-or-not ONLY — the page renders no progress values. The
+  // row's presence drives the cross-link to the user's own page for this level
+  // (a row in any state counts); the completion tells the page's FAB the level
+  // is already beaten, so the actions a completion rules out are left off.
+  //
+  // Beaten-or-not is the completion's existence, not `status === 'COMPLETED'`:
+  // a level dropped after being beaten reads DROPPED but still holds its
+  // completion, and the write paths key their refusals on the completion (see
+  // LevelAlreadyCompletedError). `take: 1` because the id is never read — only
+  // whether the array came back empty.
   const progress = await prisma.levelProgress.findUnique({
     where: { userId_levelId: { userId, levelId } },
-    select: { status: true },
+    select: {
+      status: true,
+      progressUpdates: {
+        where: { kind: 'COMPLETION' },
+        select: { id: true },
+        take: 1,
+      },
+    },
   })
 
   return c.json({
@@ -75,6 +88,7 @@ app.get('/levels/:levelId/page', async (c) => {
       // canonical for a non-demon and outranks the stored label.
       ...mapLevelDetail(resolved.level),
       userProgressStatus: progress?.status ?? null,
+      userHasCompletion: (progress?.progressUpdates.length ?? 0) > 0,
     },
   })
 })

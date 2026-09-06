@@ -101,6 +101,12 @@ export interface PlanCtx {
   >
   levelDiff: Map<string, string | null>
   levelCoins: Map<string, number | null>
+  // levelId → the calendar date (YYYY-MM-DD) that level's completion will
+  // carry once this batch is written, or null when it has no completion (or
+  // one with no date). A progress row dated after it is refused — see
+  // planProgress. Precomputed per batch because a level's completion row can
+  // sit anywhere in the batch, including after its progress rows.
+  completionDateByLevel: Map<string, string | null>
   // progress_id → the existing ProgressUpdate it round-trips to (and the level
   // it belongs to, so a mismatched/foreign id falls back to creating new).
   existingProgress: Map<string, { id: string; levelId: string }>

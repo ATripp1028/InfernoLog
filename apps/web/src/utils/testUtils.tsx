@@ -187,7 +187,7 @@ export function makeCachedLevel(overrides: Partial<Level> = {}): Level {
 }
 
 /**
- * A `GlobalLevelPageData` — the cached level plus the three fields the Global
+ * A `GlobalLevelPageData` — the cached level plus the four fields the Global
  * Level Page adds. Same elision as {@link makeCachedLevel}.
  */
 export function makeGlobalLevel(
@@ -198,6 +198,7 @@ export function makeGlobalLevel(
     delistedAt: null,
     lastCheckedAt: '2026-01-01T00:00:00.000Z',
     userProgressStatus: null,
+    userHasCompletion: false,
     ...overrides,
   } as GlobalLevelPageData
 }

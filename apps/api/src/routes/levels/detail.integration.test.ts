@@ -69,6 +69,7 @@ describe('GET /levels/:levelId/page', () => {
     expect(body.data.inGameId).toBe('810')
     expect(body.data.name).toBe('Page Level')
     expect(body.data.userProgressStatus).toBeNull()
+    expect(body.data.userHasCompletion).toBe(false)
     // Page-only fields that the logging wire shape omits.
     expect(body.data).toHaveProperty('delistedAt')
     expect(body.data).toHaveProperty('lastCheckedAt')
@@ -94,22 +95,79 @@ describe('GET /levels/:levelId/page', () => {
     expect(body.data.userProgressStatus).toBe('IN_PROGRESS')
   })
 
-  it('reports COMPLETED, which the page uses to drop invalid FAB actions', async () => {
+  it('reports the completion, which the page uses to drop invalid FAB actions', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '820' })
     await prisma.levelProgress.create({
-      data: { userId: user.id, levelId: '820', status: 'COMPLETED' },
+      data: {
+        userId: user.id,
+        levelId: '820',
+        status: 'COMPLETED',
+        progressUpdates: { create: { kind: 'COMPLETION' } },
+      },
     })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
       '/levels/820/page'
     )
     const body = (await res.json()) as {
-      data: { userProgressStatus: string | null }
+      data: { userProgressStatus: string | null; userHasCompletion: boolean }
     }
 
     expect(res.status).toBe(200)
     expect(body.data.userProgressStatus).toBe('COMPLETED')
+    expect(body.data.userHasCompletion).toBe(true)
+  })
+
+  it('still reports the completion of a level dropped after it was beaten', async () => {
+    // status DROPPED, completion intact — the state a status-only flag gets
+    // wrong. POST /me/progress refuses this level, so the FAB must not offer it.
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '821' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '821',
+        status: 'DROPPED',
+        progressUpdates: {
+          create: [{ kind: 'COMPLETION' }, { kind: 'DROP' }],
+        },
+      },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/821/page'
+    )
+    const body = (await res.json()) as {
+      data: { userProgressStatus: string | null; userHasCompletion: boolean }
+    }
+
+    expect(res.status).toBe(200)
+    expect(body.data.userProgressStatus).toBe('DROPPED')
+    expect(body.data.userHasCompletion).toBe(true)
+  })
+
+  it('reports no completion for a level with only progress logs', async () => {
+    const user = await seedUser(prisma)
+    await seedLevel(prisma, { inGameId: '822' })
+    await prisma.levelProgress.create({
+      data: {
+        userId: user.id,
+        levelId: '822',
+        status: 'IN_PROGRESS',
+        progressUpdates: { create: { kind: 'PROGRESS', percentage: 42 } },
+      },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/822/page'
+    )
+    const body = (await res.json()) as {
+      data: { userHasCompletion: boolean }
+    }
+
+    expect(res.status).toBe(200)
+    expect(body.data.userHasCompletion).toBe(false)
   })
 
   it('resolves an uncached level from RobTop, caches it, and returns it', async () => {

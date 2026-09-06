@@ -23,25 +23,49 @@ displaying as dropped.
 
 Implemented in `apps/api/src/services/progress/index.ts` (`applyProgress`).
 
-## Logging progress on a beaten level
+## Progress on a beaten level
 
-**Decision:** `POST /v1/me/progress` **refuses** a level the caller has already
-completed, with a 409 (`LevelAlreadyCompletedError`).
+**Decision:** a progress entry may never be dated **after** the level's
+completion. Backfill — a session dated before it, or on the same day — is
+always allowed.
 
-**Why:** the completion row is the user's best run on that level, so a later
-progress entry is either a duplicate of it or a lower number that means nothing.
-Both level pages already drop the "Log progress" action once a level is beaten
-(`resolveLevelOwnership`, `useGlobalLevelDetailPage`), and a frontend guard is
-not an authorization decision — so the endpoint enforces the same rule.
+**Why:** a completion records the run that beat the level, so nothing logged
+after it can be progress toward beating it; a later entry either duplicates the
+completion or is a lower number that means nothing. What a completed level CAN
+hold is everything logged on the way there, which is why the rule is an
+ordering rather than "a beaten level has no progress rows".
 
-Earlier the write was accepted and merely left `status = completed` untouched.
-That is still the rule the **delete** path replays (a stray `PROGRESS` after a
-`COMPLETION` must not un-complete a level), because the importer can still
-produce that shape: it writes its progress rows directly and deliberately
-accepts historical session data on a beaten level — see `IMPORT_EXPORT.md`.
+**One rule, one comparator.** `isDatedAfterCompletion`
+(`services/progress/completionOrder.ts`) is the whole of it, and every path that
+can put a progress entry on a completed level calls it:
 
-Keyed on the existence of a `kind = COMPLETION` update, not on `status`, so a
-level dropped after being beaten is refused too.
+| Path                             | Enforced in                    | On violation                       |
+| -------------------------------- | ------------------------------ | ---------------------------------- |
+| `POST /v1/me/progress`           | `applyProgress`                | 409 `ProgressAfterCompletionError` |
+| `PATCH /v1/me/progress/:levelId` | `applyEdit` (PROGRESS targets) | 409 `ProgressAfterCompletionError` |
+| Spreadsheet import, Progress tab | `planProgress`                 | Row skipped, reason reported       |
+
+Both sides are yyyy-MM-dd calendar days, read back through their own timezone;
+the raw instants are never compared. Undated on either side, or the same day,
+is not a violation — see the comparator's own doc for why.
+
+The completion is found by looking for a `kind = COMPLETION` update, not by
+reading `status`, so a level dropped after being beaten is covered too.
+
+**Not policed:** editing the _completion's_ date earlier, which can strand
+existing sessions after it. No path can create that state, only an edit can
+reach it, and refusing the edit would leave the user unable to correct a
+mistyped completion date without deleting the sessions first.
+
+The **delete** path still replays the old rule — a stray `PROGRESS` after a
+`COMPLETION` must not un-complete a level — since legacy rows predating this
+decision can still be in that shape.
+
+**Both level pages drop the "Log progress" action once a level is beaten**
+(`resolveLevelOwnership`, `useGlobalLevelDetailPage`), which is stricter than
+the rule: it means in-app backfill has no entry point today, and backfilling a
+beaten level's history is an import job. That is a UI decision, not the rule —
+the endpoint accepts a backfilled session from any caller.
 
 ## Drop-from-scratch
 

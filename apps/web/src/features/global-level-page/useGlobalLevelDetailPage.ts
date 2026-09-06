@@ -80,11 +80,15 @@ export function useGlobalLevelDetailPage() {
     )
   }
 
-  // Whether the viewer has already beaten this level. The resolve query is the
-  // only source here (unlike the user-scoped page, which can fall back to the
-  // cached Log) — so it reads false while the query is pending, which is safe
-  // because every action is disabled until it lands.
-  const hasCompletion = level?.userProgressStatus === 'COMPLETED'
+  // Whether the viewer has already beaten this level. The response carries
+  // this as its own flag rather than the page deriving it from the status:
+  // a level dropped after being beaten reads DROPPED and still holds its
+  // completion, and the write paths key their refusals on the completion.
+  //
+  // The resolve query is the only source here (unlike the user-scoped page,
+  // which can fall back to the cached Log) — so it reads false while the query
+  // is pending, which is safe because every action is disabled until it lands.
+  const hasCompletion = level?.userHasCompletion === true
 
   // FAB — logging actions scoped to THIS level, no destructive item (there's
   // nothing to delete on a level the user hasn't logged). Disabled while a

@@ -68,7 +68,7 @@ describe('GET /levels/:levelId/page', () => {
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
-      data: { ...LEVEL, userProgressStatus: null },
+      data: { ...LEVEL, userProgressStatus: null, userHasCompletion: false },
     })
   })
 
@@ -77,6 +77,7 @@ describe('GET /levels/:levelId/page', () => {
     // is reported.
     prisma.levelProgress.findUnique.mockResolvedValue({
       status: 'DROPPED',
+      progressUpdates: [],
     } as never)
 
     const body = (await (await app.request('/levels/12345/page')).json()) as {
@@ -86,20 +87,46 @@ describe('GET /levels/:levelId/page', () => {
     expect(body.data.userProgressStatus).toBe('DROPPED')
     expect(prisma.levelProgress.findUnique).toHaveBeenCalledWith({
       where: { userId_levelId: { userId: TEST_USER_ID, levelId: '12345' } },
-      select: { status: true },
+      select: {
+        status: true,
+        progressUpdates: {
+          where: { kind: 'COMPLETION' },
+          select: { id: true },
+          take: 1,
+        },
+      },
     })
   })
 
-  it("reports COMPLETED, which is what suppresses the page's logging actions", async () => {
+  it("reports the completion, which is what suppresses the page's logging actions", async () => {
     prisma.levelProgress.findUnique.mockResolvedValue({
       status: 'COMPLETED',
+      progressUpdates: [{ id: 'pu-1' }],
     } as never)
 
     const body = (await (await app.request('/levels/12345/page')).json()) as {
-      data: { userProgressStatus: string | null }
+      data: { userProgressStatus: string | null; userHasCompletion: boolean }
     }
 
     expect(body.data.userProgressStatus).toBe('COMPLETED')
+    expect(body.data.userHasCompletion).toBe(true)
+  })
+
+  it('reports the completion of a level dropped after it was beaten', async () => {
+    // The case the status can't express — and the one the FAB gets wrong if it
+    // reads status instead: DROPPED, but the completion still stands, so the
+    // write paths still refuse a progress log.
+    prisma.levelProgress.findUnique.mockResolvedValue({
+      status: 'DROPPED',
+      progressUpdates: [{ id: 'pu-1' }],
+    } as never)
+
+    const body = (await (await app.request('/levels/12345/page')).json()) as {
+      data: { userProgressStatus: string | null; userHasCompletion: boolean }
+    }
+
+    expect(body.data.userProgressStatus).toBe('DROPPED')
+    expect(body.data.userHasCompletion).toBe(true)
   })
 
   it('404s with a terminal reason when GD has no such level', async () => {

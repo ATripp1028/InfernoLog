@@ -25,8 +25,8 @@ import type { HonoVariables } from '../../types/hono'
 import { createErrorHandler } from '../../middleware/errors'
 import {
   CompletionFieldsNotApplicableError,
-  LevelAlreadyCompletedError,
   LevelNotFoundError,
+  ProgressAfterCompletionError,
   ProgressFieldsNotApplicableError,
   RatingCategoryNotOwnedError,
 } from '../../services/progress'
@@ -53,9 +53,9 @@ app.onError(
     ) {
       return c.json({ error: error.message }, 400)
     }
-    // 409, not 400: the payload is fine, the level's state is what forbids
+    // 409, not 400: the payload is fine, the level's history is what forbids
     // the write. Same reading as RatingRanking's mode conflict.
-    if (error instanceof LevelAlreadyCompletedError) {
+    if (error instanceof ProgressAfterCompletionError) {
       return c.json({ error: error.message }, 409)
     }
     return undefined

@@ -45,6 +45,8 @@ function ctxFor(
     ]),
     levelDiff: new Map([[LEVEL, 'Extreme Demon']]),
     levelCoins: new Map([[LEVEL, options.coins ?? 0]]),
+    // Read only by planProgress, never by the completion planner under test.
+    completionDateByLevel: new Map(),
     existingProgress: new Map(),
     existingDrops: new Map(),
     progressEventsByLevel: new Map(),

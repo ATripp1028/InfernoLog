@@ -21,6 +21,7 @@ import type {
   ImportFieldDiff,
 } from '@infernolog/core'
 import { zonedDateString } from '../../../utils/timezone'
+import { isDatedAfterCompletion } from '../../progress/completionOrder'
 import { PlanCtx, applyLp, getLpPlan } from './planWrites'
 import { toNum } from '../../../utils/decimal'
 
@@ -426,6 +427,11 @@ export function planDrop(
  * the derived-key fallback dedup above. Never touches LevelProgress.status —
  * completions/drops establish status, and historical progress rows must not
  * flip a dropped level back to in-progress on reimport.
+ *
+ * Refuses a row dated after the level's completion — the same rule the logging
+ * endpoints enforce, sharing their comparator ({@link isDatedAfterCompletion}).
+ * The guard sits above the id round-trip too, so an edit that would move an
+ * existing progress entry past the completion is refused just as a new row is.
  */
 export function planProgress(
   ctx: PlanCtx,
@@ -437,6 +443,14 @@ export function planProgress(
     return {
       status: 'skipped',
       reason: eventOutcomeReason('skipped', resolution),
+    }
+  }
+
+  const completionDate = ctx.completionDateByLevel.get(levelId)
+  if (isDatedAfterCompletion(completionDate, row.date)) {
+    return {
+      status: 'skipped',
+      reason: `Logged after this level was completed (${completionDate}) — a beaten level takes no new progress. Delete the level's data to re-import its history.`,
     }
   }
 

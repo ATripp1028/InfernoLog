@@ -30,6 +30,7 @@ import {
   deriveEventKey,
   fetchExistingEvents,
   groupByLevel,
+  isoDate,
   planDrop,
   planProgress,
 } from './planEvents'
@@ -145,7 +146,9 @@ export async function processImportJobBatch(
       visibility: true,
       progressUpdates: {
         where: { kind: 'COMPLETION' },
-        select: { id: true },
+        // The date comes back too: it is the line a progress row may not be
+        // dated past (see completionDateByLevel below).
+        select: { id: true, date: true, dateTimezone: true },
         take: 1,
       },
     },
@@ -160,6 +163,14 @@ export async function processImportJobBatch(
         visibility: r.visibility as 'PUBLIC' | 'PRIVATE',
       },
     ])
+  )
+  // levelId → the stored completion's calendar day, read back through its own
+  // timezone so it is the day the user entered.
+  const storedCompletionDate = new Map<string, string | null>(
+    lpRows.flatMap((r) => {
+      const pu = r.progressUpdates[0]
+      return pu ? [[r.levelId, isoDate(pu.date, pu.dateTimezone)] as const] : []
+    })
   )
 
   const levelRows = await prisma.level.findMany({
@@ -281,6 +292,32 @@ export async function processImportJobBatch(
   }[] = []
   const writes = newBatchWrites()
   const lpPlans = new Map<string, LpPlan>()
+
+  // The line a progress row may not be dated past: the date each level's
+  // completion will carry once this batch is written. Starts from what is
+  // stored, then lets this batch's own completion rows move it, since a
+  // workbook that beats a level and backfills its sessions in one import must
+  // measure against the date it is importing.
+  //
+  // A batch only ever sees part of the job, but that is enough: rows are
+  // processed in rowIndex order and buildImportPayload offsets Dropped by
+  // 100000 and Progress by 200000, so every completion in the job is written
+  // before any progress row is planned — a level's completion is therefore
+  // either in this batch or already in `storedCompletionDate`.
+  const completionDateByLevel = new Map(storedCompletionDate)
+  for (const row of rows) {
+    if (row.type !== 'completion' || !row.data.date) continue
+    const levelId = row.data.levelId ?? resolvedIds.get(row.rowIndex)
+    if (!levelId) continue
+    // Only rows planCompletion will actually apply move the line — mirroring
+    // its own branches: 'drop'/'duplicate' are discarded, and an existing
+    // completion with no resolution at all is skipped as an unmodified
+    // re-import. Later rows win, matching the last-completion-per-level rule.
+    if (row.resolution === 'drop' || row.resolution === 'duplicate') continue
+    if (dbState.get(levelId)?.completionId && !row.resolution) continue
+    completionDateByLevel.set(levelId, row.data.date)
+  }
+
   const ctx: PlanCtx = {
     userId,
     writes,
@@ -288,6 +325,7 @@ export async function processImportJobBatch(
     dbState,
     levelDiff,
     levelCoins,
+    completionDateByLevel,
     existingProgress,
     existingDrops,
     progressEventsByLevel,

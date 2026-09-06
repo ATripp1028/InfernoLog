@@ -17,6 +17,8 @@ import type {
   EditProgressInput,
 } from '@infernolog/core'
 import { toNum } from '../../utils/decimal'
+import { zonedDateString } from '../../utils/timezone'
+import { isDatedAfterCompletion } from './completionOrder'
 import {
   buildFieldChanges,
   buildRatingScoreChanges,
@@ -78,28 +80,26 @@ export class CompletionFieldsNotApplicableError extends Error {
 }
 
 /**
- * Thrown when a progress log targets a level the caller has already beaten.
+ * Thrown when a progress entry would be dated after the level's completion.
  *
- * A completion is the end of a level's history: the completion row IS the
- * user's best run, so a later "best progress" entry on the same level is
- * either a duplicate of it or a lower number that means nothing. Both UI
- * surfaces drop the "Log progress" action once a level is beaten
- * (`resolveLevelOwnership` / `useGlobalLevelDetailPage`), and the endpoint is
- * public — a frontend guard is not an authorization decision — so the rule is
- * enforced here as well.
+ * The shared rule, defined in {@link isDatedAfterCompletion}: a beaten level
+ * takes no NEW progress, but backfilling the grind that led to the completion
+ * is always allowed. The endpoint is public — a frontend guard is not an
+ * authorization decision — and the spreadsheet import enforces the same
+ * comparison in `planProgress`.
  *
- * Keyed on the existence of a `kind = COMPLETION` update rather than on
- * `status`, so a level dropped after being beaten (status `DROPPED`, completion
- * intact) is still refused. State conflict rather than bad input → 409.
+ * The level's completion is found by looking for a `kind = COMPLETION` update
+ * rather than by reading `status`, so a level dropped after being beaten
+ * (status `DROPPED`, completion intact) is covered too.
  *
- * Note this covers only the interactive endpoint. The importer writes its
- * progress rows directly and deliberately still accepts historical session data
- * on a beaten level (see `docs/IMPORT_EXPORT.md`).
+ * State conflict rather than bad input → 409.
  */
-export class LevelAlreadyCompletedError extends Error {
-  constructor(levelId: string) {
-    super(`Level ${levelId} is already completed — progress can't be logged`)
-    this.name = 'LevelAlreadyCompletedError'
+export class ProgressAfterCompletionError extends Error {
+  constructor(levelId: string, completionDay: string) {
+    super(
+      `Progress on level ${levelId} can't be dated after its completion (${completionDay})`
+    )
+    this.name = 'ProgressAfterCompletionError'
   }
 }
 
@@ -136,6 +136,29 @@ async function assertOwnedCategories(
     where: { userId, id: { in: ids } },
   })
   if (owned !== ids.length) throw new RatingCategoryNotOwnedError()
+}
+
+// The calendar day the level's completion is dated to, or null when there is
+// no completion or it carries no date. Both write paths that enforce the
+// ordering rule read it this way, through the completion's own timezone.
+async function readCompletionDay(
+  tx: Tx,
+  levelProgressId: string
+): Promise<string | null> {
+  const completion = await tx.progressUpdate.findFirst({
+    where: { levelProgressId, kind: 'COMPLETION' },
+    select: { date: true, dateTimezone: true },
+  })
+  if (!completion?.date) return null
+  return zonedDateString(completion.date, completion.dateTimezone)
+}
+
+// The calendar day an incoming entry is dated to, on the same convention.
+function entryDay(
+  date: Date | null | undefined,
+  timezone: string | null | undefined
+): string | null {
+  return date ? zonedDateString(date, timezone ?? null) : null
 }
 
 async function ensureLevelExists(tx: Tx, levelId: string): Promise<void> {
@@ -341,8 +364,9 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
 /**
  * Logs a non-completion progress update (a run, an attempt count, a new best).
  *
- * Refused outright on a level that already has a completion — see
- * {@link LevelAlreadyCompletedError}.
+ * Refused when it would be dated after the level's completion — see
+ * {@link isDatedAfterCompletion}. A session dated before the completion (or on
+ * the same day, or undated) is backfill and is written normally.
  *
  * Status rule: logging progress on a DROPPED level flips it back to
  * IN_PROGRESS, since logging implies active play.
@@ -354,7 +378,8 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
  * @param input - Validated progress payload.
  * @returns The full level_progress + the created progress_update.
  * @throws {LevelNotFoundError} The level isn't in the cache yet.
- * @throws {LevelAlreadyCompletedError} The caller has already beaten the level.
+ * @throws {ProgressAfterCompletionError} The entry is dated after the level's
+ * completion.
  */
 export async function applyProgress(userId: string, input: ProgressInput) {
   return prisma.$transaction(async (tx) => {
@@ -366,20 +391,24 @@ export async function applyProgress(userId: string, input: ProgressInput) {
       'IN_PROGRESS'
     )
 
-    // A beaten level takes no further progress logs. Checked after the
-    // find-or-create for the sake of reusing it — a row created a moment ago
-    // has no updates to find, and the transaction rolls that creation back
-    // when this throws, so no empty level_progress survives the rejection.
-    const completion = await tx.progressUpdate.findFirst({
-      where: { levelProgressId: lp.id, kind: 'COMPLETION' },
-      select: { id: true },
-    })
-    if (completion) throw new LevelAlreadyCompletedError(input.levelId)
+    // A beaten level takes no NEW progress. Checked after the find-or-create
+    // for the sake of reusing it — a row created a moment ago has no
+    // completion to find, and the transaction rolls that creation back when
+    // this throws, so no empty level_progress survives the rejection.
+    const completionDay = await readCompletionDay(tx, lp.id)
+    if (
+      isDatedAfterCompletion(
+        completionDay,
+        entryDay(input.date, input.dateTimezone)
+      )
+    ) {
+      throw new ProgressAfterCompletionError(input.levelId, completionDay!)
+    }
 
     // STATUS DECISION: logging progress on a DROPPED level flips it back to
-    // IN_PROGRESS — logging progress implies active play. Only DROPPED and
-    // IN_PROGRESS reach this line now that completions are refused above.
-    // See LOGGING_FLOW_RECONCILIATION.md.
+    // IN_PROGRESS — logging progress implies active play. COMPLETED is left
+    // untouched: backfilling the grind that led to a completion doesn't
+    // un-complete it. See LOGGING_FLOW_RECONCILIATION.md.
     const status = lp.status === 'DROPPED' ? 'IN_PROGRESS' : lp.status
 
     const base = {
@@ -445,6 +474,8 @@ export async function applyProgress(userId: string, input: ProgressInput) {
  * for an update that isn't kind=PROGRESS.
  * @throws {CompletionFieldsNotApplicableError} videoUrl/twoPlayerSolo/
  * twoPlayerPartner were sent for an update that isn't kind=COMPLETION.
+ * @throws {ProgressAfterCompletionError} The save would date a PROGRESS entry
+ * after the level's completion.
  * @throws {RatingCategoryNotOwnedError} A `ratingScores` entry names a category
  * belonging to another account.
  */
@@ -511,6 +542,23 @@ export async function applyEdit(
       targetUpdateKind !== 'COMPLETION'
     ) {
       throw new CompletionFieldsNotApplicableError(targetUpdateKind!)
+    }
+
+    // The ordering rule again, this time against the date the save would
+    // write: moving an existing session past the completion is the same
+    // violation as logging one there. Only a PROGRESS entry can violate it —
+    // a completion has no completion to be after, and drops are allowed at any
+    // point (dropping a level you already beat is a legitimate act).
+    if (input.date !== undefined && targetUpdateKind === 'PROGRESS') {
+      const completionDay = await readCompletionDay(tx, lp.id)
+      if (
+        isDatedAfterCompletion(
+          completionDay,
+          entryDay(input.date, input.dateTimezone)
+        )
+      ) {
+        throw new ProgressAfterCompletionError(levelId, completionDay!)
+      }
     }
 
     // Read the current values of everything a save can touch, so the LOG_EDIT

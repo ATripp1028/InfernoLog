@@ -69,6 +69,9 @@ function existingEvent(overrides: Partial<ExistingEvent> = {}): ExistingEvent {
 function ctxFor(
   options: {
     status?: 'IN_PROGRESS' | 'COMPLETED' | 'DROPPED'
+    // The date the level's completion will carry after the batch — the line
+    // planProgress refuses to let a progress row be dated past.
+    completionDate?: string
     existingDrops?: [string, { id: string; levelId: string }][]
     existingProgress?: [string, { id: string; levelId: string }][]
     dropEvents?: ExistingEvent[]
@@ -92,6 +95,9 @@ function ctxFor(
     ]),
     levelDiff: new Map([[LEVEL, 'Extreme Demon']]),
     levelCoins: new Map(),
+    completionDateByLevel: new Map(
+      options.completionDate ? [[LEVEL, options.completionDate]] : []
+    ),
     existingProgress: new Map(options.existingProgress ?? []),
     existingDrops: new Map(options.existingDrops ?? []),
     progressEventsByLevel: new Map(
@@ -739,6 +745,78 @@ describe('planProgress — round-trips by progressId', () => {
     expect(ctx.lpPlans.get(LEVEL)!.update).toMatchObject({
       visibility: 'PRIVATE',
     })
+  })
+})
+
+// ─── planProgress: the completed-level date line ─────────────────────────────
+
+describe('planProgress — progress after a completion', () => {
+  const BEATEN_ON = '2026-08-04'
+  const row = (date: string | null) =>
+    ({ date, percentage: 35 }) as ImportProgressRow
+
+  it('refuses a session dated after the completion', () => {
+    // The rule POST /me/progress enforces for the interactive path: a beaten
+    // level takes no NEW progress.
+    const ctx = ctxFor({ completionDate: BEATEN_ON })
+
+    const result = planProgress(ctx, LEVEL, row('2026-08-06'), undefined)
+
+    expect(result.status).toBe('skipped')
+    expect(result.reason).toContain('after this level was completed')
+    expect(result.reason).toContain(BEATEN_ON)
+    expect(ctx.writes.newProgressUpdates).toHaveLength(0)
+  })
+
+  it('imports a session dated before it — that is backfill, not new progress', () => {
+    const ctx = ctxFor({ completionDate: BEATEN_ON })
+
+    const result = planProgress(ctx, LEVEL, row('2026-08-02'), undefined)
+
+    expect(result.status).toBe('committed')
+    expect(ctx.writes.newProgressUpdates).toHaveLength(1)
+  })
+
+  it('imports a session dated the same day — grinding it out and beating it', () => {
+    const ctx = ctxFor({ completionDate: BEATEN_ON })
+
+    const result = planProgress(ctx, LEVEL, row(BEATEN_ON), undefined)
+
+    expect(result.status).toBe('committed')
+  })
+
+  it.each([
+    ['the row carries no date', { completionDate: BEATEN_ON }, null],
+    ['the completion carries no date', {}, '2026-08-06'],
+  ] as const)(
+    'imports when %s — there is no ordering to violate',
+    (_label, options, date) => {
+      const ctx = ctxFor(options)
+
+      expect(planProgress(ctx, LEVEL, row(date), undefined).status).toBe(
+        'committed'
+      )
+    }
+  )
+
+  it('refuses an id round-trip that would move an entry past the completion', () => {
+    // The guard sits above the progressId branch: editing an existing entry
+    // into post-completion territory is the same violation as creating one.
+    const PROGRESS_ID = 'progress-1'
+    const ctx = ctxFor({
+      completionDate: BEATEN_ON,
+      existingProgress: [[PROGRESS_ID, { id: PU_ID, levelId: LEVEL }]],
+    })
+
+    const result = planProgress(
+      ctx,
+      LEVEL,
+      { progressId: PROGRESS_ID, date: '2026-08-06' } as ImportProgressRow,
+      'overwrite'
+    )
+
+    expect(result.status).toBe('skipped')
+    expect(ctx.writes.progressUpdateUpdates).toHaveLength(0)
   })
 })
 

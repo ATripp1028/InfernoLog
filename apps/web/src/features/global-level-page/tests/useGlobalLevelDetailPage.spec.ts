@@ -323,7 +323,25 @@ describe('useGlobalLevelDetailPage', () => {
     // unbeaten levels — so on a level the user has already beaten, all four
     // of those actions are writes the API would reject.
     it('drops every action a completion rules out once the level is beaten', () => {
-      resolvesTo({ userProgressStatus: LevelProgressStatus.COMPLETED })
+      resolvesTo({
+        userProgressStatus: LevelProgressStatus.COMPLETED,
+        userHasCompletion: true,
+      })
+
+      render()
+
+      expect(registeredFab().actions?.map((a) => a.key)).toEqual([
+        'add-collection',
+      ])
+    })
+
+    // The case a status check gets wrong: dropped after being beaten. The
+    // completion still stands, so the API still refuses all four writes.
+    it('drops them for a level dropped after it was beaten', () => {
+      resolvesTo({
+        userProgressStatus: LevelProgressStatus.DROPPED,
+        userHasCompletion: true,
+      })
 
       render()
 
@@ -337,7 +355,7 @@ describe('useGlobalLevelDetailPage', () => {
     it.each([[LevelProgressStatus.IN_PROGRESS], [LevelProgressStatus.DROPPED]])(
       'keeps the full set for a %s level',
       (status) => {
-        resolvesTo({ userProgressStatus: status })
+        resolvesTo({ userProgressStatus: status, userHasCompletion: false })
 
         render()
 
