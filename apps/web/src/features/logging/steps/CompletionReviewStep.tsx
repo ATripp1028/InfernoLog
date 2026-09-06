@@ -12,6 +12,7 @@ import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
 import { computeOverallRating } from '@infernolog/core'
+import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
 
 /**
  * Completion step 5: everything about to be written, and the submit.
@@ -33,23 +34,13 @@ export function CompletionReviewStep() {
     ? `best run ${draft.worstFail}%`
     : null
 
-  const overallRating = computeOverallRating(
-    {
-      ratingMode: me.data.ratingMode,
-      includeEnjoyment: me.data.includeEnjoyment,
-      enjoymentWeight: me.data.enjoymentWeight,
-      categoryWeights: new Map(
-        me.data.ratingCategories.map((cat) => [cat.id, cat.weight])
-      ),
-    },
-    {
-      simpleRating: draft.simpleRating,
-      enjoyment: draft.enjoyment,
-      ratingScores: Object.entries(draft.ratingScores).map(
-        ([categoryId, score]) => ({ categoryId, score })
-      ),
-    }
-  )
+  // The rating step's readout runs this same pair of helpers on the same
+  // draft, so the number here is the one the user already saw.
+  const overallRating = computeOverallRating(overallRatingConfig(me.data), {
+    simpleRating: draft.simpleRating,
+    enjoyment: draft.enjoyment,
+    ratingScores: ratingScoresFromDraft(draft.ratingScores),
+  })
 
   const sessionBits = [
     draft.fps.trim() ? `${draft.fps} FPS` : null,

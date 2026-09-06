@@ -14,8 +14,9 @@ import {
 } from '@/utils/testUtils'
 
 // Boundaries only: the flow context and `useMe`. `toDisplay`/`toInternal` and
-// `computeWeightedAvg` stay real — the unit conversion at this component's
-// edge is most of what these assertions are claiming.
+// `computeOverallRating` stay real — the unit conversion at this component's
+// edge is most of what these assertions are claiming, and the readout has to
+// be the real computation or it stops matching the review step.
 vi.mock('@/context/LoggingFlowContext')
 vi.mock('@/lib/api/me', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/me')>()),
@@ -115,7 +116,9 @@ describe('CompletionRatingStep', () => {
     // `null` is "not rated yet", which the control shows as 0 without the
     // draft claiming the user chose 0.
     it('defaults to 50 for all scores', () => {
-      const { flow } = render({ draft: { enjoyment: null, simpleRating: null } })
+      const { flow } = render({
+        draft: { enjoyment: null, simpleRating: null },
+      })
 
       expect(flow.patchDraft).toHaveBeenCalledWith({ enjoyment: 50 })
       expect(flow.patchDraft).toHaveBeenCalledWith({ simpleRating: 50 })
@@ -140,7 +143,56 @@ describe('CompletionRatingStep', () => {
       })
 
       // 80 and 60 at even weights → 70 internal → 7 on the 0–10 scale.
+      // makeMe leaves includeEnjoyment off, so enjoyment sits this one out.
       expect(screen.getByText(/weighted avg/)).toHaveTextContent('7')
+    })
+
+    // The readout is the number the review step then shows and the save
+    // stores, so it has to fold enjoyment in exactly when the account does.
+    it('folds enjoyment in when the account opted into it', () => {
+      render({
+        draft: {
+          ratingScores: { 'cat-gameplay': 80, 'cat-decoration': 60 },
+          enjoyment: 25,
+        },
+        me: makeMe({
+          ratingMode: 'WEIGHTED',
+          ratingCategories: CATEGORIES,
+          includeEnjoyment: true,
+          enjoymentWeight: 1,
+        }),
+      })
+
+      // (80×0.5 + 60×0.5 + 25×1) / (0.5 + 0.5 + 1) = 47.5 → 4.75 displayed.
+      expect(screen.getByText(/weighted avg/)).toHaveTextContent('4.75')
+    })
+
+    it('leaves it out when the account has not', () => {
+      render({
+        draft: {
+          ratingScores: { 'cat-gameplay': 80, 'cat-decoration': 60 },
+          enjoyment: 25,
+        },
+        me: makeMe({
+          ratingMode: 'WEIGHTED',
+          ratingCategories: CATEGORIES,
+          includeEnjoyment: false,
+          enjoymentWeight: 1,
+        }),
+      })
+
+      expect(screen.getByText(/weighted avg/)).toHaveTextContent('7')
+    })
+
+    // A category the user hasn't scored is renormalized over, not counted as
+    // zero — a half-filled form still shows a meaningful running number.
+    it('renormalizes over the categories scored so far', () => {
+      render({
+        draft: { ratingScores: { 'cat-gameplay': 80 } },
+        me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: CATEGORIES }),
+      })
+
+      expect(screen.getByText(/weighted avg/)).toHaveTextContent('8')
     })
 
     it('patches one category without dropping the others', async () => {
