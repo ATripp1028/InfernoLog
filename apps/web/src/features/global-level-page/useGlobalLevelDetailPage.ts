@@ -12,6 +12,7 @@ import {
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
 import { useGoBack } from '@/lib/useGoBack'
+import { useWideLayout } from '@/lib/useWideLayout'
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
@@ -35,6 +36,7 @@ export function useGlobalLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
   const back = useGoBack('/log')
+  const isWide = useWideLayout()
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -80,46 +82,64 @@ export function useGlobalLevelDetailPage() {
     )
   }
 
-  // FAB — four logging actions scoped to THIS level, no destructive item
-  // (there's nothing to delete on a level the user hasn't logged). Disabled
-  // while a resolve is in flight; suppressed entirely on the terminal/retry
-  // error states. Logging stays enabled for delisted levels — delisting is a
-  // fact about GD's servers, not the user's history.
+  // Whether the viewer has already beaten this level. The response carries
+  // this as its own flag rather than the page deriving it from the status:
+  // a level dropped after being beaten reads DROPPED and still holds its
+  // completion, and the write paths key their refusals on the completion.
+  //
+  // The resolve query is the only source here (unlike the user-scoped page,
+  // which can fall back to the cached Log) — so it reads false while the query
+  // is pending, which is safe because every action is disabled until it lands.
+  const hasCompletion = level?.userHasCompletion === true
+
+  // FAB — logging actions scoped to THIS level, no destructive item (there's
+  // nothing to delete on a level the user hasn't logged). Disabled while a
+  // resolve is in flight; suppressed entirely on the terminal/retry error
+  // states. Logging stays enabled for delisted levels — delisting is a fact
+  // about GD's servers, not the user's history.
   const fabDisabled = query.isPending
   useFabActions(
     errorKind
       ? null
       : [
-          {
-            key: 'log-completion',
-            label: 'Log a completion',
-            icon: Check,
-            disabled: fabDisabled,
-            onClick: () => openForEdit(levelId, 'completion'),
-          },
-          {
-            key: 'log-progress',
-            label: 'Log progress',
-            icon: Flag,
-            disabled: fabDisabled,
-            onClick: () => openForEdit(levelId, 'progress'),
-          },
-          {
-            key: 'log-drop',
-            label: 'Drop this level',
-            icon: X,
-            disabled: fabDisabled,
-            onClick: () => openForEdit(levelId, 'drop'),
-          },
-          {
-            key: 'want-to-beat',
-            label: 'Add to Want to Beat',
-            icon: Star,
-            // Needs the WTB collection id resolved; also pending while an add
-            // is in flight so a double-tap can't fire two requests.
-            disabled: fabDisabled || !wtbId || addEntry.isPending,
-            onClick: handleAddToWantToBeat,
-          },
+          // A level holds at most one completion, and Want to Beat holds only
+          // unbeaten levels — so once this one is beaten, all four of these
+          // are writes the API would reject. Only Add to a Collection survives.
+          ...(!hasCompletion
+            ? [
+                {
+                  key: 'log-completion',
+                  label: 'Log a completion',
+                  icon: Check,
+                  disabled: fabDisabled,
+                  onClick: () => openForEdit(levelId, 'completion'),
+                },
+                {
+                  key: 'log-progress',
+                  label: 'Log progress',
+                  icon: Flag,
+                  disabled: fabDisabled,
+                  onClick: () => openForEdit(levelId, 'progress'),
+                },
+                {
+                  key: 'log-drop',
+                  label: 'Drop this level',
+                  icon: X,
+                  disabled: fabDisabled,
+                  onClick: () => openForEdit(levelId, 'drop'),
+                },
+                {
+                  key: 'want-to-beat',
+                  label: 'Add to Want to Beat',
+                  icon: Star,
+                  // Needs the WTB collection id resolved; also pending while
+                  // an add is in flight so a double-tap can't fire two
+                  // requests.
+                  disabled: fabDisabled || !wtbId || addEntry.isPending,
+                  onClick: handleAddToWantToBeat,
+                },
+              ]
+            : []),
           {
             key: 'add-collection',
             label: 'Add to a Collection',
@@ -135,6 +155,7 @@ export function useGlobalLevelDetailPage() {
   return {
     levelId,
     back,
+    isWide,
     isLoading: query.isPending,
     // 'not_found' / 'unreachable' / anything else — each gets its own render.
     errorKind,
@@ -144,6 +165,9 @@ export function useGlobalLevelDetailPage() {
     level,
     levelName: level?.name ?? `Level #${levelId}`,
     delisted: level?.delistedAt != null,
+    // Drives the cross-link to the user's own page for this level — any
+    // logged state counts, not just a completion.
+    hasUserProgress: level?.userProgressStatus != null,
     preselectedLevel,
     addToCollectionOpen,
     setAddToCollectionOpen,

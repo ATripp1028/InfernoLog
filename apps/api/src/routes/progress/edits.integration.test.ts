@@ -57,6 +57,8 @@ async function seedProgress(
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
       loggedAt?: Date
+      // The date the user says it happened, as opposed to loggedAt.
+      date?: Date | null
       enjoyment?: number | null
       percentage?: number | null
       runFrom?: number | null
@@ -78,6 +80,7 @@ async function seedProgress(
         create: (args.updates ?? []).map((u) => ({
           kind: u.kind ?? 'PROGRESS',
           loggedAt: u.loggedAt,
+          date: u.date ?? null,
           enjoyment: u.enjoyment ?? null,
           percentage: u.percentage ?? null,
           runFrom: u.runFrom ?? null,
@@ -288,6 +291,86 @@ describe('DELETE /me/progress/:levelId/updates/:progressUpdateId', () => {
   })
 })
 describe('PATCH /me/progress/:levelId', () => {
+  // ── the completion ordering rule ───────────────────────────────────────
+  //
+  // An edit can violate it the same way a fresh log can, by moving a session
+  // past the completion — so the same guard covers both (see
+  // services/progress/completionOrder.ts).
+
+  // A beaten level with one earlier session on it: completion 2026-08-04,
+  // progress 2026-08-02.
+  async function seedBackfilledLevel(userId: string, levelId: string) {
+    await seedLevel(prisma, { inGameId: levelId })
+    const lp = await seedProgress(prisma, {
+      userId,
+      levelId,
+      status: 'COMPLETED',
+      updates: [
+        {
+          kind: 'COMPLETION',
+          date: new Date('2026-08-04'),
+          loggedAt: new Date('2026-08-04'),
+        },
+        {
+          kind: 'PROGRESS',
+          date: new Date('2026-08-02'),
+          loggedAt: new Date('2026-08-02'),
+          percentage: 61,
+        },
+      ],
+    })
+    const progressUpdate = await prisma.progressUpdate.findFirstOrThrow({
+      where: { levelProgressId: lp.id, kind: 'PROGRESS' },
+    })
+    return { lp, progressUpdateId: progressUpdate.id }
+  }
+
+  it('refuses an edit that would move a session past the completion', async () => {
+    const user = await seedUser(prisma)
+    const { progressUpdateId } = await seedBackfilledLevel(user.id, '930')
+
+    const res = await patch(user.id, '930', {
+      progressUpdateId,
+      date: '2026-08-06',
+    })
+
+    expect(res.status).toBe(409)
+    const unchanged = await prisma.progressUpdate.findUniqueOrThrow({
+      where: { id: progressUpdateId },
+    })
+    expect(unchanged.date?.toISOString().slice(0, 10)).toBe('2026-08-02')
+  })
+
+  it('allows an edit that keeps the session before the completion', async () => {
+    const user = await seedUser(prisma)
+    const { progressUpdateId } = await seedBackfilledLevel(user.id, '931')
+
+    const res = await patch(user.id, '931', {
+      progressUpdateId,
+      date: '2026-08-01',
+    })
+
+    expect(res.status).toBe(200)
+    const updated = await prisma.progressUpdate.findUniqueOrThrow({
+      where: { id: progressUpdateId },
+    })
+    expect(updated.date?.toISOString().slice(0, 10)).toBe('2026-08-01')
+  })
+
+  it('leaves an edit that touches no date alone', async () => {
+    // The guard only runs when a date is actually being written — an
+    // unrelated save on a beaten level's session must not trip it.
+    const user = await seedUser(prisma)
+    const { progressUpdateId } = await seedBackfilledLevel(user.id, '932')
+
+    const res = await patch(user.id, '932', {
+      progressUpdateId,
+      attempts: 4200,
+    })
+
+    expect(res.status).toBe(200)
+  })
+
   it('round-trips date/dateTimezone and worstFailDate/worstFailDateTimezone', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '920' })

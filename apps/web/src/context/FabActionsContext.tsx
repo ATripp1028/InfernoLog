@@ -8,7 +8,11 @@ import {
 } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { useDefaultFabActions } from './useDefaultFabActions'
-import { actionsSignature, resolveFabActions } from './fabActionResolution'
+import {
+  actionsSignature,
+  disableAll,
+  resolveFabActions,
+} from './fabActionResolution'
 
 /**
  * The one action shape shared by every page's FAB: an icon, a name, and a
@@ -37,7 +41,7 @@ interface FabActionsContextValue {
   // that doesn't set one.
   sheetHeader: string | null
   setOverride: (
-    actions: FabAction[] | null,
+    actions: FabAction[] | 'pending' | null,
     sheetHeader?: string | null
   ) => void
 }
@@ -51,21 +55,29 @@ const FabActionsContext = createContext<FabActionsContextValue | null>(null)
  * showing instead, same as the default actions that would open them.
  */
 export function FabActionsProvider({ children }: { children: ReactNode }) {
-  const [override, setOverrideState] = useState<FabAction[] | null>(null)
+  const [override, setOverrideState] = useState<FabAction[] | 'pending' | null>(
+    null
+  )
   const [sheetHeader, setSheetHeader] = useState<string | null>(null)
   const { actions: defaultActions, dialogs } = useDefaultFabActions()
 
   const setOverride = useCallback(
-    (actions: FabAction[] | null, header: string | null = null) => {
+    (actions: FabAction[] | 'pending' | null, header: string | null = null) => {
       setOverrideState(actions)
-      // A header only makes sense alongside an override's action set.
-      setSheetHeader(actions ? header : null)
+      // A header only makes sense alongside an override's own action set —
+      // 'pending' renders the defaults, which a page's name must not label.
+      setSheetHeader(actions && actions !== 'pending' ? header : null)
     },
     []
   )
 
+  // 'pending' keeps whatever the FAB would otherwise show — the defaults,
+  // since a page in that state has registered no set of its own — but inert,
+  // so a tap can't fire an action the page is about to replace.
   const { primary, secondaryActions } = resolveFabActions(
-    override ?? defaultActions
+    override === 'pending'
+      ? disableAll(defaultActions)
+      : (override ?? defaultActions)
   )
 
   return (
@@ -101,11 +113,14 @@ export function useResolvedFabActions() {
  * Called by a page to replace the FAB's actions while it's mounted (e.g. the
  * level page's owner actions, or the collections page's actions). Pass
  * `null` to fall back to the default action set — e.g. when the current
- * user doesn't own the level being viewed. `sheetHeader` optionally sets a
- * context header for the mobile FAB bottom sheet (e.g. the level name).
+ * user doesn't own the level being viewed. Pass `'pending'` while the page
+ * cannot yet tell which of the two applies: the FAB renders disabled until
+ * it can, rather than offering one set and swapping to the other a moment
+ * later. `sheetHeader` optionally sets a context header for the mobile FAB
+ * bottom sheet (e.g. the level name).
  */
 export function useFabActions(
-  actions: FabAction[] | null,
+  actions: FabAction[] | 'pending' | null,
   sheetHeader?: string | null
 ) {
   const { setOverride } = useFabActionsContext()

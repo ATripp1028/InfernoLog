@@ -9,6 +9,8 @@ import {
   stubQuery,
 } from '@/utils/testUtils'
 import type { LevelPageData } from '@/lib/api/levelPage'
+import { LevelProgressStatus } from '@infernolog/core'
+import type { LevelProgressListItem } from '@/lib/api/log'
 import { levelPageData, progressUpdate, runsGraphEntry } from './fixtures'
 
 const LEVEL_ID = '128'
@@ -36,7 +38,10 @@ vi.mock('@/lib/api/levelPage', () => ({
   useLevelPage: vi.fn(),
   useDeleteProgressUpdate: vi.fn(),
 }))
-vi.mock('@/lib/api/log', () => ({ useDeleteProgress: vi.fn() }))
+vi.mock('@/lib/api/log', () => ({
+  useDeleteProgress: vi.fn(),
+  useCachedLogRow: vi.fn(),
+}))
 vi.mock('@/lib/api/logging', () => ({ useSubmitGddlRecord: vi.fn() }))
 
 const { toast } = await import('@/components/generic/sonner')
@@ -44,7 +49,7 @@ const { useFabActions } = await import('@/context/FabActionsContext')
 const { useMe } = await import('@/lib/api/me')
 const { useLevelPage, useDeleteProgressUpdate } =
   await import('@/lib/api/levelPage')
-const { useDeleteProgress } = await import('@/lib/api/log')
+const { useDeleteProgress, useCachedLogRow } = await import('@/lib/api/log')
 const { useSubmitGddlRecord } = await import('@/lib/api/logging')
 const { useLevelDetailPage } = await import('../useLevelDetailPage')
 
@@ -68,6 +73,9 @@ beforeEach(() => {
     stubMutation({ mutate: submitGddl })
   )
   vi.mocked(useMe).mockReturnValue(stubQuery<MeData>({ data: meData() }))
+  // The Log defaults to uncached: most cases here settle the level query, so
+  // the fallback source never gets a say. `logCaches` opts a case in.
+  vi.mocked(useCachedLogRow).mockReturnValue({ known: false, row: undefined })
   vi.mocked(useLevelPage).mockReturnValue(
     stubQuery<LevelPageData>({ data: levelPageData() })
   )
@@ -78,6 +86,19 @@ function resolvesTo(overrides: Partial<LevelPageData> = {}) {
   vi.mocked(useLevelPage).mockReturnValue(
     stubQuery<LevelPageData>({ data: levelPageData(overrides) })
   )
+}
+
+/** Points the cached-Log fallback at a row (or at a Log holding none). */
+function logCaches(row: Partial<LevelProgressListItem> | null) {
+  vi.mocked(useCachedLogRow).mockReturnValue({
+    known: true,
+    row: row
+      ? ({
+          status: LevelProgressStatus.IN_PROGRESS,
+          ...row,
+        } as LevelProgressListItem)
+      : undefined,
+  })
 }
 
 function failsWith(error: unknown, isPending = false) {
@@ -91,12 +112,17 @@ function render() {
   return renderHook(() => useLevelDetailPage(), { wrapper })
 }
 
-/** The action set the page last registered with the FAB. */
-const registeredFab = (): FabAction[] | null => {
+/** Whatever the page last registered — an action set, 'pending', or null. */
+const registeredFab = (): FabAction[] | 'pending' | null => {
   const calls = vi.mocked(useFabActions).mock.calls
   return calls[calls.length - 1]?.[0] ?? null
 }
-const fabAction = (key: string) => registeredFab()?.find((a) => a.key === key)
+/** Just the action set, for the cases that expect the FAB to be resolved. */
+const fabActions = (): FabAction[] | null => {
+  const registered = registeredFab()
+  return Array.isArray(registered) ? registered : null
+}
+const fabAction = (key: string) => fabActions()?.find((a) => a.key === key)
 
 describe('useLevelDetailPage', () => {
   describe('the page status', () => {
@@ -227,7 +253,7 @@ describe('useLevelDetailPage', () => {
     it('offers the logging actions on an unbeaten level', () => {
       render()
 
-      expect(registeredFab()?.map((a) => a.key)).toEqual([
+      expect(fabActions()?.map((a) => a.key)).toEqual([
         'edit',
         'log-completion',
         'log-progress',
@@ -246,18 +272,109 @@ describe('useLevelDetailPage', () => {
 
       render()
 
-      expect(registeredFab()?.map((a) => a.key)).toEqual([
+      expect(fabActions()?.map((a) => a.key)).toEqual([
         'edit',
         'add-collection',
         'delete',
       ])
     })
 
+    // The whole point of the cached-Log fallback: the FAB is the level's own
+    // action set on the first frame, not the app-wide logging one that would
+    // otherwise show for the beat before the query lands.
+    describe('before the level query lands', () => {
+      it('registers the owner actions off a cached Log row', () => {
+        failsWith(null, true)
+        logCaches({})
+
+        render()
+
+        expect(fabActions()?.map((a) => a.key)).toEqual([
+          'edit',
+          'log-completion',
+          'log-progress',
+          'log-drop',
+          'add-collection',
+          'delete',
+        ])
+      })
+
+      // Right options, not yet live: each one opens a modal the page renders
+      // only from `status === 'ready'`, so firing one now would do nothing
+      // visible and then pop a dialog when the payload arrived.
+      it('greys the owner actions out until the payload lands', () => {
+        failsWith(null, true)
+        logCaches({})
+
+        render()
+
+        expect(fabActions()?.map((a) => a.disabled)).toEqual([
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+        ])
+      })
+
+      it('enables them once the level query lands', () => {
+        logCaches({})
+
+        render()
+
+        expect(fabActions()?.every((a) => a.disabled)).toBe(false)
+      })
+
+      it('drops the logging actions for a cached COMPLETED row', () => {
+        failsWith(null, true)
+        logCaches({ status: LevelProgressStatus.COMPLETED })
+
+        render()
+
+        expect(fabActions()?.map((a) => a.key)).toEqual([
+          'edit',
+          'add-collection',
+          'delete',
+        ])
+      })
+
+      it('falls back to the defaults when the cached Log has no such row', () => {
+        failsWith(null, true)
+        logCaches(null)
+
+        render()
+
+        expect(registeredFab()).toBeNull()
+      })
+
+      // Nothing to go on: offering either set risks swapping it out from
+      // under a tap, so the FAB renders inert instead.
+      it('registers pending when nothing can say who owns the level', () => {
+        failsWith(null, true)
+
+        render()
+
+        expect(registeredFab()).toBe('pending')
+      })
+
+      // `me` decides whether the GDDL item belongs in the set, so a resolved
+      // owner is still not a live action set without it.
+      it('stays greyed while the viewer is still loading', () => {
+        logCaches({})
+        vi.mocked(useMe).mockReturnValue(stubQuery<MeData>({ isPending: true }))
+
+        render()
+
+        expect(fabActions()?.every((a) => a.disabled)).toBe(true)
+      })
+    })
+
     it('flags only delete as dangerous', () => {
       render()
 
       expect(
-        registeredFab()
+        fabActions()
           ?.filter((a) => a.danger)
           .map((a) => a.key)
       ).toEqual(['delete'])

@@ -187,7 +187,7 @@ export function makeCachedLevel(overrides: Partial<Level> = {}): Level {
 }
 
 /**
- * A `GlobalLevelPageData` — the cached level plus the three fields the Global
+ * A `GlobalLevelPageData` — the cached level plus the four fields the Global
  * Level Page adds. Same elision as {@link makeCachedLevel}.
  */
 export function makeGlobalLevel(
@@ -197,7 +197,8 @@ export function makeGlobalLevel(
     ...makeCachedLevel(),
     delistedAt: null,
     lastCheckedAt: '2026-01-01T00:00:00.000Z',
-    hasUserProgress: false,
+    userProgressStatus: null,
+    userHasCompletion: false,
     ...overrides,
   } as GlobalLevelPageData
 }
@@ -545,8 +546,9 @@ export function renderWithProviders(
 /**
  * Points `window.matchMedia` at a fixed breakpoint answer for this test.
  *
- * `useMediaQuery` starts at `false` and reads `matchMedia` in an effect, so a
- * component branching on it renders its mobile layout unless told otherwise.
+ * `useMediaQuery` reads `matchMedia` during render, and `testSetup` installs
+ * one that matches nothing, so a component branching on it renders its mobile
+ * layout unless told otherwise.
  * Call this before rendering; `unstubGlobals` in `vitest.config.ts` unwinds it
  * after each test (`restoreMocks` does not — it only covers `vi.spyOn`).
  *

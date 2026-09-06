@@ -11,6 +11,8 @@ import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
+import { computeOverallRating } from '@infernolog/core'
+import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
 
 /**
  * Completion step 5: everything about to be written, and the submit.
@@ -32,9 +34,13 @@ export function CompletionReviewStep() {
     ? `best run ${draft.worstFail}%`
     : null
 
-  const weightedAvg = weighted
-    ? avg(Object.values(draft.ratingScores))
-    : draft.simpleRating
+  // The rating step's readout runs this same pair of helpers on the same
+  // draft, so the number here is the one the user already saw.
+  const overallRating = computeOverallRating(overallRatingConfig(me.data), {
+    simpleRating: draft.simpleRating,
+    enjoyment: draft.enjoyment,
+    ratingScores: ratingScoresFromDraft(draft.ratingScores),
+  })
 
   const sessionBits = [
     draft.fps.trim() ? `${draft.fps} FPS` : null,
@@ -95,10 +101,10 @@ export function CompletionReviewStep() {
               value={opinionLabel(draft.difficultyOpinion)}
             />
           )}
-          {weightedAvg != null && (
+          {overallRating != null && (
             <Row
               label="Rating"
-              value={`${formatRating(weightedAvg, scale)}${weighted ? ' (weighted)' : ''}`}
+              value={`${formatRating(overallRating, scale)}${weighted ? ' (weighted)' : ''}`}
             />
           )}
           {draft.enjoyment != null && (
@@ -138,9 +144,4 @@ function Row({ label, value }: { label: string; value: ReactNode }) {
       <span className="text-right font-medium text-text-primary">{value}</span>
     </div>
   )
-}
-
-function avg(values: number[]): number | null {
-  if (values.length === 0) return null
-  return values.reduce((a, b) => a + b, 0) / values.length
 }

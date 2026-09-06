@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { formatRetryWait } from '@/lib/api/client'
 import { Button } from '@/components/generic/button'
+import { cn } from '@/lib/utils'
+import { MOBILE_HERO_CLASS, useWideLayout } from '@/lib/useWideLayout'
 import { DesktopSectionHeader } from './CollapsibleSection'
 
 /**
@@ -221,34 +223,40 @@ function Pulse({ className }: { className?: string }) {
  * Loading skeleton for the Global Level Page, sized to the real layout so nothing shifts when data lands.
  */
 export function PageSkeleton() {
+  // Branches the same way the page does, so the skeleton is never the
+  // opposite layout of the page that replaces it.
+  const isWide = useWideLayout()
+
   return (
     <>
-      {/* Mobile */}
-      <div className="md:hidden">
-        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
-          <ArrowLeft size={18} className="text-text-tertiary" />
-          <Pulse className="h-4 w-40" />
-        </div>
-        <div className="aspect-video w-full animate-pulse bg-bg-surface" />
-        <div className="border-b border-border-subtle px-4 py-4">
-          <div className="flex gap-4">
-            <Pulse className="size-[76px] shrink-0 rounded-card" />
-            <div className="flex-1 space-y-2">
-              <Pulse className="h-5 w-2/3" />
-              <Pulse className="h-4 w-1/3" />
-              <Pulse className="h-6 w-3/4 rounded-md" />
+      {!isWide && (
+        <div>
+          <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
+            <ArrowLeft size={18} className="text-text-tertiary" />
+            <Pulse className="h-4 w-40" />
+          </div>
+          <div
+            className={cn('animate-pulse bg-bg-surface', MOBILE_HERO_CLASS)}
+          />
+          <div className="border-b border-border-subtle px-4 py-4">
+            <div className="flex gap-4">
+              <Pulse className="size-[76px] shrink-0 rounded-card" />
+              <div className="flex-1 space-y-2">
+                <Pulse className="h-5 w-2/3" />
+                <Pulse className="h-4 w-1/3" />
+                <Pulse className="h-6 w-3/4 rounded-md" />
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Pulse key={i} className="h-[52px] rounded-card" />
+              ))}
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-border-subtle pt-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Pulse key={i} className="h-[52px] rounded-card" />
-            ))}
-          </div>
         </div>
-      </div>
+      )}
 
-      {/* Desktop */}
-      <div className="hidden md:block">
+      {isWide && (
         <div className="mx-8 pb-16 pt-4">
           <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
             <ArrowLeft size={18} className="text-text-tertiary" />
@@ -273,7 +281,7 @@ export function PageSkeleton() {
                 </div>
               </div>
             </div>
-            <div className="w-[424px] shrink-0">
+            <div className="w-[clamp(300px,34vw,424px)] shrink-0">
               <DesktopSectionHeader>Song</DesktopSectionHeader>
               <div className="flex gap-3">
                 <Pulse className="size-14 shrink-0 rounded-card" />
@@ -294,7 +302,7 @@ export function PageSkeleton() {
             </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 }

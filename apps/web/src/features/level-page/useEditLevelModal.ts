@@ -12,7 +12,9 @@ import { useMe, type RatingCategory } from '@/lib/api/me'
 import type { EntryVisibility, RatingDisplayScale } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { useResolveLevel } from '@/lib/api/logging'
-import { computeWeightedAvg } from '@/utils/weightHandling'
+import { computeOverallRating } from '@infernolog/core'
+import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
+import { findPrimaryProgressUpdate } from './primaryEntry'
 import { isSameDayToggleOn } from '@/lib/sameDayToggle'
 import { getViewerTimezone } from '@/lib/timezone'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
@@ -148,12 +150,27 @@ export function useEditLevelForm({
   const isCompleted = data.status === 'COMPLETED'
   const hasCoins = (data.level.coins ?? 0) > 0
 
-  const filteredScores = Object.fromEntries(
-    Object.entries(form.ratingScores).filter(([, v]) => v != null)
-  ) as Record<string, number>
-  const weightedAvg = weighted
-    ? computeWeightedAvg(categories, filteredScores)
-    : null
+  // The rating this level will settle on once saved, run through the same
+  // computation the server serializes with — so the preview doesn't shift
+  // after the refetch. Two things the old category-only average got wrong:
+  // enjoyment counts whenever the account opted in, and the form holds display
+  // units while the computation (and enjoyment, read straight off the stored
+  // entry) is on the internal 0–100 scale.
+  const overallRating =
+    weighted && me.data
+      ? computeOverallRating(overallRatingConfig(me.data), {
+          simpleRating: null,
+          enjoyment: findPrimaryProgressUpdate(data)?.enjoyment ?? null,
+          ratingScores: ratingScoresFromDraft(
+            Object.fromEntries(
+              Object.entries(form.ratingScores).map(([id, v]) => [
+                id,
+                v == null ? null : toInternal(v, scale),
+              ])
+            )
+          ),
+        })
+      : null
 
   const gddlTierError = maxValueError(form.userGddlTier, MAX_GDDL_TIER)
 
@@ -233,7 +250,7 @@ export function useEditLevelForm({
     // Rating mode
     weighted,
     categories,
-    weightedAvg,
+    overallRating,
 
     // Conditional sections
     isCompleted,

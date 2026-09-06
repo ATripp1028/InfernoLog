@@ -4,6 +4,8 @@
 
 import { AlertCircle, Lock } from 'lucide-react'
 import { BackLink } from '@/components/shell/BackLink'
+import { cn } from '@/lib/utils'
+import { MOBILE_HERO_CLASS, useWideLayout } from '@/lib/useWideLayout'
 import type { GoBack } from '@/lib/useGoBack'
 
 /**
@@ -68,17 +70,24 @@ export function LoadFailed() {
 function HeroSkeleton({ desktop }: { desktop?: boolean }) {
   return (
     <div
-      className={[
+      className={cn(
         'animate-pulse rounded-card bg-bg-surface',
-        desktop ? 'h-[383px]' : 'h-[219px]',
-      ].join(' ')}
+        // Mirrors HeroVideo's own sizing in each layout, so nothing jumps
+        // when the real embed lands.
+        desktop ? 'h-[383px]' : MOBILE_HERO_CLASS
+      )}
     />
   )
 }
 
-function IdentitySkeleton() {
+function IdentitySkeleton({ desktop }: { desktop?: boolean }) {
   return (
-    <div className="animate-pulse space-y-2 px-4 py-4 md:px-5 md:py-5">
+    <div
+      className={cn(
+        'animate-pulse space-y-2',
+        desktop ? 'px-5 py-5' : 'px-4 py-4'
+      )}
+    >
       <div className="flex items-center gap-3">
         <div className="size-14 rounded-card bg-bg-subtle" />
         <div className="flex-1 space-y-2">
@@ -90,13 +99,21 @@ function IdentitySkeleton() {
   )
 }
 
-function StatGridSkeleton() {
+function StatGridSkeleton({ desktop }: { desktop?: boolean }) {
   return (
-    <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-3 md:px-0 md:py-0">
+    <div
+      className={cn(
+        'grid gap-2',
+        desktop ? 'grid-cols-3' : 'grid-cols-2 px-4 py-3'
+      )}
+    >
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="h-[52px] animate-pulse rounded-card bg-bg-surface md:h-[64px]"
+          className={cn(
+            'animate-pulse rounded-card bg-bg-surface',
+            desktop ? 'h-[64px]' : 'h-[52px]'
+          )}
         />
       ))}
     </div>
@@ -123,39 +140,48 @@ function TimelineSkeleton() {
  * Loading skeleton for the level page.
  */
 export function LevelPageSkeleton() {
+  // Branches the same way the page does, so the skeleton is never the
+  // opposite layout of the page that replaces it.
+  const isWide = useWideLayout()
+
   return (
     <>
       {/* Back row skeleton */}
-      <div className="border-b border-border-subtle px-4 py-3 md:mx-8 md:px-0 md:py-4">
+      <div
+        className={cn(
+          'border-b border-border-subtle',
+          isWide ? 'mx-8 py-4' : 'px-4 py-3'
+        )}
+      >
         <div className="h-5 w-40 animate-pulse rounded bg-bg-subtle" />
       </div>
 
-      {/* Mobile skeleton */}
-      <div className="md:hidden">
-        <HeroSkeleton />
-        <IdentitySkeleton />
-        <StatGridSkeleton />
-        <div className="mt-4 border-t border-border-subtle px-4 py-4">
-          <div className="h-28 animate-pulse rounded-card bg-bg-surface" />
+      {!isWide && (
+        <div>
+          <HeroSkeleton />
+          <IdentitySkeleton />
+          <StatGridSkeleton />
+          <div className="mt-4 border-t border-border-subtle px-4 py-4">
+            <div className="h-28 animate-pulse rounded-card bg-bg-surface" />
+          </div>
+          <div className="border-t border-border-subtle px-4 py-4">
+            <TimelineSkeleton />
+          </div>
         </div>
-        <div className="border-t border-border-subtle px-4 py-4">
-          <TimelineSkeleton />
-        </div>
-      </div>
+      )}
 
-      {/* Desktop skeleton */}
-      <div className="hidden md:block">
+      {isWide && (
         <div className="mx-8 pb-16 pt-4">
           <div className="flex gap-6">
             <div className="min-w-0 flex-1 space-y-4">
               <HeroSkeleton desktop />
               <div className="animate-pulse rounded-card bg-bg-surface p-4">
-                <IdentitySkeleton />
-                <StatGridSkeleton />
+                <IdentitySkeleton desktop />
+                <StatGridSkeleton desktop />
               </div>
               <div className="h-32 animate-pulse rounded-card bg-bg-surface" />
             </div>
-            <div className="w-[428px] shrink-0 space-y-4">
+            <div className="w-[clamp(300px,34vw,428px)] shrink-0 space-y-4">
               <div className="animate-pulse rounded-card bg-bg-surface">
                 <div className="h-12 border-b border-border-subtle" />
                 <TimelineSkeleton />
@@ -163,7 +189,7 @@ export function LevelPageSkeleton() {
             </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   )
 }

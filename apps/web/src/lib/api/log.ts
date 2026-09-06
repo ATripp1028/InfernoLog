@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  skipToken,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
 import type { LevelProgressListItem } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
@@ -29,6 +34,32 @@ export function useMyProgress() {
       return data
     },
   })
+}
+
+/**
+ * The Log's row for one level as it already sits in the cache, without ever
+ * fetching one.
+ *
+ * `skipToken` subscribes to the Log query — including whatever the
+ * localStorage persister restored at boot — but never issues a request, so a
+ * page can read the row on its first render for free. `known` separates "the
+ * Log isn't cached, so this says nothing" from "the Log is cached and holds
+ * no row for this level"; only the latter is evidence the user hasn't logged
+ * it. Callers must still defer to their own authoritative query once it
+ * lands, since the cached row can be up to a day stale.
+ */
+export function useCachedLogRow(levelId: string): {
+  known: boolean
+  row: LevelProgressListItem | undefined
+} {
+  const { data } = useQuery<LevelProgressListItem[]>({
+    queryKey: logQueryKey,
+    queryFn: skipToken,
+  })
+  return {
+    known: data !== undefined,
+    row: data?.find((item) => item.level.inGameId === levelId),
+  }
 }
 
 /**

@@ -229,6 +229,145 @@ describe('POST /me/progress', () => {
     expect(pu.percentage).toBeNull()
   })
 
+  // ── the completion ordering rule ───────────────────────────────────────
+  //
+  // A beaten level takes no NEW progress, but backfilling the grind that led
+  // to the completion is always allowed. The same comparison the spreadsheet
+  // import applies (services/progress/completionOrder.ts).
+
+  // Seeds a beaten level whose completion is dated 2026-08-04.
+  async function seedBeatenLevel(
+    userId: string,
+    levelId: string,
+    options: {
+      completionDate?: string | null
+      status?: 'COMPLETED' | 'DROPPED'
+    } = {}
+  ) {
+    const { completionDate = '2026-08-04', status = 'COMPLETED' } = options
+    await seedLevel(prisma, { inGameId: levelId })
+    await prisma.levelProgress.create({
+      data: {
+        userId,
+        levelId,
+        status,
+        progressUpdates: {
+          create: {
+            kind: 'COMPLETION',
+            date: completionDate ? new Date(completionDate) : null,
+          },
+        },
+      },
+    })
+  }
+
+  const progressUpdateCount = (userId: string, levelId: string) =>
+    prisma.progressUpdate.count({
+      where: { levelProgress: { userId, levelId }, kind: 'PROGRESS' },
+    })
+
+  it('refuses a session dated after the completion', async () => {
+    const user = await seedUser(prisma)
+    await seedBeatenLevel(user.id, '203')
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '203',
+      percentage: 30,
+      date: '2026-08-06',
+    })
+
+    expect(res.status).toBe(409)
+    expect(await progressUpdateCount(user.id, '203')).toBe(0)
+  })
+
+  it.each([
+    ['before it — backfilling the grind', '2026-08-02'],
+    ['on the same day — grinding it out and beating it', '2026-08-04'],
+  ])('accepts a session dated %s', async (_label, date) => {
+    const user = await seedUser(prisma)
+    await seedBeatenLevel(user.id, '206')
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '206',
+      percentage: 30,
+      date,
+    })
+
+    expect(res.status).toBe(201)
+    expect(await progressUpdateCount(user.id, '206')).toBe(1)
+  })
+
+  it('leaves a beaten level completed when its history is backfilled', async () => {
+    const user = await seedUser(prisma)
+    await seedBeatenLevel(user.id, '207')
+
+    await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '207',
+      percentage: 30,
+      date: '2026-08-02',
+    })
+
+    const lp = await prisma.levelProgress.findUniqueOrThrow({
+      where: { userId_levelId: { userId: user.id, levelId: '207' } },
+    })
+    expect(lp.status).toBe('COMPLETED')
+  })
+
+  it.each([
+    ['the entry carries no date', '2026-08-04', undefined],
+    ['the completion carries no date', null, '2026-08-06'],
+  ])(
+    'accepts a session when %s — no ordering to violate',
+    async (_label, completionDate, date) => {
+      const user = await seedUser(prisma)
+      await seedBeatenLevel(user.id, '208', { completionDate })
+
+      const res = await post(user.id, '/me/progress', {
+        mode: 'from_zero',
+        levelId: '208',
+        percentage: 30,
+        ...(date ? { date } : {}),
+      })
+
+      expect(res.status).toBe(201)
+    }
+  )
+
+  it('refuses it on a level dropped after being beaten — the completion still stands', async () => {
+    // status is DROPPED here, so the rule can't key on status alone.
+    const user = await seedUser(prisma)
+    await seedBeatenLevel(user.id, '204', { status: 'DROPPED' })
+
+    const res = await post(user.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '204',
+      percentage: 30,
+      date: '2026-08-06',
+    })
+
+    expect(res.status).toBe(409)
+    expect(await progressUpdateCount(user.id, '204')).toBe(0)
+  })
+
+  it("leaves another user's completion out of it", async () => {
+    // The completion lookup is scoped to the caller's own level_progress.
+    const owner = await seedUser(prisma)
+    const other = await seedUser(prisma)
+    await seedBeatenLevel(other.id, '205')
+
+    const res = await post(owner.id, '/me/progress', {
+      mode: 'from_zero',
+      levelId: '205',
+      percentage: 30,
+      date: '2026-08-06',
+    })
+
+    expect(res.status).toBe(201)
+  })
+
   it('flips a dropped level back to in_progress when progress is logged', async () => {
     const user = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '202' })

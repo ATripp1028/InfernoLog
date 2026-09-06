@@ -3,7 +3,7 @@ import { Label } from '@/components/generic/label'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
 import { clampPercent, digitsOnly } from '@/lib/numberFormat'
-import { formatDisplayRating } from '@/lib/ratingScale'
+import { formatRating } from '@/lib/ratingScale'
 import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { DateTimeField } from '@/components/inputs/DateTimeField'
 import {
@@ -35,7 +35,7 @@ export function EditLevelFields({
     patch,
     weighted,
     categories,
-    weightedAvg,
+    overallRating,
     isCompleted,
     hasCoins,
     suggestedGddlTier,
@@ -132,11 +132,11 @@ export function EditLevelFields({
                   }
                 />
               ))}
-              {weightedAvg != null && (
+              {overallRating != null && (
                 <p className="text-right text-xs text-text-tertiary">
                   Weighted avg:{' '}
                   <span className="font-medium text-text-secondary">
-                    {formatDisplayRating(weightedAvg)}
+                    {formatRating(overallRating, scale)}
                   </span>
                 </p>
               )}

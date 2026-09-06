@@ -26,6 +26,8 @@ export function MobileNav() {
   const { primary, secondaryActions, sheetHeader } = useResolvedFabActions()
 
   const orderedActions = sheetActionOrder(primary, secondaryActions)
+  // Whether the FAB opens the sheet or fires the primary action outright.
+  const showsSheet = opensSheet(secondaryActions)
 
   const [logKey, rankingKey, searchKey] = MOBILE_BAR_KEYS
   const log = navItemByKey(logKey)
@@ -89,9 +91,16 @@ export function MobileNav() {
           active={fabMenuOpen}
           label={primary.label}
           icon={Plus}
+          // Only when the tap fires the primary outright. With a sheet the
+          // button opens a list, and a disabled primary is rendered inert as a
+          // row inside it (FabSheetItem) — disabling the button there would
+          // hide every other action along with it, which is also what makes
+          // the 'pending' action set (every action disabled) still tappable
+          // enough to show why nothing can be chosen yet.
+          disabled={!showsSheet && primary.disabled === true}
           onClick={() => {
             setOverflowOpen(false)
-            if (opensSheet(secondaryActions)) {
+            if (showsSheet) {
               setFabMenuOpen((v) => !v)
             } else {
               primary.onClick()
@@ -170,11 +179,13 @@ function FabSlot({
   active,
   label,
   icon: Icon,
+  disabled = false,
   onClick,
 }: {
   active: boolean
   label: string
   icon: LucideIcon
+  disabled?: boolean
   onClick: () => void
 }) {
   return (
@@ -183,8 +194,13 @@ function FabSlot({
       aria-label={label}
       aria-haspopup="menu"
       aria-expanded={active}
+      disabled={disabled}
       onClick={onClick}
-      className="flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors hover:bg-primary-hover"
+      className={cn(
+        'flex size-14 items-center justify-center rounded-fab bg-primary text-text-primary shadow-[0_4px_12px_rgba(0,0,0,0.4)] transition-colors',
+        // Same treatment the desktop speed dial gives a disabled action.
+        disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-primary-hover'
+      )}
     >
       <Icon size={24} strokeWidth={2.5} />
     </button>

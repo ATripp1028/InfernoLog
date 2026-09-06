@@ -4,7 +4,8 @@ import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
 import { formatRating, toDisplay, toInternal } from '@/lib/ratingScale'
-import { computeWeightedAvg } from '@/utils/weightHandling'
+import { computeOverallRating } from '@infernolog/core'
+import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
 import { isEmptyOrNullObject } from '@/lib/utils'
 import { useEffect } from 'react'
 
@@ -24,7 +25,12 @@ export function CompletionRatingStep() {
         break
       case 'WEIGHTED':
         if (isEmptyOrNullObject(draft.ratingScores)) {
-          patchDraft({ ratingScores: me.data.ratingCategories.reduce((acc, cat) => ({ ...acc, [cat.id]: 50 }), {}) })
+          patchDraft({
+            ratingScores: me.data.ratingCategories.reduce(
+              (acc, cat) => ({ ...acc, [cat.id]: 50 }),
+              {}
+            ),
+          })
         }
         break
       case 'MANUAL':
@@ -37,7 +43,13 @@ export function CompletionRatingStep() {
     if (!draft.enjoyment) {
       patchDraft({ enjoyment: 50 })
     }
-  }, [draft.ratingScores, patchDraft, me.data, draft.enjoyment, draft.simpleRating])
+  }, [
+    draft.ratingScores,
+    patchDraft,
+    me.data,
+    draft.enjoyment,
+    draft.simpleRating,
+  ])
   if (!level || !me.data) return null
 
   const scale = me.data.ratingDisplayScale
@@ -45,8 +57,16 @@ export function CompletionRatingStep() {
   const manual = me.data.ratingMode === 'MANUAL'
   const categories = me.data.ratingCategories
 
-  const weightedAvg = weighted
-    ? computeWeightedAvg(categories, draft.ratingScores)
+  // The same computation the save is scored by — enjoyment folded in when the
+  // account opted into it, categories renormalized over whatever is filled in
+  // so far. Anything less than the real thing is a number that changes on the
+  // next screen.
+  const overallRating = weighted
+    ? computeOverallRating(overallRatingConfig(me.data), {
+        simpleRating: draft.simpleRating,
+        enjoyment: draft.enjoyment,
+        ratingScores: ratingScoresFromDraft(draft.ratingScores),
+      })
     : null
 
   return (
@@ -69,11 +89,11 @@ export function CompletionRatingStep() {
             <SectionLabel>
               Rating{weighted ? ' · weighted' : manual ? ' · manual' : ''}
             </SectionLabel>
-            {weightedAvg != null && (
+            {overallRating != null && (
               <span className="text-sm text-text-secondary">
                 weighted avg:{' '}
                 <span className="font-semibold text-current">
-                  {formatRating(weightedAvg, scale)}
+                  {formatRating(overallRating, scale)}
                 </span>
               </span>
             )}

@@ -1,7 +1,13 @@
 import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
+import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
+import {
+  opinionDifficulty,
+  opinionShortLabel,
+} from '@/lib/difficultyOpinionLabel'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { RatingCategory } from '@/lib/api/me'
 import type {
   RatingMode,
@@ -11,27 +17,46 @@ import type {
 import type { LevelPageData } from '@/lib/api/levelPage'
 import { formatEntryDate } from './timelineFormat'
 
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-}
-
 interface StatBoxProps {
   label: string
   value: React.ReactNode
+  variant: StatGridVariant
 }
 
-function StatBox({ label, value }: StatBoxProps) {
+function StatBox({ label, value, variant }: StatBoxProps) {
+  const isMobile = variant === 'mobile'
   return (
-    <div className="rounded-card border border-white/[0.12] bg-white/5 px-3 py-2 md:border-border md:bg-bg-surface md:px-3.5 md:py-3">
+    <div
+      className={cn(
+        'rounded-card border',
+        isMobile
+          ? 'border-white/[0.12] bg-white/5 px-3 py-2'
+          : 'border-border bg-bg-surface px-3.5 py-3'
+      )}
+    >
       <div className="text-[11px] uppercase tracking-wide text-text-secondary">
         {label}
       </div>
-      <div className="mt-1.5 text-sm font-medium text-text-primary md:text-base">
+      <div
+        className={cn(
+          'mt-1.5 font-medium text-text-primary',
+          isMobile ? 'text-sm' : 'text-base'
+        )}
+      >
         {value}
       </div>
     </div>
   )
 }
+
+/**
+ * Which of the level page's two layouts is rendering the grid. Not a
+ * breakpoint: the page mounts one layout or the other (see `useWideLayout`),
+ * and a `md:` class here would style the mobile grid as the desktop one on a
+ * phone held in landscape — including the `px-0` that assumes the enclosing
+ * card supplies the padding.
+ */
+export type StatGridVariant = 'mobile' | 'desktop'
 
 interface StatGridProps {
   data: LevelPageData
@@ -45,6 +70,7 @@ interface StatGridProps {
   includeEnjoyment: boolean
   enjoymentWeight: number
   ratingCategories: RatingCategory[]
+  variant?: StatGridVariant
 }
 
 /**
@@ -58,6 +84,7 @@ export function StatGrid({
   includeEnjoyment,
   enjoymentWeight,
   ratingCategories,
+  variant = 'mobile',
 }: StatGridProps) {
   const { progressUpdates, rankPosition, worstFail } = data
 
@@ -115,10 +142,21 @@ export function StatGrid({
   // WORST FAIL
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'
 
-  // YOUR OPINION — level-scoped, so it shows whether or not the level is beaten
-  const opinionDisplay = data.difficultyOpinion
-    ? capitalize(data.difficultyOpinion)
-    : '—'
+  // YOUR OPINION — level-scoped, so it shows whether or not the level is beaten.
+  // The face is the one the OPINION names, not the level's rated difficulty:
+  // the two disagreeing is the whole point of the field.
+  const opinion = data.difficultyOpinion
+  const opinionFace = opinion ? opinionDifficulty(opinion) : null
+  const opinionDisplay = opinion ? (
+    <span className="flex items-center gap-1">
+      {opinionFace && (
+        <DifficultyFace difficulty={opinionFace} size={34} className="-my-1" />
+      )}
+      {opinionShortLabel(opinion)}
+    </span>
+  ) : (
+    '—'
+  )
 
   // RANKED
   const rankedDisplay =
@@ -127,8 +165,16 @@ export function StatGrid({
   const userGddlTier = data.userGddlTier
 
   return (
-    <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-3 md:gap-2 md:px-0 md:py-0">
+    <div
+      className={cn(
+        'grid gap-2',
+        // Desktop sits inside a padded card; mobile is full-bleed and brings
+        // its own padding.
+        variant === 'mobile' ? 'grid-cols-2 px-4 py-3' : 'grid-cols-3'
+      )}
+    >
       <StatBox
+        variant={variant}
         label="DATE"
         value={
           <span className="flex items-center gap-1">
@@ -150,20 +196,26 @@ export function StatGrid({
         }
       />
       <StatBox
+        variant={variant}
         label="ATTEMPTS"
         value={attempts != null ? formatNumber(attempts) : '—'}
       />
-      <StatBox label="RATING" value={ratingDisplay} />
-      <StatBox label="WORST FAIL" value={worstFailDisplay} />
-      <StatBox label="YOUR OPINION" value={opinionDisplay} />
-      <StatBox label="RANKED" value={rankedDisplay} />
-      <StatBox label="ENJOYMENT" value={enjoymentDisplay} />
+      <StatBox variant={variant} label="RATING" value={ratingDisplay} />
+      <StatBox variant={variant} label="WORST FAIL" value={worstFailDisplay} />
+      <StatBox variant={variant} label="YOUR OPINION" value={opinionDisplay} />
+      <StatBox variant={variant} label="RANKED" value={rankedDisplay} />
+      <StatBox variant={variant} label="ENJOYMENT" value={enjoymentDisplay} />
       <StatBox
+        variant={variant}
         label="FPS"
         value={completion?.fps != null ? formatNumber(completion.fps) : '—'}
       />
       {userGddlTier != null && (
-        <StatBox label="GDDL TIER" value={String(userGddlTier)} />
+        <StatBox
+          variant={variant}
+          label="GDDL TIER"
+          value={String(userGddlTier)}
+        />
       )}
     </div>
   )

@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { LevelProgressStatus } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import type { Level } from './logging'
@@ -8,15 +9,25 @@ export { ApiError }
 /**
  * The Global Level Page wire shape: the full cached Level, plus two fields the
  * logging flow omits as internal — delistedAt (drives the frozen-as-of banner)
- * and lastCheckedAt (its date) — and hasUserProgress, an EXISTENCE check against
- * the user's level_progress (no progress values are sent). Dates are ISO
- * strings. Mirrors packages/core's GlobalLevelPageSchema (see logging.ts for why
- * we hand-mirror rather than import the Zod type).
+ * and lastCheckedAt (its date) — and two facts about the viewer's own entry.
+ * No progress values are sent. Dates are ISO strings. Mirrors packages/core's
+ * GlobalLevelPageSchema (see logging.ts for why we hand-mirror rather than
+ * import the Zod type).
+ *
+ * `userProgressStatus` is the status of their level_progress row, or null when
+ * they have none — it drives the cross-link to their own page for this level.
+ *
+ * `userHasCompletion` is whether that row holds a completion, which is what
+ * decides the FAB's action set. Read this rather than comparing the status to
+ * COMPLETED: a level dropped after being beaten keeps its completion while its
+ * status reads DROPPED, and the write paths refuse a progress log on any level
+ * holding one.
  */
 export interface GlobalLevelPageData extends Level {
   delistedAt: string | null
   lastCheckedAt: string | null
-  hasUserProgress: boolean
+  userProgressStatus: LevelProgressStatus | null
+  userHasCompletion: boolean
 }
 
 /**

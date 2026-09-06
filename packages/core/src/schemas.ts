@@ -69,12 +69,25 @@ export const LevelSchema = z.object({
 // The Global Level Page (`GET /v1/levels/:levelId/page`) wire shape: everything
 // LevelSchema carries, plus two fields the logging flow treats as internal —
 // delistedAt (drives the frozen-as-of banner) and lastCheckedAt (its date) —
-// and hasUserProgress, an EXISTENCE check against the user's level_progress (no
-// progress values are sent). Dates arrive as ISO strings.
+// and two facts about the viewer's own entry for this level. No progress
+// values are sent; these two answer the only questions the page asks.
+//
+// `userProgressStatus` is the status of their level_progress row (null when
+// they have none), which drives the cross-link to their own page for the level.
+//
+// `userHasCompletion` is whether that row holds a COMPLETION update, which is
+// what decides the logging actions the FAB may offer. It is NOT redundant with
+// `userProgressStatus === 'COMPLETED'`: a level dropped after being beaten
+// keeps its completion while its status reads DROPPED, and the API refuses a
+// progress log on any level holding a completion (LevelAlreadyCompletedError),
+// so the status alone would offer an action the write path rejects.
+//
+// Dates arrive as ISO strings.
 export const GlobalLevelPageSchema = LevelSchema.extend({
   delistedAt: z.string().nullable(),
   lastCheckedAt: z.string().nullable(),
-  hasUserProgress: z.boolean(),
+  userProgressStatus: z.nativeEnum(LevelProgressStatus).nullable(),
+  userHasCompletion: z.boolean(),
 })
 export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 

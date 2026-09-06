@@ -51,9 +51,8 @@ const { commitImportBatch, checkImportConflicts } =
   await import('../importExport/import')
 const { commitImportRanking, checkRankingMerge } =
   await import('../importExport/demonList')
-const { commitImportRatingRanking } = await import(
-  '../importExport/ratingRanking'
-)
+const { commitImportRatingRanking } =
+  await import('../importExport/ratingRanking')
 const { commitImportCollections, checkCollectionsMerge } =
   await import('../importExport/collections')
 const { commitImportRatings } = await import('../importExport/ratings')
@@ -403,9 +402,9 @@ describe('import → export round-trip', () => {
     expect(expA.ratingRanking.map((r) => r.levelId)).toEqual(['100', '200']) // best first
     // The tab carries every rating figure, not just the order: the category
     // scores and the simple score ride on the same rows.
-    expect(
-      expA.ratingRanking.find((r) => r.levelId === '100')!.scores
-    ).toEqual({ Gameplay: 80, Decoration: 90 })
+    expect(expA.ratingRanking.find((r) => r.levelId === '100')!.scores).toEqual(
+      { Gameplay: 80, Decoration: 90 }
+    )
     const bb = expA.completions.find((c) => c.levelId === '100')!
     expect(bb.enjoyment).toBe(90) // stored internal 0-100
     expect(bb.percentage).toBe(99)
@@ -417,12 +416,12 @@ describe('import → export round-trip', () => {
     expect(bbDrop.droppedAt).toBe('2024-06-01')
     expect(bbDrop.reason).toBe('too hard at the time')
     expect(bbDrop.attemptsAtDrop).toBe(500)
-    expect(
-      expA.ratingRanking.find((r) => r.levelId === '100')!.scores
-    ).toEqual({
-      Gameplay: 80,
-      Decoration: 90,
-    })
+    expect(expA.ratingRanking.find((r) => r.levelId === '100')!.scores).toEqual(
+      {
+        Gameplay: 80,
+        Decoration: 90,
+      }
+    )
 
     // Round-trip: reconstruct import rows from the export, load a fresh account.
     const userB = await seedUser(prisma)
@@ -703,6 +702,108 @@ describe('commitImportBatch — progress rows', () => {
     expect(exp.progress.filter((p) => p.levelId === '300')).toHaveLength(2)
     // Historical progress rows must not un-drop the level.
     expect(exp.dropped.map((d) => d.levelId)).toEqual(['300'])
+  })
+
+  it('imports a workbook that backfills the grind and the completion together', async () => {
+    // The ordinary shape of a tracking spreadsheet: sessions leading up to the
+    // day the level fell. All of it predates the completion, so all of it
+    // lands — the rule is about the dates, not about the completion existing.
+    await seedLevels()
+    const user = await seedUser(prisma)
+
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2026-08-04' },
+      },
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2026-08-02', percentage: 60 },
+      },
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: { levelId: '100', date: '2026-08-04', percentage: 97 },
+      },
+    ])
+
+    expect(res.outcomes.every((o) => o.status === 'committed')).toBe(true)
+    const exp = await fullExport(user.id)
+    expect(exp.progress.map((p) => p.date).sort()).toEqual([
+      '2026-08-02',
+      '2026-08-04',
+    ])
+    expect(exp.completions).toHaveLength(1)
+  })
+
+  it('refuses a session dated after the level was completed', async () => {
+    // The importer's half of the rule POST /me/progress enforces: no NEW
+    // progress on a beaten level. The completion is written by an earlier
+    // batch here, which is how a real job sees it — buildImportPayload offsets
+    // progress rows past every completion row.
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2026-08-04' },
+      },
+    ])
+
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2026-08-06', percentage: 50 },
+      },
+      {
+        type: 'progress',
+        rowIndex: 200001,
+        data: { levelId: '100', date: '2026-08-02', percentage: 40 },
+      },
+    ])
+
+    expect(res.outcomes[0]?.status).toBe('skipped')
+    expect(res.outcomes[0]?.reason).toContain('after this level was completed')
+    // The backfilled one still lands — only the post-completion row is refused.
+    expect(res.outcomes[1]?.status).toBe('committed')
+    const exp = await fullExport(user.id)
+    expect(exp.progress.map((p) => p.date)).toEqual(['2026-08-02'])
+  })
+
+  it('measures against the completion date arriving in the same import', async () => {
+    // The stored completion says the 4th; this workbook re-dates it to the
+    // 10th. A session on the 6th is then backfill, not new progress.
+    await seedLevels()
+    const user = await seedUser(prisma)
+    await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2026-08-04' },
+      },
+    ])
+
+    const res = await commitImportBatch(user.id, randomUUID(), [
+      {
+        type: 'completion',
+        rowIndex: 0,
+        data: { levelId: '100', date: '2026-08-10' },
+        resolution: 'overwrite',
+      },
+      {
+        type: 'progress',
+        rowIndex: 200000,
+        data: { levelId: '100', date: '2026-08-06', percentage: 50 },
+      },
+    ])
+
+    expect(res.outcomes[1]?.status).toBe('committed')
+    const exp = await fullExport(user.id)
+    expect(exp.progress.map((p) => p.date)).toEqual(['2026-08-06'])
   })
 
   it('creates an IN_PROGRESS-only level from a progress row alone', async () => {

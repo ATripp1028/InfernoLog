@@ -3,7 +3,7 @@
 // miss is handled identically in both: find the cached row, else fetch GD once,
 // persist, and return it. The two endpoints shape their own responses on top of
 // this (resolve adds the GDDL tier + existing completion; page adds
-// hasUserProgress) — this owns only the cache-or-fetch core.
+// userProgressStatus) — this owns only the cache-or-fetch core.
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'

@@ -39,6 +39,16 @@ vi.mock('@/components/generic/sonner', () => ({
 
 const level = makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' })
 
+const weightedMe = (overrides: Partial<ReturnType<typeof makeMe>> = {}) =>
+  makeMe({
+    ratingMode: 'WEIGHTED',
+    ratingCategories: [
+      { id: 'a', name: 'Gameplay', weight: 0.75, sortOrder: 0 },
+      { id: 'b', name: 'Decoration', weight: 0.25, sortOrder: 1 },
+    ],
+    ...overrides,
+  })
+
 /** `useLogCompletion`'s result shape, so the mock matches the hook's types. */
 const logMutation = (overrides: Parameters<typeof stubMutation>[0] = {}) =>
   stubMutation<LogResult, CompletionInput>(overrides)
@@ -124,7 +134,7 @@ describe('CompletionReviewStep', () => {
 
   it('marks a weighted rating as weighted, and a simple one not', () => {
     const { unmount } = render({
-      me: makeMe({ ratingMode: 'WEIGHTED' }),
+      me: weightedMe(),
       draft: { ratingScores: { a: 80, b: 60 } },
     })
     expect(rowValue('Rating')).toHaveTextContent('(weighted)')
@@ -134,14 +144,53 @@ describe('CompletionReviewStep', () => {
     expect(rowValue('Rating')).not.toHaveTextContent('(weighted)')
   })
 
-  it('averages the category scores for a weighted rating', () => {
+  it('weights the category scores rather than averaging them flat', () => {
     render({
-      me: makeMe({ ratingMode: 'WEIGHTED' }),
+      me: weightedMe(),
       draft: { ratingScores: { a: 80, b: 60 } },
     })
 
-    // 70 internal → 7.0 on the 0–10 display scale.
-    expect(rowValue('Rating')).toHaveTextContent('7')
+    // (80 × 0.75) + (60 × 0.25) = 75 internal → 7.5 on the 0–10 scale.
+    // A flat mean would read 7.
+    expect(rowValue('Rating')).toHaveTextContent('7.5')
+  })
+
+  it('renormalizes over the categories that were actually scored', () => {
+    render({
+      me: weightedMe(),
+      draft: { ratingScores: { b: 60 } },
+    })
+
+    expect(rowValue('Rating')).toHaveTextContent('6')
+  })
+
+  it('ignores a score whose category is no longer configured', () => {
+    render({
+      me: weightedMe(),
+      draft: { ratingScores: { a: 80, b: 60, gone: 0 } },
+    })
+
+    expect(rowValue('Rating')).toHaveTextContent('7.5')
+  })
+
+  it('folds enjoyment in when the user opted into it', () => {
+    render({
+      me: weightedMe({ includeEnjoyment: true, enjoymentWeight: 1 }),
+      draft: { ratingScores: { a: 80, b: 60 }, enjoyment: 25 },
+    })
+
+    // Weights now total 2: (80 × 0.75) + (60 × 0.25) + (25 × 1) = 100, over
+    // 2 → 50 internal → 5 on the 0–10 scale.
+    expect(rowValue('Rating')).toHaveTextContent('5')
+  })
+
+  it('omits the rating row entirely in manual mode', () => {
+    render({
+      me: makeMe({ ratingMode: 'MANUAL' }),
+      draft: { ratingScores: { a: 80 }, simpleRating: 70 },
+    })
+
+    expect(screen.queryByText('Rating')).not.toBeInTheDocument()
   })
 
   it('collects the session details into one line', () => {

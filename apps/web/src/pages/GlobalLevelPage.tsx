@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { BackLink } from '@/components/shell/BackLink'
+import { MOBILE_HERO_CLASS } from '@/lib/useWideLayout'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
 import { Thumbnail } from '@/features/global-level-page/Thumbnail'
 import { Identity } from '@/features/global-level-page/Identity'
@@ -29,6 +30,7 @@ export function GlobalLevelPage() {
   const {
     levelId,
     back,
+    isWide,
     isLoading,
     errorKind,
     retryAfterSeconds,
@@ -37,6 +39,7 @@ export function GlobalLevelPage() {
     level,
     levelName,
     delisted,
+    hasUserProgress,
     preselectedLevel,
     addToCollectionOpen,
     setAddToCollectionOpen,
@@ -82,72 +85,74 @@ export function GlobalLevelPage() {
 
   return (
     <>
-      {/* ── Mobile ─────────────────────────────────────────────── */}
-      <div className="md:hidden">
-        {/* BackRow — real back affordance plus the level name. Padding and
-            spacing mirror the user-scoped level page's back row. */}
-        <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
-          <BackLink
-            back={back}
-            ariaLabel="Back"
-            className="text-text-secondary hover:text-text-primary"
-          >
-            <ArrowLeft size={18} />
-          </BackLink>
-          <span className="truncate text-sm font-medium text-text-primary">
-            {levelName}
-          </span>
-          {/* Cross-link — right-aligned to match where the reciprocal link
-              sits on the user-scoped page. */}
-          {level.hasUserProgress && (
-            <Link
-              to="/log/$levelId"
-              params={{ levelId }}
-              state={true}
-              className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
+      {/* One layout is mounted, not both — see `useWideLayout`. */}
+      {!isWide && (
+        <div>
+          {/* BackRow — real back affordance plus the level name. Padding and
+              spacing mirror the user-scoped level page's back row. */}
+          <div className="flex items-center gap-2 border-b border-border-subtle px-4 py-3">
+            <BackLink
+              back={back}
+              ariaLabel="Back"
+              className="text-text-secondary hover:text-text-primary"
             >
-              Your page for this level
-              <ArrowRight size={14} />
-            </Link>
+              <ArrowLeft size={18} />
+            </BackLink>
+            <span className="truncate text-sm font-medium text-text-primary">
+              {levelName}
+            </span>
+            {/* Cross-link — right-aligned to match where the reciprocal link
+                sits on the user-scoped page. */}
+            {hasUserProgress && (
+              <Link
+                to="/log/$levelId"
+                params={{ levelId }}
+                state={true}
+                className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
+              >
+                Your page for this level
+                <ArrowRight size={14} />
+              </Link>
+            )}
+          </div>
+
+          {delisted && (
+            <div className="px-4 py-3">
+              <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
+            </div>
           )}
-        </div>
 
-        {delisted && (
-          <div className="px-4 py-3">
-            <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
+          {/* Thumbnail + Identity never collapse — collapsing them would leave
+              a page with no indication of which level it is. */}
+          <Thumbnail
+            levelId={levelId}
+            levelName={levelName}
+            forcePlaceholder={delisted}
+            className={MOBILE_HERO_CLASS}
+          />
+          {/* Identity + stats share one section — the identity block alone
+              carries too little to stand on its own. Never collapses. */}
+          <div className="border-b border-border-subtle px-4 py-4">
+            <Identity level={level} variant="mobile" />
+            <div className="mt-4 border-t border-border-subtle pt-4">
+              <Stats level={level} />
+            </div>
           </div>
-        )}
 
-        {/* Thumbnail + Identity never collapse — collapsing them would leave a
-            page with no indication of which level it is. */}
-        <Thumbnail
-          levelId={levelId}
-          levelName={levelName}
-          forcePlaceholder={delisted}
-        />
-        {/* Identity + stats share one section — the identity block alone
-            carries too little to stand on its own. Never collapses. */}
-        <div className="border-b border-border-subtle px-4 py-4">
-          <Identity level={level} variant="mobile" />
-          <div className="mt-4 border-t border-border-subtle pt-4">
-            <Stats level={level} />
+          <CollapsibleSection title="Song">
+            <Song level={level} />
+          </CollapsibleSection>
+          <CollapsibleSection title="Links">
+            <Links level={level} delisted={delisted} />
+          </CollapsibleSection>
+
+          <div className="border-t border-border-subtle px-4 py-4">
+            <Provenance level={level} />
           </div>
         </div>
+      )}
 
-        <CollapsibleSection title="Song">
-          <Song level={level} />
-        </CollapsibleSection>
-        <CollapsibleSection title="Links">
-          <Links level={level} delisted={delisted} />
-        </CollapsibleSection>
-
-        <div className="border-t border-border-subtle px-4 py-4">
-          <Provenance level={level} />
-        </div>
-      </div>
-
-      {/* ── Desktop ────────────────────────────────────────────── */}
-      <div className="hidden md:block">
+      {isWide && (
         <div className="mx-8 pb-16">
           {/* Back row — mirrors the user-scoped level page's desktop back
               row: back arrow + level name on the left, cross-link (when the
@@ -163,7 +168,7 @@ export function GlobalLevelPage() {
             <span className="truncate text-sm font-medium text-text-primary">
               {levelName}
             </span>
-            {level.hasUserProgress && (
+            {hasUserProgress && (
               <Link
                 to="/log/$levelId"
                 params={{ levelId }}
@@ -183,7 +188,7 @@ export function GlobalLevelPage() {
           )}
 
           <div className="flex gap-8">
-            {/* Left column — grows to fill; right column is fixed-width. */}
+            {/* Left column — grows to fill whatever the right column leaves. */}
             <div className="min-w-0 flex-1">
               <Thumbnail
                 levelId={levelId}
@@ -201,8 +206,10 @@ export function GlobalLevelPage() {
               </div>
             </div>
 
-            {/* Right column — 424, fixed. */}
-            <div className="w-[424px] shrink-0">
+            {/* Right column — tracks the viewport rather than sitting at a
+                fixed 424, so the column beside it stays readable at the
+                narrow end of the wide range. */}
+            <div className="w-[clamp(300px,34vw,424px)] shrink-0">
               <div>
                 <DesktopSectionHeader>Song</DesktopSectionHeader>
                 <Song level={level} variant="card" />
@@ -217,7 +224,7 @@ export function GlobalLevelPage() {
             </div>
           </div>
         </div>
-      </div>
+      )}
 
       {preselectedLevel && (
         <AddToCollectionDialog

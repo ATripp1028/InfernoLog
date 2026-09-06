@@ -26,6 +26,7 @@ import { createErrorHandler } from '../../middleware/errors'
 import {
   CompletionFieldsNotApplicableError,
   LevelNotFoundError,
+  ProgressAfterCompletionError,
   ProgressFieldsNotApplicableError,
   RatingCategoryNotOwnedError,
 } from '../../services/progress'
@@ -51,6 +52,11 @@ app.onError(
       error instanceof RatingCategoryNotOwnedError
     ) {
       return c.json({ error: error.message }, 400)
+    }
+    // 409, not 400: the payload is fine, the level's history is what forbids
+    // the write. Same reading as RatingRanking's mode conflict.
+    if (error instanceof ProgressAfterCompletionError) {
+      return c.json({ error: error.message }, 409)
     }
     return undefined
   })

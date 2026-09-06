@@ -32,3 +32,35 @@ export function opinionLabel(opinion: string): string {
   }
   return DEMON_TIER_LABELS[opinion] ?? opinion
 }
+
+/**
+ * The in-game difficulty a `DifficultyOpinion` asserts, as the label the
+ * difficulty-face assets are keyed on — `"Easy Demon"` for the demon tiers,
+ * the star count's standard face (`"Insane"`) for the non-demon values.
+ *
+ * The answer's OWN difficulty, not the level's rated one: the whole point of
+ * the field is that the two can disagree.
+ *
+ * @returns `null` for anything unrecognised, so a caller renders no face
+ * rather than the NA face as though it were an answer.
+ */
+export function opinionDifficulty(opinion: string): string | null {
+  const stars = opinionToStars(opinion)
+  if (stars != null) return starCountToDifficulty(stars)
+  const tier = DEMON_TIER_LABELS[opinion]
+  return tier ? `${tier} Demon` : null
+}
+
+/**
+ * The compact label for one opinion, for surfaces that show its difficulty
+ * face alongside. The face already reads as non-demon, so the star values
+ * shrink to `"9★ Insane"` instead of spelling out "Not demon-worthy" the
+ * way {@link opinionLabel} does.
+ *
+ * @returns The raw value for anything unrecognised, matching {@link opinionLabel}.
+ */
+export function opinionShortLabel(opinion: string): string {
+  const stars = opinionToStars(opinion)
+  if (stars != null) return `${stars}★ ${starCountToDifficulty(stars)}`
+  return DEMON_TIER_LABELS[opinion] ?? opinion
+}
