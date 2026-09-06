@@ -3,6 +3,11 @@ import { computeOverallRating } from '@infernolog/core'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/numberFormat'
 import { formatRating } from '@/lib/ratingScale'
+import {
+  opinionDifficulty,
+  opinionShortLabel,
+} from '@/lib/difficultyOpinionLabel'
+import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { RatingCategory } from '@/lib/api/me'
 import type {
   RatingMode,
@@ -11,10 +16,6 @@ import type {
 } from '@/lib/api/wireEnums'
 import type { LevelPageData } from '@/lib/api/levelPage'
 import { formatEntryDate } from './timelineFormat'
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase()
-}
 
 interface StatBoxProps {
   label: string
@@ -141,10 +142,21 @@ export function StatGrid({
   // WORST FAIL
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'
 
-  // YOUR OPINION — level-scoped, so it shows whether or not the level is beaten
-  const opinionDisplay = data.difficultyOpinion
-    ? capitalize(data.difficultyOpinion)
-    : '—'
+  // YOUR OPINION — level-scoped, so it shows whether or not the level is beaten.
+  // The face is the one the OPINION names, not the level's rated difficulty:
+  // the two disagreeing is the whole point of the field.
+  const opinion = data.difficultyOpinion
+  const opinionFace = opinion ? opinionDifficulty(opinion) : null
+  const opinionDisplay = opinion ? (
+    <span className="flex items-center gap-1">
+      {opinionFace && (
+        <DifficultyFace difficulty={opinionFace} size={34} className="-my-1" />
+      )}
+      {opinionShortLabel(opinion)}
+    </span>
+  ) : (
+    '—'
+  )
 
   // RANKED
   const rankedDisplay =
