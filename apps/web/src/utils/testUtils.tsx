@@ -546,8 +546,9 @@ export function renderWithProviders(
 /**
  * Points `window.matchMedia` at a fixed breakpoint answer for this test.
  *
- * `useMediaQuery` starts at `false` and reads `matchMedia` in an effect, so a
- * component branching on it renders its mobile layout unless told otherwise.
+ * `useMediaQuery` reads `matchMedia` during render, and `testSetup` installs
+ * one that matches nothing, so a component branching on it renders its mobile
+ * layout unless told otherwise.
  * Call this before rendering; `unstubGlobals` in `vitest.config.ts` unwinds it
  * after each test (`restoreMocks` does not — it only covers `vi.spyOn`).
  *

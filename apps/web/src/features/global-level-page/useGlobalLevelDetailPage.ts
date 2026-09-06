@@ -12,6 +12,7 @@ import {
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
 import { useGoBack } from '@/lib/useGoBack'
+import { useWideLayout } from '@/lib/useWideLayout'
 import { useFabActions } from '@/context/FabActionsContext'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import {
@@ -35,6 +36,7 @@ export function useGlobalLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/levels/$levelId' })
   const navigate = useNavigate()
   const back = useGoBack('/log')
+  const isWide = useWideLayout()
   const { openForEdit } = useLoggingFlow()
   const [addToCollectionOpen, setAddToCollectionOpen] = useState(false)
 
@@ -153,6 +155,7 @@ export function useGlobalLevelDetailPage() {
   return {
     levelId,
     back,
+    isWide,
     isLoading: query.isPending,
     // 'not_found' / 'unreachable' / anything else — each gets its own render.
     errorKind,

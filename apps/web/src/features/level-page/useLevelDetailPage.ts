@@ -8,6 +8,7 @@ import { useNavigate, useParams } from '@tanstack/react-router'
 import { Check, Flag, List, Pencil, Trash2, Upload, X } from 'lucide-react'
 import { useMe } from '@/lib/api/me'
 import { useGoBack } from '@/lib/useGoBack'
+import { useWideLayout } from '@/lib/useWideLayout'
 import { useLevelPage, useDeleteProgressUpdate } from '@/lib/api/levelPage'
 import { useCachedLogRow, useDeleteProgress } from '@/lib/api/log'
 import { useSubmitGddlRecord } from '@/lib/api/logging'
@@ -41,6 +42,7 @@ export function useLevelDetailPage() {
   const { levelId } = useParams({ from: '/_authenticated/log/$levelId' })
   const navigate = useNavigate()
   const back = useGoBack('/log')
+  const isWide = useWideLayout()
   const me = useMe()
   const deleteProgress = useDeleteProgress()
   const deleteProgressUpdate = useDeleteProgressUpdate(levelId)
@@ -242,6 +244,7 @@ export function useLevelDetailPage() {
     user: me.data,
 
     // Derived
+    isWide,
     isOwner,
     levelName: data?.level.name ?? `Level #${levelId}`,
     hasVideo: !!data?.completionVideoUrl,
