@@ -1,11 +1,8 @@
 import { cn } from '@/lib/utils'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
 import { gddlTier } from './filtering'
@@ -26,13 +23,11 @@ const VIEWER_TZ = getViewerTimezone()
 export function LogCard({
   item,
   columns,
-  scale,
   datePref,
   hideTime,
 }: {
   item: LogItem
   columns: ColumnVisibility
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
 }) {
@@ -57,9 +52,9 @@ export function LogCard({
   if (columns.attempts && entry?.attempts != null)
     stats.push(`${formatNumber(entry.attempts)} att`)
   if (columns.rating && overallRating != null)
-    stats.push(formatRating(overallRating, scale))
+    stats.push(formatScore(overallRating))
   if (columns.enjoy && entry?.enjoyment != null)
-    stats.push(`★ ${formatRating(entry.enjoyment, scale)}`)
+    stats.push(`★ ${formatEnjoyment(entry.enjoyment)}`)
   if (columns.length && level.length) stats.push(level.length)
   if (columns.version && level.gameVersion) stats.push(level.gameVersion)
   if (columns.songName && level.songName) stats.push(level.songName)

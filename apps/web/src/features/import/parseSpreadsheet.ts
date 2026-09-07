@@ -421,13 +421,15 @@ function parseCompletionRow(
       'warning'
     )
 
-  // Ratings 0-10
-  const enjoyment = toNum(getField(raw, 'enjoyment'))
+  // Scores are 0-10; enjoyment is 0-100, normalized from either through
+  // toScore100's "≤10 means it was written on the old 0-10 scale" rule.
+  const rawEnjoyment = toNum(getField(raw, 'enjoyment'))
+  const enjoyment = toScore100(getField(raw, 'enjoyment'))
   const simpleRating = toNum(getField(raw, 'simple_rating'))
-  if (enjoyment != null && (enjoyment < 0 || enjoyment > 10))
+  if (rawEnjoyment != null && (rawEnjoyment < 0 || rawEnjoyment > 100))
     pushFlag(
       'enjoyment',
-      `enjoyment ${enjoyment} is outside 0-10 — value dropped`,
+      `enjoyment ${rawEnjoyment} is outside 0-100 — value dropped`,
       'warning'
     )
   if (simpleRating != null && (simpleRating < 0 || simpleRating > 10))
@@ -564,7 +566,9 @@ function parseCompletionRow(
         ? Math.round(toNum(getField(raw, 'fps'))!)
         : null,
     enjoyment:
-      enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
+      enjoyment != null && enjoyment >= 0 && enjoyment <= 100
+        ? enjoyment
+        : null,
     simpleRating:
       simpleRating != null && simpleRating >= 0 && simpleRating <= 10
         ? simpleRating
@@ -692,11 +696,14 @@ function parseProgressRow(
       'warning'
     )
 
-  const enjoyment = toNum(getField(raw, 'enjoyment'))
-  if (enjoyment != null && (enjoyment < 0 || enjoyment > 10))
+  // 0-100, normalized from an older 0-10 sheet by toScore100. See the
+  // completions parser above.
+  const rawEnjoyment = toNum(getField(raw, 'enjoyment'))
+  const enjoyment = toScore100(getField(raw, 'enjoyment'))
+  if (rawEnjoyment != null && (rawEnjoyment < 0 || rawEnjoyment > 100))
     pushFlag(
       'enjoyment',
-      `enjoyment ${enjoyment} is outside 0-10 — value dropped`,
+      `enjoyment ${rawEnjoyment} is outside 0-100 — value dropped`,
       'warning'
     )
 
@@ -752,7 +759,9 @@ function parseProgressRow(
         : null,
     device,
     enjoyment:
-      enjoyment != null && enjoyment >= 0 && enjoyment <= 10 ? enjoyment : null,
+      enjoyment != null && enjoyment >= 0 && enjoyment <= 100
+        ? enjoyment
+        : null,
     notes: toStr(getField(raw, 'notes')),
     highlightUrl: toStr(getField(raw, 'highlight_url')),
     visibility,
@@ -1218,7 +1227,9 @@ export function parseSpreadsheet(
   // The rating order, ordered best → worst by exactly the same rule: explicit
   // rank numbers when every importable row has one, otherwise sheet order.
   const ratingRanking = orderRankingRows(
-    rawRatingRanking.map((r, i) => parseRankingRow(r as Record<string, unknown>, i))
+    rawRatingRanking.map((r, i) =>
+      parseRankingRow(r as Record<string, unknown>, i)
+    )
   )
 
   const lists = rawLists.map((r, i) =>

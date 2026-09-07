@@ -67,7 +67,12 @@ function ManualEntry({
       />
     )
   }
-  if (format === 'number' || format === 'percent' || format === 'rating10') {
+  if (
+    format === 'number' ||
+    format === 'percent' ||
+    format === 'rating10' ||
+    format === 'rating100'
+  ) {
     const max = numericMax(descriptor)
     const error = manualValueError(descriptor, value)
     return (

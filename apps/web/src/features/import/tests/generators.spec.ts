@@ -318,18 +318,17 @@ describe('downloadExport', () => {
       expect(cellsFor({ date: null }).date).toBe('')
     })
 
-    // Ratings are 0-100 internally and 0-10 in the sheet; the importer's
-    // "≤10 means 0-10" rule reads them back.
-    it.each([
-      [80, 8],
-      [100, 10],
-      [47, 4.7],
-      [0, 0],
-    ])('writes the internal score %s as %s', (internal, sheet) => {
-      expect(cellsFor({ enjoyment: internal }).enjoyment).toBe(sheet)
-    })
+    // Enjoyment is 0-100 both internally and in the sheet, so it is written
+    // unconverted. Scores are the ones that go out on the 0-10 sheet scale,
+    // and they live on the Ratings tab.
+    it.each([80, 100, 47, 0])(
+      'writes the internal enjoyment %s unconverted',
+      (internal) => {
+        expect(cellsFor({ enjoyment: internal }).enjoyment).toBe(internal)
+      }
+    )
 
-    it('leaves a missing score blank', () => {
+    it('leaves a missing enjoyment blank', () => {
       expect(cellsFor({ enjoyment: null }).enjoyment).toBe('')
     })
 
@@ -431,7 +430,6 @@ describe('downloadExport', () => {
               simpleRating: null,
               scores: { Gameplay: 80, Design: 60 },
             },
-
           ],
         }),
         'MDY'

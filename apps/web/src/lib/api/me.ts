@@ -8,7 +8,6 @@ import type {
   DateFormatPreference,
   Device,
   GdVersion,
-  RatingDisplayScale,
   RatingMode,
 } from './wireEnums'
 
@@ -40,7 +39,6 @@ export interface MeData {
   profilePublic: boolean
   discordPublic: boolean
   ratingMode: RatingMode
-  ratingDisplayScale: RatingDisplayScale
   defaultFps: number
   defaultPercentageVersion: GdVersion
   defaultDevice: Device
@@ -389,7 +387,6 @@ export interface UpdateMeInput {
   showHighlightUrl?: boolean
   autoExpandFabLabels?: boolean
   ratingMode?: RatingMode
-  ratingDisplayScale?: RatingDisplayScale
   includeEnjoyment?: boolean
   enjoymentWeight?: number
   acceptLegal?: true

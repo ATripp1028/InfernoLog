@@ -133,7 +133,10 @@ export const RatingConfigEditor = forwardRef<
           </div>
           <p className="text-xs text-muted-foreground">
             When enabled, your enjoyment score participates in the priority list
-            above and counts toward the weight total.
+            above and counts toward the weight total. Enjoyment is entered on a
+            0–100 scale and category scores on 0–10, but they carry equal
+            footing here — an enjoyment of 85 weighs the same as a category
+            score of 8.5.
           </p>
         </div>
         <Switch

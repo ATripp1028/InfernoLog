@@ -65,8 +65,6 @@ describe('workbook structure', () => {
     }
   )
 
-
-
   // The Demon List and Ranking tabs are two orderings of the same completions.
   // Reading one into the other would quietly overwrite a user's difficulty
   // order with their quality one, or the reverse.
@@ -92,8 +90,6 @@ describe('workbook structure', () => {
     expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['111', '222'])
   })
 
-
-
   it('reads every tab it knows about', () => {
     const result = parse({
       Completions: [['level_id'], ['1']],
@@ -104,7 +100,7 @@ describe('workbook structure', () => {
         ['list', 'level_id'],
         ['Favorites', '5'],
       ],
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['6', 9],
       ],
@@ -348,13 +344,29 @@ describe('numeric fields', () => {
     expect(flagsFor(row, field)[0]!.message).toContain('outside 0-100')
   })
 
-  it.each([
-    ['enjoyment', 11],
-    ['simple_rating', -1],
-  ])('flags %s of %s as outside 0-10', (field, value) => {
-    const row = oneCompletion(['level_id', field], ['128', value])
+  it('flags a simple_rating outside 0-10', () => {
+    const row = oneCompletion(['level_id', 'simple_rating'], ['128', -1])
 
-    expect(flagsFor(row, field)[0]!.message).toContain('outside 0-10')
+    expect(flagsFor(row, 'simple_rating')[0]!.message).toContain('outside 0-10')
+  })
+
+  it('flags an enjoyment outside 0-100', () => {
+    const row = oneCompletion(['level_id', 'enjoyment'], ['128', 101])
+
+    expect(flagsFor(row, 'enjoyment')[0]!.message).toContain('outside 0-100')
+  })
+
+  // The sheet moved enjoyment from 0-10 to 0-100, so an older export's value
+  // is normalized by the same "≤10 means it was on the 0-10 scale" rule the
+  // Ratings tab uses.
+  it.each([
+    [85, 85],
+    [8.5, 85],
+    [10, 100],
+  ])('reads a sheet enjoyment of %s as the internal %s', (cell, internal) => {
+    const row = oneCompletion(['level_id', 'enjoyment'], ['128', cell])
+
+    expect(row.data.enjoyment).toBe(internal)
   })
 
   it.each([0, 100])('accepts %s at the percentage boundary', (value) => {
@@ -526,7 +538,7 @@ describe('the ratings tab', () => {
   // rating category, discovered from the header row.
   it('discovers category columns from the header row', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'level_name', 'creator', 'Gameplay', 'Design'],
         ['128', 'Bloodbath', 'Riot', 9, 8],
       ],
@@ -544,7 +556,7 @@ describe('the ratings tab', () => {
     'in_game_difficulty',
   ])('does not mistake the reserved column %s for a category', (header) => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         [header, 'Gameplay'],
         ['x', 9],
       ],
@@ -555,7 +567,7 @@ describe('the ratings tab', () => {
 
   it('matches reserved columns however they are cased or spaced', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['Level ID', 'In Game Difficulty', 'Gameplay'],
         ['128', 'EXTREME_DEMON', 9],
       ],
@@ -569,7 +581,7 @@ describe('the ratings tab', () => {
   // category named " level_id ".
   it('does not turn a padded reserved column into a category', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         [' level_id ', 'Gameplay'],
         ['128', 9],
       ],
@@ -586,7 +598,7 @@ describe('the ratings tab', () => {
     [10, 100],
   ])('reads a score of %s as %s on the internal scale', (given, expected) => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['128', given],
       ],
@@ -597,7 +609,7 @@ describe('the ratings tab', () => {
 
   it('leaves a level with no scores an empty score map', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['128', ''],
       ],
@@ -696,7 +708,7 @@ describe('resilience', () => {
           ['list', 'level_id'],
           ['', ''],
         ],
-        'Ranking': [
+        Ranking: [
           ['level_id', 'Gameplay'],
           ['', 'good'],
         ],

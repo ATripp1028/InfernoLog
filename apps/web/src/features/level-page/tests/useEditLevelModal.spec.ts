@@ -52,7 +52,6 @@ beforeEach(() => {
 function render(
   opts: {
     data?: LevelPageData
-    scale?: 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
     open?: boolean
   } = {}
 ) {
@@ -64,7 +63,6 @@ function render(
         onClose,
         data,
         levelId: '128',
-        scale: opts.scale ?? 'ZERO_TO_HUNDRED',
       }),
     { initialProps: { open: opts.open ?? true } }
   )
@@ -111,20 +109,13 @@ describe('useEditLevelModal', () => {
       expect(result.current.form.levelNotes).toBe('')
     })
 
-    // Ratings are stored 0-100 internally and edited in the user's units.
+    // Scores are stored 0-100 internally and edited on the 0-10 scale.
     it('converts a stored rating into display units', () => {
       const { result } = render({
         data: levelPageData({ simpleRating: 85 }),
-        scale: 'ZERO_TO_TEN',
       })
 
       expect(result.current.form.simpleRating).toBe(8.5)
-    })
-
-    it('leaves a rating in internal units on the 0-100 scale', () => {
-      const { result } = render({ data: levelPageData({ simpleRating: 85 }) })
-
-      expect(result.current.form.simpleRating).toBe(85)
     })
 
     it('seeds a slot for every category, scored or not', () => {
@@ -143,7 +134,7 @@ describe('useEditLevelModal', () => {
       })
 
       expect(result.current.form.ratingScores).toEqual({
-        gameplay: 80,
+        gameplay: 8,
         design: null,
       })
     })
@@ -345,7 +336,7 @@ describe('useEditLevelModal', () => {
     })
 
     it('converts a simple rating back to internal units', () => {
-      const { result } = render({ scale: 'ZERO_TO_TEN' })
+      const { result } = render()
       act(() => result.current.patch({ simpleRating: 8.5 }))
 
       act(() => result.current.handleSave())
@@ -363,7 +354,7 @@ describe('useEditLevelModal', () => {
           }),
         })
       )
-      const { result } = render({ scale: 'ZERO_TO_TEN' })
+      const { result } = render()
       act(() =>
         result.current.patch({ ratingScores: { gameplay: 8, design: null } })
       )

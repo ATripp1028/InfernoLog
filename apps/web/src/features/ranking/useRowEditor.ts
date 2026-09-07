@@ -9,14 +9,12 @@ import {
   computeOverallRating,
   type OverallRatingConfig,
 } from '@infernolog/core'
-import { toDisplay, toInternal } from '@/lib/ratingScale'
+import { toScoreDisplay, toScoreInternal } from '@/lib/ratingScale'
 import type { RatingCategory } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import type { RatingEdit } from '@/lib/api/ranking'
 
 interface UseRowEditorArgs {
   levelId: string
-  scale: RatingDisplayScale
   config: OverallRatingConfig
   categories: RatingCategory[]
   /** The level's current overall rating, internal 0–100. */
@@ -42,7 +40,6 @@ interface UseRowEditorArgs {
  */
 export function useRowEditor({
   levelId,
-  scale,
   config,
   categories,
   overallRating,
@@ -54,7 +51,7 @@ export function useRowEditor({
   // SIMPLE: the one score. In SIMPLE mode the overall rating IS the simple
   // rating, so it seeds the field directly.
   const [simple, setSimple] = useState<number>(() =>
-    overallRating == null ? 0 : toDisplay(overallRating, scale)
+    overallRating == null ? 0 : toScoreDisplay(overallRating)
   )
 
   // WEIGHTED: one score per category, seeded from what the level already has.
@@ -62,7 +59,7 @@ export function useRowEditor({
     const seeded: Record<string, number> = {}
     for (const category of categories) {
       const existing = ratingScores.find((s) => s.categoryId === category.id)
-      seeded[category.id] = existing ? toDisplay(existing.score, scale) : 0
+      seeded[category.id] = existing ? toScoreDisplay(existing.score) : 0
     }
     return seeded
   })
@@ -74,9 +71,9 @@ export function useRowEditor({
   // and what the save sends — so the two cannot disagree.
   const draftScores = categories.map((category) => ({
     categoryId: category.id,
-    score: toInternal(scores[category.id] ?? 0, scale),
+    score: toScoreInternal(scores[category.id] ?? 0),
   }))
-  const draftSimple = toInternal(simple, scale)
+  const draftSimple = toScoreInternal(simple)
 
   const preview = computeOverallRating(config, {
     simpleRating: draftSimple,

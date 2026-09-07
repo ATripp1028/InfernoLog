@@ -1,7 +1,4 @@
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { EditModalShell } from './EditModalShell'
 import { EditRunFields } from './EditRunFields'
 import type { LevelPageData } from '@/lib/api/levelPage'
@@ -12,7 +9,6 @@ interface EditRunModalProps {
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   // The specific entry being edited — resolved by the caller (Timeline's
   // per-entry pencil, or the FAB's completion-first-else-newest default)
@@ -28,7 +24,6 @@ export function EditRunModal({
   onClose,
   data,
   levelId,
-  scale,
   datePref,
   progressUpdateId,
 }: EditRunModalProps) {
@@ -37,7 +32,6 @@ export function EditRunModal({
     onClose,
     data,
     levelId,
-    scale,
     datePref,
     progressUpdateId,
   })
@@ -54,7 +48,7 @@ export function EditRunModal({
       isSaving={state.isSaving}
       saveDisabled={state.hasFieldError}
     >
-      <EditRunFields state={state} scale={scale} />
+      <EditRunFields state={state} />
     </EditModalShell>
   )
 }

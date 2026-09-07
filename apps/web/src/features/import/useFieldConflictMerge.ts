@@ -35,6 +35,7 @@ const MAX_NUMBER_FIELD = MAX_ATTEMPTS
  */
 export function numericMax(descriptor: FieldDescriptor): number | null {
   if (descriptor.format === 'percent') return 100
+  if (descriptor.format === 'rating100') return 100
   if (descriptor.format === 'rating10') return 10
   if (descriptor.format === 'number') return descriptor.max ?? MAX_NUMBER_FIELD
   return null
@@ -118,6 +119,7 @@ export function formatDisplayValue(
   if (format === 'boolean') return value ? 'Yes' : 'No'
   if (format === 'percent') return `${value}%`
   if (format === 'rating10') return `${Number(value).toFixed(1)} / 10`
+  if (format === 'rating100') return `${Math.round(Number(value))} / 100`
   return String(value)
 }
 

@@ -205,7 +205,7 @@ function buildCompletionProgressUpdateFields(
     videoUrl: row.videoUrl ?? null,
     highlightUrl: row.highlightUrl ?? null,
     notes: row.notes ?? null,
-    enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+    enjoyment: row.enjoyment ?? null,
     twoPlayerSolo: row.twoPlayerSolo ?? null,
     twoPlayerPartner: row.twoPlayerPartner ?? null,
     device: row.device ?? null,
@@ -273,7 +273,7 @@ function buildCompletionMergePatch(
   if (row.notes != null) merge.notes = row.notes
   if (row.runFrom != null) merge.runFrom = row.runFrom
   if (row.runTo != null) merge.runTo = row.runTo
-  if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
+  if (row.enjoyment != null) merge.enjoyment = row.enjoyment
   if (row.twoPlayerSolo != null) merge.twoPlayerSolo = row.twoPlayerSolo
   if (row.twoPlayerPartner != null)
     merge.twoPlayerPartner = row.twoPlayerPartner

@@ -236,15 +236,14 @@ describe('diffProgressFields', () => {
     expect(diffProgressFields(existing, row)).toEqual([])
   })
 
-  it('compares enjoyment on the display scale, not the stored one', () => {
-    // Stored 0-100 internally, sheets carry 0-10 — 85 and 8.5 are the same.
+  it('compares enjoyment directly — the sheet carries the stored scale', () => {
     const existing = existingEvent({ enjoyment: 85 })
     expect(
-      diffProgressFields(existing, { enjoyment: 8.5 } as ImportProgressRow)
+      diffProgressFields(existing, { enjoyment: 85 } as ImportProgressRow)
     ).toEqual([])
     expect(
-      diffProgressFields(existing, { enjoyment: 9 } as ImportProgressRow)
-    ).toEqual([{ field: 'enjoyment', existingValue: 8.5, importedValue: 9 }])
+      diffProgressFields(existing, { enjoyment: 90 } as ImportProgressRow)
+    ).toEqual([{ field: 'enjoyment', existingValue: 85, importedValue: 90 }])
   })
 
   it('reads the stored date back through its own timezone', () => {
@@ -645,12 +644,13 @@ describe('planProgress — round-trips by progressId', () => {
     expect(onlyUpdate(ctx).data).toEqual({ notes: 'session 2' })
   })
 
-  it('scales enjoyment up to the stored 0-100 range on both paths', () => {
+  // Enjoyment arrives already on the stored 0-100 scale, unlike simpleRating.
+  it('writes enjoyment unscaled on both paths', () => {
     const merged = withMatch()
     planProgress(
       merged,
       LEVEL,
-      { progressId: PROGRESS_ID, enjoyment: 8.5 } as ImportProgressRow,
+      { progressId: PROGRESS_ID, enjoyment: 85 } as ImportProgressRow,
       'merge'
     )
     expect(onlyUpdate(merged).data).toEqual({ enjoyment: 85 })
@@ -659,7 +659,7 @@ describe('planProgress — round-trips by progressId', () => {
     planProgress(
       overwritten,
       LEVEL,
-      { progressId: PROGRESS_ID, enjoyment: 8.5 } as ImportProgressRow,
+      { progressId: PROGRESS_ID, enjoyment: 85 } as ImportProgressRow,
       'overwrite'
     )
     expect(onlyUpdate(overwritten).data).toMatchObject({ enjoyment: 85 })
@@ -682,7 +682,7 @@ describe('planProgress — round-trips by progressId', () => {
         onStream: true,
         highlightUrl: 'https://twitch.tv/x',
         notes: 'session 2',
-        enjoyment: 8.5,
+        enjoyment: 85,
         device: 'pc',
       } as ImportProgressRow,
       'merge'

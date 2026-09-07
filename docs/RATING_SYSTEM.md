@@ -22,9 +22,18 @@ InfernoLog offers two rating modes. Users select their preferred mode in account
 
 Rating (`simple_rating` / `rating_scores`) is **one current value per level**, not per logged event — it lives on `level_progress` and is editable from any progress-editing surface (the completion flow, or the edit form for any entry), not gated to completions specifically. `enjoyment` is the exception: it's logged per-event on `progress_updates`, mirroring the GDDL's approach, since a session's enjoyment can genuinely differ beat-to-beat in a way a level's overall rating doesn't. Non-completion entries (and the enjoyment they carry) are hidden unless the "show non-completions" toggle is active.
 
-### Display scale
+### Scales
 
-`users.rating_display_scale` (`zero_to_ten` default, or `zero_to_hundred`) controls only how ratings and enjoyment are _displayed and entered_ (e.g. `4.7` vs `47`). Storage is unaffected either way — `level_progress.simple_rating`, `rating_scores`, and `progress_updates.enjoyment` are always integers on a 0–100 internal scale; the frontend converts at the display layer based on this preference. Set during onboarding, changeable anytime in Settings.
+The scale is fixed per field, matching the convention the GD community already uses. There is no user preference — one existed (`users.ratingDisplayScale`) and was removed, since a second unit for every figure only created a second way to read it wrong.
+
+| Field                                                                                                          | Shown as                        |
+| -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| **Scores** — `level_progress.simple_rating`, `rating_scores.score`, and the weighted average they combine into | **0–10 with decimals** (`7.5`)  |
+| **Enjoyment** — `progress_updates.enjoyment`                                                                   | **0–100, whole numbers** (`85`) |
+
+Storage is the same for both: always an integer on a 0–100 internal scale. The frontend converts at the display layer — `apps/web/src/lib/ratingScale.ts` is the only place that arithmetic lives, and it exposes `formatScore`/`toScoreDisplay`/`toScoreInternal` for scores and `formatEnjoyment` (an identity, since enjoyment's display and storage units coincide) for enjoyment.
+
+One consequence worth knowing: when a user opts enjoyment into the weighted average (`rating_categories.include_enjoyment`), the arithmetic runs on the internal scale, so an enjoyment of 85 weighs exactly as much as a category score of 8.5.
 
 ---
 

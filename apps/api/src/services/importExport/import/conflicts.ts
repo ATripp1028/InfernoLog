@@ -90,16 +90,12 @@ function diffCompletionFields(
   push('videoUrl', existing.videoUrl, row.videoUrl ?? null)
   push('highlightUrl', existing.highlightUrl, row.highlightUrl ?? null)
   push('notes', existing.notes, row.notes ?? null)
-  // enjoyment/simpleRating are reported on the wire's 0-10 scale (matching
-  // ImportCompletionRow), not the internal 0-100 storage scale — a resolved
-  // 'existing' choice gets written straight back into `row.data` with no
-  // further conversion, so the diff value and the row's own field must
-  // already agree on scale.
-  push(
-    'enjoyment',
-    existing.enjoyment != null ? existing.enjoyment / 10 : null,
-    row.enjoyment ?? null
-  )
+  // Each figure is reported on the scale its own ImportCompletionRow field
+  // carries — enjoyment on the internal 0-100, simpleRating on the wire's
+  // 0-10 — not uniformly on the storage scale. A resolved 'existing' choice
+  // gets written straight back into `row.data` with no further conversion, so
+  // the diff value and the row's own field must already agree.
+  push('enjoyment', existing.enjoyment, row.enjoyment ?? null)
   push(
     'simpleRating',
     existing.simpleRating != null ? existing.simpleRating / 10 : null,

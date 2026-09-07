@@ -22,7 +22,6 @@ export function Ranking() {
     isManual,
     isPending,
     isError,
-    scale,
     config,
     categories,
     entries,
@@ -86,18 +85,18 @@ export function Ranking() {
             </label>
 
             {!isManual && (
-            <label
-              className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"
-              title="Number rows by their place in this view instead of by their place in the whole ranking"
-            >
-              <span>Number in view</span>
-              <Switch
-                checked={numbering === 'filtered'}
-                onCheckedChange={(on) =>
-                  setNumbering(on ? 'filtered' : 'overall')
-                }
-              />
-            </label>
+              <label
+                className="flex cursor-pointer items-center gap-2 text-xs text-text-secondary"
+                title="Number rows by their place in this view instead of by their place in the whole ranking"
+              >
+                <span>Number in view</span>
+                <Switch
+                  checked={numbering === 'filtered'}
+                  onCheckedChange={(on) =>
+                    setNumbering(on ? 'filtered' : 'overall')
+                  }
+                />
+              </label>
             )}
 
             <DifficultyFilter
@@ -180,7 +179,6 @@ export function Ranking() {
                   entry={entry}
                   lastRank={lastRank}
                   showRating={!isManual}
-                  scale={scale}
                   config={config}
                   categories={categories}
                   editing={editingLevelId === entry.item.level.inGameId}

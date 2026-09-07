@@ -228,7 +228,7 @@ PUT  /v1/me/rating-config
 
 `PUT /v1/me/rating-config` atomically replaces the user's weighted-rating configuration in a single transaction. Granular per-category endpoints were deliberately removed: the sum-must-equal-target invariant makes single-row mutations impossible to validate in isolation — you cannot change one weight without changing another. The editor submits the full config; the server diffs it against existing rows and applies create/update/delete in one transaction.
 
-Ratings are stored as integers 0–100 internally regardless of `user.ratingDisplayScale`; conversion happens at the display layer.
+Ratings are stored as integers 0–100 internally; conversion happens at the display layer, which shows scores on 0–10 and enjoyment on 0–100. See `docs/RATING_SYSTEM.md`.
 
 ## Account & Settings
 

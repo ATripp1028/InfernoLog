@@ -3,8 +3,7 @@ import { Label } from '@/components/generic/label'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
 import { clampPercent, digitsOnly } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import { formatScore } from '@/lib/ratingScale'
 import { DateTimeField } from '@/components/inputs/DateTimeField'
 import {
   Section,
@@ -22,11 +21,9 @@ import type { EditLevelFormState } from './useEditLevelModal'
  */
 export function EditLevelFields({
   state,
-  scale,
   idPrefix = 'el',
 }: {
   state: EditLevelFormState
-  scale: RatingDisplayScale
   /** Namespaces the field ids, so two forms can coexist in one dialog. */
   idPrefix?: string
 }) {
@@ -124,7 +121,7 @@ export function EditLevelFields({
                   label={cat.name}
                   sublabel={`weight ${Math.round(cat.weight * 100)}%`}
                   value={form.ratingScores[cat.id] ?? null}
-                  scale={scale}
+                  field="score"
                   onChange={(v) =>
                     patch({
                       ratingScores: { ...form.ratingScores, [cat.id]: v },
@@ -136,7 +133,7 @@ export function EditLevelFields({
                 <p className="text-right text-xs text-text-tertiary">
                   Weighted avg:{' '}
                   <span className="font-medium text-text-secondary">
-                    {formatRating(overallRating, scale)}
+                    {formatScore(overallRating)}
                   </span>
                 </p>
               )}
@@ -146,7 +143,7 @@ export function EditLevelFields({
           <RatingRow
             label="Score"
             value={form.simpleRating}
-            scale={scale}
+            field="score"
             onChange={(v) => patch({ simpleRating: v })}
           />
         )}

@@ -55,13 +55,6 @@ export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
 /** Whether a user's overall rating is a single number or a weighted average of categories. */
 export type RatingMode = 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
 
-/**
- * The scale ratings are shown on. Ratings are always stored as integers 0–100
- * internally regardless of this; conversion happens at the display layer via
- * `lib/ratingScale.ts`.
- */
-export type RatingDisplayScale = 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
-
 /** How calendar dates are ordered for display. Also selects 12h vs 24h time (`ISO` alone is 24h). */
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
 

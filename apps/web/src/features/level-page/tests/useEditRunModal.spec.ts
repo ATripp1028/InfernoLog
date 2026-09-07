@@ -41,7 +41,6 @@ function render(
     updates?: ProgressUpdate[]
     target?: string | null
     data?: Partial<LevelPageData>
-    scale?: 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
     open?: boolean
   } = {}
 ) {
@@ -56,7 +55,6 @@ function render(
         onClose,
         data,
         levelId: '128',
-        scale: opts.scale ?? 'ZERO_TO_HUNDRED',
         datePref: 'ISO',
         progressUpdateId: target,
       }),
@@ -141,13 +139,14 @@ describe('useEditRunModal', () => {
       expect(result.current.form.videoUrl).toBe('')
     })
 
-    it('converts the stored enjoyment into display units', () => {
+    // Enjoyment is shown on the same 0-100 scale it is stored on, so the form
+    // holds the stored number itself — no conversion at either boundary.
+    it('seeds the stored enjoyment unconverted', () => {
       const { result } = render({
         updates: [progressUpdate({ progressUpdateId: 'u1', enjoyment: 80 })],
-        scale: 'ZERO_TO_TEN',
       })
 
-      expect(result.current.form.enjoyment).toBe(8)
+      expect(result.current.form.enjoyment).toBe(80)
     })
 
     // 2.2 is the current basis, so an entry that never pinned one edits as 2.2.
@@ -435,9 +434,9 @@ describe('useEditRunModal', () => {
       expect(saved().notes).toBeNull()
     })
 
-    it('converts enjoyment back to internal units', () => {
-      const { result } = render({ scale: 'ZERO_TO_TEN' })
-      act(() => result.current.patch({ enjoyment: 8.5 }))
+    it('saves enjoyment unconverted', () => {
+      const { result } = render()
+      act(() => result.current.patch({ enjoyment: 85 }))
 
       act(() => result.current.handleSave())
 

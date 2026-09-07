@@ -56,10 +56,9 @@ export function useEventsPage() {
   const context: FeedRowContext = useMemo(
     () => ({
       datePref,
-      scale: me.data?.ratingDisplayScale ?? 'ZERO_TO_HUNDRED',
       categories: me.data?.ratingCategories ?? [],
     }),
-    [datePref, me.data?.ratingDisplayScale, me.data?.ratingCategories]
+    [datePref, me.data?.ratingCategories]
   )
 
   const options: LevelOption[] = useMemo(

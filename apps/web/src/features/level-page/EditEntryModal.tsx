@@ -8,10 +8,7 @@ import {
   SelectValue,
 } from '@/components/generic/select'
 import type { EntryChoice } from './entryChoices'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { EditModalShell } from './EditModalShell'
 import { EditRunFields } from './EditRunFields'
 import { EditLevelFields } from './EditLevelFields'
@@ -23,7 +20,6 @@ interface EditEntryModalProps {
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
 }
 
@@ -38,7 +34,6 @@ export function EditEntryModal({
   onClose,
   data,
   levelId,
-  scale,
   datePref,
 }: EditEntryModalProps) {
   const {
@@ -61,7 +56,7 @@ export function EditEntryModal({
     handleSave,
     isSaving,
     hasFieldError,
-  } = useEditEntryModal({ open, onClose, data, levelId, scale, datePref })
+  } = useEditEntryModal({ open, onClose, data, levelId, datePref })
 
   if (!ready) return null
 
@@ -120,9 +115,9 @@ export function EditEntryModal({
         className="space-y-6"
       >
         {onRun ? (
-          <EditRunFields state={run} scale={scale} />
+          <EditRunFields state={run} />
         ) : (
-          <EditLevelFields state={level} scale={scale} />
+          <EditLevelFields state={level} />
         )}
       </div>
     </EditModalShell>

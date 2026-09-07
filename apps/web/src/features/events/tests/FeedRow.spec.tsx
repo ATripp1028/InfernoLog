@@ -21,7 +21,6 @@ import { FeedRow, type FeedRowContext } from '../FeedRow'
 
 const context: FeedRowContext = {
   datePref: 'ISO',
-  scale: 'ZERO_TO_TEN',
   categories: [{ id: 'cat-1', name: 'Gameplay', weight: 1, sortOrder: 0 }],
 }
 

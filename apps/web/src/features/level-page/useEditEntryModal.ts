@@ -6,10 +6,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
 import { useEditProgress } from '@/lib/api/levelPage'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import {
   defaultEntryChoice,
   entryChoices,
@@ -34,14 +31,12 @@ export function useEditEntryModal({
   onClose,
   data,
   levelId,
-  scale,
   datePref,
 }: {
   open: boolean
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
 }) {
   // Newest first for the picker; the completion, if any, for the default.
@@ -57,11 +52,10 @@ export function useEditEntryModal({
   const run = useEditRunForm({
     open,
     data,
-    scale,
     datePref,
     progressUpdateId,
   })
-  const level = useEditLevelForm({ open, data, levelId, scale })
+  const level = useEditLevelForm({ open, data, levelId })
   const editProgress = useEditProgress(levelId)
 
   const hasRun = progressUpdateId != null

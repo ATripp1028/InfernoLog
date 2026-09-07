@@ -13,6 +13,7 @@ export type FieldFormatType =
   | 'boolean'
   | 'percent'
   | 'rating10'
+  | 'rating100'
   | 'enum'
 
 /**
@@ -75,7 +76,7 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
   { field: 'videoUrl', label: 'Video URL', format: 'text' },
   { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
   { field: 'notes', label: 'Notes', format: 'text' },
-  { field: 'enjoyment', label: 'Enjoyment', format: 'rating10' },
+  { field: 'enjoyment', label: 'Enjoyment', format: 'rating100' },
   { field: 'simpleRating', label: 'Simple rating', format: 'rating10' },
   {
     field: 'difficultyOpinion',
@@ -127,7 +128,7 @@ export const PROGRESS_FIELDS: FieldDescriptor[] = [
   { field: 'onStream', label: 'On stream', format: 'boolean' },
   { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
   { field: 'notes', label: 'Notes', format: 'text' },
-  { field: 'enjoyment', label: 'Enjoyment', format: 'rating10' },
+  { field: 'enjoyment', label: 'Enjoyment', format: 'rating100' },
   { field: 'device', label: 'Device', format: 'enum', options: DEVICE_OPTIONS },
 ]
 
@@ -149,10 +150,10 @@ export const DROPPED_FIELDS: FieldDescriptor[] = [
 ]
 
 /**
- * 'percent' (0-100), not 'rating10' — unlike completion enjoyment/simpleRating
- * (0-10 on the wire), ImportRatingEntry.scores is already 0-100 on the wire,
- * and existing/importedScore in ImportRatingConflict match that convention
- * so a resolved value drops straight into the payload with no conversion.
+ * 'percent' (0-100), not 'rating10' — unlike completion simpleRating (0-10 on
+ * the wire), ImportRatingEntry.scores is already 0-100 on the wire, and
+ * existing/importedScore in ImportRatingConflict match that convention so a
+ * resolved value drops straight into the payload with no conversion.
  */
 export const RATING_FIELDS: FieldDescriptor[] = [
   { field: 'score', label: 'Score', format: 'percent' },

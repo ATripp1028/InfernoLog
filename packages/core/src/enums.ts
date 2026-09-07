@@ -18,11 +18,6 @@ export enum RatingMode {
   MANUAL = 'MANUAL',
 }
 
-export enum RatingDisplayScale {
-  ZERO_TO_TEN = 'ZERO_TO_TEN',
-  ZERO_TO_HUNDRED = 'ZERO_TO_HUNDRED',
-}
-
 export enum DateFormatPreference {
   MDY = 'MDY',
   DMY = 'DMY',

@@ -10,7 +10,7 @@ import { difficultyLabel } from '@/lib/gdAssets'
 import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { computeOverallRating } from '@infernolog/core'
 import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
 
@@ -24,7 +24,6 @@ export function CompletionReviewStep() {
   useFlowBusy(logCompletion.isPending)
   if (!level || !me.data) return null
 
-  const scale = me.data.ratingDisplayScale
   const weighted = me.data.ratingMode === 'WEIGHTED'
 
   const attempts = draft.attempts.trim()
@@ -104,14 +103,11 @@ export function CompletionReviewStep() {
           {overallRating != null && (
             <Row
               label="Rating"
-              value={`${formatRating(overallRating, scale)}${weighted ? ' (weighted)' : ''}`}
+              value={`${formatScore(overallRating)}${weighted ? ' (weighted)' : ''}`}
             />
           )}
           {draft.enjoyment != null && (
-            <Row
-              label="Enjoyment"
-              value={`${formatRating(draft.enjoyment, scale)}`}
-            />
+            <Row label="Enjoyment" value={formatEnjoyment(draft.enjoyment)} />
           )}
           {gddlBits.length > 0 && (
             <Row label="GDDL" value={gddlBits.join(' · ')} />

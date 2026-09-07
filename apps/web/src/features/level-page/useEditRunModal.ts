@@ -7,7 +7,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
 import { maxValueError, MAX_ATTEMPTS, MAX_FPS } from '@/lib/numberFormat'
-import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { useMe } from '@/lib/api/me'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { formatEntryDateTime } from '@/lib/dateFormat'
@@ -18,7 +17,6 @@ import type {
   Device,
   DifficultyOpinion,
   GdVersion,
-  RatingDisplayScale,
 } from '@/lib/api/wireEnums'
 import { zonedDateTimeInput, composeZonedDate } from './editDateTime'
 import {
@@ -71,7 +69,6 @@ const EMPTY_FORM: EditRunForm = {
 
 function initForm(
   update: ProgressUpdate,
-  scale: RatingDisplayScale,
   // Level-scoped (LevelProgress), unlike everything else here — so it is
   // passed in rather than read off the update.
   difficultyOpinion: string | null
@@ -87,8 +84,7 @@ function initForm(
     percentageVersion: update.percentageVersion ?? 'TWO_TWO',
     onStream: update.onStream,
     difficultyOpinion: (difficultyOpinion as DifficultyOpinion | null) ?? null,
-    enjoyment:
-      update.enjoyment != null ? toDisplay(update.enjoyment, scale) : null,
+    enjoyment: update.enjoyment,
     videoUrl: update.videoUrl ?? '',
     highlightUrl: update.highlightUrl ?? '',
     notes: update.notes ?? '',
@@ -116,13 +112,11 @@ export type EditRunFormState = ReturnType<typeof useEditRunForm>
 export function useEditRunForm({
   open,
   data,
-  scale,
   datePref,
   progressUpdateId,
 }: {
   open: boolean
   data: LevelPageData
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   progressUpdateId: string | null
 }) {
@@ -147,13 +141,13 @@ export function useEditRunForm({
   // reset-on-open effect, so a cancel-then-reopen never shows stale edits.
   useEffect(() => {
     if (!open || !update) return
-    const initialForm = initForm(update, scale, data.difficultyOpinion)
+    const initialForm = initForm(update, data.difficultyOpinion)
     const initialRun = initParsedRun(update)
     setForm(initialForm)
     setParsedRun(initialRun)
     setPristine({ form: initialForm, run: initialRun })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, progressUpdateId, scale, data.difficultyOpinion])
+  }, [open, progressUpdateId, data.difficultyOpinion])
 
   const isCompletion = update?.kind === 'COMPLETION'
   const isDrop = update?.kind === 'DROP'
@@ -203,8 +197,7 @@ export function useEditRunForm({
       onStream: form.onStream,
       notes: form.notes || null,
       device: form.device,
-      enjoyment:
-        form.enjoyment != null ? toInternal(form.enjoyment, scale) : null,
+      enjoyment: form.enjoyment,
     }
 
     if (isProgress && parsedRun) {
@@ -275,7 +268,6 @@ export function useEditRunModal(args: {
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   progressUpdateId: string | null
 }) {

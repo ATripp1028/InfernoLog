@@ -13,7 +13,6 @@ vi.mock('@/lib/api/me', async (importOriginal) => ({
 const me = (ratingMode = 'SIMPLE') =>
   ({
     ratingMode,
-    ratingDisplayScale: 'ZERO_TO_TEN',
     ratingCategories: [],
     includeEnjoyment: false,
     enjoymentWeight: 0,
@@ -28,6 +27,20 @@ describe('RatingSection', () => {
     }
   })
 
+  // The scale is fixed per field now — scores 0–10, enjoyment 0–100 — so there
+  // is nothing here to choose. The buttons were labelled with the two scales,
+  // which is what makes their absence assertable.
+  it('offers no display-scale choice', () => {
+    renderWithProviders(<RatingSection me={me()} />)
+
+    expect(screen.queryByText('Display scale')).not.toBeInTheDocument()
+    for (const label of ['0–10', '0–100']) {
+      expect(
+        screen.queryByRole('button', { name: label })
+      ).not.toBeInTheDocument()
+    }
+  })
+
   // A switch reorders the whole Ranking page and hides every number the old
   // mode showed. Nothing is deleted, but it is startling enough to confirm.
   it('does not switch until the change is confirmed', async () => {
@@ -37,9 +50,7 @@ describe('RatingSection', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Weighted' }))
 
     expect(mutateAsync).not.toHaveBeenCalled()
-    expect(
-      screen.getByText(/Switch to weighted rating\?/)
-    ).toBeInTheDocument()
+    expect(screen.getByText(/Switch to weighted rating\?/)).toBeInTheDocument()
 
     await userEvent.click(screen.getByRole('button', { name: 'Switch' }))
 
