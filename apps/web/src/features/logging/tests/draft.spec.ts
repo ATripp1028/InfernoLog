@@ -73,7 +73,6 @@ describe('emptyDraft', () => {
 
     expect(d.difficultyOpinion).toBeNull()
     expect(d.enjoyment).toBeNull()
-    expect(d.simpleRating).toBeNull()
     expect(d.percentageVersion).toBeNull()
     expect(d.device).toBeNull()
     expect(d.twoPlayerSolo).toBeNull()

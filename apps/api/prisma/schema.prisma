@@ -768,10 +768,9 @@ model RatingCategory {
   // deleting the category, or the categoryId FK on rating_scores rejects it.
   ratingScores RatingScore[]
 
-  // Each user's category names must be unique. Also makes the default-seed
-  // path safe under concurrent transitions to WEIGHTED — duplicate inserts
-  // fail with P2002, which `createMany({ skipDuplicates: true })` silently
-  // drops instead of producing 6 categories.
+  // Each user's category names must be unique. Also the real guarantee behind
+  // PUT /v1/me/rating-config's own duplicate-name check, which a direct API
+  // hit can bypass: the write then fails with P2002 and is translated to 409.
   @@unique([userId, name])
   @@map("rating_categories")
 }

@@ -205,7 +205,6 @@ const completion = (
   fps: 240,
   device: 'pc',
   enjoyment: 80,
-  simpleRating: 95,
   difficultyOpinion: 'EXTREME',
   coinsCollected: 0,
   twoPlayerSolo: null,

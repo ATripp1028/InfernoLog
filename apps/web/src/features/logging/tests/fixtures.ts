@@ -50,7 +50,6 @@ export function draft(overrides: Loose<FlowDraft> = {}): FlowDraft {
 export function me(overrides: Loose<MeData> = {}): MeData {
   return {
     id: 'user-1',
-    ratingMode: 'SIMPLE',
     ratingCategories: [],
     defaultFps: null,
     defaultPercentageVersion: null,
@@ -82,7 +81,6 @@ export function existingCompletion(
     notes: null,
     visibility: 'PUBLIC',
     device: null,
-    simpleRating: null,
     ratingScores: [],
     coinsCollected: null,
     completionTime: null,

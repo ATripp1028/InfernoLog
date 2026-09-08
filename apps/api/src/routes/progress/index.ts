@@ -54,7 +54,7 @@ app.onError(
       return c.json({ error: error.message }, 400)
     }
     // 409, not 400: the payload is fine, the level's history is what forbids
-    // the write. Same reading as RatingRanking's mode conflict.
+    // the write.
     if (error instanceof ProgressAfterCompletionError) {
       return c.json({ error: error.message }, 409)
     }

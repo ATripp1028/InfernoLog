@@ -279,7 +279,9 @@ async function exportRanking(userId: string, skip: number, take: number) {
 //
 // Ordered by level id, which is stable across exports — there is no ranking to
 // preserve here, since the Ranking page derives its order from these scores
-// rather than storing one.
+// rather than storing one. That makes the page expressible as one orderBy, so
+// it is paged in the query like every other section rather than by fetching
+// the whole set and slicing it per page.
 async function exportRatings(userId: string, skip: number, take: number) {
   const categories = await prisma.ratingCategory.findMany({
     where: { userId },
@@ -290,6 +292,8 @@ async function exportRatings(userId: string, skip: number, take: number) {
   const lps = await prisma.levelProgress.findMany({
     where: { userId, ratingScores: { some: {} } },
     orderBy: { levelId: 'asc' },
+    skip,
+    take,
     select: {
       levelId: true,
       // stars + the label together resolve the difficulty cell; see
@@ -306,7 +310,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
     },
   })
 
-  return lps.slice(skip, skip + take).map((lp) => {
+  return lps.map((lp) => {
     const scores: Record<string, number> = {}
     for (const s of lp.ratingScores) {
       const name = catNameById.get(s.categoryId)

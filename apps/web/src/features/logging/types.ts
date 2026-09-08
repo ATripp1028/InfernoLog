@@ -63,7 +63,6 @@ export interface FlowDraft {
   difficultyOpinion: DifficultyOpinion | null
   // Ratings — 0–100 internally regardless of display scale.
   enjoyment: number | null
-  simpleRating: number | null
   ratingScores: RatingScoresDraft
   // User's GDDL tier opinion
   userGddlTier: string
@@ -133,7 +132,6 @@ export function emptyDraft(): FlowDraft {
     worstFailSameDay: false,
     difficultyOpinion: null,
     enjoyment: null,
-    simpleRating: null,
     ratingScores: {},
     userGddlTier: '',
     fps: '',
@@ -214,7 +212,6 @@ export function draftFromExistingCompletion(
   )
   draft.difficultyOpinion = existing.difficultyOpinion
   draft.enjoyment = existing.enjoyment
-  draft.simpleRating = existing.simpleRating
   draft.ratingScores = Object.fromEntries(
     existing.ratingScores.map((s) => [s.categoryId, s.score])
   )

@@ -37,7 +37,6 @@ export interface ImportCompletionRow {
   onStream?: boolean | null
   fps?: number | null
   enjoyment?: number | null
-  simpleRating?: number | null
   difficultyOpinion?: DifficultyOpinion | null
   coinsCollected?: number | null
   twoPlayerSolo?: boolean | null
@@ -401,7 +400,6 @@ export interface ExportCompletion {
   fps: number | null
   device: string | null
   enjoyment: number | null
-  simpleRating: number | null
   difficultyOpinion: string | null
   coinsCollected: number | null
   twoPlayerSolo: boolean | null

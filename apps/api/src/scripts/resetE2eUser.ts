@@ -122,8 +122,8 @@ async function seedBuiltInCollections(userId: string) {
 
 /**
  * Puts every preference a spec might toggle back to its default, so a spec
- * that changes one (rating mode, FPS, date format) cannot leak into the next
- * run. Onboarding is forced complete: the suite starts inside the app, and the
+ * that changes one (FPS, date format, enjoyment weighting) cannot leak into
+ * the next run. Onboarding is forced complete: the suite starts inside the app, and the
  * onboarding flow is covered by component tests.
  *
  * The GDDL key is cleared for a sharper reason than tidiness: `hasGddlApiKey`

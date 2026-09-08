@@ -1,4 +1,5 @@
-// Weighted-mode rating configuration:
+// Rating configuration — the categories a level's weighted average is
+// computed from:
 //
 //   GET /v1/me/rating-categories
 //   PUT /v1/me/rating-config
