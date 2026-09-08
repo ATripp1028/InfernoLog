@@ -90,7 +90,16 @@ function ManualEntry({
               return
             }
             const n = Number(raw)
-            onChange(Number.isFinite(n) ? n : null)
+            if (!Number.isFinite(n)) {
+              onChange(null)
+              return
+            }
+            // 'rating100' (enjoyment) is a whole 0-100 integer on the wire, so
+            // a pasted "85.5" would be rejected by ImportCompletionRowSchema
+            // and fail the whole commit. Every other format is left alone —
+            // 'rating10' is fractional by design, and 'percent' covers
+            // ImportDroppedRow.bestProgress, which the wire accepts decimals on.
+            onChange(format === 'rating100' ? Math.round(n) : n)
           }}
         />
         {error && <FieldError>{error}</FieldError>}

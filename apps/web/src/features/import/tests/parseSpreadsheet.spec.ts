@@ -356,13 +356,14 @@ describe('numeric fields', () => {
     expect(flagsFor(row, 'enjoyment')[0]!.message).toContain('outside 0-100')
   })
 
-  // The sheet moved enjoyment from 0-10 to 0-100, so an older export's value
-  // is normalized by the same "≤10 means it was on the 0-10 scale" rule the
-  // Ratings tab uses.
+  // Enjoyment is 0-100 on the sheet and internally alike — no scaling, and
+  // notably no "a small number must have meant the 0-10 scale" guess. An 8 is
+  // an 8. Fractions round, since the wire schema is an integer.
   it.each([
     [85, 85],
-    [8.5, 85],
-    [10, 100],
+    [8, 8],
+    [10, 10],
+    [85.5, 86],
   ])('reads a sheet enjoyment of %s as the internal %s', (cell, internal) => {
     const row = oneCompletion(['level_id', 'enjoyment'], ['128', cell])
 
@@ -591,10 +592,11 @@ describe('the ratings tab', () => {
     expect(result.ratings[0]!.levelId).toBe('128')
   })
 
-  // The sheet may hold either scale; both normalize to the internal 0-100.
+  // Scores are on the sheet's 0-10 scale, always — a cell is never read as an
+  // already-internal 0-100 value.
   it.each([
     [9.5, 95],
-    [95, 95],
+    [9, 90],
     [10, 100],
   ])('reads a score of %s as %s on the internal scale', (given, expected) => {
     const result = parse({
@@ -605,6 +607,37 @@ describe('the ratings tab', () => {
     })
 
     expect(result.ratings[0]!.scores.Gameplay).toBe(expected)
+  })
+
+  // Nothing rescues a 0-100 cell any more, so an out-of-range one has to be
+  // dropped with a flag rather than sent on to 400 the whole commit.
+  it('flags a score past the top of the 0-10 scale', () => {
+    const result = parse({
+      Ranking: [
+        ['level_id', 'Gameplay'],
+        ['128', 95],
+      ],
+    })
+
+    const flag = result.ratings[0]!.flags.find((f) => f.field === 'Gameplay')!
+    expect(flag.severity).toBe('warning')
+    expect(flag.message).toContain('out of range (0-10)')
+    expect(result.ratings[0]!.scores).toEqual({})
+  })
+
+  it('flags a simple_rating past the top of the 0-10 scale', () => {
+    const result = parse({
+      Ranking: [
+        ['level_id', 'simple_rating'],
+        ['128', 95],
+      ],
+    })
+
+    const flag = result.ratings[0]!.flags.find(
+      (f) => f.field === 'simple_rating'
+    )!
+    expect(flag.severity).toBe('warning')
+    expect(result.ratings[0]!.simpleRating).toBeNull()
   })
 
   it('leaves a level with no scores an empty score map', () => {

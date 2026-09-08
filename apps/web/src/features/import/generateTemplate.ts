@@ -581,7 +581,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ranking',
     '(category columns)',
     'no',
-    'Every other column header is a rating category name; the cell is that level’s score (0-10 or 0-100 — both accepted). Categories are matched by name and created if missing.',
+    'Every other column header is a rating category name; the cell is that level’s 0-10 score (decimals OK). Categories are matched by name and created if missing.',
   ],
   [
     'Ranking',

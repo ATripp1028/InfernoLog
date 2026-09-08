@@ -1188,8 +1188,7 @@ export const LogPresetSchema = z.object({
 // Rating SCORES in the import format are 0-10 (sheet scale per
 // IMPORT_EXPORT.md); the server multiplies by 10 to convert to the 0-100
 // internal scale. Enjoyment is 0-100 already — it is shown on that scale in
-// the app, so the sheet carries it unconverted and the client normalizes an
-// older 0-10 sheet on the way in.
+// the app, so the sheet carries it unconverted and nothing scales it.
 // ─────────────────────────────────────────────
 
 export const ImportCompletionRowSchema = z.object({

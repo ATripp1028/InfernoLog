@@ -421,15 +421,14 @@ function parseCompletionRow(
       'warning'
     )
 
-  // Scores are 0-10; enjoyment is 0-100, normalized from either through
-  // toScore100's "≤10 means it was written on the old 0-10 scale" rule.
-  const rawEnjoyment = toNum(getField(raw, 'enjoyment'))
-  const enjoyment = toScore100(getField(raw, 'enjoyment'))
+  // Scores are on the sheet's 0-10 scale; enjoyment is 0-100 on the sheet
+  // exactly as it is internally, so it needs no conversion at all.
+  const enjoyment = toNum(getField(raw, 'enjoyment'))
   const simpleRating = toNum(getField(raw, 'simple_rating'))
-  if (rawEnjoyment != null && (rawEnjoyment < 0 || rawEnjoyment > 100))
+  if (enjoyment != null && (enjoyment < 0 || enjoyment > 100))
     pushFlag(
       'enjoyment',
-      `enjoyment ${rawEnjoyment} is outside 0-100 — value dropped`,
+      `enjoyment ${enjoyment} is outside 0-100 — value dropped`,
       'warning'
     )
   if (simpleRating != null && (simpleRating < 0 || simpleRating > 10))
@@ -567,7 +566,7 @@ function parseCompletionRow(
         : null,
     enjoyment:
       enjoyment != null && enjoyment >= 0 && enjoyment <= 100
-        ? enjoyment
+        ? Math.round(enjoyment)
         : null,
     simpleRating:
       simpleRating != null && simpleRating >= 0 && simpleRating <= 10
@@ -696,14 +695,12 @@ function parseProgressRow(
       'warning'
     )
 
-  // 0-100, normalized from an older 0-10 sheet by toScore100. See the
-  // completions parser above.
-  const rawEnjoyment = toNum(getField(raw, 'enjoyment'))
-  const enjoyment = toScore100(getField(raw, 'enjoyment'))
-  if (rawEnjoyment != null && (rawEnjoyment < 0 || rawEnjoyment > 100))
+  // 0-100 on the sheet and internally alike. See the completions parser above.
+  const enjoyment = toNum(getField(raw, 'enjoyment'))
+  if (enjoyment != null && (enjoyment < 0 || enjoyment > 100))
     pushFlag(
       'enjoyment',
-      `enjoyment ${rawEnjoyment} is outside 0-100 — value dropped`,
+      `enjoyment ${enjoyment} is outside 0-100 — value dropped`,
       'warning'
     )
 
@@ -760,7 +757,7 @@ function parseProgressRow(
     device,
     enjoyment:
       enjoyment != null && enjoyment >= 0 && enjoyment <= 100
-        ? enjoyment
+        ? Math.round(enjoyment)
         : null,
     notes: toStr(getField(raw, 'notes')),
     highlightUrl: toStr(getField(raw, 'highlight_url')),
@@ -1050,15 +1047,24 @@ const RESERVED_RATING_COLS = new Set([
   'simple_rating',
 ])
 
-// Parses a rating cell to the internal 0-100 scale, accepting either a 0-10
-// value (≤10 → ×10) or a 0-100 value (>10 → as-is): "9.5" and "95" both → 95.
+// Parses a rating-score cell from the sheet's 0-10 scale to the internal
+// 0-100 one: "9.5" → 95. Out-of-range cells convert too, so the caller's own
+// range check is what rejects them.
+//
+// This used to also accept a 0-100 cell (≤10 meant "0-10, ×10"), back when a
+// user preference decided which scale an export was written on. That guess is
+// unnecessary before release: no sheet outside development was ever written on
+// the other scale, and the guess is wrong as often as it is right — an
+// enjoyment of 8 is a real 8, not an 80. If the sheet scale ever changes after
+// v1 ships, add an explicit version marker to the workbook rather than
+// re-deriving the scale from a value's magnitude.
 function toScore100(v: unknown): number | null {
   if (v == null || v === '') return null
   const s = String(v).trim().replace(/%\s*$/, '').trim()
   if (s === '') return null
   const n = Number(s)
   if (isNaN(n)) return null
-  return Math.round(n <= 10 ? n * 10 : n)
+  return Math.round(n * 10)
 }
 
 function parseRatingRow(
@@ -1067,9 +1073,7 @@ function parseRatingRow(
   categoryNames: string[]
 ): ParsedRatingRow {
   const flags: ParseFlag[] = []
-  // The simple score shares this tab with the category columns — the two are
-  // the same subject expressed by whichever mode the user is in.
-  const simpleRating = toScore100(getField(raw, 'simple_rating'))
+  const rawSimpleRating = getField(raw, 'simple_rating')
   const rawLevelId = toStr(getField(raw, 'level_id'))
   const levelName = toStr(getField(raw, 'level_name'))
   const label = rowLabelFor(levelName, rawLevelId, rowIndex)
@@ -1102,6 +1106,19 @@ function parseRatingRow(
     )
   }
 
+  // The simple score shares this tab with the category columns — the two are
+  // the same subject expressed by whichever mode the user is in, so it is
+  // range-checked by the same rule.
+  let simpleRating = toScore100(rawSimpleRating)
+  if (simpleRating != null && (simpleRating < 0 || simpleRating > 100)) {
+    pushFlag(
+      'simple_rating',
+      `simple_rating "${String(rawSimpleRating)}" is out of range (0-10) — value dropped`,
+      'warning'
+    )
+    simpleRating = null
+  }
+
   const scores: Record<string, number> = {}
   for (const cat of categoryNames) {
     const rawScore = getField(raw, cat)
@@ -1118,7 +1135,7 @@ function parseRatingRow(
     if (score < 0 || score > 100) {
       pushFlag(
         cat,
-        `${cat} score "${rawScore}" is out of range (0-10 or 0-100) — value dropped`,
+        `${cat} score "${rawScore}" is out of range (0-10) — value dropped`,
         'warning'
       )
       continue

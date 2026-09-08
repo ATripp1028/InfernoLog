@@ -30,8 +30,8 @@ function dateCell(isoStr: string | null, fmt: DateFormat): string {
   return formatDate(isoStr, fmt)
 }
 
-// Internal 0-100 → the 0-10 sheet scale used for SCORES (round-trips through
-// the importer's "≤10 means 0-10" rule). 47 → 4.7, 100 → 10, 80 → 8.
+// Internal 0-100 → the 0-10 sheet scale used for SCORES. 47 → 4.7, 100 → 10,
+// 80 → 8. The importer multiplies straight back by 10, so this round-trips.
 //
 // Enjoyment does NOT go through this — it is shown on 0-100 in the app and
 // written to the sheet the same way. See IMPORT_EXPORT.md.
