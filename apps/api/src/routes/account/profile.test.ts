@@ -345,16 +345,6 @@ describe('DELETE /me', () => {
 // ─── PATCH /me ───────────────────────────────────────────────────────────────
 
 describe('PATCH /me', () => {
-  /**
-   * The transaction client the preference write runs against. It carries an
-   * activityLog delegate because a rating-mode switch emits a
-   * RATING_CONFIG_CHANGE alongside the write.
-   */
-  const tx = {
-    user: { update: vi.fn() },
-    activityLog: { create: vi.fn() },
-  }
-
   /** A serialized-me row, enough for serializeMe to work on. */
   function updatedUser() {
     return {
@@ -364,23 +354,13 @@ describe('PATCH /me', () => {
     }
   }
 
-  /**
-   * The `data` of the single user.update call. It runs on the transaction
-   * client now — the write shares a transaction with the
-   * RATING_CONFIG_CHANGE a rating-mode switch emits — so read it off `tx`.
-   */
+  /** The `data` of the single user.update call. */
   function updateData(): Record<string, unknown> {
     return (
-      tx.user.update.mock.lastCall as unknown as [
+      prisma.user.update.mock.lastCall as unknown as [
         { data: Record<string, unknown> },
       ]
     )[0].data
-  }
-
-  /** The `data` of the emitted RATING_CONFIG_CHANGE, or null when none was. */
-  function modeEventData(): Record<string, unknown> | null {
-    const call = tx.activityLog.create.mock.lastCall
-    return call ? (call[0] as { data: Record<string, unknown> }).data : null
   }
 
   function patch(body: unknown) {
@@ -392,16 +372,7 @@ describe('PATCH /me', () => {
   }
 
   beforeEach(() => {
-    tx.user.update.mockReset().mockResolvedValue(updatedUser())
-    tx.activityLog.create.mockReset().mockResolvedValue({ id: 'event-1' })
-    prisma.user.findUniqueOrThrow.mockResolvedValue({
-      ratingMode: 'SIMPLE',
-    } as never)
-    prisma.ratingCategory.count.mockResolvedValue(1 as never)
-    prisma.ratingCategory.createMany.mockResolvedValue({ count: 0 } as never)
-    ;(
-      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
-    ).mockImplementation((fn: (client: unknown) => unknown) => fn(tx))
+    prisma.user.update.mockReset().mockResolvedValue(updatedUser() as never)
   })
 
   it('applies a partial preference update', async () => {
@@ -414,7 +385,7 @@ describe('PATCH /me', () => {
   it('scopes the update to the authenticated user', async () => {
     await patch({ profilePublic: true })
 
-    expect(tx.user.update).toHaveBeenCalledWith(
+    expect(prisma.user.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: USER_ID } })
     )
   })
@@ -474,42 +445,11 @@ describe('PATCH /me', () => {
     expect(updateData()).not.toHaveProperty('legalAcceptedAt')
   })
 
-  it('seeds the default categories on the first switch to WEIGHTED', async () => {
-    // WEIGHTED mode must always have at least one category to score against.
-    prisma.ratingCategory.count.mockResolvedValue(0 as never)
-
-    await patch({ ratingMode: 'WEIGHTED' })
-
-    expect(prisma.ratingCategory.createMany).toHaveBeenCalledWith(
-      expect.objectContaining({ skipDuplicates: true })
-    )
-    const [{ data }] = prisma.ratingCategory.createMany.mock
-      .lastCall as unknown as [{ data: { name: string }[] }]
-    expect(data.map((c) => c.name)).toEqual(['Gameplay', 'Decoration', 'Song'])
-  })
-
-  it('does not reseed when the user already has categories', async () => {
-    prisma.ratingCategory.count.mockResolvedValue(3 as never)
-
-    await patch({ ratingMode: 'WEIGHTED' })
-
-    expect(prisma.ratingCategory.createMany).not.toHaveBeenCalled()
-  })
-
-  it('does not seed when switching to SIMPLE', async () => {
-    prisma.ratingCategory.count.mockResolvedValue(0 as never)
-
-    await patch({ ratingMode: 'SIMPLE' })
-
-    expect(prisma.ratingCategory.count).not.toHaveBeenCalled()
-    expect(prisma.ratingCategory.createMany).not.toHaveBeenCalled()
-  })
-
   it('returns the serialized user with the ciphertext stripped', async () => {
-    tx.user.update.mockResolvedValue({
+    prisma.user.update.mockResolvedValue({
       ...updatedUser(),
       gddlApiKeyEncrypted: 'ciphertext-blob',
-    })
+    } as never)
 
     const body = (await (await patch({ profilePublic: true })).json()) as {
       data: Record<string, unknown>
@@ -520,55 +460,11 @@ describe('PATCH /me', () => {
   })
 
   it('returns 500 on a database error', async () => {
-    tx.user.update.mockRejectedValue(new Error('DB error'))
+    prisma.user.update.mockRejectedValue(new Error('DB error') as never)
 
     const res = await patch({ profilePublic: true })
 
     expect(res.status).toBe(500)
-  })
-
-  it('logs a RATING_CONFIG_CHANGE when the rating mode actually switches', async () => {
-    // The mode is rating CONFIGURATION even though it rides along with every
-    // other preference on this route — PUT /me/rating-config never sees it.
-    prisma.user.findUniqueOrThrow.mockResolvedValue({
-      ratingMode: 'SIMPLE',
-    } as never)
-    prisma.ratingCategory.count.mockResolvedValue(1 as never)
-
-    await patch({ ratingMode: 'WEIGHTED' })
-
-    expect(modeEventData()).toMatchObject({
-      eventType: 'RATING_CONFIG_CHANGE',
-      fieldChanges: {
-        create: [
-          {
-            fieldName: 'rating_mode',
-            category: 'RATING_CONFIG',
-            oldValue: 'SIMPLE',
-            newValue: 'WEIGHTED',
-          },
-        ],
-      },
-    })
-  })
-
-  it('logs nothing when the mode is re-sent unchanged', async () => {
-    prisma.user.findUniqueOrThrow.mockResolvedValue({
-      ratingMode: 'WEIGHTED',
-    } as never)
-    prisma.ratingCategory.count.mockResolvedValue(1 as never)
-
-    await patch({ ratingMode: 'WEIGHTED' })
-
-    expect(modeEventData()).toBeNull()
-  })
-
-  it('does not read the previous mode when the body omits it', async () => {
-    // Every other preference edit stays a single write.
-    await patch({ profilePublic: true })
-
-    expect(prisma.user.findUniqueOrThrow).not.toHaveBeenCalled()
-    expect(modeEventData()).toBeNull()
   })
 })
 

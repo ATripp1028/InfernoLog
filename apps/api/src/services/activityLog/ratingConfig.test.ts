@@ -12,7 +12,6 @@ import { describe, expect, it } from 'vitest'
 import { Prisma } from '@prisma/client'
 import {
   buildRatingConfigChanges,
-  buildRatingModeChange,
   type RatingConfigState,
 } from './ratingConfig'
 
@@ -148,22 +147,5 @@ describe('buildRatingConfigChanges', () => {
     })
 
     expect(buildRatingConfigChanges(before, state())).toEqual([])
-  })
-})
-
-describe('buildRatingModeChange', () => {
-  it('records a mode switch', () => {
-    expect(buildRatingModeChange('SIMPLE', 'WEIGHTED')).toEqual([
-      {
-        fieldName: 'rating_mode',
-        category: 'RATING_CONFIG',
-        oldValue: 'SIMPLE',
-        newValue: 'WEIGHTED',
-      },
-    ])
-  })
-
-  it('produces nothing when the mode is re-sent unchanged', () => {
-    expect(buildRatingModeChange('WEIGHTED', 'WEIGHTED')).toEqual([])
   })
 })

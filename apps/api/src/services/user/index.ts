@@ -2,13 +2,12 @@ import { randomBytes } from 'crypto'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 
-// Default weighted-mode rating categories seeded for every new user (and
-// backfilled the first time an existing SIMPLE-mode user switches to
-// WEIGHTED — see PATCH /me). Weights sum to exactly 1.00.
+// The rating category seeded for every new user. One category at the full
+// weight, so a level's weighted average is just the score the user typed —
+// the simplest rating system the weighted one can express, and the starting
+// point for anyone who wants to split it into several.
 const DEFAULT_RATING_CATEGORIES = [
-  { name: 'Gameplay', weight: 0.34, sortOrder: 0 },
-  { name: 'Decoration', weight: 0.33, sortOrder: 1 },
-  { name: 'Song', weight: 0.33, sortOrder: 2 },
+  { name: 'Overall', weight: 1, sortOrder: 0 },
 ] as const
 
 const DEFAULT_COLLECTIONS = [
@@ -45,10 +44,8 @@ export async function createUserForSignup(email: string, cognitoSub: string) {
 }
 
 /**
- * Default weighted-mode rating categories (Gameplay / Decoration / Song,
- * weights summing to exactly 1.00). Seeded for every new user, and backfilled
- * the first time an existing SIMPLE-mode user switches to WEIGHTED — see
- * PATCH /v1/me.
+ * The rating categories seeded for every new user: a single "Overall" at
+ * weight 1.00. Also re-seeded by the E2E reset script.
  */
 export { DEFAULT_RATING_CATEGORIES }
 

@@ -3,15 +3,15 @@ import type { OverallRatingConfig } from '@infernolog/core'
 import { applyEdit } from '../ranking'
 import { makeListItem } from '@/utils/testUtils'
 
-const SIMPLE: OverallRatingConfig = {
-  ratingMode: 'SIMPLE',
+// One category at the full weight — the shape a fresh account has, where the
+// weighted average is exactly the score the user typed.
+const SOLE: OverallRatingConfig = {
   includeEnjoyment: false,
   enjoymentWeight: 0,
-  categoryWeights: new Map(),
+  categoryWeights: new Map([['overall', 1]]),
 }
 
 const WEIGHTED: OverallRatingConfig = {
-  ratingMode: 'WEIGHTED',
   includeEnjoyment: false,
   enjoymentWeight: 0,
   categoryWeights: new Map([
@@ -21,13 +21,16 @@ const WEIGHTED: OverallRatingConfig = {
 }
 
 describe('applyEdit', () => {
-  it('takes the new simple rating as the overall rating', () => {
+  it('takes a lone category’s new score as the overall rating', () => {
     const row = makeListItem({ overallRating: 40 })
 
     const next = applyEdit(
       row,
-      { levelId: row.level.inGameId, simpleRating: 90 },
-      SIMPLE
+      {
+        levelId: row.level.inGameId,
+        ratingScores: [{ categoryId: 'overall', score: 90 }],
+      },
+      SOLE
     )
 
     expect(next.overallRating).toBe(90)
@@ -92,8 +95,11 @@ describe('applyEdit', () => {
 
     const next = applyEdit(
       row,
-      { levelId: row.level.inGameId, simpleRating: 90 },
-      SIMPLE
+      {
+        levelId: row.level.inGameId,
+        ratingScores: [{ categoryId: 'overall', score: 90 }],
+      },
+      SOLE
     )
 
     expect(next.level).toBe(row.level)

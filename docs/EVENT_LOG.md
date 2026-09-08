@@ -45,7 +45,7 @@ feed entry; a missed ranking event corrupts every reconstruction that spans it.
 | `DEMON_LIST_BULK_REPLACE` | The whole list | Impact rows   | The spreadsheet import's full replace of the demon list                                                               |
 | `DEMON_LIST_REBALANCE`    | The whole list | Impact rows   | The inline index renormalization                                                                                      |
 | `LOG_EDIT`                | One level      | Field changes | `PATCH /v1/me/progress/:levelId`                                                                                      |
-| `RATING_CONFIG_CHANGE`    | The account    | Field changes | `PUT /v1/me/rating-config`; a rating-mode switch on `PATCH /v1/me`                                                    |
+| `RATING_CONFIG_CHANGE`    | The account    | Field changes | `PUT /v1/me/rating-config`                                                                                            |
 
 `DEMON_LIST_REBALANCE` is **internal-only** — the one hidden type. It exists so
 every level's logged index values stay in one coordinate system; the order the
@@ -96,7 +96,7 @@ editable field means adding one line to it.
 
 | Category         | Fields                                                                                                                                                                                                                                                                                             |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RATING`         | `simple_rating`, `rating_score:<categoryId>` (one per weighted category), `enjoyment`                                                                                                                                                                                                              |
+| `RATING`         | `rating_score:<categoryId>` (one per rating category), `enjoyment`                                                                                                                                                                                                                                 |
 | `SESSION_DETAIL` | `percentage`, `run_from`, `run_to`, `attempts`, `date`, `date_timezone`, `date_uncertain`, `fps`, `percentage_version`, `on_stream`, `device`, `notes`, `two_player_solo`, `two_player_partner`, `worst_fail`, `worst_fail_date`, `worst_fail_date_timezone`, `coins_collected`, `completion_time` |
 | `METADATA`       | `difficulty_opinion`, `user_gddl_tier`, `level_notes`                                                                                                                                                                                                                                              |
 
@@ -133,9 +133,9 @@ A rating change does record what it did to the two things that _are_ ordered by
 score. Both are ordinary `activity_log_field_change` rows on the same event,
 carrying `category = RATING`:
 
-| `fieldName`        | Holds                                                             |
-| ------------------ | ----------------------------------------------------------------- |
-| `weighted_average` | The level's overall rating, before and after the save             |
+| `fieldName`        | Holds                                                                                                                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weighted_average` | The level's overall rating, before and after the save                                                                                                                                                                                                                 |
 | `rating_rank`      | Its 1-based position in the user's rating order, before and after. That order is defined once, by `ratingOrderComparator` in `packages/core/src/ratingOrder.ts`, and is the same one the Ranking page renders — see `RATING_SYSTEM.md` → "The Canonical Rating Order" |
 
 These are the one deliberate exception to "actually changed is measured against
@@ -181,14 +181,10 @@ Rows it can carry:
   save, and a per-category row set would have to invent a stable identity for a
   category that does not have one yet.
 - `include_enjoyment`, `enjoyment_weight`, `enjoyment_sort_order` — scalars.
-- `rating_mode` — the SIMPLE ↔ WEIGHTED switch.
 
-`rating_mode` comes from a different endpoint. `User.ratingMode` is written by
-`PATCH /v1/me` alongside every other preference and is not part of the
-rating-config payload at all, so that route emits its own `RATING_CONFIG_CHANGE`
-when — and only when — the mode actually moves. Without it the event type would be
-lying by omission about the most consequential setting in a user's rating setup.
-Nothing else on `PATCH /v1/me` is logged.
+`PUT /v1/me/rating-config` is the only source. There is no rating mode to switch
+and nothing rating-shaped rides on `PATCH /v1/me`, so that route emits nothing at
+all.
 
 **A config change never logs its knock-on effect on levels.** Changing a weight
 shifts every level's weighted total and can reshuffle a rating-sorted view, and

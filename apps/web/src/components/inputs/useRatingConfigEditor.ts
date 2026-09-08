@@ -1,6 +1,14 @@
 // Logic for RatingConfigEditor: the unified category + enjoyment priority
-// list, its validation (weights summing to exactly 1.00, names present and
-// unique), the bulk weight operations, and the save/reset writers.
+// list, its validation (at least one category, weights summing to exactly
+// 100%, names present and unique), the bulk weight operations, and the
+// save/reset writers.
+//
+// Weights are held here as WHOLE PERCENTS (0–100) for the editor's whole
+// lifetime, which is the unit the user sees and types. The wire and the
+// database speak a fraction of 1.00, so `buildInitial` converts in and
+// `handleSave` converts back out — `lib/ratingScale` owns both directions.
+// Keeping percents inside means the sum check is plain integer arithmetic
+// rather than a float comparison dressed up as one.
 
 import { useEffect, useImperativeHandle, useMemo, useState } from 'react'
 import type { Ref } from 'react'
@@ -12,6 +20,7 @@ import {
   useUpdateRatingConfig,
   type MeData,
 } from '@/lib/api/me'
+import { toWeightFraction, toWeightPercent } from '@/lib/ratingScale'
 import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 
 /**
@@ -26,11 +35,13 @@ export type EditableItem =
       localKey: string
       id?: string
       name: string
+      /** Whole percent, 0–100 — see the module header. */
       weight: number
     }
   | {
       kind: 'enjoyment'
       localKey: 'ENJOYMENT'
+      /** Whole percent, 0–100 — see the module header. */
       weight: number
     }
 
@@ -89,11 +100,10 @@ export function useRatingConfigEditor(
     [items, includeEnjoyment]
   )
 
-  const cents = visibleItems.reduce(
-    (acc, i) => acc + Math.round(i.weight * 100),
-    0
-  )
-  const sumValid = cents === RATING_WEIGHT_SUM_TARGET_CENTS
+  // Already whole percents, so this is a plain sum. The target is 100 in
+  // either unit, which is why the shared constant still names it.
+  const total = visibleItems.reduce((acc, i) => acc + i.weight, 0)
+  const sumValid = total === RATING_WEIGHT_SUM_TARGET_CENTS
 
   const categoryItems = items.filter(
     (i): i is CategoryItem => i.kind === 'category'
@@ -114,7 +124,13 @@ export function useRatingConfigEditor(
     !equalItems(items, initial.items) ||
     includeEnjoyment !== initial.includeEnjoyment
 
-  const canSave = dirty && sumValid && !hasEmptyName && !hasDuplicateName
+  // An empty list is editable but not savable: clearing every row to start
+  // over is a normal thing to do, and blocking the delete instead of the save
+  // would make the editor fight the user. PUT /v1/me/rating-config rejects it
+  // too — every level's rating is an average of these.
+  const hasNoCategories = categoryItems.length === 0
+  const canSave =
+    dirty && sumValid && !hasNoCategories && !hasEmptyName && !hasDuplicateName
 
   const handleSave = async (): Promise<boolean> => {
     if (!canSave) return false
@@ -127,10 +143,10 @@ export function useRatingConfigEditor(
           .map((c) => ({
             ...(c.id ? { id: c.id } : {}),
             name: c.name.trim(),
-            weight: roundCents(c.weight),
+            weight: toWeightFraction(c.weight),
           })),
         includeEnjoyment,
-        enjoymentWeight: roundCents(enjoymentItem?.weight ?? 0),
+        enjoymentWeight: toWeightFraction(enjoymentItem?.weight ?? 0),
         // Persist enjoyment's place in the unified list. Default to end
         // of list when the row isn't currently present.
         enjoymentSortOrder: enjoymentIdx >= 0 ? enjoymentIdx : items.length,
@@ -187,13 +203,13 @@ export function useRatingConfigEditor(
     setItems((prev) => {
       const existing = prev.find((i) => i.kind === 'enjoyment')
       if (next) {
-        // Toggling on. Default-on rule: jump to 0.5 if the current value is
-        // 0 or 1 (the unused-default values). Otherwise keep whatever the
+        // Toggling on. Default-on rule: jump to 50% if the current value is
+        // 0 or 100 (the unused-default values). Otherwise keep whatever the
         // user previously set so toggling-off-and-on doesn't destroy work.
         const seedWeight =
-          existing && existing.weight !== 0 && existing.weight !== 1
+          existing && existing.weight !== 0 && existing.weight !== 100
             ? existing.weight
-            : 0.5
+            : 50
         if (existing) {
           return prev.map((i) =>
             i.kind === 'enjoyment' ? { ...i, weight: seedWeight } : i
@@ -218,8 +234,8 @@ export function useRatingConfigEditor(
     const targets = visibleItems
     const n = targets.length
     if (n === 0) return
-    const baseCents = Math.floor(100 / n)
-    const remainderCents = 100 - baseCents * (n - 1)
+    const base = Math.floor(100 / n)
+    const remainder = 100 - base * (n - 1)
     // First visible item (highest priority) gets the remainder. Map back
     // to the original `items` array by localKey so off-list (toggled-off
     // enjoyment) entries don't get touched.
@@ -227,9 +243,7 @@ export function useRatingConfigEditor(
     setItems((prev) =>
       prev.map((i) => {
         if (i.kind === 'enjoyment' && !includeEnjoyment) return i
-        const weight =
-          i.localKey === firstKey ? remainderCents / 100 : baseCents / 100
-        return { ...i, weight }
+        return { ...i, weight: i.localKey === firstKey ? remainder : base }
       })
     )
   }
@@ -300,8 +314,9 @@ export function useRatingConfigEditor(
     handleEnjoymentToggle,
 
     // Validation
-    cents,
+    total,
     sumValid,
+    hasNoCategories,
     hasEmptyName,
     hasDuplicateName,
 
@@ -326,7 +341,7 @@ function buildInitial(me: MeData): {
       localKey: c.id,
       id: c.id,
       name: c.name,
-      weight: c.weight,
+      weight: toWeightPercent(c.weight),
     }))
 
   // Insert enjoyment into the list at its persisted index. We splice it in
@@ -337,19 +352,11 @@ function buildInitial(me: MeData): {
     cats.splice(insertAt, 0, {
       kind: 'enjoyment',
       localKey: ENJOYMENT_KEY,
-      weight: me.enjoymentWeight,
+      weight: toWeightPercent(me.enjoymentWeight),
     })
   }
 
   return { items: cats, includeEnjoyment: me.includeEnjoyment }
-}
-
-// 2-decimal rounding — matches the Decimal(5,2) DB column and the
-// integer-cents sum check. Anything finer is silently truncated so the
-// server never sees more precision than it stores.
-function roundCents(n: number): number {
-  if (!Number.isFinite(n)) return 0
-  return Math.round(n * 100) / 100
 }
 
 function equalItems(a: EditableItem[], b: EditableItem[]): boolean {
@@ -359,7 +366,7 @@ function equalItems(a: EditableItem[], b: EditableItem[]): boolean {
     const bi = b[i]!
     if (ai.kind !== bi.kind) return false
     if (ai.localKey !== bi.localKey) return false
-    if (roundCents(ai.weight) !== roundCents(bi.weight)) return false
+    if (ai.weight !== bi.weight) return false
     if (ai.kind === 'category' && bi.kind === 'category') {
       if (ai.id !== bi.id) return false
       if (ai.name !== bi.name) return false

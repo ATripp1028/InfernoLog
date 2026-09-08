@@ -179,7 +179,7 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
     expect(onlyUpdate(ctx).data).toMatchObject({ dateTimezone: null })
   })
 
-  // Enjoyment arrives already on the stored 0-100 scale, unlike simpleRating.
+  // Enjoyment arrives already on the stored 0-100 scale, unlike a category score.
   it('writes enjoyment unscaled', () => {
     const { ctx } = merge({ enjoyment: 85 })
 

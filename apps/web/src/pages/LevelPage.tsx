@@ -70,7 +70,6 @@ export function LevelPage() {
 
   const {
     dateFormatPreference,
-    ratingMode,
     includeEnjoyment,
     enjoymentWeight,
     ratingCategories,
@@ -130,7 +129,6 @@ export function LevelPage() {
           <StatGrid
             data={data}
             datePref={dateFormatPreference}
-            ratingMode={ratingMode}
             includeEnjoyment={includeEnjoyment}
             enjoymentWeight={enjoymentWeight}
             ratingCategories={ratingCategories}
@@ -213,7 +211,6 @@ export function LevelPage() {
                   <StatGrid
                     data={data}
                     datePref={dateFormatPreference}
-                    ratingMode={ratingMode}
                     includeEnjoyment={includeEnjoyment}
                     enjoymentWeight={enjoymentWeight}
                     ratingCategories={ratingCategories}

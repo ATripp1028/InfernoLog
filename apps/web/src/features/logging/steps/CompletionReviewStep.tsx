@@ -24,8 +24,6 @@ export function CompletionReviewStep() {
   useFlowBusy(logCompletion.isPending)
   if (!level || !me.data) return null
 
-  const weighted = me.data.ratingMode === 'WEIGHTED'
-
   const attempts = draft.attempts.trim()
     ? `${formatNumber(Number(draft.attempts))} attempts`
     : null
@@ -36,7 +34,6 @@ export function CompletionReviewStep() {
   // The rating step's readout runs this same pair of helpers on the same
   // draft, so the number here is the one the user already saw.
   const overallRating = computeOverallRating(overallRatingConfig(me.data), {
-    simpleRating: draft.simpleRating,
     enjoyment: draft.enjoyment,
     ratingScores: ratingScoresFromDraft(draft.ratingScores),
   })
@@ -103,7 +100,7 @@ export function CompletionReviewStep() {
           {overallRating != null && (
             <Row
               label="Rating"
-              value={`${formatScore(overallRating)}${weighted ? ' (weighted)' : ''}`}
+              value={`${formatScore(overallRating)} (weighted)`}
             />
           )}
           {draft.enjoyment != null && (

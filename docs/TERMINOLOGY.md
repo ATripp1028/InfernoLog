@@ -52,7 +52,7 @@ The user's personal difficulty ordering of their completed levels, arranged manu
 **Always possessive in UI copy** — "my demon list", "your demon list", "Alex's demon list". Never "the Demon List": with the definite article it reads as Pointercrate's list rather than the user's own. The possessive also carries over unchanged to public profiles, where another user's page shows "Alex's demon list".
 
 **The Ranking**
-The user's completed levels ordered by rating, highest first, every entry numbered. Derived from the rating in SIMPLE and WEIGHTED modes and stored directly in MANUAL mode. Route `/ranking`. Distinct from the demon list, which orders by difficulty rather than quality.
+The user's completed levels ordered by rating, highest first, every entry numbered. Derived from the ratings rather than stored — there is no order to arrange by hand. Route `/ranking`. Distinct from the demon list, which orders by difficulty rather than quality and IS arranged by hand.
 
 **The Level Page**
 The full page for a single level in the context of the user's data (`/log/{levelId}`). Shows the complete progress history for that level — all progress entries in timeline form. Distinct from the Global Level Page.

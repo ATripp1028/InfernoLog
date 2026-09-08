@@ -52,7 +52,6 @@ interface ExistingCompletionSnapshot {
   highlightUrl: string | null
   notes: string | null
   enjoyment: number | null // internal 0-100
-  simpleRating: number | null // internal 0-100
   difficultyOpinion: string | null
   coinsCollected: number | null
   twoPlayerSolo: boolean | null
@@ -90,17 +89,11 @@ function diffCompletionFields(
   push('videoUrl', existing.videoUrl, row.videoUrl ?? null)
   push('highlightUrl', existing.highlightUrl, row.highlightUrl ?? null)
   push('notes', existing.notes, row.notes ?? null)
-  // Each figure is reported on the scale its own ImportCompletionRow field
-  // carries — enjoyment on the internal 0-100, simpleRating on the wire's
-  // 0-10 — not uniformly on the storage scale. A resolved 'existing' choice
-  // gets written straight back into `row.data` with no further conversion, so
-  // the diff value and the row's own field must already agree.
+  // Reported on the scale the ImportCompletionRow field itself carries — for
+  // enjoyment that is the internal 0-100, not a display scale. A resolved
+  // 'existing' choice gets written straight back into `row.data` with no
+  // further conversion, so the diff value and the row's own field must agree.
   push('enjoyment', existing.enjoyment, row.enjoyment ?? null)
-  push(
-    'simpleRating',
-    existing.simpleRating != null ? existing.simpleRating / 10 : null,
-    row.simpleRating ?? null
-  )
   push(
     'difficultyOpinion',
     existing.difficultyOpinion,
@@ -277,7 +270,6 @@ export async function checkImportConflicts(
       highlightUrl: pu.highlightUrl,
       notes: pu.notes,
       enjoyment: pu.enjoyment,
-      simpleRating: lp.simpleRating,
       difficultyOpinion: lp.difficultyOpinion,
       coinsCollected: lp.coinsCollected,
       twoPlayerSolo: pu.twoPlayerSolo,

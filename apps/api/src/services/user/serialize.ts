@@ -23,7 +23,6 @@ export const meSelect = {
   discordId: true,
   profilePublic: true,
   discordPublic: true,
-  ratingMode: true,
   defaultFps: true,
   defaultPercentageVersion: true,
   defaultDevice: true,

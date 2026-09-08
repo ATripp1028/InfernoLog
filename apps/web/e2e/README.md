@@ -130,7 +130,12 @@ A stage that has never run the suite needs three one-time steps, in this order:
 2. **`pnpm e2e:provision`** from `apps/api` — the native Cognito identity and
    its `users` row, created through the same `createUserForSignup` the real
    signup route calls, so the E2E user gets the real default collections and
-   rating categories. Idempotent.
+   rating category — a single "Overall" at the full weight, which is what lets
+   the suite treat a typed score as the level's whole rating. Idempotent, and
+   only ever CREATES that row: run against a stage that already has one it
+   repoints the Cognito sub and nothing else. Changing the defaults needs no
+   re-provision, because `resetE2eUser` re-seeds the rating categories from
+   `DEFAULT_RATING_CATEGORIES` on every run.
 3. **`pnpm db:seed:official`** from `apps/api` — the fixture levels
    (`src/scripts/e2eFixtures.ts`, mirrored in `e2e/fixtures/levels.ts`). Their
    in-game IDs are synthetic and fixed, so nothing in the suite depends on

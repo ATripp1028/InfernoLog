@@ -12,8 +12,8 @@
 //    completion is just a ProgressUpdate with kind = COMPLETION; a drop is
 //    kind = DROP. There's no separate table for "attempting" vs "completed"
 //    vs "dropped" — see the ProgressUpdate model below.
-//  - Rating scores are always stored raw per-category; weighted averages are
-//    computed at query time, never stored.
+//  - Ratings are per-category scores against the user's own rating categories;
+//    the weighted average is computed at query time, never stored.
 //  - Classic and platformer levels are parallel, independent systems
 //    (LevelType), accommodated from day one.
 //
@@ -68,19 +68,6 @@ enum AccountStatus {
   ACTIVE
   SUSPENDED
   BANNED
-}
-
-// SIMPLE = one score per level (LevelProgress.simpleRating).
-// WEIGHTED = per-category scores (RatingScore rows) that are combined into a
-// weighted average.
-// MANUAL = the user orders their completions by hand and the POSITION is the
-// rating — there is no number. computeOverallRating returns null in this mode,
-// and the Ranking page reads rating_ranking.ratingIndex instead. See RATING_SYSTEM.md.
-// Works identically to the demon list
-enum RatingMode {
-  SIMPLE
-  WEIGHTED
-  MANUAL
 }
 
 enum DateFormatPreference {
@@ -166,7 +153,7 @@ enum EntryVisibility {
 //     level by level would bury every other event they have. The levels it
 //     touched are its impact rows.
 //
-//   DEMON_LIST_REBALANCE, RATING_REBALANCE — INTERNAL ONLY. The renormalisation inside
+//   DEMON_LIST_REBALANCE — INTERNAL ONLY. The renormalisation inside
 //     services/ranking, which rewrites every index while leaving the ORDER
 //     untouched. It exists so every level's logged listIndex history stays
 //     in one coordinate system and reconstruction can't silently drift. The
@@ -179,11 +166,6 @@ enum ActivityEventType {
   DEMON_LIST_REMOVED
   DEMON_LIST_BULK_REPLACE
   DEMON_LIST_REBALANCE
-  RATING_PLACEMENT
-  RATING_REORDER
-  RATING_REMOVED
-  RATING_BULK_REPLACE
-  RATING_REBALANCE
   LOG_EDIT
   RATING_CONFIG_CHANGE
 }
@@ -211,7 +193,7 @@ enum ActivityImpactRole {
 //                    step (see docs/LOGGING_FLOW.md).
 //   METADATA       — the user's read of the LEVEL rather than of one run:
 //                    difficulty opinion, GDDL tier opinion, level notes.
-//   RATING_CONFIG  — weighted-mode configuration, on RATING_CONFIG_CHANGE
+//   RATING_CONFIG  — rating categories and weights, on RATING_CONFIG_CHANGE
 //                    events only. Never appears on a LOG_EDIT.
 enum ActivityFieldCategory {
   RATING
@@ -293,9 +275,9 @@ enum GdVersion {
 // invocations don't share memory; see apps/api/src/utils/robtopRateLimit.ts.
 // Always exactly one row (id = "singleton").
 model RobtopRateLimit {
-  id           String   @id @default("singleton")
-  tokens       Float
-  lastRefillAt DateTime @default(now())
+  id            String    @id @default("singleton")
+  tokens        Float
+  lastRefillAt  DateTime  @default(now())
   // Set when a caller reports a RobTop 429 (see utils/robtopRateLimit.ts). While
   // now() < cooldownUntil no token is granted, so EVERY RobTop consumer (sync,
   // resolve, GDDL syncs) backs off together and lets the per-IP block recover
@@ -353,88 +335,86 @@ model LevelSyncCursor {
 // ─────────────────────────────────────────────
 
 model User {
-  id                    String               @id @default(uuid())
-  username              String               @unique
-  usernameChangedAt     DateTime?
-  previousUsername      String?
-  email                 String               @unique
-  discordId             String?              @unique
-  cognitoSub            String?              @unique
-  onboardingCompleted   Boolean              @default(false)
+  id                  String    @id @default(uuid())
+  username            String    @unique
+  usernameChangedAt   DateTime?
+  previousUsername    String?
+  email               String    @unique
+  discordId           String?   @unique
+  cognitoSub          String?   @unique
+  onboardingCompleted Boolean   @default(false)
   // Set when the user checks "I agree" on the combined ToS/Privacy Policy
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
   // accounts, or an in-progress signup).
-  legalAcceptedAt       DateTime?
+  legalAcceptedAt     DateTime?
 
   // Privacy — global override. A private profile forces all entries private
   // regardless of per-entry EntryVisibility; see that enum for the current
   // (partial) state of per-entry privacy.
-  profilePublic         Boolean              @default(true)
-  discordPublic         Boolean              @default(true)
+  profilePublic Boolean @default(true)
+  discordPublic Boolean @default(true)
 
   // Role & status
-  role                  Role                 @default(USER)
-  accountStatus         AccountStatus        @default(ACTIVE)
-  suspensionUntil       DateTime?
+  role            Role          @default(USER)
+  accountStatus   AccountStatus @default(ACTIVE)
+  suspensionUntil DateTime?
 
   // Verification — derived as verifiedAt != null (see PublicUserProfileSchema).
-  verifiedAt            DateTime?
+  verifiedAt DateTime?
 
   // GDDL integration — key stored encrypted, never exposed to frontend.
   // gddlUsername is the GDDL account name confirmed when the key is verified;
   // it is public and shown in the connected-accounts UI.
-  gddlApiKeyEncrypted   String?
-  gddlUsername          String?              @unique
+  gddlApiKeyEncrypted String?
+  gddlUsername        String? @unique
 
   // Preferences
-  ratingMode            RatingMode           @default(SIMPLE)
   // Default FPS pre-filled into the Log Level form. Always >= 60 (the GD
   // floor); enforced at the application layer.
-  defaultFps            Int                  @default(60)
+  defaultFps               Int                  @default(60)
   // Default GD version for percentage interpretation (2.1 = distance-based,
   // 2.2 = time-based). Pre-filled into the Log Level form.
-  defaultPercentageVersion GdVersion         @default(TWO_TWO)
+  defaultPercentageVersion GdVersion            @default(TWO_TWO)
   // Default device pre-filled into the Log Level form.
-  defaultDevice         Device               @default(pc)
-  timeMachineTopN       Int                  @default(10)
-  dateFormatPreference  DateFormatPreference @default(MDY)
-  showHighlightUrl      Boolean              @default(false)
+  defaultDevice            Device               @default(pc)
+  timeMachineTopN          Int                  @default(10)
+  dateFormatPreference     DateFormatPreference @default(MDY)
+  showHighlightUrl         Boolean              @default(false)
   // Desktop FABs (logging, level-page, collections): whether hovering the
   // group immediately shows every action's label, vs. only the one under
   // the pointer. Defaults on so new users can learn the icons.
-  autoExpandFabLabels   Boolean              @default(true)
-  includeEnjoyment      Boolean              @default(false)
+  autoExpandFabLabels      Boolean              @default(true)
+  includeEnjoyment         Boolean              @default(false)
   // Weights are normalized: sum of active rating-category weights plus
   // enjoymentWeight (when includeEnjoyment is true) must equal 1.00 (in
   // integer cents). Two decimal places — UI distributes any 1/N remainder
   // to the top item in the priority order rather than chasing precision.
-  enjoymentWeight       Decimal              @default(0) @db.Decimal(5, 2)
+  enjoymentWeight          Decimal              @default(0) @db.Decimal(5, 2)
   // Position of the "enjoyment" virtual row in the unified priority list.
   // 99 puts it after any reasonable number of categories the first time
   // a user enables enjoyment; explicit drags overwrite.
-  enjoymentSortOrder    Int                  @default(99)
+  enjoymentSortOrder       Int                  @default(99)
 
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  levelProgress         LevelProgress[]
-  classicDemonList      ClassicDemonList[]
-  ratingRanking         RatingRanking[]
-  collections           Collection[]
-  apiKeys               ApiKey[]
-  ratingCategories      RatingCategory[]
-  logPresets            LogPreset[]
-  importJob             ImportJob?
-  robtopBudget          RobtopUserBudget?
-  reportsSubmitted      Report[]             @relation("ReporterRelation")
-  reportsReceived       Report[]             @relation("ReportedUserRelation")
-  reportsModerated      Report[]             @relation("AssignedModeratorRelation")
-  banAppeals            BanAppeal[]
-  moderationActionsBy   ModerationAction[]   @relation("ModeratorRelation")
-  moderationActionsOn   ModerationAction[]   @relation("TargetUserRelation")
-  banAppealsReviewed    BanAppeal[]          @relation("ReviewedByRelation")
-  activityLog           ActivityLog[]
+  levelProgress       LevelProgress[]
+  classicDemonList    ClassicDemonList[]
+  collections         Collection[]
+  apiKeys             ApiKey[]
+  ratingCategories    RatingCategory[]
+  logPresets          LogPreset[]
+  importJob           ImportJob?
+  robtopBudget        RobtopUserBudget?
+  reportsSubmitted    Report[]           @relation("ReporterRelation")
+  reportsReceived     Report[]           @relation("ReportedUserRelation")
+  reportsModerated    Report[]           @relation("AssignedModeratorRelation")
+  banAppeals          BanAppeal[]
+  moderationActionsBy ModerationAction[] @relation("ModeratorRelation")
+  moderationActionsOn ModerationAction[] @relation("TargetUserRelation")
+  banAppealsReviewed  BanAppeal[]        @relation("ReviewedByRelation")
+  activityLog         ActivityLog[]
 
   @@map("users")
 }
@@ -447,18 +427,18 @@ model Level {
   // Primary key is the in-game GD level ID, not a UUID.
   // Every GD API uses this as source of truth.
   // Reuploads share the same in-game data and are treated as the same level.
-  inGameId              String               @id
-  levelType             LevelType            @default(CLASSIC)
-  isRated               Boolean              @default(false)
+  inGameId  String    @id
+  levelType LevelType @default(CLASSIC)
+  isRated   Boolean   @default(false)
   // Whether GD classifies this as a demon. Cached from GDBrowser's `demon`
   // flag. Drives the informational non-demon notice in the logging flow and
   // demon-first display ordering; it gates no capability — a non-demon can be
   // logged, rated and ranked exactly like a demon.
-  isDemon               Boolean              @default(false)
+  isDemon   Boolean   @default(false)
 
   // Core metadata — populated by GDBrowser autofill
-  name                  String?
-  creator               String?
+  name             String?
+  creator          String?
   // The level's actual rated difficulty (e.g. "Insane Demon"), cached from
   // GDBrowser and read-only in the UI — EXCEPT on the manual-entry fallback,
   // where the user-entered difficulty becomes this value (data_source=manual).
@@ -477,12 +457,12 @@ model Level {
   //
   // The per-user difficulty *opinion* lives on LevelProgress.difficultyOpinion,
   // and is on a DIFFERENT, subjective 1-9 star scale. Don't mix the two.
-  inGameDifficulty      String?
+  inGameDifficulty String?
   // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
   // entered on the manual-entry fallback.
-  length                String?
-  songName              String?              // Newgrounds song
-  songAuthor            String?
+  length           String?
+  songName         String? // Newgrounds song
+  songAuthor       String?
 
   // NONG fields (v2) — sourced entirely from Song File Hub, never manually
   // entered. isNong is derived from SFH: true when a match is found (rated
@@ -492,22 +472,22 @@ model Level {
   // null). A level is re-checked at most once every ~6 months (SFH_RECHECK_DAYS)
   // since a level's song almost never changes; a null sfhCheckedAt is always due
   // so failed checks retry. See EXTERNAL_APIS.md decision log.
-  isNong                Boolean              @default(false)
-  sfhCheckedAt          DateTime?
-  sfhId                 String?              // SFH's _id — canonical key if
-                                             // multiple results ever appear
+  isNong            Boolean   @default(false)
+  sfhCheckedAt      DateTime?
+  sfhId             String? // SFH's _id — canonical key if
+  // multiple results ever appear
   // NOTE: SFH's `songID` is deliberately NOT stored. An SFH entry is keyed by
   // the Newgrounds song it replaces, so it always equals this level's `songId`
   // (the in-game placeholder song) — a separate column only invited a false
   // "all levels using this song" query. Read `songId` for the song identity.
-  sfhSongName           String?              // raw "Artist - Title" as
-                                             // returned by SFH, unsplit
-  sfhYoutubeUrl         String?              // songURL
-  sfhYoutubeVideoId     String?              // ytVideoID
-  sfhDownloadUrl        String?              // downloadUrl
-  sfhFileType           String?              // filetype
-  sfhDownloads          Int?                 // used to pick canonical if
-                                             // multiple results ever appear
+  sfhSongName       String? // raw "Artist - Title" as
+  // returned by SFH, unsplit
+  sfhYoutubeUrl     String? // songURL
+  sfhYoutubeVideoId String? // ytVideoID
+  sfhDownloadUrl    String? // downloadUrl
+  sfhFileType       String? // filetype
+  sfhDownloads      Int? // used to pick canonical if
+  // multiple results ever appear
 
   // ── Extended GDBrowser metadata ──────────────────────────────────────────
   // A snapshot of everything RobTop's level object exposes (via GDBrowser), so
@@ -515,77 +495,77 @@ model Level {
   // and can surface more of it in the UI later without a re-fetch. All optional:
   // null on manual rows and on rows cached before this was added. See
   // EXTERNAL_APIS.md and https://wyliemaster.github.io/gddocs (level object).
-  description           String?
+  description      String?
   // Creator identity beyond the display name.
-  creatorPlayerId       String?
-  creatorAccountId      String?
+  creatorPlayerId  String?
+  creatorAccountId String?
   // Rating / difficulty detail. stars is the awarded star/moon count (0 when
   // unrated → isRated) and, for a non-demon, the CANONICAL identifier of its
   // difficulty: 1-9, banded onto the six faces (see starDifficulty.ts), with
   // inGameDifficulty above as the display copy. Demons are always 10 regardless
   // of tier. partialDiff is GDBrowser's machine-readable difficulty token
   // ("demon-extreme", "demon-extreme-featured").
-  stars                 Int?
-  starsRequested        Int?
-  partialDiff           String?
+  stars            Int?
+  starsRequested   Int?
+  partialDiff      String?
   // Engagement / stats.
-  downloads             Int?
-  likes                 Int?
-  disliked              Boolean?
-  objectCount           Int?
-  coins                 Int?
-  coinsVerified         Boolean?
+  downloads        Int?
+  likes            Int?
+  disliked         Boolean?
+  objectCount      Int?
+  coins            Int?
+  coinsVerified    Boolean?
   // Showcase flags. epicValue: 0 none, 1 epic, 2 legendary, 3 mythic.
-  featured              Boolean?
-  featureScore          Int?
-  epicValue             Int?
+  featured         Boolean?
+  featureScore     Int?
+  epicValue        Int?
   // Build / publish detail.
-  twoPlayer             Boolean?
-  lowDetailMode         Boolean?
-  copiedFromId          String?
-  levelVersion          Int?
-  gameVersion           String?
+  twoPlayer        Boolean?
+  lowDetailMode    Boolean?
+  copiedFromId     String?
+  levelVersion     Int?
+  gameVersion      String?
   // Song detail beyond name/author. officialSongId is set when the level uses a
   // built-in track; songId is the Newgrounds/custom song id otherwise.
-  officialSongId        Int?
-  songId                String?
-  songLink              String?
+  officialSongId   Int?
+  songId           String?
+  songLink         String?
   // Raw megabyte value (e.g. 9.56). Format at the display layer.
-  songSize              Float?
+  songSize         Float?
 
   // Data provenance
-  dataSource            String               @default("manual") // "robtop_autofill" | "manual" | "official"
+  dataSource String  @default("manual") // "robtop_autofill" | "manual" | "official"
   // False for `manual` rows until a later RobTop sync backfills/verifies
   // (and may override) the manually-entered metadata.
-  verified              Boolean              @default(false)
+  verified   Boolean @default(false)
 
   // RobTop sync job fields
   // See EXTERNAL_APIS.md — a single frequent cron round-robins the cache a
   // bounded slice at a time (services/levelSync.ts), overwriting on diff. No
   // staging, no nudges.
-  lastCheckedAt         DateTime?
+  lastCheckedAt     DateTime?
   // Stamped whenever `isRated` flips or `inGameDifficulty` changes value.
-  ratingStatusSince     DateTime?
+  ratingStatusSince DateTime?
   // Set the FIRST time a sync sees the level missing from GD (RobTop "not
   // found"), and cleared the moment it's seen again. Delisting is NOT immediate:
   // a level must stay missing past a confirmation window (see levelSync.ts) so a
   // transient RobTop "-1"/rate-limit blip can't delist a live level. Null while
   // the level is present.
-  missingSince          DateTime?
+  missingSince      DateTime?
   // Set once a level has been confirmed gone (missing past the window) — derived
   // as delistedAt != null. A delisted row is frozen at its last-known values and
   // excluded from the main sync, but a low-cadence reverify pass re-checks it and
   // clears this if the level reappears (reuploads reuse the same inGameId).
-  delistedAt            DateTime?
+  delistedAt        DateTime?
 
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  levelProgress         LevelProgress[]
-  collectionEntries     CollectionEntry[]
-  activityLog           ActivityLog[]
-  activityImpacts       ActivityLogLevelImpact[]
+  levelProgress     LevelProgress[]
+  collectionEntries CollectionEntry[]
+  activityLog       ActivityLog[]
+  activityImpacts   ActivityLogLevelImpact[]
 
   // pg_trgm GIN index powering fuzzy/typo-tolerant name search
   // (GET /v1/levels/search). Queried via the `%` operator / similarity().
@@ -612,16 +592,16 @@ model Level {
 // ─────────────────────────────────────────────
 
 model LevelProgress {
-  id              String               @id @default(uuid())
-  userId          String
-  levelId         String               // FK → levels.inGameId
+  id      String @id @default(uuid())
+  userId  String
+  levelId String // FK → levels.inGameId
 
-  status          LevelProgressStatus  @default(IN_PROGRESS)
+  status LevelProgressStatus @default(IN_PROGRESS)
 
   // Best run from 0% (percentage) reached before beating or dropping the level
   // — the user's "worst fail". Captured on the completion and drop screens.
   // Level-scoped (one value per user/level), updated on each such log.
-  worstFail       Int?
+  worstFail             Int?
   // Date/time of the worst fail session. Time-of-day is optional — null
   // worstFailDateTimezone means no time was entered (legacy rows and the
   // common case), in which case this is midnight UTC and no time/zone is
@@ -634,16 +614,16 @@ model LevelProgress {
 
   // Per-entry privacy — independent of global profile visibility.
   // Use case: hide a completion until YouTube video goes live.
-  visibility      EntryVisibility      @default(PUBLIC)
+  visibility EntryVisibility @default(PUBLIC)
 
   // "About this level overall" — distinct from progress_updates.notes (which is
   // per-completion). Survives edits or deletions of individual progress updates.
   // One value per user per level.
-  levelNotes      String?
+  levelNotes String?
 
   // The user's own opinion on the level's GDDL tier. Set during completion
   // logging or via the edit form. Null when the user has not given an opinion.
-  userGddlTier    Int?
+  userGddlTier      Int?
   // The user's subjective difficulty opinion (the only difficulty they edit).
   // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
   // than a separate paired field. See LOGGING_FLOW.md.
@@ -655,29 +635,22 @@ model LevelProgress {
   // 2026-09-02; see that migration for the backfill.
   difficultyOpinion DifficultyOpinion?
 
-  // The user's single rating for this level (SIMPLE mode) — one score per
-  // level, not one per logged event. WEIGHTED mode scores live in
-  // RatingScore, also keyed on this row. Editable from any progress-editing
-  // surface, not just the completion. 0-100 internally, shown as 0-10 with
-  // decimals (internal / 10).
-  simpleRating    Int?
   // Coins collected bitmask (bit 0 = coin 1, etc.) — only meaningful once the
   // level is completed (coins only count on the winning attempt). Null = not
   // logged.
-  coinsCollected  Int?
+  coinsCollected Int?
   // Platformer levels only (v2): time of the completing attempt, in seconds.
-  completionTime  Int?
+  completionTime Int?
 
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user            User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  level           Level                @relation(fields: [levelId], references: [inGameId])
-  progressUpdates ProgressUpdate[]
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level            Level             @relation(fields: [levelId], references: [inGameId])
+  progressUpdates  ProgressUpdate[]
   classicDemonList ClassicDemonList?
-  ratingRanking    RatingRanking?
-  ratingScores    RatingScore[]
+  ratingScores     RatingScore[]
 
   @@unique([userId, levelId]) // One LevelProgress per user per level
   @@map("level_progress")
@@ -697,127 +670,127 @@ model LevelProgress {
 // ─────────────────────────────────────────────
 
 model ProgressUpdate {
-  id                    String          @id @default(uuid())
-  levelProgressId       String
+  id              String @id @default(uuid())
+  levelProgressId String
 
   // What this row represents. Only one COMPLETION per LevelProgress may exist
   // (enforced at application level); DROP may repeat (drop → resume → drop
   // again each get their own row).
-  kind                  ProgressUpdateKind @default(PROGRESS)
+  kind ProgressUpdateKind @default(PROGRESS)
 
   // Progress data
   // percentage: classic levels only (0-100). Null for platformer.
-  percentage            Decimal?        @db.Decimal(5, 2)
+  percentage Decimal? @db.Decimal(5, 2)
   // runFrom/runTo: best run range e.g. 44-87
-  runFrom               Int?
-  runTo                 Int?
+  runFrom    Int?
+  runTo      Int?
 
   // Attempt tracking
   // Convention: cumulative attempts across ALL uploads/copies of the level.
   // Honor system — cannot be enforced technically. Documented in UI tooltip.
-  attempts              Int?
+  attempts Int?
 
   // Session metadata
   // Time-of-day is optional — null dateTimezone means no time was entered
   // (legacy rows and the common case), in which case this is midnight UTC
   // and no time/zone is ever shown.
-  date                  DateTime?
+  date              DateTime?
   // IANA zone the time-of-day above was entered in (e.g. "America/New_York").
   // Null whenever date has no time component.
-  dateTimezone          String?
-  dateUncertain         Boolean         @default(false)
-  onStream              Boolean         @default(false)
-  fps                   Int?
+  dateTimezone      String?
+  dateUncertain     Boolean    @default(false)
+  onStream          Boolean    @default(false)
+  fps               Int?
   // Which GD version's percentage system was used. Only meaningful for classic
   // levels (percentage/runFrom/runTo). Null = not recorded (legacy entries).
-  percentageVersion     GdVersion?
+  percentageVersion GdVersion?
 
   // Ratings
   // enjoyment: logged per-event (any progress update, not just completions) —
-  // mirrors the GDDL's approach. Distinct from simpleRating/ratingScores,
-  // which live on LevelProgress (one current value per level, not per event).
-  enjoyment             Int?            // 0-100 internally, and shown on that same 0-100 scale.
+  // mirrors the GDDL's approach. Distinct from ratingScores, which live on
+  // LevelProgress (one current set of values per level, not per event).
+  enjoyment Int? // 0-100 internally, and shown on that same 0-100 scale.
 
   // Contextual metadata
   // Snapshot of in-game difficulty rating at time of logging
   // e.g. "Insane Demon", "Easy Demon". Can differ from current rating.
   // Populated automatically from the Level cache — never user-edited.
-  inGameDifficulty      String?
-  notes                 String?
+  inGameDifficulty String?
+  notes            String?
 
   // Media
-  videoUrl              String?         // Completion video
-  highlightUrl          String?         // Highlight reel — independent of onStream
+  videoUrl     String? // Completion video
+  highlightUrl String? // Highlight reel — independent of onStream
 
   // 2-player level logging. Null = not a 2-player level or not logged.
   // true = beat it solo; false = beat it with a partner.
-  twoPlayerSolo         Boolean?
-  twoPlayerPartner      String?         // Partner name when twoPlayerSolo = false
+  twoPlayerSolo    Boolean?
+  twoPlayerPartner String? // Partner name when twoPlayerSolo = false
 
   // Device the level was beaten on. Null = not logged.
-  device                Device?
+  device Device?
 
-  loggedAt              DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  loggedAt  DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  levelProgress         LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+  levelProgress LevelProgress @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
 
   @@map("progress_updates")
 }
 
 // ─────────────────────────────────────────────
-// RATING CATEGORIES (Weighted Mode)
-// User-configured categories for weighted average rating.
-// Default categories: Gameplay, Decoration, Song
+// RATING CATEGORIES
+// User-configured categories for the weighted-average rating. Every account
+// has at least one (PUT /v1/me/rating-config rejects an empty list); a new
+// account is seeded with a single "Overall" at weight 1.00, which reproduces
+// the one-score-per-level experience as an average of one term.
 // ─────────────────────────────────────────────
 
 model RatingCategory {
-  id                String          @id @default(uuid())
-  userId            String
+  id     String @id @default(uuid())
+  userId String
 
-  name              String
+  name      String
   // Normalized weight in [0, 1] to two decimal places; sum of active
   // weights for a user (plus enjoyment when enabled) must equal 1.00.
   // See User.enjoymentWeight.
-  weight            Decimal         @db.Decimal(5, 2)
-  sortOrder         Int
+  weight    Decimal @db.Decimal(5, 2)
+  sortOrder Int
 
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   // No onDelete action — RatingScore rows for a deleted category must be
   // removed explicitly by the caller (see PUT /v1/me/rating-config) before
   // deleting the category, or the categoryId FK on rating_scores rejects it.
-  ratingScores      RatingScore[]
+  ratingScores RatingScore[]
 
-  // Each user's category names must be unique. Also makes the default-seed
-  // path safe under concurrent transitions to WEIGHTED — duplicate inserts
-  // fail with P2002, which `createMany({ skipDuplicates: true })` silently
-  // drops instead of producing 6 categories.
+  // Each user's category names must be unique. Also the real guarantee behind
+  // PUT /v1/me/rating-config's own duplicate-name check, which a direct API
+  // hit can bypass: the write then fails with P2002 and is translated to 409.
   @@unique([userId, name])
   @@map("rating_categories")
 }
 
 // ─────────────────────────────────────────────
 // RATING SCORES
-// Per-category scores per level (one set per LevelProgress, not per event —
-// see LevelProgress.simpleRating for the SIMPLE-mode counterpart).
+// Per-category scores per level — one set per LevelProgress, not per event.
 // Weighted average computed at query time — never stored.
 // ─────────────────────────────────────────────
 
 model RatingScore {
-  id                String          @id @default(uuid())
-  levelProgressId   String
-  categoryId        String
+  id              String @id @default(uuid())
+  levelProgressId String
+  categoryId      String
 
-  score             Int             // 0-100 internally, shown as 0-10 with decimals (internal / 10).
+  score Int // 0-100 internally, shown as 0-10 with decimals (internal / 10).
 
   // Relations
-  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-  ratingCategory    RatingCategory  @relation(fields: [categoryId], references: [id])
+  levelProgress  LevelProgress  @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+  ratingCategory RatingCategory @relation(fields: [categoryId], references: [id])
 
   @@unique([levelProgressId, categoryId])
   @@map("rating_scores")
@@ -849,16 +822,16 @@ model RatingScore {
 // ─────────────────────────────────────────────
 
 model ClassicDemonList {
-  id                String          @id @default(uuid())
-  userId            String
-  levelProgressId   String          @unique // One demon list entry per level
+  id              String @id @default(uuid())
+  userId          String
+  levelProgressId String @unique // One demon list entry per level
 
   // Fractional index — lower = easier, higher = harder
-  listIndex         Decimal         @db.Decimal(20, 10)
+  listIndex Decimal @db.Decimal(20, 10)
 
   // Relations
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  levelProgress LevelProgress @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
 
   @@map("classic_demon_list")
 }
@@ -872,71 +845,36 @@ model ClassicDemonList {
 // pass resets to integers when a gap shrinks past 0.0001.
 // ─────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// RATING RANKING
-// The MANUAL rating mode's ordering: the user's completions arranged by hand,
-// best first, where the POSITION is the rating and no number exists.
-//
-// Deliberately the same shape as ClassicDemonList, because it is the same
-// problem on a different axis — quality rather than difficulty. Fractional
-// index, bisect to insert, inline renormalisation when a gap closes past
-// 0.0001 (utils/fractionalIndex).
-//
-// EVERY write that touches ratingIndex must emit an ActivityLog event (the
-// RATING_* types), rebalances included. An index written without one is a
-// permanent hole in that level's history — the old value is simply gone.
-// services/invariants.integration.test.ts sweeps for it.
-//
-// Rows exist only while the user is in MANUAL mode; switching away leaves them
-// in place, so switching back restores the order rather than losing it — the
-// same "mode switching preserves all data" rule simple/weighted already follow.
-// ─────────────────────────────────────────────
-
-model RatingRanking {
-  id                String          @id @default(uuid())
-  userId            String
-  levelProgressId   String          @unique // One rating position per level
-
-  // Fractional index — higher = better rated, so display order is DESC.
-  ratingIndex       Decimal         @db.Decimal(20, 10)
-
-  // Relations
-  user              User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)
-
-  @@map("rating_ranking")
-}
-
 model Collection {
-  id          String          @id @default(uuid())
-  userId      String
+  id     String @id @default(uuid())
+  userId String
 
   name        String
   type        CollectionType
   description String?
 
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  entries     CollectionEntry[]
+  user    User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries CollectionEntry[]
 
   @@map("collections")
 }
 
 model CollectionEntry {
-  id           String     @id @default(uuid())
+  id           String @id @default(uuid())
   collectionId String
-  levelId      String     // FK → levels.inGameId
+  levelId      String // FK → levels.inGameId
 
   // Fractional index — lower = earlier in the collection (displayed asc).
-  rankingIndex Decimal    @db.Decimal(20, 10)
-  addedAt      DateTime   @default(now())
+  rankingIndex Decimal  @db.Decimal(20, 10)
+  addedAt      DateTime @default(now())
 
   // Relations
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  level        Level      @relation(fields: [levelId], references: [inGameId])
+  collection Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  level      Level      @relation(fields: [levelId], references: [inGameId])
 
   @@unique([collectionId, levelId]) // A level can only appear once per collection
   @@map("collection_entries")
@@ -959,10 +897,10 @@ model CollectionEntry {
 // ─────────────────────────────────────────────
 
 model ActivityLog {
-  id                String                  @id @default(uuid())
-  userId            String
+  id     String @id @default(uuid())
+  userId String
 
-  eventType         ActivityEventType
+  eventType ActivityEventType
 
   // The level the event is about. Null for RATING_CONFIG_CHANGE (user-scoped,
   // not level-scoped) and for the two list-wide ranking types,
@@ -971,15 +909,15 @@ model ActivityLog {
   // and in its MOVER impact row: here so "this level's history" is one indexed
   // query, there so the mover carries the same index/position payload every
   // other touched level does.
-  levelId           String?
+  levelId String?
 
   // Per-entry privacy, the same enum LevelProgress.visibility uses. Inert
   // until v4 public profiles ship — every route today is scoped to the
   // authenticated user's own data — but events are being written now and would
   // otherwise all be retroactively public the day a profile route lands.
-  visibility        EntryVisibility         @default(PUBLIC)
+  visibility EntryVisibility @default(PUBLIC)
 
-  createdAt         DateTime                @default(now())
+  createdAt DateTime @default(now())
   // Total-order tiebreaker, and the field reconstruction should actually order
   // by. One request routinely writes two events — a placement that trips a
   // rebalance emits DEMON_LIST_REBALANCE then DEMON_LIST_PLACEMENT — and createdAt
@@ -993,16 +931,16 @@ model ActivityLog {
   // Int, not BigInt: 2^31 events is orders of magnitude beyond this app, and
   // Prisma maps BigInt to a JS BigInt that JSON.stringify throws on — a
   // landmine for the first read route that returns an event row.
-  sequence          Int                     @default(autoincrement())
+  sequence  Int      @default(autoincrement())
 
   // Relations
-  user              User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
   // SetNull, not Cascade: a level leaving the shared cache must not delete a
   // user's record of what they did. levelName on the impact rows is what keeps
   // such a row readable.
-  level             Level?                  @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
-  levelImpacts      ActivityLogLevelImpact[]
-  fieldChanges      ActivityLogFieldChange[]
+  level        Level?                   @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
+  levelImpacts ActivityLogLevelImpact[]
+  fieldChanges ActivityLogFieldChange[]
 
   // The timeline read: one user's events newest-first.
   @@index([userId, createdAt])
@@ -1018,21 +956,21 @@ model ActivityLog {
 // row per level in the list, since they rewrote every index. Children of the
 // ranking event types only — no other event type has these.
 model ActivityLogLevelImpact {
-  id                String              @id @default(uuid())
-  eventId           String
+  id      String @id @default(uuid())
+  eventId String
 
   // Nullable for the same reason ActivityLog.levelId is: history outlives the
   // level cache row.
-  levelId           String?
+  levelId   String?
   // DENORMALIZED, snapshotted at write time. This is what keeps the row
   // displayable after the referenced level's LevelProgress/ClassicDemonList is
   // deleted: deleting an entry deletes that level's OWN events, but every
   // other level's impact rows still name it, and there is no longer any
   // level_progress to join through for a name. Null only when the level cache
   // had no name at write time.
-  levelName         String?
+  levelName String?
 
-  role              ActivityImpactRole
+  role ActivityImpactRole
 
   // The ACTUAL fractional index this level held after this event — never a
   // delta, never a boolean. Recording the real value on every write that
@@ -1040,19 +978,19 @@ model ActivityLogLevelImpact {
   // snapshot-at-T reconstruction possible later without a snapshot table: a
   // level's index at time T is its most recent impact row at or before T.
   //
-  // WHICH ordering it indexes is read off the event's type: DEMON_LIST_* events
-  // carry classic_demon_list.listIndex, RATING_* events carry
-  // rating_ranking.ratingIndex. One column rather than two nullable ones so the
-  // NOT NULL keeps its teeth — an impact row always records a real index.
-  orderIndex        Decimal             @db.Decimal(20, 10)
+  // Named generically rather than `listIndex` because it once indexed two
+  // orderings; today only DEMON_LIST_* events write it, and the value is
+  // classic_demon_list.listIndex. NOT NULL keeps its teeth either way — an
+  // impact row always records a real index.
+  orderIndex Decimal @db.Decimal(20, 10)
 
   // 1-based display positions (#1 = hardest), computed from the ordered
   // ranking before and after the event. positionBefore is null for an initial
   // placement; positionAfter is null for DEMON_LIST_REMOVED, and for a level a
   // DEMON_LIST_BULK_REPLACE dropped out of the demon list. Both are present and
   // equal on a DEMON_LIST_REBALANCE, which rewrites indices but no order.
-  positionBefore    Int?
-  positionAfter     Int?
+  positionBefore Int?
+  positionAfter  Int?
 
   // The top-N threshold this level crossed on this event, or null for none.
   // DIRECTION is read off positionBefore/positionAfter — entering the top 10
@@ -1060,11 +998,11 @@ model ActivityLogLevelImpact {
   // milestone-threshold model exists to point at; the thresholds live in
   // apps/api/src/services/activityLog/milestones.ts and can become per-user
   // config later without touching this column.
-  milestoneCrossed  Int?
+  milestoneCrossed Int?
 
   // Relations
-  event             ActivityLog         @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  level             Level?              @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
+  event ActivityLog @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  level Level?      @relation(fields: [levelId], references: [inGameId], onDelete: SetNull)
 
   @@index([eventId])
   // The reconstruction read: one level's index history in event order.
@@ -1077,24 +1015,24 @@ model ActivityLogLevelImpact {
 // weighted-rating config diff, category = RATING_CONFIG). One event per SAVE,
 // not per field.
 model ActivityLogFieldChange {
-  id                String                @id @default(uuid())
-  eventId           String
+  id      String @id @default(uuid())
+  eventId String
 
   // Raw field identifier, snake_case, matching the column it maps to:
-  // `percentage`, `attempts`, `date`, `notes`, `simple_rating`,
+  // `percentage`, `attempts`, `date`, `notes`,
   // `difficulty_opinion`. Per-category weighted scores are
   // `rating_score:<categoryId>`. Never filter on this — see `category`.
-  fieldName         String
-  category          ActivityFieldCategory
+  fieldName String
+  category  ActivityFieldCategory
 
   // Serialized at the application layer; no typed column per field. Null means
   // the field had (or was given) no value, which is distinct from the string
   // "null" a caller would have to go out of its way to produce.
-  oldValue          String?
-  newValue          String?
+  oldValue String?
+  newValue String?
 
   // Relations
-  event             ActivityLog           @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event ActivityLog @relation(fields: [eventId], references: [id], onDelete: Cascade)
 
   @@index([eventId])
   @@map("activity_log_field_change")
@@ -1107,19 +1045,19 @@ model ActivityLogFieldChange {
 // ─────────────────────────────────────────────
 
 model ApiKey {
-  id          String    @id @default(uuid())
-  userId      String
+  id     String @id @default(uuid())
+  userId String
 
-  name        String    // e.g. "Geode Mod", "Community Dashboard"
-  keyHash     String    @unique
-  scopes      String[]  // e.g. ["completions:read", "completions:write"]
+  name    String // e.g. "Geode Mod", "Community Dashboard"
+  keyHash String   @unique
+  scopes  String[] // e.g. ["completions:read", "completions:write"]
 
-  createdAt   DateTime  @default(now())
-  lastUsedAt  DateTime?
-  revokedAt   DateTime?
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
 
   // Relations
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("api_keys")
 }
@@ -1129,42 +1067,42 @@ model ApiKey {
 // ─────────────────────────────────────────────
 
 model Report {
-  id                  String        @id @default(uuid())
-  reporterId          String
-  reportedUserId      String
+  id             String @id @default(uuid())
+  reporterId     String
+  reportedUserId String
 
   reason              String
-  status              ReportStatus  @default(PENDING)
+  status              ReportStatus @default(PENDING)
   // Never equals reportedUserId — enforced at application level.
   // Prevents reported moderator from seeing their own report.
   assignedModeratorId String?
 
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  reporter            User          @relation("ReporterRelation", fields: [reporterId], references: [id])
-  reportedUser        User          @relation("ReportedUserRelation", fields: [reportedUserId], references: [id])
-  assignedModerator   User?         @relation("AssignedModeratorRelation", fields: [assignedModeratorId], references: [id])
+  reporter          User  @relation("ReporterRelation", fields: [reporterId], references: [id])
+  reportedUser      User  @relation("ReportedUserRelation", fields: [reportedUserId], references: [id])
+  assignedModerator User? @relation("AssignedModeratorRelation", fields: [assignedModeratorId], references: [id])
 
   @@map("reports")
 }
 
 model BanAppeal {
-  id            String        @id @default(uuid())
-  userId        String
+  id     String @id @default(uuid())
+  userId String
 
-  appealText    String
-  status        AppealStatus  @default(PENDING)
+  appealText String
+  status     AppealStatus @default(PENDING)
   // One appeal per ban enforced at application level
-  reviewedBy    String?
+  reviewedBy String?
 
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relations
-  user          User          @relation(fields: [userId], references: [id])
-  reviewer      User?         @relation("ReviewedByRelation", fields: [reviewedBy], references: [id])
+  user     User  @relation(fields: [userId], references: [id])
+  reviewer User? @relation("ReviewedByRelation", fields: [reviewedBy], references: [id])
 
   @@map("ban_appeals")
 }
@@ -1172,19 +1110,19 @@ model BanAppeal {
 // Permanent audit log of all moderation decisions.
 // Never deleted — used for accountability and consistency review.
 model ModerationAction {
-  id              String                @id @default(uuid())
-  moderatorId     String
-  targetUserId    String
+  id           String @id @default(uuid())
+  moderatorId  String
+  targetUserId String
 
-  action          ModerationActionType
-  reason          String
-  durationHours   Int?                  // Nullable — only for suspensions
+  action        ModerationActionType
+  reason        String
+  durationHours Int? // Nullable — only for suspensions
 
-  createdAt       DateTime              @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  moderator       User                  @relation("ModeratorRelation", fields: [moderatorId], references: [id])
-  targetUser      User                  @relation("TargetUserRelation", fields: [targetUserId], references: [id])
+  moderator  User @relation("ModeratorRelation", fields: [moderatorId], references: [id])
+  targetUser User @relation("TargetUserRelation", fields: [targetUserId], references: [id])
 
   @@map("moderation_actions")
 }
@@ -1206,7 +1144,7 @@ model ModerationAction {
 model GddlSyncJob {
   id             String    @id @default(uuid())
   userId         String    @unique
-  status         String    // "pending" | "completed" | "failed"
+  status         String // "pending" | "completed" | "failed"
   result         Json?
   error          String?
   startedAt      DateTime  @default(now())
@@ -1230,55 +1168,50 @@ model GddlSyncJob {
 // ─────────────────────────────────────────────
 
 model ImportJob {
-  id                 String         @id @default(uuid())
-  userId             String         @unique
-  status             String         @default("running") // "running" | "completed" | "failed"
-  totalRows          Int            @default(0)
-  processedRows      Int            @default(0)
+  id                 String    @id @default(uuid())
+  userId             String    @unique
+  status             String    @default("running") // "running" | "completed" | "failed"
+  totalRows          Int       @default(0)
+  processedRows      Int       @default(0)
   // Counts worker self-reinvocations near the Lambda time limit; hard-fails
   // the job past a cap so a permanently-broken row can't reinvoke forever.
-  reinvokeCount       Int            @default(0)
+  reinvokeCount      Int       @default(0)
   error              String?
   // One-shot payloads for the post-row-commit passes (each optional — only
   // present if that tab of the spreadsheet had rows), plus their results
   // once the worker runs them.
   rankingPayload     Json?
-  // The MANUAL rating order. Separate from rankingPayload, which is the demon
-  // list: a workbook can legitimately carry both, and they replace different
-  // orderings.
-  ratingRankingPayload Json?
   collectionsPayload Json?
   ratingsPayload     Json?
   rankingResult      Json?
-  ratingRankingResult Json?
   collectionsResult  Json?
   ratingsResult      Json?
-  createdAt          DateTime       @default(now())
+  createdAt          DateTime  @default(now())
   finishedAt         DateTime?
 
-  user               User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  rows               ImportJobRow[]
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rows ImportJobRow[]
 
   @@map("import_jobs")
 }
 
 model ImportJobRow {
-  id           String    @id @default(uuid())
+  id           String  @id @default(uuid())
   jobId        String
   rowIndex     Int
   // Original parsed row payload (type/data/conflict resolution) — what the
   // worker needs to actually process this row.
   rawData      Json
-  status       String    // "pending" | "committed" | "updated" | "skipped" | "failed"
+  status       String // "pending" | "committed" | "updated" | "skipped" | "failed"
   // Presence of issueMessage means this row is "flagged" for user review,
   // regardless of whether it still succeeded (dropped-value warning) or was
   // skipped/failed outright.
   issueMessage String?
   levelName    String?
   identifier   String?
-  resolved     Boolean   @default(false)
+  resolved     Boolean @default(false)
 
-  job          ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  job ImportJob @relation(fields: [jobId], references: [id], onDelete: Cascade)
 
   @@unique([jobId, rowIndex])
   @@map("import_job_rows")
@@ -1292,8 +1225,8 @@ model ImportJobRow {
 // ─────────────────────────────────────────────
 
 model LogPreset {
-  id          String   @id @default(uuid())
-  userId      String
+  id     String @id @default(uuid())
+  userId String
 
   name        String
   description String?
@@ -1303,19 +1236,19 @@ model LogPreset {
 
   // Client-side view config stored as JSON blobs. The API treats these as
   // opaque — validation of the internal shape is left to the frontend.
-  sorts       Json     // SortSpec[]
-  filters     Json     // FilterState (excludes the text search field)
-  columns     Json     // ColumnVisibility (Record<ColumnId, boolean>)
-  columnOrder Json     // ColumnId[]
+  sorts       Json // SortSpec[]
+  filters     Json // FilterState (excludes the text search field)
+  columns     Json // ColumnVisibility (Record<ColumnId, boolean>)
+  columnOrder Json // ColumnId[]
   // Display preference, not part of the JSON blobs above since it's a plain
   // boolean rather than an opaque client-owned shape. Hides the time-of-day
   // line under the date column across the whole list.
-  hideTime    Boolean  @default(false)
+  hideTime    Boolean @default(false)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("log_presets")
 }

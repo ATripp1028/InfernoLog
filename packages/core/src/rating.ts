@@ -2,9 +2,8 @@
 // apps/api (query-time serialization) and apps/web (client-side preview
 // before an edit is saved) so the two never drift — see docs/RATING_SYSTEM.md.
 //
-// The displayed/filtered rating is computed at query time and never stored.
-// In SIMPLE mode it is just `simpleRating`; in WEIGHTED mode it is the
-// weighted average of the user's per-category scores:
+// The displayed/filtered rating is computed at query time and never stored. It
+// is the weighted average of the user's per-category scores:
 //
 //   weighted_avg = Σ(score_i × weight_i) / Σ(weight_i)
 //
@@ -16,10 +15,10 @@
 // shown as 8.5 weigh the same here. The UI converts on the way out: scores are
 // shown on 0–10, enjoyment on 0–100 (see apps/web/src/lib/ratingScale.ts).
 
-// `ratingMode` is a plain string union rather than a nominal enum so the
-// helper accepts values from either app's enum without a type mismatch.
+/**
+ * The user's rating configuration, as the overall-rating formula needs it.
+ */
 export interface OverallRatingConfig {
-  ratingMode: 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
   includeEnjoyment: boolean
   enjoymentWeight: number
   // categoryId → weight, for the user's current rating categories.
@@ -27,23 +26,18 @@ export interface OverallRatingConfig {
 }
 
 interface RatingUpdate {
-  simpleRating: number | null
   enjoyment: number | null
   ratingScores: { categoryId: string; score: number }[]
 }
 
+/**
+ * The weighted average of an update's per-category scores, on the internal
+ * 0–100 scale, or null when nothing scored contributes any weight.
+ */
 export function computeOverallRating(
   config: OverallRatingConfig,
   update: RatingUpdate
 ): number | null {
-  // MANUAL mode has no number at all: the user's chosen POSITION is the rating,
-  // and it lives in rating_ranking.ratingIndex rather than on the update. Null
-  // rather than 0 — the level is not rated badly, it is rated by where it sits.
-  if (config.ratingMode === 'MANUAL') return null
-  if (config.ratingMode === 'SIMPLE') {
-    return update.simpleRating
-  }
-
   let weightedSum = 0
   let weightTotal = 0
 

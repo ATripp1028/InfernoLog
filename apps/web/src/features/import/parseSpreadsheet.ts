@@ -261,8 +261,6 @@ export interface ParsedRatingRow {
   inGameDifficulty: string | null
   /** Category name → score on the internal 0-100 scale. */
   scores: Record<string, number>
-  /** SIMPLE mode's single score, internal 0-100. Null when the cell is blank. */
-  simpleRating: number | null
   flags: ParseFlag[]
 }
 
@@ -282,11 +280,6 @@ export interface ParseResult {
   ratings: ParsedRatingRow[]
   /** Category column names discovered in the Ratings tab, in sheet order. */
   ratingCategories: string[]
-  /**
-   * Ranking tab entries, ordered best → worst — the MANUAL rating order.
-   * Parsed exactly like `ranking`, which is the same shape on the other axis.
-   */
-  ratingRanking: ParsedRankingRow[]
   /** Duplicate level IDs within a tab (flagged but not removed). */
   duplicateLevelIds: { tab: 'completions'; levelId: string; rows: number[] }[]
 }
@@ -424,17 +417,10 @@ function parseCompletionRow(
   // Scores are on the sheet's 0-10 scale; enjoyment is 0-100 on the sheet
   // exactly as it is internally, so it needs no conversion at all.
   const enjoyment = toNum(getField(raw, 'enjoyment'))
-  const simpleRating = toNum(getField(raw, 'simple_rating'))
   if (enjoyment != null && (enjoyment < 0 || enjoyment > 100))
     pushFlag(
       'enjoyment',
       `enjoyment ${enjoyment} is outside 0-100 — value dropped`,
-      'warning'
-    )
-  if (simpleRating != null && (simpleRating < 0 || simpleRating > 10))
-    pushFlag(
-      'simple_rating',
-      `simple_rating ${simpleRating} is outside 0-10 — value dropped`,
       'warning'
     )
 
@@ -567,10 +553,6 @@ function parseCompletionRow(
     enjoyment:
       enjoyment != null && enjoyment >= 0 && enjoyment <= 100
         ? Math.round(enjoyment)
-        : null,
-    simpleRating:
-      simpleRating != null && simpleRating >= 0 && simpleRating <= 10
-        ? simpleRating
         : null,
     difficultyOpinion,
     coinsCollected,
@@ -1033,18 +1015,15 @@ function parseListRow(
 
 // ── Ratings tab ────────────────────────────────────────────────────────────
 
-// Columns in the Ratings tab that identify the level rather than a category.
-// The Ranking tab's fixed columns. Everything else in its header row is a
-// rating category name.
+// The Ratings tab's fixed columns — the ones that identify the level rather
+// than name a category. Everything else in its header row is a category.
 const RESERVED_RATING_COLS = new Set([
-  'rank',
   'level_id',
   'level_name',
   'creator',
   'publisher',
   'level_author',
   'in_game_difficulty',
-  'simple_rating',
 ])
 
 // Parses a rating-score cell from the sheet's 0-10 scale to the internal
@@ -1073,7 +1052,6 @@ function parseRatingRow(
   categoryNames: string[]
 ): ParsedRatingRow {
   const flags: ParseFlag[] = []
-  const rawSimpleRating = getField(raw, 'simple_rating')
   const rawLevelId = toStr(getField(raw, 'level_id'))
   const levelName = toStr(getField(raw, 'level_name'))
   const label = rowLabelFor(levelName, rawLevelId, rowIndex)
@@ -1104,19 +1082,6 @@ function parseRatingRow(
       'Missing level_id and level_name — row cannot be imported',
       'error'
     )
-  }
-
-  // The simple score shares this tab with the category columns — the two are
-  // the same subject expressed by whichever mode the user is in, so it is
-  // range-checked by the same rule.
-  let simpleRating = toScore100(rawSimpleRating)
-  if (simpleRating != null && (simpleRating < 0 || simpleRating > 100)) {
-    pushFlag(
-      'simple_rating',
-      `simple_rating "${String(rawSimpleRating)}" is out of range (0-10) — value dropped`,
-      'warning'
-    )
-    simpleRating = null
   }
 
   const scores: Record<string, number> = {}
@@ -1150,7 +1115,6 @@ function parseRatingRow(
     creator: toStr(getField(raw, 'creator', 'publisher', 'level_author')),
     inGameDifficulty: toStr(getField(raw, 'in_game_difficulty')),
     scores,
-    simpleRating,
     flags,
   }
 }
@@ -1201,7 +1165,7 @@ export function parseSpreadsheet(
   const progressSheet = findSheet('Progress')
   const droppedSheet = findSheet('Dropped')
   const demonListSheet = findSheet('Demon List')
-  const ratingRankingSheet = findSheet('Ranking')
+  const ratingsSheet = findSheet('Ratings')
   const listsSheet = findSheet('Lists')
 
   const rawCompletions: Record<string, unknown>[] = completionSheet
@@ -1216,8 +1180,8 @@ export function parseSpreadsheet(
   const rawRanking: Record<string, unknown>[] = demonListSheet
     ? XLSX.utils.sheet_to_json(demonListSheet, { defval: null })
     : []
-  const rawRatingRanking: Record<string, unknown>[] = ratingRankingSheet
-    ? XLSX.utils.sheet_to_json(ratingRankingSheet, { defval: null })
+  const rawRatings: Record<string, unknown>[] = ratingsSheet
+    ? XLSX.utils.sheet_to_json(ratingsSheet, { defval: null })
     : []
   const rawLists: Record<string, unknown>[] = listsSheet
     ? XLSX.utils.sheet_to_json(listsSheet, { defval: null })
@@ -1241,34 +1205,23 @@ export function parseSpreadsheet(
   // order is the order (top row = hardest).
   const ranking = orderRankingRows(rankingRows)
 
-  // The rating order, ordered best → worst by exactly the same rule: explicit
-  // rank numbers when every importable row has one, otherwise sheet order.
-  const ratingRanking = orderRankingRows(
-    rawRatingRanking.map((r, i) =>
-      parseRankingRow(r as Record<string, unknown>, i)
-    )
-  )
-
   const lists = rawLists.map((r, i) =>
     parseListRow(r as Record<string, unknown>, i)
   )
 
-  // The Ranking tab is "wide": every header that is not one of its fixed
-  // columns is a rating category. It yields TWO things — the manual order and
-  // the scores — because one level's rating is one subject however the user's
-  // mode chooses to express it.
+  // The Ratings tab is "wide": every header that is not one of its fixed
+  // columns is a rating category, and the column's values are that category's
+  // scores.
   let ratingCategories: string[] = []
   let ratings: ParsedRatingRow[] = []
-  if (ratingRankingSheet) {
-    const headerRow = (XLSX.utils.sheet_to_json(ratingRankingSheet, {
+  if (ratingsSheet) {
+    const headerRow = (XLSX.utils.sheet_to_json(ratingsSheet, {
       header: 1,
     })[0] ?? []) as unknown[]
     ratingCategories = headerRow
       .map((h) => (h == null ? '' : String(h).trim()))
       .filter((h) => h && !RESERVED_RATING_COLS.has(normalizeKey(h)))
-    ratings = rawRatingRanking.map((r, i) =>
-      parseRatingRow(r, i, ratingCategories)
-    )
+    ratings = rawRatings.map((r, i) => parseRatingRow(r, i, ratingCategories))
   }
 
   // Detect intra-tab duplicate level IDs. Dropped is additive (like Progress),
@@ -1292,7 +1245,6 @@ export function parseSpreadsheet(
     progress,
     dropped,
     ranking,
-    ratingRanking,
     lists,
     ratings,
     ratingCategories,

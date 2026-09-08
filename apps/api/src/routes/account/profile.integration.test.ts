@@ -123,31 +123,6 @@ describe('PATCH /me', () => {
     expect(stored.discordPublic).toBe(true)
   })
 
-  it('seeds the default categories on the first switch to WEIGHTED', async () => {
-    const user = await seedUser(prisma)
-
-    await send(user.id, 'PATCH', '/me', { ratingMode: 'WEIGHTED' })
-
-    const cats = await prisma.ratingCategory.findMany({
-      where: { userId: user.id },
-      orderBy: { sortOrder: 'asc' },
-    })
-    expect(cats.map((c) => c.name)).toEqual(['Gameplay', 'Decoration', 'Song'])
-  })
-
-  it('does not duplicate the categories on a second switch', async () => {
-    // skipDuplicates leans on @@unique([userId, name]) — a real constraint.
-    const user = await seedUser(prisma)
-
-    await send(user.id, 'PATCH', '/me', { ratingMode: 'WEIGHTED' })
-    await send(user.id, 'PATCH', '/me', { ratingMode: 'SIMPLE' })
-    await send(user.id, 'PATCH', '/me', { ratingMode: 'WEIGHTED' })
-
-    expect(
-      await prisma.ratingCategory.count({ where: { userId: user.id } })
-    ).toBe(3)
-  })
-
   it('stamps legalAcceptedAt for acceptLegal', async () => {
     const user = await seedUser(prisma)
 

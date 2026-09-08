@@ -228,19 +228,8 @@ describe('buildCompletionInput', () => {
   })
 
   describe('ratings', () => {
-    it('sends the simple rating in simple mode', () => {
-      const input = build({ simpleRating: 85 }, {}, { ratingMode: 'SIMPLE' })
-
-      expect(input.simpleRating).toBe(85)
-      expect(input).not.toHaveProperty('ratingScores')
-    })
-
-    it('sends per-category scores in weighted mode', () => {
-      const input = build(
-        { ratingScores: { gameplay: 80, design: 60 } },
-        {},
-        { ratingMode: 'WEIGHTED' }
-      )
+    it('sends one entry per scored category', () => {
+      const input = build({ ratingScores: { gameplay: 80, design: 60 } })
 
       expect(input.ratingScores).toEqual([
         { categoryId: 'gameplay', score: 80 },
@@ -248,20 +237,8 @@ describe('buildCompletionInput', () => {
       ])
     })
 
-    // The two modes are exclusive — sending both would let a stale value from
-    // the other mode overwrite the stored rating.
-    it('nulls the simple rating in weighted mode', () => {
-      const input = build(
-        { simpleRating: 85, ratingScores: { gameplay: 80 } },
-        {},
-        { ratingMode: 'WEIGHTED' }
-      )
-
-      expect(input.simpleRating).toBeNull()
-    })
-
     it('omits an empty score map rather than sending nothing useful', () => {
-      const input = build({ ratingScores: {} }, {}, { ratingMode: 'WEIGHTED' })
+      const input = build({ ratingScores: {} })
 
       expect(input).not.toHaveProperty('ratingScores')
     })
@@ -460,11 +437,11 @@ describe('buildDropInput', () => {
   })
 
   // A drop is not a rating event — none of the completion-only fields belong.
-  it.each(['enjoyment', 'simpleRating', 'difficultyOpinion', 'fps'])(
+  it.each(['enjoyment', 'ratingScores', 'difficultyOpinion', 'fps'])(
     'sends no %s',
     (field) => {
       expect(
-        build({ enjoyment: 70, simpleRating: 85, fps: '240' })
+        build({ enjoyment: 70, ratingScores: { gameplay: 80 }, fps: '240' })
       ).not.toHaveProperty(field)
     }
   )

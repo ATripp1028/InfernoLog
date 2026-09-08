@@ -3,7 +3,7 @@ import { Label } from '@/components/generic/label'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
 import { clampPercent, digitsOnly } from '@/lib/numberFormat'
-import { formatScore } from '@/lib/ratingScale'
+import { formatScore, formatWeightPercent } from '@/lib/ratingScale'
 import { DateTimeField } from '@/components/inputs/DateTimeField'
 import {
   Section,
@@ -30,7 +30,6 @@ export function EditLevelFields({
   const {
     form,
     patch,
-    weighted,
     categories,
     overallRating,
     isCompleted,
@@ -107,45 +106,36 @@ export function EditLevelFields({
       )}
 
       <Section label="Rating">
-        {weighted ? (
-          categories.length === 0 ? (
-            <p className="text-sm text-text-tertiary">
-              No rating categories configured. Add some in Settings to rate by
-              category.
-            </p>
-          ) : (
-            <>
-              {categories.map((cat) => (
-                <RatingRow
-                  key={cat.id}
-                  label={cat.name}
-                  sublabel={`weight ${Math.round(cat.weight * 100)}%`}
-                  value={form.ratingScores[cat.id] ?? null}
-                  field="score"
-                  onChange={(v) =>
-                    patch({
-                      ratingScores: { ...form.ratingScores, [cat.id]: v },
-                    })
-                  }
-                />
-              ))}
-              {overallRating != null && (
-                <p className="text-right text-xs text-text-tertiary">
-                  Weighted avg:{' '}
-                  <span className="font-medium text-text-secondary">
-                    {formatScore(overallRating)}
-                  </span>
-                </p>
-              )}
-            </>
-          )
+        {categories.length === 0 ? (
+          <p className="text-sm text-text-tertiary">
+            No rating categories configured. Add one in Settings to rate this
+            level.
+          </p>
         ) : (
-          <RatingRow
-            label="Score"
-            value={form.simpleRating}
-            field="score"
-            onChange={(v) => patch({ simpleRating: v })}
-          />
+          <>
+            {categories.map((cat) => (
+              <RatingRow
+                key={cat.id}
+                label={cat.name}
+                sublabel={`weight ${formatWeightPercent(cat.weight)}`}
+                value={form.ratingScores[cat.id] ?? null}
+                field="score"
+                onChange={(v) =>
+                  patch({
+                    ratingScores: { ...form.ratingScores, [cat.id]: v },
+                  })
+                }
+              />
+            ))}
+            {overallRating != null && (
+              <p className="text-right text-xs text-text-tertiary">
+                Weighted avg:{' '}
+                <span className="font-medium text-text-secondary">
+                  {formatScore(overallRating)}
+                </span>
+              </p>
+            )}
+          </>
         )}
       </Section>
 

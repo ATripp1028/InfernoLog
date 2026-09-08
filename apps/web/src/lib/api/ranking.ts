@@ -23,12 +23,9 @@ import { apiFetch } from './client'
 import { logQueryKey } from './log'
 import { useInvalidateOnWrite } from './logging'
 
-/** A rating edit: whichever of the two forms the user's mode calls for. */
+/** A rating edit: one score per category, on the internal 0–100 scale. */
 export interface RatingEdit {
   levelId: string
-  /** SIMPLE mode. Internal 0–100. */
-  simpleRating?: number | null
-  /** WEIGHTED mode. Internal 0–100 per category. */
   ratingScores?: { categoryId: string; score: number }[]
 }
 
@@ -87,26 +84,14 @@ export function applyEdit(
   edit: RatingEdit,
   config: OverallRatingConfig
 ): LevelProgressListItem {
-  const simpleRating =
-    edit.simpleRating !== undefined ? edit.simpleRating : rowSimpleRating(row)
   const ratingScores = edit.ratingScores ?? row.ratingScores
 
   return {
     ...row,
     ratingScores,
     overallRating: computeOverallRating(config, {
-      simpleRating,
       enjoyment: row.entry?.enjoyment ?? null,
       ratingScores,
     }),
   }
-}
-
-// A list row carries the computed `overallRating` but not the raw
-// `simpleRating` behind it. In SIMPLE mode the two are the same number by
-// definition (`computeOverallRating` returns `simpleRating` unchanged), and in
-// WEIGHTED mode the value is ignored entirely — so reading it back off the row
-// is sound in both, and only ever actually used in the first.
-function rowSimpleRating(row: LevelProgressListItem): number | null {
-  return row.overallRating
 }

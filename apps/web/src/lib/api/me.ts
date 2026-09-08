@@ -3,18 +3,15 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import { presetsQueryKey } from './presets'
 import { invalidateOnEvent } from './activity'
-import { invalidateOnWrite } from './logging'
-import type {
-  DateFormatPreference,
-  Device,
-  GdVersion,
-  RatingMode,
-} from './wireEnums'
+import type { DateFormatPreference, Device, GdVersion } from './wireEnums'
 
 export { ApiError }
 
 /**
- * One of the user's weighted-rating categories. `weight` is a fraction of 1.00, not a percentage.
+ * One of the user's rating categories.
+ *
+ * `weight` is a fraction of 1.00 — the unit the wire and the database speak.
+ * The settings editor shows and accepts percents; `lib/ratingScale` converts.
  */
 export interface RatingCategory {
   id: string
@@ -38,7 +35,6 @@ export interface MeData {
   discordId: string | null
   profilePublic: boolean
   discordPublic: boolean
-  ratingMode: RatingMode
   defaultFps: number
   defaultPercentageVersion: GdVersion
   defaultDevice: Device
@@ -386,7 +382,6 @@ export interface UpdateMeInput {
   dateFormatPreference?: DateFormatPreference
   showHighlightUrl?: boolean
   autoExpandFabLabels?: boolean
-  ratingMode?: RatingMode
   includeEnjoyment?: boolean
   enjoymentWeight?: number
   acceptLegal?: true
@@ -468,22 +463,12 @@ export function useUpdateMe() {
     onError: (_err, _input, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(meQueryKey, ctx.previous)
     },
-    onSettled: (_data, _err, input) => {
-      // A rating-mode switch is the one thing on this endpoint that emits an
-      // event — ratingMode lives here rather than in the rating-config payload,
-      // so PATCH /v1/me emits its own RATING_CONFIG_CHANGE for it. Nothing else
-      // here is logged, so nothing else invalidates the feed.
+    onSettled: () => {
+      // Nothing on this endpoint is logged to the activity feed or changes a
+      // computed rating — the categories and weights that do live on
+      // PUT /v1/me/rating-config. So there is nothing to invalidate beyond
+      // `me` itself.
       //
-      // It also invalidates every rating-bearing view, which is NOT cosmetic:
-      // `GET /v1/me/progress` computes `overallRating` server-side FROM THE
-      // MODE, so a cache filled under the old mode holds figures the new mode
-      // would never produce — nulls everywhere after a switch to manual, and
-      // stale nulls still showing after switching back. That reads as every
-      // rating having been deleted, which is exactly what it is not.
-      if (input.ratingMode !== undefined) {
-        void invalidateOnEvent(queryClient)
-        void invalidateOnWrite(queryClient)
-      }
       // Refetch authoritative state only once the queue has drained.
       if (isLastPending(queryClient, UPDATE_ME_KEY)) {
         return queryClient.invalidateQueries({ queryKey: meQueryKey })

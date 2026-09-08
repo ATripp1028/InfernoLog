@@ -7,10 +7,8 @@ import type { OverallRatingConfig } from '@infernolog/core'
 import { useMe } from '@/lib/api/me'
 import { useMyProgress } from '@/lib/api/log'
 import { useEditRating, type RatingEdit } from '@/lib/api/ranking'
-import { useRatingRanking } from '@/lib/api/ratingRanking'
 import { toast } from '@/components/generic/sonner'
 import {
-  buildManualRanking,
   buildRanking,
   filterByDifficulty,
   filterByRatedStatus,
@@ -28,10 +26,11 @@ export const rowDomId = (levelId: string) => `rank-${levelId}`
 /**
  * Everything the Ranking page renders from.
  *
- * There is no ranking endpoint: the page is a second view over the Log's
- * `['log']` query, which already carries a server-computed `overallRating` per
- * the user's mode. That means it is already cached, already invalidated by
- * every write path, and cannot drift from the Log page's numbers.
+ * There is no ranking endpoint: the order is derived from the ratings rather
+ * than stored, and the page is a second view over the Log's `['log']` query,
+ * which already carries a server-computed `overallRating`. That means it is
+ * already cached, already invalidated by every write path, and cannot drift
+ * from the Log page's numbers.
  */
 export function useRankingPage() {
   const me = useMe()
@@ -46,26 +45,23 @@ export function useRankingPage() {
   const [showUnrated, setShowUnrated] = useState(true)
   const [numbering, setNumbering] = useState<RankNumbering>('overall')
 
-  // Empty in SIMPLE mode, where per-category scores carry no meaning even
-  // though switching modes preserves them.
-  //
   // Sorted by priority here rather than relying on the order they arrive in.
   // `GET /v1/me` does order by `sortOrder`, but the column order has to match
   // the order the ranking breaks ties in — core's comparator sorts defensively
   // for the same reason — and that agreement should not rest on a server-side
   // `orderBy` clause staying put.
-  const categories = useMemo(() => {
-    if (me.data?.ratingMode !== 'WEIGHTED') return []
-    return [...(me.data.ratingCategories ?? [])].sort(
-      (a, b) => a.sortOrder - b.sortOrder
-    )
-  }, [me.data])
+  const categories = useMemo(
+    () =>
+      [...(me.data?.ratingCategories ?? [])].sort(
+        (a, b) => a.sortOrder - b.sortOrder
+      ),
+    [me.data]
+  )
 
   // The same shape the server ranks with, so an optimistic reorder lands where
   // the refetch will confirm.
   const config: OverallRatingConfig = useMemo(
     () => ({
-      ratingMode: me.data?.ratingMode ?? 'SIMPLE',
       includeEnjoyment: me.data?.includeEnjoyment ?? false,
       enjoymentWeight: me.data?.enjoymentWeight ?? 0,
       categoryWeights: new Map(categories.map((c) => [c.id, c.weight])),
@@ -75,21 +71,12 @@ export function useRankingPage() {
 
   const editRating = useEditRating(config)
 
-  // MANUAL is the one mode whose order is stored rather than derived, so it is
-  // the one mode that has to be fetched. The other two would only be paying a
-  // round trip for an answer they can already compute.
-  const isManual = me.data?.ratingMode === 'MANUAL'
-  const manual = useRatingRanking(isManual)
-
-  const model = useMemo(() => {
-    if (isManual) {
-      return buildManualRanking(
-        progress.data ?? [],
-        (manual.data?.ranked ?? []).map((r) => r.levelProgressId)
-      )
-    }
-    return buildRanking(progress.data ?? [], categories)
-  }, [isManual, manual.data, progress.data, categories])
+  // The order is derived, never stored, so there is no ranking endpoint to
+  // fetch — see this hook's own doc comment.
+  const model = useMemo(
+    () => buildRanking(progress.data ?? [], categories),
+    [progress.data, categories]
+  )
 
   const visible: RankedEntry[] = useMemo(() => {
     const narrowed = filterRanking(
@@ -165,35 +152,15 @@ export function useRankingPage() {
   )
 
   return {
-    isManual,
-    isPending:
-      progress.isPending || me.isPending || (isManual && manual.isPending),
+    isPending: progress.isPending || me.isPending,
     // `me` counts as a failure, not just as missing: the progress list is
     // persisted to localStorage and so can render from cache while GET /v1/me
-    // is unavailable (it does not retry). Falling back to the SIMPLE defaults
-    // there would show a WEIGHTED user a single-rating editor and then PATCH a
-    // `simpleRating` their overall rating is not computed from.
+    // is unavailable (it does not retry). Rendering without it would mean
+    // rendering without the categories every score is weighed against.
     isError: progress.isError || me.isError,
     config,
     categories,
     entries: model.entries,
-    // MANUAL's editor needs the pile itself, not just how big it is.
-    unrankedItems: useMemo(() => {
-      if (!isManual) return []
-      const placed = new Set(
-        (manual.data?.ranked ?? []).map((r) => r.levelProgressId)
-      )
-      return (progress.data ?? []).filter(
-        (item) =>
-          item.status === 'COMPLETED' &&
-          // Classic only, matching what the server will accept: POST
-          // /v1/me/ranking rejects a platformer with "Only classic levels
-          // appear in the ranking", so offering one in the unplaced pile is
-          // offering a drag that can only 400.
-          item.level.levelType === 'CLASSIC' &&
-          !placed.has(item.levelProgressId)
-      )
-    }, [isManual, manual.data, progress.data]),
     // The bottom of whatever the numbers are counting: the whole ranking when
     // numbering by it, the visible rows when numbering those. Keeping the two
     // in step is what stops a filtered view from marking a mid-table level

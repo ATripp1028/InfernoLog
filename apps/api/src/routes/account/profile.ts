@@ -18,7 +18,6 @@ import prisma from '../../utils/prisma'
 import { isUniqueViolation } from '../../middleware/errors'
 import { logger } from '../../utils/logger'
 import { getVerifiedClaims } from '../../middleware/auth'
-import { DEFAULT_RATING_CATEGORIES } from '../../services/user'
 import type { HonoVariables } from '../../types/hono'
 import {
   meWithCategoriesSelect,
@@ -26,8 +25,6 @@ import {
   type RawUser,
 } from '../../services/user/serialize'
 import { parseJsonBody } from '../../utils/requestBody'
-import { ratingConfigChangeData } from '../../services/activityLog'
-import { buildRatingModeChange } from '../../services/activityLog/ratingConfig'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -71,47 +68,16 @@ app.get('/me', async (c) => {
   return c.json({ data: serializeMe(user as RawUser) })
 })
 
-// PATCH /v1/me — partial update of user preferences (Privacy, Logging, Rating mode, etc.)
+// PATCH /v1/me — partial update of user preferences (Privacy, Logging, etc.)
 //
-// `ratingMode` is the one preference here that is also rating CONFIGURATION, so
-// a mode switch emits a RATING_CONFIG_CHANGE the way PUT /v1/me/rating-config
-// does. Without this the event type would be lying by omission: the mode is the
-// single most consequential thing about a user's rating setup and it is not
-// part of that endpoint's payload. Nothing else on this route is logged.
+// Nothing on this route is logged to the activity feed. Rating CONFIGURATION —
+// the categories and their weights — is the one rating thing that is, and it
+// lives entirely on PUT /v1/me/rating-config.
 app.patch('/me', async (c) => {
   const userId = c.get('userId')
 
   const parsed = await parseJsonBody(c, UpdateMeSchema)
   if (!parsed.ok) return parsed.response
-
-  // Read before the write so the switch can be diffed. Only when the client
-  // actually sent a mode — every other preference edit stays a single write.
-  const previousMode =
-    parsed.data.ratingMode === undefined
-      ? undefined
-      : (
-          await prisma.user.findUniqueOrThrow({
-            where: { id: userId },
-            select: { ratingMode: true },
-          })
-        ).ratingMode
-
-  // Seed default rating categories on first transition to WEIGHTED if the
-  // user has none yet. Keeps the invariant that WEIGHTED mode always has
-  // at least one category to score against.
-  if (parsed.data.ratingMode === 'WEIGHTED') {
-    const count = await prisma.ratingCategory.count({ where: { userId } })
-    if (count === 0) {
-      // skipDuplicates relies on the @@unique([userId, name]) constraint:
-      // if two requests race past the count check, the second insert is a
-      // silent no-op instead of producing duplicate seed categories.
-      await prisma.ratingCategory.createMany({
-        data: DEFAULT_RATING_CATEGORIES.map((cat) => ({ userId, ...cat })),
-        skipDuplicates: true,
-      })
-      logger.info({ userId }, 'Seeded default rating categories')
-    }
-  }
 
   // acceptLegal isn't a column — it just stamps legalAcceptedAt when true.
   const { acceptLegal, ...rest } = parsed.data
@@ -120,23 +86,10 @@ app.patch('/me', async (c) => {
     ;(data as { legalAcceptedAt?: Date }).legalAcceptedAt = new Date()
   }
 
-  const modeChanges =
-    previousMode === undefined || parsed.data.ratingMode === undefined
-      ? []
-      : buildRatingModeChange(previousMode, parsed.data.ratingMode)
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const row = await tx.user.update({
-      where: { id: userId },
-      data,
-      select: meWithCategoriesSelect,
-    })
-    if (modeChanges.length > 0) {
-      await tx.activityLog.create({
-        data: ratingConfigChangeData(userId, modeChanges),
-      })
-    }
-    return row
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data,
+    select: meWithCategoriesSelect,
   })
 
   logger.info(

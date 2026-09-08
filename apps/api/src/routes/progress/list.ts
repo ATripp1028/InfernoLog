@@ -33,7 +33,6 @@ const levelProgressListSelect = {
   classicDemonList: { select: { id: true } },
   userGddlTier: true,
   difficultyOpinion: true,
-  simpleRating: true,
   ratingScores: { select: { categoryId: true, score: true } },
   level: { select: levelSummarySelect },
   // The representative update: completion first (kind desc — see
@@ -98,7 +97,6 @@ function serializeRow(row: RawRow, ratingConfig: OverallRatingConfig) {
     // One rating per level (LevelProgress), not per event — enjoyment still
     // comes from the representative update since it's logged per-event.
     overallRating: computeOverallRating(ratingConfig, {
-      simpleRating: row.simpleRating,
       enjoyment: update?.enjoyment ?? null,
       ratingScores: row.ratingScores,
     }),
@@ -121,7 +119,6 @@ app.get('/me/progress', async (c) => {
     prisma.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
-        ratingMode: true,
         includeEnjoyment: true,
         enjoymentWeight: true,
         ratingCategories: { select: { id: true, weight: true } },
@@ -135,7 +132,6 @@ app.get('/me/progress', async (c) => {
   ])
 
   const ratingConfig: OverallRatingConfig = {
-    ratingMode: user.ratingMode,
     includeEnjoyment: user.includeEnjoyment,
     enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
     categoryWeights: new Map(

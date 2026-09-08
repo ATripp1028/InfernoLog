@@ -41,7 +41,6 @@ const level = makeCachedLevel({ inGameId: '4284013', name: 'Bloodbath' })
 
 const weightedMe = (overrides: Partial<ReturnType<typeof makeMe>> = {}) =>
   makeMe({
-    ratingMode: 'WEIGHTED',
     ratingCategories: [
       { id: 'a', name: 'Gameplay', weight: 0.75, sortOrder: 0 },
       { id: 'b', name: 'Decoration', weight: 0.25, sortOrder: 1 },
@@ -132,16 +131,13 @@ describe('CompletionReviewStep', () => {
     )
   })
 
-  it('marks a weighted rating as weighted, and a simple one not', () => {
-    const { unmount } = render({
+  it('marks the rating as weighted', () => {
+    render({
       me: weightedMe(),
       draft: { ratingScores: { a: 80, b: 60 } },
     })
-    expect(rowValue('Rating')).toHaveTextContent('(weighted)')
-    unmount()
 
-    render({ draft: { simpleRating: 70 } })
-    expect(rowValue('Rating')).not.toHaveTextContent('(weighted)')
+    expect(rowValue('Rating')).toHaveTextContent('(weighted)')
   })
 
   it('weights the category scores rather than averaging them flat', () => {
@@ -184,11 +180,10 @@ describe('CompletionReviewStep', () => {
     expect(rowValue('Rating')).toHaveTextContent('5')
   })
 
-  it('omits the rating row entirely in manual mode', () => {
-    render({
-      me: makeMe({ ratingMode: 'MANUAL' }),
-      draft: { ratingScores: { a: 80 }, simpleRating: 70 },
-    })
+  // Nothing scored yet renormalizes over a total weight of zero, which is no
+  // rating rather than a rating of zero — so the row stays off the summary.
+  it('omits the rating row when nothing has been scored', () => {
+    render({ me: weightedMe(), draft: { ratingScores: {} } })
 
     expect(screen.queryByText('Rating')).not.toBeInTheDocument()
   })

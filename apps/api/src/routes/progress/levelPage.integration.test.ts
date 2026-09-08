@@ -85,7 +85,6 @@ async function seedProgress(
     levelNotes?: string | null
     worstFail?: number | null
     // One current value per level, not per event — lives on LevelProgress.
-    simpleRating?: number | null
     ratingScores?: Array<{ categoryId: string; score: number }>
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
@@ -107,7 +106,6 @@ async function seedProgress(
       visibility: args.visibility ?? 'PUBLIC',
       levelNotes: args.levelNotes ?? null,
       worstFail: args.worstFail ?? null,
-      simpleRating: args.simpleRating ?? null,
       ...(args.ratingScores
         ? { ratingScores: { create: args.ratingScores } }
         : {}),
@@ -152,7 +150,6 @@ describe('GET /me/progress/:levelId — owner', () => {
       userId: user.id,
       levelId: '1001',
       status: 'COMPLETED',
-      simpleRating: 80,
       updates: [
         { percentage: 60, loggedAt: new Date('2025-01-01') },
         { kind: 'COMPLETION', loggedAt: new Date('2025-06-01') },

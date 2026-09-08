@@ -17,8 +17,6 @@ interface UseRowEditorArgs {
   levelId: string
   config: OverallRatingConfig
   categories: RatingCategory[]
-  /** The level's current overall rating, internal 0–100. */
-  overallRating: number | null
   /** The level's current per-category scores, internal 0–100. */
   ratingScores: readonly { categoryId: string; score: number }[]
   /**
@@ -42,19 +40,10 @@ export function useRowEditor({
   levelId,
   config,
   categories,
-  overallRating,
   ratingScores,
   enjoyment,
 }: UseRowEditorArgs) {
-  const isWeighted = config.ratingMode === 'WEIGHTED'
-
-  // SIMPLE: the one score. In SIMPLE mode the overall rating IS the simple
-  // rating, so it seeds the field directly.
-  const [simple, setSimple] = useState<number>(() =>
-    overallRating == null ? 0 : toScoreDisplay(overallRating)
-  )
-
-  // WEIGHTED: one score per category, seeded from what the level already has.
+  // One score per category, seeded from what the level already has.
   const [scores, setScores] = useState<Record<string, number>>(() => {
     const seeded: Record<string, number> = {}
     for (const category of categories) {
@@ -73,10 +62,8 @@ export function useRowEditor({
     categoryId: category.id,
     score: toScoreInternal(scores[category.id] ?? 0),
   }))
-  const draftSimple = toScoreInternal(simple)
 
   const preview = computeOverallRating(config, {
-    simpleRating: draftSimple,
     // Passed through unchanged rather than as null: enjoyment is not editable
     // here, but `includeEnjoyment` folds it into the weighted average, and a
     // preview that dropped it would settle on a different number after the
@@ -85,9 +72,7 @@ export function useRowEditor({
     ratingScores: draftScores,
   })
 
-  const edit: RatingEdit = isWeighted
-    ? { levelId, ratingScores: draftScores }
-    : { levelId, simpleRating: draftSimple }
+  const edit: RatingEdit = { levelId, ratingScores: draftScores }
 
-  return { isWeighted, simple, setSimple, scores, setScore, preview, edit }
+  return { scores, setScore, preview, edit }
 }

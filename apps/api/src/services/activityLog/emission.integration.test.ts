@@ -533,7 +533,6 @@ describe('log edits', () => {
     const category = await seedRatingCategory(prisma, user.id)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
-      simpleRating: 80,
       difficultyOpinion: 'EXTREME',
       ratingScores: [{ categoryId: category.id, score: 70 }],
     })
@@ -542,7 +541,6 @@ describe('log edits', () => {
     const byName = new Map(
       event.fieldChanges.map((f) => [f.fieldName, f.category])
     )
-    expect(byName.get('simple_rating')).toBe('RATING')
     expect(byName.get(`rating_score:${category.id}`)).toBe('RATING')
     expect(byName.get('difficulty_opinion')).toBe('METADATA')
   })
@@ -588,11 +586,31 @@ describe('log edits: weighted_average and rating_rank', () => {
   // moment either can be recorded. The rank in particular depends on every
   // OTHER level's rating at that instant and can never be recovered later.
 
-  async function seedRated(userId: string, simpleRating: number | null) {
+  // A user and the single category their ratings are scored against. Weight
+  // 1.00, so a level's weighted average is exactly the score seeded below and
+  // the figures these tests assert on read as plainly as the numbers do.
+  async function seedRatingUser() {
+    const user = await seedUser(prisma)
+    const category = await seedRatingCategory(prisma, user.id)
+    return { user, categoryId: category.id }
+  }
+
+  async function seedRated(
+    userId: string,
+    categoryId: string,
+    score: number | null
+  ) {
     const inGameId = String(levelSeq++)
     await seedLevel(prisma, { inGameId })
     const lp = await prisma.levelProgress.create({
-      data: { userId, levelId: inGameId, status: 'IN_PROGRESS', simpleRating },
+      data: {
+        userId,
+        levelId: inGameId,
+        status: 'IN_PROGRESS',
+        ...(score === null
+          ? {}
+          : { ratingScores: { create: [{ categoryId, score }] } }),
+      },
     })
     await prisma.progressUpdate.create({
       data: { levelProgressId: lp.id, kind: 'PROGRESS', attempts: 10 },
@@ -608,13 +626,13 @@ describe('log edits: weighted_average and rating_rank', () => {
   }
 
   it('records both figures on the same event as the rating change', async () => {
-    const user = await seedUser(prisma)
-    await seedRated(user.id, 90)
-    await seedRated(user.id, 50)
-    const lp = await seedRated(user.id, 20)
+    const { user, categoryId } = await seedRatingUser()
+    await seedRated(user.id, categoryId, 90)
+    await seedRated(user.id, categoryId, 50)
+    const lp = await seedRated(user.id, categoryId, 20)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
-      simpleRating: 70,
+      ratingScores: [{ categoryId, score: 70 }],
     })
 
     const event = await onlyEvent(user.id, 'LOG_EDIT')
@@ -632,12 +650,12 @@ describe('log edits: weighted_average and rating_rank', () => {
   })
 
   it('records the first rating a level is given as a move from no rank at all', async () => {
-    const user = await seedUser(prisma)
-    await seedRated(user.id, 90)
-    const lp = await seedRated(user.id, null)
+    const { user, categoryId } = await seedRatingUser()
+    await seedRated(user.id, categoryId, 90)
+    const lp = await seedRated(user.id, categoryId, null)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
-      simpleRating: 95,
+      ratingScores: [{ categoryId, score: 95 }],
     })
 
     const event = await onlyEvent(user.id, 'LOG_EDIT')
@@ -652,8 +670,8 @@ describe('log edits: weighted_average and rating_rank', () => {
   })
 
   it('records neither figure on a save that did not touch the rating', async () => {
-    const user = await seedUser(prisma)
-    const lp = await seedRated(user.id, 60)
+    const { user, categoryId } = await seedRatingUser()
+    const lp = await seedRated(user.id, categoryId, 60)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
       attempts: 999,
@@ -664,11 +682,11 @@ describe('log edits: weighted_average and rating_rank', () => {
   })
 
   it('records neither figure when a rating is re-sent unchanged', async () => {
-    const user = await seedUser(prisma)
-    const lp = await seedRated(user.id, 60)
+    const { user, categoryId } = await seedRatingUser()
+    const lp = await seedRated(user.id, categoryId, 60)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
-      simpleRating: 60,
+      ratingScores: [{ categoryId, score: 60 }],
       notes: 'unrelated',
     })
 
@@ -679,13 +697,13 @@ describe('log edits: weighted_average and rating_rank', () => {
   it('records the rank alone when only the tie-break moved', async () => {
     // Enjoyment is a tie-break on the rating order but, with includeEnjoyment
     // off, contributes nothing to the average — so the two figures diverge.
-    const user = await seedUser(prisma)
-    const rival = await seedRated(user.id, 60)
+    const { user, categoryId } = await seedRatingUser()
+    const rival = await seedRated(user.id, categoryId, 60)
     await prisma.progressUpdate.updateMany({
       where: { levelProgressId: rival.id },
       data: { enjoyment: 50 },
     })
-    const lp = await seedRated(user.id, 60)
+    const lp = await seedRated(user.id, categoryId, 60)
 
     await send(progressApp, user.id, 'PATCH', `/me/progress/${lp.inGameId}`, {
       enjoyment: 90,

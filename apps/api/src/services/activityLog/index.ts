@@ -79,38 +79,6 @@ export async function readRankingSnapshot(
   }))
 }
 
-/**
- * Reads the caller's MANUAL rating ranking so a mutation can be diffed against
- * it — the rating-axis twin of {@link readRankingSnapshot}.
- *
- * Ordered `ratingIndex` DESC, so array position + 1 is the level's 1-based
- * place with #1 the best rated.
- *
- * @param tx - The caller's transaction client; this must not open its own.
- */
-export async function readRatingSnapshot(
-  tx: Tx,
-  userId: string
-): Promise<RankingSnapshot> {
-  const rows = await tx.ratingRanking.findMany({
-    where: { userId },
-    orderBy: { ratingIndex: 'desc' },
-    select: {
-      levelProgressId: true,
-      ratingIndex: true,
-      levelProgress: {
-        select: { levelId: true, level: { select: { name: true } } },
-      },
-    },
-  })
-  return rows.map((row) => ({
-    levelProgressId: row.levelProgressId,
-    levelId: row.levelProgress.levelId,
-    levelName: row.levelProgress.level.name,
-    orderIndex: row.ratingIndex,
-  }))
-}
-
 // A snapshot indexed for lookup: the entry itself plus its 1-based position.
 type IndexedSnapshot = Map<
   string,
@@ -187,9 +155,6 @@ export type RankingMoveEventType =
   | typeof ActivityEventType.DEMON_LIST_PLACEMENT
   | typeof ActivityEventType.DEMON_LIST_REORDER
   | typeof ActivityEventType.DEMON_LIST_REMOVED
-  | typeof ActivityEventType.RATING_PLACEMENT
-  | typeof ActivityEventType.RATING_REORDER
-  | typeof ActivityEventType.RATING_REMOVED
 
 /**
  * Records one demon list move: a placement, a reorder, or an unranking.
@@ -267,8 +232,6 @@ export async function recordRankingMove(
 export type RankingListWideEventType =
   | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
   | typeof ActivityEventType.DEMON_LIST_REBALANCE
-  | typeof ActivityEventType.RATING_BULK_REPLACE
-  | typeof ActivityEventType.RATING_REBALANCE
 
 // One event covering a wholesale rewrite of the index space, with an impact row
 // per level in the list. Every row is a MOVER: nothing here is a bystander, and
@@ -323,13 +286,15 @@ export async function recordRankingBulkReplace(
   tx: Tx,
   userId: string,
   before: RankingSnapshot,
-  after: RankingSnapshot,
-  /** Which ordering the import replaced. Defaults to the demon list. */
-  eventType:
-    | typeof ActivityEventType.DEMON_LIST_BULK_REPLACE
-    | typeof ActivityEventType.RATING_BULK_REPLACE = ActivityEventType.DEMON_LIST_BULK_REPLACE
+  after: RankingSnapshot
 ): Promise<void> {
-  return recordListWideRankingEvent(tx, userId, eventType, before, after)
+  return recordListWideRankingEvent(
+    tx,
+    userId,
+    ActivityEventType.DEMON_LIST_BULK_REPLACE,
+    before,
+    after
+  )
 }
 
 /**
@@ -356,13 +321,15 @@ export async function recordRankingRebalance(
   tx: Tx,
   userId: string,
   before: RankingSnapshot,
-  after: RankingSnapshot,
-  /** Which ordering was renormalised. Defaults to the demon list. */
-  eventType:
-    | typeof ActivityEventType.DEMON_LIST_REBALANCE
-    | typeof ActivityEventType.RATING_REBALANCE = ActivityEventType.DEMON_LIST_REBALANCE
+  after: RankingSnapshot
 ): Promise<void> {
-  return recordListWideRankingEvent(tx, userId, eventType, before, after)
+  return recordListWideRankingEvent(
+    tx,
+    userId,
+    ActivityEventType.DEMON_LIST_REBALANCE,
+    before,
+    after
+  )
 }
 
 /**

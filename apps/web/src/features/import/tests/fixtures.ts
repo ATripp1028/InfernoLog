@@ -117,7 +117,6 @@ export function ratingRow(
     creator: null,
     inGameDifficulty: null,
     scores: { Gameplay: 80 },
-    simpleRating: null,
     flags: [],
     ...overrides,
   }
@@ -130,7 +129,6 @@ export function parseResult(overrides: Partial<ParseResult> = {}): ParseResult {
     progress: [],
     dropped: [],
     ranking: [],
-    ratingRanking: [],
     lists: [],
     ratings: [],
     ratingCategories: [],

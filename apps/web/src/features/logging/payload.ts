@@ -92,13 +92,9 @@ export function buildCompletionInput(
   me: MeData
 ): CompletionInput {
   const userGddlTier = intOrNull(draft.userGddlTier)
-  const ratingScores =
-    me.ratingMode === 'WEIGHTED'
-      ? Object.entries(draft.ratingScores).map(([categoryId, score]) => ({
-          categoryId,
-          score,
-        }))
-      : undefined
+  const ratingScores = Object.entries(draft.ratingScores).map(
+    ([categoryId, score]) => ({ categoryId, score })
+  )
 
   // When the user checks "already logged", omit both worst fail fields so the
   // server leaves the existing LevelProgress.worstFail/worstFailDate untouched.
@@ -125,8 +121,7 @@ export function buildCompletionInput(
     videoUrl: draft.videoUrl.trim() || null,
     difficultyOpinion: draft.difficultyOpinion,
     enjoyment: draft.enjoyment,
-    simpleRating: me.ratingMode === 'SIMPLE' ? draft.simpleRating : null,
-    ...(ratingScores && ratingScores.length ? { ratingScores } : {}),
+    ...(ratingScores.length ? { ratingScores } : {}),
     userGddlTier: userGddlTier,
     coinsCollected: level.coins ? draft.coinsCollected : null,
     twoPlayerSolo: level.twoPlayer ? draft.twoPlayerSolo : null,

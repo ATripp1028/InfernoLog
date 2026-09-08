@@ -38,12 +38,12 @@ export interface RatingOrderItem {
    * value compare identically.
    */
   dateMs: number | null
-  /** Per-category scores. Only consulted in WEIGHTED mode — see the factory. */
+  /** Per-category scores, consulted in the user's own priority order. */
   ratingScores: readonly { categoryId: string; score: number }[]
 }
 
 /**
- * A weighted-mode rating category, for the priority tiebreak.
+ * A rating category, for the priority tiebreak.
  *
  * `sortOrder` is the user's own priority ordering — the drag order in the
  * rating config editor, where the top item is highest priority. Lower sorts
@@ -76,9 +76,9 @@ export interface RatingOrderCategory {
  * that has the value.
  *
  * @param categories - The user's rating categories, in any order; this sorts
- * them by priority once, rather than per comparison. Pass none (the default) in
- * SIMPLE mode, where per-category scores may still exist as preserved data but
- * carry no meaning — step 2 then drops out and the chain runs 1, 3, 4, 5.
+ * them by priority once, rather than per comparison. Passing none (the default)
+ * drops step 2 and runs the chain 1, 3, 4, 5 — useful for a caller that has the
+ * ratings but not the config.
  * @returns A comparator returning negative when `a` ranks above `b`, positive
  * when below, and 0 only when the two are the same level.
  */
@@ -136,7 +136,9 @@ export function rankByRatingOrder<T extends RatingOrderItem>(
 }
 
 function scoreFor(item: RatingOrderItem, categoryId: string): number | null {
-  return item.ratingScores.find((s) => s.categoryId === categoryId)?.score ?? null
+  return (
+    item.ratingScores.find((s) => s.categoryId === categoryId)?.score ?? null
+  )
 }
 
 function descNullsLast(a: number | null, b: number | null): number {

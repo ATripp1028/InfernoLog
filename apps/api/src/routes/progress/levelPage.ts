@@ -32,7 +32,6 @@ app.get('/me/progress/:levelId', async (c) => {
       worstFailDateTimezone: true,
       userGddlTier: true,
       difficultyOpinion: true,
-      simpleRating: true,
       coinsCollected: true,
       completionTime: true,
       createdAt: true,
@@ -185,7 +184,6 @@ app.get('/me/progress/:levelId', async (c) => {
       // Level-scoped, not per-event: the user's read of the level itself.
       difficultyOpinion: lp.difficultyOpinion,
       // One current value per level, not per event.
-      simpleRating: lp.simpleRating,
       ratingScores: lp.ratingScores,
       coinsCollected: lp.coinsCollected,
       completionTime: lp.completionTime,

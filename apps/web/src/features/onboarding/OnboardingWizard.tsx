@@ -129,7 +129,7 @@ export function OnboardingWizard() {
       {step === 'rating' && (
         <StepShell
           title="Ratings"
-          description="Choose how you want to rate completions. You can change this later in Settings."
+          description="A level's rating is the weighted average of the categories you score it on. One category is a single score; add more to break it down. You can change these later in Settings."
           onContinue={() => void handleRatingContinue()}
           pending={savingRating}
         >

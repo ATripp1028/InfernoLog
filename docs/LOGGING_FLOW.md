@@ -200,9 +200,10 @@ attempts, run range, FPS) — not every field, to avoid noise.
   demon tiers — that's where the eye goes when someone wants to dispute an overrated easy demon),
   then **Easy / Medium / Hard / Insane / Extreme**. "Demon" is implied on the five tiers. The
   cached in-game difficulty is shown read-only beside the selector for contrast.
-- **Rating** forks on the user's mode: simple (single 0–10) or weighted (per-category sliders
-  with a computed weighted average). Enjoyment is a standalone slider; it needs no "how much fun?"
-  caption — users understand enjoyment.
+- **Rating** is one 0–10 slider per rating category, with the computed weighted average shown
+  above them. A new account has a single category, "Overall", so this is one slider until the
+  user splits it up. Enjoyment is a standalone slider; it needs no "how much fun?" caption —
+  users understand enjoyment.
 - **List references** are GDDL tier, AREDL rank, NLW tier. They are **genuine data the user may
   want on record**, which _additionally_ serve as a convenience for initial ranking placement —
   not merely a placement convenience. Optional. **AREDL rank only appears for extreme demons**
@@ -359,7 +360,7 @@ affordance. Favorites notes the optional GDDL sync. A level can land in several 
 | Attempts                                             | ✓                       | ✓                     | ✓ (optional)     |
 | In-game difficulty (cached, read-only)               | ✓ shown                 | —                     | —                |
 | Difficulty opinion (Not demon-worthy / Easy…Extreme) | ✓                       | —                     | —                |
-| Rating (simple/weighted)                             | ✓                       | Session Details       | —                |
+| Rating (per category)                                | ✓                       | Session Details       | —                |
 | Enjoyment                                            | ✓                       | Session Details       | —                |
 | List references (GDDL, AREDL, NLW)                   | ✓                       | —                     | —                |
 | AREDL rank                                           | ✓ (extreme demons only) | —                     | —                |
@@ -372,7 +373,7 @@ affordance. Favorites notes the optional GDDL sync. A level can land in several 
 | Per-entry privacy                                    | Session Details         | Session Details       | ✓                |
 
 Attempt count remains cumulative-across-all-copies (honor system, tooltip). A user-level
-**default FPS** setting lives alongside the existing user preferences (date format, rating mode)
+**default FPS** setting lives alongside the existing user preferences (date format, display options)
 and pre-fills the FPS field.
 
 ---

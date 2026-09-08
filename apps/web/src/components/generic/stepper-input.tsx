@@ -17,6 +17,11 @@ interface StepperInputProps {
   precision?: number
   /** Buttons rendered on each side. Default [0.1, 0.01]. */
   deltas?: number[]
+  /**
+   * A unit rendered inside the field's border, after the input — `%` for a
+   * category weight. Static text, not part of the value.
+   */
+  suffix?: string
   className?: string
   inputClassName?: string
   'aria-label'?: string
@@ -40,6 +45,7 @@ export function StepperInput({
   max = 1,
   precision = 2,
   deltas = [0.1, 0.01],
+  suffix,
   className,
   inputClassName,
   'aria-label': ariaLabel,
@@ -118,9 +124,20 @@ export function StepperInput({
         aria-label={ariaLabel}
         className={cn(
           'w-16 border-x border-border-subtle bg-transparent px-2 text-center text-sm text-foreground placeholder:text-muted-foreground focus:outline-none',
+          // The suffix owns the right-hand border instead, so the two read as
+          // one field rather than as a field with something bolted beside it.
+          suffix && 'border-r-0 pr-0',
           inputClassName
         )}
       />
+      {suffix && (
+        <span
+          aria-hidden
+          className="flex select-none items-center border-r border-border-subtle pl-0.5 pr-2 text-sm text-muted-foreground"
+        >
+          {suffix}
+        </span>
+      )}
       {/* Positive deltas on the right, smallest delta closest to the input. */}
       {orderedDeltas(deltas, 'plus').map((d) => (
         <StepButton

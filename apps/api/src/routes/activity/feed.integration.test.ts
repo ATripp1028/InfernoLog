@@ -231,7 +231,7 @@ describe('GET /v1/me/activity', () => {
       eventType: 'LOG_EDIT',
       createdAt: new Date('2026-08-25T11:00:00Z'),
       levelId: level.inGameId,
-      fieldChanges: [{ fieldName: 'simple_rating', category: 'RATING' }],
+      fieldChanges: [{ fieldName: 'rating_score:cat-1', category: 'RATING' }],
     })
     await seedEvent(user.id, {
       eventType: 'LOG_EDIT',

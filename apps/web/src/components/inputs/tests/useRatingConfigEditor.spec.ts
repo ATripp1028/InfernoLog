@@ -116,17 +116,18 @@ describe('useRatingConfigEditor', () => {
     })
   })
 
-  // Weights are summed in integer cents against an exact target, so floating
-  // point cannot drift a valid config into invalid.
+  // The editor holds weights as whole percents, so the sum is integer
+  // arithmetic against an exact target and floating point cannot drift a valid
+  // config into an invalid one.
   describe('the weight sum', () => {
-    it('accepts weights summing to exactly one', () => {
+    it('accepts weights summing to exactly 100%', () => {
       const { result } = render(
         me({
           ratingCategories: [category('a', 0.5, 0), category('b', 0.5, 1)],
         })
       )
 
-      expect(result.current.cents).toBe(100)
+      expect(result.current.total).toBe(100)
       expect(result.current.sumValid).toBe(true)
     })
 
@@ -151,7 +152,7 @@ describe('useRatingConfigEditor', () => {
         })
       )
 
-      expect(result.current.cents).toBe(100)
+      expect(result.current.total).toBe(100)
       expect(result.current.sumValid).toBe(true)
     })
 
@@ -170,7 +171,7 @@ describe('useRatingConfigEditor', () => {
 
       act(() => result.current.handleEnjoymentToggle(false))
 
-      expect(result.current.cents).toBe(100)
+      expect(result.current.total).toBe(100)
       expect(result.current.sumValid).toBe(true)
     })
   })
@@ -247,6 +248,48 @@ describe('useRatingConfigEditor', () => {
     })
   })
 
+  // Clearing every row to start over is a normal thing to do, so the editor
+  // allows it and blocks the SAVE instead — PUT /v1/me/rating-config rejects an
+  // empty list, since every level's rating is an average of these.
+  describe('the at-least-one-category rule', () => {
+    it('lets the last category be deleted', () => {
+      const { result } = render(me({ ratingCategories: [category('a', 1, 0)] }))
+
+      act(() => result.current.deleteItem('a'))
+
+      expect(result.current.visibleItems).toEqual([])
+      expect(result.current.hasNoCategories).toBe(true)
+    })
+
+    it('withholds save from an empty list', () => {
+      const { result } = render(me({ ratingCategories: [category('a', 1, 0)] }))
+
+      act(() => result.current.deleteItem('a'))
+
+      expect(result.current.dirty).toBe(true)
+      expect(result.current.canSave).toBe(false)
+    })
+
+    it('allows the save again once a category is back at the full weight', () => {
+      const { result } = render(me({ ratingCategories: [category('a', 1, 0)] }))
+      act(() => result.current.deleteItem('a'))
+
+      act(() => result.current.handleAdd())
+      act(() =>
+        result.current.renameCategory(
+          result.current.visibleItems[0]!.localKey,
+          'Vibes'
+        )
+      )
+      act(() =>
+        result.current.setWeight(result.current.visibleItems[0]!.localKey, 100)
+      )
+
+      expect(result.current.hasNoCategories).toBe(false)
+      expect(result.current.canSave).toBe(true)
+    })
+  })
+
   describe('the dirty and save gates', () => {
     it('starts clean, with nothing to save', () => {
       const { result } = render()
@@ -264,20 +307,10 @@ describe('useRatingConfigEditor', () => {
       expect(result.current.canSave).toBe(true)
     })
 
-    // Weights are compared at the precision the column stores, so a change
-    // finer than that is not a change at all.
-    it('ignores a weight change below the stored precision', () => {
-      const { result } = render()
-
-      act(() => result.current.setWeight('gameplay', 1.0001))
-
-      expect(result.current.dirty).toBe(false)
-    })
-
     it('withholds save while the weights do not sum', () => {
       const { result } = render()
 
-      act(() => result.current.setWeight('gameplay', 0.5))
+      act(() => result.current.setWeight('gameplay', 50))
 
       expect(result.current.dirty).toBe(true)
       expect(result.current.canSave).toBe(false)
@@ -319,9 +352,9 @@ describe('useRatingConfigEditor', () => {
       act(() => result.current.handleDistributeEqually())
 
       expect(result.current.visibleItems.map((i) => i.weight)).toEqual([
-        0.34, 0.33, 0.33,
+        34, 33, 33,
       ])
-      expect(result.current.cents).toBe(100)
+      expect(result.current.total).toBe(100)
     })
 
     it('splits evenly when it divides cleanly', () => {
@@ -333,9 +366,7 @@ describe('useRatingConfigEditor', () => {
 
       act(() => result.current.handleDistributeEqually())
 
-      expect(result.current.visibleItems.map((i) => i.weight)).toEqual([
-        0.5, 0.5,
-      ])
+      expect(result.current.visibleItems.map((i) => i.weight)).toEqual([50, 50])
     })
 
     it('gives a lone row the whole weight', () => {
@@ -345,7 +376,7 @@ describe('useRatingConfigEditor', () => {
 
       act(() => result.current.handleDistributeEqually())
 
-      expect(result.current.cents).toBe(100)
+      expect(result.current.total).toBe(100)
     })
 
     it('sorts the rows heaviest first', () => {
@@ -380,7 +411,7 @@ describe('useRatingConfigEditor', () => {
   describe('the enjoyment toggle', () => {
     // Toggling on with no prior value seeds a usable half rather than a
     // zero the user then has to notice and fix.
-    it('seeds a fresh enjoyment row at a half', () => {
+    it('seeds a fresh enjoyment row at 50%', () => {
       const { result } = render(me({ includeEnjoyment: false }))
 
       act(() => result.current.handleEnjoymentToggle(true))
@@ -388,7 +419,7 @@ describe('useRatingConfigEditor', () => {
       const enjoyment = result.current.visibleItems.find(
         (i) => i.localKey === ENJOYMENT_KEY
       )
-      expect(enjoyment?.weight).toBe(0.5)
+      expect(enjoyment?.weight).toBe(50)
     })
 
     // Toggling off and back on must not destroy a weight the user set.
@@ -408,7 +439,7 @@ describe('useRatingConfigEditor', () => {
       const enjoyment = result.current.visibleItems.find(
         (i) => i.localKey === ENJOYMENT_KEY
       )
-      expect(enjoyment?.weight).toBe(0.3)
+      expect(enjoyment?.weight).toBe(30)
     })
 
     // The row stays in the list while hidden so its position survives.
@@ -554,7 +585,7 @@ describe('useRatingConfigEditor', () => {
         )
       )
       act(() =>
-        result.current.setWeight(result.current.visibleItems[1]!.localKey, 0.5)
+        result.current.setWeight(result.current.visibleItems[1]!.localKey, 50)
       )
 
       act(() => result.current.handleSave())

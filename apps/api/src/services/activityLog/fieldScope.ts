@@ -40,7 +40,6 @@ const { RATING, SESSION_DETAIL, METADATA } = ActivityFieldCategory
  */
 export const LOG_EDIT_FIELD_SCOPE: Readonly<Record<string, FieldScopeEntry>> = {
   // ── Rating: how the user scores the level ────────────────────────────────
-  simpleRating: { fieldName: 'simple_rating', category: RATING },
   enjoyment: { fieldName: 'enjoyment', category: RATING },
 
   // ── Session detail: the run this entry describes ─────────────────────────

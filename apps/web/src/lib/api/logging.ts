@@ -123,8 +123,8 @@ export interface ExistingCompletion {
   notes: string | null
   visibility: EntryVisibility
   device: Device | null
-  // LevelProgress fields — one current value per level, not per event.
-  simpleRating: number | null
+  // LevelProgress fields — one current set of values per level, not per
+  // event.
   ratingScores: Array<{ categoryId: string; score: number }>
   coinsCollected: number | null
   completionTime: number | null
@@ -191,7 +191,6 @@ export interface CompletionInput {
   videoUrl?: string | null
   difficultyOpinion?: DifficultyOpinion | null
   enjoyment?: number | null
-  simpleRating?: number | null
   ratingScores?: Array<{ categoryId: string; score: number }>
   userGddlTier?: number | null
   coinsCollected?: number | null

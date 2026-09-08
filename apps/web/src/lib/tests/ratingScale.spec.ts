@@ -2,11 +2,15 @@ import { describe, expect, it } from 'vitest'
 import {
   ENJOYMENT_MAX,
   SCORE_MAX,
+  WEIGHT_PERCENT_MAX,
   formatEnjoyment,
   formatScore,
   formatScoreDisplay,
+  formatWeightPercent,
   toScoreDisplay,
   toScoreInternal,
+  toWeightFraction,
+  toWeightPercent,
 } from '../ratingScale'
 import {
   LEVEL_SEARCH_RESULTS_CAP,
@@ -22,6 +26,38 @@ describe('scale maximums', () => {
   it('tops scores at 10 and enjoyment at 100', () => {
     expect(SCORE_MAX).toBe(10)
     expect(ENJOYMENT_MAX).toBe(100)
+  })
+
+  it('tops a category weight at 100 percent', () => {
+    expect(WEIGHT_PERCENT_MAX).toBe(100)
+  })
+})
+
+// Weights are stored as a fraction of 1.00 with two decimal places and shown
+// as whole percents, so the two units line up exactly and the round trip is
+// lossless in both directions.
+describe('category weights', () => {
+  it.each([
+    [0, 0],
+    [0.05, 5],
+    [0.33, 33],
+    [0.34, 34],
+    [1, 100],
+  ])('reads the stored %s as %s percent', (fraction, percent) => {
+    expect(toWeightPercent(fraction)).toBe(percent)
+    expect(toWeightFraction(percent)).toBe(fraction)
+  })
+
+  // 0.1 + 0.2 territory: the fraction arrives off a JSON parse and must still
+  // land on a whole percent rather than 30.000000000000004.
+  it('rounds a fraction carrying float noise to a whole percent', () => {
+    expect(toWeightPercent(0.1 + 0.2)).toBe(30)
+  })
+
+  it('renders a weight with its unit', () => {
+    expect(formatWeightPercent(0.34)).toBe('34%')
+    expect(formatWeightPercent(1)).toBe('100%')
+    expect(formatWeightPercent(0)).toBe('0%')
   })
 })
 

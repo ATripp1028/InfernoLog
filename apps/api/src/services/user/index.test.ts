@@ -101,17 +101,13 @@ describe('createUserForSignup — the new row', () => {
     expect(second).not.toBe(first)
   })
 
-  it('seeds the three default rating categories', async () => {
+  it('seeds a single Overall rating category', async () => {
     await createUserForSignup(EMAIL, SUB)
 
     const { ratingCategories } = createData() as {
       ratingCategories: { create: { name: string; weight: number }[] }
     }
-    expect(ratingCategories.create.map((c) => c.name)).toEqual([
-      'Gameplay',
-      'Decoration',
-      'Song',
-    ])
+    expect(ratingCategories.create.map((c) => c.name)).toEqual(['Overall'])
   })
 
   it('seeds category weights that sum to exactly 1.00', async () => {

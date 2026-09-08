@@ -52,9 +52,6 @@ export type Device = 'pc' | 'mobile'
  */
 export type GdVersion = 'TWO_ONE' | 'TWO_TWO'
 
-/** Whether a user's overall rating is a single number or a weighted average of categories. */
-export type RatingMode = 'SIMPLE' | 'WEIGHTED' | 'MANUAL'
-
 /** How calendar dates are ordered for display. Also selects 12h vs 24h time (`ISO` alone is 24h). */
 export type DateFormatPreference = 'MDY' | 'DMY' | 'YMD' | 'ISO'
 

@@ -9,7 +9,7 @@ import {
 } from '@/lib/difficultyOpinionLabel'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { RatingCategory } from '@/lib/api/me'
-import type { RatingMode, DateFormatPreference } from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { LevelPageData } from '@/lib/api/levelPage'
 import { formatEntryDate } from './timelineFormat'
 
@@ -57,11 +57,6 @@ export type StatGridVariant = 'mobile' | 'desktop'
 interface StatGridProps {
   data: LevelPageData
   datePref: DateFormatPreference
-  // Widened for MANUAL, where computeOverallRating returns null and the RATING
-  // cell falls back to its own blank. Showing the level's manual POSITION here
-  // instead is a display concern, and belongs with the rest of the MANUAL
-  // display work rather than with the schema.
-  ratingMode: RatingMode
   includeEnjoyment: boolean
   enjoymentWeight: number
   ratingCategories: RatingCategory[]
@@ -74,7 +69,6 @@ interface StatGridProps {
 export function StatGrid({
   data,
   datePref,
-  ratingMode,
   includeEnjoyment,
   enjoymentWeight,
   ratingCategories,
@@ -108,8 +102,8 @@ export function StatGrid({
   // ATTEMPTS: completion → latest update (the drop, if dropped) → null
   const attempts = completion?.attempts ?? latestUpdate?.attempts ?? null
 
-  // RATING — computed overall rating (weighted avg or simple per user mode),
-  // shown separately from enjoyment. GDDL tier has its own stat box. Rating
+  // RATING — the weighted average of the level's per-category scores, shown
+  // separately from enjoyment. GDDL tier has its own stat box. Rating
   // lives on LevelProgress (one current value per level), independent of
   // completion status — so this is computed regardless of whether a
   // completion exists, matching the list view (apps/api/src/routes/progress.ts).
@@ -117,9 +111,8 @@ export function StatGrid({
     ratingCategories.map((cat) => [cat.id, cat.weight])
   )
   const overallRating = computeOverallRating(
-    { ratingMode, includeEnjoyment, enjoymentWeight, categoryWeights },
+    { includeEnjoyment, enjoymentWeight, categoryWeights },
     {
-      simpleRating: data.simpleRating,
       enjoyment: (completion ?? latestUpdate)?.enjoyment ?? null,
       ratingScores: data.ratingScores,
     }

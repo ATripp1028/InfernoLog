@@ -2,7 +2,6 @@ import { z } from 'zod'
 import {
   CollectionType,
   LevelType,
-  RatingMode,
   Role,
   DateFormatPreference,
   DifficultyOpinion,
@@ -158,7 +157,6 @@ export const UpdateMeSchema = z
     defaultPercentageVersion: z.nativeEnum(GdVersion).optional(),
     defaultDevice: z.nativeEnum(Device).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
-    ratingMode: z.nativeEnum(RatingMode).optional(),
     showHighlightUrl: z.boolean().optional(),
     autoExpandFabLabels: z.boolean().optional(),
     includeEnjoyment: z.boolean().optional(),
@@ -185,6 +183,9 @@ export const UpdateMeSchema = z
 // weights (categories plus enjoymentWeight when included) must sum to
 // exactly 1.00. We validate using integer cents so 0.1 + 0.2 doesn't trip
 // floating-point comparisons.
+//
+// The wire unit is the fraction, not the percent the settings editor shows —
+// see apps/web/src/lib/ratingScale.ts, which owns that conversion.
 export const RATING_WEIGHT_SUM_TARGET_CENTS = 100
 
 // Two-decimal precision check using a small float epsilon (rounding error
@@ -212,7 +213,14 @@ export const RatingConfigCategorySchema = z.object({
 
 export const RatingConfigSchema = z
   .object({
-    categories: z.array(RatingConfigCategorySchema).max(MAX_RATING_CATEGORIES),
+    // At least one: every level's rating is a weighted average of these, so an
+    // account with none could not rate anything at all. The settings editor
+    // still lets a user clear the list locally to start over — it blocks the
+    // save, not the editing.
+    categories: z
+      .array(RatingConfigCategorySchema)
+      .min(1, 'At least one rating category is required')
+      .max(MAX_RATING_CATEGORIES),
     includeEnjoyment: z.boolean(),
     enjoymentWeight: z
       .number()
@@ -390,9 +398,8 @@ export const CompletionInputSchema = z.object({
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
-  // SIMPLE mode: a single rating. WEIGHTED mode: per-category scores. We store
-  // whichever the client sends and never pre-compute the weighted average.
-  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+  // Per-category scores. Stored raw; the weighted average is never
+  // pre-computed.
   ratingScores: z.array(RatingScoreInputSchema).optional(),
   userGddlTier: z
     .number()
@@ -484,9 +491,8 @@ export const EditProgressInputSchema = z
     worstFailDate: z.coerce.date().nullable().optional(),
     worstFailDateTimezone: timezoneField,
     visibility: z.nativeEnum(EntryVisibility).optional(),
-    // One current value per level, not per event — editable regardless of
-    // which ProgressUpdate is being viewed.
-    simpleRating: z.number().int().min(0).max(100).nullable().optional(),
+    // One current set of values per level, not per event — editable
+    // regardless of which ProgressUpdate is being viewed.
     ratingScores: z.array(RatingScoreInputSchema).optional(),
     coinsCollected: z.number().int().min(0).max(7).nullable().optional(),
     // Platformer only (v2, no UI yet): time of the completing attempt, seconds.
@@ -753,7 +759,6 @@ export const ExistingCompletionSchema = z.object({
   device: z.nativeEnum(Device).nullable(),
   // LevelProgress fields
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
-  simpleRating: z.number().int().nullable(),
   ratingScores: z.array(
     z.object({ categoryId: z.string().uuid(), score: z.number().int() })
   ),
@@ -858,12 +863,12 @@ export const LevelProgressListItemSchema = z.object({
   // The user's own difficulty opinion. Level-scoped (LevelProgress), not per
   // logged event — so it sits here rather than on `entry`.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable(),
-  // Computed at query time (never stored): simpleRating in SIMPLE mode, the
-  // weighted average of ratingScores in WEIGHTED mode. 0–100 internal scale.
-  // One value per level (LevelProgress), not per logged event.
+  // Computed at query time (never stored): the weighted average of
+  // ratingScores, on the 0–100 internal scale. One value per level
+  // (LevelProgress), not per logged event.
   overallRating: z.number().nullable(),
   // Per-category scores used for tie-breaking weighted-average sorts and for
-  // individual category columns. Only meaningful in WEIGHTED mode.
+  // individual category columns.
   ratingScores: z.array(
     z.object({ categoryId: z.string(), score: z.number().int() })
   ),
@@ -936,61 +941,6 @@ export const PlaceOnDemonListInputSchema = z.object({
 })
 
 export const ReorderDemonListInputSchema = z.object(demonListNeighbours)
-
-// ─────────────────────────────────────────────
-// RATING RANKING — the MANUAL rating mode's ordering, where the user's chosen
-// POSITION is the rating and no number exists. Same neighbour-pair shape as the
-// demon list: omit aboveId to drop at the very top (best), belowId for the very
-// bottom (worst), or both for the first entry in an empty ranking.
-// ─────────────────────────────────────────────
-
-const ratingNeighbours = {
-  aboveId: z.string().uuid().optional(),
-  belowId: z.string().uuid().optional(),
-}
-
-export const PlaceRatingInputSchema = z.object({
-  levelProgressId: z.string().uuid(),
-  ...ratingNeighbours,
-})
-
-export const ReorderRatingInputSchema = z.object(ratingNeighbours)
-
-export const RatingRankingEntrySchema = z.object({
-  // 1-based position, best first.
-  rank: z.number().int(),
-  levelProgressId: z.string().uuid(),
-  // The computed rating in SIMPLE/WEIGHTED. Null in MANUAL, where the position
-  // IS the rating and no number exists — see RATING_SYSTEM.md.
-  overallRating: z.number().nullable(),
-  level: LevelListSummarySchema,
-  attempts: z.number().int().nullable(),
-})
-
-export const UnrankedRatingEntrySchema = z.object({
-  levelProgressId: z.string().uuid(),
-  level: LevelListSummarySchema,
-  attempts: z.number().int().nullable(),
-})
-
-export const RatingRankingResponseSchema = z.object({
-  // Which mode produced this order, so a consumer knows what it is looking at
-  // without a second call.
-  ratingMode: z.nativeEnum(RatingMode),
-  /**
-   * Whether the order can be rearranged by hand — MANUAL only. In SIMPLE and
-   * WEIGHTED the order is DERIVED from the ratings, so the write endpoints
-   * refuse; this is what tells a client that up front rather than by 409.
-   */
-  editable: z.boolean(),
-  ranked: z.array(RatingRankingEntrySchema),
-  /**
-   * Completions that hold no position: unrated ones in SIMPLE/WEIGHTED, ones
-   * not yet placed in MANUAL. The same idea either way — a completion the
-   * ranking has nothing to say about yet.
-   */
-  unranked: z.array(UnrankedRatingEntrySchema),
-})
 
 // ─────────────────────────────────────────────
 // COLLECTIONS — user-owned groupings of levels: the three built-ins
@@ -1217,8 +1167,6 @@ export const ImportCompletionRowSchema = z.object({
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   // 0-100 internal scale — no conversion on write. See the block comment above.
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
-  // 0-10 sheet scale (server converts to 0-100 on write).
-  simpleRating: z.number().min(0).max(10).nullable().optional(),
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
@@ -1458,9 +1406,6 @@ export const ImportRatingEntrySchema = z.object({
   levelName: z.string().nullable().optional(),
   creator: z.string().nullable().optional(),
   inGameDifficulty: z.string().nullable().optional(),
-  // SIMPLE mode's single score, 0-100 internal. It arrives here rather than on
-  // the completion row because every rating figure now shares one tab.
-  simpleRating: z.number().int().min(0).max(100).nullable().optional(),
   // category name → score (0-100, internal scale).
   //
   // Category names are matched case-insensitively against the user's existing
@@ -1615,9 +1560,6 @@ export const ImportStartRequestSchema = z.object({
   rows: z.array(ImportCommitRowSchema).min(1).max(20000),
   // The demon list's order, hardest first.
   ranking: z.array(ImportRankingEntrySchema).optional(),
-  // The MANUAL rating order, best first. A workbook can carry both: they are
-  // separate orderings of the same completions and neither implies the other.
-  ratingRanking: z.array(ImportRankingEntrySchema).optional(),
   collections: z.array(ImportCollectionEntrySchema).optional(),
   ratings: z.array(ImportRatingEntrySchema).optional(),
 })
@@ -1648,11 +1590,6 @@ export const ImportStatusResponseSchema = z.object({
   }),
   flaggedRows: z.array(ImportFlaggedRowSchema),
   rankingResult: ImportRankingResponseSchema.nullable(),
-  // The MANUAL rating order's outcome. Same shape as the demon list's, and
-  // reported separately for the same reason the payloads are separate: a
-  // workbook can replace both orderings, and a row skipped from one says
-  // nothing about the other.
-  ratingRankingResult: ImportRankingResponseSchema.nullable(),
   collectionsResult: ImportCollectionsResponseSchema.nullable(),
   ratingsResult: ImportRatingsResponseSchema.nullable(),
 })
@@ -1679,7 +1616,6 @@ export const ExportCompletionSchema = z.object({
   fps: z.number().int().nullable(),
   device: z.string().nullable(),
   enjoyment: z.number().int().nullable(), // 0-100 internal
-  simpleRating: z.number().int().nullable(), // 0-100 internal
   difficultyOpinion: z.string().nullable(),
   coinsCollected: z.number().int().nullable(),
   twoPlayerSolo: z.boolean().nullable(),
@@ -1738,31 +1674,16 @@ export const ExportCollectionSchema = z.object({
   position: z.number().int(),
 })
 
+/**
+ * One row of the sheet's "Ratings" tab: every per-category score the user has
+ * given one level, in one place.
+ */
 export const ExportRatingSchema = z.object({
   levelId: z.string(),
   levelName: z.string().nullable(),
   creator: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
-  scores: z.record(z.string(), z.number().int()), // 0-100 internal
-})
-
-/**
- * One row of the sheet's "Ranking" tab: everything about how the user rates one
- * level, in one place.
- *
- * `rank` is the MANUAL ordering's position, or null for a level that holds no
- * manual position — a user in SIMPLE or WEIGHTED mode has ratings but no
- * hand-arranged order, and their rows still belong here.
- */
-export const ExportRatingRankingSchema = z.object({
-  rank: z.number().int().nullable(),
-  levelId: z.string(),
-  levelName: z.string().nullable(),
-  creator: z.string().nullable(),
-  inGameDifficulty: z.string().nullable(),
-  // SIMPLE mode's single score, 0-100 internal. Null when unset.
-  simpleRating: z.number().nullable(),
-  // WEIGHTED mode's per-category scores, 0-100 internal.
+  // Per-category scores, 0-100 internal.
   scores: z.record(z.string(), z.number().int()),
 })
 
@@ -1772,12 +1693,9 @@ export const ExportResponseSchema = z.object({
   dropped: z.array(ExportDroppedSchema),
   // Feeds the sheet's "Demon List" tab — the difficulty ordering.
   ranking: z.array(ExportRankingSchema),
-  // Feeds the sheet's "Ranking" tab, which carries EVERYTHING about how the
-  // user rates a level: the manual position, the simple score and the
-  // per-category scores. One tab rather than three places, because they are one
-  // subject and a user editing their ratings should not have to find them in
-  // the Completions tab and a Ratings tab as well.
-  ratingRanking: z.array(ExportRatingRankingSchema),
+  // Feeds the sheet's "Ratings" tab — every per-category score, in one place
+  // rather than spread across the Completions tab as well.
+  ratings: z.array(ExportRatingSchema),
   // Feeds the sheet's "Lists" tab (the tab name is a user data contract).
   collections: z.array(ExportCollectionSchema),
   ratingCategories: z.array(z.string()),
@@ -1792,8 +1710,7 @@ export const EXPORT_SECTIONS = [
   'dropped',
   // The demon list's order.
   'ranking',
-  // The MANUAL rating order — a separate ordering of the same completions.
-  'ratingRanking',
+  'ratings',
   'collections',
   'categories',
 ] as const

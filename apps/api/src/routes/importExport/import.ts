@@ -57,7 +57,7 @@ app.post('/me/import/start', async (c) => {
   const parsed = await parseJsonBody(c, ImportStartRequestSchema)
   if (!parsed.ok) return parsed.response
 
-  const { rows, ranking, ratingRanking, collections, ratings } = parsed.data
+  const { rows, ranking, collections, ratings } = parsed.data
 
   const job = await prisma.$transaction(async (tx) => {
     await tx.importJob.deleteMany({ where: { userId } })
@@ -68,12 +68,6 @@ app.post('/me/import/start', async (c) => {
         totalRows: rows.length,
         ...(ranking
           ? { rankingPayload: ranking as unknown as Prisma.InputJsonValue }
-          : {}),
-        ...(ratingRanking
-          ? {
-              ratingRankingPayload:
-                ratingRanking as unknown as Prisma.InputJsonValue,
-            }
           : {}),
         ...(collections
           ? {
@@ -167,9 +161,6 @@ app.get('/me/import/status', async (c) => {
     })),
     rankingResult:
       (job.rankingResult as ImportStatusResponse['rankingResult']) ?? null,
-    ratingRankingResult:
-      (job.ratingRankingResult as ImportStatusResponse['ratingRankingResult']) ??
-      null,
     collectionsResult:
       (job.collectionsResult as ImportStatusResponse['collectionsResult']) ??
       null,

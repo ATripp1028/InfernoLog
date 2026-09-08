@@ -13,7 +13,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 > **Note:** The Log page (a dedicated feed/history view) has been shelved pending user feedback. The underlying data model and logging flow are unchanged — only the page that surfaces logged events as a browsable feed is deferred. The nav link is inactive in the current build.
 
 - [x] Level progress model — every interaction with a level is a progress update. Completion = `kind = completion`, drop = `kind = drop`
-- [x] All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, simple or weighted rating, in-game difficulty snapshot, notes, completion video URL, highlight video URL
+- [x] All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, per-category rating scores, in-game difficulty snapshot, notes, completion video URL, highlight video URL
 - [x] Non-completion entries hidden by default, revealed by toggle
 - [x] One completion per user per level (rebeat handling v3)
 - [x] In-progress levels (currently attempting) — per-entry privacy
@@ -45,11 +45,11 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 ### Rating System
 
-- [x] Simple mode (single 0-10 score) — default
-- [x] Weighted mode (configurable categories, computed at query time)
-- [x] Default weighted categories: Gameplay, Decoration, Song
-- [x] Enjoyment as standalone field, opt-in to weighted average
-- [x] Mode switching preserves all data
+- [x] One system: a level's rating is the weighted average of its per-category scores, computed at query time
+- [x] Configurable categories — names, weights (as percents, summing to 100%), and a drag order that is also the tie-break priority
+- [x] Default category: a single "Overall" at 100%, which is the one-score-per-level experience
+- [x] At least one category enforced; the editor allows clearing the list but blocks the save
+- [x] Enjoyment as standalone field, opt-in to the weighted average
 
 ### Unrated Levels
 

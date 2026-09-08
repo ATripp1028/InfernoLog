@@ -57,7 +57,6 @@ const category = (id: string, sortOrder = 0, name = id): RatingCategory =>
 const meData = (overrides: Partial<MeData> = {}) =>
   ({
     id: 'user-1',
-    ratingMode: 'SIMPLE',
     ratingCategories: [],
     ...overrides,
   }) as MeData
@@ -375,15 +374,15 @@ describe('useLogPage', () => {
   })
 
   describe('rating categories', () => {
-    const weighted = (cats: RatingCategory[]) =>
-      vi.mocked(useMe).mockReturnValue(
-        stubQuery<MeData>({
-          data: meData({ ratingMode: 'WEIGHTED', ratingCategories: cats }),
-        })
-      )
+    const withCategories = (cats: RatingCategory[]) =>
+      vi
+        .mocked(useMe)
+        .mockReturnValue(
+          stubQuery<MeData>({ data: meData({ ratingCategories: cats }) })
+        )
 
     it('offers a category column and sort per category', () => {
-      weighted([category('gameplay', 0, 'Gameplay')])
+      withCategories([category('gameplay', 0, 'Gameplay')])
       const { result } = render()
 
       expect(result.current.activeCategories).toHaveLength(1)
@@ -395,16 +394,8 @@ describe('useLogPage', () => {
       ])
     })
 
-    // Per-category columns only mean anything in weighted mode.
-    it('offers none in simple mode, even with categories configured', () => {
-      vi.mocked(useMe).mockReturnValue(
-        stubQuery<MeData>({
-          data: meData({
-            ratingMode: 'SIMPLE',
-            ratingCategories: [category('gameplay')],
-          }),
-        })
-      )
+    it('offers none for an account with no categories', () => {
+      withCategories([])
       const { result } = render()
 
       expect(result.current.activeCategories).toEqual([])
@@ -412,7 +403,7 @@ describe('useLogPage', () => {
     })
 
     it('orders the sort options by category priority', () => {
-      weighted([category('b', 1, 'B'), category('a', 0, 'A')])
+      withCategories([category('b', 1, 'B'), category('a', 0, 'A')])
       const { result } = render()
 
       expect(result.current.categorySortOptions.map((o) => o.key)).toEqual([
@@ -422,7 +413,7 @@ describe('useLogPage', () => {
     })
 
     it('adds a column slot for each active category', () => {
-      weighted([category('gameplay')])
+      withCategories([category('gameplay')])
       const { result } = render()
 
       expect(result.current.columnOrder).toContain('cat:gameplay')
@@ -431,7 +422,7 @@ describe('useLogPage', () => {
     // A deleted category must not leave a dangling sort, column, or filter
     // behind — those would reference a category that no longer exists.
     it('strips every reference to a deleted category', () => {
-      weighted([category('gameplay')])
+      withCategories([category('gameplay')])
       const { result, rerender } = render()
       act(() => {
         result.current.setSorts([{ key: 'cat:gameplay', dir: 'desc' }])
@@ -441,7 +432,7 @@ describe('useLogPage', () => {
         )
       })
 
-      weighted([])
+      withCategories([])
       rerender()
 
       expect(result.current.sorts).toEqual([])
@@ -557,10 +548,7 @@ describe('useLogPage', () => {
     it('reconciles the preset against the current categories', () => {
       vi.mocked(useMe).mockReturnValue(
         stubQuery<MeData>({
-          data: meData({
-            ratingMode: 'WEIGHTED',
-            ratingCategories: [category('current')],
-          }),
+          data: meData({ ratingCategories: [category('current')] }),
         })
       )
       withPresets([
