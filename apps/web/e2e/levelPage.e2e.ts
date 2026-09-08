@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
 import {
+  RATING_CATEGORY,
   findLevel,
   levelCard,
   logCompletion,
@@ -161,7 +162,12 @@ test.describe('level page', () => {
 
     // The stepper commits on blur, not on input, so a bare fill() would be
     // discarded. Enter blurs it (see StepperInput's onKeyDown).
-    const score = dialog.getByLabel('Overall', { exact: true })
+    //
+    // Labelled by the category's name rather than by anything fixed — the
+    // modal renders one row per rating category, so RATING_CATEGORY is what
+    // names this one. Exact, so it cannot also match a category whose name
+    // merely contains it.
+    const score = dialog.getByLabel(RATING_CATEGORY, { exact: true })
     await score.fill(RATING)
     await score.press('Enter')
 
@@ -211,9 +217,9 @@ test.describe('level page', () => {
     await expect(
       reopened.getByLabel('Your tier opinion', { exact: true })
     ).toHaveValue(GDDL_TIER)
-    await expect(reopened.getByLabel('Score', { exact: true })).toHaveValue(
-      RATING
-    )
+    await expect(
+      reopened.getByLabel(RATING_CATEGORY, { exact: true })
+    ).toHaveValue(RATING)
     // The coin's accessible name carries its own state, so its presence is
     // the assertion — and "Coin 2 (collected)" is not a substring of the
     // uncollected label, so the match cannot be satisfied by the wrong one.

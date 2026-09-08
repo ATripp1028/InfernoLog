@@ -138,6 +138,23 @@ export async function findLevel(page: Page, level: FixtureLevel) {
 }
 
 /**
+ * The E2E user's sole rating category, seeded by `createUserForSignup` at
+ * weight 1.00 (`apps/api/src/services/user/index.ts`).
+ *
+ * Every rating field in the app is labelled by its category's NAME — there is
+ * no fixed "Rating" label any more, because there is no longer a single score
+ * to label. So this string is the handle on every rating control the suite
+ * touches, and it is account data rather than UI text: if the default category
+ * is renamed, re-run `pnpm e2e:provision` (see README) rather than reaching for
+ * a different locator.
+ *
+ * Weight 1.00 also means a level's weighted average is exactly the score typed
+ * into this one field, which is what lets these specs assert a typed value
+ * straight back off the stat grid.
+ */
+export const RATING_CATEGORY = 'Overall'
+
+/**
  * Walks the completion wizard from the FAB to the success card.
  *
  * The wizard is four "Continue" steps plus a review. `c_gddl` would add a
@@ -146,10 +163,8 @@ export async function findLevel(page: Page, level: FixtureLevel) {
  *
  * Leaves the success card open: the caller picks "Place now" or "Place later".
  *
- * @param rating - The score to give the level's "Overall" category, in
- * **display** units (0–10). That is the sole category the E2E user is
- * provisioned with, at the full weight, so the level's weighted average is
- * exactly this number. Omitted, the step is walked past and takes its own
+ * @param rating - The score to give the level's {@link RATING_CATEGORY}, in
+ * **display** units (0–10). Omitted, the step is walked past and takes its own
  * default of the middle of the scale, which is what every completion in this
  * suite carries except the ones ranking.e2e.ts logs.
  */
@@ -170,7 +185,7 @@ export async function logCompletion(
     // not per keystroke (components/generic/stepper-input.tsx), so a fill
     // alone leaves the draft holding the default. Enter blurs it; letting the
     // Continue click do the blurring would race its own step change.
-    const field = page.getByLabel('Overall')
+    const field = page.getByLabel(RATING_CATEGORY, { exact: true })
     await field.fill(rating)
     await field.press('Enter')
   }
