@@ -10,14 +10,6 @@
 // one hidden event type: the order the user sees does not change and nothing
 // they did is described by it. It must never reach a feed response.
 //
-// The RATING_* ordering events (the MANUAL rating ranking's placements,
-// reorders, removals, bulk replaces and rebalances) are excluded on the same
-// line. RATING_REBALANCE is internal for exactly the reason above; the other
-// four are emitted and stored, but `FeedEventTypeSchema` has no member for them
-// and the Log page's row renderer has no case, so letting them through renders
-// a blank row rather than a story. They come back once the feed has a
-// vocabulary for them.
-//
 // The order is a THREE-level total order, and keyset pagination depends on
 // every level of it:
 //
@@ -163,16 +155,9 @@ export async function readActivityFeed(
 
   const eventConds: Prisma.Sql[] = [
     Prisma.sql`a."userId" = ${userId}`,
-    // Event types the feed cannot render — see the module header. Listed
-    // explicitly rather than matched by prefix, so RATING_CONFIG_CHANGE (which
-    // shares the prefix and IS user-facing) cannot be swept up by accident.
+    // Event types the feed cannot render — see the module header.
     Prisma.sql`a."eventType"::text NOT IN (${Prisma.join([
       ActivityEventType.DEMON_LIST_REBALANCE,
-      ActivityEventType.RATING_PLACEMENT,
-      ActivityEventType.RATING_REORDER,
-      ActivityEventType.RATING_REMOVED,
-      ActivityEventType.RATING_BULK_REPLACE,
-      ActivityEventType.RATING_REBALANCE,
     ])})`,
   ]
   const progressConds: Prisma.Sql[] = [Prisma.sql`lp."userId" = ${userId}`]

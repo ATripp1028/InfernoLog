@@ -644,7 +644,7 @@ describe('planProgress — round-trips by progressId', () => {
     expect(onlyUpdate(ctx).data).toEqual({ notes: 'session 2' })
   })
 
-  // Enjoyment arrives already on the stored 0-100 scale, unlike simpleRating.
+  // Enjoyment arrives already on the stored 0-100 scale, unlike a category score.
   it('writes enjoyment unscaled on both paths', () => {
     const merged = withMatch()
     planProgress(

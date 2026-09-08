@@ -2,119 +2,149 @@
 
 ## Overview
 
-InfernoLog offers two rating modes. Users select their preferred mode in account settings and can switch at any time without losing data.
+A level's rating is the **weighted average of the scores you give it in your own
+rating categories**. There is one rating system — no modes to pick between, and
+nothing to configure before you can rate something.
 
 ```
 ┌─────────────────────────────────────────────────┐
-│                 Rating Modes                    │
+│              Weighted Average                   │
 │                                                 │
 │  ┌──────────────────┐  ┌─────────────────────┐  │
-│  │   Simple Mode    │  │   Weighted Mode     │  │
-│  │   (default)      │  │                     │  │
+│  │  One category    │  │  Several categories │  │
+│  │  (the default)   │  │                     │  │
 │  │                  │  │  Gameplay   ████ 8  │  │
-│  │  Overall: 7/10   │  │  Decoration ██░░ 5  │  │
-│  │                  │  │  Song       ███░ 7  │  │
-│  │  Single score,   │  │             ─────── │  │
-│  │  no fuss         │  │  Weighted avg: 6.8  │  │
+│  │  Overall  ███ 7  │  │  Decoration ██░░ 5  │  │
+│  │           ────── │  │  Song       ███░ 7  │  │
+│  │  Rating:     7   │  │             ─────── │  │
+│  │                  │  │  Rating:       6.8  │  │
 │  └──────────────────┘  └─────────────────────┘  │
 └─────────────────────────────────────────────────┘
 ```
 
-Rating (`simple_rating` / `rating_scores`) is **one current value per level**, not per logged event — it lives on `level_progress` and is editable from any progress-editing surface (the completion flow, or the edit form for any entry), not gated to completions specifically. `enjoyment` is the exception: it's logged per-event on `progress_updates`, mirroring the GDDL's approach, since a session's enjoyment can genuinely differ beat-to-beat in a way a level's overall rating doesn't. Non-completion entries (and the enjoyment they carry) are hidden unless the "show non-completions" toggle is active.
+A new account is seeded with a single category, **Overall**, at the full weight.
+Its average is one term, so the rating is just the number you typed — the
+one-score-per-level experience, without a second system to maintain. Splitting
+that into Gameplay/Decoration/Song, or anything else, is a settings change
+rather than a mode switch.
+
+Rating (`rating_scores`) is **one current set of values per level**, not per
+logged event — it lives on `level_progress` and is editable from any
+progress-editing surface (the completion flow, or the edit form for any entry),
+not gated to completions specifically. `enjoyment` is the exception: it's logged
+per-event on `progress_updates`, mirroring the GDDL's approach, since a
+session's enjoyment can genuinely differ beat-to-beat in a way a level's overall
+rating doesn't. Non-completion entries (and the enjoyment they carry) are hidden
+unless the "show non-completions" toggle is active.
 
 ### Scales
 
 The scale is fixed per field, matching the convention the GD community already uses. There is no user preference — one existed (`users.ratingDisplayScale`) and was removed, since a second unit for every figure only created a second way to read it wrong.
 
-| Field                                                                                                          | Shown as                        |
-| -------------------------------------------------------------------------------------------------------------- | ------------------------------- |
-| **Scores** — `level_progress.simple_rating`, `rating_scores.score`, and the weighted average they combine into | **0–10 with decimals** (`7.5`)  |
-| **Enjoyment** — `progress_updates.enjoyment`                                                                   | **0–100, whole numbers** (`85`) |
+| Field                                                                                    | Shown as                        |
+| ---------------------------------------------------------------------------------------- | ------------------------------- |
+| **Scores** — `rating_scores.score`, and the weighted average they combine into           | **0–10 with decimals** (`7.5`)  |
+| **Enjoyment** — `progress_updates.enjoyment`                                             | **0–100, whole numbers** (`85`) |
+| **Category weights** — `rating_categories.weight`, `users.enjoyment_weight`              | **whole percents** (`34%`)      |
 
-Storage is the same for both: always an integer on a 0–100 internal scale. The frontend converts at the display layer — `apps/web/src/lib/ratingScale.ts` is the only place that arithmetic lives, and it exposes `formatScore`/`toScoreDisplay`/`toScoreInternal` for scores and `formatEnjoyment` (an identity, since enjoyment's display and storage units coincide) for enjoyment.
+Storage is the same for the first two: always an integer on a 0–100 internal
+scale. Weights are stored as a fraction of 1.00 in a `Decimal(5,2)`, so a whole
+percent maps to a stored value exactly and the round trip is lossless.
+`apps/web/src/lib/ratingScale.ts` is the only place any of that arithmetic
+lives — `formatScore`/`toScoreDisplay`/`toScoreInternal` for scores,
+`formatEnjoyment` (an identity) for enjoyment, and
+`toWeightPercent`/`toWeightFraction`/`formatWeightPercent` for weights.
 
-One consequence worth knowing: when a user opts enjoyment into the weighted average (`rating_categories.include_enjoyment`), the arithmetic runs on the internal scale, so an enjoyment of 85 weighs exactly as much as a category score of 8.5.
+One consequence worth knowing: when a user opts enjoyment into the average
+(`users.include_enjoyment`), the arithmetic runs on the internal scale, so an
+enjoyment of 85 weighs exactly as much as a category score of 8.5.
 
 ---
 
-## Simple Mode
+## Categories
 
-A single **0–10 score** per level. Stored in `level_progress.simple_rating`. No configuration required.
+User-configurable, each scored 0–10, combined into a weighted average.
+Configured wholesale by `PUT /v1/me/rating-config` — names, weights, and the
+drag order that is also the tie-break priority.
 
-Display: shown as a single number or star-equivalent wherever ratings appear.
+### Defaults
 
----
+A new account gets one category:
 
-## Weighted Mode
+| Name    | Weight |
+| ------- | ------ |
+| Overall | 100%   |
 
-User-configurable categories, each scored 0–10, combined into a weighted average.
+### Rules
 
-### Default Categories
+- **At least one category.** Every rating is an average of these, so an account
+  with none could not rate anything at all. `PUT /v1/me/rating-config` rejects
+  an empty list, and the settings editor blocks the save rather than blocking
+  the delete — clearing the list to start over is a normal thing to do.
+- **Active weights must total exactly 100%** — the categories, plus enjoyment
+  when it is opted in. Validated in integer percents so floating point cannot
+  drift a valid config into an invalid one.
+- Categories can be added, renamed, reweighted, reordered and removed freely.
+  Removing one deletes its `rating_scores` rows in the same transaction.
+- The spreadsheet import is the one path that creates categories implicitly: an
+  unrecognized column name is created **at weight 0**, which leaves the 100%
+  total undisturbed. Set its weight in Settings afterwards.
 
-- Gameplay
-- Decoration
-- Song
-
-Users can add, rename, and remove categories freely. Weights don't need to sum to any particular value — the formula normalizes automatically.
-
-### Weighted Average Formula
+### The formula
 
 ```
 weighted_avg = Σ(score_i × weight_i) / Σ(weight_i)
 
 Example:
-  Gameplay:   8 × 3 = 24
-  Decoration: 5 × 2 = 10
-  Song:       7 × 1 =  7
-              ─────────────
-  Sum scores:        41
-  Sum weights:        6
-  Weighted avg:    6.83
+  Gameplay:   8 × 0.50 = 4.00
+  Decoration: 5 × 0.30 = 1.50
+  Song:       7 × 0.20 = 1.40
+                        ──────
+  Sum:                    6.90
+  Sum of weights:         1.00
+  Weighted avg:           6.9
 ```
 
-### Enjoyment as a Rating Component
+The division normalizes, so a category with no score on this level is omitted
+rather than counted as zero — a half-rated level reads as the average of what it
+actually has. When nothing contributes any weight the rating is **null**, not 0:
+the level is unrated, not rated badly.
 
-Enjoyment (`progress_updates.enjoyment`) is a standalone field by default and is **not included** in the weighted average unless the user explicitly opts in via `rating_categories.include_enjoyment`. When opted in, it factors in with its configured weight.
+### Enjoyment as a rating component
+
+Enjoyment (`progress_updates.enjoyment`) is a standalone field by default and is
+**not included** in the weighted average unless the user opts in via
+`users.include_enjoyment`. When opted in, it factors in with
+`users.enjoyment_weight` and counts toward the 100% total.
 
 ---
 
-## Mode Switching
+## Data storage
 
-Switching modes preserves all data — a level has exactly one current rating, so there's no per-entry history to reconcile:
+Raw per-category scores are always stored. The weighted average is **computed at
+query time** — never pre-computed and stored (`computeOverallRating` in
+`packages/core/src/rating.ts`, shared by the API's serialization and the
+frontend's pre-save previews so the two cannot drift). This means:
 
-```
-Simple → Weighted:
-  simple_rating preserved, but no longer displayed/editable
-  Per-category scores start blank until the user rates by category
-
-Weighted → Simple:
-  Per-category scores preserved, but no longer displayed/editable
-  simple_rating starts blank until the user re-rates
-```
-
----
-
-## Data Storage
-
-Raw per-category scores are always stored. The weighted average is **computed at query time** — never pre-computed and stored. This means:
-
-- Adjusting weights instantly recalculates all historical averages
+- Adjusting weights instantly recalculates every historical average
 - No stale cached values to invalidate
-- Schema change (add/remove category) doesn't require data migration
+- Adding or removing a category needs no data migration
 
-If a user deletes a rating category, associated `rating_scores` rows are soft-deleted rather than hard-deleted. If the category is recreated, historical scores can be restored.
+A score whose category is no longer in the user's config is skipped by the
+formula rather than removed — reachable via the importer's weight-0 categories
+and a wholesale config replace.
 
 ---
 
-## Display Rules
+## Display rules
 
-| Context                             | Simple Mode                                                                                                          | Weighted Mode                         |
-| ----------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------- |
-| Completion entry card               | Single score badge                                                                                                   | Weighted average + breakdown on hover |
-| Log list view                       | Score column                                                                                                         | Weighted average column               |
-| Sorting                             | By simple_rating (see "The Canonical Rating Order")                                                                  | By computed weighted avg (same order) |
-| No rating entered                   | Blank (not 0)                                                                                                        | Blank (not 0)                         |
-| Non-completion entry (progress log) | Row hidden unless "show non-completions" toggle is on; the level's rating (if set) still shows normally when visible | Same                                  |
+| Context                             | Shown as                                                                                     |
+| ----------------------------------- | -------------------------------------------------------------------------------------------- |
+| Completion entry card               | Weighted average, with the per-category breakdown on hover                                    |
+| Log list view                       | Weighted average column, plus an optional column per category                                 |
+| Sorting                             | By computed weighted average (see "The Canonical Rating Order")                               |
+| No rating entered                   | Blank (not 0)                                                                                 |
+| Non-completion entry (progress log) | Row hidden unless "show non-completions" is on; the level's rating still shows when visible   |
 
 ---
 
@@ -136,9 +166,8 @@ One comparator serves all three: `ratingOrderComparator` in
    priority order (the drag order in the rating config editor, top =
    highest). The established convention for weighted ratings: two levels that
    average out the same are separated by the category the user cares most
-   about. WEIGHTED mode only — switching modes preserves per-category scores,
-   so they are usually still present in SIMPLE mode, where they carry no
-   meaning and this link drops out.
+   about. A score against a category the user no longer has does not count
+   here, exactly as it does not count toward the average.
 3. **Enjoyment**, highest first. A genuinely separate signal — it is logged per
    event and excluded from the average unless the user opts in — so it breaks a
    tie rather than restating the first key.

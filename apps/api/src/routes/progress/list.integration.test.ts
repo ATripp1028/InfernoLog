@@ -40,7 +40,6 @@ async function seedProgress(
     levelId: string
     status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
     // One current value per level, not per event — lives on LevelProgress.
-    simpleRating?: number | null
     ratingScores?: Array<{ categoryId: string; score: number }>
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
@@ -58,7 +57,6 @@ async function seedProgress(
       userId: args.userId,
       levelId: args.levelId,
       status: args.status,
-      simpleRating: args.simpleRating ?? null,
       ...(args.ratingScores
         ? { ratingScores: { create: args.ratingScores } }
         : {}),
@@ -88,7 +86,8 @@ afterAll(async () => {
 
 describe('GET /me/progress', () => {
   it('returns the three statuses with the representative update per level', async () => {
-    const user = await seedUser(prisma) // SIMPLE mode by default
+    const user = await seedUser(prisma)
+    const category = await seedRatingCategory(prisma, user.id)
     await seedLevel(prisma, { inGameId: '100' })
     await seedLevel(prisma, { inGameId: '200' })
     await seedLevel(prisma, { inGameId: '300' })
@@ -99,7 +98,7 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '100',
       status: 'COMPLETED',
-      simpleRating: 70,
+      ratingScores: [{ categoryId: category.id, score: 70 }],
       updates: [
         { loggedAt: new Date('2026-01-01'), percentage: 80 },
         {
@@ -134,7 +133,8 @@ describe('GET /me/progress', () => {
     expect(completed.status).toBe('COMPLETED')
     expect(completed.entry?.kind).toBe('COMPLETION')
     expect(completed.entry?.attempts).toBe(12000)
-    expect(completed.overallRating).toBe(70) // SIMPLE → simpleRating
+    // One category at weight 1.00 — the average is the score itself.
+    expect(completed.overallRating).toBe(70)
     // Completed classic level with no ClassicDemonList row.
     expect(completed.needsPlacement).toBe(true)
 
@@ -156,7 +156,6 @@ describe('GET /me/progress', () => {
       userId: user.id,
       levelId: '101',
       status: 'COMPLETED',
-      simpleRating: 50,
       updates: [{ kind: 'COMPLETION' }],
     })
     await prisma.classicDemonList.create({
@@ -167,7 +166,7 @@ describe('GET /me/progress', () => {
     expect(list[0]?.needsPlacement).toBe(false)
   })
 
-  it('computes the weighted-average overallRating in WEIGHTED mode', async () => {
+  it('computes the weighted average across several categories', async () => {
     const user = await seedUser(prisma)
     // Two categories, weights 0.70 / 0.30.
     const gameplay = await seedRatingCategory(prisma, user.id, 'Gameplay', 0)
@@ -180,17 +179,11 @@ describe('GET /me/progress', () => {
       where: { id: deco.id },
       data: { weight: 0.3 },
     })
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { ratingMode: 'WEIGHTED' },
-    })
     await seedLevel(prisma, { inGameId: '500' })
     await seedProgress(prisma, {
       userId: user.id,
       levelId: '500',
       status: 'COMPLETED',
-      // simpleRating should be ignored in WEIGHTED mode.
-      simpleRating: 10,
       ratingScores: [
         { categoryId: gameplay.id, score: 80 },
         { categoryId: deco.id, score: 40 },

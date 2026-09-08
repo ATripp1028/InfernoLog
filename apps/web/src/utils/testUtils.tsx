@@ -294,8 +294,9 @@ export function makeResolveResponse(
 /**
  * A `MeData` — the signed-in user as `useMe()` returns it.
  *
- * Defaults to a simple-rating user on the 0–10 scale with no GDDL key and no
- * username cooldown, which is the shape most surfaces are written against.
+ * Defaults to the shape a fresh account has: one "Overall" rating category at
+ * the full weight, no GDDL key, and no username cooldown. Pass
+ * `ratingCategories` to model an account that has split its rating up.
  */
 export function makeMe(overrides: Partial<MeData> = {}): MeData {
   return {
@@ -306,7 +307,6 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     discordId: null,
     profilePublic: false,
     discordPublic: false,
-    ratingMode: 'SIMPLE',
     defaultFps: 60,
     defaultPercentageVersion: 'TWO_TWO',
     defaultDevice: 'pc',
@@ -318,7 +318,9 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     enjoymentSortOrder: 0,
     hasGddlApiKey: false,
     gddlUsername: null,
-    ratingCategories: [],
+    ratingCategories: [
+      { id: 'cat-overall', name: 'Overall', weight: 1, sortOrder: 0 },
+    ],
     onboardingCompleted: true,
     legalAcceptedAt: '2026-01-01T00:00:00.000Z',
     isVerified: false,

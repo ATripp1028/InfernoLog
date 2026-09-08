@@ -33,7 +33,6 @@ beforeEach(() => {
   vi.mocked(useMe).mockReturnValue(
     stubQuery<MeData>({
       data: makeMe({
-        ratingMode: 'SIMPLE',
         ratingCategories: [],
         showHighlightUrl: false,
       }),

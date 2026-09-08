@@ -156,20 +156,17 @@ const DROPPED_EXAMPLE: Record<string, string | number> = {
 export const RANKING_HEADERS = ['rank', 'level_id', 'level_name']
 
 /**
- * The Ranking tab's fixed columns, before the per-category ones.
+ * The Ratings tab's fixed columns, before the per-category ones.
  *
- * Everything about how a level is rated lives on this one tab: its manual
- * position, its simple score, and a column per rating category. `rank` is blank
- * for a level with no manual position — a user in simple or weighted mode has
- * ratings and no hand-arranged order, and their rows still belong here.
+ * The tab carries no order of its own: the Ranking page derives one from these
+ * scores. Its difficulty counterpart, the Demon List tab, is arranged by hand
+ * and does carry a `rank`.
  */
-export const RATING_RANKING_HEADERS = [
-  'rank',
+export const RATING_HEADERS = [
   'level_id',
   'level_name',
   'creator',
   'in_game_difficulty',
-  'simple_rating',
 ]
 
 const RANKING_EXAMPLE_ROWS: (string | number)[][] = [
@@ -542,52 +539,40 @@ export const FIELD_DESCRIPTIONS = [
   ],
   ['', '', '', ''],
   [
-    'Ranking',
-    'rank',
-    'no',
-    'Number, 1 = best rated, used in Manual rating mode. Rows carrying one make up your manual order, in that order. Leave it blank for a level with no manual position — a blank row still imports its scores, it just takes no place in the order.',
-  ],
-  [
-    'Ranking',
+    'Ratings',
     'level_id',
     'no*',
     'Numeric in-game level ID. Leave blank to resolve by level_name (creator + in_game_difficulty narrow it down).',
   ],
   [
-    'Ranking',
+    'Ratings',
     'level_name',
     'no*',
     'The level — matched against your completed levels. Ratings attach to the completion.',
   ],
   [
-    'Ranking',
+    'Ratings',
     'creator',
     'no',
     'Creator name — narrows name resolution when level_name matches multiple levels.',
   ],
   [
-    'Ranking',
+    'Ratings',
     'in_game_difficulty',
     'no',
     'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — or mark the face when the count is unknown ("Hard (non-demon)"). Used to filter name resolution when level_id is blank.',
   ],
   [
-    'Ranking',
-    'simple_rating',
-    'no',
-    'Your single 0-10 score for the level (decimals OK), used in Simple rating mode.',
-  ],
-  [
-    'Ranking',
+    'Ratings',
     '(category columns)',
     'no',
     'Every other column header is a rating category name; the cell is that level’s 0-10 score (decimals OK). Categories are matched by name and created if missing.',
   ],
   [
-    'Ranking',
+    'Ratings',
     '(note)',
     '',
-    'Everything about how you rate a level, in one tab: its manual position, its simple score, and a column per category. The ranked rows replace your whole manual order; a tab with no rank anywhere leaves that order alone and imports only the scores. New categories are added with weight 0 — set weights in Settings. Separate from the Demon List tab, which is your difficulty order.',
+    'How you rate a level: one column per rating category, and a level’s overall rating is the weighted average of them. New categories are added with weight 0 — set weights in Settings. This tab carries no order; your Ranking page derives one from these scores. The Demon List tab is the separate, hand-arranged difficulty order.',
   ],
   ['', '', '', ''],
   [
@@ -633,14 +618,16 @@ export function downloadTemplate(): void {
   const rankingSheet = XLSX.utils.aoa_to_sheet(demonListData)
   XLSX.utils.book_append_sheet(wb, rankingSheet, 'Demon List')
 
-  // Ranking tab: the fixed columns, then one per default category.
-  const ratingRankingSheet = XLSX.utils.aoa_to_sheet([
-    [...RATING_RANKING_HEADERS, 'Gameplay', 'Decoration', 'Song'],
-    [1, '', 'Tartarus', 'Riot', 'Extreme Demon', 9.5, 10, 9, 9.5],
-    [2, '', 'Acheron', 'Ryamu', 'Extreme Demon', 8.8, 9, 8.5, 9],
-    ['', '', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 8, 7.5, 8.5],
+  // Ratings tab: the fixed columns, then one per category. A single "Overall"
+  // is what a new account starts with; the extra columns show what splitting
+  // it up looks like.
+  const ratingsSheet = XLSX.utils.aoa_to_sheet([
+    [...RATING_HEADERS, 'Overall', 'Gameplay', 'Decoration'],
+    ['', 'Tartarus', 'Riot', 'Extreme Demon', 9.5, 10, 9],
+    ['', 'Acheron', 'Ryamu', 'Extreme Demon', 8.8, 9, 8.5],
+    ['', 'Bloodbath', 'Riot', 'Extreme Demon', 8, 8, 7.5],
   ])
-  XLSX.utils.book_append_sheet(wb, ratingRankingSheet, 'Ranking')
+  XLSX.utils.book_append_sheet(wb, ratingsSheet, 'Ratings')
 
   // Lists tab: header row + example rows
   const listData = [LIST_HEADERS, ...LIST_EXAMPLE_ROWS]

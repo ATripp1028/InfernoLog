@@ -5,15 +5,18 @@ import type { OverallRatingConfig } from '@infernolog/core'
 import { RowEditor } from '../RowEditor'
 import { renderWithProviders } from '@/utils/testUtils'
 
-const SIMPLE: OverallRatingConfig = {
-  ratingMode: 'SIMPLE',
+// One category at the full weight — the shape a fresh account has.
+const SOLE: OverallRatingConfig = {
   includeEnjoyment: false,
   enjoymentWeight: 0,
-  categoryWeights: new Map(),
+  categoryWeights: new Map([['overall', 1]]),
 }
 
+const SOLE_CATEGORY = [
+  { id: 'overall', name: 'Overall', weight: 1, sortOrder: 0 },
+]
+
 const WEIGHTED: OverallRatingConfig = {
-  ratingMode: 'WEIGHTED',
   includeEnjoyment: false,
   enjoymentWeight: 0,
   categoryWeights: new Map([
@@ -32,10 +35,9 @@ const render = (props: Partial<Parameters<typeof RowEditor>[0]> = {}) =>
     <RowEditor
       levelId="128"
       identity={<span>Tartarus</span>}
-      config={SIMPLE}
-      categories={[]}
-      overallRating={80}
-      ratingScores={[]}
+      config={SOLE}
+      categories={SOLE_CATEGORY}
+      ratingScores={[{ categoryId: 'overall', score: 80 }]}
       enjoyment={null}
       onSave={vi.fn()}
       onCancel={vi.fn()}
@@ -45,13 +47,13 @@ const render = (props: Partial<Parameters<typeof RowEditor>[0]> = {}) =>
   )
 
 describe('RowEditor', () => {
-  it('offers one field in SIMPLE mode, seeded from the current rating', () => {
+  it('seeds each field from the score the level already carries', () => {
     render()
 
-    expect(screen.getByLabelText('Rating score')).toHaveValue('8.0')
+    expect(screen.getByLabelText('Overall score')).toHaveValue('8.0')
   })
 
-  it('offers one field per category in WEIGHTED mode', () => {
+  it('offers one field per category', () => {
     render({
       config: WEIGHTED,
       categories: CATEGORIES,
@@ -63,13 +65,13 @@ describe('RowEditor', () => {
 
     expect(screen.getByLabelText('Gameplay score')).toHaveValue('9.0')
     expect(screen.getByLabelText('Decoration score')).toHaveValue('7.0')
-    expect(screen.queryByLabelText('Rating score')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Overall score')).not.toBeInTheDocument()
   })
 
-  // Weighted mode hides its arithmetic, so the figure that decides the row's
+  // The average hides its arithmetic, so the figure that decides the row's
   // position is shown rather than left to be inferred.
-  it('shows the resulting overall rating in WEIGHTED mode only', () => {
-    const { unmount } = render({
+  it('shows the resulting overall rating', () => {
+    render({
       config: WEIGHTED,
       categories: CATEGORIES,
       ratingScores: [
@@ -77,13 +79,8 @@ describe('RowEditor', () => {
         { categoryId: 'design', score: 70 },
       ],
     })
-    expect(screen.getByTitle('Overall')).toHaveTextContent('8')
-    unmount()
 
-    // SIMPLE mode's single stepper IS the overall rating; showing it twice
-    // would explain nothing.
-    render()
-    expect(screen.queryByTitle('Overall')).not.toBeInTheDocument()
+    expect(screen.getByTitle('Overall')).toHaveTextContent('8')
   })
 
   // The preview exists to promise the row will settle where it says. Enjoyment
@@ -107,16 +104,6 @@ describe('RowEditor', () => {
     // (60×0.5 + 60×0.5 + 90×1) / 2 = 75 internal → 7.5 on the 0–10 scale.
     // Ignoring enjoyment would read 6 instead.
     expect(screen.getByTitle('Overall')).toHaveTextContent('7.5')
-  })
-
-  it('sends the simple rating back on the internal scale', async () => {
-    const onSave = vi.fn()
-    render({ onSave })
-
-    await userEvent.click(screen.getByRole('button', { name: 'Save rating' }))
-
-    // 8.0 display on the 0–10 scale is 80 internally.
-    expect(onSave).toHaveBeenCalledWith({ levelId: '128', simpleRating: 80 })
   })
 
   it('sends every category score back on the internal scale', async () => {

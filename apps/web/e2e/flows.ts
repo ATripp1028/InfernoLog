@@ -146,11 +146,12 @@ export async function findLevel(page: Page, level: FixtureLevel) {
  *
  * Leaves the success card open: the caller picks "Place now" or "Place later".
  *
- * @param rating - The rating to give the level, in **display** units — 0–10 on
- * the scale the reset leaves the user with — and SIMPLE mode only, which is
- * the mode it leaves them in. Omitted, the step is walked past and takes its
- * own default of the middle of the scale, which is what every completion in
- * this suite carries except the ones ranking.e2e.ts logs.
+ * @param rating - The score to give the level's "Overall" category, in
+ * **display** units (0–10). That is the sole category the E2E user is
+ * provisioned with, at the full weight, so the level's weighted average is
+ * exactly this number. Omitted, the step is walked past and takes its own
+ * default of the middle of the scale, which is what every completion in this
+ * suite carries except the ones ranking.e2e.ts logs.
  */
 export async function logCompletion(
   page: Page,
@@ -169,7 +170,7 @@ export async function logCompletion(
     // not per keystroke (components/generic/stepper-input.tsx), so a fill
     // alone leaves the draft holding the default. Enter blurs it; letting the
     // Continue click do the blurring would race its own step change.
-    const field = page.getByLabel('Rating Score')
+    const field = page.getByLabel('Overall')
     await field.fill(rating)
     await field.press('Enter')
   }

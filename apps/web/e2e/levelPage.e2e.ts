@@ -161,7 +161,7 @@ test.describe('level page', () => {
 
     // The stepper commits on blur, not on input, so a bare fill() would be
     // discarded. Enter blurs it (see StepperInput's onKeyDown).
-    const score = dialog.getByLabel('Score', { exact: true })
+    const score = dialog.getByLabel('Overall', { exact: true })
     await score.fill(RATING)
     await score.press('Enter')
 

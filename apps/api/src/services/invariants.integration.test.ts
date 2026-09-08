@@ -6,8 +6,8 @@
  * them silently. So rather than assert per-path behaviour, each test drives one
  * real write path against a real database and then runs a whole-database sweep
  * (`expectNoDuplicateCompletions` / `expectWantToBeatUnbeaten` /
- * `expectRankingFullyLogged` / `expectRatingRankingFullyLogged` /
- * `expectCompletionOnlyFieldsOnCompletions`) that fails if ANY row violates the
+ * `expectRankingFullyLogged` / `expectCompletionOnlyFieldsOnCompletions`)
+ * that fails if ANY row violates the
  * rule. Adding a further write path without upholding them should turn this
  * file red.
  *
@@ -73,9 +73,6 @@ vi.mock('./importExport/import/levelResolution', async (importOriginal) => ({
 
 const { default: loggingApp } = await import('../routes/progress/index')
 const { default: rankingApp } = await import('../routes/demonList/index')
-const { default: ratingRankingApp } = await import(
-  '../routes/ratingRanking/index'
-)
 const { default: collectionsApp } = await import('../routes/collections/index')
 const { syncGddlSubmissions } = await import('./gddl/sync')
 const { processImportJobBatch } = await import('./importExport/import')
@@ -180,44 +177,6 @@ async function expectRankingFullyLogged() {
       ) AS logged
     FROM "classic_demon_list" cr
     JOIN "level_progress" lp ON lp.id = cr."levelProgressId"
-  `
-  const unlogged = rows.filter((r) => r.logged !== r.current)
-  expect(unlogged).toEqual([])
-}
-
-/**
- * The same rule on the MANUAL rating ordering: every `rating_ranking.ratingIndex`
- * must be the most recent value logged for that level by a RATING_* event.
- *
- * Split from the demon list sweep rather than generalised because the two read
- * different tables, and a single query that guessed which ordering an impact
- * row described would be the very ambiguity the event-type filter exists to
- * remove.
- */
-async function expectRatingRankingFullyLogged() {
-  const rows = await prisma.$queryRaw<
-    { levelId: string; current: string; logged: string | null }[]
-  >`
-    SELECT
-      lp."levelId",
-      rr."ratingIndex"::text AS current,
-      (
-        SELECT i."orderIndex"::text
-        FROM "activity_log_level_impact" i
-        JOIN "activity_log" e ON e.id = i."eventId"
-        WHERE i."levelId" = lp."levelId"
-          AND e."userId" = rr."userId"
-          -- RATING_CONFIG_CHANGE shares the prefix but is not an ordering
-          -- event, which is exactly why these are listed rather than matched.
-          AND e."eventType" IN (
-            'RATING_PLACEMENT', 'RATING_REORDER', 'RATING_REMOVED',
-            'RATING_BULK_REPLACE', 'RATING_REBALANCE'
-          )
-        ORDER BY e."sequence" DESC
-        LIMIT 1
-      ) AS logged
-    FROM "rating_ranking" rr
-    JOIN "level_progress" lp ON lp.id = rr."levelProgressId"
   `
   const unlogged = rows.filter((r) => r.logged !== r.current)
   expect(unlogged).toEqual([])
@@ -358,15 +317,6 @@ async function completionCount(userId: string) {
       kind: 'COMPLETION',
       levelProgress: { userId, levelId: LEVEL_ID },
     },
-  })
-}
-
-/** Ranks a completion through the real endpoint, at the top of the ranking. */
-function placeInRatingRanking(userId: string, levelProgressId: string) {
-  return buildApp(ratingRankingApp, { userId }).request('/me/ranking', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ levelProgressId }),
   })
 }
 
@@ -658,85 +608,6 @@ describe('INVARIANT: every classic_demon_list write is logged', () => {
     await commitImportRanking(user.id, [{ levelId: LEVEL_ID }])
 
     await expectRankingFullyLogged()
-  })
-})
-
-// ─── every ratingIndex write is logged ───────────────────────────────────────
-//
-// The MANUAL ordering's half of the same rule. Every write path gets a case,
-// because the whole point of the sweep is that a path which forgets to emit an
-// event turns this file red rather than silently losing a level's history.
-describe('INVARIANT: every rating_ranking write is logged', () => {
-  // The write endpoints are MANUAL-only — the order is derived in the other
-  // modes, so there is nothing to arrange. seedWorld's user defaults to SIMPLE.
-  async function rankedEntry(userId: string) {
-    await prisma.user.update({
-      where: { id: userId },
-      data: { ratingMode: 'MANUAL' },
-    })
-    await logCompletion(userId, { attempts: 100 })
-    const lp = await prisma.levelProgress.findFirstOrThrow({
-      where: { userId, levelId: LEVEL_ID },
-    })
-    await placeInRatingRanking(userId, lp.id)
-    return lp
-  }
-
-  it('holds after a placement', async () => {
-    const { user } = await seedWorld()
-    await rankedEntry(user.id)
-
-    await expectRatingRankingFullyLogged()
-  })
-
-  it('holds after a reorder', async () => {
-    const { user } = await seedWorld()
-    const first = await rankedEntry(user.id)
-
-    const second = await seedLevel(prisma, { inGameId: '222' })
-    await logCompletion(user.id, { attempts: 5, levelId: second.inGameId })
-    const secondLp = await prisma.levelProgress.findFirstOrThrow({
-      where: { userId: user.id, levelId: second.inGameId },
-    })
-    await placeInRatingRanking(user.id, secondLp.id)
-
-    // Move the first entry below the second.
-    await buildApp(ratingRankingApp, { userId: user.id }).request(
-      `/me/ranking/${first.id}`,
-      {
-        method: 'PATCH',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ aboveId: secondLp.id }),
-      }
-    )
-
-    await expectRatingRankingFullyLogged()
-  })
-
-  it('holds after a removal', async () => {
-    const { user } = await seedWorld()
-    const lp = await rankedEntry(user.id)
-
-    await buildApp(ratingRankingApp, { userId: user.id }).request(
-      `/me/ranking/${lp.id}`,
-      { method: 'DELETE' }
-    )
-
-    await expectRatingRankingFullyLogged()
-  })
-
-  // The sweep has to be able to FAIL, or it proves nothing. An index moved
-  // behind the service's back is exactly the hole it exists to catch.
-  it('catches a ratingIndex written without an event', async () => {
-    const { user } = await seedWorld()
-    const lp = await rankedEntry(user.id)
-
-    await prisma.ratingRanking.updateMany({
-      where: { levelProgressId: lp.id },
-      data: { ratingIndex: 99 },
-    })
-
-    await expect(expectRatingRankingFullyLogged()).rejects.toThrow()
   })
 })
 

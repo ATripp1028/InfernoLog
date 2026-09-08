@@ -99,7 +99,6 @@ export function levelPageData(
     worstFailDateTimezone: null,
     userGddlTier: null,
     difficultyOpinion: null,
-    simpleRating: null,
     ratingScores: [],
     coinsCollected: null,
     completionTime: null,

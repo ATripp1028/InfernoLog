@@ -130,7 +130,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | `CODE_QUALITY.md`               | How code is written (not what it does): JSDoc and duplication rules that apply everywhere, then backend (route errors, logging, layering) and frontend (component/logic split, flows, styling tokens, and the end-to-end suite's scope rules) sections |
 
 > **Log page status:** The dedicated Log page (a browsable feed of logged events) is shelved pending user feedback. The logging flow, data model, and FAB menu are all active; only the Log nav destination is inactive.
-> | `RATING_SYSTEM.md` | Simple vs weighted rating, configurable criteria |
+> | `RATING_SYSTEM.md` | Weighted-average rating, configurable categories |
 > | `TIME_MACHINE.md` | Historical ranking visualization, retroactive placement |
 > | `LEVEL_PICKER.md` | Akinator-style guided level selection |
 > | `IMPORT_EXPORT.md` | Spreadsheet import template, export format, date handling |

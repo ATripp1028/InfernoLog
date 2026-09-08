@@ -120,7 +120,6 @@ beforeEach(() => {
   // an integration concern — it depends on the write landing between the two
   // readings, which a static mock cannot model.
   tx.user.findUniqueOrThrow.mockReset().mockResolvedValue({
-    ratingMode: 'SIMPLE',
     includeEnjoyment: false,
     enjoymentWeight: 0,
     ratingCategories: [],
@@ -313,7 +312,6 @@ describe('applyEdit — sparse field handling', () => {
   it.each([
     'visibility',
     'userGddlTier',
-    'simpleRating',
     'coinsCollected',
     'completionTime',
     'difficultyOpinion',
@@ -607,7 +605,7 @@ describe('applyEdit — the LOG_EDIT event', () => {
     // Once before the write and once after, both inside the transaction —
     // `weighted_average` and `rating_rank` are computed rather than stored, so
     // the save is the only moment either can be recorded.
-    await edit({ simpleRating: 80 })
+    await edit({ ratingScores: [{ categoryId: 'cat-1', score: 80 }] })
 
     expect(tx.levelProgress.findMany).toHaveBeenCalledTimes(2)
   })

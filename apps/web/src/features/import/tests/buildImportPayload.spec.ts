@@ -406,7 +406,6 @@ describe('buildImportPayload', () => {
           levelName: 'Level 128',
           creator: null,
           inGameDifficulty: null,
-          simpleRating: null,
           scores: { Gameplay: 80 },
         },
       ])

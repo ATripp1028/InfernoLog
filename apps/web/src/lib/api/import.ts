@@ -379,8 +379,6 @@ export interface ImportStatusResponse {
   }
   flaggedRows: ImportFlaggedRow[]
   rankingResult: ImportRankingResponse | null
-  /** The MANUAL rating order's outcome — same shape as the demon list's. */
-  ratingRankingResult: ImportRankingResponse | null
   collectionsResult: ImportCollectionsResponse | null
   ratingsResult: ImportRatingsResponse | null
 }
@@ -457,15 +455,12 @@ export interface ExportResponse {
     reason: string | null
   }[]
   ranking: { rank: number; levelId: string; levelName: string | null }[]
-  // The "Ranking" tab: every rating figure for a level in one place — manual
-  // position (null when it has none), simple score, per-category scores.
-  ratingRanking: {
-    rank: number | null
+  // The "Ratings" tab: one row per rated level, one score per category.
+  ratings: {
     levelId: string
     levelName: string | null
     creator: string | null
     inGameDifficulty: string | null
-    simpleRating: number | null
     scores: Record<string, number>
   }[]
   collections: {
@@ -535,7 +530,7 @@ export function useImportApi() {
       progress,
       dropped,
       ranking,
-      ratingRanking,
+      ratings,
       collections,
       categories,
     ] = await Promise.all([
@@ -543,7 +538,7 @@ export function useImportApi() {
       fetchAll('progress'),
       fetchAll('dropped'),
       fetchAll('ranking'),
-      fetchAll('ratingRanking'),
+      fetchAll('ratings'),
       fetchAll('collections'),
       fetchAll('categories'),
     ])
@@ -552,7 +547,7 @@ export function useImportApi() {
       progress: progress as ExportResponse['progress'],
       dropped: dropped as ExportResponse['dropped'],
       ranking: ranking as ExportResponse['ranking'],
-      ratingRanking: ratingRanking as ExportResponse['ratingRanking'],
+      ratings: ratings as ExportResponse['ratings'],
       collections: collections as ExportResponse['collections'],
       ratingCategories: categories as string[],
     }

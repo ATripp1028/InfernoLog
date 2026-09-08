@@ -112,7 +112,7 @@ DELETE /v1/me/connect-discord
 - `POST /v1/me/connect-discord` — Returns a Discord OAuth URL carrying a signed state that encodes the signed-in user's id. The browser navigates there; Discord redirects to the public callback.
 - `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before `discordId` is written.
 
-> **Note:** a `User` row is also created lazily by the Cognito post-authentication trigger (`src/triggers/postAuthentication.ts`), which seeds default rating categories and the built-in collections. The signup route and the trigger are two paths to the same row.
+> **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. The Cognito post-authentication trigger (`src/triggers/postAuthentication.ts`) never creates one — a sign-in by an unrecognized identity depends on it being a no-op.
 
 ## Users
 
@@ -159,7 +159,7 @@ GET  /v1/me/progress
 GET  /v1/me/progress/{levelId}
 ```
 
-- `GET /v1/me/progress` — Backs the Log page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata, the **representative** progress update (the completion update when `status = completed`, otherwise the most recent), its `listReferences`, a query-time-computed `overallRating` (simpleRating in SIMPLE mode; weighted average of `ratingScores` in WEIGHTED mode — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicDemonList` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
+- `GET /v1/me/progress` — Backs the Log page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata, the **representative** progress update (the completion update when `status = completed`, otherwise the most recent), its `listReferences`, a query-time-computed `overallRating` (the weighted average of `ratingScores` — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicDemonList` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
 - `GET /v1/me/progress/{levelId}` — The Level Page payload: `level_progress` fields, level metadata, **all** progress updates (with list references and rating scores, newest-first), the `classicDemonList` placement, and the computed `runsGraph` array (`utils/runsGraph.ts`). The Level Page timeline shows complete history without the "show non-completions" toggle — that toggle governs the Log and the demon list only.
 
 **Writes** — per-action and me-scoped. The authenticated user always comes from the Cognito JWT, never from the path or payload:
@@ -175,7 +175,7 @@ DELETE /v1/me/progress/{levelId}/updates/{progressUpdateId}
 
 An earlier spec had a single generic `POST /v1/users/{usernameOrId}/progress`. It was replaced by the three per-action creates because the payloads differ structurally. All three resolve-or-create the same underlying `level_progress` row for the user+level, then apply the action:
 
-- `POST /v1/me/completions` — Creates **or edits** the user's completion. Idempotent: if a completion already exists for the level it is **updated in place** (edit-not-replace), never duplicated — exactly one `kind = completion` per `level_progress`. 100% is implied (no percentage / run-range). `in_game_difficulty` is snapshotted from the cached level, never accepted from the client. Carries date (+uncertain), attempts, `difficulty_opinion`, rating (`simpleRating` **or** per-category `ratingScores`), enjoyment, `listReferences` (GDDL / AREDL / NLW / OTHER), session details, an optional non-blocking GDDL record submission (`submitToGddl`), and an optional self-reported `gddlRecordAccepted` toggle (upserts the GDDL record-acceptance row).
+- `POST /v1/me/completions` — Creates **or edits** the user's completion. Idempotent: if a completion already exists for the level it is **updated in place** (edit-not-replace), never duplicated — exactly one `kind = completion` per `level_progress`. 100% is implied (no percentage / run-range). `in_game_difficulty` is snapshotted from the cached level, never accepted from the client. Carries date (+uncertain), attempts, `difficulty_opinion`, rating (per-category `ratingScores`), enjoyment, `listReferences` (GDDL / AREDL / NLW / OTHER), session details, an optional non-blocking GDDL record submission (`submitToGddl`), and an optional self-reported `gddlRecordAccepted` toggle (upserts the GDDL record-acceptance row).
 - `POST /v1/me/progress` — Creates a non-completion progress update (`kind = progress`). Discriminated on `mode`: `from_zero` (single best `percentage`, floor 0) or `from_run` (`runFrom` / `runTo` segment, 0–100). Logging progress on a **dropped** level flips it back to `in_progress` (see `LOGGING_FLOW_RECONCILIATION.md`).
 - `POST /v1/me/drops` — Creates a `kind = drop` progress update with optional `date`, `attempts`, `notes`, and per-entry `visibility` (the same fields every progress update uses, not drop-specific ones), and sets `level_progress.status = dropped`. Drop-from-scratch is allowed (a level the user has never logged), and a level can be dropped more than once — each drop is its own row.
 - `PATCH /v1/me/progress/{levelId}` — Edits the most recent progress update and/or the `LevelProgress` metadata. All fields optional; only present keys are written. "Most recent" is the completion if one exists, then by `loggedAt` desc — matching the Level Page's display order.
@@ -226,9 +226,9 @@ GET  /v1/me/rating-categories
 PUT  /v1/me/rating-config
 ```
 
-`PUT /v1/me/rating-config` atomically replaces the user's weighted-rating configuration in a single transaction. Granular per-category endpoints were deliberately removed: the sum-must-equal-target invariant makes single-row mutations impossible to validate in isolation — you cannot change one weight without changing another. The editor submits the full config; the server diffs it against existing rows and applies create/update/delete in one transaction.
+`PUT /v1/me/rating-config` atomically replaces the user's rating configuration in a single transaction. Granular per-category endpoints were deliberately removed: the sum-must-equal-target invariant makes single-row mutations impossible to validate in isolation — you cannot change one weight without changing another. The editor submits the full config; the server diffs it against existing rows and applies create/update/delete in one transaction. It rejects an empty category list and any config whose active weights miss 1.00.
 
-Ratings are stored as integers 0–100 internally; conversion happens at the display layer, which shows scores on 0–10 and enjoyment on 0–100. See `docs/RATING_SYSTEM.md`.
+Ratings are stored as integers 0–100 internally and category weights as a fraction of 1.00; conversion happens at the display layer, which shows scores on 0–10, enjoyment on 0–100, and weights as whole percents. See `docs/RATING_SYSTEM.md`.
 
 ## Account & Settings
 
@@ -240,7 +240,7 @@ DELETE /v1/me
 ```
 
 - `GET /v1/me` — The authenticated user plus rating categories. `gddlApiKeyEncrypted` is destructured out server-side and replaced by a derived `hasGddlApiKey` boolean; the ciphertext never reaches a client. `verifiedAt` is likewise reduced to `isVerified`.
-- `PATCH /v1/me` — Partial update of user preferences (privacy, logging defaults, rating mode, display options).
+- `PATCH /v1/me` — Partial update of user preferences (privacy, logging defaults, display options). Rating configuration is not among them — it lives entirely on `PUT /v1/me/rating-config`.
 - `PATCH /v1/me/username` — Separate from `PATCH /v1/me` because it carries a 30-day cooldown and a uniqueness check.
 - `DELETE /v1/me` — Full account purge, then the Cognito user. Most relations cascade from the `users` delete, but several are removed explicitly first: the moderation tables (`ON DELETE RESTRICT`, an intentional audit-trail protection), `GddlSyncJob` (no declared FK to `users`), and `RatingScore` (its `categoryId → RatingCategory` FK has no `onDelete` action, and Postgres validates it before the cascade from `LevelProgress → ProgressUpdate` is guaranteed to have run — P2003 otherwise). Requires a literal `confirmation: "Delete this account"` in the body.
 

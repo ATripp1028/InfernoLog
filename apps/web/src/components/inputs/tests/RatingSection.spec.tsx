@@ -1,37 +1,43 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
 import { RatingSection } from '../RatingSection'
-import { renderWithProviders } from '@/utils/testUtils'
+import { makeMe, renderWithProviders } from '@/utils/testUtils'
 
-const mutateAsync = vi.fn().mockResolvedValue(undefined)
+// The editor's save writer, which reaches for the auth context this spec does
+// not stand up. Mocked at the module boundary — nothing here saves.
 vi.mock('@/lib/api/me', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useUpdateMe: () => ({ mutateAsync, isPending: false }),
+  useUpdateRatingConfig: () => ({ mutateAsync: vi.fn(), isPending: false }),
 }))
 
-const me = (ratingMode = 'SIMPLE') =>
-  ({
-    ratingMode,
-    ratingCategories: [],
-    includeEnjoyment: false,
-    enjoymentWeight: 0,
-  }) as never
-
 describe('RatingSection', () => {
-  it('offers all three rating modes', () => {
-    renderWithProviders(<RatingSection me={me()} />)
+  it('renders the category editor', () => {
+    renderWithProviders(<RatingSection me={makeMe()} />)
 
+    expect(
+      screen.getByRole('textbox', { name: /Weight for Overall/ })
+    ).toBeInTheDocument()
+  })
+
+  // There is one rating system: a level's rating is the weighted average of
+  // its category scores, and a single category at 100% is how an account rates
+  // on one number. The old mode buttons are what makes their absence
+  // assertable.
+  it('offers no rating-mode choice', () => {
+    renderWithProviders(<RatingSection me={makeMe()} />)
+
+    expect(screen.queryByText('Rating mode')).not.toBeInTheDocument()
     for (const label of ['Simple', 'Weighted', 'Manual']) {
-      expect(screen.getByRole('button', { name: label })).toBeInTheDocument()
+      expect(
+        screen.queryByRole('button', { name: label })
+      ).not.toBeInTheDocument()
     }
   })
 
-  // The scale is fixed per field now — scores 0–10, enjoyment 0–100 — so there
-  // is nothing here to choose. The buttons were labelled with the two scales,
-  // which is what makes their absence assertable.
+  // The scale is fixed per field too — scores 0–10, enjoyment 0–100 — so there
+  // is nothing here to choose. The buttons were labelled with the two scales.
   it('offers no display-scale choice', () => {
-    renderWithProviders(<RatingSection me={me()} />)
+    renderWithProviders(<RatingSection me={makeMe()} />)
 
     expect(screen.queryByText('Display scale')).not.toBeInTheDocument()
     for (const label of ['0–10', '0–100']) {
@@ -39,51 +45,5 @@ describe('RatingSection', () => {
         screen.queryByRole('button', { name: label })
       ).not.toBeInTheDocument()
     }
-  })
-
-  // A switch reorders the whole Ranking page and hides every number the old
-  // mode showed. Nothing is deleted, but it is startling enough to confirm.
-  it('does not switch until the change is confirmed', async () => {
-    renderWithProviders(<RatingSection me={me()} />)
-    mutateAsync.mockClear()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Weighted' }))
-
-    expect(mutateAsync).not.toHaveBeenCalled()
-    expect(screen.getByText(/Switch to weighted rating\?/)).toBeInTheDocument()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Switch' }))
-
-    expect(mutateAsync).toHaveBeenCalledWith({ ratingMode: 'WEIGHTED' })
-  })
-
-  it('abandons the switch on cancel', async () => {
-    renderWithProviders(<RatingSection me={me()} />)
-    mutateAsync.mockClear()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Manual' }))
-    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
-
-    expect(mutateAsync).not.toHaveBeenCalled()
-  })
-
-  // The warning has to be true: a mode switch deletes nothing, and saying it
-  // does would be a lie the user could disprove by switching back.
-  it('promises the switch keeps existing data', async () => {
-    renderWithProviders(<RatingSection me={me()} />)
-
-    await userEvent.click(screen.getByRole('button', { name: 'Manual' }))
-
-    expect(screen.getByText(/Nothing is deleted/)).toBeInTheDocument()
-  })
-
-  it('confirms a switch away from manual too, not just towards it', async () => {
-    renderWithProviders(<RatingSection me={me('MANUAL')} />)
-    mutateAsync.mockClear()
-
-    await userEvent.click(screen.getByRole('button', { name: 'Simple' }))
-
-    expect(screen.getByText(/re-sort/)).toBeInTheDocument()
-    expect(mutateAsync).not.toHaveBeenCalled()
   })
 })

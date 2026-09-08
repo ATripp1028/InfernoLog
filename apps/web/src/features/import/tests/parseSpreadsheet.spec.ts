@@ -46,7 +46,6 @@ describe('workbook structure', () => {
       progress: [],
       dropped: [],
       ranking: [],
-      ratingRanking: [],
       lists: [],
       ratings: [],
       ratingCategories: [],
@@ -65,29 +64,17 @@ describe('workbook structure', () => {
     }
   )
 
-  // The Demon List and Ranking tabs are two orderings of the same completions.
-  // Reading one into the other would quietly overwrite a user's difficulty
-  // order with their quality one, or the reverse.
-  it('keeps the two ordering tabs apart', () => {
+  // The Demon List tab is the hand-arranged difficulty order; the Ratings tab
+  // carries scores and no order at all. Reading one into the other would
+  // quietly turn a set of scores into a difficulty ranking.
+  it('keeps the ordering tab and the ratings tab apart', () => {
     const result = parse({
       'Demon List': [['level_id'], ['111']],
-      Ranking: [['level_id'], ['222']],
+      Ratings: [['level_id', 'Gameplay'], ['222', 9]],
     })
 
     expect(result.ranking.map((r) => r.levelId)).toEqual(['111'])
-    expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['222'])
-  })
-
-  it('orders the Ranking tab by rank when every row carries one', () => {
-    const result = parse({
-      Ranking: [
-        ['rank', 'level_id'],
-        [2, '222'],
-        [1, '111'],
-      ],
-    })
-
-    expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['111', '222'])
+    expect(result.ratings.map((r) => r.levelId)).toEqual(['222'])
   })
 
   it('reads every tab it knows about', () => {
@@ -100,7 +87,7 @@ describe('workbook structure', () => {
         ['list', 'level_id'],
         ['Favorites', '5'],
       ],
-      Ranking: [
+      Ratings: [
         ['level_id', 'Gameplay'],
         ['6', 9],
       ],
@@ -344,12 +331,6 @@ describe('numeric fields', () => {
     expect(flagsFor(row, field)[0]!.message).toContain('outside 0-100')
   })
 
-  it('flags a simple_rating outside 0-10', () => {
-    const row = oneCompletion(['level_id', 'simple_rating'], ['128', -1])
-
-    expect(flagsFor(row, 'simple_rating')[0]!.message).toContain('outside 0-10')
-  })
-
   it('flags an enjoyment outside 0-100', () => {
     const row = oneCompletion(['level_id', 'enjoyment'], ['128', 101])
 
@@ -539,7 +520,7 @@ describe('the ratings tab', () => {
   // rating category, discovered from the header row.
   it('discovers category columns from the header row', () => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         ['level_id', 'level_name', 'creator', 'Gameplay', 'Design'],
         ['128', 'Bloodbath', 'Riot', 9, 8],
       ],
@@ -557,7 +538,7 @@ describe('the ratings tab', () => {
     'in_game_difficulty',
   ])('does not mistake the reserved column %s for a category', (header) => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         [header, 'Gameplay'],
         ['x', 9],
       ],
@@ -568,7 +549,7 @@ describe('the ratings tab', () => {
 
   it('matches reserved columns however they are cased or spaced', () => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         ['Level ID', 'In Game Difficulty', 'Gameplay'],
         ['128', 'EXTREME_DEMON', 9],
       ],
@@ -582,7 +563,7 @@ describe('the ratings tab', () => {
   // category named " level_id ".
   it('does not turn a padded reserved column into a category', () => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         [' level_id ', 'Gameplay'],
         ['128', 9],
       ],
@@ -600,7 +581,7 @@ describe('the ratings tab', () => {
     [10, 100],
   ])('reads a score of %s as %s on the internal scale', (given, expected) => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         ['level_id', 'Gameplay'],
         ['128', given],
       ],
@@ -613,7 +594,7 @@ describe('the ratings tab', () => {
   // dropped with a flag rather than sent on to 400 the whole commit.
   it('flags a score past the top of the 0-10 scale', () => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         ['level_id', 'Gameplay'],
         ['128', 95],
       ],
@@ -625,24 +606,9 @@ describe('the ratings tab', () => {
     expect(result.ratings[0]!.scores).toEqual({})
   })
 
-  it('flags a simple_rating past the top of the 0-10 scale', () => {
-    const result = parse({
-      Ranking: [
-        ['level_id', 'simple_rating'],
-        ['128', 95],
-      ],
-    })
-
-    const flag = result.ratings[0]!.flags.find(
-      (f) => f.field === 'simple_rating'
-    )!
-    expect(flag.severity).toBe('warning')
-    expect(result.ratings[0]!.simpleRating).toBeNull()
-  })
-
   it('leaves a level with no scores an empty score map', () => {
     const result = parse({
-      Ranking: [
+      Ratings: [
         ['level_id', 'Gameplay'],
         ['128', ''],
       ],
@@ -741,7 +707,7 @@ describe('resilience', () => {
           ['list', 'level_id'],
           ['', ''],
         ],
-        Ranking: [
+        Ratings: [
           ['level_id', 'Gameplay'],
           ['', 'good'],
         ],

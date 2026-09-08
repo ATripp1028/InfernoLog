@@ -12,7 +12,6 @@ describe('overallRatingConfig', () => {
   it('carries the account settings the computation reads', () => {
     const config = overallRatingConfig(
       makeMe({
-        ratingMode: 'WEIGHTED',
         includeEnjoyment: true,
         enjoymentWeight: 2,
         ratingCategories: CATEGORIES,
@@ -20,7 +19,6 @@ describe('overallRatingConfig', () => {
     )
 
     expect(config).toMatchObject({
-      ratingMode: 'WEIGHTED',
       includeEnjoyment: true,
       enjoymentWeight: 2,
     })
@@ -31,14 +29,12 @@ describe('overallRatingConfig', () => {
   // server computes, enjoyment opt-in included.
   it('drives the same number the server would', () => {
     const me = makeMe({
-      ratingMode: 'WEIGHTED',
       includeEnjoyment: true,
       enjoymentWeight: 1,
       ratingCategories: CATEGORIES,
     })
 
     const rating = computeOverallRating(overallRatingConfig(me), {
-      simpleRating: null,
       enjoyment: 25,
       ratingScores: ratingScoresFromDraft({ gameplay: 80, decoration: 60 }),
     })

@@ -14,7 +14,7 @@
 // computed at query time (see docs/RATING_SYSTEM.md), and logging the movement
 // would fill a feed with hundreds of "changes" the user did not make.
 
-import { ActivityFieldCategory, type RatingMode } from '@prisma/client'
+import { ActivityFieldCategory } from '@prisma/client'
 import type { FieldChange } from './fieldScope'
 import { serializeFieldValue } from './fieldScope'
 
@@ -116,23 +116,4 @@ export function buildRatingConfigChanges(
   }
 
   return changes
-}
-
-/**
- * The field-change row for a SIMPLE ↔ WEIGHTED mode switch.
- *
- * Separate from {@link buildRatingConfigChanges} because the mode is not part of
- * the rating-config payload — `User.ratingMode` is written by
- * `PATCH /v1/me` alongside every other preference, so that route emits its own
- * RATING_CONFIG_CHANGE when (and only when) the mode actually moves.
- *
- * @returns A single-element array, or an empty one when the mode is unchanged —
- * in which case the caller emits nothing.
- */
-export function buildRatingModeChange(
-  before: RatingMode,
-  after: RatingMode
-): FieldChange[] {
-  const change = scalarChange('rating_mode', before, after)
-  return change ? [change] : []
 }

@@ -5,15 +5,22 @@
 // The scale is fixed per FIELD, not per user — the convention the GD community
 // already uses:
 //
-//   scores     — simple rating, per-category scores, and the weighted average
-//                they combine into: 0–10 with decimals (7.5).
+//   scores     — per-category scores and the weighted average they combine
+//                into: 0–10 with decimals (7.5).
 //   enjoyment  — 0–100, whole numbers (85).
 //
 // Everything is still stored as an integer 0–100 either way, so enjoyment's
 // display units and its stored units are the same number and it needs no
 // conversion pair at all. Only scores cross a boundary.
+//
+// Category WEIGHTS cross a boundary of their own, for the same reason and in
+// the same direction: the wire and the database speak a fraction of 1.00
+// (`Decimal(5,2)`, so two places and no more), and every screen speaks whole
+// percents. That conversion lives here too rather than as a `* 100` at each
+// call site, where the copies had already started to differ in how they
+// rounded.
 
-/** Top of the score scale — simple rating, category scores, weighted average. */
+/** Top of the score scale — category scores and the weighted average. */
 export const SCORE_MAX = 10
 
 /** Top of the enjoyment scale. Equal to the internal maximum, deliberately. */
@@ -63,4 +70,38 @@ export function formatScoreDisplay(display: number): string {
  */
 export function formatEnjoyment(internal: number): string {
   return String(internal)
+}
+
+/** Top of the weight scale, in the percent units the UI speaks. */
+export const WEIGHT_PERCENT_MAX = 100
+
+/**
+ * A stored weight fraction (0–1) → the whole percent shown and typed.
+ *
+ * Rounds, because the stored value has exactly two decimal places and a
+ * percent has none — 0.34 is 34, and nothing finer is representable either
+ * side of the boundary.
+ */
+export function toWeightPercent(weight: number): number {
+  return Math.round(weight * 100)
+}
+
+/**
+ * A whole percent → the 0–1 fraction the wire and database store.
+ *
+ * The inverse of {@link toWeightPercent}, and lossless in this direction:
+ * `Decimal(5,2)` holds every whole percent exactly.
+ */
+export function toWeightFraction(percent: number): number {
+  return Math.round(percent) / 100
+}
+
+/**
+ * A stored weight fraction → a display string, percent sign included.
+ *
+ * The read-only counterpart to {@link toWeightPercent} — use it anywhere a
+ * weight is printed rather than edited.
+ */
+export function formatWeightPercent(weight: number): string {
+  return `${toWeightPercent(weight)}%`
 }

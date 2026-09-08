@@ -17,9 +17,9 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 | `Completions` | All completion progress updates (kind = completion)                                  |
 | `Progress`    | All non-completion, non-drop progress updates — session logs short of the completion |
 | `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one             |
-| `Ranking`     | Your personal classic difficulty ranking, hardest → easiest                          |
+| `Demon List`  | Your personal classic difficulty ranking, hardest → easiest                          |
 | `Lists`       | Collection membership — Want to Beat, Favorites, Least Favorites, and custom lists   |
-| `Ratings`     | Weighted per-category scores                                                         |
+| `Ratings`     | Per-category rating scores — one row per rated level, one column per category        |
 
 Import processes every tab above. A blank/omitted tab is simply left untouched on import.
 
@@ -184,7 +184,6 @@ Nothing is forced — if you leave entries unplaced in either source column, the
 | `fps`                      | No       | Integer                                                                                                                                                                                                                                     |
 | `device`                   | No       | pc or mobile                                                                                                                                                                                                                                |
 | `enjoyment`                | No       | 0-100 whole numbers                                                                                                                                                                                                                         |
-| `simple_rating`            | No       | 0-10                                                                                                                                                                                                                                        |
 | `difficulty_opinion`       | No       | One of: not_demon_worthy, easy, medium, hard, insane, extreme                                                                                                                                                                               |
 | `difficulty_opinion_stars` | No       | Integer 1-9 — only when `difficulty_opinion` is not_demon_worthy                                                                                                                                                                            |
 | `coin_1`                   | No       | TRUE/FALSE — 1st user coin collected (ignored if the level has no coins)                                                                                                                                                                    |
@@ -344,7 +343,7 @@ Weighted per-category scores. The tab is "wide": identity columns, then **one co
 Semantics:
 
 - **Score scale**: cells are on the 0–10 scale (decimals fine) and are stored as a 0–100 integer, so `9.5` becomes `95`. A cell that exceeds 10 is out of range — it is flagged and dropped, not re-read as an already-0–100 value. See the note under Export.
-- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 1.00 weight-sum invariant, and the **rating mode is left unchanged** (set weights / switch to weighted in Settings).
+- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 100% weight-sum invariant, and a weight-0 category contributes nothing to a rating until you give it one in Settings.
 - **Merge, not replace**: only the categories a row names are written; a completion's other category scores are left alone.
 - **Conflict resolution per score**: if a named category already has a score for that completion, an identical incoming value is a silent no-op; a genuinely different value is surfaced as a field conflict via the canonical flow (see Conflict Resolution above) — Drop keeps the existing score, Overwrite/Merge take the sheet's value.
 - A level must be **completed** to be rated (scores attach to a completion) — rows for uncompleted levels are skipped.
@@ -361,7 +360,7 @@ Export produces the **same workbook shape as the import template** (all tabs abo
 - **Each field's sheet scale is fixed, and the importer does not guess.** A score cell is always 0–10 and is always multiplied by 10; an enjoyment cell is always 0–100 and is never scaled. The importer used to infer the scale from the value (`≤ 10` meant "0–10, multiply") so that sheets exported under the old per-user `ratingDisplayScale` preference still read correctly. That heuristic is gone: it cannot tell an enjoyment of `8` from an old-scale `8` that meant 80, and there is nothing to stay compatible *with* — v1 is unreleased, so no workbook outside development was ever written on a different scale. **Any future change to a sheet scale needs a version marker in the workbook**, not a guess from a value's magnitude — and once v1 ships, changing a scale without one silently corrupts every existing user's re-import.
 
 - **`in_game_difficulty` is the level's difficulty now**, taken from the shared cache rather than the snapshot each entry stored when it was logged. The column only ever filters name resolution on the way back in, and it is matched against that same cache — a snapshot that has since gone stale could only rule the row's own level out. Import re-snapshots from the cache itself and never stores this cell, so nothing round-trips away. Non-demons are written as a star count (`5★`), or as a marked face (`Insane (non-demon)`) when no count on the 1-9 scale describes them — a cache row that only ever had a label, or an official level whose bespoke award runs past 9. Writing the bare face would re-import as the demon tier of that name.
-- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights + rating mode, system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
+- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights, system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
 - **Drop-then-completed history round-trips too**: a dropped-then-beaten level exports rows on **both** the Dropped and Completions tabs — the drop is its own independent entry (with its own `drop_id`), never merged into or overwritten by the later completion. A level dropped more than once (drop → resume → drop again) exports one Dropped-tab row per drop, each with its own date/attempts/reason. The Level Page timeline and runs graph show every drop as its own entry, regardless of the level's current status.
 
 ---

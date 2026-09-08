@@ -32,8 +32,7 @@ function computeCardStyle(rect: DOMRect): React.CSSProperties {
 
 function PresetHoverCard({ preset }: { preset: ListPreset }) {
   const me = useMe()
-  const categories =
-    me.data?.ratingMode === 'WEIGHTED' ? (me.data.ratingCategories ?? []) : []
+  const categories = me.data?.ratingCategories ?? []
   const catSortOptions = categories.map((cat) => ({
     key: `cat:${cat.id}` as `cat:${string}`,
     label: cat.name,

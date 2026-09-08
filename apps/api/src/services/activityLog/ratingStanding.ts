@@ -60,7 +60,6 @@ export type RatingStandings = Map<string, RatingStanding>
 // the date the order breaks ties on.
 const ratingOrderSelect = {
   levelId: true,
-  simpleRating: true,
   ratingScores: { select: { categoryId: true, score: true } },
   progressUpdates: {
     orderBy: [{ kind: 'desc' }, { loggedAt: 'desc' }] as const,
@@ -90,7 +89,6 @@ export async function readRatingStandings(
     tx.user.findUniqueOrThrow({
       where: { id: userId },
       select: {
-        ratingMode: true,
         includeEnjoyment: true,
         enjoymentWeight: true,
         ratingCategories: {
@@ -105,7 +103,6 @@ export async function readRatingStandings(
   ])
 
   const config: OverallRatingConfig = {
-    ratingMode: user.ratingMode,
     includeEnjoyment: user.includeEnjoyment,
     enjoymentWeight: toNum(user.enjoymentWeight) ?? 0,
     categoryWeights: new Map(
@@ -118,7 +115,6 @@ export async function readRatingStandings(
     return {
       levelId: row.levelId,
       overallRating: computeOverallRating(config, {
-        simpleRating: row.simpleRating,
         enjoyment: update?.enjoyment ?? null,
         ratingScores: row.ratingScores,
       }),
@@ -128,58 +124,14 @@ export async function readRatingStandings(
     }
   })
 
-  // Per-category scores only break ties in WEIGHTED mode. In SIMPLE mode the
-  // rows can still be there — switching modes preserves them — but they carry
-  // no meaning, so they must not influence the order.
-  const tiebreakCategories: RatingOrderCategory[] =
-    user.ratingMode === 'WEIGHTED' ? user.ratingCategories : []
-
-  // MANUAL mode has no numbers to rank by — computeOverallRating returns null
-  // for every level — so the standing comes from the order the user arranged by
-  // hand. Without this branch every rank would be null and `rating_rank` would
-  // silently stop recording anything for these users.
-  if (user.ratingMode === 'MANUAL') {
-    return readManualStandings(tx, userId, order)
-  }
+  // Ties are broken by the user's own category priority — see
+  // ratingOrderComparator's second link.
+  const tiebreakCategories: RatingOrderCategory[] = user.ratingCategories
 
   const standings: RatingStandings = new Map()
   for (const { item, rank } of rankByRatingOrder(order, tiebreakCategories)) {
     standings.set(item.levelId, { overallRating: item.overallRating, rank })
   }
-  return standings
-}
-
-/**
- * Standings for a MANUAL-mode user: position from `rating_ranking`, rating
- * always null.
- *
- * A level the user has not placed yet holds no position, exactly as an unrated
- * level does in the other modes — so the two shapes stay interchangeable to
- * every caller.
- */
-async function readManualStandings(
-  tx: Tx,
-  userId: string,
-  order: RatingOrderItem[]
-): Promise<RatingStandings> {
-  const ranked = await tx.ratingRanking.findMany({
-    where: { userId },
-    orderBy: { ratingIndex: 'desc' },
-    select: { levelProgress: { select: { levelId: true } } },
-  })
-
-  const standings: RatingStandings = new Map()
-  // Every level the user has an entry for, so unplaced ones are present with a
-  // null rank rather than missing.
-  for (const item of order) {
-    standings.set(item.levelId, { overallRating: null, rank: null })
-  }
-  ranked.forEach((row, index) => {
-    standings.set(row.levelProgress.levelId, {
-      overallRating: null,
-      rank: index + 1,
-    })
-  })
   return standings
 }
 

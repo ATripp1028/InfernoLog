@@ -19,16 +19,20 @@ import {
   type RatingStandings,
 } from './ratingStanding'
 
+// The single category a level's `rating` scores against when a test does not
+// care about the breakdown. Weight 1.00, so the weighted average is the score.
+const SOLE_CATEGORY = 'sole'
+
 type Level = {
   levelId: string
-  simpleRating?: number | null
+  /** A score against {@link SOLE_CATEGORY} — the whole rating, undivided. */
+  rating?: number | null
   scores?: { categoryId: string; score: number }[]
   enjoyment?: number | null
   date?: Date | null
 }
 
 type Config = {
-  ratingMode?: 'SIMPLE' | 'WEIGHTED'
   includeEnjoyment?: boolean
   enjoymentWeight?: number
   categories?: { id: string; weight: number; sortOrder?: number }[]
@@ -41,12 +45,13 @@ function fakeTx(levels: Level[], config: Config = {}) {
   return {
     user: {
       findUniqueOrThrow: async () => ({
-        ratingMode: config.ratingMode ?? 'SIMPLE',
         includeEnjoyment: config.includeEnjoyment ?? false,
         enjoymentWeight: config.enjoymentWeight ?? 0.5,
         // sortOrder defaults to declaration order, which is what the priority
         // tie-break reads; a test that cares states it explicitly.
-        ratingCategories: (config.categories ?? []).map((c, i) => ({
+        ratingCategories: (
+          config.categories ?? [{ id: SOLE_CATEGORY, weight: 1 }]
+        ).map((c, i) => ({
           ...c,
           sortOrder: c.sortOrder ?? i,
         })),
@@ -56,8 +61,12 @@ function fakeTx(levels: Level[], config: Config = {}) {
       findMany: async () =>
         levels.map((l) => ({
           levelId: l.levelId,
-          simpleRating: l.simpleRating ?? null,
-          ratingScores: l.scores ?? [],
+          ratingScores: [
+            ...(l.rating == null
+              ? []
+              : [{ categoryId: SOLE_CATEGORY, score: l.rating }]),
+            ...(l.scores ?? []),
+          ],
           progressUpdates:
             l.enjoyment === undefined && l.date === undefined
               ? []
@@ -74,9 +83,9 @@ describe('readRatingStandings', () => {
   it('ranks the user’s levels 1-based by overall rating, highest first', async () => {
     const standings = await readRatingStandings(
       fakeTx([
-        { levelId: '1', simpleRating: 40 },
-        { levelId: '2', simpleRating: 90 },
-        { levelId: '3', simpleRating: 70 },
+        { levelId: '1', rating: 40 },
+        { levelId: '2', rating: 90 },
+        { levelId: '3', rating: 70 },
       ]),
       'u1'
     )
@@ -88,9 +97,9 @@ describe('readRatingStandings', () => {
     // must not be pushed down by one.
     const standings = await readRatingStandings(
       fakeTx([
-        { levelId: '1', simpleRating: 90 },
-        { levelId: '2', simpleRating: null },
-        { levelId: '3', simpleRating: 50 },
+        { levelId: '1', rating: 90 },
+        { levelId: '2', rating: null },
+        { levelId: '3', rating: 50 },
       ]),
       'u1'
     )
@@ -103,7 +112,6 @@ describe('readRatingStandings', () => {
   // tie-break. This is the same chain the Log and Ranking pages sort by.
   it('breaks a weighted tie on the highest-priority category', async () => {
     const weighted: Config = {
-      ratingMode: 'WEIGHTED',
       categories: [
         { id: 'gameplay', weight: 0.5, sortOrder: 0 },
         { id: 'design', weight: 0.5, sortOrder: 1 },
@@ -137,7 +145,6 @@ describe('readRatingStandings', () => {
 
   it('reads the categories by priority, not by declaration order', async () => {
     const weighted: Config = {
-      ratingMode: 'WEIGHTED',
       categories: [
         { id: 'gameplay', weight: 0.5, sortOrder: 1 },
         { id: 'design', weight: 0.5, sortOrder: 0 },
@@ -169,33 +176,35 @@ describe('readRatingStandings', () => {
     expect(ranks(standings)).toEqual({ '1': 1, '2': 2 })
   })
 
-  // Switching WEIGHTED → SIMPLE preserves the per-category scores, so they are
-  // still present here. They must not influence a SIMPLE-mode order.
-  it('ignores per-category scores in SIMPLE mode', async () => {
+  // Deleting a category purges its scores, but the spreadsheet import creates
+  // categories on demand and the config can be replaced wholesale — so a score
+  // against a category the user does not currently have is reachable. It
+  // contributes to neither the average nor the tie-break.
+  it('ignores a score whose category is not in the config', async () => {
     const standings = await readRatingStandings(
       fakeTx([
         {
           levelId: '20',
-          simpleRating: 80,
+          rating: 80,
           scores: [{ categoryId: 'gameplay', score: 90 }],
         },
         {
           levelId: '10',
-          simpleRating: 80,
+          rating: 80,
           scores: [{ categoryId: 'gameplay', score: 10 }],
         },
       ]),
       'u1'
     )
-    // Falls through to levelId rather than to the gameplay score.
+    // Falls through to levelId rather than to the unconfigured gameplay score.
     expect(ranks(standings)).toEqual({ '10': 1, '20': 2 })
   })
 
   it('breaks a rating tie on enjoyment, higher first', async () => {
     const standings = await readRatingStandings(
       fakeTx([
-        { levelId: '1', simpleRating: 80, enjoyment: 20 },
-        { levelId: '2', simpleRating: 80, enjoyment: 90 },
+        { levelId: '1', rating: 80, enjoyment: 20 },
+        { levelId: '2', rating: 80, enjoyment: 90 },
       ]),
       'u1'
     )
@@ -205,9 +214,9 @@ describe('readRatingStandings', () => {
   it('breaks an enjoyment tie on the earlier date, then on levelId', async () => {
     const standings = await readRatingStandings(
       fakeTx([
-        { levelId: '30', simpleRating: 80, date: new Date('2026-03-01') },
-        { levelId: '10', simpleRating: 80, date: new Date('2026-01-01') },
-        { levelId: '20', simpleRating: 80, date: new Date('2026-01-01') },
+        { levelId: '30', rating: 80, date: new Date('2026-03-01') },
+        { levelId: '10', rating: 80, date: new Date('2026-01-01') },
+        { levelId: '20', rating: 80, date: new Date('2026-01-01') },
       ]),
       'u1'
     )
@@ -217,8 +226,8 @@ describe('readRatingStandings', () => {
   it('sorts a missing tie-break value last rather than first', async () => {
     const standings = await readRatingStandings(
       fakeTx([
-        { levelId: '1', simpleRating: 80, enjoyment: null },
-        { levelId: '2', simpleRating: 80, enjoyment: 10 },
+        { levelId: '1', rating: 80, enjoyment: null },
+        { levelId: '2', rating: 80, enjoyment: 10 },
       ]),
       'u1'
     )
@@ -238,8 +247,7 @@ describe('readRatingStandings', () => {
           },
         ],
         {
-          ratingMode: 'WEIGHTED',
-          categories: [
+              categories: [
             { id: 'a', weight: 0.75 },
             { id: 'b', weight: 0.25 },
           ],

@@ -85,7 +85,7 @@ describe('POST /auth/signup/start', () => {
       where: { userId: user.id },
       orderBy: { sortOrder: 'asc' },
     })
-    expect(cats.map((c) => c.name)).toEqual(['Gameplay', 'Decoration', 'Song'])
+    expect(cats.map((c) => c.name)).toEqual(['Overall'])
 
     const collections = await prisma.collection.findMany({
       where: { userId: user.id },
@@ -126,7 +126,7 @@ describe('POST /auth/signup/start', () => {
     expect(second.status).toBe(200)
     expect(secondBody.data.id).toBe(firstBody.data.id)
     expect(await prisma.user.count()).toBe(1)
-    expect(await prisma.ratingCategory.count()).toBe(3)
+    expect(await prisma.ratingCategory.count()).toBe(1)
   })
 
   it('reports the existing onboarding state on a repeat call', async () => {

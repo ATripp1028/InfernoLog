@@ -25,7 +25,6 @@ import type { LevelPageData, ProgressUpdate } from '@/lib/api/levelPage'
  */
 export interface EditLevelForm {
   levelNotes: string
-  simpleRating: number | null
   ratingScores: Record<string, number | null>
   worstFail: string
   worstFailDate: string
@@ -66,8 +65,6 @@ function initForm(
   )
   return {
     levelNotes: data.levelNotes ?? '',
-    simpleRating:
-      data.simpleRating != null ? toScoreDisplay(data.simpleRating) : null,
     ratingScores: Object.fromEntries(
       categories.map((cat) => {
         const found = data.ratingScores.find((r) => r.categoryId === cat.id)
@@ -142,7 +139,6 @@ export function useEditLevelForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, levelId])
 
-  const weighted = me.data?.ratingMode === 'WEIGHTED'
   const categories = me.data?.ratingCategories ?? []
   const isCompleted = data.status === 'COMPLETED'
   const hasCoins = (data.level.coins ?? 0) > 0
@@ -153,21 +149,19 @@ export function useEditLevelForm({
   // enjoyment counts whenever the account opted in, and the form holds display
   // units while the computation (and enjoyment, read straight off the stored
   // entry) is on the internal 0–100 scale.
-  const overallRating =
-    weighted && me.data
-      ? computeOverallRating(overallRatingConfig(me.data), {
-          simpleRating: null,
-          enjoyment: findPrimaryProgressUpdate(data)?.enjoyment ?? null,
-          ratingScores: ratingScoresFromDraft(
-            Object.fromEntries(
-              Object.entries(form.ratingScores).map(([id, v]) => [
-                id,
-                v == null ? null : toScoreInternal(v),
-              ])
-            )
-          ),
-        })
-      : null
+  const overallRating = me.data
+    ? computeOverallRating(overallRatingConfig(me.data), {
+        enjoyment: findPrimaryProgressUpdate(data)?.enjoyment ?? null,
+        ratingScores: ratingScoresFromDraft(
+          Object.fromEntries(
+            Object.entries(form.ratingScores).map(([id, v]) => [
+              id,
+              v == null ? null : toScoreInternal(v),
+            ])
+          )
+        ),
+      })
+    : null
 
   const gddlTierError = maxValueError(form.userGddlTier, MAX_GDDL_TIER)
 
@@ -215,17 +209,12 @@ export function useEditLevelForm({
       visibility: form.visibility,
     }
 
-    if (weighted) {
-      payload.ratingScores = Object.entries(form.ratingScores)
-        .filter(([, v]) => v != null)
-        .map(([categoryId, v]) => ({
-          categoryId,
-          score: toScoreInternal(v!),
-        }))
-    } else {
-      payload.simpleRating =
-        form.simpleRating != null ? toScoreInternal(form.simpleRating) : null
-    }
+    payload.ratingScores = Object.entries(form.ratingScores)
+      .filter(([, v]) => v != null)
+      .map(([categoryId, v]) => ({
+        categoryId,
+        score: toScoreInternal(v!),
+      }))
 
     if (isCompleted) {
       payload.userGddlTier =
@@ -244,8 +233,6 @@ export function useEditLevelForm({
     form,
     patch,
 
-    // Rating mode
-    weighted,
     categories,
     overallRating,
 

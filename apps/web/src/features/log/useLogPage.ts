@@ -121,10 +121,7 @@ export function useLogPage() {
     if (!preset) return // preset was deleted — stay on default
 
     const activeIds = new Set(
-      (me.data?.ratingMode === 'WEIGHTED'
-        ? (me.data?.ratingCategories ?? [])
-        : []
-      ).map((c) => c.id)
+      (me.data?.ratingCategories ?? []).map((c) => c.id)
     )
     const cleaned = cleanupPresetForCategories(preset, activeIds)
     setSelectedPresetId(preset.id)
@@ -169,12 +166,8 @@ export function useLogPage() {
   const items = useMemo(() => progress.data ?? [], [progress.data])
   const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data])
 
-  // Category columns are only available in WEIGHTED mode.
   const activeCategories: RatingCategory[] = useMemo(
-    () =>
-      me.data?.ratingMode === 'WEIGHTED'
-        ? (me.data.ratingCategories ?? [])
-        : [],
+    () => me.data?.ratingCategories ?? [],
     [me.data]
   )
 

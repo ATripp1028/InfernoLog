@@ -14,7 +14,6 @@ interface RowEditorProps {
   identity: React.ReactNode
   config: OverallRatingConfig
   categories: RatingCategory[]
-  overallRating: number | null
   ratingScores: readonly { categoryId: string; score: number }[]
   /** The row's enjoyment, internal 0–100 — an input to the live preview. */
   enjoyment: number | null
@@ -40,22 +39,19 @@ export function RowEditor({
   identity,
   config,
   categories,
-  overallRating,
   ratingScores,
   enjoyment,
   onSave,
   onCancel,
   saving,
 }: RowEditorProps) {
-  const { isWeighted, simple, setSimple, scores, setScore, preview, edit } =
-    useRowEditor({
-      levelId,
-      config,
-      categories,
-      overallRating,
-      ratingScores,
-      enjoyment,
-    })
+  const { scores, setScore, preview, edit } = useRowEditor({
+    levelId,
+    config,
+    categories,
+    ratingScores,
+    enjoyment,
+  })
 
   // Scores are stored as integers 0–100, so a tenth is the finest value the
   // 0–10 scale can actually hold. Offering anything finer would silently round
@@ -76,54 +72,33 @@ export function RowEditor({
           inputs. */}
       <div className="flex items-center gap-3">
         {identity}
-        {/* WEIGHTED only: in SIMPLE mode the single stepper below IS the
-            overall rating, and showing the same number twice explains
-            nothing. */}
-        {isWeighted && (
-          <>
-            {/* Sized and spaced like the row's own Overall cell, so the figure
-                does not jump sideways when the editor opens — it stays in the
-                column the header labels. */}
-            <span
-              title="Overall"
-              className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
-              style={{ color: ratingRampColor(preview) }}
-            >
-              {preview == null ? '—' : formatScore(preview)}
-            </span>
-            <span className={`${ACTION_WIDTH} shrink-0`} aria-hidden />
-          </>
-        )}
+        {/* Sized and spaced like the row's own Overall cell, so the figure
+            does not jump sideways when the editor opens — it stays in the
+            column the header labels. */}
+        <span
+          title="Overall"
+          className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
+          style={{ color: ratingRampColor(preview) }}
+        >
+          {preview == null ? '—' : formatScore(preview)}
+        </span>
+        <span className={`${ACTION_WIDTH} shrink-0`} aria-hidden />
       </div>
 
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        {isWeighted ? (
-          categories.map((category) => (
-            <Field key={category.id} label={category.name}>
-              <StepperInput
-                value={scores[category.id] ?? 0}
-                onChange={(v) => setScore(category.id, v)}
-                min={0}
-                max={SCORE_MAX}
-                precision={1}
-                deltas={step}
-                aria-label={`${category.name} score`}
-              />
-            </Field>
-          ))
-        ) : (
-          <Field label="Rating">
+        {categories.map((category) => (
+          <Field key={category.id} label={category.name}>
             <StepperInput
-              value={simple}
-              onChange={setSimple}
+              value={scores[category.id] ?? 0}
+              onChange={(v) => setScore(category.id, v)}
               min={0}
               max={SCORE_MAX}
               precision={1}
               deltas={step}
-              aria-label="Rating score"
+              aria-label={`${category.name} score`}
             />
           </Field>
-        )}
+        ))}
 
         <div className="ml-auto flex items-center gap-1.5">
           <button

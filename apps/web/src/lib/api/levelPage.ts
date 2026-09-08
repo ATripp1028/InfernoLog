@@ -28,7 +28,6 @@ export interface LevelPageData {
   // their read of the LEVEL, not of one run.
   difficultyOpinion: string | null
   // One current value per level, not per event.
-  simpleRating: number | null
   ratingScores: RatingScore[]
   coinsCollected: number | null
   completionTime: number | null

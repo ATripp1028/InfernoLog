@@ -44,7 +44,6 @@ async function loadExistingCompletion(userId: string, levelId: string) {
           worstFailDateTimezone: true,
           userGddlTier: true,
           difficultyOpinion: true,
-          simpleRating: true,
           coinsCollected: true,
           completionTime: true,
           ratingScores: { select: { categoryId: true, score: true } },
@@ -73,7 +72,6 @@ async function loadExistingCompletion(userId: string, levelId: string) {
     device: completion.device,
     // LevelProgress fields — one current value per level, not per event.
     difficultyOpinion: completion.levelProgress.difficultyOpinion,
-    simpleRating: completion.levelProgress.simpleRating,
     ratingScores: completion.levelProgress.ratingScores,
     coinsCollected: completion.levelProgress.coinsCollected,
     completionTime: completion.levelProgress.completionTime,

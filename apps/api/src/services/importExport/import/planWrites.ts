@@ -51,7 +51,6 @@ interface LpFields {
   userGddlTier?: number | null
   difficultyOpinion?: DifficultyOpinion | null
   // One current value per level, not per event — see schema.prisma.
-  simpleRating?: number | null
   coinsCollected?: number | null
 }
 
@@ -242,8 +241,6 @@ function buildCompletionLpFields(
     levelNotes: row.levelNotes ?? null,
     userGddlTier,
     difficultyOpinion: row.difficultyOpinion ?? null,
-    simpleRating:
-      row.simpleRating != null ? Math.round(row.simpleRating * 10) : null,
     coinsCollected,
   }
 }
@@ -304,9 +301,6 @@ function buildCompletionMergeLpFields(
     ...(userGddlTier != null ? { userGddlTier } : {}),
     ...(row.difficultyOpinion != null
       ? { difficultyOpinion: row.difficultyOpinion }
-      : {}),
-    ...(row.simpleRating != null
-      ? { simpleRating: Math.round(row.simpleRating * 10) }
       : {}),
     ...(coinsCollected != null ? { coinsCollected } : {}),
   }

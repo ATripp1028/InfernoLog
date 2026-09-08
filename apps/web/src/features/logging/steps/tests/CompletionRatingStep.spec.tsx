@@ -30,6 +30,10 @@ const CATEGORIES = [
   { id: 'cat-decoration', name: 'Decoration', weight: 0.5, sortOrder: 1 },
 ]
 
+// `makeMe`'s default account: one category at the full weight, which is how a
+// fresh account rates on a single number.
+const SOLE = 'cat-overall'
+
 /** Mounts the step with the given draft and user. */
 function render({
   draft = {},
@@ -90,19 +94,21 @@ describe('CompletionRatingStep', () => {
     // boundary InternalScoreRow exists for; enjoyment is shown on 0–100, where
     // there is nothing to convert.
     it('shows a score in 0–10 display units and enjoyment unconverted', () => {
-      render({ draft: { enjoyment: 85, simpleRating: 70 } })
+      render({ draft: { enjoyment: 85, ratingScores: { [SOLE]: 70 } } })
 
       expect(stepper('Enjoyment Score')).toHaveValue('85')
-      expect(stepper('Rating Score')).toHaveValue('7.0')
+      expect(stepper('Overall')).toHaveValue('7.0')
     })
 
     it('patches a score back in internal units', async () => {
       const user = userEvent.setup()
       const { flow } = render()
 
-      await setStepper(user, stepper('Rating Score'), '7.5')
+      await setStepper(user, stepper('Overall'), '7.5')
 
-      expect(flow.patchDraft).toHaveBeenCalledWith({ simpleRating: 75 })
+      expect(flow.patchDraft).toHaveBeenCalledWith({
+        ratingScores: { [SOLE]: 75 },
+      })
     })
 
     it('patches enjoyment back unconverted', async () => {
@@ -118,29 +124,29 @@ describe('CompletionRatingStep', () => {
     // draft claiming the user chose 0.
     it('defaults to 50 for all scores', () => {
       const { flow } = render({
-        draft: { enjoyment: null, simpleRating: null },
+        draft: { enjoyment: null, ratingScores: {} },
       })
 
       expect(flow.patchDraft).toHaveBeenCalledWith({ enjoyment: 50 })
-      expect(flow.patchDraft).toHaveBeenCalledWith({ simpleRating: 50 })
+      expect(flow.patchDraft).toHaveBeenCalledWith({
+        ratingScores: { [SOLE]: 50 },
+      })
     })
   })
 
-  describe('weighted mode', () => {
-    it('renders one row per category instead of a single score', () => {
-      render({
-        me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: CATEGORIES }),
-      })
+  describe('several categories', () => {
+    it('renders one row per category', () => {
+      render({ me: makeMe({ ratingCategories: CATEGORIES }) })
 
       expect(stepper('Gameplay')).toBeTruthy()
       expect(stepper('Decoration')).toBeTruthy()
-      expect(screen.getByText('Rating · weighted')).toBeInTheDocument()
+      expect(screen.queryByLabelText('Overall')).not.toBeInTheDocument()
     })
 
     it('shows the weighted average in display units', () => {
       render({
         draft: { ratingScores: { 'cat-gameplay': 80, 'cat-decoration': 60 } },
-        me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: CATEGORIES }),
+        me: makeMe({ ratingCategories: CATEGORIES }),
       })
 
       // 80 and 60 at even weights → 70 internal → 7 on the 0–10 scale.
@@ -157,7 +163,6 @@ describe('CompletionRatingStep', () => {
           enjoyment: 25,
         },
         me: makeMe({
-          ratingMode: 'WEIGHTED',
           ratingCategories: CATEGORIES,
           includeEnjoyment: true,
           enjoymentWeight: 1,
@@ -175,7 +180,6 @@ describe('CompletionRatingStep', () => {
           enjoyment: 25,
         },
         me: makeMe({
-          ratingMode: 'WEIGHTED',
           ratingCategories: CATEGORIES,
           includeEnjoyment: false,
           enjoymentWeight: 1,
@@ -190,7 +194,7 @@ describe('CompletionRatingStep', () => {
     it('renormalizes over the categories scored so far', () => {
       render({
         draft: { ratingScores: { 'cat-gameplay': 80 } },
-        me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: CATEGORIES }),
+        me: makeMe({ ratingCategories: CATEGORIES }),
       })
 
       expect(screen.getByText(/weighted avg/)).toHaveTextContent('8')
@@ -200,7 +204,7 @@ describe('CompletionRatingStep', () => {
       const user = userEvent.setup()
       const { flow } = render({
         draft: { ratingScores: { 'cat-decoration': 60 } },
-        me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: CATEGORIES }),
+        me: makeMe({ ratingCategories: CATEGORIES }),
       })
 
       await setStepper(user, stepper('Gameplay'), '9')
@@ -211,7 +215,7 @@ describe('CompletionRatingStep', () => {
     })
 
     it('explains the empty state when no categories are configured', () => {
-      render({ me: makeMe({ ratingMode: 'WEIGHTED', ratingCategories: [] }) })
+      render({ me: makeMe({ ratingCategories: [] }) })
 
       expect(
         screen.getByText(/No rating categories configured/)

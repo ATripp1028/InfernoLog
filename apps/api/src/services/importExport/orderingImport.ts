@@ -1,12 +1,11 @@
 // Resolving a spreadsheet ordering tab to the user's own completions.
 //
-// Shared by the two orderings the import can replace: the demon list and the
-// MANUAL rating ranking. Both answer the same question — which of my completed
-// classic levels is this row talking about, and in what order — and both apply
-// the same rules to a row that names nothing, names something ambiguous, or
+// Answers the question the demon list import asks of every row — which of my
+// completed classic levels is this talking about, and in what order — and
+// applies the rules for a row that names nothing, names something ambiguous, or
 // names a level already placed higher up.
 //
-// Kept apart from either committer so the merge check and the commit resolve
+// Kept apart from the committer so the merge check and the commit resolve
 // identically. A merge preview that disagreed with what the commit would write
 // is worse than no preview.
 

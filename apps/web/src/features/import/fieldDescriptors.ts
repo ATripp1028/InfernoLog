@@ -77,7 +77,6 @@ export const COMPLETION_FIELDS: FieldDescriptor[] = [
   { field: 'highlightUrl', label: 'Highlight URL', format: 'text' },
   { field: 'notes', label: 'Notes', format: 'text' },
   { field: 'enjoyment', label: 'Enjoyment', format: 'rating100' },
-  { field: 'simpleRating', label: 'Simple rating', format: 'rating10' },
   {
     field: 'difficultyOpinion',
     label: 'Difficulty opinion',
@@ -150,7 +149,7 @@ export const DROPPED_FIELDS: FieldDescriptor[] = [
 ]
 
 /**
- * 'percent' (0-100), not 'rating10' — unlike completion simpleRating (0-10 on
+ * 'percent' (0-100), not 'rating10' — unlike a category score (0-10 on
  * the wire), ImportRatingEntry.scores is already 0-100 on the wire, and
  * existing/importedScore in ImportRatingConflict match that convention so a
  * resolved value drops straight into the payload with no conversion.

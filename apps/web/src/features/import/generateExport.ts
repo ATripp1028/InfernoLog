@@ -14,7 +14,7 @@ import {
   PROGRESS_HEADERS,
   DROPPED_HEADERS,
   RANKING_HEADERS,
-  RATING_RANKING_HEADERS,
+  RATING_HEADERS,
   LIST_HEADERS,
   FIELD_DESCRIPTIONS,
 } from './generateTemplate'
@@ -205,31 +205,25 @@ export function downloadExport(
     'Demon List'
   )
 
-  // Ranking — everything about how a level is rated: manual position, simple
-  // score, and one column per rating category. `rank` is blank for a level with
-  // no manual position, which is every level for a simple/weighted user.
-  const ratingRankingHeaders = [
-    ...RATING_RANKING_HEADERS,
-    ...data.ratingCategories,
-  ]
-  const ratingRankingAoa: Cell[][] = [
-    ratingRankingHeaders,
-    ...data.ratingRanking.map((r) =>
-      ratingRankingHeaders.map((h): Cell => {
-        if (h === 'rank') return r.rank ?? ''
+  // Ratings — one row per rated level, one column per rating category. No
+  // order: the Ranking page derives one from these scores.
+  const ratingHeaders = [...RATING_HEADERS, ...data.ratingCategories]
+  const ratingsAoa: Cell[][] = [
+    ratingHeaders,
+    ...data.ratings.map((r) =>
+      ratingHeaders.map((h): Cell => {
         if (h === 'level_id') return r.levelId
         if (h === 'level_name') return r.levelName ?? ''
         if (h === 'creator') return r.creator ?? ''
         if (h === 'in_game_difficulty') return r.inGameDifficulty ?? ''
-        if (h === 'simple_rating') return toTenScale(r.simpleRating)
         return toTenScale(r.scores[h] ?? null)
       })
     ),
   ]
   XLSX.utils.book_append_sheet(
     wb,
-    XLSX.utils.aoa_to_sheet(ratingRankingAoa),
-    'Ranking'
+    XLSX.utils.aoa_to_sheet(ratingsAoa),
+    'Ratings'
   )
 
   // Lists

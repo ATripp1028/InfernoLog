@@ -56,7 +56,7 @@ describe('GET /me/export — section', () => {
     'progress',
     'dropped',
     'ranking',
-    'ratingRanking',
+    'ratings',
     'collections',
     'categories',
   ])('accepts the %s section', async (section) => {

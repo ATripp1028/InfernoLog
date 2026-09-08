@@ -9,7 +9,7 @@
 
 import { randomUUID } from 'crypto'
 import { Hono } from 'hono'
-import { PrismaClient, type RatingMode } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 import type { HonoVariables } from '../types/hono'
@@ -96,7 +96,6 @@ export async function seedUser(
     username: string
     email: string
     gddlApiKeyEncrypted: string | null
-    ratingMode: RatingMode
   }> = {}
 ) {
   const id = overrides.id ?? randomUUID()
@@ -107,9 +106,6 @@ export async function seedUser(
       username: overrides.username ?? `user_${short}`,
       email: overrides.email ?? `${short}@test.dev`,
       gddlApiKeyEncrypted: overrides.gddlApiKeyEncrypted ?? null,
-      // Defaulted by the schema; stated only by specs that care which mode the
-      // user is in, which the ranking endpoints very much do.
-      ...(overrides.ratingMode ? { ratingMode: overrides.ratingMode } : {}),
     },
   })
 }
@@ -152,7 +148,7 @@ export async function seedLevel(
 export async function seedRatingCategory(
   prisma: PrismaClient,
   userId: string,
-  name = 'Gameplay',
+  name = 'Overall',
   sortOrder = 0
 ) {
   return prisma.ratingCategory.create({

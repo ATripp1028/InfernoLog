@@ -52,7 +52,6 @@ async function seedProgress(
     levelId: string
     status: 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
     // One current value per level, not per event — lives on LevelProgress.
-    simpleRating?: number | null
     ratingScores?: Array<{ categoryId: string; score: number }>
     updates?: Array<{
       kind?: 'PROGRESS' | 'DROP' | 'COMPLETION'
@@ -72,7 +71,6 @@ async function seedProgress(
       userId: args.userId,
       levelId: args.levelId,
       status: args.status,
-      simpleRating: args.simpleRating ?? null,
       ...(args.ratingScores
         ? { ratingScores: { create: args.ratingScores } }
         : {}),
@@ -109,7 +107,6 @@ describe('DELETE /me/progress/:levelId', () => {
       userId: user.id,
       levelId: '900',
       status: 'COMPLETED',
-      simpleRating: 70,
       updates: [{ kind: 'COMPLETION' }],
     })
 

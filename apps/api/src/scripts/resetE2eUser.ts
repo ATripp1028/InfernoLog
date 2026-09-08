@@ -146,7 +146,6 @@ async function resetPreferences(userId: string) {
       legalAcceptedAt: new Date(),
       gddlApiKeyEncrypted: null,
       gddlUsername: null,
-      ratingMode: 'SIMPLE',
       dateFormatPreference: 'MDY',
       defaultFps: 60,
       defaultPercentageVersion: 'TWO_TWO',

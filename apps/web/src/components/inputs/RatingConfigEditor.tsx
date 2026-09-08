@@ -12,6 +12,7 @@ import { Card } from '@/components/generic/card'
 import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { StepperInput } from '@/components/generic/stepper-input'
+import { WEIGHT_PERCENT_MAX } from '@/lib/ratingScale'
 import { type MeData } from '@/lib/api/me'
 import { DragHandle } from '@/components/generic/drag-handle'
 import {
@@ -32,8 +33,14 @@ interface RatingConfigEditorProps {
   hideActions?: boolean
 }
 
+// Percent steps, replacing the component's 0.1/0.01 fraction defaults. A point
+// is the finest weight the Decimal(5,2) column can hold, and five is the size
+// of nudge someone rebalancing a list actually reaches for.
+const WEIGHT_DELTAS = [1, 5]
+
 /**
- * The weighted-rating category editor: names, weights, and drag-to-reorder priority.
+ * The rating category editor: names, weights (as whole percents) and
+ * drag-to-reorder priority.
  */
 export const RatingConfigEditor = forwardRef<
   RatingConfigEditorHandle,
@@ -51,8 +58,9 @@ export const RatingConfigEditor = forwardRef<
     handleDistributeEqually,
     includeEnjoyment,
     handleEnjoymentToggle,
-    cents,
+    total,
     sumValid,
+    hasNoCategories,
     hasEmptyName,
     hasDuplicateName,
     dirty,
@@ -151,15 +159,22 @@ export const RatingConfigEditor = forwardRef<
       >
         <div className="text-sm text-foreground">
           Active weights total:{' '}
-          <span className="font-mono">{(cents / 100).toFixed(2)}</span> /{' '}
-          <span className="font-mono">1.00</span>
+          <span className="font-mono">{total}%</span> /{' '}
+          <span className="font-mono">100%</span>
         </div>
         {!sumValid && (
           <div className="text-xs text-danger">
-            Must equal exactly 1.00 to save.
+            Must equal exactly 100% to save.
           </div>
         )}
       </Card>
+
+      {hasNoCategories && (
+        <p className="text-xs text-danger">
+          Add at least one category to save — a level&rsquo;s rating is the
+          weighted average of these.
+        </p>
+      )}
 
       {(hasEmptyName || hasDuplicateName) && (
         <p className="text-xs text-danger">
@@ -247,7 +262,10 @@ function CategoryRow({
         value={item.weight}
         onChange={onChangeWeight}
         min={0}
-        max={1}
+        max={WEIGHT_PERCENT_MAX}
+        precision={0}
+        deltas={WEIGHT_DELTAS}
+        suffix="%"
         aria-label={`Weight for ${item.name || 'category'}`}
         className="self-end sm:self-auto"
       />
@@ -300,7 +318,10 @@ function EnjoymentRow({ item, onChangeWeight }: EnjoymentRowProps) {
         value={item.weight}
         onChange={onChangeWeight}
         min={0}
-        max={1}
+        max={WEIGHT_PERCENT_MAX}
+        precision={0}
+        deltas={WEIGHT_DELTAS}
+        suffix="%"
         aria-label="Weight for enjoyment"
         className="self-end sm:self-auto"
       />

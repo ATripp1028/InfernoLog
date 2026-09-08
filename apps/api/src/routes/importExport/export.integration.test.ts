@@ -79,7 +79,7 @@ describe('GET /me/export — sections', () => {
     'progress',
     'dropped',
     'ranking',
-    'ratingRanking',
+    'ratings',
     'collections',
     'categories',
   ])('serves the %s section for an empty account', async (section) => {

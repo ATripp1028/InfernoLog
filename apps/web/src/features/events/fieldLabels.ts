@@ -11,7 +11,11 @@ import type { ActivityFieldChange } from '@infernolog/core'
 import type { RatingCategory } from '@/lib/api/me'
 import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatDate } from '@/lib/dateFormat'
-import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
+import {
+  formatEnjoyment,
+  formatScore,
+  formatWeightPercent,
+} from '@/lib/ratingScale'
 import { formatNumber } from '@/lib/numberFormat'
 import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 
@@ -178,7 +182,7 @@ export function parseConfigCategories(
 
 /** "Gameplay — 35%", the way a category reads in a config diff. */
 export function configCategoryLabel(category: ConfigCategory): string {
-  return `${category.name} — ${Math.round(category.weight * 100)}%`
+  return `${category.name} — ${formatWeightPercent(category.weight)}`
 }
 
 /** The one-line summary under a rating-config change. */

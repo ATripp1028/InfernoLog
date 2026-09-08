@@ -24,12 +24,6 @@ interface RankedRowProps {
   lastRank: number
   config: OverallRatingConfig
   categories: RatingCategory[]
-  /**
-   * Whether this mode has a rating number to show. False in MANUAL, where the
-   * POSITION is the rating — an Overall column would be a row of em dashes, and
-   * an edit button would open a form with nothing in it.
-   */
-  showRating: boolean
   editing: boolean
   onEdit: (levelId: string) => void
   onCancel: () => void
@@ -56,7 +50,6 @@ export function RankedRow({
   lastRank,
   config,
   categories,
-  showRating,
   editing,
   onEdit,
   onCancel,
@@ -90,7 +83,6 @@ export function RankedRow({
           }
           config={config}
           categories={categories}
-          overallRating={overallRating}
           ratingScores={item.ratingScores}
           enjoyment={item.entry?.enjoyment ?? null}
           onSave={onSave}
@@ -127,30 +119,23 @@ export function RankedRow({
           })}
 
           {/* The rating is what earned the position, so it reads as the row's
-            headline figure rather than as one more badge. Both this and the
-            edit button are absent in MANUAL: there is no number there, and a
-            column of em dashes beside a form with nothing in it explains
-            nothing. */}
-          {showRating && (
-            <>
-              <span
-                title="Rating"
-                className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
-                style={{ color: overall }}
-              >
-                {overallRating == null ? '—' : formatScore(overallRating)}
-              </span>
-              <button
-                type="button"
-                onClick={() => onEdit(level.inGameId)}
-                aria-label={`Edit rating for ${level.name ?? `Level #${level.inGameId}`}`}
-                title="Edit rating"
-                className={`${ACTION_WIDTH} flex h-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary`}
-              >
-                <Pencil size={14} />
-              </button>
-            </>
-          )}
+            headline figure rather than as one more badge. */}
+          <span
+            title="Rating"
+            className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
+            style={{ color: overall }}
+          >
+            {overallRating == null ? '—' : formatScore(overallRating)}
+          </span>
+          <button
+            type="button"
+            onClick={() => onEdit(level.inGameId)}
+            aria-label={`Edit rating for ${level.name ?? `Level #${level.inGameId}`}`}
+            title="Edit rating"
+            className={`${ACTION_WIDTH} flex h-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-subtle hover:text-text-primary`}
+          >
+            <Pencil size={14} />
+          </button>
         </div>
       )}
       {/* The demon list's hover treatment, matched deliberately: an inset warm

@@ -27,7 +27,6 @@ const category = (id: string, weight = 1): RatingCategory =>
 
 const meData = (overrides: Partial<MeData> = {}) =>
   ({
-    ratingMode: 'SIMPLE',
     ratingCategories: [],
     ...overrides,
   }) as MeData
@@ -110,19 +109,10 @@ describe('useEditLevelModal', () => {
     })
 
     // Scores are stored 0-100 internally and edited on the 0-10 scale.
-    it('converts a stored rating into display units', () => {
-      const { result } = render({
-        data: levelPageData({ simpleRating: 85 }),
-      })
-
-      expect(result.current.form.simpleRating).toBe(8.5)
-    })
-
-    it('seeds a slot for every category, scored or not', () => {
+    it('seeds a slot for every category, scored or not, in display units', () => {
       vi.mocked(useMe).mockReturnValue(
         stubQuery<MeData>({
           data: meData({
-            ratingMode: 'WEIGHTED',
             ratingCategories: [category('gameplay'), category('design')],
           }),
         })
@@ -335,21 +325,11 @@ describe('useEditLevelModal', () => {
       expect(saved().worstFail).toBeNull()
     })
 
-    it('converts a simple rating back to internal units', () => {
-      const { result } = render()
-      act(() => result.current.patch({ simpleRating: 8.5 }))
-
-      act(() => result.current.handleSave())
-
-      expect(saved().simpleRating).toBe(85)
-      expect(saved().ratingScores).toBeUndefined()
-    })
-
-    it('sends per-category scores in weighted mode, skipping unscored ones', () => {
+    // Scores are edited on the 0-10 scale and stored 0-100 internally.
+    it('sends per-category scores in internal units, skipping unscored ones', () => {
       vi.mocked(useMe).mockReturnValue(
         stubQuery<MeData>({
           data: meData({
-            ratingMode: 'WEIGHTED',
             ratingCategories: [category('gameplay'), category('design')],
           }),
         })
@@ -364,7 +344,6 @@ describe('useEditLevelModal', () => {
       expect(saved().ratingScores).toEqual([
         { categoryId: 'gameplay', score: 80 },
       ])
-      expect(saved().simpleRating).toBeUndefined()
     })
 
     // The tier and coin fields only exist for a beaten level, so they must

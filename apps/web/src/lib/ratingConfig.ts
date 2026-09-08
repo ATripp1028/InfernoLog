@@ -19,7 +19,6 @@ import type { MeData } from './api/me'
  */
 export function overallRatingConfig(me: MeData): OverallRatingConfig {
   return {
-    ratingMode: me.ratingMode,
     includeEnjoyment: me.includeEnjoyment,
     enjoymentWeight: me.enjoymentWeight,
     categoryWeights: new Map(me.ratingCategories.map((c) => [c.id, c.weight])),
