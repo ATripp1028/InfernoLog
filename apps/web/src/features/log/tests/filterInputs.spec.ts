@@ -57,7 +57,6 @@ describe('useFilterPanel', () => {
   const render = (
     opts: {
       state?: ReturnType<typeof filters>
-      scale?: 'ZERO_TO_TEN' | 'ZERO_TO_HUNDRED'
       maxAttempts?: number
     } = {}
   ) => {
@@ -66,7 +65,6 @@ describe('useFilterPanel', () => {
       useFilterPanel({
         filters: opts.state ?? filters(),
         onChange,
-        scale: opts.scale ?? 'ZERO_TO_HUNDRED',
         maxAttempts: opts.maxAttempts ?? 25000,
       })
     )
@@ -120,22 +118,32 @@ describe('useFilterPanel', () => {
   })
 
   describe('parsing typed values', () => {
-    // Ratings are typed on the user's display scale but stored 0–100.
-    it('converts a typed rating from the display scale', () => {
-      const { result } = render({ scale: 'ZERO_TO_TEN' })
-
-      expect(result.current.parseRating('8.5')).toBe(85)
+    // Filter bounds are stored on the internal 0–100 domain, so a score
+    // crosses a conversion on the way in and enjoyment does not.
+    it('converts a typed score from the 0-10 scale', () => {
+      expect(render().result.current.parseScore('8.5')).toBe(85)
     })
 
-    it('leaves a rating alone on the 0-100 scale', () => {
-      expect(render().result.current.parseRating('85')).toBe(85)
+    it('leaves typed enjoyment on its own 0-100 scale', () => {
+      expect(render().result.current.parseEnjoyment('85')).toBe(85)
+    })
+
+    it('rounds typed enjoyment to a whole number', () => {
+      expect(render().result.current.parseEnjoyment('85.4')).toBe(85)
     })
 
     it.each([
       ['above the domain', '999', RATING_DOMAIN[1]],
       ['below it', '-50', RATING_DOMAIN[0]],
-    ])('clamps a rating %s', (_label, text, expected) => {
-      expect(render().result.current.parseRating(text)).toBe(expected)
+    ])('clamps a score %s', (_label, text, expected) => {
+      expect(render().result.current.parseScore(text)).toBe(expected)
+    })
+
+    it.each([
+      ['above the domain', '999', RATING_DOMAIN[1]],
+      ['below it', '-50', RATING_DOMAIN[0]],
+    ])('clamps enjoyment %s', (_label, text, expected) => {
+      expect(render().result.current.parseEnjoyment(text)).toBe(expected)
     })
 
     // The tier box shows "35+" for the top bucket, so the suffix has to be
@@ -165,7 +173,8 @@ describe('useFilterPanel', () => {
     })
 
     it.each([
-      ['parseRating', 'abc'],
+      ['parseScore', 'abc'],
+      ['parseEnjoyment', 'abc'],
       ['parseTier', 'abc'],
       ['parseAttempts', 'abc'],
     ] as const)('reports %s of unparseable text as nothing', (fn, text) => {

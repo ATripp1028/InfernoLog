@@ -5,43 +5,47 @@
 
 import { Slider } from '@/components/generic/slider'
 import { StepperInput } from '@/components/generic/stepper-input'
-import { displayMax } from '@/lib/ratingScale'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import { ENJOYMENT_MAX, SCORE_MAX } from '@/lib/ratingScale'
+
+/** How a field is scaled, stepped and stepped-by. See `lib/ratingScale`. */
+const FIELD_SHAPE: Record<
+  'score' | 'enjoyment',
+  { max: number; step: number; precision: number; deltas: number[] }
+> = {
+  // 0.1 is the finest notch the internal integer scale can represent.
+  score: { max: SCORE_MAX, step: 0.1, precision: 1, deltas: [0.5, 1] },
+  enjoyment: { max: ENJOYMENT_MAX, step: 1, precision: 0, deltas: [5, 10] },
+}
 
 /**
  * One labelled rating control: a slider and a stepper editing the same value.
  *
- * **Values are in DISPLAY units** — 0–10 or 0–100 depending on `scale`, not
- * the internal 0–100 everything is stored as. Callers holding internal values
- * convert at the boundary with `toDisplay`/`toInternal` from
- * `lib/ratingScale`, so the unit is visible at the call site rather than
- * hidden in here.
+ * **Values are in DISPLAY units.** For `field="score"` that is 0–10, not the
+ * internal 0–100 scores are stored as — callers convert at the boundary with
+ * `toScoreDisplay`/`toScoreInternal` from `lib/ratingScale`, so the unit is
+ * visible at the call site rather than hidden in here. For `field="enjoyment"`
+ * the two units coincide at 0–100 and there is nothing to convert.
  *
+ * @param field - Which scale this control edits on. See `lib/ratingScale`.
  * @param value - `null` renders as 0 without claiming the user chose 0.
- * @param sliderStep - Display units per slider notch. Defaults to a whole
- * unit; the edit modals pass a tenth on the 0–10 scale, which is the finest
- * the internal integer scale can represent.
  * @param labelWidth - Tailwind width for the label column at `sm` and up.
  */
 export function RatingRow({
   label,
   sublabel,
   value,
-  scale,
+  field,
   onChange,
-  sliderStep,
   labelWidth = 'sm:w-28',
 }: {
   label: string
   sublabel?: string
   value: number | null
-  scale: RatingDisplayScale
+  field: 'score' | 'enjoyment'
   onChange: (display: number) => void
-  sliderStep?: number
   labelWidth?: string
 }) {
-  const max = displayMax(scale)
-  const isTen = scale === 'ZERO_TO_TEN'
+  const { max, step, precision, deltas } = FIELD_SHAPE[field]
   const display = value ?? 0
   return (
     // Mobile: label above a full-width slider+stepper row, so the slider isn't
@@ -63,7 +67,7 @@ export function RatingRow({
           className="w-full sm:flex-1"
           min={0}
           max={max}
-          step={sliderStep ?? 1}
+          step={step}
           value={[display]}
           onValueChange={(vals) => onChange(vals[0] ?? 0)}
         />
@@ -72,8 +76,8 @@ export function RatingRow({
           onChange={onChange}
           min={0}
           max={max}
-          precision={isTen ? 1 : 0}
-          deltas={isTen ? [0.5, 1] : [5, 10]}
+          precision={precision}
+          deltas={deltas}
           aria-label={label}
           className="w-full sm:w-auto"
           inputClassName="min-w-0 flex-1 sm:w-12 sm:flex-none"

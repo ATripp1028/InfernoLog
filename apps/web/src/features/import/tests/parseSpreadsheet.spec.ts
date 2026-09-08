@@ -65,8 +65,6 @@ describe('workbook structure', () => {
     }
   )
 
-
-
   // The Demon List and Ranking tabs are two orderings of the same completions.
   // Reading one into the other would quietly overwrite a user's difficulty
   // order with their quality one, or the reverse.
@@ -92,8 +90,6 @@ describe('workbook structure', () => {
     expect(result.ratingRanking.map((r) => r.levelId)).toEqual(['111', '222'])
   })
 
-
-
   it('reads every tab it knows about', () => {
     const result = parse({
       Completions: [['level_id'], ['1']],
@@ -104,7 +100,7 @@ describe('workbook structure', () => {
         ['list', 'level_id'],
         ['Favorites', '5'],
       ],
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['6', 9],
       ],
@@ -348,13 +344,30 @@ describe('numeric fields', () => {
     expect(flagsFor(row, field)[0]!.message).toContain('outside 0-100')
   })
 
-  it.each([
-    ['enjoyment', 11],
-    ['simple_rating', -1],
-  ])('flags %s of %s as outside 0-10', (field, value) => {
-    const row = oneCompletion(['level_id', field], ['128', value])
+  it('flags a simple_rating outside 0-10', () => {
+    const row = oneCompletion(['level_id', 'simple_rating'], ['128', -1])
 
-    expect(flagsFor(row, field)[0]!.message).toContain('outside 0-10')
+    expect(flagsFor(row, 'simple_rating')[0]!.message).toContain('outside 0-10')
+  })
+
+  it('flags an enjoyment outside 0-100', () => {
+    const row = oneCompletion(['level_id', 'enjoyment'], ['128', 101])
+
+    expect(flagsFor(row, 'enjoyment')[0]!.message).toContain('outside 0-100')
+  })
+
+  // Enjoyment is 0-100 on the sheet and internally alike — no scaling, and
+  // notably no "a small number must have meant the 0-10 scale" guess. An 8 is
+  // an 8. Fractions round, since the wire schema is an integer.
+  it.each([
+    [85, 85],
+    [8, 8],
+    [10, 10],
+    [85.5, 86],
+  ])('reads a sheet enjoyment of %s as the internal %s', (cell, internal) => {
+    const row = oneCompletion(['level_id', 'enjoyment'], ['128', cell])
+
+    expect(row.data.enjoyment).toBe(internal)
   })
 
   it.each([0, 100])('accepts %s at the percentage boundary', (value) => {
@@ -526,7 +539,7 @@ describe('the ratings tab', () => {
   // rating category, discovered from the header row.
   it('discovers category columns from the header row', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'level_name', 'creator', 'Gameplay', 'Design'],
         ['128', 'Bloodbath', 'Riot', 9, 8],
       ],
@@ -544,7 +557,7 @@ describe('the ratings tab', () => {
     'in_game_difficulty',
   ])('does not mistake the reserved column %s for a category', (header) => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         [header, 'Gameplay'],
         ['x', 9],
       ],
@@ -555,7 +568,7 @@ describe('the ratings tab', () => {
 
   it('matches reserved columns however they are cased or spaced', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['Level ID', 'In Game Difficulty', 'Gameplay'],
         ['128', 'EXTREME_DEMON', 9],
       ],
@@ -569,7 +582,7 @@ describe('the ratings tab', () => {
   // category named " level_id ".
   it('does not turn a padded reserved column into a category', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         [' level_id ', 'Gameplay'],
         ['128', 9],
       ],
@@ -579,14 +592,15 @@ describe('the ratings tab', () => {
     expect(result.ratings[0]!.levelId).toBe('128')
   })
 
-  // The sheet may hold either scale; both normalize to the internal 0-100.
+  // Scores are on the sheet's 0-10 scale, always — a cell is never read as an
+  // already-internal 0-100 value.
   it.each([
     [9.5, 95],
-    [95, 95],
+    [9, 90],
     [10, 100],
   ])('reads a score of %s as %s on the internal scale', (given, expected) => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['128', given],
       ],
@@ -595,9 +609,40 @@ describe('the ratings tab', () => {
     expect(result.ratings[0]!.scores.Gameplay).toBe(expected)
   })
 
+  // Nothing rescues a 0-100 cell any more, so an out-of-range one has to be
+  // dropped with a flag rather than sent on to 400 the whole commit.
+  it('flags a score past the top of the 0-10 scale', () => {
+    const result = parse({
+      Ranking: [
+        ['level_id', 'Gameplay'],
+        ['128', 95],
+      ],
+    })
+
+    const flag = result.ratings[0]!.flags.find((f) => f.field === 'Gameplay')!
+    expect(flag.severity).toBe('warning')
+    expect(flag.message).toContain('out of range (0-10)')
+    expect(result.ratings[0]!.scores).toEqual({})
+  })
+
+  it('flags a simple_rating past the top of the 0-10 scale', () => {
+    const result = parse({
+      Ranking: [
+        ['level_id', 'simple_rating'],
+        ['128', 95],
+      ],
+    })
+
+    const flag = result.ratings[0]!.flags.find(
+      (f) => f.field === 'simple_rating'
+    )!
+    expect(flag.severity).toBe('warning')
+    expect(result.ratings[0]!.simpleRating).toBeNull()
+  })
+
   it('leaves a level with no scores an empty score map', () => {
     const result = parse({
-      'Ranking': [
+      Ranking: [
         ['level_id', 'Gameplay'],
         ['128', ''],
       ],
@@ -696,7 +741,7 @@ describe('resilience', () => {
           ['list', 'level_id'],
           ['', ''],
         ],
-        'Ranking': [
+        Ranking: [
           ['level_id', 'Gameplay'],
           ['', 'good'],
         ],

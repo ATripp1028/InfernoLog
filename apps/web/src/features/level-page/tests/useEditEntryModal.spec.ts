@@ -69,7 +69,6 @@ function render(
         onClose,
         data,
         levelId: '128',
-        scale: 'ZERO_TO_HUNDRED',
         datePref: 'ISO',
       }),
     { initialProps: { open: true } }

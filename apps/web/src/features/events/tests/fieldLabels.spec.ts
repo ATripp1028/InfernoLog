@@ -24,11 +24,7 @@ const categories: RatingCategory[] = [
   { id: 'cat-2', name: 'Decoration', weight: 0.5, sortOrder: 1 },
 ]
 
-const tenScale = { scale: 'ZERO_TO_TEN' as const, datePref: 'ISO' as const }
-const hundredScale = {
-  scale: 'ZERO_TO_HUNDRED' as const,
-  datePref: 'ISO' as const,
-}
+const ctx = { datePref: 'ISO' as const }
 
 describe('fieldLabel', () => {
   it('resolves a per-category score against the id, not the position', () => {
@@ -45,31 +41,36 @@ describe('fieldLabel', () => {
 })
 
 describe('fieldValue', () => {
-  it('converts a stored rating into the viewer’s display scale', () => {
-    expect(fieldValue('simple_rating', '82', tenScale)).toBe('8.2')
-    expect(fieldValue('simple_rating', '82', hundredScale)).toBe('82')
+  it('converts a stored score onto the 0–10 scale', () => {
+    expect(fieldValue('simple_rating', '82', ctx)).toBe('8.2')
+  })
+
+  // Enjoyment is stored and shown on the same 0–100 scale, so unlike every
+  // other rating figure it prints the stored number itself.
+  it('leaves enjoyment on its own 0–100 scale', () => {
+    expect(fieldValue('enjoyment', '82', ctx)).toBe('82')
   })
 
   it('converts a per-category score too', () => {
-    expect(fieldValue('rating_score:cat-1', '91', tenScale)).toBe('9.1')
+    expect(fieldValue('rating_score:cat-1', '91', ctx)).toBe('9.1')
   })
 
   it('converts the derived weighted average, keeping its precision', () => {
-    expect(fieldValue('weighted_average', '83.1', tenScale)).toBe('8.31')
+    expect(fieldValue('weighted_average', '83.1', ctx)).toBe('8.31')
   })
 
   it('leaves the rating rank as a position, not a score', () => {
     // It is a place in an order, not a value on the rating scale.
-    expect(fieldValue('rating_rank', '18', tenScale)).toBe('#18')
+    expect(fieldValue('rating_rank', '18', ctx)).toBe('#18')
   })
 
   it('renders a cleared value as absent rather than as the word null', () => {
-    expect(fieldValue('notes', null, tenScale)).toBeNull()
+    expect(fieldValue('notes', null, ctx)).toBeNull()
   })
 
   it('reads booleans as yes and no', () => {
-    expect(fieldValue('on_stream', 'true', tenScale)).toBe('Yes')
-    expect(fieldValue('on_stream', 'false', tenScale)).toBe('No')
+    expect(fieldValue('on_stream', 'true', ctx)).toBe('Yes')
+    expect(fieldValue('on_stream', 'false', ctx)).toBe('No')
   })
 })
 

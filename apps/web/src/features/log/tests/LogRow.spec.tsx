@@ -36,7 +36,6 @@ function render(
       columns={columns}
       columnOrder={columnOrder}
       allColumnDefs={COLUMNS}
-      scale="ZERO_TO_TEN"
       datePref="ISO"
       hideTime={false}
       minWidth={800}

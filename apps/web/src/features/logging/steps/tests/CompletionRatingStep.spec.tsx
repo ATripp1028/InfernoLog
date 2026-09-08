@@ -13,10 +13,10 @@ import {
   stubQuery,
 } from '@/utils/testUtils'
 
-// Boundaries only: the flow context and `useMe`. `toDisplay`/`toInternal` and
-// `computeOverallRating` stay real — the unit conversion at this component's
-// edge is most of what these assertions are claiming, and the readout has to
-// be the real computation or it stops matching the review step.
+// Boundaries only: the flow context and `useMe`. The `lib/ratingScale`
+// conversions and `computeOverallRating` stay real — the unit conversion at
+// this component's edge is most of what these assertions are claiming, and the
+// readout has to be the real computation or it stops matching the review step.
 vi.mock('@/context/LoggingFlowContext')
 vi.mock('@/lib/api/me', async (orig) => ({
   ...(await orig<typeof import('@/lib/api/me')>()),
@@ -86,29 +86,30 @@ describe('CompletionRatingStep', () => {
   })
 
   describe('unit conversion', () => {
-    // Draft values are internal 0–100; the controls speak display units. This
-    // boundary is the reason the wrapper exists at all.
-    it('shows internal values in display units on the 0–10 scale', () => {
+    // Draft values are internal 0–100. Scores are shown on 0–10, which is the
+    // boundary InternalScoreRow exists for; enjoyment is shown on 0–100, where
+    // there is nothing to convert.
+    it('shows a score in 0–10 display units and enjoyment unconverted', () => {
       render({ draft: { enjoyment: 85, simpleRating: 70 } })
 
-      expect(stepper('Enjoyment Score')).toHaveValue('8.5')
+      expect(stepper('Enjoyment Score')).toHaveValue('85')
       expect(stepper('Rating Score')).toHaveValue('7.0')
     })
 
-    it('leaves values unconverted on the 0–100 scale', () => {
-      render({
-        draft: { enjoyment: 85 },
-        me: makeMe({ ratingDisplayScale: 'ZERO_TO_HUNDRED' }),
-      })
-
-      expect(stepper('Enjoyment Score')).toHaveValue('85')
-    })
-
-    it('patches the draft back in internal units', async () => {
+    it('patches a score back in internal units', async () => {
       const user = userEvent.setup()
       const { flow } = render()
 
-      await setStepper(user, stepper('Enjoyment Score'), '7.5')
+      await setStepper(user, stepper('Rating Score'), '7.5')
+
+      expect(flow.patchDraft).toHaveBeenCalledWith({ simpleRating: 75 })
+    })
+
+    it('patches enjoyment back unconverted', async () => {
+      const user = userEvent.setup()
+      const { flow } = render()
+
+      await setStepper(user, stepper('Enjoyment Score'), '75')
 
       expect(flow.patchDraft).toHaveBeenCalledWith({ enjoyment: 75 })
     })

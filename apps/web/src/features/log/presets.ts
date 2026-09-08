@@ -12,8 +12,7 @@ import {
   ATTEMPTS_DOMAIN,
 } from './types'
 import type { RatingCategory } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 
 /**
  * The color a saved view is tagged with. A fixed palette, so a preset's color survives a theme change.
@@ -272,7 +271,6 @@ export function summarizeSorts(
  */
 export function summarizeFilters(
   filters: FilterState,
-  scale: RatingDisplayScale,
   categories?: RatingCategory[]
 ): string[] {
   const lines: string[] = []
@@ -290,11 +288,11 @@ export function summarizeFilters(
     lines.push(`Version: ${filters.gameVersions.join(', ')}`)
   if (!rangesEqual(filters.rating, RATING_DOMAIN))
     lines.push(
-      `Rating: ${formatRating(filters.rating[0], scale)}–${formatRating(filters.rating[1], scale)}`
+      `Rating: ${formatScore(filters.rating[0])}–${formatScore(filters.rating[1])}`
     )
   if (!rangesEqual(filters.enjoyment, ENJOYMENT_DOMAIN))
     lines.push(
-      `Enjoy: ${formatRating(filters.enjoyment[0], scale)}–${formatRating(filters.enjoyment[1], scale)}`
+      `Enjoy: ${formatEnjoyment(filters.enjoyment[0])}–${formatEnjoyment(filters.enjoyment[1])}`
     )
   if (!rangesEqual(filters.tier, TIER_DOMAIN))
     lines.push(`Tier: ${filters.tier[0]}–${filters.tier[1]}`)
@@ -314,7 +312,7 @@ export function summarizeFilters(
       const catName =
         categories?.find((c) => c.id === catId)?.name ?? 'Category'
       lines.push(
-        `${catName}: ${formatRating(range[0], scale)}–${formatRating(range[1], scale)}`
+        `${catName}: ${formatScore(range[0])}–${formatScore(range[1])}`
       )
     }
   }

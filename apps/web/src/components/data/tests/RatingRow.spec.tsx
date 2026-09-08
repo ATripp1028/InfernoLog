@@ -8,14 +8,9 @@ const slider = () => screen.getByRole('slider')
 const field = (label = 'Gameplay') => screen.getByLabelText(label)
 
 describe('RatingRow', () => {
-  it('bounds the control by the display scale, not the internal 0–100', () => {
+  it('bounds the control by the field’s own scale, not the internal 0–100', () => {
     const { unmount } = renderWithProviders(
-      <RatingRow
-        label="Gameplay"
-        value={7}
-        scale="ZERO_TO_TEN"
-        onChange={vi.fn()}
-      />
+      <RatingRow label="Gameplay" value={7} field="score" onChange={vi.fn()} />
     )
     expect(slider()).toHaveAttribute('aria-valuemax', '10')
     unmount()
@@ -24,7 +19,7 @@ describe('RatingRow', () => {
       <RatingRow
         label="Gameplay"
         value={70}
-        scale="ZERO_TO_HUNDRED"
+        field="enjoyment"
         onChange={vi.fn()}
       />
     )
@@ -36,7 +31,7 @@ describe('RatingRow', () => {
       <RatingRow
         label="Gameplay"
         value={7.5}
-        scale="ZERO_TO_TEN"
+        field="score"
         onChange={vi.fn()}
       />
     )
@@ -51,7 +46,7 @@ describe('RatingRow', () => {
       <RatingRow
         label="Gameplay"
         value={null}
-        scale="ZERO_TO_TEN"
+        field="score"
         onChange={onChange}
       />
     )
@@ -60,14 +55,24 @@ describe('RatingRow', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
-  it('offers a tenth of a unit on the 0–10 scale and whole units on 0–100', () => {
-    const { unmount } = renderWithProviders(
+  // Enjoyment is stored and shown on the same 0–100 scale, so it has no
+  // decimal place to offer — a whole number is its finest step.
+  it('renders enjoyment as a whole number', () => {
+    renderWithProviders(
       <RatingRow
-        label="Gameplay"
-        value={5}
-        scale="ZERO_TO_TEN"
+        label="Enjoyment"
+        value={null}
+        field="enjoyment"
         onChange={vi.fn()}
       />
+    )
+
+    expect(screen.getByLabelText('Enjoyment')).toHaveValue('0')
+  })
+
+  it('offers a tenth of a unit for a score and whole units for enjoyment', () => {
+    const { unmount } = renderWithProviders(
+      <RatingRow label="Gameplay" value={5} field="score" onChange={vi.fn()} />
     )
     expect(screen.getByRole('button', { name: '+.5' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: '+1' })).toBeInTheDocument()
@@ -77,7 +82,7 @@ describe('RatingRow', () => {
       <RatingRow
         label="Gameplay"
         value={50}
-        scale="ZERO_TO_HUNDRED"
+        field="enjoyment"
         onChange={vi.fn()}
       />
     )
@@ -88,12 +93,7 @@ describe('RatingRow', () => {
   it('reports steps in display units', async () => {
     const onChange = vi.fn()
     renderWithProviders(
-      <RatingRow
-        label="Gameplay"
-        value={5}
-        scale="ZERO_TO_TEN"
-        onChange={onChange}
-      />
+      <RatingRow label="Gameplay" value={5} field="score" onChange={onChange} />
     )
 
     await userEvent.click(screen.getByRole('button', { name: '+1' }))
@@ -107,7 +107,7 @@ describe('RatingRow', () => {
       <RatingRow
         label="Decoration"
         value={5}
-        scale="ZERO_TO_TEN"
+        field="score"
         onChange={vi.fn()}
       />
     )
@@ -121,7 +121,7 @@ describe('RatingRow', () => {
         label="Gameplay"
         sublabel="weighted 40%"
         value={5}
-        scale="ZERO_TO_TEN"
+        field="score"
         onChange={vi.fn()}
       />
     )

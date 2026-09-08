@@ -312,7 +312,7 @@ describe('summarizing a cleaned preset', () => {
     const view = cleanupPresetForCategories(stored, new Set([KEPT.id]))
     const summaries = [
       summarizeSorts(view.sorts, [{ key: `cat:${KEPT.id}`, label: KEPT.name }]),
-      ...summarizeFilters(view.filters, 'ZERO_TO_TEN', [KEPT]),
+      ...summarizeFilters(view.filters, [KEPT]),
       summarizeColumns(
         view.columns,
         view.columnOrder,
@@ -370,7 +370,7 @@ describe('summarizeSorts', () => {
 
 describe('summarizeFilters', () => {
   const lines = (overrides: Parameters<typeof filters>[0] = {}) =>
-    summarizeFilters(filters(overrides), 'ZERO_TO_HUNDRED')
+    summarizeFilters(filters(overrides))
 
   it('says nothing about a view with no filters', () => {
     expect(lines()).toEqual([])
@@ -435,31 +435,26 @@ describe('summarizeFilters', () => {
 
   it('names a constrained category', () => {
     expect(
-      summarizeFilters(
-        filters({ categoryRatings: { gameplay: [50, 100] } }),
-        'ZERO_TO_HUNDRED',
-        [category('gameplay', 0, 'Gameplay')]
-      )
-    ).toContain('Gameplay: 50–100')
+      summarizeFilters(filters({ categoryRatings: { gameplay: [50, 100] } }), [
+        category('gameplay', 0, 'Gameplay'),
+      ])
+    ).toContain('Gameplay: 5–10')
   })
 
   // The category may have been deleted since the preset was saved.
   it('falls back to a generic name for an unknown category', () => {
     expect(
-      summarizeFilters(
-        filters({ categoryRatings: { gone: [50, 100] } }),
-        'ZERO_TO_HUNDRED'
-      )
-    ).toContain('Category: 50–100')
+      summarizeFilters(filters({ categoryRatings: { gone: [50, 100] } }))
+    ).toContain('Category: 5–10')
   })
 
-  it('renders ratings on the user’s own scale', () => {
-    const onTen = summarizeFilters(
-      filters({ rating: [50, 100] }),
-      'ZERO_TO_TEN'
-    )
+  // Each figure on its own fixed scale: scores 0–10, enjoyment 0–100.
+  it('renders a score range on the 0–10 scale', () => {
+    expect(lines({ rating: [50, 100] })).toContain('Rating: 5–10')
+  })
 
-    expect(onTen).toContain('Rating: 5–10')
+  it('renders an enjoyment range on the 0–100 scale', () => {
+    expect(lines({ enjoyment: [50, 100] })).toContain('Enjoy: 50–100')
   })
 
   it('lists every active filter', () => {

@@ -96,7 +96,7 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   on_stream: false,
   fps: 360,
   device: 'pc',
-  enjoyment: 9.5,
+  enjoyment: 95,
   difficulty_opinion: 'extreme',
   difficulty_opinion_stars: '',
   coin_1: '',
@@ -248,7 +248,7 @@ export const FIELD_DESCRIPTIONS = [
   ['Completions', 'on_stream', 'no', 'TRUE or FALSE'],
   ['Completions', 'fps', 'no', 'Integer (e.g. 360)'],
   ['Completions', 'device', 'no', 'pc or mobile'],
-  ['Completions', 'enjoyment', 'no', '0-10 (decimals OK, e.g. 9.5)'],
+  ['Completions', 'enjoyment', 'no', '0-100 whole numbers (e.g. 95)'],
   [
     'Completions',
     'difficulty_opinion',
@@ -383,7 +383,7 @@ export const FIELD_DESCRIPTIONS = [
   ['Progress', 'on_stream', 'no', 'TRUE or FALSE'],
   ['Progress', 'fps', 'no', 'Integer (e.g. 360)'],
   ['Progress', 'device', 'no', 'pc or mobile'],
-  ['Progress', 'enjoyment', 'no', '0-10 (decimals OK, e.g. 9.5)'],
+  ['Progress', 'enjoyment', 'no', '0-100 whole numbers (e.g. 95)'],
   ['Progress', 'notes', 'no', 'Free text about this session (max 2000 chars)'],
   ['Progress', 'highlight_url', 'no', 'Full URL'],
   [
@@ -581,7 +581,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ranking',
     '(category columns)',
     'no',
-    'Every other column header is a rating category name; the cell is that level’s score (0-10 or 0-100 — both accepted). Categories are matched by name and created if missing.',
+    'Every other column header is a rating category name; the cell is that level’s 0-10 score (decimals OK). Categories are matched by name and created if missing.',
   ],
   [
     'Ranking',

@@ -19,7 +19,6 @@ import {
 } from '../components'
 import { buildProgressInput, loggingErrorMessage } from '../payload'
 import { digitsOnly, maxValueError, MAX_FPS } from '@/lib/numberFormat'
-import { toDisplay, toInternal } from '@/lib/ratingScale'
 import { DevicePicker } from '@/components/inputs/pickers'
 
 /**
@@ -41,7 +40,6 @@ export function ProgressSessionStep() {
 
   if (!level) return null
 
-  const scale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
   const defaultFps = me.data?.defaultFps
   const fpsError = maxValueError(draft.fps, MAX_FPS)
 
@@ -76,13 +74,9 @@ export function ProgressSessionStep() {
           <SectionLabel>Enjoyment</SectionLabel>
           <RatingRow
             label="Score"
-            scale={scale}
-            value={
-              draft.enjoyment != null ? toDisplay(draft.enjoyment, scale) : null
-            }
-            onChange={(display) =>
-              patchDraft({ enjoyment: toInternal(display, scale) })
-            }
+            field="enjoyment"
+            value={draft.enjoyment}
+            onChange={(v) => patchDraft({ enjoyment: v })}
           />
         </div>
 

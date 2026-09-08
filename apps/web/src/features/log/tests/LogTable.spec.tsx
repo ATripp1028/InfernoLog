@@ -56,7 +56,6 @@ function render({
         columnOrder={columnOrder}
         allColumnDefs={COLUMNS}
         sorts={sorts}
-        scale="ZERO_TO_TEN"
         datePref="ISO"
         hideTime={false}
         {...handlers}

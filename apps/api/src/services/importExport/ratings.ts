@@ -103,9 +103,9 @@ function resolveRatingLpId(
  *
  * Category columns in the sheet are matched to the user's existing rating
  * categories by name; unrecognized ones are created and reported in
- * `categoriesCreated`. Scores are stored as integers 0–100 regardless of the
- * user's display scale. Rows without a resolvable completion land in `skipped`
- * rather than failing the import.
+ * `categoriesCreated`. Scores are stored as integers 0–100 and shown on a 0–10
+ * scale. Rows without a resolvable completion land in `skipped` rather than
+ * failing the import.
  *
  * @param userId - Internal user UUID.
  * @param entries - Validated Ratings-tab rows.

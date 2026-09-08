@@ -1,4 +1,3 @@
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { EditModalShell } from './EditModalShell'
 import { EditLevelFields } from './EditLevelFields'
 import type { LevelPageData } from '@/lib/api/levelPage'
@@ -9,7 +8,6 @@ interface EditLevelModalProps {
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
 }
 
 /**
@@ -20,9 +18,8 @@ export function EditLevelModal({
   onClose,
   data,
   levelId,
-  scale,
 }: EditLevelModalProps) {
-  const state = useEditLevelModal({ open, onClose, data, levelId, scale })
+  const state = useEditLevelModal({ open, onClose, data, levelId })
 
   if (!state.ready) return null
 
@@ -36,7 +33,7 @@ export function EditLevelModal({
       isSaving={state.isSaving}
       saveDisabled={state.gddlTierError != null}
     >
-      <EditLevelFields state={state} scale={scale} />
+      <EditLevelFields state={state} />
     </EditModalShell>
   )
 }

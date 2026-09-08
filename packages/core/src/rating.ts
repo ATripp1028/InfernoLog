@@ -12,7 +12,9 @@
 // when the user has opted in via `includeEnjoyment`. The division normalizes
 // automatically, so terms whose category has no score on this update are simply
 // omitted rather than counted as zero. All values are on the 0–100 internal
-// scale; display conversion happens in the UI per `user.ratingDisplayScale`.
+// scale, enjoyment included — so an enjoyment shown as 85 and a category score
+// shown as 8.5 weigh the same here. The UI converts on the way out: scores are
+// shown on 0–10, enjoyment on 0–100 (see apps/web/src/lib/ratingScale.ts).
 
 // `ratingMode` is a plain string union rather than a nominal enum so the
 // helper accepts values from either app's enum without a type mismatch.

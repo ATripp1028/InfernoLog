@@ -3,8 +3,9 @@
 //   GET /v1/me/rating-categories
 //   PUT /v1/me/rating-config
 //
-// Ratings are stored as integers 0–100 internally regardless of
-// user.ratingDisplayScale; conversion happens at the display layer.
+// Ratings are stored as integers 0–100 internally; scores are shown on a 0–10
+// scale (internal / 10) and enjoyment on 0–100. Conversion happens at the
+// display layer.
 
 import { Hono } from 'hono'
 import {

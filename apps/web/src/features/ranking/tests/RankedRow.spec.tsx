@@ -35,32 +35,23 @@ const entry = (rank: number, rating: number | null) => ({
 
 describe('RankedRow', () => {
   it('leads with the position and the level name', async () => {
-    await renderWithProviders(
-      <RankedRow entry={entry(3, 84.2)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(3, 84.2)} {...base} />, {
+      router: true,
+    })
 
     expect(screen.getByText('#3 — Tartarus')).toBeInTheDocument()
     expect(screen.getByText('Published by Riot')).toBeInTheDocument()
   })
 
-  // Ratings are stored 0–100 internally whatever the user's display scale, so
-  // the row has to convert rather than print the stored number.
-  it('converts the stored rating to the display scale', async () => {
+  // Ratings are stored 0–100 internally but scores are shown on 0–10, so the
+  // row has to convert rather than print the stored number.
+  it('converts the stored rating to the 0–10 score scale', async () => {
     // 84.2 internal — a weighted average, which carries decimals where a
     // simple rating would be a whole integer.
-    const { unmount } = await renderWithProviders(
-      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(1, 84.2)} {...base} />, {
+      router: true,
+    })
     expect(screen.getByText('8.42')).toBeInTheDocument()
-    unmount()
-
-    await renderWithProviders(
-      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_HUNDRED" {...base} />,
-      { router: true }
-    )
-    expect(screen.getByText('84.2')).toBeInTheDocument()
   })
 
   // The overall rating's extremes are anchored to the RANKING, not the scale:
@@ -68,30 +59,27 @@ describe('RankedRow', () => {
   // the marks would otherwise go unused. The name carries the same figure and
   // so the same colour.
   it('tints the top of the ranking gold, whatever the rating', async () => {
-    await renderWithProviders(
-      <RankedRow entry={entry(1, 84.2)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(1, 84.2)} {...base} />, {
+      router: true,
+    })
 
     expect(screen.getByText('#1 — Tartarus')).toHaveStyle({ color: '#ffd43b' })
     expect(screen.getByText('8.42')).toHaveStyle({ color: '#ffd43b' })
   })
 
   it('tints the bottom of the ranking crimson', async () => {
-    await renderWithProviders(
-      <RankedRow entry={entry(10, 62)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(10, 62)} {...base} />, {
+      router: true,
+    })
 
     expect(screen.getByText('#10 — Tartarus')).toHaveStyle({ color: '#dc143c' })
     expect(screen.getByText('6.2')).toHaveStyle({ color: '#dc143c' })
   })
 
   it('leaves a level in the middle on the gradient, even at a perfect score', async () => {
-    await renderWithProviders(
-      <RankedRow entry={entry(5, 100)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(5, 100)} {...base} />, {
+      router: true,
+    })
 
     const name = screen.getByText('#5 — Tartarus')
     expect(name).not.toHaveStyle({ color: '#ffd43b' })
@@ -108,12 +96,7 @@ describe('RankedRow', () => {
     e.item.ratingScores = [{ categoryId: 'gameplay', score: 100 }]
 
     await renderWithProviders(
-      <RankedRow
-        entry={e}
-        scale="ZERO_TO_TEN"
-        {...base}
-        categories={categories}
-      />,
+      <RankedRow entry={e} {...base} categories={categories} />,
       { router: true }
     )
 
@@ -124,12 +107,7 @@ describe('RankedRow', () => {
   // the edit affordance would both be showing nothing.
   it('drops the rating column and the edit button when there is no rating', async () => {
     await renderWithProviders(
-      <RankedRow
-        entry={entry(3, 84.2)}
-        scale="ZERO_TO_TEN"
-        {...base}
-        showRating={false}
-      />,
+      <RankedRow entry={entry(3, 84.2)} {...base} showRating={false} />,
       { router: true }
     )
 
@@ -139,10 +117,9 @@ describe('RankedRow', () => {
   })
 
   it('links to the level’s own page', async () => {
-    await renderWithProviders(
-      <RankedRow entry={entry(1, 90)} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={entry(1, 90)} {...base} />, {
+      router: true,
+    })
 
     expect(screen.getByRole('link')).toHaveAttribute('href', '/log/128')
   })
@@ -161,12 +138,7 @@ describe('RankedRow', () => {
     ]
 
     await renderWithProviders(
-      <RankedRow
-        entry={e}
-        scale="ZERO_TO_TEN"
-        {...base}
-        categories={categories}
-      />,
+      <RankedRow entry={e} {...base} categories={categories} />,
       { router: true }
     )
 
@@ -183,12 +155,7 @@ describe('RankedRow', () => {
     e.item.ratingScores = []
 
     await renderWithProviders(
-      <RankedRow
-        entry={e}
-        scale="ZERO_TO_TEN"
-        {...base}
-        categories={categories}
-      />,
+      <RankedRow entry={e} {...base} categories={categories} />,
       { router: true }
     )
 
@@ -200,10 +167,9 @@ describe('RankedRow', () => {
     const e = entry(1, 84.2)
     e.item.ratingScores = [{ categoryId: 'gameplay', score: 90 }]
 
-    await renderWithProviders(
-      <RankedRow entry={e} scale="ZERO_TO_TEN" {...base} />,
-      { router: true }
-    )
+    await renderWithProviders(<RankedRow entry={e} {...base} />, {
+      router: true,
+    })
 
     expect(screen.queryByText('9')).not.toBeInTheDocument()
   })

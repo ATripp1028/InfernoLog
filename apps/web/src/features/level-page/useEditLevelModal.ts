@@ -7,9 +7,9 @@
 import { useEffect, useState } from 'react'
 import { toast } from '@/components/generic/sonner'
 import { maxValueError, MAX_GDDL_TIER } from '@/lib/numberFormat'
-import { toDisplay, toInternal } from '@/lib/ratingScale'
+import { toScoreDisplay, toScoreInternal } from '@/lib/ratingScale'
 import { useMe, type RatingCategory } from '@/lib/api/me'
-import type { EntryVisibility, RatingDisplayScale } from '@/lib/api/wireEnums'
+import type { EntryVisibility } from '@/lib/api/wireEnums'
 import { useEditProgress } from '@/lib/api/levelPage'
 import { useResolveLevel } from '@/lib/api/logging'
 import { computeOverallRating } from '@infernolog/core'
@@ -57,7 +57,6 @@ function findWorstFailAnchor(data: LevelPageData): ProgressUpdate | undefined {
 
 function initForm(
   data: LevelPageData,
-  scale: RatingDisplayScale,
   categories: RatingCategory[],
   anchor: ProgressUpdate | undefined
 ): EditLevelForm {
@@ -68,11 +67,11 @@ function initForm(
   return {
     levelNotes: data.levelNotes ?? '',
     simpleRating:
-      data.simpleRating != null ? toDisplay(data.simpleRating, scale) : null,
+      data.simpleRating != null ? toScoreDisplay(data.simpleRating) : null,
     ratingScores: Object.fromEntries(
       categories.map((cat) => {
         const found = data.ratingScores.find((r) => r.categoryId === cat.id)
-        return [cat.id, found != null ? toDisplay(found.score, scale) : null]
+        return [cat.id, found != null ? toScoreDisplay(found.score) : null]
       })
     ),
     worstFail: data.worstFail != null ? String(data.worstFail) : '',
@@ -103,19 +102,17 @@ export function useEditLevelForm({
   open,
   data,
   levelId,
-  scale,
 }: {
   open: boolean
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
 }) {
   const me = useMe()
   const resolveLevel = useResolveLevel()
 
   const anchor = findWorstFailAnchor(data)
   const [form, setForm] = useState<EditLevelForm>(() =>
-    initForm(data, scale, [], anchor)
+    initForm(data, [], anchor)
   )
   const [suggestedGddlTier, setSuggestedGddlTier] = useState<number | null>(
     null
@@ -128,10 +125,10 @@ export function useEditLevelForm({
   // whatever the user was mid-typing.
   useEffect(() => {
     if (open && me.data) {
-      setForm(initForm(data, scale, me.data.ratingCategories, anchor))
+      setForm(initForm(data, me.data.ratingCategories, anchor))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, levelId, scale, me.data])
+  }, [open, levelId, me.data])
 
   // Live "Community: X" hint for the GDDL tier field — a hint, never blocks.
   useEffect(() => {
@@ -165,7 +162,7 @@ export function useEditLevelForm({
             Object.fromEntries(
               Object.entries(form.ratingScores).map(([id, v]) => [
                 id,
-                v == null ? null : toInternal(v, scale),
+                v == null ? null : toScoreInternal(v),
               ])
             )
           ),
@@ -223,11 +220,11 @@ export function useEditLevelForm({
         .filter(([, v]) => v != null)
         .map(([categoryId, v]) => ({
           categoryId,
-          score: toInternal(v!, scale),
+          score: toScoreInternal(v!),
         }))
     } else {
       payload.simpleRating =
-        form.simpleRating != null ? toInternal(form.simpleRating, scale) : null
+        form.simpleRating != null ? toScoreInternal(form.simpleRating) : null
     }
 
     if (isCompleted) {
@@ -277,7 +274,6 @@ export function useEditLevelModal(args: {
   onClose: () => void
   data: LevelPageData
   levelId: string
-  scale: RatingDisplayScale
 }) {
   const { onClose, levelId } = args
   const state = useEditLevelForm(args)

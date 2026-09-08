@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import type { FlowPath } from '@/context/LoggingFlowContext'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
 import { LogRow } from './LogRow'
@@ -24,7 +21,6 @@ interface ListTableProps {
   onReorderColumns: (order: ColumnId[]) => void
   sorts: SortSpec[]
   onToggleSort: (key: SortKey) => void
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
   onEditItem: (item: LogItem) => void
@@ -183,7 +179,6 @@ export function LogTable({
   onReorderColumns,
   sorts,
   onToggleSort,
-  scale,
   datePref,
   hideTime,
   onEditItem,
@@ -259,7 +254,6 @@ export function LogTable({
                 columns={columns}
                 columnOrder={columnOrder}
                 allColumnDefs={allColumnDefs}
-                scale={scale}
                 datePref={datePref}
                 hideTime={hideTime}
                 minWidth={minWidth}

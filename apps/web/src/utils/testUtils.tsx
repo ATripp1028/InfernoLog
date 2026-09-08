@@ -307,7 +307,6 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     profilePublic: false,
     discordPublic: false,
     ratingMode: 'SIMPLE',
-    ratingDisplayScale: 'ZERO_TO_TEN',
     defaultFps: 60,
     defaultPercentageVersion: 'TWO_TWO',
     defaultDevice: 'pc',

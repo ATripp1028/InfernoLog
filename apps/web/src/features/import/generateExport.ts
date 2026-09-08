@@ -30,8 +30,11 @@ function dateCell(isoStr: string | null, fmt: DateFormat): string {
   return formatDate(isoStr, fmt)
 }
 
-// Internal 0-100 → the 0-10 sheet scale (round-trips through the importer's
-// "≤10 means 0-10" rule). 47 → 4.7, 100 → 10, 80 → 8.
+// Internal 0-100 → the 0-10 sheet scale used for SCORES. 47 → 4.7, 100 → 10,
+// 80 → 8. The importer multiplies straight back by 10, so this round-trips.
+//
+// Enjoyment does NOT go through this — it is shown on 0-100 in the app and
+// written to the sheet the same way. See IMPORT_EXPORT.md.
 function toTenScale(v: number | null): Cell {
   if (v == null) return ''
   const n = v / 10
@@ -81,7 +84,7 @@ function completionRecord(
     on_stream: c.onStream,
     fps: c.fps ?? '',
     device: c.device ?? '',
-    enjoyment: toTenScale(c.enjoyment),
+    enjoyment: c.enjoyment ?? '',
     ...splitDifficultyOpinion(c.difficultyOpinion),
     coin_1: coinBit(c.coinsCollected, 0),
     coin_2: coinBit(c.coinsCollected, 1),
@@ -119,7 +122,7 @@ function progressRecord(
     on_stream: p.onStream,
     fps: p.fps ?? '',
     device: p.device ?? '',
-    enjoyment: toTenScale(p.enjoyment),
+    enjoyment: p.enjoyment ?? '',
     notes: p.notes ?? '',
     highlight_url: p.highlightUrl ?? '',
     visibility: p.visibility ? p.visibility.toLowerCase() : '',

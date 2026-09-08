@@ -97,7 +97,7 @@ export function Log() {
     return <PageLoading />
   }
 
-  const { ratingDisplayScale, dateFormatPreference } = user
+  const { dateFormatPreference } = user
 
   const filterPanel = (
     <FilterPanel
@@ -105,7 +105,6 @@ export function Log() {
       onChange={setFilters}
       matchCount={visible.length}
       totalCount={items.length}
-      scale={ratingDisplayScale}
       dateFormatPreference={dateFormatPreference}
       availableLengths={availableLengths}
       availableGameVersions={availableGameVersions}
@@ -171,7 +170,6 @@ export function Log() {
                 onReorderColumns={setColumnOrder}
                 sorts={sorts}
                 onToggleSort={toggleSort}
-                scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
                 hideTime={hideTime}
                 onEditItem={handleEdit}
@@ -183,7 +181,6 @@ export function Log() {
               <MobilePager
                 items={visible}
                 columns={columns}
-                scale={ratingDisplayScale}
                 datePref={dateFormatPreference}
                 hideTime={hideTime}
               />
@@ -286,7 +283,6 @@ export function Log() {
           onClose={closeEditModal}
           data={editLevelData}
           levelId={editingLevelId}
-          scale={ratingDisplayScale}
           datePref={dateFormatPreference}
         />
       )}

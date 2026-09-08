@@ -137,7 +137,7 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
       notes: 'first win',
       runFrom: 43,
       runTo: 100,
-      enjoyment: 8.5,
+      enjoyment: 85,
       difficultyOpinion: 'harder',
       twoPlayerSolo: false,
       twoPlayerPartner: 'friend',
@@ -179,8 +179,9 @@ describe('planCompletion — merge writes only what the sheet filled in', () => 
     expect(onlyUpdate(ctx).data).toMatchObject({ dateTimezone: null })
   })
 
-  it('scales enjoyment up to the stored 0-100 range', () => {
-    const { ctx } = merge({ enjoyment: 8.5 })
+  // Enjoyment arrives already on the stored 0-100 scale, unlike simpleRating.
+  it('writes enjoyment unscaled', () => {
+    const { ctx } = merge({ enjoyment: 85 })
 
     expect(onlyUpdate(ctx).data).toEqual({ enjoyment: 85 })
   })

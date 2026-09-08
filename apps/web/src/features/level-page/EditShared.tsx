@@ -35,22 +35,12 @@ export function Section({
 }
 
 /**
- * The edit modals' rating row: a finer slider step than the logging flow's,
- * and a narrower label column. Values are in display units, as
- * {@link SharedRatingRow} requires — the modals' form state already holds
- * them that way.
+ * The edit modals' rating row: a narrower label column than the logging
+ * flow's. Values are in display units, as {@link SharedRatingRow} requires —
+ * the modals' form state already holds them that way.
  */
 export function RatingRow(
-  props: Omit<
-    React.ComponentProps<typeof SharedRatingRow>,
-    'sliderStep' | 'labelWidth'
-  >
+  props: Omit<React.ComponentProps<typeof SharedRatingRow>, 'labelWidth'>
 ) {
-  return (
-    <SharedRatingRow
-      {...props}
-      sliderStep={props.scale === 'ZERO_TO_TEN' ? 0.1 : 1}
-      labelWidth="sm:w-24"
-    />
-  )
+  return <SharedRatingRow {...props} labelWidth="sm:w-24" />
 }

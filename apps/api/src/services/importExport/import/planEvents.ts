@@ -201,11 +201,7 @@ export function diffProgressFields(
   push('onStream', existing.onStream, row.onStream ?? null)
   push('highlightUrl', existing.highlightUrl, row.highlightUrl ?? null)
   push('notes', existing.notes, row.notes ?? null)
-  push(
-    'enjoyment',
-    existing.enjoyment != null ? existing.enjoyment / 10 : null,
-    row.enjoyment ?? null
-  )
+  push('enjoyment', existing.enjoyment, row.enjoyment ?? null)
   push('device', existing.device, row.device ?? null)
   return diffs
 }
@@ -473,8 +469,7 @@ export function planProgress(
         onStream: row.onStream ?? false,
         highlightUrl: row.highlightUrl ?? null,
         notes: row.notes ?? null,
-        enjoyment:
-          row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+        enjoyment: row.enjoyment ?? null,
         device: row.device ?? null,
       }
       ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: fields })
@@ -498,7 +493,7 @@ export function planProgress(
     if (row.onStream != null) merge.onStream = row.onStream
     if (row.highlightUrl != null) merge.highlightUrl = row.highlightUrl
     if (row.notes != null) merge.notes = row.notes
-    if (row.enjoyment != null) merge.enjoyment = Math.round(row.enjoyment * 10)
+    if (row.enjoyment != null) merge.enjoyment = row.enjoyment
     if (row.device != null) merge.device = row.device
     if (Object.keys(merge).length > 0) {
       ctx.writes.progressUpdateUpdates.push({ id: matched.id, data: merge })
@@ -540,7 +535,7 @@ export function planProgress(
     onStream: row.onStream ?? false,
     highlightUrl: row.highlightUrl ?? null,
     notes: row.notes ?? null,
-    enjoyment: row.enjoyment != null ? Math.round(row.enjoyment * 10) : null,
+    enjoyment: row.enjoyment ?? null,
     device: row.device ?? null,
     inGameDifficulty: ctx.levelDiff.get(levelId) ?? null,
   })

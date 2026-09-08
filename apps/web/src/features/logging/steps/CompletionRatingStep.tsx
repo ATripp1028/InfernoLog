@@ -3,7 +3,7 @@ import { RatingRow } from '@/components/data/RatingRow'
 import { useMe } from '@/lib/api/me'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { LevelHeader, SectionLabel, StepBody, StepFooter } from '../components'
-import { formatRating, toDisplay, toInternal } from '@/lib/ratingScale'
+import { formatScore, toScoreDisplay, toScoreInternal } from '@/lib/ratingScale'
 import { computeOverallRating } from '@infernolog/core'
 import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
 import { isEmptyOrNullObject } from '@/lib/utils'
@@ -52,7 +52,6 @@ export function CompletionRatingStep() {
   ])
   if (!level || !me.data) return null
 
-  const scale = me.data.ratingDisplayScale
   const weighted = me.data.ratingMode === 'WEIGHTED'
   const manual = me.data.ratingMode === 'MANUAL'
   const categories = me.data.ratingCategories
@@ -76,10 +75,10 @@ export function CompletionRatingStep() {
 
         <div>
           <SectionLabel>Enjoyment</SectionLabel>
-          <InternalRatingRow
+          <RatingRow
             label="Enjoyment Score"
+            field="enjoyment"
             value={draft.enjoyment}
-            scale={scale}
             onChange={(v) => patchDraft({ enjoyment: v })}
           />
         </div>
@@ -93,7 +92,7 @@ export function CompletionRatingStep() {
               <span className="text-sm text-text-secondary">
                 weighted avg:{' '}
                 <span className="font-semibold text-current">
-                  {formatRating(overallRating, scale)}
+                  {formatScore(overallRating)}
                 </span>
               </span>
             )}
@@ -116,12 +115,11 @@ export function CompletionRatingStep() {
               </p>
             ) : (
               categories.map((cat) => (
-                <InternalRatingRow
+                <InternalScoreRow
                   key={cat.id}
                   label={cat.name}
                   sublabel={`weight ${Math.round(cat.weight * 100)}%`}
                   value={draft.ratingScores[cat.id] ?? null}
-                  scale={scale}
                   onChange={(v) =>
                     patchDraft({
                       ratingScores: { ...draft.ratingScores, [cat.id]: v },
@@ -131,10 +129,9 @@ export function CompletionRatingStep() {
               ))
             )
           ) : (
-            <InternalRatingRow
+            <InternalScoreRow
               label="Rating Score"
               value={draft.simpleRating}
-              scale={scale}
               onChange={(v) => patchDraft({ simpleRating: v })}
             />
           )}
@@ -152,21 +149,23 @@ export function CompletionRatingStep() {
 }
 
 /**
- * {@link RatingRow} for a draft field held in internal 0–100 units, which is
- * how the logging draft stores every rating before it is submitted.
+ * {@link RatingRow} for a SCORE held in internal 0–100 units, which is how the
+ * logging draft stores every rating before it is submitted.
+ *
+ * Enjoyment has no wrapper of its own: it is shown on the same 0–100 scale it
+ * is stored on, so it uses {@link RatingRow} directly.
  */
-function InternalRatingRow({
+function InternalScoreRow({
   value,
-  scale,
   onChange,
   ...rest
-}: Omit<React.ComponentProps<typeof RatingRow>, 'sliderStep' | 'labelWidth'>) {
+}: Omit<React.ComponentProps<typeof RatingRow>, 'field' | 'labelWidth'>) {
   return (
     <RatingRow
       {...rest}
-      scale={scale}
-      value={value != null ? toDisplay(value, scale) : null}
-      onChange={(display) => onChange(toInternal(display, scale))}
+      field="score"
+      value={value != null ? toScoreDisplay(value) : null}
+      onChange={(display) => onChange(toScoreInternal(display))}
     />
   )
 }

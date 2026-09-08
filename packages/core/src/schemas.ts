@@ -4,7 +4,6 @@ import {
   LevelType,
   RatingMode,
   Role,
-  RatingDisplayScale,
   DateFormatPreference,
   DifficultyOpinion,
   EntryVisibility,
@@ -160,7 +159,6 @@ export const UpdateMeSchema = z
     defaultDevice: z.nativeEnum(Device).optional(),
     dateFormatPreference: z.nativeEnum(DateFormatPreference).optional(),
     ratingMode: z.nativeEnum(RatingMode).optional(),
-    ratingDisplayScale: z.nativeEnum(RatingDisplayScale).optional(),
     showHighlightUrl: z.boolean().optional(),
     autoExpandFabLabels: z.boolean().optional(),
     includeEnjoyment: z.boolean().optional(),
@@ -267,9 +265,9 @@ export const RatingConfigSchema = z
 // The three FAB paths (completion / progress / drop) plus the level-entry
 // support endpoints. See LOGGING_FLOW.md and apps/api/prisma/schema.prisma.
 //
-// Ratings/enjoyment are integers 0–100 internally regardless of the user's
-// display scale — the frontend converts at the display layer. The authenticated
-// user always comes from the JWT, never from these payloads.
+// Ratings/enjoyment are integers 0–100 internally — the frontend converts at
+// the display layer, showing scores on 0–10 and enjoyment on 0–100. The
+// authenticated user always comes from the JWT, never from these payloads.
 // ─────────────────────────────────────────────
 
 // GD level IDs are numeric strings (the in-game id, also the Level PK).
@@ -1187,8 +1185,10 @@ export const LogPresetSchema = z.object({
 // normalized JSON payload. The server re-validates ranges/enums/required
 // fields only — it trusts the ISO date strings from the client.
 //
-// Ratings in the import format are 0-10 (display scale per IMPORT_EXPORT.md).
-// The server multiplies by 10 to convert to the 0-100 internal scale.
+// Rating SCORES in the import format are 0-10 (sheet scale per
+// IMPORT_EXPORT.md); the server multiplies by 10 to convert to the 0-100
+// internal scale. Enjoyment is 0-100 already — it is shown on that scale in
+// the app, so the sheet carries it unconverted and nothing scales it.
 // ─────────────────────────────────────────────
 
 export const ImportCompletionRowSchema = z.object({
@@ -1215,8 +1215,9 @@ export const ImportCompletionRowSchema = z.object({
   runTo: z.number().int().min(0).max(100).nullable().optional(),
   onStream: z.boolean().nullable().optional(),
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
-  // 0-10 display scale (server converts to 0-100 on write).
-  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  // 0-100 internal scale — no conversion on write. See the block comment above.
+  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
+  // 0-10 sheet scale (server converts to 0-100 on write).
   simpleRating: z.number().min(0).max(10).nullable().optional(),
   // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
   // no separate paired field.
@@ -1274,8 +1275,8 @@ export const ImportProgressRowSchema = z.object({
   onStream: z.boolean().nullable().optional(),
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   device: z.nativeEnum(Device).nullable().optional(),
-  // 0-10 display scale (server converts to 0-100 on write).
-  enjoyment: z.number().min(0).max(10).nullable().optional(),
+  // 0-100 internal scale — no conversion on write. See the block comment above.
+  enjoyment: z.number().int().min(0).max(100).nullable().optional(),
   notes: z.string().max(2000).nullable().optional(),
   highlightUrl: HttpUrlSchema.nullable().optional(),
   visibility: z.nativeEnum(EntryVisibility).nullable().optional(),

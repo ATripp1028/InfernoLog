@@ -1,14 +1,11 @@
 import { X } from 'lucide-react'
 import type { RatingCategory } from '@/lib/api/me'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { Chip } from '@/components/generic/chip'
 import { cn } from '@/lib/utils'
 import { difficultyFaceSrc } from '@/lib/gdAssets'
 import { formatNumber } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from '@/lib/tierColor'
 import { RangeRow, DatePickersRow } from './FilterInputs'
@@ -34,7 +31,6 @@ interface FilterPanelProps {
   onChange: (next: FilterState) => void
   matchCount: number
   totalCount: number
-  scale: RatingDisplayScale
   dateFormatPreference: DateFormatPreference
   // Distinct values present in the data, for the chip filters.
   availableLengths: string[]
@@ -56,7 +52,6 @@ export function FilterPanel({
   onChange,
   matchCount,
   totalCount,
-  scale,
   dateFormatPreference,
   availableLengths,
   availableGameVersions,
@@ -71,12 +66,12 @@ export function FilterPanel({
     setCategoryRating,
     clearAll,
     hasActiveFilters,
-    displayScaleMax,
-    parseRating,
+    parseScore,
+    parseEnjoyment,
     parseTier,
     parseAttempts,
     today,
-  } = useFilterPanel({ filters, onChange, scale, maxAttempts })
+  } = useFilterPanel({ filters, onChange, maxAttempts })
 
   return (
     <div className="flex h-full flex-col bg-bg-surface">
@@ -129,24 +124,24 @@ export function FilterPanel({
 
         <FilterSection title="Rating">
           <RangeRow
-            label="Rating"
+            label="Rating (0–10)"
             min={RATING_DOMAIN[0]}
             max={RATING_DOMAIN[1]}
             step={1}
             value={filters.rating}
             onChange={(rating) => set({ rating })}
-            format={(v) => formatRating(v, scale)}
-            parseInput={parseRating}
+            format={formatScore}
+            parseInput={parseScore}
           />
           <RangeRow
-            label="Enjoyment"
+            label="Enjoyment (0–100)"
             min={RATING_DOMAIN[0]}
             max={RATING_DOMAIN[1]}
             step={1}
             value={filters.enjoyment}
             onChange={(enjoyment) => set({ enjoyment })}
-            format={(v) => formatRating(v, scale)}
-            parseInput={parseRating}
+            format={formatEnjoyment}
+            parseInput={parseEnjoyment}
           />
           {ratingCategories &&
             [...ratingCategories]
@@ -162,13 +157,10 @@ export function FilterPanel({
                     (filters.categoryRatings ?? {})[cat.id] ?? RATING_DOMAIN
                   }
                   onChange={(range) => setCategoryRating(cat.id, range)}
-                  format={(v) => formatRating(v, scale)}
-                  parseInput={parseRating}
+                  format={formatScore}
+                  parseInput={parseScore}
                 />
               ))}
-          <p className="px-4 pt-1 text-[10px] text-text-tertiary">
-            Scale 0–{displayScaleMax}
-          </p>
         </FilterSection>
 
         <FilterSection title="GDDL Tier">

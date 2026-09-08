@@ -108,8 +108,10 @@ rather than imported from `packages/core`.
 - **Frontend.** State units belong in the block. Ratings travel as internal
   0–100 in some places and display units in others; `RatingRow` and
   `lib/ratingScale.ts` say which, at the boundary, because the type is `number`
-  either way. Before the 2026-08-10 pass the logging flow's rating row and the
-  edit modals' spoke different units under the same name.
+  either way — and `RatingRow`'s `field` prop names which of the two scales
+  (`score` 0–10, `enjoyment` 0–100) a control is on. Before the 2026-08-10 pass
+  the logging flow's rating row and the edit modals' spoke different units
+  under the same name.
 - **Frontend.** `src/routes/*` is exempt. Those files are TanStack Router glue
   whose only export is a `Route` from `createFileRoute`; a doc block on it says
   nothing the filename does not.

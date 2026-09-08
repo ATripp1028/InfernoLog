@@ -3,8 +3,7 @@ import { Pencil } from 'lucide-react'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { backOriginState } from '@/lib/backOrigin'
 import { overallColor, scoreColor } from '@/lib/ratingColor'
-import { formatRating } from '@/lib/ratingScale'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
+import { formatScore } from '@/lib/ratingScale'
 import {
   ACTION_WIDTH,
   CATEGORY_COLUMNS_AT,
@@ -23,7 +22,6 @@ interface RankedRowProps {
   entry: RankedEntry
   /** The lowest position in the ranking, for the bottom-of-the-list colour. */
   lastRank: number
-  scale: RatingDisplayScale
   config: OverallRatingConfig
   categories: RatingCategory[]
   /**
@@ -56,7 +54,6 @@ interface RankedRowProps {
 export function RankedRow({
   entry,
   lastRank,
-  scale,
   config,
   categories,
   showRating,
@@ -91,7 +88,6 @@ export function RankedRow({
           identity={
             <LevelIdentity rank={rank} level={level} nameColor={overall} />
           }
-          scale={scale}
           config={config}
           categories={categories}
           overallRating={overallRating}
@@ -125,7 +121,7 @@ export function RankedRow({
                 className={`${CATEGORY_COLUMNS_AT} ${SCORE_WIDTH} shrink-0 justify-center text-center text-sm tabular-nums text-text-secondary`}
                 style={{ color: scoreColor(score ?? null) }}
               >
-                {score == null ? '—' : formatRating(score, scale)}
+                {score == null ? '—' : formatScore(score)}
               </span>
             )
           })}
@@ -142,9 +138,7 @@ export function RankedRow({
                 className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
                 style={{ color: overall }}
               >
-                {overallRating == null
-                  ? '—'
-                  : formatRating(overallRating, scale)}
+                {overallRating == null ? '—' : formatScore(overallRating)}
               </span>
               <button
                 type="button"

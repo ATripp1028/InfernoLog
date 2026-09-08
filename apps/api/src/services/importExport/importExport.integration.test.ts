@@ -144,7 +144,7 @@ function completionRows(): ImportCommitRow[] {
         onStream: true,
         fps: 360,
         device: Device.PC,
-        enjoyment: 9, // 0-10 on the wire → stored 90
+        enjoyment: 90, // 0-100 on the wire, stored as-is
         difficultyOpinion: DifficultyOpinion.EXTREME,
         coinsCollected: 5, // coins 1 + 3
         visibility: EntryVisibility.PRIVATE,
@@ -161,7 +161,7 @@ function completionRows(): ImportCommitRow[] {
         levelId: '200',
         date: '2024-11-01',
         attempts: 2000,
-        enjoyment: 8,
+        enjoyment: 80,
       },
     },
     {
@@ -201,7 +201,7 @@ function progressRows(): ImportCommitRow[] {
         date: '2024-12-01',
         attempts: 1000,
         percentage: 40,
-        enjoyment: 6,
+        enjoyment: 60,
         notes: 'early session',
       },
     },
@@ -248,7 +248,8 @@ async function importFullAccount(userId: string) {
 }
 
 // Reconstruct import rows from an export, mirroring what the client does — the
-// only scale change is enjoyment/simpleRating (0-100 export → 0-10 wire).
+// only scale change is simpleRating (0-100 export → 0-10 wire); enjoyment is
+// 0-100 on both sides.
 function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
   const completions: ImportCommitRow[] = exp.completions.map((c, i) => ({
     type: 'completion',
@@ -264,7 +265,7 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       onStream: c.onStream,
       fps: c.fps,
       device: c.device as Device | null,
-      enjoyment: c.enjoyment == null ? null : c.enjoyment / 10,
+      enjoyment: c.enjoyment,
       simpleRating: c.simpleRating == null ? null : c.simpleRating / 10,
       difficultyOpinion: c.difficultyOpinion as DifficultyOpinion | null,
       coinsCollected: c.coinsCollected,
@@ -309,7 +310,7 @@ function completionRowsFromExport(exp: ExportResponse): ImportCommitRow[] {
       onStream: p.onStream,
       fps: p.fps,
       device: p.device as Device | null,
-      enjoyment: p.enjoyment == null ? null : p.enjoyment / 10,
+      enjoyment: p.enjoyment,
       notes: p.notes,
       highlightUrl: p.highlightUrl,
       visibility: p.visibility as EntryVisibility,
@@ -562,7 +563,7 @@ describe('commitImportBatch — completion conflict resolution', () => {
       {
         type: 'completion',
         rowIndex: 0,
-        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+        data: { levelId: '100', attempts: 1000, enjoyment: 70, notes: 'first' },
       },
     ])
     await commitImportRatings(user.id, [
@@ -597,7 +598,7 @@ describe('commitImportBatch — completion conflict resolution', () => {
       {
         type: 'completion',
         rowIndex: 0,
-        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+        data: { levelId: '100', attempts: 1000, enjoyment: 70, notes: 'first' },
       },
     ])
     await commitImportRatings(user.id, [
@@ -1142,13 +1143,16 @@ describe('checkImportConflicts', () => {
       {
         type: 'completion',
         rowIndex: 0,
-        data: { levelId: '100', attempts: 1000, enjoyment: 7, notes: 'first' },
+        data: { levelId: '100', attempts: 1000, enjoyment: 70, notes: 'first' },
       },
     ])
     const result = await checkImportConflicts(user.id, {
       // attempts differs, enjoyment agrees, notes left blank (auto-resolves).
       completions: [
-        { rowIndex: 0, data: { levelId: '100', attempts: 4200, enjoyment: 7 } },
+        {
+          rowIndex: 0,
+          data: { levelId: '100', attempts: 4200, enjoyment: 70 },
+        },
       ],
     })
     expect(result.completionConflicts).toHaveLength(1)

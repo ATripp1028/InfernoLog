@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
-  displayMax,
-  formatDisplayRating,
-  formatRating,
-  toDisplay,
-  toInternal,
+  ENJOYMENT_MAX,
+  SCORE_MAX,
+  formatEnjoyment,
+  formatScore,
+  formatScoreDisplay,
+  toScoreDisplay,
+  toScoreInternal,
 } from '../ratingScale'
 import {
   LEVEL_SEARCH_RESULTS_CAP,
@@ -13,107 +15,97 @@ import {
 import { backOriginState, readBackOrigin } from '../backOrigin'
 import { cn } from '../utils'
 
-describe('displayMax', () => {
-  it.each([
-    ['ZERO_TO_TEN', 10],
-    ['ZERO_TO_HUNDRED', 100],
-  ] as const)('tops the %s scale at %s', (scale, expected) => {
-    expect(displayMax(scale)).toBe(expected)
+// The scale is fixed per field: scores read 0-10 with decimals, enjoyment
+// reads 0-100 whole. Both are stored as an integer 0-100, so only scores
+// cross a conversion boundary.
+describe('scale maximums', () => {
+  it('tops scores at 10 and enjoyment at 100', () => {
+    expect(SCORE_MAX).toBe(10)
+    expect(ENJOYMENT_MAX).toBe(100)
   })
 })
 
-// Ratings are stored 0-100 internally whatever the user chose to see, so
-// every conversion happens at the display layer alone.
-describe('toDisplay', () => {
-  it('leaves an internal value alone on the 0-100 scale', () => {
-    expect(toDisplay(85, 'ZERO_TO_HUNDRED')).toBe(85)
-  })
-
-  it('divides for the 0-10 scale', () => {
-    expect(toDisplay(85, 'ZERO_TO_TEN')).toBe(8.5)
+describe('toScoreDisplay', () => {
+  it('divides the internal value down to the 0-10 scale', () => {
+    expect(toScoreDisplay(85)).toBe(8.5)
   })
 
   it.each([
     [0, 0],
     [100, 10],
   ])('maps the endpoint %s to %s', (internal, expected) => {
-    expect(toDisplay(internal, 'ZERO_TO_TEN')).toBe(expected)
+    expect(toScoreDisplay(internal)).toBe(expected)
   })
 })
 
-describe('toInternal', () => {
+describe('toScoreInternal', () => {
   it('multiplies back up from the 0-10 scale', () => {
-    expect(toInternal(8.5, 'ZERO_TO_TEN')).toBe(85)
+    expect(toScoreInternal(8.5)).toBe(85)
   })
 
-  // Rounding is what keeps the internal value an integer — a 0-10 display
-  // value gets one decimal place and no more.
+  // Rounding is what keeps the internal value an integer — a score gets one
+  // decimal place and no more.
   it('rounds a value finer than the internal scale can hold', () => {
-    expect(toInternal(6.85, 'ZERO_TO_TEN')).toBe(69)
-    expect(toInternal(6.84, 'ZERO_TO_TEN')).toBe(68)
-  })
-
-  it('rounds a fractional 0-100 value too', () => {
-    expect(toInternal(85.4, 'ZERO_TO_HUNDRED')).toBe(85)
-    expect(toInternal(85.6, 'ZERO_TO_HUNDRED')).toBe(86)
+    expect(toScoreInternal(6.85)).toBe(69)
+    expect(toScoreInternal(6.84)).toBe(68)
   })
 
   it('always produces a whole number', () => {
     for (const v of [0.05, 1.234, 6.789, 9.999]) {
-      expect(Number.isInteger(toInternal(v, 'ZERO_TO_TEN'))).toBe(true)
+      expect(Number.isInteger(toScoreInternal(v))).toBe(true)
     }
   })
 
   // Round-tripping is the contract the edit modals rely on: reopening an
   // entry must show back what was saved.
   it.each([0, 1, 42, 85, 99, 100])(
-    'round-trips the internal value %s on both scales',
+    'round-trips the internal value %s',
     (internal) => {
-      expect(
-        toInternal(toDisplay(internal, 'ZERO_TO_TEN'), 'ZERO_TO_TEN')
-      ).toBe(internal)
-      expect(
-        toInternal(toDisplay(internal, 'ZERO_TO_HUNDRED'), 'ZERO_TO_HUNDRED')
-      ).toBe(internal)
+      expect(toScoreInternal(toScoreDisplay(internal))).toBe(internal)
     }
   )
 })
 
-describe('formatRating', () => {
+describe('formatScore', () => {
   // Trailing zeros are trimmed so a whole number reads as one.
   it.each([
-    [80, 'ZERO_TO_TEN', '8'],
-    [68, 'ZERO_TO_TEN', '6.8'],
-    [100, 'ZERO_TO_TEN', '10'],
-    [0, 'ZERO_TO_TEN', '0'],
-  ] as const)('renders %s on the 0-10 scale as %s', (internal, scale, out) => {
-    expect(formatRating(internal, scale)).toBe(out)
-  })
-
-  it.each([
-    [85, '85'],
-    [100, '100'],
+    [80, '8'],
+    [68, '6.8'],
+    [100, '10'],
     [0, '0'],
-  ])('renders %s on the 0-100 scale as %s', (internal, expected) => {
-    expect(formatRating(internal, 'ZERO_TO_HUNDRED')).toBe(expected)
+  ])('renders the internal %s as %s', (internal, expected) => {
+    expect(formatScore(internal)).toBe(expected)
   })
 
   // Weighted averages carry more precision than a stored rating does.
   it('keeps up to three decimals from a weighted average', () => {
-    expect(formatDisplayRating(6.345)).toBe('6.345')
+    expect(formatScoreDisplay(6.345)).toBe('6.345')
   })
 
   it('trims a trailing zero without eating a significant one', () => {
-    expect(formatDisplayRating(6.8)).toBe('6.8')
-    expect(formatDisplayRating(6.804)).toBe('6.804')
+    expect(formatScoreDisplay(6.8)).toBe('6.8')
+    expect(formatScoreDisplay(6.804)).toBe('6.804')
   })
 
   it('renders a whole number with no decimal point', () => {
-    expect(formatDisplayRating(7)).toBe('7')
+    expect(formatScoreDisplay(7)).toBe('7')
   })
 
   it('rounds beyond three decimals', () => {
-    expect(formatDisplayRating(6.3456)).toBe('6.346')
+    expect(formatScoreDisplay(6.3456)).toBe('6.346')
+  })
+})
+
+// Enjoyment's display units are its stored units, so this prints the number
+// it was given and never grows a decimal point.
+describe('formatEnjoyment', () => {
+  it.each([
+    [85, '85'],
+    [100, '100'],
+    [0, '0'],
+    [7, '7'],
+  ])('renders the internal %s as %s', (internal, expected) => {
+    expect(formatEnjoyment(internal)).toBe(expected)
   })
 })
 

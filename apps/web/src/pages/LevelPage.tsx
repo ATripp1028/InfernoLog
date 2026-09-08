@@ -69,7 +69,6 @@ export function LevelPage() {
   if (!data || !user) return null
 
   const {
-    ratingDisplayScale,
     dateFormatPreference,
     ratingMode,
     includeEnjoyment,
@@ -131,7 +130,6 @@ export function LevelPage() {
           <StatGrid
             data={data}
             datePref={dateFormatPreference}
-            scale={ratingDisplayScale}
             ratingMode={ratingMode}
             includeEnjoyment={includeEnjoyment}
             enjoymentWeight={enjoymentWeight}
@@ -215,7 +213,6 @@ export function LevelPage() {
                   <StatGrid
                     data={data}
                     datePref={dateFormatPreference}
-                    scale={ratingDisplayScale}
                     ratingMode={ratingMode}
                     includeEnjoyment={includeEnjoyment}
                     enjoymentWeight={enjoymentWeight}
@@ -304,7 +301,6 @@ export function LevelPage() {
           onClose={closeEditRun}
           data={data}
           levelId={levelId}
-          scale={ratingDisplayScale}
           datePref={dateFormatPreference}
           progressUpdateId={editRunProgressUpdateId}
         />
@@ -317,7 +313,6 @@ export function LevelPage() {
           onClose={closeEditLevel}
           data={data}
           levelId={levelId}
-          scale={ratingDisplayScale}
         />
       )}
 

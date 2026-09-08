@@ -1,54 +1,66 @@
-// Conversion between the internal 0–100 rating scale and whatever scale the
-// user chose to see. Lives in lib/ rather than in the logging feature (where
-// it started) because seven features render ratings and only one logs them.
+// Conversion between the internal 0–100 rating scale and the scale each field
+// is shown on. Lives in lib/ rather than in the logging feature (where it
+// started) because seven features render ratings and only one logs them.
+//
+// The scale is fixed per FIELD, not per user — the convention the GD community
+// already uses:
+//
+//   scores     — simple rating, per-category scores, and the weighted average
+//                they combine into: 0–10 with decimals (7.5).
+//   enjoyment  — 0–100, whole numbers (85).
+//
+// Everything is still stored as an integer 0–100 either way, so enjoyment's
+// display units and its stored units are the same number and it needs no
+// conversion pair at all. Only scores cross a boundary.
 
-import type { RatingDisplayScale } from './api/wireEnums'
+/** Top of the score scale — simple rating, category scores, weighted average. */
+export const SCORE_MAX = 10
+
+/** Top of the enjoyment scale. Equal to the internal maximum, deliberately. */
+export const ENJOYMENT_MAX = 100
+
+/** Internal 0–100 → the 0–10 score display. Lossless; the inverse rounds. */
+export function toScoreDisplay(internal: number): number {
+  return internal / 10
+}
 
 /**
- * The top of the user's chosen display scale — 10 or 100.
+ * A 0–10 score display value → the internal 0–100 integer.
  *
- * Ratings and enjoyment are stored as integers 0–100 internally regardless of
- * this setting; conversion happens at the display layer alone. See
- * `RatingDisplayScale` in apps/api/prisma/schema.prisma.
+ * Rounds, so a score keeps one decimal place and no more — 6.85 stores as 69,
+ * not 68.5.
  */
-export function displayMax(scale: RatingDisplayScale): number {
-  return scale === 'ZERO_TO_TEN' ? 10 : 100
-}
-
-/** Internal 0–100 → display units. Lossless; the inverse rounds. */
-export function toDisplay(internal: number, scale: RatingDisplayScale): number {
-  return scale === 'ZERO_TO_TEN' ? internal / 10 : internal
+export function toScoreInternal(display: number): number {
+  return Math.round(display * 10)
 }
 
 /**
- * Display units → the internal 0–100 integer.
+ * Internal 0–100 → a display string on the 0–10 score scale.
  *
- * Rounds, so a 0–10 display value keeps one decimal place and no more —
- * 6.85 stores as 69, not 68.5.
+ * Shows up to three decimal places (matching the weighted average's precision)
+ * but trims trailing zeros, so "8" stays `8`, "6.80" reads `6.8`, and "6.345"
+ * survives intact.
  */
-export function toInternal(display: number, scale: RatingDisplayScale): number {
-  return Math.round(scale === 'ZERO_TO_TEN' ? display * 10 : display)
+export function formatScore(internal: number): string {
+  return formatScoreDisplay(toScoreDisplay(internal))
 }
 
 /**
- * Internal 0–100 → a display string on the user's scale.
- *
- * Shows up to three decimal places (matching the weighted average's
- * precision) but trims trailing zeros, so "8" stays `8`, "6.80" reads `6.8`,
- * and "6.345" survives intact.
+ * The same trimming as {@link formatScore} for a value already in 0–10 display
+ * units — a weighted average computed from converted form inputs, say. Use this
+ * rather than converting twice.
  */
-export function formatRating(
-  internal: number,
-  scale: RatingDisplayScale
-): string {
-  return formatDisplayRating(toDisplay(internal, scale))
-}
-
-/**
- * The same trimming as {@link formatRating} for a value already in display
- * units — a weighted average computed from converted form inputs, say. Use
- * this rather than converting twice.
- */
-export function formatDisplayRating(display: number): string {
+export function formatScoreDisplay(display: number): string {
   return display.toFixed(3).replace(/\.?0+$/, '')
+}
+
+/**
+ * Internal 0–100 → an enjoyment display string.
+ *
+ * Identity, since enjoyment is shown on the same 0–100 scale it is stored on.
+ * It exists so call sites name the field they are rendering rather than
+ * printing a bare number that looks like it was missed.
+ */
+export function formatEnjoyment(internal: number): string {
+  return String(internal)
 }

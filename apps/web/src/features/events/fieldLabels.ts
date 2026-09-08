@@ -9,12 +9,9 @@
 
 import type { ActivityFieldChange } from '@infernolog/core'
 import type { RatingCategory } from '@/lib/api/me'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatDate } from '@/lib/dateFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { formatNumber } from '@/lib/numberFormat'
 import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 
@@ -56,13 +53,11 @@ const FIELD_LABELS: Record<string, string> = {
   rating_mode: 'Rating mode',
 }
 
-// Fields whose stored value is a 0–100 internal rating and has to be converted
-// before it is shown. `rating_score:<id>` is handled separately, by prefix.
-const RATING_VALUE_FIELDS = new Set([
-  'simple_rating',
-  'enjoyment',
-  'weighted_average',
-])
+// Score fields, whose stored value is a 0–100 internal rating shown on the
+// 0–10 scale. `rating_score:<id>` belongs here too and is handled separately,
+// by prefix. Enjoyment does NOT — it is stored and shown on the same 0–100
+// scale, so it takes `formatEnjoyment` instead. See `lib/ratingScale`.
+const SCORE_VALUE_FIELDS = new Set(['simple_rating', 'weighted_average'])
 
 const RATING_SCORE_PREFIX = 'rating_score:'
 
@@ -87,7 +82,6 @@ export function fieldLabel(
 }
 
 export interface FieldValueContext {
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
 }
 
@@ -101,16 +95,20 @@ export interface FieldValueContext {
 export function fieldValue(
   fieldName: string,
   raw: string | null,
-  { scale, datePref }: FieldValueContext
+  { datePref }: FieldValueContext
 ): string | null {
   if (raw === null) return null
 
   if (
     fieldName.startsWith(RATING_SCORE_PREFIX) ||
-    RATING_VALUE_FIELDS.has(fieldName)
+    SCORE_VALUE_FIELDS.has(fieldName)
   ) {
     const internal = Number(raw)
-    return Number.isNaN(internal) ? raw : formatRating(internal, scale)
+    return Number.isNaN(internal) ? raw : formatScore(internal)
+  }
+  if (fieldName === 'enjoyment') {
+    const internal = Number(raw)
+    return Number.isNaN(internal) ? raw : formatEnjoyment(internal)
   }
   if (fieldName === 'rating_rank') return `#${raw}`
   if (fieldName === 'attempts' || fieldName === 'worst_fail') {

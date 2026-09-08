@@ -2,7 +2,6 @@ import { Input } from '@/components/generic/input'
 import { Switch } from '@/components/generic/switch'
 import { FieldError } from '@/components/generic/field-error'
 import { digitsOnly } from '@/lib/numberFormat'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import {
   DevicePicker,
   GdVersionPicker,
@@ -28,11 +27,9 @@ import type { EditRunFormState } from './useEditRunModal'
  */
 export function EditRunFields({
   state,
-  scale,
   idPrefix = 'er',
 }: {
   state: EditRunFormState
-  scale: RatingDisplayScale
   /** Namespaces the field ids, so two forms can coexist in one dialog. */
   idPrefix?: string
 }) {
@@ -179,7 +176,7 @@ export function EditRunFields({
         <RatingRow
           label="Enjoyment"
           value={form.enjoyment}
-          scale={scale}
+          field="enjoyment"
           onChange={(v) => patch({ enjoyment: v })}
         />
       </Section>

@@ -248,14 +248,6 @@ enum ModerationActionType {
   UNVERIFY
 }
 
-enum RatingDisplayScale {
-  ZERO_TO_TEN     // Displayed as 0.0-10.0 with one decimal e.g. 7.5
-  ZERO_TO_HUNDRED // Displayed as 0-100 integer e.g. 75
-  // Stored internally as 0-100 integer regardless of display preference.
-  // Conversion: ZERO_TO_TEN display = internal / 10
-  //             ZERO_TO_HUNDRED display = internal (no conversion)
-}
-
 // The user's subjective difficulty read on a completion — the ONLY difficulty
 // field the user edits. Distinct from the level's cached in-game difficulty
 // (Level.inGameDifficulty). The non-demon star values (AUTO..NINE_STAR) are a
@@ -406,7 +398,6 @@ model User {
   defaultDevice         Device               @default(pc)
   timeMachineTopN       Int                  @default(10)
   dateFormatPreference  DateFormatPreference @default(MDY)
-  ratingDisplayScale    RatingDisplayScale   @default(ZERO_TO_TEN)
   showHighlightUrl      Boolean              @default(false)
   // Desktop FABs (logging, level-page, collections): whether hovering the
   // group immediately shows every action's label, vs. only the one under
@@ -667,7 +658,8 @@ model LevelProgress {
   // The user's single rating for this level (SIMPLE mode) — one score per
   // level, not one per logged event. WEIGHTED mode scores live in
   // RatingScore, also keyed on this row. Editable from any progress-editing
-  // surface, not just the completion. 0-100 internally.
+  // surface, not just the completion. 0-100 internally, shown as 0-10 with
+  // decimals (internal / 10).
   simpleRating    Int?
   // Coins collected bitmask (bit 0 = coin 1, etc.) — only meaningful once the
   // level is completed (coins only count on the winning attempt). Null = not
@@ -744,7 +736,7 @@ model ProgressUpdate {
   // enjoyment: logged per-event (any progress update, not just completions) —
   // mirrors the GDDL's approach. Distinct from simpleRating/ratingScores,
   // which live on LevelProgress (one current value per level, not per event).
-  enjoyment             Int?            // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
+  enjoyment             Int?            // 0-100 internally, and shown on that same 0-100 scale.
 
   // Contextual metadata
   // Snapshot of in-game difficulty rating at time of logging
@@ -821,7 +813,7 @@ model RatingScore {
   levelProgressId   String
   categoryId        String
 
-  score             Int             // 0-100 internally. Display conversion applied in UI per user.ratingDisplayScale
+  score             Int             // 0-100 internally, shown as 0-10 with decimals (internal / 10).
 
   // Relations
   levelProgress     LevelProgress   @relation(fields: [levelProgressId], references: [id], onDelete: Cascade)

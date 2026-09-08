@@ -26,11 +26,11 @@ import { MACHINA, POLARGEIST, type FixtureLevel } from './fixtures/levels'
 // itself renders the same controls at both breakpoints.
 test.use({ viewport: { width: 390, height: 844 } })
 
-// Display units — the reset leaves the user on the 0–10 scale in SIMPLE mode.
-// Deliberately at opposite ends and deliberately not round: the page trims
-// trailing zeros (`formatRating`), so "2.0" would render as "2" and match the
-// "#2" in the row's own position, and a rating assertion that can be satisfied
-// by a rank number is not a rating assertion.
+// Display units — scores read on the 0–10 scale, and the reset leaves the user
+// in SIMPLE mode. Deliberately at opposite ends and deliberately not round: the
+// page trims trailing zeros (`formatScore`), so "2.0" would render as "2" and
+// match the "#2" in the row's own position, and a rating assertion that can be
+// satisfied by a rank number is not a rating assertion.
 const TOP_RATING = '9.5'
 const LOW_RATING = '1.5'
 

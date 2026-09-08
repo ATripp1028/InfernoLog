@@ -1,10 +1,7 @@
 import { cn } from '@/lib/utils'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatNumber } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { formatEntryDateTime } from '@/lib/dateFormat'
 import { getViewerTimezone } from '@/lib/timezone'
 import { type ColumnDef, type ColumnId, type ColumnVisibility } from './columns'
@@ -25,7 +22,6 @@ interface RowProps {
   columns: ColumnVisibility
   columnOrder: ColumnId[]
   allColumnDefs: ColumnDef[]
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
   minWidth: number
@@ -79,7 +75,6 @@ export function LogRow({
   columns,
   columnOrder,
   allColumnDefs,
-  scale,
   datePref,
   hideTime,
   minWidth,
@@ -185,9 +180,7 @@ export function LogRow({
                 responsiveClass={col.responsiveClass}
                 label="rating"
               >
-                {overallRating != null
-                  ? formatRating(overallRating, scale)
-                  : dash}
+                {overallRating != null ? formatScore(overallRating) : dash}
               </Cell>
             )
           case 'enjoy':
@@ -199,7 +192,7 @@ export function LogRow({
                 label="enjoy"
               >
                 {entry?.enjoyment != null
-                  ? formatRating(entry.enjoyment, scale)
+                  ? formatEnjoyment(entry.enjoyment)
                   : dash}
               </Cell>
             )
@@ -324,7 +317,7 @@ export function LogRow({
                   responsiveClass={col.responsiveClass}
                   label={col.label.toLowerCase()}
                 >
-                  {score != null ? formatRating(score, scale) : dash}
+                  {score != null ? formatScore(score) : dash}
                 </Cell>
               )
             }

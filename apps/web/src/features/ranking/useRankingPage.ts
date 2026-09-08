@@ -174,7 +174,6 @@ export function useRankingPage() {
     // there would show a WEIGHTED user a single-rating editor and then PATCH a
     // `simpleRating` their overall rating is not computed from.
     isError: progress.isError || me.isError,
-    scale: me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN',
     config,
     categories,
     entries: model.entries,

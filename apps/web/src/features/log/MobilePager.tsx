@@ -1,8 +1,5 @@
 import { useLocation, useNavigate } from '@tanstack/react-router'
-import type {
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { backOriginState } from '@/lib/backOrigin'
 import { LogCard } from './LogCard'
 import type { ColumnVisibility } from './columns'
@@ -11,7 +8,6 @@ import type { LogItem } from './types'
 interface MobilePagerProps {
   items: LogItem[]
   columns: ColumnVisibility
-  scale: RatingDisplayScale
   datePref: DateFormatPreference
   hideTime: boolean
 }
@@ -22,7 +18,6 @@ interface MobilePagerProps {
 export function MobilePager({
   items,
   columns,
-  scale,
   datePref,
   hideTime,
 }: MobilePagerProps) {
@@ -48,7 +43,6 @@ export function MobilePager({
           <LogCard
             item={item}
             columns={columns}
-            scale={scale}
             datePref={datePref}
             hideTime={hideTime}
           />

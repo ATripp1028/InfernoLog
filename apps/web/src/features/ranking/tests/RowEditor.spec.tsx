@@ -32,7 +32,6 @@ const render = (props: Partial<Parameters<typeof RowEditor>[0]> = {}) =>
     <RowEditor
       levelId="128"
       identity={<span>Tartarus</span>}
-      scale="ZERO_TO_TEN"
       config={SIMPLE}
       categories={[]}
       overallRating={80}

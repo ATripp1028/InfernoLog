@@ -15,7 +15,6 @@ import {
 import { PresetRow } from './PresetRow'
 import type { ListPreset } from '@/lib/api/presets'
 import { useMe } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import { getCategoryColumnDefs } from './columns'
 import { usePresetSelector } from './usePresetSelector'
 
@@ -33,7 +32,6 @@ function computeCardStyle(rect: DOMRect): React.CSSProperties {
 
 function PresetHoverCard({ preset }: { preset: ListPreset }) {
   const me = useMe()
-  const scale: RatingDisplayScale = me.data?.ratingDisplayScale ?? 'ZERO_TO_TEN'
   const categories =
     me.data?.ratingMode === 'WEIGHTED' ? (me.data.ratingCategories ?? []) : []
   const catSortOptions = categories.map((cat) => ({
@@ -53,7 +51,7 @@ function PresetHoverCard({ preset }: { preset: ListPreset }) {
     new Set(categories.map((c) => c.id))
   )
   const sortSummary = summarizeSorts(view.sorts, catSortOptions)
-  const filterLines = summarizeFilters(view.filters, scale, categories)
+  const filterLines = summarizeFilters(view.filters, categories)
   const colSummary = summarizeColumns(
     view.columns,
     view.columnOrder,

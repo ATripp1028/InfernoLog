@@ -14,8 +14,8 @@ import {
   type StatusFlag,
 } from './types'
 import { countActiveFilters } from './filtering'
-import { displayMax, toInternal } from '@/lib/ratingScale'
-import type { Device, RatingDisplayScale } from '@/lib/api/wireEnums'
+import { toScoreInternal } from '@/lib/ratingScale'
+import type { Device } from '@/lib/api/wireEnums'
 
 /**
  * Progress-status filter chips.
@@ -82,25 +82,33 @@ export function toggle<T>(arr: T[], value: T): T[] {
 export function useFilterPanel({
   filters,
   onChange,
-  scale,
   maxAttempts,
 }: {
   filters: FilterState
   onChange: (next: FilterState) => void
-  scale: RatingDisplayScale
   maxAttempts: number
 }) {
   const set = (patch: Partial<FilterState>) =>
     onChange({ ...filters, ...patch })
 
-  // Ratings are typed on the user's display scale but stored 0–100.
-  function parseRating(text: string): number | null {
+  // Filter bounds are stored on the internal 0–100 domain whatever the field
+  // is typed on, so a score crosses a conversion here and enjoyment does not.
+  function clampToDomain(v: number): number {
+    return Math.min(RATING_DOMAIN[1], Math.max(RATING_DOMAIN[0], v))
+  }
+
+  /** A score typed on the 0–10 scale. */
+  function parseScore(text: string): number | null {
     const v = parseFloat(text)
     if (isNaN(v)) return null
-    return Math.min(
-      RATING_DOMAIN[1],
-      Math.max(RATING_DOMAIN[0], toInternal(v, scale))
-    )
+    return clampToDomain(toScoreInternal(v))
+  }
+
+  /** Enjoyment, typed on the same 0–100 scale it is stored on. */
+  function parseEnjoyment(text: string): number | null {
+    const v = parseFloat(text)
+    if (isNaN(v)) return null
+    return clampToDomain(Math.round(v))
   }
 
   function parseTier(text: string): number | null {
@@ -129,8 +137,8 @@ export function useFilterPanel({
     setCategoryRating,
     clearAll: () => onChange(defaultFilterState()),
     hasActiveFilters: countActiveFilters(filters) > 0,
-    displayScaleMax: displayMax(scale),
-    parseRating,
+    parseScore,
+    parseEnjoyment,
     parseTier,
     parseAttempts,
     // Upper bound for the date pickers; read once per render so both

@@ -48,7 +48,6 @@ function render(updates: ProgressUpdate[]) {
       onClose={vi.fn()}
       data={levelPageData({ status: 'COMPLETED', progressUpdates: updates })}
       levelId="128"
-      scale="ZERO_TO_HUNDRED"
       datePref="ISO"
     />
   )

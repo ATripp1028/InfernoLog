@@ -28,11 +28,11 @@ import { BLAST_PROCESSING, GEOMETRICAL_DOMINATOR } from './fixtures/levels'
 // Two of those conversions are why this file is worth its runtime, both being
 // the shape that drifts with nothing failing:
 //
-//   - Ratings are stored as integers 0-100 whatever the user's display scale
-//     is, and converted at the display layer alone (lib/ratingScale). The E2E
-//     user is on ZERO_TO_TEN, so 8.5 has to arrive as 85 and come back as
-//     8.5. A server that started storing display units still returns a
-//     number, and every component spec still passes against its fixtures.
+//   - Ratings are stored as integers 0-100 and converted at the display layer
+//     alone (lib/ratingScale), where scores read 0-10 — so a score of 8.5 has
+//     to arrive as 85 and come back as 8.5. A server that started storing
+//     display units still returns a number, and every component spec still
+//     passes against its fixtures.
 //   - `worstFailDate` carries its own optional time + IANA zone, in a
 //     separate column pair from `ProgressUpdate.date`'s — so progress.e2e.ts
 //     pinning that one says nothing about this one. The worst fail below is
@@ -78,7 +78,7 @@ const WORST_FAIL_TIME = '01:15'
 
 const LEVEL_NOTES = 'E2E: the wave section is the whole level.'
 
-// Display units on the E2E user's ZERO_TO_TEN scale; 85 internally.
+// Display units on the 0-10 score scale; 85 internally.
 const RATING = '8.5'
 const GDDL_TIER = '27'
 
@@ -188,8 +188,8 @@ test.describe('level page', () => {
     await page.reload()
     await expect(onScreen(page.getByText(LEVEL_NOTES))).toBeVisible()
     // The stat grid's RATING box. `8.5` on the page means `85` in the column —
-    // this is the display-scale round trip, and the assertion is exact because
-    // a substring would also match a hypothetical `8.55`.
+    // this is the score round trip, and the assertion is exact because a
+    // substring would also match a hypothetical `8.55`.
     await expect(
       onScreen(page.getByText(RATING, { exact: true }))
     ).toBeVisible()

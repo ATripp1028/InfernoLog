@@ -12,8 +12,8 @@
  * default category name ("Decoration") needs ~58px at 11px type, plus clearance
  * for the sort arrow that sits at the column's right edge when it is the active
  * sort. A column narrower than its own heading clips the heading and reads as
- * misaligned. Values are far shorter — "10.0" is the longest either scale
- * holds. A much longer custom name still truncates, with the full name on hover.
+ * misaligned. Values are far shorter — "10.0" is the longest a score holds.
+ * A much longer custom name still truncates, with the full name on hover.
  */
 export const SCORE_WIDTH = 'w-20'
 

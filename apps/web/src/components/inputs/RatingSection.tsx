@@ -12,7 +12,7 @@ import { Button } from '@/components/generic/button'
 import { toast } from '@/components/generic/sonner'
 import { cn } from '@/lib/utils'
 import { useUpdateMe, type MeData } from '@/lib/api/me'
-import type { RatingDisplayScale, RatingMode } from '@/lib/api/wireEnums'
+import type { RatingMode } from '@/lib/api/wireEnums'
 
 const MODE_LABELS: Record<RatingMode, string> = {
   SIMPLE: 'simple',
@@ -69,7 +69,10 @@ interface RatingSectionProps {
 }
 
 /**
- * Rating mode, display scale, and — in weighted mode — the category editor.
+ * Rating mode and — in weighted mode — the category editor.
+ *
+ * There is no scale to choose: scores read 0–10 with decimals and enjoyment
+ * reads 0–100, fixed. See `lib/ratingScale`.
  */
 export const RatingSection = forwardRef<
   RatingSectionHandle,
@@ -105,21 +108,7 @@ export const RatingSection = forwardRef<
     }
   }
 
-  const handleScaleChange = async (scale: RatingDisplayScale) => {
-    if (scale === me.ratingDisplayScale) return
-    try {
-      await update.mutateAsync({ ratingDisplayScale: scale })
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save')
-    }
-  }
-
   const modeDescription = MODE_DESCRIPTIONS[me.ratingMode]
-
-  const scaleDescription =
-    me.ratingDisplayScale === 'ZERO_TO_TEN'
-      ? 'Ratings are displayed and entered as 0–10 (e.g. 4.7). Stored internally as 0–100.'
-      : 'Ratings are displayed and entered as 0–100 (e.g. 47).'
 
   return (
     <SettingsSection title="Rating">
@@ -132,17 +121,6 @@ export const RatingSection = forwardRef<
           ]}
           value={me.ratingMode}
           onChange={(v) => setPendingMode(v as RatingMode)}
-        />
-      </SettingStack>
-
-      <SettingStack label="Display scale" description={scaleDescription}>
-        <SettingToggleGroup
-          options={[
-            { value: 'ZERO_TO_TEN', label: '0–10' },
-            { value: 'ZERO_TO_HUNDRED', label: '0–100' },
-          ]}
-          value={me.ratingDisplayScale}
-          onChange={(v) => void handleScaleChange(v as RatingDisplayScale)}
         />
       </SettingStack>
 
@@ -168,7 +146,9 @@ export const RatingSection = forwardRef<
             ? `Switch to ${MODE_LABELS[pendingMode]} rating?`
             : 'Switch rating mode?'
         }
-        description={pendingMode ? switchWarning(me.ratingMode, pendingMode) : ''}
+        description={
+          pendingMode ? switchWarning(me.ratingMode, pendingMode) : ''
+        }
         confirmLabel="Switch"
         isPending={update.isPending}
         onConfirm={() => {

@@ -2,18 +2,14 @@ import { HelpCircle } from 'lucide-react'
 import { computeOverallRating } from '@infernolog/core'
 import { cn } from '@/lib/utils'
 import { formatNumber } from '@/lib/numberFormat'
-import { formatRating } from '@/lib/ratingScale'
+import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import {
   opinionDifficulty,
   opinionShortLabel,
 } from '@/lib/difficultyOpinionLabel'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import type { RatingCategory } from '@/lib/api/me'
-import type {
-  RatingMode,
-  DateFormatPreference,
-  RatingDisplayScale,
-} from '@/lib/api/wireEnums'
+import type { RatingMode, DateFormatPreference } from '@/lib/api/wireEnums'
 import type { LevelPageData } from '@/lib/api/levelPage'
 import { formatEntryDate } from './timelineFormat'
 
@@ -61,7 +57,6 @@ export type StatGridVariant = 'mobile' | 'desktop'
 interface StatGridProps {
   data: LevelPageData
   datePref: DateFormatPreference
-  scale: RatingDisplayScale
   // Widened for MANUAL, where computeOverallRating returns null and the RATING
   // cell falls back to its own blank. Showing the level's manual POSITION here
   // instead is a display concern, and belongs with the rest of the MANUAL
@@ -79,7 +74,6 @@ interface StatGridProps {
 export function StatGrid({
   data,
   datePref,
-  scale,
   ratingMode,
   includeEnjoyment,
   enjoymentWeight,
@@ -130,14 +124,11 @@ export function StatGrid({
       ratingScores: data.ratingScores,
     }
   )
-  const ratingDisplay =
-    overallRating != null ? formatRating(overallRating, scale) : '—'
+  const ratingDisplay = overallRating != null ? formatScore(overallRating) : '—'
 
   // ENJOYMENT — separate from the rating
   const enjoymentDisplay =
-    completion?.enjoyment != null
-      ? formatRating(completion.enjoyment, scale)
-      : '—'
+    completion?.enjoyment != null ? formatEnjoyment(completion.enjoyment) : '—'
 
   // WORST FAIL
   const worstFailDisplay = worstFail != null ? `${worstFail}%` : '—'

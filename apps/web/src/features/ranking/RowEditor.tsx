@@ -2,10 +2,9 @@ import { Check, Loader2, X } from 'lucide-react'
 import { StepperInput } from '@/components/generic/stepper-input'
 import { ACTION_WIDTH, OVERALL_WIDTH } from './columns'
 import { ratingRampColor } from '@/lib/ratingColor'
-import { displayMax, formatRating } from '@/lib/ratingScale'
+import { SCORE_MAX, formatScore } from '@/lib/ratingScale'
 import { useRowEditor } from './useRowEditor'
 import type { RatingCategory } from '@/lib/api/me'
-import type { RatingDisplayScale } from '@/lib/api/wireEnums'
 import type { RatingEdit } from '@/lib/api/ranking'
 import type { OverallRatingConfig } from '@infernolog/core'
 
@@ -13,7 +12,6 @@ interface RowEditorProps {
   levelId: string
   /** The row's face/name/creator block, rendered by the row so both modes share it. */
   identity: React.ReactNode
-  scale: RatingDisplayScale
   config: OverallRatingConfig
   categories: RatingCategory[]
   overallRating: number | null
@@ -40,7 +38,6 @@ interface RowEditorProps {
 export function RowEditor({
   levelId,
   identity,
-  scale,
   config,
   categories,
   overallRating,
@@ -53,7 +50,6 @@ export function RowEditor({
   const { isWeighted, simple, setSimple, scores, setScore, preview, edit } =
     useRowEditor({
       levelId,
-      scale,
       config,
       categories,
       overallRating,
@@ -61,13 +57,10 @@ export function RowEditor({
       enjoyment,
     })
 
-  const max = displayMax(scale)
   // Scores are stored as integers 0–100, so a tenth is the finest value the
-  // 0–10 scale can actually hold and a whole number the finest on 0–100.
-  // Offering anything finer would silently round on save — 5.55 becoming 5.6.
-  const isTen = scale === 'ZERO_TO_TEN'
-  const step = isTen ? [1, 0.1] : [10, 1]
-  const precision = isTen ? 1 : 0
+  // 0–10 scale can actually hold. Offering anything finer would silently round
+  // on save — 5.55 becoming 5.6.
+  const step = [1, 0.1]
 
   return (
     <form
@@ -96,7 +89,7 @@ export function RowEditor({
               className={`${OVERALL_WIDTH} shrink-0 text-center text-lg font-semibold tabular-nums text-text-primary`}
               style={{ color: ratingRampColor(preview) }}
             >
-              {preview == null ? '—' : formatRating(preview, scale)}
+              {preview == null ? '—' : formatScore(preview)}
             </span>
             <span className={`${ACTION_WIDTH} shrink-0`} aria-hidden />
           </>
@@ -111,8 +104,8 @@ export function RowEditor({
                 value={scores[category.id] ?? 0}
                 onChange={(v) => setScore(category.id, v)}
                 min={0}
-                max={max}
-                precision={precision}
+                max={SCORE_MAX}
+                precision={1}
                 deltas={step}
                 aria-label={`${category.name} score`}
               />
@@ -124,8 +117,8 @@ export function RowEditor({
               value={simple}
               onChange={setSimple}
               min={0}
-              max={max}
-              precision={precision}
+              max={SCORE_MAX}
+              precision={1}
               deltas={step}
               aria-label="Rating score"
             />
