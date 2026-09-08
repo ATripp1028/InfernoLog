@@ -136,7 +136,9 @@ export function rankByRatingOrder<T extends RatingOrderItem>(
 }
 
 function scoreFor(item: RatingOrderItem, categoryId: string): number | null {
-  return item.ratingScores.find((s) => s.categoryId === categoryId)?.score ?? null
+  return (
+    item.ratingScores.find((s) => s.categoryId === categoryId)?.score ?? null
+  )
 }
 
 function descNullsLast(a: number | null, b: number | null): number {

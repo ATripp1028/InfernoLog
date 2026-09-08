@@ -366,9 +366,7 @@ describe('useRatingConfigEditor', () => {
 
       act(() => result.current.handleDistributeEqually())
 
-      expect(result.current.visibleItems.map((i) => i.weight)).toEqual([
-        50, 50,
-      ])
+      expect(result.current.visibleItems.map((i) => i.weight)).toEqual([50, 50])
     })
 
     it('gives a lone row the whole weight', () => {

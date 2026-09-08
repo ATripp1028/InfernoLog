@@ -32,7 +32,9 @@ export interface OrderingTargets {
 // naming a platformer completion would inject it into the classic demon list,
 // where nothing downstream filters it back out. Non-demons are in scope — the
 // classic demon list accepts them on every path (see services/demonList).
-export async function resolveOrderingTargets(userId: string): Promise<OrderingTargets> {
+export async function resolveOrderingTargets(
+  userId: string
+): Promise<OrderingTargets> {
   const completed = await prisma.levelProgress.findMany({
     where: {
       userId,
@@ -113,4 +115,3 @@ export function resolveOrderingOrder(
 
   return { orderedLpIds, skipped }
 }
-

@@ -101,9 +101,7 @@ describe('downloadTemplate', () => {
     downloadTemplate()
     const headers = headerRow(written().wb, 'Ratings')
 
-    expect(headers.slice(0, RATING_HEADERS.length)).toEqual(
-      RATING_HEADERS
-    )
+    expect(headers.slice(0, RATING_HEADERS.length)).toEqual(RATING_HEADERS)
     expect(headers.length).toBeGreaterThan(RATING_HEADERS.length)
   })
 

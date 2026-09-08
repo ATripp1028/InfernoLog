@@ -241,14 +241,11 @@ function logDrop(userId: string, payload: Record<string, unknown> = {}) {
 }
 
 function editEntry(userId: string, payload: Record<string, unknown>) {
-  return buildApp(loggingApp, { userId }).request(
-    `/me/progress/${LEVEL_ID}`,
-    {
-      method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(payload),
-    }
-  )
+  return buildApp(loggingApp, { userId }).request(`/me/progress/${LEVEL_ID}`, {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
 }
 
 /** A GDDL submission for LEVEL_ID. */

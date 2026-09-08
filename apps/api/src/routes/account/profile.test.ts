@@ -466,7 +466,6 @@ describe('PATCH /me', () => {
 
     expect(res.status).toBe(500)
   })
-
 })
 
 // ─── PATCH /me/username — the remaining paths ────────────────────────────────

@@ -398,12 +398,10 @@ describe('import → export round-trip', () => {
     expect(bbDrop.droppedAt).toBe('2024-06-01')
     expect(bbDrop.reason).toBe('too hard at the time')
     expect(bbDrop.attemptsAtDrop).toBe(500)
-    expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual(
-      {
-        Gameplay: 80,
-        Decoration: 90,
-      }
-    )
+    expect(expA.ratings.find((r) => r.levelId === '100')!.scores).toEqual({
+      Gameplay: 80,
+      Decoration: 90,
+    })
 
     // Round-trip: reconstruct import rows from the export, load a fresh account.
     const userB = await seedUser(prisma)

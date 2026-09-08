@@ -70,7 +70,10 @@ describe('workbook structure', () => {
   it('keeps the ordering tab and the ratings tab apart', () => {
     const result = parse({
       'Demon List': [['level_id'], ['111']],
-      Ratings: [['level_id', 'Gameplay'], ['222', 9]],
+      Ratings: [
+        ['level_id', 'Gameplay'],
+        ['222', 9],
+      ],
     })
 
     expect(result.ranking.map((r) => r.levelId)).toEqual(['111'])

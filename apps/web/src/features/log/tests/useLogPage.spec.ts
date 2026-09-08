@@ -375,9 +375,11 @@ describe('useLogPage', () => {
 
   describe('rating categories', () => {
     const withCategories = (cats: RatingCategory[]) =>
-      vi.mocked(useMe).mockReturnValue(
-        stubQuery<MeData>({ data: meData({ ratingCategories: cats }) })
-      )
+      vi
+        .mocked(useMe)
+        .mockReturnValue(
+          stubQuery<MeData>({ data: meData({ ratingCategories: cats }) })
+        )
 
     it('offers a category column and sort per category', () => {
       withCategories([category('gameplay', 0, 'Gameplay')])

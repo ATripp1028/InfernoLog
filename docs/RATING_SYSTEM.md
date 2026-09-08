@@ -41,11 +41,11 @@ unless the "show non-completions" toggle is active.
 
 The scale is fixed per field, matching the convention the GD community already uses. There is no user preference — one existed (`users.ratingDisplayScale`) and was removed, since a second unit for every figure only created a second way to read it wrong.
 
-| Field                                                                                    | Shown as                        |
-| ---------------------------------------------------------------------------------------- | ------------------------------- |
-| **Scores** — `rating_scores.score`, and the weighted average they combine into           | **0–10 with decimals** (`7.5`)  |
-| **Enjoyment** — `progress_updates.enjoyment`                                             | **0–100, whole numbers** (`85`) |
-| **Category weights** — `rating_categories.weight`, `users.enjoyment_weight`              | **whole percents** (`34%`)      |
+| Field                                                                          | Shown as                        |
+| ------------------------------------------------------------------------------ | ------------------------------- |
+| **Scores** — `rating_scores.score`, and the weighted average they combine into | **0–10 with decimals** (`7.5`)  |
+| **Enjoyment** — `progress_updates.enjoyment`                                   | **0–100, whole numbers** (`85`) |
+| **Category weights** — `rating_categories.weight`, `users.enjoyment_weight`    | **whole percents** (`34%`)      |
 
 Storage is the same for the first two: always an integer on a 0–100 internal
 scale. Weights are stored as a fraction of 1.00 in a `Decimal(5,2)`, so a whole
@@ -138,13 +138,13 @@ and a wholesale config replace.
 
 ## Display rules
 
-| Context                             | Shown as                                                                                     |
-| ----------------------------------- | -------------------------------------------------------------------------------------------- |
-| Completion entry card               | Weighted average, with the per-category breakdown on hover                                    |
-| Log list view                       | Weighted average column, plus an optional column per category                                 |
-| Sorting                             | By computed weighted average (see "The Canonical Rating Order")                               |
-| No rating entered                   | Blank (not 0)                                                                                 |
-| Non-completion entry (progress log) | Row hidden unless "show non-completions" is on; the level's rating still shows when visible   |
+| Context                             | Shown as                                                                                    |
+| ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| Completion entry card               | Weighted average, with the per-category breakdown on hover                                  |
+| Log list view                       | Weighted average column, plus an optional column per category                               |
+| Sorting                             | By computed weighted average (see "The Canonical Rating Order")                             |
+| No rating entered                   | Blank (not 0)                                                                               |
+| Non-completion entry (progress log) | Row hidden unless "show non-completions" is on; the level's rating still shows when visible |
 
 ---
 

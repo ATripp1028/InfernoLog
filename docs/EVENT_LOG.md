@@ -96,7 +96,7 @@ editable field means adding one line to it.
 
 | Category         | Fields                                                                                                                                                                                                                                                                                             |
 | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `RATING`         | `rating_score:<categoryId>` (one per rating category), `enjoyment`                                                                                                                                                                                                              |
+| `RATING`         | `rating_score:<categoryId>` (one per rating category), `enjoyment`                                                                                                                                                                                                                                 |
 | `SESSION_DETAIL` | `percentage`, `run_from`, `run_to`, `attempts`, `date`, `date_timezone`, `date_uncertain`, `fps`, `percentage_version`, `on_stream`, `device`, `notes`, `two_player_solo`, `two_player_partner`, `worst_fail`, `worst_fail_date`, `worst_fail_date_timezone`, `coins_collected`, `completion_time` |
 | `METADATA`       | `difficulty_opinion`, `user_gddl_tier`, `level_notes`                                                                                                                                                                                                                                              |
 
@@ -133,9 +133,9 @@ A rating change does record what it did to the two things that _are_ ordered by
 score. Both are ordinary `activity_log_field_change` rows on the same event,
 carrying `category = RATING`:
 
-| `fieldName`        | Holds                                                             |
-| ------------------ | ----------------------------------------------------------------- |
-| `weighted_average` | The level's overall rating, before and after the save             |
+| `fieldName`        | Holds                                                                                                                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `weighted_average` | The level's overall rating, before and after the save                                                                                                                                                                                                                 |
 | `rating_rank`      | Its 1-based position in the user's rating order, before and after. That order is defined once, by `ratingOrderComparator` in `packages/core/src/ratingOrder.ts`, and is the same one the Ranking page renders — see `RATING_SYSTEM.md` → "The Canonical Rating Order" |
 
 These are the one deliberate exception to "actually changed is measured against

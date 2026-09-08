@@ -158,8 +158,7 @@ export const RatingConfigEditor = forwardRef<
         className="flex items-center justify-between gap-4 px-4 py-3"
       >
         <div className="text-sm text-foreground">
-          Active weights total:{' '}
-          <span className="font-mono">{total}%</span> /{' '}
+          Active weights total: <span className="font-mono">{total}%</span> /{' '}
           <span className="font-mono">100%</span>
         </div>
         {!sumValid && (

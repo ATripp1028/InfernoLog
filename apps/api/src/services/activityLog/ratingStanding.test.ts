@@ -247,7 +247,7 @@ describe('readRatingStandings', () => {
           },
         ],
         {
-              categories: [
+          categories: [
             { id: 'a', weight: 0.75 },
             { id: 'b', weight: 0.25 },
           ],
