@@ -173,7 +173,7 @@ test.describe('progress and drops', () => {
     await expect(page.getByRole('dialog')).toBeHidden()
 
     await openLevelPage(page, HEXAGON_FORCE)
-    await expect(onScreen(page.getByText('⚑ Dropped'))).toBeVisible()
+    await expect(onScreen(page.getByText('Dropped'))).toBeVisible()
     await expect(onScreen(page.getByText(DROP_REASON))).toBeVisible()
     await expect(onScreen(page.getByText('8,000 attempts'))).toBeVisible()
     // The stat grid's WORST FAIL box — the LevelProgress field, read back.
