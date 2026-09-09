@@ -4,7 +4,8 @@
  * The handler is thin, but its one decision matters: the delisted-reverify pass
  * is skipped when the main slice aborted, because an abort means RobTop was
  * failing the run and re-checking delisted levels would only burn unreachable
- * calls against the shared rate limit. It also rethrows after logging, so a bad
+ * calls against the shared rate limit — while the GSV slice, which talks to a
+ * different host entirely, still runs. It also rethrows after logging, so a bad
  * run shows up as a Lambda error rather than only a log line. The sync core is
  * mocked.
  */
@@ -14,14 +15,16 @@ import * as Sentry from '@sentry/aws-serverless'
 
 // ─── mocks ───────────────────────────────────────────────────────────────────
 
-const { mockRunSlice, mockRunReverify } = vi.hoisted(() => ({
+const { mockRunSlice, mockRunReverify, mockRunGsv } = vi.hoisted(() => ({
   mockRunSlice: vi.fn(),
   mockRunReverify: vi.fn(),
+  mockRunGsv: vi.fn(),
 }))
 
 vi.mock('../services/levels/sync', () => ({
   runLevelSyncSlice: mockRunSlice,
   runDelistedReverifySlice: mockRunReverify,
+  runGsvSyncSlice: mockRunGsv,
 }))
 vi.mock('@sentry/aws-serverless', () => ({ captureException: vi.fn() }))
 vi.mock('../utils/logger', () => ({
@@ -39,16 +42,18 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockRunSlice.mockReset().mockResolvedValue({ aborted: false })
   mockRunReverify.mockReset().mockResolvedValue(undefined)
+  mockRunGsv.mockReset().mockResolvedValue(undefined)
 })
 
 // ─── the normal run ──────────────────────────────────────────────────────────
 
 describe('levelSyncWorker', () => {
-  it('runs the cache slice then the delisted reverify pass', async () => {
+  it('runs the cache slice, the delisted reverify pass, then the GSV slice', async () => {
     await handler()
 
     expect(mockRunSlice).toHaveBeenCalledTimes(1)
     expect(mockRunReverify).toHaveBeenCalledTimes(1)
+    expect(mockRunGsv).toHaveBeenCalledTimes(1)
   })
 
   it('skips the reverify pass when the main slice aborted', async () => {
@@ -59,6 +64,16 @@ describe('levelSyncWorker', () => {
     await handler()
 
     expect(mockRunReverify).not.toHaveBeenCalled()
+  })
+
+  it('still runs the GSV slice when the main slice aborted', async () => {
+    // GSV is a different host: RobTop refusing us says nothing about whether
+    // list placements can be refreshed, and they go stale fastest.
+    mockRunSlice.mockResolvedValue({ aborted: true })
+
+    await handler()
+
+    expect(mockRunGsv).toHaveBeenCalledTimes(1)
   })
 
   it('resolves without reporting anything on a clean run', async () => {
@@ -87,6 +102,14 @@ describe('levelSyncWorker — failures', () => {
     mockRunReverify.mockRejectedValue(error)
 
     await expect(handler()).rejects.toThrow('reverify blew up')
+    expect(mockCaptureException).toHaveBeenCalledWith(error)
+  })
+
+  it('rethrows a failure from the GSV slice too', async () => {
+    const error = new Error('gsv blew up')
+    mockRunGsv.mockRejectedValue(error)
+
+    await expect(handler()).rejects.toThrow('gsv blew up')
     expect(mockCaptureException).toHaveBeenCalledWith(error)
   })
 })

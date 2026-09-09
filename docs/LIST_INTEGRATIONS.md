@@ -2,9 +2,31 @@
 
 ## Overview
 
-InfernoLog integrates with **GDDL only**. An earlier design supported multiple community difficulty lists (AREDL, NLW, Pemonlist, Pointercrate) behind a generic `list_references` table and a pluggable `ListProvider` interface — that multi-list design was abandoned; it was never implemented and there's no plan to build it. See "Abandoned Design" below for historical context.
+There are **two entirely separate GDDL tiers in this app**, and conflating them is the single easiest mistake to make here:
 
-The GDDL tier is a **snapshot at time of logging**: `LevelProgress.userGddlTier` (see `schema.prisma`), one value per user per level, entered/confirmed manually rather than kept live. It is never automatically updated after logging.
+|            | `Level.gddlTier`                             | `LevelProgress.userGddlTier`                                   |
+| ---------- | -------------------------------------------- | -------------------------------------------------------------- |
+| What it is | The level's **real, current** community tier | **One user's own tier opinion**                                |
+| Scope      | One value per level, shared by everyone      | One value per user per level                                   |
+| Source     | Cached from the Global Stats Viewer          | Entered/confirmed by the user when logging                     |
+| Updated    | By the GSV cron rotation                     | Never — it's a snapshot of what they thought when they beat it |
+| Shown on   | The Global Level Page's TIERS section        | Their own level page, the Log, the demon list                  |
+
+Neither is derived from the other, and neither should ever be used to fill in the other.
+
+## Level-global placements (read-only, via GSV)
+
+A level's placements on all three community lists — **GDDL tier, AREDL rank, and the Non-Listworthy / Listworthy spreadsheet tier** — are cached on the `levels` row from a single Global Stats Viewer call. See `EXTERNAL_APIS.md` for the client, the write contract, and the cron rotation that refreshes them.
+
+This is **read-only**. InfernoLog reads placements through GSV and never submits to AREDL or the spreadsheets; the only write integration is GDDL record submission below, which goes to GDDL directly with the user's own key.
+
+**The NLW/LW split is derived, not transmitted.** GSV reports one `SHEET` tier, 0–21; tiers 0–13 are the Non-Listworthy sheet and 14–21 the Listworthy one. `apps/web/src/lib/sheetTier.ts` owns that threshold along with the tier names and colours. Tier 0 ("Fuck") is a real tier — a skillset too niche to rank reliably, not a level easier than Beginner — so it is guarded with `!= null`, never truthiness.
+
+This supersedes part of the "Abandoned Design" note below: AREDL and NLW _data_ are now surfaced, but nothing about the abandoned generic `list_references` / `ListProvider` machinery came back. There is no per-list table and no provider interface — three nullable columns on `levels`, written by one client.
+
+## The per-user GDDL snapshot
+
+The user's own GDDL tier is a **snapshot at time of logging**: `LevelProgress.userGddlTier` (see `schema.prisma`), one value per user per level, entered/confirmed manually rather than kept live. It is never automatically updated after logging.
 
 ---
 
@@ -61,6 +83,8 @@ See the `Collection` and `CollectionEntry` models in `schema.prisma`.
 ## Abandoned Design (historical only — not a roadmap)
 
 Everything below was designed at some point but was **abandoned and never built**. It's kept here only so a future read of old PRs/discussions referencing it has context. None of it should be implemented off the back of this doc.
+
+> Note: AREDL rank and NLW/LW tiers **are** now shown on the Global Level Page — see "Level-global placements" above. What stays abandoned is the _machinery_ below, not the data.
 
 - **Multi-list support** (AREDL, NLW, Pemonlist) behind a generic `list_references` table: one-to-many per completion, `at_time_of_completion` snapshot flag, and a `ListProvider` interface for pluggable sources (`autofillByLevelId` / optional `submitRecord`). Pointercrate was evaluated and rejected even for this design, as mirrored well enough by AREDL's top ~150.
 - **AREDL rank**, shown only for extreme demons.

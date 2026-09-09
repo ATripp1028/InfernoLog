@@ -52,6 +52,14 @@ export interface Level {
   sfhDownloadUrl: string | null
   sfhFileType: string | null
   sfhDownloads: number | null
+  // Global Stats Viewer placements. gddlTier is the level's COMMUNITY GDDL
+  // tier — not the viewer's own opinion, which lives on their progress row as
+  // userGddlTier. sheetTier is the NLW/LW spreadsheet tier 0-21 (>= 14 is
+  // listworthy); tier 0 is a real tier, so never test it for truthiness.
+  gddlTier: number | null
+  aredlRank: number | null
+  sheetTier: number | null
+  showcaseUrl: string | null
   // Extended RobTop level metadata snapshot (all nullable; see schema.prisma).
   description: string | null
   creatorPlayerId: string | null

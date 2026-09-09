@@ -9,6 +9,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { checkSfhNongIfDue } from '../levels/sfhSync'
+import { checkGsvIfDue } from './gsvSync'
 import { buildRobtopCreateData } from './robtopMapping'
 
 /**
@@ -28,8 +29,9 @@ export type FindOrResolveResult<T> =
 
 /**
  * Find the cached level, or resolve it from GD once and persist it. On a fresh
- * resolve the SFH NONG check runs before the row is re-read, so the returned
- * row already carries any NONG data on first load. `select` is the caller's
+ * resolve the SFH NONG and Global Stats Viewer checks run before the row is
+ * re-read, so the returned row already carries its NONG data and community-list
+ * placements on first load. `select` is the caller's
  * Prisma select, so each endpoint gets exactly the columns it renders.
  *
  * @param levelId - GD level id (already validated as numeric by the caller).
@@ -59,11 +61,14 @@ export async function findOrResolveLevel<T extends Prisma.LevelSelect>(
 
   await prisma.level.create({ data: buildRobtopCreateData(levelId, gd.level) })
 
-  // Populate NONG data on this first resolve so the page can render it
-  // immediately rather than only on the next visit. Best-effort and never
-  // throws (see checkSfhNongIfDue); we re-read afterward to pick up whatever it
-  // persisted.
-  await checkSfhNongIfDue(levelId)
+  // Populate NONG data and the level's community-list placements on this first
+  // resolve so the page can render them immediately rather than only on the next
+  // visit. Both are best-effort and never throw (see checkSfhNongIfDue /
+  // checkGsvIfDue); we re-read afterward to pick up whatever they persisted.
+  //
+  // Run in parallel — they hit unrelated hosts, and doing them in series would
+  // add both timeouts to the one request a user is actually waiting on.
+  await Promise.all([checkSfhNongIfDue(levelId), checkGsvIfDue(levelId)])
 
   const level = await prisma.level.findUniqueOrThrow({
     where: { inGameId: levelId },

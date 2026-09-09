@@ -155,7 +155,7 @@ describe('POST /me/log-presets', () => {
   it.each([
     ['the name is empty', { name: '' }],
     ['the name is too long', { name: 'x'.repeat(51) }],
-    ['the color is not a known preset colour', { color: 'chartreuse' }],
+    ['the color is not a known preset color', { color: 'chartreuse' }],
   ])('400s and writes nothing when %s', async (_label, overrides) => {
     const res = await send('POST', '/me/log-presets', validBody(overrides))
 

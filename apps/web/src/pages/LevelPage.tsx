@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { MOBILE_HERO_CLASS } from '@/lib/useWideLayout'
 import { BackLink } from '@/components/shell/BackLink'
 import { AlertDialog } from '@/components/generic/alert-dialog'
-import { HeroVideo } from '@/features/level-page/HeroVideo'
+import { HeroVideo } from '@/components/data/HeroVideo'
 import { IdentityStrip } from '@/features/level-page/IdentityStrip'
 import { StatGrid } from '@/features/level-page/StatGrid'
 import { LevelNotes } from '@/features/level-page/LevelNotes'
@@ -77,126 +77,130 @@ export function LevelPage() {
 
   return (
     <>
-      {/* Back navigation row */}
-      <div
-        className={cn(
-          'flex items-center gap-2 border-b border-border-subtle',
-          isWide ? 'mx-8 py-4' : 'px-4 py-3'
-        )}
-      >
-        <BackLink
-          back={back}
-          ariaLabel="Back"
-          className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
+      {/* On desktop this is the page's own flex column, so the two panes below
+          can own the scrolling instead of the shell's <main>; min-h-0 is what
+          lets them shrink past their content rather than growing the page.
+          Mobile keeps the shell's single scrolling column. */}
+      <div className={cn(isWide && 'flex h-full min-h-0 flex-col')}>
+        {/* Back navigation row */}
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-2 border-b border-border-subtle',
+            isWide ? 'mx-8 py-4' : 'px-4 py-3'
+          )}
         >
-          <ArrowLeft size={18} />
-        </BackLink>
-        <span className="text-sm font-medium text-text-primary truncate">
-          {levelName}
-        </span>
-        {/* Reciprocal cross-link to the community-facing Global Level Page —
+          <BackLink
+            back={back}
+            ariaLabel="Back"
+            className="flex items-center gap-1.5 text-text-secondary hover:text-text-primary"
+          >
+            <ArrowLeft size={18} />
+          </BackLink>
+          <span className="text-sm font-medium text-text-primary truncate">
+            {levelName}
+          </span>
+          {/* Reciprocal cross-link to the community-facing Global Level Page —
             the other half of the two-way link. Always valid here: this page
             only renders when a LevelProgress row exists. `state` inherits
             the remembered origin unchanged so the pair acts as one hop. */}
-        <Link
-          to="/levels/$levelId"
-          params={{ levelId }}
-          state={true}
-          className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
-        >
-          Global level page
-          <span aria-hidden>→</span>
-        </Link>
-      </div>
+          <Link
+            to="/levels/$levelId"
+            params={{ levelId }}
+            state={true}
+            className="ml-auto inline-flex items-center gap-1.5 whitespace-nowrap text-[13px] font-medium text-primary-light transition hover:brightness-110"
+          >
+            Global level page
+            <span aria-hidden>→</span>
+          </Link>
+        </div>
 
-      {/* Exactly one layout is mounted — never both with one hidden behind
+        {/* Exactly one layout is mounted — never both with one hidden behind
           `md:`. A hidden subtree is still mounted, so the other copy of
           HeroVideo kept its iframe alive and playing, and rotating the device
           left two copies of the same video able to play at once. */}
-      {!isWide && (
-        <div>
-          {hasVideo && (
-            <HeroVideo
-              url={data.completionVideoUrl!}
-              className={MOBILE_HERO_CLASS}
-            />
-          )}
+        {!isWide && (
+          <div>
+            {hasVideo && (
+              <HeroVideo
+                url={data.completionVideoUrl!}
+                className={MOBILE_HERO_CLASS}
+              />
+            )}
 
-          <div className="border-b border-border-subtle">
-            <IdentityStrip level={data.level} variant="mobile" />
-          </div>
-
-          <StatGrid
-            data={data}
-            datePref={dateFormatPreference}
-            includeEnjoyment={includeEnjoyment}
-            enjoymentWeight={enjoymentWeight}
-            ratingCategories={ratingCategories}
-          />
-
-          <div className="mt-4 border-t border-border-subtle px-4 py-4">
-            <LevelNotes
-              notes={data.levelNotes}
-              isOwner={isOwner}
-              onEdit={openEditLevel}
-            />
-          </div>
-
-          <div className="border-t border-border-subtle">
-            <div className="flex items-baseline gap-2 px-4 py-3">
-              <span className="text-[13px] font-medium text-text-primary">
-                Progress timeline
-              </span>
-              <span className="text-xs text-text-tertiary">
-                {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
-              </span>
+            <div className="border-b border-border-subtle">
+              <IdentityStrip level={data.level} variant="mobile" />
             </div>
-            <div className="px-4 pb-4">
-              <Timeline
-                data={data}
-                datePref={dateFormatPreference}
+
+            <StatGrid
+              data={data}
+              datePref={dateFormatPreference}
+              includeEnjoyment={includeEnjoyment}
+              enjoymentWeight={enjoymentWeight}
+              ratingCategories={ratingCategories}
+            />
+
+            <div className="mt-4 border-t border-border-subtle px-4 py-4">
+              <LevelNotes
+                notes={data.levelNotes}
                 isOwner={isOwner}
-                onEdit={openEditRun}
-                onDelete={setPendingDeleteUpdateId}
+                onEdit={openEditLevel}
               />
             </div>
-          </div>
 
-          {/* Rank history — the user's own level page only, never the Global
-              Level Page. Sits directly under the timeline in both layouts. */}
-          {isOwner && (
-            <div className="border-t border-border-subtle px-4 py-4">
-              <span className="text-[13px] font-medium text-text-primary">
-                Rank history
-              </span>
-              <RankHistory
-                levelId={data.level.inGameId}
-                datePref={dateFormatPreference}
-              />
-            </div>
-          )}
-
-          {hasGraph && (
-            <div className="border-t border-border-subtle px-4 py-4">
-              <div className="mb-3 flex items-baseline gap-2">
+            <div className="border-t border-border-subtle">
+              <div className="flex items-baseline gap-2 px-4 py-3">
                 <span className="text-[13px] font-medium text-text-primary">
-                  Runs over time
+                  Progress timeline
                 </span>
-                <span className="text-[11px] text-text-tertiary">
-                  oldest → newest
+                <span className="text-xs text-text-tertiary">
+                  {totalEntries} {totalEntries === 1 ? 'entry' : 'entries'}
                 </span>
               </div>
-              <RunsGraph entries={data.runsGraph} />
+              <div className="px-4 pb-4">
+                <Timeline
+                  data={data}
+                  datePref={dateFormatPreference}
+                  isOwner={isOwner}
+                  onEdit={openEditRun}
+                  onDelete={setPendingDeleteUpdateId}
+                />
+              </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {isWide && (
-        <div className="mx-8 pb-16 pt-4">
-          <div className="flex gap-6">
+            {/* Rank history — the user's own level page only, never the Global
+              Level Page. Sits directly under the timeline in both layouts. */}
+            {isOwner && (
+              <div className="border-t border-border-subtle px-4 py-4">
+                <span className="text-[13px] font-medium text-text-primary">
+                  Rank history
+                </span>
+                <RankHistory
+                  levelId={data.level.inGameId}
+                  datePref={dateFormatPreference}
+                />
+              </div>
+            )}
+
+            {hasGraph && (
+              <div className="border-t border-border-subtle px-4 py-4">
+                <div className="mb-3 flex items-baseline gap-2">
+                  <span className="text-[13px] font-medium text-text-primary">
+                    Runs over time
+                  </span>
+                  <span className="text-[11px] text-text-tertiary">
+                    oldest → newest
+                  </span>
+                </div>
+                <RunsGraph entries={data.runsGraph} />
+              </div>
+            )}
+          </div>
+        )}
+
+        {isWide && (
+          <div className="flex min-h-0 flex-1 gap-6 overflow-hidden px-8 pt-4">
             {/* Left column — hero + identity card + stats + notes */}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 overflow-y-auto pb-8">
               {hasVideo && (
                 <HeroVideo
                   url={data.completionVideoUrl!}
@@ -231,7 +235,10 @@ export function LevelPage() {
                 viewport instead of sitting at a fixed 428: at the narrow end
                 of the wide range (an iPad in portrait is 810 across) a fixed
                 panel starves the column beside it. */}
-            <div className="w-[clamp(300px,34vw,428px)] shrink-0 space-y-4">
+            {/* pb-28 clears the FAB, which is fixed to the viewport's
+                bottom-right and so overlaps only this column. Without it the
+                last panel sits under the button. */}
+            <div className="w-[clamp(300px,34vw,428px)] shrink-0 space-y-4 overflow-y-auto pb-28">
               {/* Timeline panel */}
               <div className="overflow-hidden rounded-card border border-border-subtle bg-bg-surface">
                 <div className="flex items-baseline gap-2 border-b border-border-subtle px-5 py-4">
@@ -288,8 +295,8 @@ export function LevelPage() {
               )}
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Edit run modal */}
       {isOwner && (

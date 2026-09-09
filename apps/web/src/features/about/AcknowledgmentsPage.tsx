@@ -150,12 +150,39 @@ export function AcknowledgmentsPage() {
           NONG song database. <br />
           Credit: Song File Hub Staff <br />
         </Entry>
-        {/* not implemented yet, will readd when I implement it
-          <Entry name="AREDL">
-            Rank data for the All Rated Extreme Demons List. Credit:{' '}
-            <Pending>AREDL maintainers</Pending>. Link:{' '}
-            <Pending>AREDL URL</Pending>.
-          </Entry> */}
+        <Entry
+          name="Global Stats Viewer"
+          link={{
+            label: 'globalstatsviewer.com',
+            href: 'https://globalstatsviewer.com',
+          }}
+        >
+          The source of every community-list placement InfernoLog shows — GDDL
+          tier, AREDL rank, and Non-Listworthy / Listworthy spreadsheet tier —
+          gathered in a single request per level, along with showcase links and
+          the object counts shown on level pages. InfernoLog reads from it only
+          and never writes back. <br />
+          Credit: Global Stats Viewer maintainers.
+        </Entry>
+        <Entry
+          name="AREDL"
+          link={{ label: 'aredl.net', href: 'https://aredl.net' }}
+        >
+          Rank data for the All Rated Extreme Demons List, shown on level pages
+          and reached via the Global Stats Viewer rather than by querying AREDL
+          directly. <br />
+          Credit: AREDL maintainers.
+        </Entry>
+        <Entry name="Non-Listworthy Spreadsheet" link={{ label: 'NLW Spreadsheet Link', href: 'https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333'}}>
+          Tier data for non-listworthy extreme demons,
+          shown on level pages and reached via the Global Stats Viewer. <br />
+          Credit: NLW Staff.
+        </Entry>
+        <Entry name="Listworthy Spreadsheet" link={{ label:'LW Spreadsheet Link', href:'https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115'}}>
+          Tier data for listworthy extreme demons,
+          shown on level pages and reached via the Global Stats Viewer. <br />
+          Credit: LW Staff.
+        </Entry>
       </Section>
 
       <Section

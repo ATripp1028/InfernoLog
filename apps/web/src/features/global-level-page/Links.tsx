@@ -2,13 +2,10 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { backOriginState } from '@/lib/backOrigin'
-import { isExtremeDemon } from './format'
 import {
-  aredlLevelUrl,
   copiedFromLevelId,
   gdBrowserLevelUrl,
   gdBrowserUserUrl,
-  gddlLevelUrl,
   youtubeSearchUrl,
 } from './linkTargets'
 
@@ -101,7 +98,8 @@ interface LinksProps {
 /**
  * The LINKS section — external destinations plus the one internal one. Named
  * LINKS, not "External links": Newgrounds / Song File Hub belong to the Song
- * card only and are deliberately NOT duplicated here.
+ * card only, and GDDL / AREDL to the TIERS section, where each sits on the row
+ * for the placement it points at. Neither is duplicated here.
  */
 export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
   const pad = variant === 'card' ? 'px-4' : ''
@@ -125,18 +123,8 @@ export function Links({ level, delisted, variant = 'plain' }: LinksProps) {
           pad={pad}
         />
       )}
-      <ExternalRow
-        href={gddlLevelUrl(level.inGameId)}
-        label="Tier page on GDDL"
-        pad={pad}
-      />
-      {isExtremeDemon(level) && (
-        <ExternalRow
-          href={aredlLevelUrl(level.inGameId)}
-          label="Page on AREDL"
-          pad={pad}
-        />
-      )}
+      {/* No GDDL or AREDL row here: each list's link lives on its own row in
+          the TIERS section, next to the placement it points at. */}
       <ExternalRow
         href={youtubeSearchUrl(level)}
         label="Search on YouTube"

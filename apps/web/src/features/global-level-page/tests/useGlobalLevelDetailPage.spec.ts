@@ -262,6 +262,68 @@ describe('useGlobalLevelDetailPage', () => {
     })
   })
 
+  describe('the showcase video', () => {
+    it('offers the showcase URL when the level has one', () => {
+      resolvesTo({ showcaseUrl: 'https://youtu.be/6v_pWirR72Q' })
+
+      const { result } = render()
+
+      expect(result.current.showcaseUrl).toBe('https://youtu.be/6v_pWirR72Q')
+    })
+
+    // The URL is third-party level metadata, not something InfernoLog
+    // validated on the way in, and it ends up in an iframe src — so it goes
+    // through safeHref like every other externally-sourced URL.
+    it('rejects a showcase URL that is not safe to embed', () => {
+      resolvesTo({ showcaseUrl: 'javascript:alert(1)' })
+
+      const { result } = render()
+
+      expect(result.current.showcaseUrl).toBeNull()
+    })
+
+    it.each([
+      ['the level has no showcase', () => resolvesTo({ showcaseUrl: null })],
+      ['the resolve is still pending', () => isPending()],
+    ])('falls back to the thumbnail when %s', (_label, setup) => {
+      setup()
+
+      const { result } = render()
+
+      expect(result.current.showcaseUrl).toBeNull()
+    })
+  })
+
+  describe('community-list placements', () => {
+    it('derives one entry per list the level is placed on', () => {
+      resolvesTo({ gddlTier: 39, aredlRank: 5, sheetTier: 20 })
+
+      const { result } = render()
+
+      expect(result.current.tiers.map((t) => t.key)).toEqual([
+        'gddl',
+        'aredl',
+        'sheet',
+      ])
+    })
+
+    // The page gates the whole TIERS section on this being empty, so an
+    // unresolved level must not briefly claim placements it hasn't loaded.
+    it.each([
+      [
+        'the level is on no list',
+        () => resolvesTo({ gddlTier: null, aredlRank: null, sheetTier: null }),
+      ],
+      ['the resolve is still pending', () => isPending()],
+    ])('reports no placements when %s', (_label, setup) => {
+      setup()
+
+      const { result } = render()
+
+      expect(result.current.tiers).toEqual([])
+    })
+  })
+
   describe('the preselected level for Add to Collection', () => {
     it('is absent until the level resolves', () => {
       isPending()

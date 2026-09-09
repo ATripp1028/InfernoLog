@@ -31,7 +31,7 @@ describe('GddlTierBadge', () => {
 
   // Low tiers sit on light backgrounds, so the number has to flip to black.
   // The boundary is 15/16 and is easy to move by accident.
-  it('flips the text colour at the 15/16 palette boundary', () => {
+  it('flips the text color at the 15/16 palette boundary', () => {
     const { unmount } = renderWithProviders(<GddlTierBadge tier={15} />)
     expect(screen.getByText('15')).toHaveStyle({ color: '#0d0d0d' })
     unmount()

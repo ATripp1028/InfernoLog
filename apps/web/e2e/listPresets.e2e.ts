@@ -244,7 +244,7 @@ test.describe('list presets', () => {
     await toggleProgressFilters(page, ['Completed'])
     expect((await savePresetAs(page, META_PRESET)).status()).toBe(201)
 
-    // The other arm of PATCH: name/description/colour only, with the four view
+    // The other arm of PATCH: name/description/color only, with the four view
     // blobs absent from the body. LogPresetUpdateSchema is
     // `LogPresetInputSchema.partial()` and the route spreads each field in
     // only when it is not undefined, so a regression here writes an empty
