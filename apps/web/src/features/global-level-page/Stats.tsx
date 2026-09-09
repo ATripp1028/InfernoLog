@@ -83,8 +83,8 @@ function ObjectsInfoButton() {
       <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
         <p className="font-medium text-text-primary">No object count</p>
         <p className="text-text-secondary">
-          Geometry Dash only reports an object count for newer levels. Older
-          levels come back with none, so there&rsquo;s nothing to show here —
+          Object counts come from the Global Stats Viewer, which covers rated
+          levels. A level it doesn&rsquo;t carry has nothing to show here —
           it&rsquo;s not zero, just unknown.
         </p>
       </PopoverContent>
@@ -181,10 +181,12 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
         />
         <StatCard
           label="Objects"
-          // getGJLevels21 (the browse endpoint) only reports object count for
-          // newer levels; older ones come back as 0. A real level never has 0
-          // objects, so treat 0 (and null) as "unknown" — show "—" and an info
-          // popover explaining why, rather than an obviously-wrong count.
+          // Sourced from the Global Stats Viewer, which supersedes RobTop's own
+          // count — getGJLevels21 reports 65535 for anything over the object
+          // limit and 0 for older levels. A row can still fall back to RobTop's
+          // value when GSV doesn't carry the level, so 0 (and null) is still
+          // treated as "unknown": show "—" and an info popover explaining why,
+          // rather than an obviously-wrong count.
           value={
             <>
               <GdIcon src={gdStatIconSrc.spike} ariaLabel="Objects" />

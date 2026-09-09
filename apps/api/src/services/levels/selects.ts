@@ -30,6 +30,12 @@ export const levelDetailSelect = {
   sfhDownloadUrl: true,
   sfhFileType: true,
   sfhDownloads: true,
+  // Global Stats Viewer placements. gsvCheckedAt stays internal (bookkeeping
+  // for the re-check gate), the same way sfhCheckedAt does.
+  gddlTier: true,
+  aredlRank: true,
+  sheetTier: true,
+  showcaseUrl: true,
   // Extended RobTop metadata.
   description: true,
   creatorPlayerId: true,

@@ -25,6 +25,8 @@ import {
   retryAfterSeconds as retryAfterSecondsOf,
 } from '@/lib/api/client'
 import { toast } from '@/components/generic/sonner'
+import { safeHref } from '@/lib/safeUrl'
+import { tierEntries } from './tierEntries'
 
 /**
  * Data and status for the Global Level Page.
@@ -42,6 +44,9 @@ export function useGlobalLevelDetailPage() {
 
   const query = useGlobalLevelPage(levelId)
   const level = query.data
+  // Derived once here rather than inside the section: the page has to know
+  // whether any placement exists before it renders a header around them.
+  const tiers = useMemo(() => (level ? tierEntries(level) : []), [level])
   const errorKind = query.error ? levelPageErrorKind(query.error) : null
   // Only meaningful alongside errorKind === 'rate_limited'; the helper falls
   // back to a sane default for every other error, so it needs no guard here.
@@ -165,6 +170,14 @@ export function useGlobalLevelDetailPage() {
     level,
     levelName: level?.name ?? `Level #${levelId}`,
     delisted: level?.delistedAt != null,
+    // The level's showcase video, when one exists and its URL survives
+    // validation. Third-party metadata (via the Global Stats Viewer), so it
+    // goes through safeHref like every other externally-sourced URL. Null here
+    // means the page falls back to the level thumbnail.
+    showcaseUrl: safeHref(level?.showcaseUrl) ?? null,
+    // The level's community-list placements. Empty when it holds none, which is
+    // what the page uses to decide whether the TIERS section exists at all.
+    tiers,
     // Drives the cross-link to the user's own page for this level — any
     // logged state counts, not just a completion.
     hasUserProgress: level?.userProgressStatus != null,

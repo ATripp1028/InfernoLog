@@ -150,12 +150,38 @@ export function AcknowledgmentsPage() {
           NONG song database. <br />
           Credit: Song File Hub Staff <br />
         </Entry>
-        {/* not implemented yet, will readd when I implement it
-          <Entry name="AREDL">
-            Rank data for the All Rated Extreme Demons List. Credit:{' '}
-            <Pending>AREDL maintainers</Pending>. Link:{' '}
-            <Pending>AREDL URL</Pending>.
-          </Entry> */}
+        <Entry
+          name="Global Stats Viewer"
+          link={{
+            label: 'globalstatsviewer.com',
+            href: 'https://globalstatsviewer.com',
+          }}
+        >
+          The source of every community-list placement InfernoLog shows — GDDL
+          tier, AREDL rank, and Non-Listworthy / Listworthy spreadsheet tier —
+          gathered in a single request per level, along with showcase links and
+          the object counts shown on level pages. InfernoLog reads from it only
+          and never writes back. <br />
+          Credit: Global Stats Viewer maintainers.
+        </Entry>
+        <Entry
+          name="AREDL"
+          link={{ label: 'aredl.net', href: 'https://aredl.net' }}
+        >
+          Rank data for the All Rated Extreme Demons List, shown on level pages
+          and reached via the Global Stats Viewer rather than by querying AREDL
+          directly. <br />
+          {/* TODO: credit line — the AREDL maintainers, by name, before launch. */}
+          Credit: AREDL maintainers.
+        </Entry>
+        <Entry name="Non-Listworthy / Listworthy Spreadsheets">
+          Tier data for extreme demons below and above the listworthy line,
+          shown on level pages and reached via the Global Stats Viewer. <br />
+          {/* TODO: link both spreadsheets, and name their maintainers, before
+              launch. The tier row on the level page stays unlinked until the
+              URLs land — see features/global-level-page/tierEntries.ts. */}
+          Credit: the spreadsheets&rsquo; maintainers.
+        </Entry>
       </Section>
 
       <Section

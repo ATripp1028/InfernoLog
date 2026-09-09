@@ -20,6 +20,7 @@ import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { buildRobtopRefreshData } from './robtopMapping'
 import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
+import { checkAndPersistGsv, GSV_RECHECK_DAYS } from './gsvSync'
 import { logger } from '../../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
@@ -398,8 +399,56 @@ const reverifyEligibleWhere = {
   dataSource: { not: 'official' },
 } satisfies Prisma.LevelWhereInput
 
+// ── Global Stats Viewer rotation ────────────────────────────────────────────
+// GSV gets its own rotation rather than piggybacking on the RobTop sweep above,
+// because the two are paced by completely different constraints. The RobTop
+// slice is 50 levels/run — sized by RobTop's per-IP rate limit and the 670ms
+// pacing — which is ~200 levels/day of turnover. List placements (GDDL tiers
+// especially) move far faster than that, so tiers refreshed at the sweep's rate
+// would read as stale on a cache of any real size. GSV is a different host under
+// no such limit, so this rotation walks the cache several times faster while
+// still being just another bounded cron slice.
+//
+// It also reaches levels the RobTop sweep deliberately skips: `official` rows
+// are excluded there because getGJLevels21 never returns them (a sync would
+// look like a not-found and wrongly delist a level that plainly exists), but
+// GSV does index them, so they're eligible here.
+
+/** How many levels one GSV rotation slice checks. */
+export const GSV_SLICE_SIZE = 200
+
+// Pacing between GSV calls. Community infrastructure, so paced deliberately —
+// but it answers in well under a second and enforces no published limit, so this
+// is far below the RobTop pacing. 200 levels at 300ms is ~60s per run.
+const GSV_PACE_MS = 300
+
+/** Tallies from one pass of the GSV rotation. */
+export interface GsvSliceResult {
+  processed: number
+  // GSV had the level; its placements were cached.
+  found: number
+  // GSV answered but doesn't index the level (404) — cached as checked.
+  none: number
+  // The call itself failed; nothing written, retried on a later lap.
+  failed: number
+}
+
+// Levels the GSV rotation considers: cached, not delisted, rated (GSV indexes
+// rated levels only, so an unrated level would 404 every lap forever), and due
+// for a check. The due filter is applied in SQL rather than after the fact so a
+// slice is 200 levels of actual WORK — without it a lap over a fully-checked
+// cache would burn its whole slice on rows it then skips.
+function gsvEligibleWhere(): Prisma.LevelWhereInput {
+  const cutoff = new Date(Date.now() - GSV_RECHECK_DAYS * 24 * 60 * 60 * 1000)
+  return {
+    delistedAt: null,
+    isRated: true,
+    OR: [{ gsvCheckedAt: null }, { gsvCheckedAt: { lt: cutoff } }],
+  }
+}
+
 // Each rotation keeps its own cursor row in level_sync_cursor, keyed by id.
-type CursorKey = 'singleton' | 'reverify'
+type CursorKey = 'singleton' | 'reverify' | 'gsv'
 
 async function readCursor(key: CursorKey): Promise<string | null> {
   const row = await prisma.levelSyncCursor.findUnique({
@@ -576,5 +625,63 @@ export async function runDelistedReverifySlice(
 
   await writeCursor('reverify', ids[ids.length - 1]!)
   logger.info({ ...result }, 'levelSync: reverify slice complete')
+  return result
+}
+
+/**
+ * One cron slice of the GSV rotation. Re-checks a bounded slice of levels due
+ * for a Global Stats Viewer check and caches their community-list placements,
+ * showcase URL, and object count.
+ *
+ * No circuit breaker: unlike the RobTop sweep, nothing here is destructive. A
+ * run of 404s is the EXPECTED case (GSV indexes only part of the cache) and a
+ * failed call writes nothing at all, so a wholly-unavailable GSV costs one lap
+ * of no-ops rather than damaging the cache. The cursor still advances over the
+ * attempted ids so a permanently-failing stretch can't pin the rotation.
+ */
+export async function runGsvSyncSlice(
+  size: number = GSV_SLICE_SIZE,
+  paceMs: number = GSV_PACE_MS
+): Promise<GsvSliceResult> {
+  const result: GsvSliceResult = {
+    processed: 0,
+    found: 0,
+    none: 0,
+    failed: 0,
+  }
+
+  const { cursor, ids } = await nextSlice('gsv', gsvEligibleWhere(), size)
+  if (ids.length === 0) {
+    logger.info('levelSync: no levels due for a GSV check')
+    return result
+  }
+
+  logger.info(
+    { count: ids.length, from: cursor, to: ids[ids.length - 1] },
+    'levelSync: GSV slice selected'
+  )
+
+  for (let i = 0; i < ids.length; i++) {
+    const levelId = ids[i]!
+    if (i > 0 && paceMs > 0) await sleep(paceMs)
+    result.processed++
+
+    try {
+      const outcome = await checkAndPersistGsv(levelId)
+      if (outcome === 'found') result.found++
+      else if (outcome === 'none') result.none++
+      else result.failed++
+    } catch (err) {
+      // checkAndPersistGsv already swallows GSV failures, so reaching here means
+      // the cache WRITE failed (e.g. the row vanished mid-run). Tally it as a
+      // failure so gsvCheckedAt stays null and a later lap retries.
+      result.failed++
+      logger.error({ levelId, err }, 'levelSync: error on GSV check')
+      Sentry.captureException(err)
+    }
+  }
+
+  await writeCursor('gsv', ids[ids.length - 1]!)
+  logger.info({ ...result }, 'levelSync: GSV slice complete')
   return result
 }
