@@ -8,11 +8,11 @@ import { level, placed, ranked, unplaced } from './fixtures'
 describe('medalColor', () => {
   // Gold for your hardest, then silver and bronze; 4th–5th get a cool azure
   // so they read as the next tier rather than a fourth medal.
-  it.each([1, 2, 3, 4, 5])('gives rank %s a colour', (rank) => {
+  it.each([1, 2, 3, 4, 5])('gives rank %s a color', (rank) => {
     expect(medalColor(rank)).toMatch(/^#[0-9a-f]{6}$/i)
   })
 
-  it('gives the podium three distinct colours', () => {
+  it('gives the podium three distinct colors', () => {
     const podium = [medalColor(1), medalColor(2), medalColor(3)]
 
     expect(new Set(podium).size).toBe(3)
@@ -28,12 +28,13 @@ describe('medalColor', () => {
     )
   })
 
-  // Past 5 the row uses the default text colour, so there is nothing to say.
-  it.each([6, 10, 100])('gives rank %s no colour', (rank) => {
+
+  // Past 5 the row uses the default text color, so there is nothing to say.
+  it.each([6, 10, 100])('gives rank %s no color', (rank) => {
     expect(medalColor(rank)).toBeUndefined()
   })
 
-  it('gives a nonsensical rank no colour', () => {
+  it('gives a nonsensical rank no color', () => {
     expect(medalColor(0)).toBeUndefined()
     expect(medalColor(-1)).toBeUndefined()
   })

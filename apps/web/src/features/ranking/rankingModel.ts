@@ -279,7 +279,7 @@ export type RankNumbering = 'overall' | 'filtered'
 /**
  * Renumbers rows 1..n in view order, for {@link RankNumbering} `filtered`.
  *
- * The rewritten `rank` is what the row displays *and* what its colour keys off,
+ * The rewritten `rank` is what the row displays *and* what its color keys off,
  * so the gold and crimson marks land on the top and bottom of what the user is
  * actually looking at rather than on levels that may not even be in view.
  */

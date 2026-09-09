@@ -55,7 +55,7 @@ describe('RankedRow', () => {
   // The overall rating's extremes are anchored to the RANKING, not the scale:
   // a weighted average only hits a flat 10 or 0 if every category agrees, so
   // the marks would otherwise go unused. The name carries the same figure and
-  // so the same colour.
+  // so the same color.
   it('tints the top of the ranking gold, whatever the rating', async () => {
     await renderWithProviders(<RankedRow entry={entry(1, 84.2)} {...base} />, {
       router: true,

@@ -39,7 +39,7 @@ export interface TierEntry {
   href: string | null
 }
 
-// AREDL has no community colour convention the way the other two lists do (see
+// AREDL has no community color convention the way the other two lists do (see
 // docs/DESIGN_LANGUAGE.md), so its badge is painted from InfernoLog's own
 // accent rather than from anything AREDL publishes.
 const AREDL_BADGE_COLOR = '#ff9f1c'

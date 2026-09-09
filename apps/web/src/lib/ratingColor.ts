@@ -1,5 +1,5 @@
-// Colour for a rating value, on the red-white-green scale a spreadsheet would
-// give it — the same three-colour conditional format Google Sheets applies by
+// Color for a rating value, on the red-white-green scale a spreadsheet would
+// give it — the same three-color conditional format Google Sheets applies by
 // default, which is what these ratings looked like before they lived in an app.
 //
 // Ratings are stored as integers 0–100 internally whatever the user's display
@@ -17,8 +17,8 @@
 //                  every category to agree and so almost never happens. Its
 //                  exceptions sit at the ends of the RANKING instead: the
 //                  user's best-rated level and their worst-rated one.
-
-/** Sheets' three-colour scale: the low, middle and high stops. */
+//
+/** Sheets' three-color scale: the low, middle and high stops. */
 const LOW = [248, 105, 107] as const // #f8696b
 const MID = [255, 255, 255] as const // #ffffff
 const HIGH = [99, 190, 123] as const // #63be7b
@@ -46,11 +46,11 @@ export function ratingRampColor(internal: number | null): string | undefined {
 }
 
 /**
- * The colour for one category score: the gradient, with a flat top mark gold
+ * The color for one category score: the gradient, with a flat top mark gold
  * and a flat zero crimson.
  *
  * @param internal - The score on the internal 0–100 scale, or null for none —
- * which returns `undefined` and leaves the caller's own text colour in place
+ * which returns `undefined` and leaves the caller's own text color in place
  * rather than inventing one.
  */
 export function scoreColor(internal: number | null): string | undefined {
@@ -61,7 +61,7 @@ export function scoreColor(internal: number | null): string | undefined {
 }
 
 /**
- * The colour for an overall rating: the gradient, with the top of the ranking
+ * The color for an overall rating: the gradient, with the top of the ranking
  * gold and the bottom crimson.
  *
  * Position rather than value, because a weighted average only reaches a flat 10

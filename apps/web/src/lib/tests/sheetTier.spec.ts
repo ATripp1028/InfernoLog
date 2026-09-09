@@ -65,7 +65,7 @@ describe('sheetTierSource', () => {
 })
 
 describe('sheetTierColor', () => {
-  it('returns the documented colour for a pinned tier', () => {
+  it('returns the documented color for a pinned tier', () => {
     expect(sheetTierColor(1)).toBe('#6495ED')
     expect(sheetTierColor(6)).toBe('#FF0000')
   })

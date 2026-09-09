@@ -44,15 +44,6 @@ export const SHEET_TIER_NAMES = [
  */
 export const LISTWORTHY_MIN_TIER = 14
 
-// Stand-in for a tier whose real colour hasn't been transcribed from the sheet
-// yet. Deliberately a flat neutral rather than an invented colour: a wrong
-// colour on a community tier reads as authoritative and would be believed.
-
-/**
- * Badge background per sheet tier, indexed by tier. The seven filled in here
- * are the ones pinned in docs/DESIGN_LANGUAGE.md; the rest await transcription
- * from the sheet (see PLACEHOLDER).
- */
 export const SHEET_TIER_COLORS = [
   '#000000', // 0  Fuck
   '#4a86e8', // 1  Beginner

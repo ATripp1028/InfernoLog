@@ -165,11 +165,11 @@ describe('backgroundColor', () => {
     expect(backgroundColor(0.5)).toMatch(/^rgb\(\d{1,3}, \d{1,3}, \d{1,3}\)$/)
   })
 
-  it('starts at the base colour', () => {
+  it('starts at the base color', () => {
     expect(rgb(0)).toEqual([BG_BASE.r, BG_BASE.g, BG_BASE.b])
   })
 
-  it('reaches the warm colour at the bottom', () => {
+  it('reaches the warm color at the bottom', () => {
     expect(rgb(1)).toEqual([BG_WARM.r, BG_WARM.g, BG_WARM.b])
   })
 
@@ -180,7 +180,7 @@ describe('backgroundColor', () => {
     expect(r).toBeLessThan(BG_WARM.r)
   })
 
-  // Fractional channel values would produce an invalid CSS colour.
+  // Fractional channel values would produce an invalid CSS color.
   it('produces integer channels', () => {
     for (const channel of rgb(0.37)) {
       expect(Number.isInteger(channel)).toBe(true)
@@ -253,7 +253,7 @@ describe('spawnEmber', () => {
     expect(e.y).toBeGreaterThanOrEqual(800)
   })
 
-  it('picks a colour from the palette', () => {
+  it('picks a color from the palette', () => {
     for (const r of [0, 0.3, 0.6, 0.99]) {
       expect(EMBER_COLORS).toContain(
         spawnEmber(1000, 800, false, randomOf(r)).color
@@ -264,7 +264,7 @@ describe('spawnEmber', () => {
   // Math.floor(rand() * length) is length only when rand() returns exactly 1,
   // which it never should — but the fallback keeps a bad source from
   // producing an undefined fill style.
-  it('falls back to a real colour rather than undefined', () => {
+  it('falls back to a real color rather than undefined', () => {
     const e = spawnEmber(1000, 800, false, () => 1)
 
     expect(typeof e.color).toBe('string')

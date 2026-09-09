@@ -5,7 +5,7 @@ const GOLD = '#ffd43b'
 const CRIMSON = '#dc143c'
 
 describe('ratingRampColor', () => {
-  it('gives an unrated value no colour at all', () => {
+  it('gives an unrated value no color at all', () => {
     expect(ratingRampColor(null)).toBeUndefined()
   })
 
@@ -44,7 +44,7 @@ describe('scoreColor', () => {
     expect(scoreColor(1)).toBe(ratingRampColor(1))
   })
 
-  it('gives an unscored category no colour', () => {
+  it('gives an unscored category no color', () => {
     expect(scoreColor(null)).toBeUndefined()
   })
 })
@@ -70,7 +70,7 @@ describe('overallColor', () => {
     expect(overallColor(50, 1, 1)).toBe(GOLD)
   })
 
-  it('gives an unrated level no colour', () => {
+  it('gives an unrated level no color', () => {
     expect(overallColor(null, 1, 10)).toBeUndefined()
   })
 })

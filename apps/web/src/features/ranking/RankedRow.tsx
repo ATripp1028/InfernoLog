@@ -20,7 +20,7 @@ import type { OverallRatingConfig } from '@infernolog/core'
 
 interface RankedRowProps {
   entry: RankedEntry
-  /** The lowest position in the ranking, for the bottom-of-the-list colour. */
+  /** The lowest position in the ranking, for the bottom-of-the-list color. */
   lastRank: number
   config: OverallRatingConfig
   categories: RatingCategory[]
@@ -39,10 +39,10 @@ interface RankedRowProps {
  * wash — because the two are the same kind of list ordered on different axes,
  * and a user moving between them should not have to re-learn the row.
  *
- * Where they part company is colour. The demon list tints the top few names by
+ * Where they part company is color. The demon list tints the top few names by
  * rank (gold, silver, bronze); here every rating-bearing figure is tinted by
  * the rating itself, on the red-white-green scale a spreadsheet would give it —
- * see `lib/ratingColor`. Rank is already spelled out as a number, so colour is
+ * see `lib/ratingColor`. Rank is already spelled out as a number, so color is
  * free to carry the thing the number cannot.
  */
 export function RankedRow({
@@ -60,7 +60,7 @@ export function RankedRow({
   const { level, overallRating } = item
   const location = useLocation()
 
-  // The name carries the same colour as the overall rating it is tinted by —
+  // The name carries the same color as the overall rating it is tinted by —
   // they are the same figure, and disagreeing would read as a bug.
   const overall = overallColor(overallRating, rank, lastRank)
 

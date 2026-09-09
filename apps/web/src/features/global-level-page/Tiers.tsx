@@ -38,9 +38,9 @@ function FuckTierInfoButton() {
   )
 }
 
-// The coloured placement badge. An unpainted badge (a tier whose sheet colour
+// The coloured placement badge. An unpainted badge (a tier whose sheet color
 // hasn't been transcribed yet) falls back to the page's subtle surface rather
-// than to an invented colour.
+// than to an invented color.
 function TierBadge({ entry }: { entry: TierEntry }) {
   return (
     <span

@@ -1,5 +1,5 @@
 // The scroll → ember-field mapping: how far down the page translates into a
-// background colour, a population, and a drift speed, plus the per-ember
+// background color, a population, and a drift speed, plus the per-ember
 // spawn and step. Pure — EmberBackground owns the canvas, the listeners, and
 // the rAF loop, and paints whatever these return.
 //
@@ -86,7 +86,7 @@ export function emberSpeed(fraction: number): number {
 }
 
 /**
- * The background colour at this scroll position, as a CSS `rgb()` string.
+ * The background color at this scroll position, as a CSS `rgb()` string.
  */
 export function backgroundColor(fraction: number): string {
   const r = Math.round(lerp(BG_BASE.r, BG_WARM.r, fraction))

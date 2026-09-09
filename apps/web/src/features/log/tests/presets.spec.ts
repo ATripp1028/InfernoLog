@@ -32,22 +32,22 @@ const config = (overrides: Partial<ViewConfig> = {}): ViewConfig => ({
   ...overrides,
 })
 
-describe('preset colours', () => {
-  it('resolves every declared colour by id', () => {
+describe('preset colors', () => {
+  it('resolves every declared color by id', () => {
     for (const c of PRESET_COLORS) {
       expect(getPresetColor(c.id)).toBe(c)
     }
   })
 
-  it('declares each colour id exactly once', () => {
+  it('declares each color id exactly once', () => {
     const ids = PRESET_COLORS.map((c) => c.id)
 
     expect(new Set(ids).size).toBe(ids.length)
   })
 
-  // A preset saved with a colour that was later removed must still render.
+  // A preset saved with a color that was later removed must still render.
   it('falls back rather than returning nothing for an unknown id', () => {
-    expect(getPresetColor('not-a-colour' as never)).toBeDefined()
+    expect(getPresetColor('not-a-color' as never)).toBeDefined()
   })
 })
 
@@ -60,14 +60,14 @@ describe('getContrastColor', () => {
     expect(getContrastColor('#ffffff')).toBe('#000000')
   })
 
-  // Luminance is weighted per channel, so a saturated colour is not judged by
+  // Luminance is weighted per channel, so a saturated color is not judged by
   // brightness alone — pure green reads far lighter than pure blue.
   it('weighs the channels rather than averaging them', () => {
     expect(getContrastColor('#00ff00')).toBe('#000000')
     expect(getContrastColor('#0000ff')).toBe('#ffffff')
   })
 
-  it('picks a legible foreground for every preset colour', () => {
+  it('picks a legible foreground for every preset color', () => {
     for (const c of PRESET_COLORS) {
       expect(['#000000', '#ffffff']).toContain(getContrastColor(c.hex))
     }

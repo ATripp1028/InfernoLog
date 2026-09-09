@@ -42,7 +42,7 @@ interface GlossarySection {
   entries: GlossaryEntry[]
 }
 
-// Each entry carries the icon and colour its rows actually use, so the glossary
+// Each entry carries the icon and color its rows actually use, so the glossary
 // is a legend for the feed rather than a wall of prose beside it.
 const GLOSSARY: GlossarySection[] = [
   {
@@ -139,7 +139,7 @@ const GLOSSARY: GlossarySection[] = [
   },
 ]
 
-// Mirrors the row icons' colours in FeedRow, so the legend and the feed agree.
+// Mirrors the row icons' colors in FeedRow, so the legend and the feed agree.
 const TONE_CLASSES: Record<FeedTone, string> = {
   ranking: 'bg-accent-dim text-accent-hover',
   edit: 'bg-info-dim text-info-soft',
