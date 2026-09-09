@@ -66,7 +66,7 @@
     "sst": "4.7.9",
     "tsx": "^4.22.4",
     "typescript": "^5.7.3",
-    "vitest": "^4.1.7",
+    "vitest": "^4.1.11",
     "wrangler": "^4.83.0"
   },
   "packageManager": "pnpm@8.15.5"
