@@ -307,7 +307,7 @@ function DropEntry({
       <div className="flex items-start justify-between px-3.5 pt-3 pb-2">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex h-[22px] items-center rounded bg-danger-dim px-2 text-[11px] font-medium text-danger-soft">
-            ⚑ Dropped
+            Dropped
           </span>
           <span className="text-xs text-text-secondary">
             {dateText}
