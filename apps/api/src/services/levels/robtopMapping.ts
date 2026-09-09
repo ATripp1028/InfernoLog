@@ -6,6 +6,14 @@
 // seed worker. The field list used to be copy-pasted into each of those five
 // modules, so adding a column to `levels` meant finding and editing all of them
 // — and they had already drifted (see `stamped` below).
+//
+// ⚠️ ADDING A NEW SEED PATH: writing this data is only half of caching a level.
+// Follow the write with the Global Stats Viewer check — checkGsvIfDue for one
+// level, checkGsvForSeededLevels for a batch (services/levels/gsvSync.ts) — or
+// the level sits with no community-list placements, no showcase and RobTop's
+// unreliable object count until the cron rotation happens to reach it. Both are
+// self-gating and never throw. Run them AFTER any transaction commits: they are
+// outbound HTTP calls and must not be held open by one.
 
 import type { Prisma } from '@prisma/client'
 import type { RobtopLevel } from '../../utils/robtop'

@@ -20,14 +20,23 @@ import { aredlLevelUrl, gddlLevelUrl } from './linkTargets'
 /**
  * One list placement, ready to render.
  *
- * `badge` is the placement itself (the number the list assigns); `detail` is
- * the tier's name where the list has one. `source` marks which of the two
+ * `badge` is what goes in the coloured chip — the number for GDDL and AREDL,
+ * whose scales readers know, and the tier NAME for the spreadsheets, whose
+ * numbers mean nothing outside the sheet itself. `detail` is an optional
+ * secondary line, currently unused. `source` marks which of the two
  * spreadsheets a sheet tier came from and is null for every other list.
  */
 export interface TierEntry {
   key: 'gddl' | 'aredl' | 'sheet'
   /** The list's name, as the community knows it. */
   label: string
+  /**
+   * The raw numeric placement. Kept even where it isn't displayed (the
+   * spreadsheets show their tier's name instead), because the number is still
+   * what the row's meaning hangs on — sheet tier 0 is the one that needs
+   * explaining, and matching on a display string to find it would be fragile.
+   */
+  value: number
   badge: string
   detail: string | null
   source: 'NLW' | 'LW' | null
@@ -68,6 +77,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
     entries.push({
       key: 'gddl',
       label: 'GDDL',
+      value: tier,
       badge: String(tier),
       detail: null,
       source: null,
@@ -81,6 +91,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
     entries.push({
       key: 'aredl',
       label: 'AREDL',
+      value: level.aredlRank,
       badge: `#${level.aredlRank}`,
       detail: null,
       source: null,
@@ -98,8 +109,13 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
     entries.push({
       key: 'sheet',
       label: 'Spreadsheet',
-      badge: String(level.sheetTier),
-      detail: sheetTierName(level.sheetTier),
+      value: level.sheetTier,
+      // The NAME, not the number. The sheets' tier numbers are an internal
+      // index — a reader who doesn't already know the ladder learns nothing
+      // from "20" and everything from "Nightmare", so the name is what earns
+      // the coloured chip and the number isn't shown at all.
+      badge: sheetTierName(level.sheetTier) ?? String(level.sheetTier),
+      detail: null,
       source,
       color,
       // Unpainted badges sit on the page's own surface, so light text reads.

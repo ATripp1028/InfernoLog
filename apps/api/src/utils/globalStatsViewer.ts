@@ -22,6 +22,14 @@ const GSV_API_BASE_URL =
 // Keep a hung GSV request from stalling a resolve call or a sync batch.
 const FETCH_TIMEOUT_MS = 5000
 
+// GSV's own difficulty scale, where 12 is Extreme Demon (11 is Insane Demon,
+// 10 Hard Demon). Read from GSV's response rather than our cached RobTop
+// difficulty so the whole SHEET interpretation below stays inside one payload.
+const GSV_EXTREME_DEMON_DIFFICULTY = 12
+
+// The spreadsheets' bottom tier ("Fuck"), which GSV never reports.
+const SHEET_TIER_FUCK = 0
+
 /**
  * A level's GSV record, normalized to the `levels` columns it feeds. Every
  * field is independently nullable: GSV indexes the level but that says nothing
@@ -30,7 +38,10 @@ const FETCH_TIMEOUT_MS = 5000
  *
  * `sheetTier` is the NLW/LW spreadsheet tier, 0–21. **Tier 0 is a real tier**
  * ("Fuck" — a skillset too niche to rank reliably, NOT "easier than Beginner"),
- * so every guard on it must be `!= null` and never a truthiness check.
+ * so every guard on it must be `!= null` and never a truthiness check. It is
+ * also the one field here GSV never states outright — see
+ * {@link sheetTierForMissingEntry} for how a 0 is arrived at, and why that
+ * inference is wider than the tier it stands for.
  */
 export interface GlobalStatsViewerResult {
   gddlTier: number | null
@@ -50,6 +61,7 @@ interface GsvListRaw {
 // Only the fields we persist are typed; the rest of the payload (rating,
 // difficulty, song_info, daily_id, …) is ignored.
 interface GsvLevelRaw {
+  difficulty?: unknown
   showcase_url?: unknown
   stats?: { object_count?: unknown } | null
   additional_info?: { lists?: unknown } | null
@@ -69,6 +81,35 @@ function listValue(lists: GsvListRaw[], name: string): number | null {
   return entry ? num(entry.value) : null
 }
 
+/**
+ * What a MISSING SHEET entry means for a level.
+ *
+ * GSV reports sheet tiers 1-21 and **never 0** — verified across all 1805
+ * extreme demons it indexes, where the value distribution runs 1 through 21 with
+ * no zeroes at all. The spreadsheets' bottom "Fuck" tier is therefore invisible
+ * in this payload: a tier-0 level looks identical to a level with no placement.
+ * We resolve that ambiguity toward tier 0 for extreme demons, since that is the
+ * only population the sheets rank in the first place.
+ *
+ * ⚠️ THIS IS AN ASSUMPTION, NOT SOMETHING GSV TELLS US, and it over-reaches: of
+ * those 1805 extreme demons, 355 (20%) carry no SHEET entry, and the evidence
+ * says most are simply unranked rather than tier 0 — their median level id is
+ * 119.7M against 88.7M for placed levels, 89% are above 100M, 347 of 355 are
+ * 2.2-era, and only 30% appear on AREDL versus 100% of placed levels. A level
+ * the sheets have not gotten to yet will be shown as bottom tier.
+ *
+ * Because GSV never sends a real 0, every stored 0 came from here, so the whole
+ * inference reverses with one statement and no ambiguity:
+ *   UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;
+ * It is also self-healing: once the sheets place a level, the next GSV check
+ * overwrites the 0 with its real tier.
+ */
+function sheetTierForMissingEntry(raw: GsvLevelRaw): number | null {
+  return num(raw.difficulty) === GSV_EXTREME_DEMON_DIFFICULTY
+    ? SHEET_TIER_FUCK
+    : null
+}
+
 function normalize(raw: GsvLevelRaw): GlobalStatsViewerResult {
   const lists = Array.isArray(raw.additional_info?.lists)
     ? (raw.additional_info.lists as GsvListRaw[])
@@ -85,7 +126,8 @@ function normalize(raw: GsvLevelRaw): GlobalStatsViewerResult {
     aredlRank: aredlRaw === null ? null : Math.round(aredlRaw),
     // Rounded rather than trusted raw: the sheet tier is an integer index into
     // the tier-name table, and a non-integer would break that lookup.
-    sheetTier: sheetRaw === null ? null : Math.round(sheetRaw),
+    sheetTier:
+      sheetRaw === null ? sheetTierForMissingEntry(raw) : Math.round(sheetRaw),
     showcaseUrl: str(raw.showcase_url),
     objectCount: num(raw.stats?.object_count),
   }

@@ -23,7 +23,8 @@ describe('tierEntries', () => {
     )
 
     expect(entries.map((e) => e.key)).toEqual(['gddl', 'aredl', 'sheet'])
-    expect(entries.map((e) => e.badge)).toEqual(['39', '#5', '20'])
+    // GDDL and AREDL show their number; the spreadsheet shows its tier's name.
+    expect(entries.map((e) => e.badge)).toEqual(['39', '#5', 'Nightmare'])
   })
 
   it('skips the lists a level is absent from', () => {
@@ -70,8 +71,8 @@ describe('tierEntries', () => {
     expect(entries).toHaveLength(1)
     expect(entries[0]).toMatchObject({
       key: 'sheet',
-      badge: '0',
-      detail: 'Fuck',
+      value: 0,
+      badge: 'Fuck',
       source: 'NLW',
     })
   })
@@ -81,8 +82,15 @@ describe('tierEntries', () => {
     expect(tierEntries(level({ sheetTier: 14 }))[0]?.source).toBe('LW')
   })
 
-  it('names the sheet tier alongside its number', () => {
-    expect(tierEntries(level({ sheetTier: 20 }))[0]?.detail).toBe('Nightmare')
+  // The sheets' tier numbers are an internal index that means nothing to a
+  // reader, so the chip carries the name and the number is never displayed —
+  // but it stays on the entry, which is what the tier-0 explainer keys off.
+  it('shows the sheet tier by name, keeping the number off the badge', () => {
+    const entry = tierEntries(level({ sheetTier: 20 }))[0]
+
+    expect(entry?.badge).toBe('Nightmare')
+    expect(entry?.value).toBe(20)
+    expect(entry?.detail).toBeNull()
   })
 
   it('drops a sheet tier outside the range the sheets define', () => {

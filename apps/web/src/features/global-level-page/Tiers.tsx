@@ -1,42 +1,9 @@
-import { Info } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/generic/popover'
 import { cn } from '@/lib/utils'
 import type { TierEntry } from './tierEntries'
 
 // Desktop renders the tiers inside a bordered card ('card'); mobile renders
 // them bare inside the collapsible section ('plain'). Matches Song/Links.
 type TiersVariant = 'card' | 'plain'
-
-// Explains the one tier whose number lies. Every other sheet tier is ordered by
-// difficulty, so a reader will take 0 for "easier than Beginner" unless told
-// otherwise — mirrors the ObjectsInfoButton pattern in Stats.tsx.
-function FuckTierInfoButton() {
-  return (
-    <Popover>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="What does tier 0 mean?"
-          className="inline-flex size-4 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
-        >
-          <Info size={12} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
-        <p className="font-medium text-text-primary">Tier 0 isn&rsquo;t easy</p>
-        <p className="text-text-secondary">
-          The bottom tier is for levels demanding a skillset so niche they
-          can&rsquo;t be reliably ranked against anything else — not for levels
-          easier than Beginner.
-        </p>
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 // The coloured placement badge. An unpainted badge (a tier whose sheet color
 // hasn't been transcribed yet) falls back to the page's subtle surface rather
@@ -45,7 +12,7 @@ function TierBadge({ entry }: { entry: TierEntry }) {
   return (
     <span
       className={cn(
-        'inline-flex min-w-8 items-center justify-center rounded px-2 py-1 text-xs font-bold',
+        'inline-flex min-w-8 items-center justify-center rounded px-2.5 py-1 text-xs font-bold',
         entry.color ? undefined : 'bg-bg-subtle'
       )}
       style={
@@ -77,13 +44,14 @@ function SourceChip({ source }: { source: 'NLW' | 'LW' }) {
 }
 
 function TierRow({ entry, pad }: { entry: TierEntry; pad: string }) {
-  const showFuckInfo = entry.key === 'sheet' && entry.badge === '0'
+  // Matched on the tier number, not the chip's text — the chip shows the
+  // tier's name, and pinning this to that string would break the moment the
+  // sheet renames a tier.
 
   const content = (
     <>
       <span className="flex items-center gap-1 text-sm text-text-secondary">
         {entry.label}
-        {showFuckInfo && <FuckTierInfoButton />}
       </span>
       <span className="flex min-w-0 items-center gap-2">
         {entry.detail && (

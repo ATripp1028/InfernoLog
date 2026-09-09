@@ -515,6 +515,12 @@ model Level {
   // ⚠️ TIER 0 IS A REAL TIER ("Fuck"): a level whose skillset is too niche to
   // rank reliably, NOT one easier than Beginner. Guard on `!= null`, never on
   // truthiness, or tier-0 levels silently render as unplaced.
+  //
+  // Every 0 in this column is INFERRED, never reported: GSV's SHEET values run
+  // 1-21, so we read a missing entry on an extreme demon as tier 0. That rule
+  // is wider than the tier it stands for — see sheetTierForMissingEntry in
+  // utils/globalStatsViewer.ts — and undoes with
+  // `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`.
   sheetTier    Int?
   // Showcase/verification video, when GSV has one. A third-party URL — treat
   // it as untrusted at the display layer (safeHref) like any other.

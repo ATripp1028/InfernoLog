@@ -20,6 +20,8 @@ A level's placements on all three community lists — **GDDL tier, AREDL rank, a
 
 This is **read-only**. InfernoLog reads placements through GSV and never submits to AREDL or the spreadsheets; the only write integration is GDDL record submission below, which goes to GDDL directly with the user's own key.
 
+**Tier 0 is inferred, not transmitted.** GSV reports sheet tiers 1–21 and never 0, so the bottom "Fuck" tier only ever appears as a missing entry. An extreme demon with no SHEET placement is read as tier 0 — an assumption that also catches extremes the sheets haven't ranked yet. See `EXTERNAL_APIS.md` for the measurements and the one-line reversal.
+
 **The NLW/LW split is derived, not transmitted.** GSV reports one `SHEET` tier, 0–21; tiers 0–13 are the Non-Listworthy sheet and 14–21 the Listworthy one. `apps/web/src/lib/sheetTier.ts` owns that threshold along with the tier names and colours. Tier 0 ("Fuck") is a real tier — a skillset too niche to rank reliably, not a level easier than Beginner — so it is guarded with `!= null`, never truthiness.
 
 This supersedes part of the "Abandoned Design" note below: AREDL and NLW _data_ are now surfaced, but nothing about the abandoned generic `list_references` / `ListProvider` machinery came back. There is no per-list table and no provider interface — three nullable columns on `levels`, written by one client.

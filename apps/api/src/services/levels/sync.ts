@@ -263,6 +263,12 @@ async function syncOneLevel(
   const repaired = !current.verified
   if (repaired) Object.assign(data, buildRobtopRefreshData(robtop))
 
+  // No GSV check here, unlike every other RobTop write path (see the note in
+  // robtopMapping.ts). This one is already covered: runGsvSyncSlice runs in the
+  // same worker invocation, and a row repaired here has gsvCheckedAt null, so
+  // it is due by definition and the rotation picks it up. Adding a call would
+  // just check the same level twice per run.
+
   // The level is present, so any pending "missing" mark is stale — clear it so a
   // brief disappearance never accumulates toward a delist. Bookkeeping only; not
   // counted as a metadata `changed`.

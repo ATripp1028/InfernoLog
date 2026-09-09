@@ -44,6 +44,12 @@
 //
 // This script closes that gap: it re-fetches each affected level from RobTop
 // and writes the SAME full snapshot every healthy path writes
+// NOTE: this backfills RobTop metadata only — it runs no Global Stats Viewer
+// check, unlike the live seed paths (see robtopMapping.ts). backfillGsv.ts is
+// its counterpart and is the thing to run for community-list placements,
+// showcases and accurate object counts. Kept separate so either can be run
+// alone against a large cache.
+//
 // (buildRobtopRefreshData), which also flips the row to
 // dataSource='robtop_autofill' / verified=true.
 //
@@ -146,9 +152,8 @@ const UNREACHABLE_ABORT_STREAK = 8
 async function main() {
   const { default: prisma } = await import('../utils/prisma')
   const { fetchRobtopLevelResult } = await import('../utils/robtop')
-  const { buildRobtopRefreshData } = await import(
-    '../services/levels/robtopMapping'
-  )
+  const { buildRobtopRefreshData } =
+    await import('../services/levels/robtopMapping')
 
   console.log(
     `Level metadata backfill → target=${target} host=${maskHost(connectionString!)} ` +

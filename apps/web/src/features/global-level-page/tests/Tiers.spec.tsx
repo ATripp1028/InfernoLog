@@ -17,7 +17,9 @@ describe('Tiers', () => {
     expect(screen.getByText('GDDL')).toBeInTheDocument()
     expect(screen.getByText('39')).toBeInTheDocument()
     expect(screen.getByText('#5')).toBeInTheDocument()
+    // The sheet chip carries the tier's name; its number is never shown.
     expect(screen.getByText('Nightmare')).toBeInTheDocument()
+    expect(screen.queryByText('20')).toBeNull()
     expect(screen.getByText('LW')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /GDDL/ })).toHaveAttribute(
       'href',

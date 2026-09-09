@@ -18,6 +18,7 @@ import type { ImportCommitRow, ImportCommitResponse } from '@infernolog/core'
 import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
 import { buildRobtopRefreshData } from '../../levels/robtopMapping'
+import { checkGsvForSeededLevels } from '../../levels/gsvSync'
 import { resolveLevelDifficulty } from '../../levels/difficulty'
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
@@ -572,6 +573,11 @@ export async function processImportJobBatch(
 
   // ── Flush: stubs, batched writes, outcomes (one short transaction) ────
   let newStubIds: string[] = []
+  // Stubs the transaction upgraded with RobTop data. Their GSV check runs after
+  // the commit — an outbound HTTP call inside this transaction would hold it
+  // open across the network and is exactly what the tight timeout below guards
+  // against.
+  const seededFromRobtop: string[] = []
 
   await prisma.$transaction(
     async (tx) => {
@@ -585,6 +591,7 @@ export async function processImportJobBatch(
             where: { inGameId: levelId },
             data: buildRobtopRefreshData(rtData),
           })
+          seededFromRobtop.push(levelId)
           // Already enriched — remove from the seed queue list.
           newStubIds = newStubIds.filter((id) => id !== levelId)
         }
@@ -659,6 +666,12 @@ export async function processImportJobBatch(
       timeout: 20000,
     }
   )
+
+  // Cache community-list placements for the stubs enriched above. Post-commit
+  // by necessity (see seededFromRobtop). The rest of the batch went to the seed
+  // queue instead, and the seed worker runs the same check once it enriches
+  // them, so no level is left out — it just arrives later.
+  await checkGsvForSeededLevels(seededFromRobtop)
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.
   if (newStubIds.length) {

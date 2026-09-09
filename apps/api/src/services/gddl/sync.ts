@@ -1,6 +1,7 @@
 import type { GddlSyncResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
+import { checkGsvForSeededLevels } from '../levels/gsvSync'
 import {
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
@@ -80,6 +81,10 @@ interface LevelLookupResult {
   // incident signal behind {@link STUB_BACKLOG_ALERT}; `needsSeed` is not, since
   // it also covers stubs inherited from earlier runs.
   stubbedWithoutRobtop: boolean
+  // True when this call created the row from a RobTop snapshot. The caller
+  // collects these and runs the GSV check on them AFTER its transaction — the
+  // level is created inside one here, and an outbound call must not join it.
+  seededFromRobtop: boolean
 }
 
 // Creates the fallback row for a level RobTop couldn't supply: GDDL's own
@@ -129,6 +134,7 @@ async function getOrCreateLevel(
       inGameDifficulty: existing.inGameDifficulty,
       needsSeed: !existing.verified,
       robtopOutcome: 'not-consulted',
+      seededFromRobtop: false,
       stubbedWithoutRobtop: false,
     }
   }
@@ -142,6 +148,7 @@ async function getOrCreateLevel(
       // about, so it is not fresh evidence either way.
       robtopOutcome: 'not-consulted',
       stubbedWithoutRobtop: true,
+      seededFromRobtop: false,
     }
   }
 
@@ -163,6 +170,7 @@ async function getOrCreateLevel(
       inGameDifficulty: created.inGameDifficulty,
       needsSeed: false,
       robtopOutcome: 'answered',
+      seededFromRobtop: true,
       stubbedWithoutRobtop: false,
     }
   }
@@ -174,6 +182,7 @@ async function getOrCreateLevel(
     needsSeed: res.status === 'unreachable',
     robtopOutcome: res.status === 'unreachable' ? 'unreachable' : 'answered',
     stubbedWithoutRobtop: res.status === 'unreachable',
+    seededFromRobtop: false,
   }
 }
 
@@ -329,6 +338,10 @@ export async function syncGddlSubmissions(
   const userInfo = await fetchGddlUserInfo(gddlApiKey)
   const submissions = await fetchAllGddlSubmissions(gddlApiKey, userInfo.id)
   const seedIds = new Set<string>()
+  // Levels this run created from a RobTop snapshot. Their GSV check runs after
+  // the loop, not inside the per-submission transaction below — an outbound
+  // call must never be held open by one.
+  const seededFromRobtopIds = new Set<string>()
 
   // Circuit breaker state. `robtopDown` latches for the rest of the run rather
   // than probing for recovery: a cooldown is measured in minutes, and the seed
@@ -349,8 +362,10 @@ export async function syncGddlSubmissions(
           needsSeed,
           robtopOutcome,
           stubbedWithoutRobtop,
+          seededFromRobtop,
         } = await getOrCreateLevel(tx, levelId, sub, robtopDown)
         if (needsSeed) seedIds.add(levelId)
+        if (seededFromRobtop) seededFromRobtopIds.add(levelId)
         if (stubbedWithoutRobtop) unreachableStubs++
 
         // Only a level we actually asked RobTop about moves the streak: a cache
@@ -405,6 +420,12 @@ export async function syncGddlSubmissions(
       result.errors.push({ levelId, reason })
     }
   }
+
+  // Community-list placements for everything seeded from RobTop above. After
+  // the loop so no transaction is open, and before the seed-queue enqueue so a
+  // failure there can't skip it. The levels going to the seed queue instead get
+  // their check from the seed worker once it enriches them.
+  await checkGsvForSeededLevels([...seededFromRobtopIds])
 
   if (seedIds.size) {
     try {

@@ -33,13 +33,15 @@ vi.mock('../../utils/globalStatsViewer', () => ({
 // RobTop is never called by these paths, but sync.ts imports it at module load.
 vi.mock('../../utils/robtop', () => ({ fetchRobtopLevelResult: vi.fn() }))
 
-const { checkAndPersistGsv, checkGsvIfDue, GSV_RECHECK_DAYS } = await import(
-  './gsvSync'
-)
+const {
+  checkAndPersistGsv,
+  checkGsvIfDue,
+  checkGsvForSeededLevels,
+  GSV_RECHECK_DAYS,
+} = await import('./gsvSync')
 const { runGsvSyncSlice } = await import('./sync')
-const { fetchGlobalStatsViewerLevel } = await import(
-  '../../utils/globalStatsViewer'
-)
+const { fetchGlobalStatsViewerLevel } =
+  await import('../../utils/globalStatsViewer')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -226,7 +228,64 @@ describe('checkGsvIfDue', () => {
   })
 
   it('is a no-op for a level that is not cached', async () => {
-    await expect(checkGsvIfDue('nope')).resolves.toBeUndefined()
+    await expect(checkGsvIfDue('nope')).resolves.toBe('skipped')
+    expect(gsvMock).not.toHaveBeenCalled()
+  })
+
+  // The batch helper paces only between calls that actually went out, so it
+  // needs to know a gated check did nothing — 'skipped' is that signal, and it
+  // must stay distinct from the 'failed' a real but unsuccessful call returns.
+  it('reports what it did, separating a skip from a real outcome', async () => {
+    await seedLevel({ inGameId: 'due' })
+    await seedLevel({ inGameId: 'fresh', gsvCheckedAt: daysAgo(1) })
+    gsvMock.mockResolvedValue(gsvResult())
+
+    await expect(checkGsvIfDue('due')).resolves.toBe('found')
+    await expect(checkGsvIfDue('fresh')).resolves.toBe('skipped')
+  })
+})
+
+// ─── checkGsvForSeededLevels (every RobTop seed path) ────────────────────────
+
+describe('checkGsvForSeededLevels', () => {
+  it('checks each level just seeded from RobTop', async () => {
+    await seedLevel({ inGameId: 'a' })
+    await seedLevel({ inGameId: 'b' })
+    gsvMock.mockResolvedValue(gsvResult())
+
+    await checkGsvForSeededLevels(['a', 'b'])
+
+    expect(gsvMock.mock.calls.map((c) => c[0])).toEqual(['a', 'b'])
+    expect((await readLevel('a')).gddlTier).toBe(39)
+    expect((await readLevel('b')).gddlTier).toBe(39)
+  })
+
+  it('skips levels the gate rules out, without calling GSV for them', async () => {
+    await seedLevel({ inGameId: 'rated' })
+    await seedLevel({ inGameId: 'unrated', isRated: false })
+    await seedLevel({ inGameId: 'delisted', delistedAt: new Date() })
+    await seedLevel({ inGameId: 'fresh', gsvCheckedAt: daysAgo(1) })
+    gsvMock.mockResolvedValue(gsvResult())
+
+    await checkGsvForSeededLevels(['rated', 'unrated', 'delisted', 'fresh'])
+
+    expect(gsvMock.mock.calls.map((c) => c[0])).toEqual(['rated'])
+  })
+
+  // A seed path must never fail because GSV is having a bad day.
+  it('keeps going when a level fails, and never throws', async () => {
+    await seedLevel({ inGameId: 'a' })
+    await seedLevel({ inGameId: 'b' })
+    gsvMock.mockResolvedValueOnce(undefined).mockResolvedValueOnce(gsvResult())
+
+    await expect(checkGsvForSeededLevels(['a', 'b'])).resolves.toBeUndefined()
+
+    expect((await readLevel('a')).gsvCheckedAt).toBeNull()
+    expect((await readLevel('b')).gddlTier).toBe(39)
+  })
+
+  it('does nothing for an empty batch', async () => {
+    await expect(checkGsvForSeededLevels([])).resolves.toBeUndefined()
     expect(gsvMock).not.toHaveBeenCalled()
   })
 })

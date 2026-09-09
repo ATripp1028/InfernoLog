@@ -25,6 +25,7 @@ function gsvLevel(overrides: Record<string, unknown> = {}) {
     level_id: 86407629,
     level_name: 'Tidal Wave',
     creator: { user_id: 16348545, name: 'OniLinkGD' },
+    // 12 is GSV's Extreme Demon; 11 is Insane Demon.
     difficulty: 12,
     showcase_url: null,
     stats: {
@@ -107,6 +108,8 @@ describe('fetchGlobalStatsViewerLevel', () => {
       resp(
         200,
         gsvLevel({
+          // Non-demon, so the missing SHEET entry stays missing.
+          difficulty: 2,
           showcase_url: 'https://www.youtube.com/watch?v=jPqVXbKNoLk',
           additional_info: { lists: [] },
         })
@@ -120,6 +123,54 @@ describe('fetchGlobalStatsViewerLevel', () => {
       showcaseUrl: 'https://www.youtube.com/watch?v=jPqVXbKNoLk',
       objectCount: 220116,
     })
+  })
+
+  // GSV reports sheet tiers 1-21 and never 0, so the spreadsheets' bottom
+  // "Fuck" tier is only ever visible as an ABSENT entry. See
+  // sheetTierForMissingEntry for why this inference is wider than the tier.
+  it('reads a missing sheet entry on an extreme demon as tier 0', async () => {
+    mockFetch.mockResolvedValueOnce(
+      resp(
+        200,
+        gsvLevel({
+          difficulty: 12,
+          additional_info: {
+            lists: [{ name: 'GDDL', value: 30.0, label: '30.0', url: null }],
+          },
+        })
+      )
+    )
+
+    const result = await fetchGlobalStatsViewerLevel('123')
+    expect(result?.sheetTier).toBe(0)
+    // The other lists are untouched by the inference.
+    expect(result?.gddlTier).toBe(30)
+    expect(result?.aredlRank).toBeNull()
+  })
+
+  it.each([
+    ['an insane demon', 11],
+    ['a non-demon', 2],
+  ])(
+    'leaves a missing sheet entry missing for %s',
+    async (_label, difficulty) => {
+      mockFetch.mockResolvedValueOnce(
+        resp(200, gsvLevel({ difficulty, additional_info: { lists: [] } }))
+      )
+
+      await expect(
+        fetchGlobalStatsViewerLevel('123').then((r) => r?.sheetTier)
+      ).resolves.toBeNull()
+    }
+  )
+
+  // A real placement always wins over the inference — an extreme demon that IS
+  // on the sheets must never be flattened to the bottom tier.
+  it('prefers a reported sheet tier over the inference', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, gsvLevel({ difficulty: 12 })))
+
+    const result = await fetchGlobalStatsViewerLevel('86407629')
+    expect(result?.sheetTier).toBe(20)
   })
 
   it('tolerates a missing object count without failing the whole record', async () => {

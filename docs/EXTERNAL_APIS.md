@@ -143,6 +143,10 @@ One request returns what would otherwise take three integrations. `additional_in
 
 The array is often **empty** — a rated level on none of the three lists is normal, not an error.
 
+**GSV never reports sheet tier 0, so we infer it.** Its SHEET values run 1–21 — verified across all 1805 extreme demons it indexes, with no zeroes anywhere in the distribution — which means the spreadsheets' bottom "Fuck" tier is indistinguishable from having no placement at all. `sheetTierForMissingEntry` in the client resolves that toward tier 0 for **extreme demons** (GSV `difficulty` 12), the only population the sheets rank.
+
+This is an assumption, not something GSV states, and it deliberately over-reaches: 355 of those 1805 extreme demons (20%) carry no SHEET entry, and the evidence says most are unranked rather than bottom-tier — median level id 119.7M against 88.7M for placed levels, 89% above 100M, 347 of 355 on 2.2, and only 30% present on AREDL versus 100% of placed levels. A level the sheets simply haven't reached yet renders as tier 0. Because a real 0 never arrives from GSV, every stored 0 came from this rule and it reverses unambiguously with `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`. It also self-heals: once a level is placed, the next check overwrites the 0.
+
 **`SHEET` is two spreadsheets on one ladder.** Tiers 0–13 are the Non-Listworthy sheet, 14–21 the Listworthy one, and nothing on the wire says which; the threshold is the whole of that knowledge, and it lives in `apps/web/src/lib/sheetTier.ts`. **Tier 0 ("Fuck") is a real tier** — a level whose skillset is too niche to rank reliably, _not_ one easier than Beginner. Every guard on a sheet tier is `!= null`, never truthiness, or tier-0 levels vanish from the UI.
 
 ### Object count
