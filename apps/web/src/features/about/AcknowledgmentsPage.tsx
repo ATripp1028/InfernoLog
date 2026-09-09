@@ -173,14 +173,26 @@ export function AcknowledgmentsPage() {
           directly. <br />
           Credit: AREDL maintainers.
         </Entry>
-        <Entry name="Non-Listworthy Spreadsheet" link={{ label: 'NLW Spreadsheet Link', href: 'https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333'}}>
-          Tier data for non-listworthy extreme demons,
-          shown on level pages and reached via the Global Stats Viewer. <br />
+        <Entry
+          name="Non-Listworthy Spreadsheet"
+          link={{
+            label: 'NLW Spreadsheet Link',
+            href: 'https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333',
+          }}
+        >
+          Tier data for non-listworthy extreme demons, shown on level pages and
+          reached via the Global Stats Viewer. <br />
           Credit: NLW Staff.
         </Entry>
-        <Entry name="Listworthy Spreadsheet" link={{ label:'LW Spreadsheet Link', href:'https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115'}}>
-          Tier data for listworthy extreme demons,
-          shown on level pages and reached via the Global Stats Viewer. <br />
+        <Entry
+          name="Listworthy Spreadsheet"
+          link={{
+            label: 'LW Spreadsheet Link',
+            href: 'https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115',
+          }}
+        >
+          Tier data for listworthy extreme demons, shown on level pages and
+          reached via the Global Stats Viewer. <br />
           Credit: LW Staff.
         </Entry>
       </Section>
@@ -274,9 +286,11 @@ export function AcknowledgmentsPage() {
       >
         <p className="font-medium text-foreground">Icons</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
-          All icons not from Geometry Dash are courtesy of Lucide-React. Their site can be found at{' '}
+          All icons not from Geometry Dash are courtesy of Lucide-React. Their
+          site can be found at{' '}
           <SectionLink href="https://lucide.dev/">lucide.dev</SectionLink>.
-          Copyright (c) 2026 Lucide Icons and Contributors. Licensed under the ISC License (ISC).
+          Copyright (c) 2026 Lucide Icons and Contributors. Licensed under the
+          ISC License (ISC).
         </p>
         <p className="font-medium text-foreground">Placeholder Images</p>
         <p className="text-sm leading-relaxed text-muted-foreground">

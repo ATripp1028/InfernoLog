@@ -9,13 +9,17 @@ describe('HeroVideo', () => {
   // only cosmetic classes collapses it to nothing, which looks exactly like a
   // video that failed to load and reports no error anywhere.
   it('sizes itself to a 16:9 box when the caller passes no box', () => {
-    const { container } = render(<HeroVideo url={YT} className="rounded-card" />)
+    const { container } = render(
+      <HeroVideo url={YT} className="rounded-card" />
+    )
 
     expect(container.firstElementChild).toHaveClass('aspect-video', 'w-full')
   })
 
   it('keeps the caller’s own classes alongside its box', () => {
-    const { container } = render(<HeroVideo url={YT} className="rounded-card" />)
+    const { container } = render(
+      <HeroVideo url={YT} className="rounded-card" />
+    )
 
     expect(container.firstElementChild).toHaveClass('rounded-card')
   })

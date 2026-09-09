@@ -428,6 +428,14 @@ export const GSV_SLICE_SIZE = 200
 // is far below the RobTop pacing. 200 levels at 300ms is ~60s per run.
 const GSV_PACE_MS = 300
 
+// Wall-clock ceiling on one GSV slice. The pacing above describes a HEALTHY
+// GSV; a hanging one costs FETCH_TIMEOUT_MS (5s) per level, which puts 200
+// levels at ~17.7 minutes — past the worker's 15-minute Lambda timeout, and
+// this slice runs last, after the RobTop and reverify passes have already
+// spent minutes. Blowing that timeout kills the invocation before the cursor
+// write below, so the rotation would never advance off the failing stretch.
+const GSV_SLICE_BUDGET_MS = 6 * 60_000
+
 /** Tallies from one pass of the GSV rotation. */
 export interface GsvSliceResult {
   processed: number
@@ -644,10 +652,16 @@ export async function runDelistedReverifySlice(
  * failed call writes nothing at all, so a wholly-unavailable GSV costs one lap
  * of no-ops rather than damaging the cache. The cursor still advances over the
  * attempted ids so a permanently-failing stretch can't pin the rotation.
+ *
+ * There is a wall-clock budget instead, since a HANGING GSV is the case pacing
+ * alone doesn't bound (see {@link GSV_SLICE_BUDGET_MS}). Running out of time
+ * ends the slice where it stands and still writes the cursor, so the untouched
+ * tail is picked up next run rather than being skipped for a whole lap.
  */
 export async function runGsvSyncSlice(
   size: number = GSV_SLICE_SIZE,
-  paceMs: number = GSV_PACE_MS
+  paceMs: number = GSV_PACE_MS,
+  budgetMs: number = GSV_SLICE_BUDGET_MS
 ): Promise<GsvSliceResult> {
   const result: GsvSliceResult = {
     processed: 0,
@@ -667,10 +681,24 @@ export async function runGsvSyncSlice(
     'levelSync: GSV slice selected'
   )
 
+  const deadline = Date.now() + budgetMs
+  // The last id ATTEMPTED, not the end of the slice — the same rule the RobTop
+  // sweep follows. A budget-truncated run must leave its untouched tail in
+  // front of the cursor rather than skipping a whole lap over it.
+  let lastAttempted = ids[0]!
+
   for (let i = 0; i < ids.length; i++) {
     const levelId = ids[i]!
+    if (Date.now() >= deadline) {
+      logger.warn(
+        { budgetMs, processed: result.processed, sliceSize: ids.length },
+        'levelSync: GSV slice out of time, stopping early'
+      )
+      break
+    }
     if (i > 0 && paceMs > 0) await sleep(paceMs)
     result.processed++
+    lastAttempted = levelId
 
     try {
       const outcome = await checkAndPersistGsv(levelId)
@@ -687,7 +715,7 @@ export async function runGsvSyncSlice(
     }
   }
 
-  await writeCursor('gsv', ids[ids.length - 1]!)
+  await writeCursor('gsv', lastAttempted)
   logger.info({ ...result }, 'levelSync: GSV slice complete')
   return result
 }

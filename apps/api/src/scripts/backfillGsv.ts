@@ -113,9 +113,18 @@ async function main() {
     const { inGameId } = levels[i]!
     if (i > 0 && paceMs > 0) await sleep(paceMs)
 
-    // Never throws (see gsvSync): a failed call returns 'failed' and writes
-    // nothing, so we tally and move on.
-    const outcome = await checkAndPersistGsv(inGameId)
+    // The GSV call itself never throws — it resolves to 'failed' and writes
+    // nothing. The cache WRITE can still throw, though (the row deleted since
+    // the findMany above, or a transient DB error), and this loop runs for
+    // hours, so one such row must not abort the whole backfill. Tallied as a
+    // failure, which leaves gsvCheckedAt null for a re-run to retry.
+    let outcome: 'found' | 'none' | 'failed'
+    try {
+      outcome = await checkAndPersistGsv(inGameId)
+    } catch (err) {
+      console.error(`  ${inGameId}: write failed —`, err)
+      outcome = 'failed'
+    }
     if (outcome === 'found') found++
     else if (outcome === 'none') none++
     else failed++

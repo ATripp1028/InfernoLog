@@ -26,4 +26,5 @@ Two sets exist because the Log, demon list, and privacy-toggle shots are **captu
 The favicon was made by me in Inkscape and formatted using https://realfavicongenerator.net/.
 
 ## Integration Icons
+
 **gddl.ico** and **aredl.ico** are both downloaded from their respective sites. sheets.svg is **chart-no-axes-column-increasing.svg** from Lucide-React.

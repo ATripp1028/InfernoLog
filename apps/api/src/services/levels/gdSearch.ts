@@ -18,6 +18,10 @@ import { searchRobtopByNameResult, type RobtopLevel } from '../../utils/robtop'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
 import { checkGsvForSeededLevels } from './gsvSync'
 
+// Wall-clock ceiling on the GSV pass below. Sized against the route's 25s
+// Lambda timeout minus the RobTop search's own worst case.
+const GSV_SEARCH_BUDGET_MS = 6_000
+
 // ── /search-page filters → getGJLevels21 params ────────────────────────────
 // Only the subset GD's schema can express is forwarded; everything else (exact
 // coin count, coinsVerified, creator search, NONG, object count) is dropped and
@@ -193,10 +197,17 @@ export async function runGdSearch(
   )
 
   // Cache their community-list placements too, so a level reached this way
-  // opens with its tiers rather than waiting on the cron rotation. Bounded by
-  // the search page size, and levels already in the cache were filtered out
-  // above, so this is a handful of calls at most.
-  await checkGsvForSeededLevels(rated.map((r) => r.levelId))
+  // opens with its tiers rather than waiting on the cron rotation.
+  //
+  // Hard-budgeted, because this is the one GSV call site on a request the user
+  // is waiting on: the route's Lambda gets 25s (infra/routes/levels.ts) and the
+  // RobTop search above has already spent some of it, while a hanging GSV costs
+  // 5s per level and the page can return up to 10 new ones. Whatever the budget
+  // cuts off is picked up by the cron rotation.
+  await checkGsvForSeededLevels(
+    rated.map((r) => r.levelId),
+    GSV_SEARCH_BUDGET_MS
+  )
 
   return {
     status: 'ok',

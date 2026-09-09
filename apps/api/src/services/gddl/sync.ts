@@ -2,6 +2,10 @@ import type { GddlSyncResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
 import { checkGsvForSeededLevels } from '../levels/gsvSync'
+
+// Wall-clock ceiling on this run's GSV pass — see the call site in
+// syncGddlSubmissions.
+const GSV_SYNC_BUDGET_MS = 60_000
 import {
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
@@ -425,7 +429,13 @@ export async function syncGddlSubmissions(
   // the loop so no transaction is open, and before the seed-queue enqueue so a
   // failure there can't skip it. The levels going to the seed queue instead get
   // their check from the seed worker once it enriches them.
-  await checkGsvForSeededLevels([...seededFromRobtopIds])
+  //
+  // Budgeted: a first sync can seed hundreds of levels, and at 5s apiece a
+  // degraded GSV would run past the worker's 15-minute timeout — killing it
+  // before the enqueue below AND before the caller marks the job finished, so
+  // the stubs stay unenriched and the UI spins on a job that never resolves.
+  // Whatever the budget cuts off is picked up by the cron rotation.
+  await checkGsvForSeededLevels([...seededFromRobtopIds], GSV_SYNC_BUDGET_MS)
 
   if (seedIds.size) {
     try {

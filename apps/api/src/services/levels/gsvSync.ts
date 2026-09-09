@@ -141,14 +141,37 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
  * is what keeps a re-import of a known library fast.
  *
  * Never throws — seeding must not fail because GSV is having a bad day.
+ *
+ * @param budgetMs - Wall-clock ceiling on the whole batch. **Every caller on a
+ * clock should pass one.** A batch is otherwise unbounded: one call can take
+ * FETCH_TIMEOUT_MS (5s) when GSV hangs, so 50 seeded levels is over four
+ * minutes — long enough to blow a route's Lambda timeout, or to eat the
+ * import worker's self-reinvoke margin and strand a job at `running`. Levels
+ * past the budget are simply left for the cron rotation, which is where they
+ * would have been served from anyway. Omit only where the batch is small and
+ * the caller has minutes to spare (the seed worker's 8 ids).
  */
 export async function checkGsvForSeededLevels(
-  levelIds: readonly string[]
+  levelIds: readonly string[],
+  budgetMs?: number
 ): Promise<void> {
+  const deadline =
+    budgetMs === undefined ? Infinity : Date.now() + Math.max(0, budgetMs)
   let called = false
+  let skippedForBudget = 0
   for (const levelId of levelIds) {
+    if (Date.now() >= deadline) {
+      skippedForBudget++
+      continue
+    }
     if (called) await sleep(SEED_PACE_MS)
     const outcome = await checkGsvIfDue(levelId)
     called = outcome !== 'skipped'
+  }
+  if (skippedForBudget > 0) {
+    logger.warn(
+      { skipped: skippedForBudget, total: levelIds.length, budgetMs },
+      'checkGsvForSeededLevels: budget exhausted, leaving the rest to the cron'
+    )
   }
 }

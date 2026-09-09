@@ -1,3 +1,9 @@
+import { Info } from 'lucide-react'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/generic/popover'
 import { cn } from '@/lib/utils'
 import type { TierEntry } from './tierEntries'
 
@@ -43,10 +49,42 @@ function SourceChip({ source }: { source: 'NLW' | 'LW' }) {
   )
 }
 
+// Sheet tier 0 ("Fuck") reads as "easier than Beginner" to anyone who doesn't
+// already know the ladder, so the one tier that needs explaining gets a
+// popover. Mirrors Stats.tsx's ObjectsInfoButton: a small Info trigger.
+function SheetTierZeroInfo() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="What does tier 0 mean?"
+          className="inline-flex size-4 shrink-0 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
+        >
+          <Info size={12} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
+        <p className="font-medium text-text-primary">
+          Tier 0 &mdash; &ldquo;Fuck&rdquo;
+        </p>
+        <p className="text-text-secondary">
+          The spreadsheets&rsquo; bottom tier is for levels whose skillset is
+          too niche to rank reliably &mdash; not levels easier than Beginner. It
+          is also inferred rather than reported, so an extreme demon the sheets
+          haven&rsquo;t ranked yet can land here.
+        </p>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function TierRow({ entry, pad }: { entry: TierEntry; pad: string }) {
   // Matched on the tier number, not the chip's text — the chip shows the
   // tier's name, and pinning this to that string would break the moment the
   // sheet renames a tier.
+  const explainer =
+    entry.key === 'sheet' && entry.value === 0 ? <SheetTierZeroInfo /> : null
 
   const content = (
     <>
@@ -73,21 +111,31 @@ function TierRow({ entry, pad }: { entry: TierEntry; pad: string }) {
     </>
   )
 
-  const rowClass = cn('flex items-center justify-between gap-3 py-2.5', pad)
+  // The explainer is a sibling of the link, never inside it: a <button> nested
+  // in an <a> is invalid, and clicking it would follow the anchor instead of
+  // opening the popover.
+  const inner = 'flex min-w-0 flex-1 items-center gap-3'
 
   // A list with no per-level page (the spreadsheets) renders as a plain row —
   // an anchor with nowhere to go still looks clickable and would do nothing.
-  if (!entry.href) return <div className={rowClass}>{content}</div>
-
-  return (
+  const row = entry.href ? (
     <a
       href={entry.href}
       target="_blank"
       rel="noreferrer noopener"
-      className={cn(rowClass, 'transition-colors hover:text-text-primary')}
+      className={cn(inner, 'transition-colors hover:text-text-primary')}
     >
       {content}
     </a>
+  ) : (
+    <div className={inner}>{content}</div>
+  )
+
+  return (
+    <div className={cn('flex items-center gap-2 py-2.5', pad)}>
+      {row}
+      {explainer}
+    </div>
   )
 }
 

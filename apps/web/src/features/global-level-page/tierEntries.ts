@@ -86,7 +86,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
       color,
       textColor: readableTextColor(color),
       href: gddlLevelUrl(level.inGameId),
-      icon: '/assets/integrations/gddl.ico'
+      icon: '/assets/integrations/gddl.ico',
     })
   }
 
@@ -101,7 +101,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
       color: AREDL_BADGE_COLOR,
       textColor: readableTextColor(AREDL_BADGE_COLOR),
       href: aredlLevelUrl(level.inGameId),
-      icon: '/assets/integrations/aredl.ico'
+      icon: '/assets/integrations/aredl.ico',
     })
   }
 
@@ -133,7 +133,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
           : source === 'LW'
             ? LW_SPREADSHEET_LINK
             : null,
-      icon: '/assets/integrations/sheets.svg'
+      icon: '/assets/integrations/sheets.svg',
     })
   }
 
