@@ -50,23 +50,26 @@ function TierRow({ entry, pad }: { entry: TierEntry; pad: string }) {
 
   const content = (
     <>
-      <span className="flex items-center gap-1 text-sm text-text-secondary">
-        {entry.label}
-      </span>
-      <span className="flex min-w-0 items-center gap-2">
-        {entry.detail && (
-          <span className="truncate text-[13px] text-text-secondary">
-            {entry.detail}
-          </span>
-        )}
-        {entry.source && <SourceChip source={entry.source} />}
-        <TierBadge entry={entry} />
-        {entry.href && (
-          <span aria-hidden className="text-text-tertiary">
-            ↗
-          </span>
-        )}
-      </span>
+      <img src={entry.icon} alt="" aria-hidden className="h-4 w-4 shrink-0" />
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+        <span className="flex items-center gap-1 text-sm text-text-secondary">
+          {entry.label}
+        </span>
+        <span className="flex min-w-0 items-center gap-2">
+          {entry.detail && (
+            <span className="truncate text-[13px] text-text-secondary">
+              {entry.detail}
+            </span>
+          )}
+          {entry.source && <SourceChip source={entry.source} />}
+          <TierBadge entry={entry} />
+          {entry.href && (
+            <span aria-hidden className="text-text-tertiary">
+              ↗
+            </span>
+          )}
+        </span>
+      </div>
     </>
   )
 

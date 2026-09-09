@@ -272,6 +272,12 @@ export function AcknowledgmentsPage() {
         title="Other Acknowledgments"
         intro="These people and projects contributed to InfernoLog in ways that don't fit neatly into the other categories."
       >
+        <p className="font-medium text-foreground">Icons</p>
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          All icons not from Geometry Dash are courtesy of Lucide-React. Their site can be found at{' '}
+          <SectionLink href="https://lucide.dev/">lucide.dev</SectionLink>.
+          Copyright (c) 2026 Lucide Icons and Contributors. Licensed under the ISC License (ISC).
+        </p>
         <p className="font-medium text-foreground">Placeholder Images</p>
         <p className="text-sm leading-relaxed text-muted-foreground">
           Placeholder images used in the UI are from{' '}

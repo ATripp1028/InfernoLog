@@ -46,6 +46,8 @@ export interface TierEntry {
   textColor: string
   /** Where the row points, or null when the list has no per-level page. */
   href: string | null
+  /** The icon to display next to the tier entry. */
+  icon: string
 }
 
 // AREDL has no community color convention the way the other two lists do (see
@@ -84,6 +86,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
       color,
       textColor: readableTextColor(color),
       href: gddlLevelUrl(level.inGameId),
+      icon: '/assets/integrations/gddl.ico'
     })
   }
 
@@ -98,6 +101,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
       color: AREDL_BADGE_COLOR,
       textColor: readableTextColor(AREDL_BADGE_COLOR),
       href: aredlLevelUrl(level.inGameId),
+      icon: '/assets/integrations/aredl.ico'
     })
   }
 
@@ -129,6 +133,7 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
           : source === 'LW'
             ? LW_SPREADSHEET_LINK
             : null,
+      icon: '/assets/integrations/sheets.svg'
     })
   }
 
