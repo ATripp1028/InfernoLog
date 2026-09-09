@@ -65,9 +65,21 @@ describe('sheetTierSource', () => {
 })
 
 describe('sheetTierColor', () => {
-  it('returns the documented color for a pinned tier', () => {
-    expect(sheetTierColor(1)).toBe('#6495ED')
-    expect(sheetTierColor(6)).toBe('#FF0000')
+  it('returns the sheet’s own color for a tier', () => {
+    expect(sheetTierColor(1)).toBe('#4a86e8')
+    expect(sheetTierColor(6)).toBe('#ff0000')
+  })
+
+  // Tier 0 is black, which is exactly the value a truthiness check on the
+  // colour would survive but a truthiness check on the tier would not.
+  it('paints tier 0 rather than leaving it unpainted', () => {
+    expect(sheetTierColor(0)).toBe('#000000')
+  })
+
+  it('covers every tier — no gaps left in the palette', () => {
+    for (let tier = 0; tier <= MAX_SHEET_TIER; tier++) {
+      expect(sheetTierColor(tier)).toMatch(/^#[0-9a-f]{6}$/i)
+    }
   })
 
   it('returns null for a tier outside the range', () => {
@@ -78,8 +90,8 @@ describe('sheetTierColor', () => {
 
 describe('readableTextColor', () => {
   it('picks dark text on light backgrounds and light text on dark ones', () => {
-    expect(readableTextColor('#FFD700')).toBe('#0d0d0d')
-    expect(readableTextColor('#9400D3')).toBe('#f5f5f5')
+    expect(readableTextColor('#ffff00')).toBe('#0d0d0d')
+    expect(readableTextColor('#000000')).toBe('#f5f5f5')
   })
 
   it('falls back to light text for an unparseable value', () => {

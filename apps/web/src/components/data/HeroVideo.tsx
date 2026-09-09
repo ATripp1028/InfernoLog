@@ -33,6 +33,12 @@ function YouTubePoster({ videoId }: { videoId: string }) {
  * viewer's own completion run on their page, the level's showcase on the
  * global one — so `label` names whichever this is.
  *
+ * Sizes itself to a 16:9 box by default. That default is load-bearing rather
+ * than cosmetic: the element has no intrinsic height, so a caller passing only
+ * cosmetic classes used to collapse it to nothing — visibly "the video didn't
+ * load" with no error anywhere. A caller wanting a different box still wins,
+ * since an explicit height makes the aspect ratio moot.
+ *
  * @param url - Any YouTube or Twitch-clip URL. One that yields no embeddable
  * id renders as the poster-less placeholder rather than an inert player.
  * @param label - What the video is, shown under the play button and used as
@@ -69,7 +75,12 @@ export function HeroVideo({
 
   if (playing && iframeSrc) {
     return (
-      <div className={cn('overflow-hidden bg-black', className)}>
+      <div
+        className={cn(
+          'aspect-video w-full overflow-hidden bg-black',
+          className
+        )}
+      >
         <iframe
           src={iframeSrc}
           title={label}
@@ -84,7 +95,7 @@ export function HeroVideo({
   return (
     <div
       className={cn(
-        'group relative cursor-pointer overflow-hidden bg-black',
+        'group relative aspect-video w-full cursor-pointer overflow-hidden bg-black',
         className
       )}
       onClick={() => iframeSrc && setPlaying(true)}

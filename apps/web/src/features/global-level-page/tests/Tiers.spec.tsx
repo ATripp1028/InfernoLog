@@ -25,15 +25,19 @@ describe('Tiers', () => {
     )
   })
 
-  it('offers the tier-0 explanation and no link for the sheet row', () => {
+  it('offers the tier-0 explanation and links to the sheet holding it', () => {
     const level = makeGlobalLevel({ sheetTier: 0 })
     render(<Tiers entries={tierEntries(level)} />)
 
     expect(screen.getByText('Fuck')).toBeInTheDocument()
     expect(screen.getByText('NLW')).toBeInTheDocument()
+    // Tier 0 reads as "easier than Beginner" without this.
     expect(
       screen.getByRole('button', { name: 'What does tier 0 mean?' })
     ).toBeInTheDocument()
-    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.getByRole('link')).toHaveAttribute(
+      'href',
+      expect.stringContaining('docs.google.com/spreadsheets')
+    )
   })
 })

@@ -90,6 +90,9 @@ export function GlobalLevelPage() {
   // The hero slot: the level's showcase video when it has one, otherwise its
   // thumbnail. Both layouts render this, differing only in the class they pass,
   // so the choice is made once here rather than twice in JSX.
+  //
+  // Both branches land on the same 16:9 box — each sizes itself — so the page
+  // doesn't jump between a level with a showcase and one without.
   const hero = (className: string) =>
     showcaseUrl ? (
       <HeroVideo url={showcaseUrl} label="Showcase" className={className} />

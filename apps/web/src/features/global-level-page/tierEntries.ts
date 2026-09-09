@@ -43,8 +43,10 @@ export interface TierEntry {
 // docs/DESIGN_LANGUAGE.md), so its badge is painted from InfernoLog's own
 // accent rather than from anything AREDL publishes.
 const AREDL_BADGE_COLOR = '#ff9f1c'
-const NLW_SPREADSHEET_LINK='https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333'
-const LW_SPREADSHEET_LINK='https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115'
+const NLW_SPREADSHEET_LINK =
+  'https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333'
+const LW_SPREADSHEET_LINK =
+  'https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115'
 
 /**
  * The list placements to render for a level, in list order, skipping any the
@@ -102,9 +104,15 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
       color,
       // Unpainted badges sit on the page's own surface, so light text reads.
       textColor: color ? readableTextColor(color) : '#f5f5f5',
-      // The NLW/LW sheets are Google Docs with no per-level anchor, so this row
-      // has no destination — unlike GDDL and AREDL, which do.
-      href: source === 'NLW' ? NLW_SPREADSHEET_LINK : source === 'LW' ? LW_SPREADSHEET_LINK : null,
+      // Unlike GDDL and AREDL, the sheets have no per-level anchor — this
+      // points at whichever of the two documents holds the tier, and the row's
+      // NLW/LW chip is what says which one the reader is about to open.
+      href:
+        source === 'NLW'
+          ? NLW_SPREADSHEET_LINK
+          : source === 'LW'
+            ? LW_SPREADSHEET_LINK
+            : null,
     })
   }
 

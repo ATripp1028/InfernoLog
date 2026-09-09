@@ -40,10 +40,20 @@ describe('tierEntries', () => {
     expect(entries[1]?.href).toBe('https://aredl.net/list/86407629')
   })
 
-  it('gives the spreadsheet row no link — the sheets have no per-level anchor', () => {
-    const entries = tierEntries(level({ sheetTier: 20 }))
+  // The sheets have no per-level anchor, so the row opens whichever of the two
+  // documents holds the tier — which makes the NLW/LW split load-bearing for
+  // more than the chip.
+  it('points a listworthy tier at the LW sheet', () => {
+    const href = tierEntries(level({ sheetTier: 20 }))[0]?.href
 
-    expect(entries[0]?.href).toBeNull()
+    expect(href).toContain('docs.google.com/spreadsheets')
+    expect(href).toContain('15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8')
+  })
+
+  it('points a non-listworthy tier at the NLW sheet instead', () => {
+    const href = tierEntries(level({ sheetTier: 13 }))[0]?.href
+
+    expect(href).toContain('1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA')
   })
 
   it('rounds a GDDL tier that was cached before ingestion rounded it', () => {
