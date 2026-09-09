@@ -189,7 +189,7 @@ export function RankHistory({
 
       {tab === 'chart' ? (
         <div className="mt-3">
-          <RankHistoryChart points={points} />
+          <RankHistoryChart points={points} datePref={datePref} />
         </div>
       ) : (
         <>
