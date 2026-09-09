@@ -23,7 +23,7 @@ The response is a raw delimited blob (not JSON): `levels # creators # songs # pa
 
 `-1` (or empty/malformed) means not found → the client returns `null`. Custom (Newgrounds) songs come from the response; **official/built-in tracks** are resolved name/author from a static table in `robtop.ts` (the level object only carries the official-song index). A few fields GDBrowser used to compute (creator points, orbs, diamonds, difficulty face, "large level", editor time) aren't in the raw level object at all — they don't exist as `levels` columns, rather than being stored permanently `null`.
 
-Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofill`). Subsequent users logging the same level ID do not trigger a new request — the cached data is returned directly.
+**Object count is the one field RobTop is no longer authoritative for** — see the Global Stats Viewer section below. Response is cached in InfernoLog's `levels` table (`data_source = robtop_autofill`). Subsequent users logging the same level ID do not trigger a new request — the cached data is returned directly.
 
 ### Failure Handling
 
@@ -121,6 +121,64 @@ The shared write step (`services/sfhSync.ts`) stamps `sfh_checked_at = now()` on
 ### Sync-Job Integration
 
 `syncLevelBatch` (the shared core behind both sync schedules — see below) also runs an SFH check for any level in its batch that is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at < now() - SFH_RECHECK_DAYS)`). It piggybacks on the levels each job already pulls in (no new schedule, no new query — just a per-level filter). SFH calls are paced sequentially (~670ms) like the RobTop calls, since SFH is community infrastructure. A level that RobTop reports **delisted in the same run** skips its SFH check for that run.
+
+---
+
+## Global Stats Viewer (GSV)
+
+**Base URL:** `https://api.globalstatsviewer.com` (override via `GSV_API_BASE_URL`)
+**Endpoint:** `GET /v3/levels/{levelId}`
+**Purpose:** A level's placements on the three community difficulty lists, its showcase video, and a trustworthy object count.
+**Auth:** None (public endpoint)
+**Called from:** Lambda only (`apps/api/src/utils/globalStatsViewer.ts`)
+**License:** Community-run aggregator — no published rate limit; pace calls and never poll.
+
+One request returns what would otherwise take three integrations. `additional_info.lists` is an array holding any subset of:
+
+| `name`  | `value`                        | Stored as                                             |
+| ------- | ------------------------------ | ----------------------------------------------------- |
+| `GDDL`  | decimal tier (`39.0`, `23.98`) | `gddlTier` (rounded at ingestion via `roundGddlTier`) |
+| `AREDL` | rank int (`5`)                 | `aredlRank`                                           |
+| `SHEET` | NLW/LW tier int, 0–21          | `sheetTier`                                           |
+
+The array is often **empty** — a rated level on none of the three lists is normal, not an error.
+
+**GSV never reports sheet tier 0, so we infer it.** Its SHEET values run 1–21 — verified across all 1805 extreme demons it indexes, with no zeroes anywhere in the distribution — which means the spreadsheets' bottom "Fuck" tier is indistinguishable from having no placement at all. `sheetTierForMissingEntry` in the client resolves that toward tier 0 for **extreme demons** (GSV `difficulty` 12), the only population the sheets rank.
+
+This is an assumption, not something GSV states, and it deliberately over-reaches: 355 of those 1805 extreme demons (20%) carry no SHEET entry, and the evidence says most are unranked rather than bottom-tier — median level id 119.7M against 88.7M for placed levels, 89% above 100M, 347 of 355 on 2.2, and only 30% present on AREDL versus 100% of placed levels. A level the sheets simply haven't reached yet renders as tier 0. Because a real 0 never arrives from GSV, every stored 0 came from this rule and it reverses unambiguously with `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`. It also self-heals: once a level is placed, the next check overwrites the 0.
+
+**`SHEET` is two spreadsheets on one ladder.** Tiers 0–13 are the Non-Listworthy sheet, 14–21 the Listworthy one, and nothing on the wire says which; the threshold is the whole of that knowledge, and it lives in `apps/web/src/lib/sheetTier.ts`. **Tier 0 ("Fuck") is a real tier** — a level whose skillset is too niche to rank reliably, _not_ one easier than Beginner. Every guard on a sheet tier is `!= null`, never truthiness, or tier-0 levels vanish from the UI.
+
+### Object count
+
+GSV's `stats.object_count` **supersedes RobTop's**. `getGJLevels21` key 45 reports `65535` for any level over the in-game object limit and `0`/null for older levels, so it cannot be shown to a user as-is. Both write the same `levels.objectCount` column: RobTop seeds it on first resolve, GSV overwrites it whenever GSV has a count. A GSV record _without_ one leaves RobTop's value standing rather than nulling it.
+
+### Coverage
+
+GSV indexes rated levels only (~58.6k at time of writing). An unrated or unindexed id returns **HTTP 404 `{"reason":"Level not found."}`** — an answer, not a failure. The check is therefore gated on `isRated`, since an unrated level would 404 on every pass forever; one that later gets rated is picked up anyway when its `gsvCheckedAt` ages out.
+
+### Failure Handling
+
+Same golden rule as RobTop / GDDL / SFH: GSV being slow/down/erroring is an **expected branch**, never a blocking error. `fetchGlobalStatsViewerLevel` returns:
+
+- a result when GSV has the level,
+- `null` on a 404 (a valid, cacheable "checked, not indexed"),
+- `undefined` when the call itself failed (network/timeout/non-404 non-2xx).
+
+The shared write step (`services/levels/gsvSync.ts`) stamps `gsvCheckedAt = now()` on found **and** 404; a failure writes nothing and leaves `gsvCheckedAt` null so a later run retries. A 404 deliberately does **not** clear existing placements — a level dropping out of GSV's index is far more likely an upstream gap than a real de-listing from all three lists at once.
+
+### When It Runs
+
+**Never on page view.** Two paths write it:
+
+- **First resolve** — `findOrResolveLevel` runs `checkGsvIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
+- **Its own cron rotation** — `runGsvSyncSlice` in `services/levels/sync.ts`, driven by the same `LevelSync` cron, with its own `level_sync_cursor` key (`gsv`), a 200-level slice and ~300ms pacing.
+
+**Why a separate rotation rather than piggybacking on the RobTop sweep** (the way the SFH check does): the RobTop slice is 50 levels/run, sized by RobTop's per-IP rate limit and the 670ms pacing — about 200 levels/day of turnover. List placements, GDDL tiers especially, move far faster than that. GSV is a different host under no such limit, so its rotation walks the cache several times faster while remaining a bounded cron slice. It also reaches levels the RobTop sweep deliberately skips: `official` rows are excluded there (getGJLevels21 never returns them, so a sync would look like a not-found and wrongly delist a level that plainly exists), but GSV does index them.
+
+The re-check cadence is `GSV_RECHECK_DAYS` (7), applied as a SQL filter so a slice is 200 levels of actual work rather than 200 rows it then skips. In practice the rotation's speed, not the cadence, is the binding constraint.
+
+`pnpm tsx src/scripts/backfillGsv.ts <dev|prod> [--dry-run]` (from `apps/api`) does the same check eagerly across the whole backlog, reusing the identical write path, so a freshly-shipped integration doesn't wait for the rotation to walk every cached level.
 
 ---
 

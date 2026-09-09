@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { barColor, entryKey, entryLabel, labelColor } from '../runsGraphBars'
 import { runsGraphEntry } from './fixtures'
 
-describe('bar colours', () => {
+describe('bar colors', () => {
   it.each([barColor, labelColor])(
-    'gives each state its own colour (%o)',
+    'gives each state its own color (%o)',
     (colorOf) => {
       const colors = [
         colorOf(runsGraphEntry({ kind: 'from_zero' })),
@@ -20,7 +20,7 @@ describe('bar colours', () => {
   // A drop is the outcome the reader scans for, so it wins even on the bar
   // that is also the completion or the worst fail.
   it.each(['completion', 'worst_fail', 'from_zero', 'from_run'] as const)(
-    'lets a drop override the %s colour',
+    'lets a drop override the %s color',
     (kind) => {
       const dropped = runsGraphEntry({ kind, droppedAfter: true })
 
@@ -33,7 +33,7 @@ describe('bar colours', () => {
   it.each([
     ['from_zero', 'from_run'],
     ['from_run', 'from_zero'],
-  ] as const)('colours %s the same as %s — neither is an outcome', (a, b) => {
+  ] as const)('colors %s the same as %s — neither is an outcome', (a, b) => {
     expect(barColor(runsGraphEntry({ kind: a }))).toBe(
       barColor(runsGraphEntry({ kind: b }))
     )

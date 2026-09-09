@@ -51,8 +51,8 @@ export function Identity({ level, variant }: IdentityProps) {
         </p>
 
         {/* Chip row. No difficulty pill (the face communicates difficulty) and
-            no showcase pill (the face's glow communicates that) — the id and
-            star count are the only things the face doesn't already say. */}
+            no showcase pill (the face's glow communicates that) — the id, star
+            count and game mode are the things the face doesn't already say. */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <CopyableId id={level.inGameId} label="Level ID" />
 
@@ -62,6 +62,13 @@ export function Identity({ level, variant }: IdentityProps) {
               <img src={ratedStarSrc} alt="" aria-hidden className="size-3" />
             </Pill>
           )}
+
+          {/* Always shown, for both modes. Classic is the overwhelming default,
+              so a chip only on platformers would read as a badge for something
+              unusual rather than as the level's mode. */}
+          <Pill>
+            {level.levelType === 'PLATFORMER' ? 'Platformer' : 'Classic'}
+          </Pill>
         </div>
 
         {/* Description renders as a single conditional line, not its own card —

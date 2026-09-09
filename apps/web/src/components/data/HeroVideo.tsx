@@ -26,13 +26,31 @@ function YouTubePoster({ videoId }: { videoId: string }) {
 }
 
 /**
- * The completion video embed at the top of the level page, or the thumbnail when there is none.
+ * A video embed sitting where a level page's hero image would: a click-to-load
+ * player over the video's own poster frame.
+ *
+ * Shared by both level pages, which show different videos in that slot — the
+ * viewer's own completion run on their page, the level's showcase on the
+ * global one — so `label` names whichever this is.
+ *
+ * Sizes itself to a 16:9 box by default. That default is load-bearing rather
+ * than cosmetic: the element has no intrinsic height, so a caller passing only
+ * cosmetic classes used to collapse it to nothing — visibly "the video didn't
+ * load" with no error anywhere. A caller wanting a different box still wins,
+ * since an explicit height makes the aspect ratio moot.
+ *
+ * @param url - Any YouTube or Twitch-clip URL. One that yields no embeddable
+ * id renders as the poster-less placeholder rather than an inert player.
+ * @param label - What the video is, shown under the play button and used as
+ * the control's accessible name.
  */
 export function HeroVideo({
   url,
+  label = 'Completion video',
   className,
 }: {
   url: string
+  label?: string
   className?: string
 }) {
   const [playing, setPlaying] = useState(false)
@@ -57,10 +75,15 @@ export function HeroVideo({
 
   if (playing && iframeSrc) {
     return (
-      <div className={cn('overflow-hidden bg-black', className)}>
+      <div
+        className={cn(
+          'aspect-video w-full overflow-hidden bg-black',
+          className
+        )}
+      >
         <iframe
           src={iframeSrc}
-          title="Completion video"
+          title={label}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
           className="size-full border-0"
@@ -72,7 +95,7 @@ export function HeroVideo({
   return (
     <div
       className={cn(
-        'group relative cursor-pointer overflow-hidden bg-black',
+        'group relative aspect-video w-full cursor-pointer overflow-hidden bg-black',
         className
       )}
       onClick={() => iframeSrc && setPlaying(true)}
@@ -84,7 +107,7 @@ export function HeroVideo({
           setPlaying(true)
         }
       }}
-      aria-label="Play completion video"
+      aria-label={`Play ${label.toLowerCase()}`}
     >
       {youtubeId && <YouTubePoster videoId={youtubeId} />}
 
@@ -101,9 +124,7 @@ export function HeroVideo({
             className="ml-1 md:size-[26px]"
           />
         </div>
-        <span className="text-xs text-text-body md:text-sm">
-          Completion video
-        </span>
+        <span className="text-xs text-text-body md:text-sm">{label}</span>
       </div>
 
       {/* Source chip */}

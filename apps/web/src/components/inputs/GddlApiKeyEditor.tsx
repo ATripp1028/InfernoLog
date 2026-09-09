@@ -99,7 +99,7 @@ export function GddlApiKeyEditor({ me }: GddlApiKeyEditorProps) {
       <ConnectedAccountRow
         icon={
           <img
-            src="https://gdladder.com/favicon.ico"
+            src="/assets/integrations/gddl.ico"
             alt=""
             aria-hidden="true"
             className="h-5 w-5"

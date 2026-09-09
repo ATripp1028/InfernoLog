@@ -6,6 +6,7 @@ import {
   gdBrowserLevelUrl,
   gdBrowserUserUrl,
   gddlLevelUrl,
+  globalStatsViewerLevelUrl,
   youtubeSearchUrl,
 } from '../linkTargets'
 
@@ -112,5 +113,13 @@ describe('copiedFromLevelId', () => {
     const level = makeGlobalLevel({ inGameId: '100', copiedFromId: '100' })
 
     expect(copiedFromLevelId(level)).toBeNull()
+  })
+})
+
+describe('globalStatsViewerLevelUrl', () => {
+  it('points at the level page on the aggregator the tiers came from', () => {
+    expect(globalStatsViewerLevelUrl('86407629')).toBe(
+      'https://globalstatsviewer.com/levels/86407629'
+    )
   })
 })

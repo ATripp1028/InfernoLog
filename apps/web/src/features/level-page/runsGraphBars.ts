@@ -19,7 +19,7 @@ export function barColor(entry: RunsGraphEntry): string {
 }
 
 /**
- * Label colour, matching {@link barColor}'s states at higher contrast for text.
+ * Label color, matching {@link barColor}'s states at higher contrast for text.
  */
 export function labelColor(entry: RunsGraphEntry): string {
   if (entry.droppedAfter) return '#ff8a8a'

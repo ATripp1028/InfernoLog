@@ -5,7 +5,7 @@ import { Chip } from '../chip'
 import { renderWithProviders } from '@/utils/testUtils'
 
 describe('Chip', () => {
-  it('announces its selected state as a toggle rather than relying on colour', () => {
+  it('announces its selected state as a toggle rather than relying on color', () => {
     const { unmount } = renderWithProviders(<Chip selected>Rated</Chip>)
     expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'true')
     unmount()

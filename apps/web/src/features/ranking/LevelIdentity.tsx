@@ -23,7 +23,7 @@ export function LevelIdentity({
    */
   rank: number | null
   level: LevelProgressListItem['level']
-  /** From `overallColor` — the rating's colour, which the name shares. */
+  /** From `overallColor` — the rating's color, which the name shares. */
   nameColor: string | undefined
 }) {
   return (

@@ -1,6 +1,6 @@
 // The Log page's vocabulary, and the pure shaping the feed rows read from.
 //
-// One sentence shape and one colour family per kind of entry, kept here rather
+// One sentence shape and one color family per kind of entry, kept here rather
 // than inline in the row components so the wording is in one place. The event
 // TYPE names never reach the user: "Placed … on your demon list", not
 // DEMON_LIST_PLACEMENT. DEMON_LIST_REBALANCE has no entry at all — it is filtered out
@@ -16,7 +16,7 @@ import type { DateFormatPreference } from '@/lib/api/wireEnums'
 import { formatDate } from '@/lib/dateFormat'
 import { formatNumber } from '@/lib/numberFormat'
 
-/** The colour family a row's icon and accents use. */
+/** The color family a row's icon and accents use. */
 export type FeedTone =
   | 'ranking'
   | 'edit'

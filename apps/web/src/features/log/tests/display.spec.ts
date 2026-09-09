@@ -124,7 +124,7 @@ describe('gddlTierColor', () => {
     expect(gddlTierColor(10)).toMatch(/^rgb\(\d{1,3}, \d{1,3}, \d{1,3}\)$/)
   })
 
-  it('lands exactly on an anchor colour', () => {
+  it('lands exactly on an anchor color', () => {
     expect(rgb(1)).toEqual([222, 223, 237])
     expect(rgb(39)).toEqual([33, 8, 46])
   })

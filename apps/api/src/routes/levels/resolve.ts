@@ -13,6 +13,7 @@ import prisma from '../../utils/prisma'
 import { fetchRobtopLevel } from '../../utils/robtop'
 import { fetchGddlTier } from '../../utils/gddl'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
+import { checkGsvIfDue } from '../../services/levels/gsvSync'
 import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
 import type { HonoVariables } from '../../types/hono'
 import {
@@ -123,14 +124,15 @@ app.get('/levels/:levelId/resolve', async (c) => {
 
   // GDDL suggested tier autofill — only meaningful for rated levels, and must
   // never block or fail the resolve (returns null on any failure). The Song
-  // File Hub NONG check runs alongside it: best-effort, its result is cached
-  // (not surfaced in this payload yet), and it can never fail the resolve
-  // (checkSfhNongIfDue never throws and self-gates on delisted levels and
-  // levels checked within the re-check cadence).
+  // File Hub NONG and Global Stats Viewer checks run alongside it: both are
+  // best-effort, both cache rather than surfacing anything in this payload, and
+  // neither can fail the resolve (each never throws and self-gates on delisted
+  // levels and levels checked within its own re-check cadence).
   const [suggestedGddlTier, existingCompletion] = await Promise.all([
     level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
     loadExistingCompletion(userId, levelId),
     checkSfhNongIfDue(levelId),
+    checkGsvIfDue(levelId),
   ])
 
   return c.json({

@@ -21,6 +21,14 @@ export const gddlLevelUrl = (id: string) => `https://gdladder.com/level/${id}`
 export const aredlLevelUrl = (id: string) => `https://aredl.net/list/${id}`
 
 /**
+ * The level's page on the Global Stats Viewer — the source InfernoLog reads
+ * every community-list placement from, so it's where a reader goes to see the
+ * same data unabridged.
+ */
+export const globalStatsViewerLevelUrl = (id: string) =>
+  `https://globalstatsviewer.com/levels/${id}`
+
+/**
  * A YouTube search scoped to this exact level — "Geometry Dash {name} by
  * {creator} {id}" — which surfaces gameplay/verification videos far more
  * reliably than any single canonical link.

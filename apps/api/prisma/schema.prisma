@@ -489,6 +489,44 @@ model Level {
   sfhDownloads      Int? // used to pick canonical if
   // multiple results ever appear
 
+  // ── Global Stats Viewer (GSV) ────────────────────────────────────────────
+  // Community-list placements and a trustworthy object count, all from one
+  // call to api.globalstatsviewer.com. Read-only: InfernoLog never submits to
+  // these lists through GSV. See EXTERNAL_APIS.md and services/levels/gsvSync.
+  //
+  // gsvCheckedAt is null until a GSV call SUCCEEDS. A 404 counts as a success
+  // (GSV indexes rated levels only, so "not indexed" is a real answer worth
+  // caching); only network/timeout/5xx failures leave it null, which keeps the
+  // level due so a later run retries.
+  //
+  // The level's COMMUNITY GDDL tier, rounded to a whole number at ingestion
+  // (roundGddlTier). NOT to be confused with LevelProgress.userGddlTier, which
+  // is one user's own tier OPINION captured at logging time — a different
+  // number with a different meaning. Neither is derived from the other.
+  gddlTier     Int?
+  // Rank on the All Rated Extreme Demons List (1 = hardest). Extreme demons
+  // only; null for everything else.
+  aredlRank    Int?
+  // Tier on the Non-Listworthy / Listworthy extreme demon spreadsheets, 0-21.
+  // Tier >= 14 is listworthy (LW), below that non-listworthy (NLW) — the split
+  // is the only thing that says which sheet the tier came from, since GSV
+  // reports both under one "SHEET" entry.
+  //
+  // ⚠️ TIER 0 IS A REAL TIER ("Fuck"): a level whose skillset is too niche to
+  // rank reliably, NOT one easier than Beginner. Guard on `!= null`, never on
+  // truthiness, or tier-0 levels silently render as unplaced.
+  //
+  // Every 0 in this column is INFERRED, never reported: GSV's SHEET values run
+  // 1-21, so we read a missing entry on an extreme demon as tier 0. That rule
+  // is wider than the tier it stands for — see sheetTierForMissingEntry in
+  // utils/globalStatsViewer.ts — and undoes with
+  // `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`.
+  sheetTier    Int?
+  // Showcase/verification video, when GSV has one. A third-party URL — treat
+  // it as untrusted at the display layer (safeHref) like any other.
+  showcaseUrl  String?
+  gsvCheckedAt DateTime?
+
   // ── Extended GDBrowser metadata ──────────────────────────────────────────
   // A snapshot of everything RobTop's level object exposes (via GDBrowser), so
   // we retain the data even if the level later changes or is deleted upstream,
@@ -512,6 +550,12 @@ model Level {
   downloads        Int?
   likes            Int?
   disliked         Boolean?
+  // Written by BOTH sources, with GSV winning: RobTop's key 45 seeds the row on
+  // first resolve, then the GSV check overwrites it whenever GSV has a count.
+  // RobTop's is unusable on its own — 65535 for any level over the in-game
+  // object limit, 0/null for older levels — so a count that came from RobTop
+  // alone is a placeholder, not a fact. Never null this out: a GSV record
+  // without a count must leave RobTop's value standing.
   objectCount      Int?
   coins            Int?
   coinsVerified    Boolean?

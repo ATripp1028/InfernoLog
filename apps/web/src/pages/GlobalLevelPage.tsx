@@ -3,10 +3,12 @@ import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { BackLink } from '@/components/shell/BackLink'
 import { MOBILE_HERO_CLASS } from '@/lib/useWideLayout'
 import { AddToCollectionDialog } from '@/features/collections/AddToCollectionDialog'
+import { HeroVideo } from '@/components/data/HeroVideo'
 import { Thumbnail } from '@/features/global-level-page/Thumbnail'
 import { Identity } from '@/features/global-level-page/Identity'
 import { Stats } from '@/features/global-level-page/Stats'
 import { Song } from '@/features/global-level-page/Song'
+import { Tiers } from '@/features/global-level-page/Tiers'
 import { Links } from '@/features/global-level-page/Links'
 import { Provenance } from '@/features/global-level-page/Provenance'
 import {
@@ -39,6 +41,8 @@ export function GlobalLevelPage() {
     level,
     levelName,
     delisted,
+    showcaseUrl,
+    tiers,
     hasUserProgress,
     preselectedLevel,
     addToCollectionOpen,
@@ -83,6 +87,24 @@ export function GlobalLevelPage() {
 
   if (!level) return null
 
+  // The hero slot: the level's showcase video when it has one, otherwise its
+  // thumbnail. Both layouts render this, differing only in the class they pass,
+  // so the choice is made once here rather than twice in JSX.
+  //
+  // Both branches land on the same 16:9 box — each sizes itself — so the page
+  // doesn't jump between a level with a showcase and one without.
+  const hero = (className: string) =>
+    showcaseUrl ? (
+      <HeroVideo url={showcaseUrl} label="Showcase" className={className} />
+    ) : (
+      <Thumbnail
+        levelId={levelId}
+        levelName={levelName}
+        forcePlaceholder={delisted}
+        className={className}
+      />
+    )
+
   return (
     <>
       {/* One layout is mounted, not both — see `useWideLayout`. */}
@@ -122,14 +144,9 @@ export function GlobalLevelPage() {
             </div>
           )}
 
-          {/* Thumbnail + Identity never collapse — collapsing them would leave
-              a page with no indication of which level it is. */}
-          <Thumbnail
-            levelId={levelId}
-            levelName={levelName}
-            forcePlaceholder={delisted}
-            className={MOBILE_HERO_CLASS}
-          />
+          {/* Hero + Identity never collapse — collapsing them would leave a
+              page with no indication of which level it is. */}
+          {hero(MOBILE_HERO_CLASS)}
           {/* Identity + stats share one section — the identity block alone
               carries too little to stand on its own. Never collapses. */}
           <div className="border-b border-border-subtle px-4 py-4">
@@ -142,6 +159,13 @@ export function GlobalLevelPage() {
           <CollapsibleSection title="Song">
             <Song level={level} />
           </CollapsibleSection>
+          {/* Tiers renders nothing when the level is on no community list, so
+              the section header would otherwise open onto an empty body. */}
+          {tiers.length > 0 && (
+            <CollapsibleSection title="Tiers">
+              <Tiers entries={tiers} />
+            </CollapsibleSection>
+          )}
           <CollapsibleSection title="Links">
             <Links level={level} delisted={delisted} />
           </CollapsibleSection>
@@ -153,11 +177,14 @@ export function GlobalLevelPage() {
       )}
 
       {isWide && (
-        <div className="mx-8 pb-16">
+        // h-full + min-h-0 so the two panes below can own the scrolling
+        // instead of the shell's <main>. Without min-h-0 a flex child refuses
+        // to shrink past its content and both panes grow the page instead.
+        <div className="flex h-full min-h-0 flex-col">
           {/* Back row — mirrors the user-scoped level page's desktop back
               row: back arrow + level name on the left, cross-link (when the
               user has a page for this level) right-aligned. */}
-          <div className="mb-4 flex items-center gap-2 border-b border-border-subtle py-4">
+          <div className="mx-8 mb-4 flex shrink-0 items-center gap-2 border-b border-border-subtle py-4">
             <BackLink
               back={back}
               ariaLabel="Back"
@@ -182,20 +209,17 @@ export function GlobalLevelPage() {
           </div>
 
           {delisted && (
-            <div className="mb-4">
+            <div className="mx-8 mb-4 shrink-0">
               <DelistedBanner lastCheckedAt={level.lastCheckedAt} />
             </div>
           )}
 
-          <div className="flex gap-8">
+          {/* The two panes scroll independently: the level's identity stays put
+              while the song/tiers/links column is read, and vice versa. */}
+          <div className="flex min-h-0 flex-1 gap-8 overflow-hidden px-8">
             {/* Left column — grows to fill whatever the right column leaves. */}
-            <div className="min-w-0 flex-1">
-              <Thumbnail
-                levelId={levelId}
-                levelName={levelName}
-                forcePlaceholder={delisted}
-                className="rounded-card"
-              />
+            <div className="min-w-0 flex-1 overflow-y-auto pb-8">
+              {hero('rounded-card')}
               {/* Identity + stats share one card — the identity block alone
                   carries too little to justify a card of its own. */}
               <div className="mt-5 rounded-card border border-border-subtle bg-bg-surface p-5">
@@ -208,12 +232,20 @@ export function GlobalLevelPage() {
 
             {/* Right column — tracks the viewport rather than sitting at a
                 fixed 424, so the column beside it stays readable at the
-                narrow end of the wide range. */}
-            <div className="w-[clamp(300px,34vw,424px)] shrink-0">
+                narrow end of the wide range. pb-28 clears the FAB, which is
+                fixed to the viewport's bottom-right and so overlaps only this
+                column; without it the last row of Provenance sits under it. */}
+            <div className="w-[clamp(300px,34vw,424px)] shrink-0 overflow-y-auto pb-28">
               <div>
                 <DesktopSectionHeader>Song</DesktopSectionHeader>
                 <Song level={level} variant="card" />
               </div>
+              {tiers.length > 0 && (
+                <div className="mt-7">
+                  <DesktopSectionHeader>Tiers</DesktopSectionHeader>
+                  <Tiers entries={tiers} variant="card" />
+                </div>
+              )}
               <div className="mt-7">
                 <DesktopSectionHeader>Links</DesktopSectionHeader>
                 <Links level={level} delisted={delisted} variant="card" />
