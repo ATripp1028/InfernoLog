@@ -129,8 +129,8 @@ export function AcknowledgmentsPage() {
           link={{ label: 'gdladder.com', href: 'https://gdladder.com/' }}
         >
           Tier data autofill and optional record submission for rated demons,
-          plus the community tier, showcase video and level duration shown on
-          level pages. <br />
+          plus the community tier, enjoyment rating, showcase video and level
+          duration shown on level pages. <br />
           Credit: GDDL team / maintainers.
         </Entry>
         <Entry

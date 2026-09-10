@@ -4,6 +4,7 @@ import {
   roundGddlTier,
   fetchGddlTier,
   fetchGddlLevel,
+  rescaleGddlEnjoyment,
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
   fetchGddlList,
@@ -276,6 +277,7 @@ function gddlLevel(overrides: Record<string, unknown> = {}) {
   return {
     ID: 26681070,
     Rating: 29.798008534850645,
+    Enjoyment: 4.954022988505747,
     Showcase: 'Dfm_LegCN9Q',
     Meta: { seconds: 121.03047324788065, objects: 23156 },
     ...overrides,
@@ -288,6 +290,8 @@ describe('fetchGddlLevel', () => {
 
     await expect(fetchGddlLevel('26681070')).resolves.toEqual({
       tier: 30,
+      // 4.954 → nearest tenth (5.0) → EDEL's 0-100 scale.
+      enjoyment: 50,
       // A bare video id upstream; a usable URL by the time it leaves here.
       showcaseUrl: 'https://www.youtube.com/watch?v=Dfm_LegCN9Q',
       seconds: 121,
@@ -327,13 +331,22 @@ describe('fetchGddlLevel', () => {
     await expect(fetchGddlLevel('26681070')).resolves.toBeNull()
   })
 
-  it('tolerates a missing rating, showcase and length', async () => {
+  it('tolerates a missing rating, enjoyment, showcase and length', async () => {
     mockFetch.mockResolvedValueOnce(
-      resp(200, gddlLevel({ Rating: null, Showcase: null, Meta: null }))
+      resp(
+        200,
+        gddlLevel({
+          Rating: null,
+          Enjoyment: null,
+          Showcase: null,
+          Meta: null,
+        })
+      )
     )
 
     await expect(fetchGddlLevel('26681070')).resolves.toEqual({
       tier: null,
+      enjoyment: null,
       showcaseUrl: null,
       seconds: null,
       objectCount: null,
@@ -751,5 +764,36 @@ describe('request timeouts', () => {
     await expect(
       runPastTimeout(() => submitGddlRecord('key', RECORD))
     ).rejects.toThrow()
+  })
+})
+
+// ─── rescaleGddlEnjoyment ────────────────────────────────────────────────────
+
+describe('rescaleGddlEnjoyment', () => {
+  it.each([
+    // Round to the nearest tenth of a GDDL point, then onto EDEL's 0-100.
+    [4.954022988505747, 50],
+    [4.94, 49],
+    [4.95, 50],
+    [7.123456, 71],
+    [0, 0],
+    [10, 100],
+  ])('rescales %s to %s', (raw, expected) => {
+    expect(rescaleGddlEnjoyment(raw)).toBe(expected)
+  })
+
+  // The two sources share one column and one card, so a GDDL value must not be
+  // distinguishable from an EDEL one by carrying extra decimal places.
+  it('always lands on a whole number', () => {
+    for (const raw of [1.23456, 6.6666, 9.99999, 0.04]) {
+      expect(Number.isInteger(rescaleGddlEnjoyment(raw))).toBe(true)
+    }
+  })
+
+  // The 0-10 range is upstream's promise, not ours; a badge reading "137"
+  // would be worse than a slightly wrong one.
+  it('clamps a value outside the documented scale', () => {
+    expect(rescaleGddlEnjoyment(13.7)).toBe(100)
+    expect(rescaleGddlEnjoyment(-2)).toBe(0)
   })
 })

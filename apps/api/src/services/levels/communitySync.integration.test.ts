@@ -80,6 +80,7 @@ function gsvResult(overrides: Record<string, unknown> = {}) {
 function gddlResult(overrides: Record<string, unknown> = {}) {
   return {
     tier: 33,
+    enjoyment: 50,
     showcaseUrl: 'https://www.youtube.com/watch?v=gddlgddlgdd',
     seconds: 121,
     objectCount: 23156,
@@ -122,6 +123,7 @@ async function seedLevel(
     aredlStatus: string | null
     showcaseUrl: string | null
     sheetTier: number | null
+    gddlEnjoyment: number | null
   }> = {}
 ) {
   return prisma.level.create({
@@ -141,6 +143,7 @@ async function seedLevel(
       aredlStatus: overrides.aredlStatus ?? null,
       showcaseUrl: overrides.showcaseUrl ?? null,
       sheetTier: overrides.sheetTier ?? null,
+      gddlEnjoyment: overrides.gddlEnjoyment ?? null,
     },
   })
 }
@@ -184,6 +187,9 @@ describe('checkAndPersistCommunity', () => {
     expect(level.aredlStatus).toBe('MainList')
     expect(Number(level.aredlEnjoyment)).toBeCloseTo(59.4)
     expect(level.aredlEnjoymentPending).toBe(false)
+    // The two enjoyment sources are stored side by side, not merged — the
+    // display layer picks between them by the level's current difficulty.
+    expect(level.gddlEnjoyment).toBe(50)
     // GSV's count supersedes RobTop's 65535 over-the-limit placeholder.
     expect(level.objectCount).toBe(220116)
     expect(level.communityCheckedAt).not.toBeNull()
@@ -245,6 +251,20 @@ describe('checkAndPersistCommunity', () => {
     // GDDL answered, so its own columns are written as normal.
     expect(level.gddlTier).toBe(33)
     expect(level.durationSeconds).toBe(121)
+  })
+
+  it('keeps both enjoyment sources independent of each other', async () => {
+    await seedLevel()
+    // GDDL silent, AREDL answering: the AREDL score lands, GDDL's is untouched.
+    gsvMock.mockResolvedValue(gsvResult())
+    gddlMock.mockResolvedValue(undefined)
+    aredlMock.mockResolvedValue(aredlResult({ enjoyment: 44.3 }))
+
+    await checkAndPersistCommunity('86407629')
+
+    const level = await readLevel('86407629')
+    expect(Number(level.aredlEnjoyment)).toBeCloseTo(44.3)
+    expect(level.gddlEnjoyment).toBeNull()
   })
 
   it('clears a placement the level no longer holds', async () => {

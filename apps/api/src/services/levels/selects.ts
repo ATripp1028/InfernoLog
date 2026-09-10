@@ -33,6 +33,7 @@ export const levelDetailSelect = {
   // Community-list placements (GSV + GDDL + AREDL). communityCheckedAt stays
   // internal (bookkeeping for the re-check gate), the same way sfhCheckedAt does.
   gddlTier: true,
+  gddlEnjoyment: true,
   aredlRank: true,
   aredlStatus: true,
   aredlEnjoyment: true,

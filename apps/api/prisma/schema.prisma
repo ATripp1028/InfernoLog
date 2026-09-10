@@ -526,6 +526,12 @@ model Level {
   //   sheetTier       AREDL → GSV
   //   objectCount     GSV only (and never nulled out — see below)
   //   aredl*          AREDL only
+  //   gddlEnjoyment   GDDL only
+  //
+  // Enjoyment is the one figure with two sources and NO merge here: EDEL's
+  // (aredlEnjoyment) and GDDL's (gddlEnjoyment) are stored side by side and
+  // chosen at the display layer, which knows the level's current difficulty.
+  // See enjoymentDisplay in apps/web/src/features/global-level-page/display.ts.
   //
   // communityCheckedAt is null until at least one applicable source ANSWERS.
   // A not-found counts as an answer (GSV indexes rated levels only, GDDL is
@@ -540,6 +546,12 @@ model Level {
   // is one user's own tier OPINION captured at logging time — a different
   // number with a different meaning. Neither is derived from the other.
   gddlTier              Int?
+  // GDDL's community enjoyment rating, rescaled from its native 0-10 onto the
+  // 0-100 EDEL uses so the two are directly comparable (rescaleGddlEnjoyment in
+  // utils/gddl.ts). Stored for every level GDDL carries, but only SHOWN for
+  // non-extremes — EDEL is the more reliable source where a level has both, so
+  // aredlEnjoyment wins for extremes and this fills the gap everywhere else.
+  gddlEnjoyment         Int?
   // Rank on the All Rated Extreme Demons List (1 = hardest).
   //
   // ⚠️ NOT ALWAYS A RANK. AREDL appends its Legacy tier to the end of the
@@ -553,7 +565,8 @@ model Level {
   // is not on AREDL at all.
   aredlStatus           String?
   // EDEL (Extreme Demon Enjoyment List) community enjoyment, 0-100, and whether
-  // that figure is still provisional. Format at the display layer.
+  // that figure is still provisional. Format at the display layer. The
+  // non-extreme counterpart is gddlEnjoyment above.
   aredlEnjoyment        Float?
   aredlEnjoymentPending Boolean?
   // Tier on the Non-Listworthy / Listworthy extreme demon spreadsheets, 0-21.

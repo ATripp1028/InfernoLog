@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { makeGlobalLevel } from '@/utils/testUtils'
 import { Stats } from '../Stats'
 
@@ -38,6 +39,7 @@ describe('Stats', () => {
       render(
         <Stats
           level={makeGlobalLevel({
+            partialDiff: 'demon-extreme',
             aredlEnjoyment: 59.39285714,
             aredlEnjoymentPending: false,
           })}
@@ -49,10 +51,40 @@ describe('Stats', () => {
       expect(screen.queryByText('Pending')).toBeNull()
     })
 
+    // GDDL's score covers the levels EDEL doesn't rate, on the same 0-100.
+    it('shows GDDL’s score for a non-extreme', () => {
+      render(
+        <Stats
+          level={makeGlobalLevel({
+            partialDiff: 'demon-insane',
+            aredlEnjoyment: null,
+            gddlEnjoyment: 50,
+          })}
+        />
+      )
+
+      expect(screen.getByText('50.0')).toBeInTheDocument()
+    })
+
+    it('renders no card for an extreme EDEL has not rated', () => {
+      render(
+        <Stats
+          level={makeGlobalLevel({
+            partialDiff: 'demon-extreme',
+            aredlEnjoyment: null,
+            gddlEnjoyment: 50,
+          })}
+        />
+      )
+
+      expect(screen.queryByText('Enjoyment')).toBeNull()
+    })
+
     it('marks a provisional score as pending', () => {
       render(
         <Stats
           level={makeGlobalLevel({
+            partialDiff: 'demon-extreme',
             aredlEnjoyment: 63.3,
             aredlEnjoymentPending: true,
           })}
@@ -62,10 +94,29 @@ describe('Stats', () => {
       expect(screen.getByText('Pending')).toBeInTheDocument()
     })
 
-    // AREDL covers ~1600 levels, so the card is absent far more often than not.
-    // An empty card would imply the level has a score of nothing.
-    it('renders no card at all when AREDL has no score', () => {
-      render(<Stats level={makeGlobalLevel({ aredlEnjoyment: null })} />)
+    // Only EDEL publishes a provisional flag, so a GDDL score must never carry
+    // the marker even though both render through the same card.
+    it('never marks a GDDL score as pending', () => {
+      render(
+        <Stats
+          level={makeGlobalLevel({
+            partialDiff: 'demon-insane',
+            aredlEnjoyment: null,
+            aredlEnjoymentPending: true,
+            gddlEnjoyment: 50,
+          })}
+        />
+      )
+
+      expect(screen.queryByText('Pending')).toBeNull()
+    })
+
+    it('renders no card at all when neither source has a score', () => {
+      render(
+        <Stats
+          level={makeGlobalLevel({ aredlEnjoyment: null, gddlEnjoyment: null })}
+        />
+      )
 
       expect(screen.queryByText('Enjoyment')).toBeNull()
     })
@@ -80,6 +131,32 @@ describe('Stats', () => {
           name: 'Where does the enjoyment rating come from?',
         })
       ).toBeInTheDocument()
+    })
+
+    // The two sources are on one scale but are not one measurement, so the
+    // explanation has to name the one actually being shown.
+    it.each([
+      [
+        'EDEL',
+        { partialDiff: 'demon-extreme', aredlEnjoyment: 50 },
+        /Extreme Demon Enjoyment List/,
+      ],
+      [
+        'GDDL',
+        { partialDiff: 'demon-insane', aredlEnjoyment: null, gddlEnjoyment: 50 },
+        /GDDL/,
+      ],
+    ])('names %s as the source in its popover', async (_label, props, matcher) => {
+      const user = userEvent.setup()
+      render(<Stats level={makeGlobalLevel(props)} />)
+
+      await user.click(
+        screen.getByRole('button', {
+          name: 'Where does the enjoyment rating come from?',
+        })
+      )
+
+      expect(screen.getByText(matcher)).toBeInTheDocument()
     })
   })
 })

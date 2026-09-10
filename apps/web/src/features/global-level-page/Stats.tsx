@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import {
   coinDisplay,
+  enjoymentDisplay,
   knownObjectCount,
   likeDisplay,
   statFlags,
@@ -108,8 +109,10 @@ function ObjectsInfoButton() {
 }
 
 // Names the source, because "enjoyment" on its own reads as an InfernoLog
-// rating — which is a different, per-user number the viewer may also have.
-function EnjoymentInfoButton() {
+// rating — which is a different, per-user number the viewer may also have. The
+// two sources are on the same 0-100 scale but are not the same measurement, so
+// the card says which one the reader is looking at.
+function EnjoymentInfoButton({ source }: { source: 'EDEL' | 'GDDL' }) {
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -124,9 +127,20 @@ function EnjoymentInfoButton() {
       <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
         <p className="font-medium text-text-primary">Community enjoyment</p>
         <p className="text-text-secondary">
-          The Extreme Demon Enjoyment List&rsquo;s community score out of 100,
-          via AREDL. It is not your rating &mdash; yours lives on your own log
-          for this level. A pending score is still being collected.
+          {source === 'EDEL' ? (
+            <>
+              The Extreme Demon Enjoyment List&rsquo;s community score out of
+              100, via AREDL. A pending score is still being collected.
+            </>
+          ) : (
+            <>
+              GDDL&rsquo;s community enjoyment score, rescaled from its own
+              0&ndash;10 to 100 so it reads on the same scale as the Extreme
+              Demon Enjoyment List, which covers extremes instead.
+            </>
+          )}{' '}
+          It is not your rating &mdash; yours lives on your own log for this
+          level.
         </p>
       </PopoverContent>
     </Popover>
@@ -173,8 +187,8 @@ function CoinValue({ level }: { level: GlobalLevelPageData }) {
 }
 
 /**
- * The stat cards (six, plus Enjoyment where AREDL has one) and the conditional
- * two-player / low-detail flag chips.
+ * The stat cards (six, plus Enjoyment where a community list has one) and the
+ * conditional two-player / low-detail flag chips.
  * Flags live inside this block on purpose: on mobile, collapsing Stats must
  * take the chips with it (orphaned chips under a collapsed header look broken).
  */
@@ -183,7 +197,7 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
   const likes = likeDisplay(level)
   const objects = knownObjectCount(level)
   const duration = formatDuration(level.durationSeconds)
-  const enjoyment = formatEnjoyment(level.aredlEnjoyment)
+  const enjoyment = enjoymentDisplay(level)
 
   return (
     <div>
@@ -243,15 +257,15 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
           }
           info={objects != null ? undefined : <ObjectsInfoButton />}
         />
-        {/* AREDL only, so most levels never render this card. Conditional
+        {/* Only levels EDEL or GDDL has rated render this card. Conditional
             rather than a "—" placeholder: the grid reflows cleanly, and an
-            empty enjoyment card would imply the level has one. */}
+            empty enjoyment card would imply the level has a score of nothing. */}
         {enjoyment != null && (
           <StatCard
             label="Enjoyment"
-            value={enjoyment}
-            sub={level.aredlEnjoymentPending ? 'Pending' : undefined}
-            info={<EnjoymentInfoButton />}
+            value={formatEnjoyment(enjoyment.value)}
+            sub={enjoyment.pending ? 'Pending' : undefined}
+            info={<EnjoymentInfoButton source={enjoyment.source} />}
           />
         )}
         <StatCard label="Coins" value={<CoinValue level={level} />} />

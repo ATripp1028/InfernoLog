@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeGlobalLevel } from '@/utils/testUtils'
 import {
   coinDisplay,
+  enjoymentDisplay,
   knownObjectCount,
   likeDisplay,
   provenanceParts,
@@ -256,5 +257,124 @@ describe('songSource', () => {
     expect(songSource(makeGlobalLevel({ officialSongId: null }))).toBe(
       'Newgrounds'
     )
+  })
+})
+
+describe('enjoymentDisplay', () => {
+  const extreme = { partialDiff: 'demon-extreme', inGameDifficulty: 'Extreme Demon' }
+  const insane = { partialDiff: 'demon-insane', inGameDifficulty: 'Insane Demon' }
+
+  it('prefers EDEL wherever it exists', () => {
+    const level = makeGlobalLevel({
+      ...extreme,
+      aredlEnjoyment: 59.4,
+      aredlEnjoymentPending: false,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)).toEqual({
+      value: 59.4,
+      source: 'EDEL',
+      pending: false,
+    })
+  })
+
+  it('carries EDEL’s pending flag through', () => {
+    const level = makeGlobalLevel({
+      ...extreme,
+      aredlEnjoyment: 63.3,
+      aredlEnjoymentPending: true,
+    })
+
+    expect(enjoymentDisplay(level)?.pending).toBe(true)
+  })
+
+  it('falls back to GDDL for a non-extreme', () => {
+    const level = makeGlobalLevel({
+      ...insane,
+      aredlEnjoyment: null,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)).toEqual({
+      value: 50,
+      source: 'GDDL',
+      pending: false,
+    })
+  })
+
+  // The whole point of the split: EDEL is the better source for extremes, so an
+  // extreme it hasn't rated shows nothing rather than GDDL's number.
+  it('withholds GDDL’s score from an extreme demon', () => {
+    const level = makeGlobalLevel({
+      ...extreme,
+      aredlEnjoyment: null,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)).toBeNull()
+  })
+
+  // An exact match on 'demon-extreme' would silently let every FEATURED extreme
+  // through to the GDDL branch.
+  it('recognizes the featured-extreme difficulty token', () => {
+    const level = makeGlobalLevel({
+      partialDiff: 'demon-extreme-featured',
+      aredlEnjoyment: null,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)).toBeNull()
+  })
+
+  // A row cached before partialDiff existed has only the label, and the label
+  // reaches us in more than one spelling.
+  it.each([
+    ['Extreme Demon', null],
+    ['EXTREME_DEMON', null],
+    ['Insane Demon', 50],
+  ])('falls back to the %s label when partialDiff is absent', (label, expected) => {
+    const level = makeGlobalLevel({
+      partialDiff: null,
+      inGameDifficulty: label,
+      aredlEnjoyment: null,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)?.value ?? null).toBe(expected)
+  })
+
+  // A demoted level is no longer an extreme but keeps a score EDEL really
+  // collected, so nothing about the demotion should discard it.
+  it('keeps a demoted level’s EDEL score', () => {
+    const level = makeGlobalLevel({
+      ...insane,
+      aredlStatus: 'Legacy',
+      aredlEnjoyment: 41.2,
+      gddlEnjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)?.source).toBe('EDEL')
+  })
+
+  it('returns null when neither source has rated the level', () => {
+    const level = makeGlobalLevel({
+      ...insane,
+      aredlEnjoyment: null,
+      gddlEnjoyment: null,
+    })
+
+    expect(enjoymentDisplay(level)).toBeNull()
+  })
+
+  // A zero score is a real rating, not an absent one.
+  it('treats a zero score as a rating', () => {
+    const level = makeGlobalLevel({
+      ...insane,
+      aredlEnjoyment: null,
+      gddlEnjoyment: 0,
+    })
+
+    expect(enjoymentDisplay(level)?.value).toBe(0)
   })
 })

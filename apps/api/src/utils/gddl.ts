@@ -88,6 +88,23 @@ export function roundGddlTier(rating: number): number {
   return Math.round(rating)
 }
 
+/**
+ * Rescales a GDDL enjoyment rating (0-10, e.g. 4.954022988505747) onto the
+ * 0-100 scale EDEL reports, rounding to the nearest tenth of a GDDL point on
+ * the way — so 4.954 becomes 50, not 49.54.
+ *
+ * Rounding to a tenth and multiplying by ten is one operation, `round(x * 10)`,
+ * and lands on a whole number every time. That is deliberate: the two enjoyment
+ * sources share one column and one display, so a value from here must not be
+ * distinguishable by having more decimal places than one from EDEL.
+ *
+ * Clamped, because the scale is upstream's promise rather than ours and a badge
+ * reading "137" would be worse than a slightly wrong one.
+ */
+export function rescaleGddlEnjoyment(enjoyment: number): number {
+  return Math.min(100, Math.max(0, Math.round(enjoyment * 10)))
+}
+
 // How long to wait on the public GDDL level lookup before giving up. Like the
 // level metadata autofill, this must never block the logging flow.
 const LEVEL_TIMEOUT_MS = 5000
@@ -105,6 +122,12 @@ const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/
 export interface GddlLevelResult {
   /** The community tier, rounded to a whole number at ingestion. */
   tier: number | null
+  /**
+   * Community enjoyment, rescaled from GDDL's 0-10 to the 0-100 that EDEL uses,
+   * so the two are directly comparable wherever one stands in for the other.
+   * See {@link rescaleGddlEnjoyment}.
+   */
+  enjoyment: number | null
   /** Showcase video, normalized to a canonical watch URL. */
   showcaseUrl: string | null
   /** Level duration in whole seconds. */
@@ -117,6 +140,7 @@ export interface GddlLevelResult {
 interface GddlLevelRaw {
   ID?: unknown
   Rating?: unknown
+  Enjoyment?: unknown
   Showcase?: unknown
   Meta?: { seconds?: unknown; objects?: unknown } | null
 }
@@ -200,6 +224,7 @@ export async function fetchGddlLevel(
     if (num(raw.ID) !== Number(levelId)) return null
 
     const rating = num(raw.Rating)
+    const enjoyment = num(raw.Enjoyment)
     const seconds = num(raw.Meta?.seconds)
     const showcase =
       typeof raw.Showcase === 'string' && YOUTUBE_ID_RE.test(raw.Showcase)
@@ -208,6 +233,7 @@ export async function fetchGddlLevel(
 
     return {
       tier: rating === null ? null : roundGddlTier(rating),
+      enjoyment: enjoyment === null ? null : rescaleGddlEnjoyment(enjoyment),
       showcaseUrl: showcase,
       seconds: seconds === null ? null : Math.round(seconds),
       objectCount: num(raw.Meta?.objects),

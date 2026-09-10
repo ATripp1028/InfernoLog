@@ -19,6 +19,13 @@
 //   sheetTier       AREDL → GSV
 //   objectCount     GSV only, and only when GSV has one
 //   aredl*          AREDL only
+//   gddlEnjoyment   GDDL only
+//
+// Enjoyment is the one figure two sources carry that is NOT merged here. EDEL's
+// (aredlEnjoyment) and GDDL's (gddlEnjoyment) are written side by side and the
+// choice is made at the display layer, because it turns on the level's current
+// difficulty — EDEL wins for extremes, GDDL fills the gap for everything else —
+// and a difficulty that changes should re-decide it without a re-fetch.
 //
 // THE NO-DOWNGRADE RULE. Each source answers with a result, `null` ("I don't
 // have this level" — authoritative and cacheable), or `undefined` (the call
@@ -213,6 +220,7 @@ export function mergeCommunityData(
     ...from(applies.aredl, aredlAnswered, aredl?.sheetTier),
     ...from(applies.gsv, gsvAnswered, gsv?.sheetTier),
   ])
+  put('gddlEnjoyment', from(applies.gddl, gddlAnswered, gddl?.enjoyment))
   put('aredlStatus', from(applies.aredl, aredlAnswered, aredl?.status))
   put('aredlEnjoyment', from(applies.aredl, aredlAnswered, aredl?.enjoyment))
   put(

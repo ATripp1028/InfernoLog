@@ -40,6 +40,10 @@ export const LevelSchema = z.object({
   // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
   // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
+  // GDDL's community enjoyment, rescaled from its native 0-10 onto EDEL's
+  // 0-100 so the two are comparable. Shown only for non-extremes — EDEL is the
+  // better source where a level has both. See enjoymentDisplay in apps/web.
+  gddlEnjoyment: z.number().int().nullable(),
   // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
   // its Legacy tier to the end of the position sequence, so for a Legacy level
   // this is a list index and rendering it as "#n" states something false.

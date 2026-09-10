@@ -104,6 +104,57 @@ export function knownObjectCount(level: GlobalLevelPageData): number | null {
 }
 
 /**
+ * Which enjoyment rating to show, and where it came from.
+ *
+ * Two communities rate enjoyment on scales the API has already reconciled onto
+ * 0-100: the Extreme Demon Enjoyment List (via AREDL) and GDDL. Neither covers
+ * the other's ground well, so the choice is by level:
+ *
+ * - **EDEL wins wherever it exists.** It is the more reliable of the two for
+ *   the levels it rates, which is what the whole split is for. A level demoted
+ *   off AREDL keeps its EDEL score even though it is no longer an extreme —
+ *   the score was really collected, and nothing about the demotion invalidates
+ *   it.
+ * - **GDDL fills in for non-extremes only.** An extreme demon EDEL has not
+ *   rated shows no enjoyment at all rather than GDDL's, deliberately.
+ *
+ * Decided here rather than at ingestion so a level whose difficulty changes
+ * re-decides on the next render, with no re-fetch and no stale column.
+ *
+ * @returns null when neither source has a rating this level may show.
+ */
+export function enjoymentDisplay(
+  level: GlobalLevelPageData
+): { value: number; source: 'EDEL' | 'GDDL'; pending: boolean } | null {
+  if (level.aredlEnjoyment != null) {
+    return {
+      value: level.aredlEnjoyment,
+      source: 'EDEL',
+      // Only EDEL publishes a provisional flag; GDDL scores are never pending.
+      pending: level.aredlEnjoymentPending === true,
+    }
+  }
+  if (level.gddlEnjoyment != null && !isExtremeDemon(level)) {
+    return { value: level.gddlEnjoyment, source: 'GDDL', pending: false }
+  }
+  return null
+}
+
+// Whether the level is currently an Extreme Demon.
+//
+// Reads `partialDiff` first (RobTop's machine-readable token) and falls back to
+// the display label, since a row cached before that column existed has only the
+// label. `startsWith` rather than equality: the token has a `-featured`
+// variant, and an exact match would silently miss every featured extreme.
+// Punctuation and case are normalized away because the label reaches us as
+// "Extreme Demon" from the live API and "EXTREME_DEMON" from older rows.
+function isExtremeDemon(level: GlobalLevelPageData): boolean {
+  if (level.partialDiff != null) return level.partialDiff.startsWith('demon-extreme')
+  const label = level.inGameDifficulty?.toLowerCase().replace(/[^a-z]/g, '')
+  return label === 'extremedemon'
+}
+
+/**
  * Labels for the flag chips below the stat cards.
  *
  * Only true flags appear — a level without them shows no row at all, never

@@ -58,7 +58,9 @@ The logging flow's level-entry field accepts **either an ID or a name** (one fie
 
 ### Public level endpoint
 
-`GET https://gdladder.com/api/levels/{levelId}` — no key needed. Returns `Rating` (a decimal tier, rounded at ingestion via `roundGddlTier`), `Showcase` (a **bare 11-character YouTube video id**, not a URL), and `Meta.seconds` / `Meta.objects`. `fetchGddlLevel` in `apps/api/src/utils/gddl.ts` is the client; it feeds the community merge below.
+`GET https://gdladder.com/api/levels/{levelId}` — no key needed. Returns `Rating` (a decimal tier, rounded at ingestion via `roundGddlTier`), `Enjoyment` (a 0–10 community score), `Showcase` (a **bare 11-character YouTube video id**, not a URL), and `Meta.seconds` / `Meta.objects`. `fetchGddlLevel` in `apps/api/src/utils/gddl.ts` is the client; it feeds the community merge below.
+
+`Enjoyment` is rescaled at ingestion onto the **0–100 scale EDEL uses**, so the two are directly comparable wherever one stands in for the other: `rescaleGddlEnjoyment` rounds to the nearest tenth of a GDDL point and multiplies by ten, which is one operation (`round(x * 10)`) and always lands on a whole number. That matters — both scores share one column family and one stat card, so a GDDL value must not be identifiable by carrying more decimal places than an EDEL one. It is clamped to 0–100, since the range is upstream's promise rather than ours.
 
 **The path is `/levels/` — plural.** `/level/{id}` (singular) responds `404 Cannot GET` for *every* id in existence. The suggested-tier lookup used that spelling from the day it was written and therefore returned `null` in production for its entire life; every test passed because `fetch` was mocked. If a GDDL lookup ever silently produces nothing, check the spelling first.
 
@@ -205,6 +207,14 @@ Per column, the first source that **answered** and had a value:
 | `sheetTier` | AREDL `nlw_tier` → GSV's SHEET value |
 | `objectCount` | GSV only, and only when it has one |
 | `aredlStatus` / `aredlEnjoyment` / `aredlEnjoymentPending` | AREDL only |
+| `gddlEnjoyment` | GDDL only |
+
+**Enjoyment is the one figure with two sources and no merge.** EDEL's (`aredlEnjoyment`, via AREDL) and GDDL's (`gddlEnjoyment`) are stored side by side and chosen between at the display layer — `enjoymentDisplay` in `apps/web/src/features/global-level-page/display.ts`:
+
+- **EDEL wins wherever it exists.** It is the more reliable of the two for the levels it rates, which is the whole reason for the split. A level demoted off AREDL keeps its EDEL score even though it is no longer an extreme — the score was really collected, and the demotion does not invalidate it.
+- **GDDL fills in for non-extremes only.** An extreme demon EDEL has not rated shows **no** enjoyment rather than GDDL's, deliberately. AREDL covers ~1600 of several thousand rated extremes, so this does leave extremes off the list without a score.
+
+The choice is made at render rather than at ingestion so that a level whose difficulty changes re-decides on the next view, with no re-fetch and no stale column. The extreme test reads `partialDiff` with `startsWith('demon-extreme')` — the token has a `-featured` variant that exact equality would miss — and falls back to the difficulty label for rows cached before that column existed.
 
 **The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source *did not answer*, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
 

@@ -58,6 +58,9 @@ export interface Level {
   // sheetTier is the NLW/LW spreadsheet tier 0-21 (>= 14 is listworthy); tier 0
   // is a real tier, so never test it for truthiness.
   gddlTier: number | null
+  // GDDL's community enjoyment, rescaled onto EDEL's 0-100. Shown only for
+  // non-extremes — EDEL is the better source where a level has both.
+  gddlEnjoyment: number | null
   // ⚠️ Only a RANK while aredlStatus is "MainList" — AREDL appends its Legacy
   // tier to the end of the position sequence, so a Legacy level's number is a
   // list index and showing it as "#n" would state something false.
