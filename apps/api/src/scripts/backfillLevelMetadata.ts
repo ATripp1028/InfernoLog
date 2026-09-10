@@ -45,7 +45,7 @@
 // This script closes that gap: it re-fetches each affected level from RobTop
 // and writes the SAME full snapshot every healthy path writes
 // NOTE: this backfills RobTop metadata only — it runs no Global Stats Viewer
-// check, unlike the live seed paths (see robtopMapping.ts). backfillGsv.ts is
+// check, unlike the live seed paths (see robtopMapping.ts). backfillCommunity.ts is
 // its counterpart and is the thing to run for community-list placements,
 // showcases and accurate object counts. Kept separate so either can be run
 // alone against a large cache.

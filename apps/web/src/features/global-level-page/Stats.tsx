@@ -18,19 +18,29 @@ import {
   likeDisplay,
   statFlags,
 } from './display'
+import { formatDuration, formatEnjoyment } from './format'
 
 function StatCard({
   label,
   value,
+  sub,
   info,
 }: {
   label: string
   value: React.ReactNode
+  /**
+   * Optional secondary line under the value, for a coarser reading of the same
+   * fact (the length band under the duration).
+   */
+  sub?: React.ReactNode
   /** Optional info popover rendered beside the label (e.g. why a value is blank). */
   info?: React.ReactNode
 }) {
   return (
-    <div className="flex h-[52px] flex-col justify-center rounded-card border border-border bg-bg-surface px-3 md:h-16 md:px-3.5">
+    // min-h rather than a fixed height: a card with a sub-line is taller, and
+    // grid rows size to their tallest cell, so every card in the row grows with
+    // it and they stay aligned.
+    <div className="flex min-h-[52px] flex-col justify-center rounded-card border border-border bg-bg-surface px-3 py-1.5 md:min-h-16 md:px-3.5">
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-text-tertiary md:text-[11px]">
         {label}
         {info}
@@ -38,6 +48,11 @@ function StatCard({
       <div className="mt-1 flex items-center gap-1.5 overflow-hidden whitespace-nowrap text-sm font-medium text-text-primary md:text-base">
         {value}
       </div>
+      {sub != null && (
+        <div className="overflow-hidden whitespace-nowrap text-[11px] leading-tight text-text-tertiary">
+          {sub}
+        </div>
+      )}
     </div>
   )
 }
@@ -92,6 +107,32 @@ function ObjectsInfoButton() {
   )
 }
 
+// Names the source, because "enjoyment" on its own reads as an InfernoLog
+// rating — which is a different, per-user number the viewer may also have.
+function EnjoymentInfoButton() {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Where does the enjoyment rating come from?"
+          className="inline-flex size-4 items-center justify-center rounded-full text-text-tertiary transition-colors hover:text-text-secondary"
+        >
+          <Info size={12} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="max-w-[280px] space-y-2 p-4 text-sm">
+        <p className="font-medium text-text-primary">Community enjoyment</p>
+        <p className="text-text-secondary">
+          The Extreme Demon Enjoyment List&rsquo;s community score out of 100,
+          via AREDL. It is not your rating &mdash; yours lives on your own log
+          for this level. A pending score is still being collected.
+        </p>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
 function FlagChip({ label }: { label: string }) {
   return (
     <span className="inline-flex items-center rounded-md bg-white/[0.06] px-2.5 py-1.5 text-[11px] font-medium uppercase tracking-wide text-text-secondary">
@@ -132,7 +173,8 @@ function CoinValue({ level }: { level: GlobalLevelPageData }) {
 }
 
 /**
- * Six stat cards plus the conditional two-player / low-detail flag chips.
+ * The stat cards (six, plus Enjoyment where AREDL has one) and the conditional
+ * two-player / low-detail flag chips.
  * Flags live inside this block on purpose: on mobile, collapsing Stats must
  * take the chips with it (orphaned chips under a collapsed header look broken).
  */
@@ -140,6 +182,8 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
   const flags = statFlags(level)
   const likes = likeDisplay(level)
   const objects = knownObjectCount(level)
+  const duration = formatDuration(level.durationSeconds)
+  const enjoyment = formatEnjoyment(level.aredlEnjoyment)
 
   return (
     <div>
@@ -170,14 +214,18 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
             </>
           }
         />
+        {/* Duration leads, since it is the precise reading; RobTop's coarse
+            band ("Long") drops to the sub-line, and takes the value's place on
+            a level no source has timed. */}
         <StatCard
           label="Length"
           value={
             <>
               <GdIcon src={gdStatIconSrc.length} ariaLabel="Length" />
-              {level.length ?? '—'}
+              {duration ?? level.length ?? '—'}
             </>
           }
+          sub={duration != null ? level.length : undefined}
         />
         <StatCard
           label="Objects"
@@ -195,6 +243,17 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
           }
           info={objects != null ? undefined : <ObjectsInfoButton />}
         />
+        {/* AREDL only, so most levels never render this card. Conditional
+            rather than a "—" placeholder: the grid reflows cleanly, and an
+            empty enjoyment card would imply the level has one. */}
+        {enjoyment != null && (
+          <StatCard
+            label="Enjoyment"
+            value={enjoyment}
+            sub={level.aredlEnjoymentPending ? 'Pending' : undefined}
+            info={<EnjoymentInfoButton />}
+          />
+        )}
         <StatCard label="Coins" value={<CoinValue level={level} />} />
         {/* Info glyph for the game version, edit (build-tools) glyph for the
             level's own revision number. */}

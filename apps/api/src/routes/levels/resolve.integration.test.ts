@@ -24,19 +24,41 @@ vi.mock('../../utils/robtop', () => ({
   // /gd-search runs the GD-server name search via runGdSearch.
   searchRobtopByNameResult: vi.fn(),
 }))
-vi.mock('../../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
-// Mock only the SFH HTTP client — checkSfhNongIfDue + the cache write run for
-// real against the test DB.
+vi.mock('../../utils/gddl', async (importOriginal) => ({
+  // Spread the real module: communitySync reaches roundGddlTier through this
+  // route, and a bare factory would shadow it away with a missing-export error.
+  ...(await importOriginal<typeof import('../../utils/gddl')>()),
+  fetchGddlTier: vi.fn(),
+  fetchGddlLevel: vi.fn(),
+}))
+// Mock only the HTTP clients — checkSfhNongIfDue / checkCommunityIfDue and
+// their cache writes run for real against the test DB.
 vi.mock('../../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
+vi.mock('../../utils/globalStatsViewer', () => ({
+  fetchGlobalStatsViewerLevel: vi.fn(),
+}))
+vi.mock('../../utils/aredl', () => ({
+  fetchAredlLevel: vi.fn(),
+  fetchAredlList: vi.fn(),
+}))
 
 const { default: levelsApp } = await import('./index')
 const { fetchRobtopLevel } = await import('../../utils/robtop')
-const { fetchGddlTier } = await import('../../utils/gddl')
+const { fetchGddlTier, fetchGddlLevel } = await import('../../utils/gddl')
 const { fetchSongFileHubNong } = await import('../../utils/songFileHub')
+const { fetchGlobalStatsViewerLevel } = await import(
+  '../../utils/globalStatsViewer'
+)
+const { fetchAredlLevel } = await import('../../utils/aredl')
 
 const prisma = getTestPrisma()
 const robtopMock = fetchRobtopLevel as unknown as ReturnType<typeof vi.fn>
 const gddlTierMock = fetchGddlTier as unknown as ReturnType<typeof vi.fn>
+const gddlLevelMock = fetchGddlLevel as unknown as ReturnType<typeof vi.fn>
+const gsvMock = fetchGlobalStatsViewerLevel as unknown as ReturnType<
+  typeof vi.fn
+>
+const aredlMock = fetchAredlLevel as unknown as ReturnType<typeof vi.fn>
 const sfhMock = fetchSongFileHubNong as unknown as ReturnType<typeof vi.fn>
 const daysAgo = (n: number) => new Date(Date.now() - n * 24 * 60 * 60 * 1000)
 
@@ -44,6 +66,11 @@ beforeEach(async () => {
   vi.clearAllMocks()
   // Default: GDDL has no suggested tier. Individual tests override.
   gddlTierMock.mockResolvedValue(null)
+  // Default: every community source answers with "not on my list", so the
+  // community check runs its real write path without reaching the network.
+  gddlLevelMock.mockResolvedValue(null)
+  gsvMock.mockResolvedValue(null)
+  aredlMock.mockResolvedValue(null)
   // Default: SFH unavailable (no NONG write) so unrelated tests are unaffected.
   sfhMock.mockResolvedValue(undefined)
   await truncateAll(prisma)
@@ -87,7 +114,14 @@ describe('GET /levels/:levelId/resolve', () => {
       isRated: true,
       isDemon: true,
     })
-    gddlTierMock.mockResolvedValue(35)
+    // The suggested tier now comes from the row the community check writes,
+    // not from a second call to GDDL on this request — see the route.
+    gddlLevelMock.mockResolvedValue({
+      tier: 35,
+      showcaseUrl: null,
+      seconds: null,
+      objectCount: null,
+    })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
       '/levels/222/resolve'
@@ -110,8 +144,12 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(body.level?.dataSource).toBe('robtop_autofill')
     expect(body.level?.verified).toBe(true)
     expect(body.level?.isDemon).toBe(true)
-    // GDDL suggested tier is fetched for rated levels and folded into resolve.
-    expect(gddlTierMock).toHaveBeenCalledWith('222')
+    // The GDDL tier is fetched once, by the community check, and read back from
+    // the cache rather than fetched a second time for this field. GDDL allows
+    // 100 requests a minute across every Lambda we run, so a route spending two
+    // of them on one level is how the sync job gets throttled.
+    expect(gddlLevelMock).toHaveBeenCalledTimes(1)
+    expect(gddlTierMock).not.toHaveBeenCalled()
     expect(body.suggestedGddlTier).toBe(35)
 
     // The level was persisted to the cache.
@@ -121,9 +159,10 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(cached?.isDemon).toBe(true)
   })
 
-  it('skips the GDDL tier lookup for unrated levels', async () => {
+  it('reports no suggested GDDL tier for unrated levels', async () => {
     const user = await seedUser(prisma)
-    // seedLevel defaults isRated=false.
+    // seedLevel defaults isRated=false (and isDemon=false, so no source
+    // indexes it and the community check is skipped outright).
     await seedLevel(prisma, { inGameId: '556' })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
@@ -132,7 +171,7 @@ describe('GET /levels/:levelId/resolve', () => {
     const body = (await res.json()) as { suggestedGddlTier: number | null }
 
     expect(res.status).toBe(200)
-    expect(gddlTierMock).not.toHaveBeenCalled()
+    expect(gddlLevelMock).not.toHaveBeenCalled()
     expect(body.suggestedGddlTier).toBeNull()
   })
 

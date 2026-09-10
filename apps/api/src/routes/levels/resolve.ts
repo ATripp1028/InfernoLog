@@ -11,9 +11,8 @@ import { Hono } from 'hono'
 import { LevelIdSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevel } from '../../utils/robtop'
-import { fetchGddlTier } from '../../utils/gddl'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
-import { checkGsvIfDue } from '../../services/levels/gsvSync'
+import { checkCommunityIfDue } from '../../services/levels/communitySync'
 import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
 import type { HonoVariables } from '../../types/hono'
 import {
@@ -122,18 +121,33 @@ app.get('/levels/:levelId/resolve', async (c) => {
     })
   }
 
-  // GDDL suggested tier autofill — only meaningful for rated levels, and must
-  // never block or fail the resolve (returns null on any failure). The Song
-  // File Hub NONG and Global Stats Viewer checks run alongside it: both are
-  // best-effort, both cache rather than surfacing anything in this payload, and
-  // neither can fail the resolve (each never throws and self-gates on delisted
-  // levels and levels checked within its own re-check cadence).
-  const [suggestedGddlTier, existingCompletion] = await Promise.all([
-    level.isRated ? fetchGddlTier(levelId) : Promise.resolve(null),
+  // The Song File Hub NONG and community-list checks: both best-effort, both
+  // cache rather than surfacing anything in this payload, and neither can fail
+  // the resolve (each never throws and self-gates on delisted levels and levels
+  // checked within its own re-check cadence).
+  const [existingCompletion] = await Promise.all([
     loadExistingCompletion(userId, levelId),
     checkSfhNongIfDue(levelId),
-    checkGsvIfDue(levelId),
+    checkCommunityIfDue(levelId),
   ])
+
+  // GDDL suggested tier autofill — only meaningful for rated levels, and never
+  // allowed to block or fail the resolve.
+  //
+  // Read back from the row the community check just wrote rather than fetched
+  // separately: the two are the same number from the same endpoint
+  // (roundGddlTier of GDDL's Rating), and GDDL allows 100 requests a minute
+  // across every Lambda we run. Spending two of them on one level — in the same
+  // Promise.all, no less — is how a user-facing route becomes the thing that
+  // trips the limit for the sync job.
+  const suggestedGddlTier = level.isRated
+    ? ((
+        await prisma.level.findUnique({
+          where: { inGameId: levelId },
+          select: { gddlTier: true },
+        })
+      )?.gddlTier ?? null)
+    : null
 
   return c.json({
     level: mapLevelDetail(level),

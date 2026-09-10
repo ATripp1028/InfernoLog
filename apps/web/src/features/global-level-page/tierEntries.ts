@@ -1,10 +1,11 @@
 // Which community-list rows the TIERS section shows, and what each one says.
 // Pure derivation — Tiers.tsx only paints what this returns.
 //
-// All three placements arrive on the level row from the Global Stats Viewer
-// (see EXTERNAL_APIS.md). They are the level's REAL, current placements, which
-// is a different thing from LevelProgress.userGddlTier — one user's own tier
-// opinion, captured when they logged the level and never updated.
+// All three placements arrive on the level row already merged from the Global
+// Stats Viewer, GDDL and AREDL (see EXTERNAL_APIS.md). They are the level's
+// REAL, current placements, which is a different thing from
+// LevelProgress.userGddlTier — one user's own tier opinion, captured when they
+// logged the level and never updated.
 
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 import { gddlTierColor } from '@/lib/tierColor'
@@ -90,16 +91,36 @@ export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
     })
   }
 
-  if (level.aredlRank != null) {
+  // AREDL rows exist for a status alone, not just a rank: its Legacy tier is
+  // where levels demoted out of extreme go, and that placement is worth showing
+  // even though the number attached to it is not a rank.
+  if (level.aredlRank != null || level.aredlStatus != null) {
+    // ⚠️ THE POSITION IS ONLY A RANK ON THE MAIN LIST. AREDL appends Legacy to
+    // the end of the position sequence rather than interleaving it (MainList
+    // runs 1-1573, Legacy 1574-1606), so "#1574" would read as "the 1574th
+    // hardest level" when it means "removed from the list". A known status
+    // other than MainList shows the status instead of the number.
+    //
+    // A MISSING status with a rank is NOT that case: it means the rank came
+    // from the Global Stats Viewer, whose AREDL entry only ever reports
+    // main-list placements. Treating it as unranked would blank the badge on
+    // every level AREDL itself hasn't been asked about yet. `== null` rather
+    // than `=== null` on purpose — a payload cached before this field existed
+    // carries undefined, and that is the same "no status known" case.
+    const ranked =
+      level.aredlRank != null &&
+      (level.aredlStatus == null || level.aredlStatus === 'MainList')
     entries.push({
       key: 'aredl',
       label: 'AREDL',
-      value: level.aredlRank,
-      badge: `#${level.aredlRank}`,
+      value: level.aredlRank ?? 0,
+      badge: ranked ? `#${level.aredlRank}` : (level.aredlStatus ?? '—'),
       detail: null,
       source: null,
-      color: AREDL_BADGE_COLOR,
-      textColor: readableTextColor(AREDL_BADGE_COLOR),
+      // Only a real placement earns the painted badge; a status chip stays
+      // unpainted so it doesn't read as a rank at a glance.
+      color: ranked ? AREDL_BADGE_COLOR : null,
+      textColor: ranked ? readableTextColor(AREDL_BADGE_COLOR) : '#f5f5f5',
       href: aredlLevelUrl(level.inGameId),
       icon: '/assets/integrations/aredl.ico',
     })

@@ -113,7 +113,7 @@ Goal: Deepen the core logging experience. No new platform features.
 
 ### Expanded List Integrations
 
-- [ ] AREDL API integration
+- [x] AREDL API integration
 - [ ] Record acceptance tracking for AREDL (not just GDDL)
 - [ ] GDDL favorites sync (push InfernoLog favorites to GDDL)
 

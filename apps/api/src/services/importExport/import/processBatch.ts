@@ -18,10 +18,11 @@ import type { ImportCommitRow, ImportCommitResponse } from '@infernolog/core'
 import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
 import { buildRobtopRefreshData } from '../../levels/robtopMapping'
-import { checkGsvForSeededLevels } from '../../levels/gsvSync'
+import { checkCommunityForSeededLevels } from '../../levels/communitySync'
 
-// Wall-clock ceiling on this batch's GSV pass — see the call site below.
-const GSV_IMPORT_BUDGET_MS = 20_000
+// Wall-clock ceiling on this batch's community-list pass — see the call site
+// below.
+const COMMUNITY_IMPORT_BUDGET_MS = 20_000
 import { resolveLevelDifficulty } from '../../levels/difficulty'
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
@@ -576,7 +577,7 @@ export async function processImportJobBatch(
 
   // ── Flush: stubs, batched writes, outcomes (one short transaction) ────
   let newStubIds: string[] = []
-  // Stubs the transaction upgraded with RobTop data. Their GSV check runs after
+  // Stubs the transaction upgraded with RobTop data. Their community check runs after
   // the commit — an outbound HTTP call inside this transaction would hold it
   // open across the network and is exactly what the tight timeout below guards
   // against.
@@ -680,7 +681,7 @@ export async function processImportJobBatch(
   // comes straight out of the margin it reserved to self-reinvoke. Overrun it
   // and the Lambda dies after these rows were already committed, with no
   // reinvoke — leaving the job stuck at `running` forever.
-  await checkGsvForSeededLevels(seededFromRobtop, GSV_IMPORT_BUDGET_MS)
+  await checkCommunityForSeededLevels(seededFromRobtop, COMMUNITY_IMPORT_BUDGET_MS)
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.
   if (newStubIds.length) {

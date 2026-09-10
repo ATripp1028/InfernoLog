@@ -4,6 +4,9 @@
 // only ever sent in the Authorization header. Do not add logging of the key or
 // of request headers to this module.
 
+import { logger } from './logger'
+import { acquireGddlSlot, reportGddlThrottled } from './gddlRateLimit'
+
 const GDDL_API_BASE_URL =
   process.env.GDDL_API_BASE_URL ?? 'https://gdladder.com/api'
 
@@ -85,37 +88,150 @@ export function roundGddlTier(rating: number): number {
   return Math.round(rating)
 }
 
-// How long to wait on the public GDDL tier lookup before giving up. Like the
+// How long to wait on the public GDDL level lookup before giving up. Like the
 // level metadata autofill, this must never block the logging flow.
-const TIER_TIMEOUT_MS = 5000
+const LEVEL_TIMEOUT_MS = 5000
+
+// A YouTube video id, which is what GDDL's `Showcase` carries — a bare id, not
+// a URL. Validated rather than trusted: it is interpolated into a URL we then
+// hand to the browser.
+const YOUTUBE_ID_RE = /^[A-Za-z0-9_-]{11}$/
+
+/**
+ * A level's public GDDL record, normalized to the `levels` columns it feeds.
+ * Every field is independently nullable — GDDL indexing a level says nothing
+ * about whether it has a showcase or a measured length.
+ */
+export interface GddlLevelResult {
+  /** The community tier, rounded to a whole number at ingestion. */
+  tier: number | null
+  /** Showcase video, normalized to a canonical watch URL. */
+  showcaseUrl: string | null
+  /** Level duration in whole seconds. */
+  seconds: number | null
+  objectCount: number | null
+}
+
+// Only the fields we persist are typed; the rest of the payload (Enjoyment,
+// Deviation, Popularity, the Song/Publisher sub-objects, …) is ignored.
+interface GddlLevelRaw {
+  ID?: unknown
+  Rating?: unknown
+  Showcase?: unknown
+  Meta?: { seconds?: unknown; objects?: unknown } | null
+}
+
+const num = (v: unknown): number | null =>
+  typeof v === 'number' && Number.isFinite(v) ? v : null
+
+/**
+ * Fetches a level's public GDDL record (no API key needed). Returns:
+ *   - a {@link GddlLevelResult} when GDDL has the level
+ *   - null when GDDL answered but doesn't carry it — a real, cacheable
+ *     "checked, not indexed"
+ *   - undefined when the call itself failed (network/timeout/non-2xx), when the
+ *     shared rate limiter denied a slot, or when GDDL 429'd
+ * Never throws.
+ *
+ * ⚠️ TWO UPSTREAM QUIRKS DECIDE THE NULL BRANCH, and both are easy to get wrong:
+ *
+ * 1. The endpoint is `/levels/{id}` — PLURAL. `/level/{id}` responds
+ *    `404 Cannot GET` for every id on earth, which is why the tier autofill
+ *    that used it returned null for its entire life without anyone noticing
+ *    (every test mocks fetch).
+ * 2. A level GDDL does not carry comes back as **HTTP 200 with body `{}`**, not
+ *    a 404. Mapping only 404 to null would file every un-indexed level under
+ *    "the call failed" and keep it permanently due for a re-check.
+ *
+ * GDDL echoes the level id back as `ID`, so one identity check settles both:
+ * a body without a matching `ID` is a not-found, whatever the status said.
+ *
+ * Unlike the key-authenticated functions in this module, which throw
+ * {@link GddlError} subclasses, this follows the community-source house
+ * contract (see utils/globalStatsViewer.ts): failure is an expected branch and
+ * resolves to a value, never an exception.
+ */
+export async function fetchGddlLevel(
+  levelId: string
+): Promise<GddlLevelResult | null | undefined> {
+  // Denied means the bucket is empty or a 429 cooldown is open. Treated as a
+  // failed call: no opinion, retried on a later lap. Never waits.
+  if (!(await acquireGddlSlot())) return undefined
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), LEVEL_TIMEOUT_MS)
+
+  try {
+    const res = await fetch(
+      `${GDDL_API_BASE_URL}/levels/${encodeURIComponent(levelId)}`,
+      { headers: { Accept: 'application/json' }, signal: controller.signal }
+    )
+
+    if (res.status === 429) {
+      // Open the shared cooldown so every consumer backs off together, rather
+      // than each path discovering the limit for itself.
+      const retryAfter = Number(res.headers.get('retry-after'))
+      await reportGddlThrottled(
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : undefined
+      )
+      logger.warn({ levelId }, 'fetchGddlLevel: rate limited')
+      return undefined
+    }
+
+    if (!res.ok) {
+      logger.warn(
+        { levelId, status: res.status },
+        'fetchGddlLevel: non-OK response'
+      )
+      return undefined
+    }
+
+    const body = (await res.json()) as unknown
+    if (typeof body !== 'object' || body === null || Array.isArray(body)) {
+      logger.warn({ levelId }, 'fetchGddlLevel: unexpected response shape')
+      return undefined
+    }
+
+    // The identity check described above: `{}` and any mismatched id are both
+    // "GDDL doesn't have this level", which is cacheable.
+    const raw = body as GddlLevelRaw
+    if (num(raw.ID) !== Number(levelId)) return null
+
+    const rating = num(raw.Rating)
+    const seconds = num(raw.Meta?.seconds)
+    const showcase =
+      typeof raw.Showcase === 'string' && YOUTUBE_ID_RE.test(raw.Showcase)
+        ? `https://www.youtube.com/watch?v=${raw.Showcase}`
+        : null
+
+    return {
+      tier: rating === null ? null : roundGddlTier(rating),
+      showcaseUrl: showcase,
+      seconds: seconds === null ? null : Math.round(seconds),
+      objectCount: num(raw.Meta?.objects),
+    }
+  } catch (err) {
+    logger.warn({ levelId, err }, 'fetchGddlLevel: request failed')
+    return undefined
+  } finally {
+    clearTimeout(timeout)
+  }
+}
 
 /**
  * Fetches GDDL's suggested tier for a level (public list data — no key needed).
  * Resolves with the numeric tier (rounded to the nearest whole number), or
  * `null` for any failure (down, timeout, not-found, malformed). Never throws.
+ *
+ * A thin wrapper over {@link fetchGddlLevel} so there is exactly one request
+ * shape against GDDL's public API — the two used to diverge, and the one this
+ * replaces was pointed at a dead endpoint.
  */
 export async function fetchGddlTier(levelId: string): Promise<number | null> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), TIER_TIMEOUT_MS)
-
-  try {
-    const res = await fetch(
-      `${GDDL_API_BASE_URL}/level/${encodeURIComponent(levelId)}`,
-      { headers: { Accept: 'application/json' }, signal: controller.signal }
-    )
-    if (!res.ok) return null
-
-    const body = (await res.json()) as { Rating?: unknown; tier?: unknown }
-    // GDDL exposes the tier as a number under "Rating" (fall back to "tier").
-    const raw = typeof body.Rating === 'number' ? body.Rating : body.tier
-    return typeof raw === 'number' && Number.isFinite(raw)
-      ? roundGddlTier(raw)
-      : null
-  } catch {
-    return null
-  } finally {
-    clearTimeout(timeout)
-  }
+  const result = await fetchGddlLevel(levelId)
+  return result ? result.tier : null
 }
 
 /**

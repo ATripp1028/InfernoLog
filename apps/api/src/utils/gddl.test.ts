@@ -3,6 +3,7 @@ import {
   verifyGddlApiKey,
   roundGddlTier,
   fetchGddlTier,
+  fetchGddlLevel,
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
   fetchGddlList,
@@ -13,6 +14,19 @@ import {
   GddlInvalidKeyError,
   GddlUnavailableError,
 } from './gddl'
+
+// The public level lookup goes through the shared token bucket, which is
+// Postgres-backed. Granted by default here; the deny path gets its own test.
+const mockAcquire = vi.fn(async () => true)
+const mockThrottled = vi.fn<(ms?: number) => Promise<void>>()
+vi.mock('./gddlRateLimit', () => ({
+  acquireGddlSlot: () => mockAcquire(),
+  reportGddlThrottled: (ms?: number) => mockThrottled(ms),
+}))
+
+vi.mock('./logger', () => ({
+  logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+}))
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 
@@ -34,7 +48,12 @@ function lastRequestBody(): Record<string, unknown> {
   return JSON.parse(String(init.body)) as Record<string, unknown>
 }
 
-beforeEach(() => mockFetch.mockReset())
+beforeEach(() => {
+  mockFetch.mockReset()
+  mockAcquire.mockReset()
+  mockAcquire.mockResolvedValue(true)
+  mockThrottled.mockReset()
+})
 
 // ─── fetchGddlUserInfo ────────────────────────────────────────────────────────
 
@@ -250,42 +269,129 @@ describe('roundGddlTier', () => {
 
 // ─── fetchGddlTier ────────────────────────────────────────────────────────────
 
-describe('fetchGddlTier', () => {
-  it('returns the rounded tier from Rating', async () => {
-    mockFetch.mockResolvedValueOnce(resp(200, { Rating: 18.43 }))
-    await expect(fetchGddlTier('12345')).resolves.toBe(18)
-  })
+// ─── fetchGddlLevel / fetchGddlTier ──────────────────────────────────────────
 
-  it('falls back to the lowercase tier field', async () => {
-    mockFetch.mockResolvedValueOnce(resp(200, { tier: 9.6 }))
-    await expect(fetchGddlTier('12345')).resolves.toBe(10)
-  })
+// A GDDL /levels/{id} payload, trimmed to the fields we read.
+function gddlLevel(overrides: Record<string, unknown> = {}) {
+  return {
+    ID: 26681070,
+    Rating: 29.798008534850645,
+    Showcase: 'Dfm_LegCN9Q',
+    Meta: { seconds: 121.03047324788065, objects: 23156 },
+    ...overrides,
+  }
+}
 
-  it('percent-encodes the level id into the path', async () => {
-    mockFetch.mockResolvedValueOnce(resp(200, { Rating: 1 }))
-    await fetchGddlTier('a b/c')
-    expect(String(mockFetch.mock.lastCall?.[0])).toContain('a%20b%2Fc')
+describe('fetchGddlLevel', () => {
+  it('normalizes a full payload and hits the PLURAL levels endpoint', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel()))
+
+    await expect(fetchGddlLevel('26681070')).resolves.toEqual({
+      tier: 30,
+      // A bare video id upstream; a usable URL by the time it leaves here.
+      showcaseUrl: 'https://www.youtube.com/watch?v=Dfm_LegCN9Q',
+      seconds: 121,
+      objectCount: 23156,
+    })
+
+    const url = String(mockFetch.mock.lastCall?.[0])
+    expect(url).toContain('/levels/26681070')
+    // The singular /level/{id} spelling 404s for every id in existence, which
+    // is exactly how the old tier lookup managed to return null forever.
+    expect(url).not.toMatch(/\/level\/\d/)
   })
 
   it('sends no Authorization header — this is public list data', async () => {
-    mockFetch.mockResolvedValueOnce(resp(200, { Rating: 1 }))
-    await fetchGddlTier('12345')
+    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel()))
+    await fetchGddlLevel('26681070')
     const init = mockFetch.mock.lastCall?.[1] as RequestInit
     expect(init.headers).not.toHaveProperty('Authorization')
+  })
+
+  it('percent-encodes the level id into the path', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, {}))
+    await fetchGddlLevel('a b/c')
+    expect(String(mockFetch.mock.lastCall?.[0])).toContain('a%20b%2Fc')
+  })
+
+  // GDDL answers a level it does not carry with HTTP 200 and an EMPTY BODY, not
+  // a 404. Reading that as a failure would keep every un-indexed level
+  // permanently due for a re-check.
+  it('returns null for the empty-object not-found', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, {}))
+    await expect(fetchGddlLevel('880794')).resolves.toBeNull()
+  })
+
+  it('returns null when the body is about a different level', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ ID: 99 })))
+    await expect(fetchGddlLevel('26681070')).resolves.toBeNull()
+  })
+
+  it('tolerates a missing rating, showcase and length', async () => {
+    mockFetch.mockResolvedValueOnce(
+      resp(200, gddlLevel({ Rating: null, Showcase: null, Meta: null }))
+    )
+
+    await expect(fetchGddlLevel('26681070')).resolves.toEqual({
+      tier: null,
+      showcaseUrl: null,
+      seconds: null,
+      objectCount: null,
+    })
+  })
+
+  it.each([
+    ['too short', 'abc'],
+    ['too long', 'Dfm_LegCN9Q_extra'],
+    ['not a video id at all', 'https://example.com/x'],
+  ])('rejects a %s showcase rather than building a bogus URL', async (_l, id) => {
+    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ Showcase: id })))
+
+    await expect(
+      fetchGddlLevel('26681070').then((r) => r?.showcaseUrl)
+    ).resolves.toBeNull()
+  })
+
+  it('opens the shared cooldown on a 429 and reports no opinion', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      headers: { get: (h: string) => (h === 'retry-after' ? '30' : null) },
+      json: async () => ({}),
+    } as unknown as Response)
+
+    await expect(fetchGddlLevel('26681070')).resolves.toBeUndefined()
+    expect(mockThrottled).toHaveBeenCalledWith(30_000)
+  })
+
+  it('falls back to the default cooldown when Retry-After is unusable', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      headers: { get: () => null },
+      json: async () => ({}),
+    } as unknown as Response)
+
+    await fetchGddlLevel('26681070')
+    expect(mockThrottled).toHaveBeenCalledWith(undefined)
+  })
+
+  // A denied slot must never wait and never look like a not-found: it is "no
+  // opinion this pass", so the merge leaves GDDL's columns alone.
+  it('returns undefined without calling out when the limiter denies a slot', async () => {
+    mockAcquire.mockResolvedValue(false)
+
+    await expect(fetchGddlLevel('26681070')).resolves.toBeUndefined()
+    expect(mockFetch).not.toHaveBeenCalled()
   })
 
   it.each([
     ['a 404', () => mockFetch.mockResolvedValueOnce(resp(404, {}))],
     ['a 500', () => mockFetch.mockResolvedValueOnce(resp(500, {}))],
     ['a network error', () => mockFetch.mockRejectedValueOnce(new TypeError())],
-    ['a missing rating', () => mockFetch.mockResolvedValueOnce(resp(200, {}))],
     [
-      'a non-numeric rating',
-      () => mockFetch.mockResolvedValueOnce(resp(200, { Rating: 'hard' })),
-    ],
-    [
-      'a non-finite rating',
-      () => mockFetch.mockResolvedValueOnce(resp(200, { Rating: Infinity })),
+      'an unexpected shape',
+      () => mockFetch.mockResolvedValueOnce(resp(200, ['nope'])),
     ],
     [
       'malformed JSON',
@@ -297,6 +403,43 @@ describe('fetchGddlTier', () => {
             throw new SyntaxError('bad json')
           },
         } as unknown as Response),
+    ],
+  ])('resolves undefined (never throws) on %s', async (_label, arrange) => {
+    arrange()
+    await expect(fetchGddlLevel('26681070')).resolves.toBeUndefined()
+  })
+})
+
+describe('fetchGddlTier', () => {
+  it('returns the rounded tier from Rating', async () => {
+    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ ID: 12345, Rating: 18.43 })))
+    await expect(fetchGddlTier('12345')).resolves.toBe(18)
+  })
+
+  it.each([
+    ['a not-found', () => mockFetch.mockResolvedValueOnce(resp(200, {}))],
+    ['a 500', () => mockFetch.mockResolvedValueOnce(resp(500, {}))],
+    ['a network error', () => mockFetch.mockRejectedValueOnce(new TypeError())],
+    [
+      'a missing rating',
+      () =>
+        mockFetch.mockResolvedValueOnce(
+          resp(200, gddlLevel({ ID: 12345, Rating: null }))
+        ),
+    ],
+    [
+      'a non-numeric rating',
+      () =>
+        mockFetch.mockResolvedValueOnce(
+          resp(200, gddlLevel({ ID: 12345, Rating: 'hard' }))
+        ),
+    ],
+    [
+      'a non-finite rating',
+      () =>
+        mockFetch.mockResolvedValueOnce(
+          resp(200, gddlLevel({ ID: 12345, Rating: Infinity }))
+        ),
     ],
   ])('resolves null (never throws) on %s', async (_label, arrange) => {
     arrange()

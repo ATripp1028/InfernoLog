@@ -33,15 +33,26 @@ export const LevelSchema = z.object({
   sfhDownloadUrl: z.string().nullable(),
   sfhFileType: z.string().nullable(),
   sfhDownloads: z.number().int().nullable(),
-  // Global Stats Viewer placements (gsvCheckedAt is internal and not on the
-  // wire). gddlTier is the level's COMMUNITY GDDL tier, rounded — NOT
-  // LevelProgress.userGddlTier, which is one user's own tier opinion.
-  // sheetTier is the NLW/LW spreadsheet tier 0-21, where >= 14 is listworthy;
-  // tier 0 is a real tier ("Fuck"), so never test it for truthiness.
+  // Community-list placements, merged from the Global Stats Viewer, GDDL and
+  // AREDL (communityCheckedAt is internal and not on the wire). gddlTier is the
+  // level's COMMUNITY GDDL tier, rounded — NOT LevelProgress.userGddlTier,
+  // which is one user's own tier opinion. sheetTier is the NLW/LW spreadsheet
+  // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
+  // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
+  // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
+  // its Legacy tier to the end of the position sequence, so for a Legacy level
+  // this is a list index and rendering it as "#n" states something false.
   aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  // EDEL community enjoyment, 0-100, and whether it is still provisional.
+  aredlEnjoyment: z.number().nullable(),
+  aredlEnjoymentPending: z.boolean().nullable(),
   sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
+  // Level duration in whole seconds. Distinct from `length` above, which is
+  // RobTop's coarse band ("Long") and all GD itself exposes.
+  durationSeconds: z.number().int().nullable(),
   // Extended level metadata — a snapshot of RobTop's level object. All
   // nullable: absent on manual rows and on rows cached before capture existed.
   description: z.string().nullable(),

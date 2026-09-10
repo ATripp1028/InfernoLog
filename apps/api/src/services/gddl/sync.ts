@@ -1,11 +1,11 @@
 import type { GddlSyncResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
-import { checkGsvForSeededLevels } from '../levels/gsvSync'
+import { checkCommunityForSeededLevels } from '../levels/communitySync'
 
-// Wall-clock ceiling on this run's GSV pass — see the call site in
+// Wall-clock ceiling on this run's community-list pass — see the call site in
 // syncGddlSubmissions.
-const GSV_SYNC_BUDGET_MS = 60_000
+const COMMUNITY_SYNC_BUDGET_MS = 60_000
 import {
   fetchGddlUserInfo,
   fetchAllGddlSubmissions,
@@ -86,7 +86,7 @@ interface LevelLookupResult {
   // it also covers stubs inherited from earlier runs.
   stubbedWithoutRobtop: boolean
   // True when this call created the row from a RobTop snapshot. The caller
-  // collects these and runs the GSV check on them AFTER its transaction — the
+  // collects these and runs the community check on them AFTER its transaction — the
   // level is created inside one here, and an outbound call must not join it.
   seededFromRobtop: boolean
 }
@@ -342,7 +342,7 @@ export async function syncGddlSubmissions(
   const userInfo = await fetchGddlUserInfo(gddlApiKey)
   const submissions = await fetchAllGddlSubmissions(gddlApiKey, userInfo.id)
   const seedIds = new Set<string>()
-  // Levels this run created from a RobTop snapshot. Their GSV check runs after
+  // Levels this run created from a RobTop snapshot. Their community check runs after
   // the loop, not inside the per-submission transaction below — an outbound
   // call must never be held open by one.
   const seededFromRobtopIds = new Set<string>()
@@ -431,11 +431,11 @@ export async function syncGddlSubmissions(
   // their check from the seed worker once it enriches them.
   //
   // Budgeted: a first sync can seed hundreds of levels, and at 5s apiece a
-  // degraded GSV would run past the worker's 15-minute timeout — killing it
+  // a degraded source would run past the worker's 15-minute timeout — killing it
   // before the enqueue below AND before the caller marks the job finished, so
   // the stubs stay unenriched and the UI spins on a job that never resolves.
   // Whatever the budget cuts off is picked up by the cron rotation.
-  await checkGsvForSeededLevels([...seededFromRobtopIds], GSV_SYNC_BUDGET_MS)
+  await checkCommunityForSeededLevels([...seededFromRobtopIds], COMMUNITY_SYNC_BUDGET_MS)
 
   if (seedIds.size) {
     try {

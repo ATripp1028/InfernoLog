@@ -8,12 +8,13 @@
 // — and they had already drifted (see `stamped` below).
 //
 // ⚠️ ADDING A NEW SEED PATH: writing this data is only half of caching a level.
-// Follow the write with the Global Stats Viewer check — checkGsvIfDue for one
-// level, checkGsvForSeededLevels for a batch (services/levels/gsvSync.ts) — or
-// the level sits with no community-list placements, no showcase and RobTop's
-// unreliable object count until the cron rotation happens to reach it. Both are
-// self-gating and never throw. Run them AFTER any transaction commits: they are
-// outbound HTTP calls and must not be held open by one.
+// Follow the write with the community-list check — checkCommunityIfDue for one
+// level, checkCommunityForSeededLevels for a batch
+// (services/levels/communitySync.ts) — or the level sits with no community-list
+// placements, no showcase, no duration and RobTop's unreliable object count
+// until the cron rotation happens to reach it. Both are self-gating and never
+// throw. Run them AFTER any transaction commits: they are outbound HTTP calls
+// and must not be held open by one.
 
 import type { Prisma } from '@prisma/client'
 import type { RobtopLevel } from '../../utils/robtop'
