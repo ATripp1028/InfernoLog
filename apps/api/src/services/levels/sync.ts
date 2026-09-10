@@ -24,6 +24,7 @@ import {
   checkAndPersistCommunity,
   COMMUNITY_RECHECK_DAYS,
 } from './communitySync'
+import { isExtremeDemon } from '@infernolog/core'
 import { fetchAredlList } from '../../utils/aredl'
 import type { AredlListEntry } from '../../utils/aredl'
 import { logger } from '../../utils/logger'
@@ -222,6 +223,12 @@ async function syncOneLevel(
     data.isRated = robtop.isRated
     data.inGameDifficulty = robtop.inGameDifficulty
     data.ratingStatusSince = now
+    // The enjoyment column's SOURCE is a function of the difficulty (EDEL for
+    // extremes, GDDL below that — see communitySync), and so is the label the
+    // page puts on it. A level that just moved across that line is holding a
+    // figure from the wrong source, so force a re-check rather than let it sit
+    // mislabelled until its turn in the rotation comes round.
+    data.communityCheckedAt = null
   }
 
   // `stars` is the CANONICAL difficulty for a non-demon — every read path
@@ -694,36 +701,48 @@ export async function runAredlListSync(): Promise<
   }
 
   const cached = await prisma.level.findMany({
-    where: { OR: [{ inGameId: { in: [...list.keys()] } }, { aredlStatus: { not: null } }] },
-    select: { inGameId: true },
+    where: {
+      OR: [{ inGameId: { in: [...list.keys()] } }, { aredlStatus: { not: null } }],
+    },
+    select: { inGameId: true, partialDiff: true, inGameDifficulty: true },
   })
 
   let updated = 0
   let cleared = 0
-  for (const { inGameId } of cached) {
+  for (const level of cached) {
+    const { inGameId } = level
     const entry = list.get(inGameId)
+    // AREDL owns the enjoyment column only where EDEL is the chosen source. On
+    // an Insane-or-below level that figure belongs to GDDL, and this pass must
+    // not touch it in either direction — writing EDEL's score there would
+    // override the rule, and clearing it would delete GDDL's.
+    const ownsEnjoyment = isExtremeDemon(level)
+
     if (entry) {
       await prisma.level.update({
         where: { inGameId },
         data: {
           aredlRank: entry.position,
           aredlStatus: entry.status,
-          aredlEnjoyment: entry.enjoyment,
-          aredlEnjoymentPending: entry.enjoymentPending,
+          ...(ownsEnjoyment
+            ? {
+                enjoyment: entry.enjoyment,
+                enjoymentPending: entry.enjoymentPending,
+              }
+            : {}),
         },
       })
       updated++
     } else {
       // On the list last time, not on it now — the only signal that a level was
-      // removed. Clearing all four together keeps a stale rank from outliving
+      // removed. Rank and status clear together, so a stale rank can't outlive
       // the status that made it readable.
       await prisma.level.update({
         where: { inGameId },
         data: {
           aredlRank: null,
           aredlStatus: null,
-          aredlEnjoyment: null,
-          aredlEnjoymentPending: null,
+          ...(ownsEnjoyment ? { enjoyment: null, enjoymentPending: null } : {}),
         },
       })
       cleared++

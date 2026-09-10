@@ -40,18 +40,17 @@ export const LevelSchema = z.object({
   // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
   // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
-  // GDDL's community enjoyment, rescaled from its native 0-10 onto EDEL's
-  // 0-100 so the two are comparable. Shown only for non-extremes — EDEL is the
-  // better source where a level has both. See enjoymentDisplay in apps/web.
-  gddlEnjoyment: z.number().int().nullable(),
   // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
   // its Legacy tier to the end of the position sequence, so for a Legacy level
   // this is a list index and rendering it as "#n" states something false.
   aredlRank: z.number().int().nullable(),
   aredlStatus: z.string().nullable(),
-  // EDEL community enjoyment, 0-100, and whether it is still provisional.
-  aredlEnjoyment: z.number().nullable(),
-  aredlEnjoymentPending: z.boolean().nullable(),
+  // Community enjoyment, 0-100, from EDEL for extreme demons and from GDDL for
+  // everything at Insane and below. Which one is derivable from the difficulty
+  // (isExtremeDemon) and so is deliberately not sent. `enjoymentPending` is an
+  // EDEL-only flag, null on any level taking GDDL's score.
+  enjoyment: z.number().nullable(),
+  enjoymentPending: z.boolean().nullable(),
   sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
   // Level duration in whole seconds. Distinct from `length` above, which is

@@ -58,17 +58,16 @@ export interface Level {
   // sheetTier is the NLW/LW spreadsheet tier 0-21 (>= 14 is listworthy); tier 0
   // is a real tier, so never test it for truthiness.
   gddlTier: number | null
-  // GDDL's community enjoyment, rescaled onto EDEL's 0-100. Shown only for
-  // non-extremes — EDEL is the better source where a level has both.
-  gddlEnjoyment: number | null
   // ⚠️ Only a RANK while aredlStatus is "MainList" — AREDL appends its Legacy
   // tier to the end of the position sequence, so a Legacy level's number is a
   // list index and showing it as "#n" would state something false.
   aredlRank: number | null
   aredlStatus: string | null
-  // EDEL community enjoyment, 0-100, and whether it is still provisional.
-  aredlEnjoyment: number | null
-  aredlEnjoymentPending: boolean | null
+  // Community enjoyment, 0-100, from EDEL for extreme demons and from GDDL for
+  // everything at Insane and below — see enjoymentDisplay, which recovers which
+  // from the difficulty. `enjoymentPending` is EDEL-only.
+  enjoyment: number | null
+  enjoymentPending: boolean | null
   sheetTier: number | null
   showcaseUrl: string | null
   // Level duration in whole seconds. Distinct from `length`, which is RobTop's

@@ -206,15 +206,21 @@ Per column, the first source that **answered** and had a value:
 | `aredlRank` | AREDL `position` → GSV's AREDL list value |
 | `sheetTier` | AREDL `nlw_tier` → GSV's SHEET value |
 | `objectCount` | GSV only, and only when it has one |
-| `aredlStatus` / `aredlEnjoyment` / `aredlEnjoymentPending` | AREDL only |
-| `gddlEnjoyment` | GDDL only |
+| `aredlRank` / `aredlStatus` | AREDL only |
+| `enjoyment` / `enjoymentPending` | **Chosen by difficulty, not priority** — see below |
 
-**Enjoyment is the one figure with two sources and no merge.** EDEL's (`aredlEnjoyment`, via AREDL) and GDDL's (`gddlEnjoyment`) are stored side by side and chosen between at the display layer — `enjoymentDisplay` in `apps/web/src/features/global-level-page/display.ts`:
+**Enjoyment is one column fed by two lists, and the difficulty decides which — never a fallback.**
 
-- **EDEL wins wherever it exists.** It is the more reliable of the two for the levels it rates, which is the whole reason for the split. A level demoted off AREDL keeps its EDEL score even though it is no longer an extreme — the score was really collected, and the demotion does not invalidate it.
-- **GDDL fills in for non-extremes only.** An extreme demon EDEL has not rated shows **no** enjoyment rather than GDDL's, deliberately. AREDL covers ~1600 of several thousand rated extremes, so this does leave extremes off the list without a score.
+- **Extreme Demon → EDEL** (the Extreme Demon Enjoyment List, via AREDL's `edel_enjoyment`).
+- **Insane and below → GDDL**, rescaled onto the same 0–100 scale.
 
-The choice is made at render rather than at ingestion so that a level whose difficulty changes re-decides on the next view, with no re-fetch and no stale column. The extreme test reads `partialDiff` with `startsWith('demon-extreme')` — the token has a `-featured` variant that exact equality would miss — and falls back to the difficulty label for rows cached before that column existed.
+Exactly one source is consulted per level and the other is never consulted at all. An extreme EDEL has not rated stores **nothing**, on the reasoning that a level absent from EDEL is unlikely to be rated on GDDL either; and a level at Insane or below takes GDDL's score even when it has a real EDEL one — a level demoted off AREDL is the case that arises in practice, and it takes GDDL's.
+
+**The source is not stored.** It is a pure function of the difficulty (`isExtremeDemon` in `packages/core/src/starDifficulty.ts`), so recording it would mean storing a derivable fact that could then contradict the difficulty sitting next to it. The write in `communitySync.ts` and the label in `enjoymentDisplay` (`apps/web/src/features/global-level-page/display.ts`) call the same predicate, so they cannot disagree. It matches `partialDiff` by PREFIX — the token has a `-featured` variant that exact equality would miss — and falls back to the difficulty label for rows cached before that column existed.
+
+The consequence to know about: **a level whose difficulty moves across that line is holding a figure from the wrong source until it is re-checked.** The RobTop sync therefore clears `communityCheckedAt` whenever it sees `isRated` or `inGameDifficulty` change, so the level is re-fetched on the next rotation pass rather than sitting mislabelled for a full cadence.
+
+`enjoymentPending` is EDEL's "still being collected" flag. GDDL publishes no equivalent, so it is null on every level taking GDDL's score.
 
 **The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source *did not answer*, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
 
@@ -251,7 +257,7 @@ A not-found deliberately does **not** clear placements a source can't speak to �
 **Never on page view.** Three paths write it:
 
 - **First resolve** — `findOrResolveLevel` runs `checkCommunityIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
-- **The bulk AREDL pass** — `runAredlListSync` in `services/levels/sync.ts`, once per cron invocation. One request refreshes every placed level's rank, status and enjoyment, and clears the levels that have fallen off the list. That set difference is the **only** way a removal is ever detected: per-level polling sees a removed level as a 404, which is indistinguishable from never having been placed. It also hands the rotation its membership oracle. It writes no `sheetTier` — that column is merged with GSV's SHEET entry, and this pass holds no GSV opinion to merge against.
+- **The bulk AREDL pass** — `runAredlListSync` in `services/levels/sync.ts`, once per cron invocation. One request refreshes every placed level's rank, status and enjoyment, and clears the levels that have fallen off the list. That set difference is the **only** way a removal is ever detected: per-level polling sees a removed level as a 404, which is indistinguishable from never having been placed. It also hands the rotation its membership oracle. It writes no `sheetTier` — that column is merged with GSV's SHEET entry, and this pass holds no GSV opinion to merge against — and it touches `enjoyment` only on extremes, since below that the column holds GDDL's score and an AREDL pass owns neither writing nor clearing it.
 - **The per-level rotation** — `runCommunitySyncSlice`, driven by the same `LevelSync` cron, with its own `level_sync_cursor` key (`community`), a 200-level slice and **700ms** pacing.
 
 **Why a separate rotation rather than piggybacking on the RobTop sweep** (the way the SFH check does): the RobTop slice is 50 levels/run, sized by RobTop's per-IP rate limit and the 670ms pacing — about 200 levels/day of turnover. List placements, GDDL tiers especially, move far faster than that. These are different hosts under looser limits, so the rotation walks the cache several times faster while remaining a bounded cron slice. It also reaches levels the RobTop sweep deliberately skips: `official` rows are excluded there (getGJLevels21 never returns them, so a sync would look like a not-found and wrongly delist a level that plainly exists), but the community lists do index them.

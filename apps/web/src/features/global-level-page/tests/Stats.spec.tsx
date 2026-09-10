@@ -40,8 +40,8 @@ describe('Stats', () => {
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-extreme',
-            aredlEnjoyment: 59.39285714,
-            aredlEnjoymentPending: false,
+            enjoyment: 59.39285714,
+            enjoymentPending: false,
           })}
         />
       )
@@ -57,8 +57,7 @@ describe('Stats', () => {
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-insane',
-            aredlEnjoyment: null,
-            gddlEnjoyment: 50,
+            enjoyment: 50,
           })}
         />
       )
@@ -66,13 +65,14 @@ describe('Stats', () => {
       expect(screen.getByText('50.0')).toBeInTheDocument()
     })
 
+    // The API stores nothing for an extreme EDEL hasn't rated — GDDL is not a
+    // fallback there — so the card simply has no value to show.
     it('renders no card for an extreme EDEL has not rated', () => {
       render(
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-extreme',
-            aredlEnjoyment: null,
-            gddlEnjoyment: 50,
+            enjoyment: null,
           })}
         />
       )
@@ -85,8 +85,8 @@ describe('Stats', () => {
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-extreme',
-            aredlEnjoyment: 63.3,
-            aredlEnjoymentPending: true,
+            enjoyment: 63.3,
+            enjoymentPending: true,
           })}
         />
       )
@@ -101,9 +101,8 @@ describe('Stats', () => {
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-insane',
-            aredlEnjoyment: null,
-            aredlEnjoymentPending: true,
-            gddlEnjoyment: 50,
+            enjoyment: 50,
+            enjoymentPending: null,
           })}
         />
       )
@@ -111,12 +110,8 @@ describe('Stats', () => {
       expect(screen.queryByText('Pending')).toBeNull()
     })
 
-    it('renders no card at all when neither source has a score', () => {
-      render(
-        <Stats
-          level={makeGlobalLevel({ aredlEnjoyment: null, gddlEnjoyment: null })}
-        />
-      )
+    it('renders no card at all when the level has no score', () => {
+      render(<Stats level={makeGlobalLevel({ enjoyment: null })} />)
 
       expect(screen.queryByText('Enjoyment')).toBeNull()
     })
@@ -124,7 +119,7 @@ describe('Stats', () => {
     // "Enjoyment" alone reads as the viewer's own rating, which is a different
     // number they may also have on this level.
     it('explains whose rating it is', () => {
-      render(<Stats level={makeGlobalLevel({ aredlEnjoyment: 50 })} />)
+      render(<Stats level={makeGlobalLevel({ enjoyment: 50 })} />)
 
       expect(
         screen.getByRole('button', {
@@ -138,12 +133,12 @@ describe('Stats', () => {
     it.each([
       [
         'EDEL',
-        { partialDiff: 'demon-extreme', aredlEnjoyment: 50 },
+        { partialDiff: 'demon-extreme', enjoyment: 50 },
         /Extreme Demon Enjoyment List/,
       ],
       [
         'GDDL',
-        { partialDiff: 'demon-insane', aredlEnjoyment: null, gddlEnjoyment: 50 },
+        { partialDiff: 'demon-insane', enjoyment: 50 },
         /GDDL/,
       ],
     ])('names %s as the source in its popover', async (_label, props, matcher) => {

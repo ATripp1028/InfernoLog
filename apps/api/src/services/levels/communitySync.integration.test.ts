@@ -123,7 +123,8 @@ async function seedLevel(
     aredlStatus: string | null
     showcaseUrl: string | null
     sheetTier: number | null
-    gddlEnjoyment: number | null
+    enjoyment: number | null
+    partialDiff: string | null
   }> = {}
 ) {
   return prisma.level.create({
@@ -143,7 +144,10 @@ async function seedLevel(
       aredlStatus: overrides.aredlStatus ?? null,
       showcaseUrl: overrides.showcaseUrl ?? null,
       sheetTier: overrides.sheetTier ?? null,
-      gddlEnjoyment: overrides.gddlEnjoyment ?? null,
+      enjoyment: overrides.enjoyment ?? null,
+      // Extreme by default, so the EDEL branch is what the general-purpose
+      // tests exercise; the GDDL branch overrides it.
+      partialDiff: overrides.partialDiff ?? 'demon-extreme',
     },
   })
 }
@@ -185,11 +189,9 @@ describe('checkAndPersistCommunity', () => {
     )
     expect(level.durationSeconds).toBe(121)
     expect(level.aredlStatus).toBe('MainList')
-    expect(Number(level.aredlEnjoyment)).toBeCloseTo(59.4)
-    expect(level.aredlEnjoymentPending).toBe(false)
-    // The two enjoyment sources are stored side by side, not merged — the
-    // display layer picks between them by the level's current difficulty.
-    expect(level.gddlEnjoyment).toBe(50)
+    // An extreme takes EDEL's score, not GDDL's, even though both answered.
+    expect(Number(level.enjoyment)).toBeCloseTo(59.4)
+    expect(level.enjoymentPending).toBe(false)
     // GSV's count supersedes RobTop's 65535 over-the-limit placeholder.
     expect(level.objectCount).toBe(220116)
     expect(level.communityCheckedAt).not.toBeNull()
@@ -253,18 +255,57 @@ describe('checkAndPersistCommunity', () => {
     expect(level.durationSeconds).toBe(121)
   })
 
-  it('keeps both enjoyment sources independent of each other', async () => {
-    await seedLevel()
-    // GDDL silent, AREDL answering: the AREDL score lands, GDDL's is untouched.
-    gsvMock.mockResolvedValue(gsvResult())
-    gddlMock.mockResolvedValue(undefined)
-    aredlMock.mockResolvedValue(aredlResult({ enjoyment: 44.3 }))
+  // Enjoyment is chosen by difficulty, never by which source answered first.
+  it('takes GDDL’s score for a level below extreme', async () => {
+    await seedLevel({ partialDiff: 'demon-insane' })
+    allAnswer()
 
     await checkAndPersistCommunity('86407629')
 
     const level = await readLevel('86407629')
-    expect(Number(level.aredlEnjoyment)).toBeCloseTo(44.3)
-    expect(level.gddlEnjoyment).toBeNull()
+    expect(Number(level.enjoyment)).toBe(50)
+    // EDEL's flag belongs to EDEL's score and must not ride along with GDDL's.
+    expect(level.enjoymentPending).toBeNull()
+  })
+
+  // "Insane demons and below always use GDDL, no exceptions" — including a
+  // level demoted off AREDL, which still carries a real EDEL score.
+  it('takes GDDL’s score for a demoted level that still has an EDEL one', async () => {
+    await seedLevel({ partialDiff: 'demon-insane' })
+    gsvMock.mockResolvedValue(gsvResult())
+    gddlMock.mockResolvedValue(gddlResult({ enjoyment: 50 }))
+    aredlMock.mockResolvedValue(
+      aredlResult({ status: 'Legacy', enjoyment: 41.2 })
+    )
+
+    await checkAndPersistCommunity('86407629')
+
+    const level = await readLevel('86407629')
+    expect(Number(level.enjoyment)).toBe(50)
+    expect(level.aredlStatus).toBe('Legacy')
+  })
+
+  // The featured variant of the token must not fall through to the GDDL branch.
+  it('treats a featured extreme as an extreme', async () => {
+    await seedLevel({ partialDiff: 'demon-extreme-featured' })
+    allAnswer()
+
+    await checkAndPersistCommunity('86407629')
+
+    expect(Number((await readLevel('86407629')).enjoyment)).toBeCloseTo(59.4)
+  })
+
+  // An extreme EDEL hasn't rated stores nothing: a level absent from EDEL is
+  // unlikely to be rated on GDDL either, so GDDL is not a fallback here.
+  it('stores no enjoyment for an extreme EDEL has not rated', async () => {
+    await seedLevel({ partialDiff: 'demon-extreme' })
+    gsvMock.mockResolvedValue(gsvResult())
+    gddlMock.mockResolvedValue(gddlResult({ enjoyment: 50 }))
+    aredlMock.mockResolvedValue(aredlResult({ enjoyment: null }))
+
+    await checkAndPersistCommunity('86407629')
+
+    expect((await readLevel('86407629')).enjoyment).toBeNull()
   })
 
   it('clears a placement the level no longer holds', async () => {
@@ -504,9 +545,35 @@ describe('runAredlListSync', () => {
     const level = await readLevel('86407629')
     expect(level.aredlRank).toBe(216)
     expect(level.aredlStatus).toBe('MainList')
-    expect(Number(level.aredlEnjoyment)).toBeCloseTo(59.4)
+    expect(Number(level.enjoyment)).toBeCloseTo(59.4)
     // sheetTier is merged with GSV, so the bulk pass deliberately leaves it.
     expect(level.sheetTier).toBeNull()
+  })
+
+  // Below extreme the enjoyment column holds GDDL's score. This pass carries
+  // EDEL's, so it must not write there — nor clear it when the level drops off
+  // the list, which would delete a figure AREDL never owned.
+  it('leaves a non-extreme’s enjoyment alone in both directions', async () => {
+    await seedLevel({ partialDiff: 'demon-insane', enjoyment: 50 })
+
+    aredlListMock.mockResolvedValue(new Map([['86407629', entry()]]))
+    await runAredlListSync()
+    expect(Number((await readLevel('86407629')).enjoyment)).toBe(50)
+
+    aredlListMock.mockResolvedValue(new Map())
+    await runAredlListSync()
+    const level = await readLevel('86407629')
+    expect(Number(level.enjoyment)).toBe(50)
+    expect(level.aredlRank).toBeNull()
+  })
+
+  it('clears an extreme’s enjoyment when it falls off the list', async () => {
+    await seedLevel({ aredlRank: 216, aredlStatus: 'MainList', enjoyment: 59.4 })
+    aredlListMock.mockResolvedValue(new Map())
+
+    await runAredlListSync()
+
+    expect((await readLevel('86407629')).enjoyment).toBeNull()
   })
 
   it('clears a level that has fallen off the list', async () => {

@@ -261,15 +261,17 @@ describe('songSource', () => {
 })
 
 describe('enjoymentDisplay', () => {
-  const extreme = { partialDiff: 'demon-extreme', inGameDifficulty: 'Extreme Demon' }
+  const extreme = {
+    partialDiff: 'demon-extreme',
+    inGameDifficulty: 'Extreme Demon',
+  }
   const insane = { partialDiff: 'demon-insane', inGameDifficulty: 'Insane Demon' }
 
-  it('prefers EDEL wherever it exists', () => {
+  it('labels an extreme’s score as EDEL’s', () => {
     const level = makeGlobalLevel({
       ...extreme,
-      aredlEnjoyment: 59.4,
-      aredlEnjoymentPending: false,
-      gddlEnjoyment: 50,
+      enjoyment: 59.4,
+      enjoymentPending: false,
     })
 
     expect(enjoymentDisplay(level)).toEqual({
@@ -279,22 +281,8 @@ describe('enjoymentDisplay', () => {
     })
   })
 
-  it('carries EDEL’s pending flag through', () => {
-    const level = makeGlobalLevel({
-      ...extreme,
-      aredlEnjoyment: 63.3,
-      aredlEnjoymentPending: true,
-    })
-
-    expect(enjoymentDisplay(level)?.pending).toBe(true)
-  })
-
-  it('falls back to GDDL for a non-extreme', () => {
-    const level = makeGlobalLevel({
-      ...insane,
-      aredlEnjoyment: null,
-      gddlEnjoyment: 50,
-    })
+  it('labels anything below extreme as GDDL’s', () => {
+    const level = makeGlobalLevel({ ...insane, enjoyment: 50 })
 
     expect(enjoymentDisplay(level)).toEqual({
       value: 50,
@@ -303,77 +291,52 @@ describe('enjoymentDisplay', () => {
     })
   })
 
-  // The whole point of the split: EDEL is the better source for extremes, so an
-  // extreme it hasn't rated shows nothing rather than GDDL's number.
-  it('withholds GDDL’s score from an extreme demon', () => {
+  it('carries EDEL’s pending flag through', () => {
     const level = makeGlobalLevel({
       ...extreme,
-      aredlEnjoyment: null,
-      gddlEnjoyment: 50,
+      enjoyment: 63.3,
+      enjoymentPending: true,
     })
 
-    expect(enjoymentDisplay(level)).toBeNull()
+    expect(enjoymentDisplay(level)?.pending).toBe(true)
   })
 
-  // An exact match on 'demon-extreme' would silently let every FEATURED extreme
-  // through to the GDDL branch.
+  // An exact match on 'demon-extreme' would label every FEATURED extreme as
+  // GDDL's, which is the wrong list entirely.
   it('recognizes the featured-extreme difficulty token', () => {
     const level = makeGlobalLevel({
       partialDiff: 'demon-extreme-featured',
-      aredlEnjoyment: null,
-      gddlEnjoyment: 50,
-    })
-
-    expect(enjoymentDisplay(level)).toBeNull()
-  })
-
-  // A row cached before partialDiff existed has only the label, and the label
-  // reaches us in more than one spelling.
-  it.each([
-    ['Extreme Demon', null],
-    ['EXTREME_DEMON', null],
-    ['Insane Demon', 50],
-  ])('falls back to the %s label when partialDiff is absent', (label, expected) => {
-    const level = makeGlobalLevel({
-      partialDiff: null,
-      inGameDifficulty: label,
-      aredlEnjoyment: null,
-      gddlEnjoyment: 50,
-    })
-
-    expect(enjoymentDisplay(level)?.value ?? null).toBe(expected)
-  })
-
-  // A demoted level is no longer an extreme but keeps a score EDEL really
-  // collected, so nothing about the demotion should discard it.
-  it('keeps a demoted level’s EDEL score', () => {
-    const level = makeGlobalLevel({
-      ...insane,
-      aredlStatus: 'Legacy',
-      aredlEnjoyment: 41.2,
-      gddlEnjoyment: 50,
+      enjoyment: 59.4,
     })
 
     expect(enjoymentDisplay(level)?.source).toBe('EDEL')
   })
 
-  it('returns null when neither source has rated the level', () => {
+  // A row cached before partialDiff existed has only the label, and the label
+  // reaches us in more than one spelling.
+  it.each([
+    ['Extreme Demon', 'EDEL'],
+    ['EXTREME_DEMON', 'EDEL'],
+    ['Insane Demon', 'GDDL'],
+  ])('falls back to the %s label when partialDiff is absent', (label, source) => {
     const level = makeGlobalLevel({
-      ...insane,
-      aredlEnjoyment: null,
-      gddlEnjoyment: null,
+      partialDiff: null,
+      inGameDifficulty: label,
+      enjoyment: 50,
     })
+
+    expect(enjoymentDisplay(level)?.source).toBe(source)
+  })
+
+  it('returns null when the level has no rating', () => {
+    const level = makeGlobalLevel({ ...insane, enjoyment: null })
 
     expect(enjoymentDisplay(level)).toBeNull()
   })
 
   // A zero score is a real rating, not an absent one.
   it('treats a zero score as a rating', () => {
-    const level = makeGlobalLevel({
-      ...insane,
-      aredlEnjoyment: null,
-      gddlEnjoyment: 0,
-    })
+    const level = makeGlobalLevel({ ...insane, enjoyment: 0 })
 
     expect(enjoymentDisplay(level)?.value).toBe(0)
   })

@@ -18,14 +18,18 @@
 //   aredlRank       AREDL → GSV
 //   sheetTier       AREDL → GSV
 //   objectCount     GSV only, and only when GSV has one
-//   aredl*          AREDL only
-//   gddlEnjoyment   GDDL only
+//   aredlRank/Status AREDL only
+//   enjoyment       AREDL (EDEL) for extremes, GDDL for everything else
 //
-// Enjoyment is the one figure two sources carry that is NOT merged here. EDEL's
-// (aredlEnjoyment) and GDDL's (gddlEnjoyment) are written side by side and the
-// choice is made at the display layer, because it turns on the level's current
-// difficulty — EDEL wins for extremes, GDDL fills the gap for everything else —
-// and a difficulty that changes should re-decide it without a re-fetch.
+// ENJOYMENT IS CHOSEN BY DIFFICULTY, NOT BY PRIORITY. It is the one column two
+// sources feed where the winner is not "whoever answered first": an extreme
+// demon takes EDEL's score and only EDEL's, everything at Insane and below
+// takes GDDL's and only GDDL's. So exactly one source is consulted per level
+// and the other is never a fallback — an extreme EDEL has not rated stores
+// nothing, on the reasoning that a level absent from EDEL is unlikely to be
+// rated on GDDL either. Which source that was is recoverable from the
+// difficulty alone (isExtremeDemon), so it is derived at the display layer
+// rather than stored.
 //
 // THE NO-DOWNGRADE RULE. Each source answers with a result, `null` ("I don't
 // have this level" — authoritative and cacheable), or `undefined` (the call
@@ -45,6 +49,7 @@ import { fetchGlobalStatsViewerLevel } from '../../utils/globalStatsViewer'
 import type { GlobalStatsViewerResult } from '../../utils/globalStatsViewer'
 import { fetchGddlLevel } from '../../utils/gddl'
 import type { GddlLevelResult } from '../../utils/gddl'
+import { isExtremeDemon } from '@infernolog/core'
 import { fetchAredlLevel } from '../../utils/aredl'
 import type { AredlListEntry, AredlResult } from '../../utils/aredl'
 import { logger } from '../../utils/logger'
@@ -103,6 +108,9 @@ export function communityCheckDue(communityCheckedAt: Date | null): boolean {
 interface CommunityGateFields {
   isRated: boolean
   isDemon: boolean
+  /** Read only to choose the enjoyment source — see the header. */
+  partialDiff: string | null
+  inGameDifficulty: string | null
 }
 
 /**
@@ -169,7 +177,8 @@ function resolveField<T>(
  */
 export function mergeCommunityData(
   answers: Answers,
-  applies: { gsv: boolean; gddl: boolean; aredl: boolean }
+  applies: { gsv: boolean; gddl: boolean; aredl: boolean },
+  level: CommunityGateFields
 ): Prisma.LevelUncheckedUpdateInput {
   // `[answered, value]` per source per column. A source that doesn't apply is
   // omitted from the walk entirely rather than counted as silent — an unrated
@@ -220,13 +229,22 @@ export function mergeCommunityData(
     ...from(applies.aredl, aredlAnswered, aredl?.sheetTier),
     ...from(applies.gsv, gsvAnswered, gsv?.sheetTier),
   ])
-  put('gddlEnjoyment', from(applies.gddl, gddlAnswered, gddl?.enjoyment))
   put('aredlStatus', from(applies.aredl, aredlAnswered, aredl?.status))
-  put('aredlEnjoyment', from(applies.aredl, aredlAnswered, aredl?.enjoyment))
-  put(
-    'aredlEnjoymentPending',
-    from(applies.aredl, aredlAnswered, aredl?.enjoymentPending)
-  )
+
+  // One source, picked by difficulty — never a fallback to the other. See the
+  // module header for why an extreme EDEL hasn't rated stores nothing.
+  if (isExtremeDemon(level)) {
+    put('enjoyment', from(applies.aredl, aredlAnswered, aredl?.enjoyment))
+    put(
+      'enjoymentPending',
+      from(applies.aredl, aredlAnswered, aredl?.enjoymentPending)
+    )
+  } else {
+    put('enjoyment', from(applies.gddl, gddlAnswered, gddl?.enjoyment))
+    // Only EDEL publishes a provisional flag, so a GDDL score clears it rather
+    // than inheriting whatever a previous difficulty left behind.
+    put('enjoymentPending', from(applies.gddl, gddlAnswered, null))
+  }
 
   // GSV's object count supersedes RobTop's (which is 65535 over the object
   // limit and 0/null on older levels) — but only when GSV actually has one.
@@ -283,7 +301,12 @@ export async function checkAndPersistCommunity(
 ): Promise<CommunityCheckOutcome> {
   const row = await prisma.level.findUnique({
     where: { inGameId: levelId },
-    select: { isRated: true, isDemon: true },
+    select: {
+      isRated: true,
+      isDemon: true,
+      partialDiff: true,
+      inGameDifficulty: true,
+    },
   })
   if (!row) return 'failed'
 
@@ -306,7 +329,7 @@ export async function checkAndPersistCommunity(
   // was, so the rotation's retry filter picks the level up again.
   if (answeredCount === 0) return 'failed'
 
-  const data = mergeCommunityData(answers, applies)
+  const data = mergeCommunityData(answers, applies, row)
 
   // A partial pass is a freshness event, not a data-loss one: the no-downgrade
   // rule already protected every column whose source went quiet. Stamp it, but
@@ -345,6 +368,8 @@ export async function checkCommunityIfDue(
       select: {
         isRated: true,
         isDemon: true,
+        partialDiff: true,
+        inGameDifficulty: true,
         communityCheckedAt: true,
         delistedAt: true,
       },
