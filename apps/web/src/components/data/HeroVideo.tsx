@@ -6,21 +6,23 @@ import {
   extractTwitchClipSlug,
   extractYouTubeId,
 } from './videoEmbed'
+import { useYouTubePoster } from './useYouTubePoster'
 
-// Poster falls back from maxres → hq when maxres 404s (some older videos).
+// Hidden until a real size loads, so YouTube's grey stand-in never flashes.
 function YouTubePoster({ videoId }: { videoId: string }) {
-  const [src, setSrc] = useState(
-    `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
-  )
+  const { src, ready, onLoad, onError } = useYouTubePoster(videoId)
+  if (!src) return null
   return (
     <img
       src={src}
       alt=""
       aria-hidden
-      className="absolute inset-0 size-full object-cover opacity-60"
-      onError={() =>
-        setSrc(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`)
-      }
+      className={cn(
+        'absolute inset-0 size-full object-cover transition-opacity',
+        ready ? 'opacity-60' : 'opacity-0'
+      )}
+      onLoad={onLoad}
+      onError={onError}
     />
   )
 }
@@ -109,7 +111,7 @@ export function HeroVideo({
       }}
       aria-label={`Play ${label.toLowerCase()}`}
     >
-      {youtubeId && <YouTubePoster videoId={youtubeId} />}
+      {youtubeId && <YouTubePoster key={youtubeId} videoId={youtubeId} />}
 
       {/* Dark scrim — fixed opacity per DESIGN_LANGUAGE.md */}
       <div className="absolute inset-0 bg-black/50" />

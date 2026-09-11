@@ -3,6 +3,8 @@ import {
   detectSource,
   extractTwitchClipSlug,
   extractYouTubeId,
+  isYouTubePlaceholder,
+  youTubePosterUrls,
 } from '../videoEmbed'
 
 describe('extractYouTubeId', () => {
@@ -46,6 +48,28 @@ describe('extractYouTubeId', () => {
 
   it('accepts ids containing underscores and hyphens', () => {
     expect(extractYouTubeId('https://youtu.be/a_b-c_d-e_f')).toBe('a_b-c_d-e_f')
+  })
+})
+
+describe('youTubePosterUrls', () => {
+  it('tries the sizes best first, ending on the one every video has', () => {
+    expect(youTubePosterUrls('NjEiHIokTGM')).toEqual([
+      'https://img.youtube.com/vi/NjEiHIokTGM/maxresdefault.jpg',
+      'https://img.youtube.com/vi/NjEiHIokTGM/sddefault.jpg',
+      'https://img.youtube.com/vi/NjEiHIokTGM/hqdefault.jpg',
+    ])
+  })
+})
+
+describe('isYouTubePlaceholder', () => {
+  // A missing size still loads successfully, as a 120px grey stand-in, so
+  // width is the only way to tell it from a real poster.
+  it('recognizes the 120px stand-in', () => {
+    expect(isYouTubePlaceholder(120)).toBe(true)
+  })
+
+  it.each([1280, 640, 480])('accepts a real %ipx poster', (width) => {
+    expect(isYouTubePlaceholder(width)).toBe(false)
   })
 })
 
