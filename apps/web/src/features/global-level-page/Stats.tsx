@@ -130,7 +130,7 @@ function EnjoymentInfoButton({ source }: { source: 'EDEL' | 'GDDL' }) {
           {source === 'EDEL' ? (
             <>
               The Extreme Demon Enjoyment List&rsquo;s community score out of
-              100, via AREDL. A pending score is still being collected.
+              100, via AREDL.
             </>
           ) : (
             <>
@@ -264,7 +264,6 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
           <StatCard
             label="Enjoyment"
             value={formatEnjoyment(enjoyment.value)}
-            sub={enjoyment.pending ? 'Pending' : undefined}
             info={<EnjoymentInfoButton source={enjoyment.source} />}
           />
         )}

@@ -49,8 +49,8 @@ describe('fetchAredlLevel', () => {
     await expect(fetchAredlLevel('82172844')).resolves.toEqual({
       position: 216,
       status: 'MainList',
-      enjoyment: 59.39285714,
-      enjoymentPending: false,
+      // Rounded to the two decimals EDEL itself displays.
+      enjoyment: 59.39,
       // "Inexorable" is index 12 on the shared ladder.
       sheetTier: 12,
       showcaseUrl: 'https://www.youtube.com/watch?v=bgZ85rCaEGY',
@@ -69,6 +69,30 @@ describe('fetchAredlLevel', () => {
     )
 
     await expect(fetchAredlLevel('128')).resolves.toBeNull()
+  })
+
+  // A provisional score is stored as no score — null already says "EDEL has
+  // nothing settled", so no separate flag is carried alongside it.
+  it('drops a score EDEL still marks as pending', async () => {
+    mockFetch.mockResolvedValueOnce(
+      resp(200, aredlLevel({ edel_enjoyment: 63.33333333, is_edel_pending: true }))
+    )
+
+    await expect(
+      fetchAredlLevel('82172844').then((r) => r?.enjoyment)
+    ).resolves.toBeNull()
+  })
+
+  it.each([
+    [56.66666667, 56.67],
+    [50.0, 50],
+    [0.004, 0],
+  ])('rounds an EDEL score of %s to %s', async (raw, expected) => {
+    mockFetch.mockResolvedValueOnce(resp(200, aredlLevel({ edel_enjoyment: raw })))
+
+    await expect(
+      fetchAredlLevel('82172844').then((r) => r?.enjoyment)
+    ).resolves.toBe(expected)
   })
 
   it('maps an unknown tier name to null rather than throwing', async () => {
@@ -175,6 +199,7 @@ describe('fetchAredlList', () => {
     expect(list?.get('82172844')).toMatchObject({
       position: 216,
       status: 'MainList',
+      enjoyment: 59.39,
       sheetTier: 12,
     })
     expect(list?.get('127323087')?.position).toBe(1)

@@ -724,12 +724,7 @@ export async function runAredlListSync(): Promise<
         data: {
           aredlRank: entry.position,
           aredlStatus: entry.status,
-          ...(ownsEnjoyment
-            ? {
-                enjoyment: entry.enjoyment,
-                enjoymentPending: entry.enjoymentPending,
-              }
-            : {}),
+          ...(ownsEnjoyment ? { enjoyment: entry.enjoyment } : {}),
         },
       })
       updated++
@@ -742,7 +737,7 @@ export async function runAredlListSync(): Promise<
         data: {
           aredlRank: null,
           aredlStatus: null,
-          ...(ownsEnjoyment ? { enjoyment: null, enjoymentPending: null } : {}),
+          ...(ownsEnjoyment ? { enjoyment: null } : {}),
         },
       })
       cleared++

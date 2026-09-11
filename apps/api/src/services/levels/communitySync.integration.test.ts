@@ -93,7 +93,6 @@ function aredlResult(overrides: Record<string, unknown> = {}) {
     position: 216,
     status: 'MainList',
     enjoyment: 59.4,
-    enjoymentPending: false,
     sheetTier: 12,
     showcaseUrl: 'https://www.youtube.com/watch?v=aredlaredla',
     ...overrides,
@@ -191,7 +190,6 @@ describe('checkAndPersistCommunity', () => {
     expect(level.aredlStatus).toBe('MainList')
     // An extreme takes EDEL's score, not GDDL's, even though both answered.
     expect(Number(level.enjoyment)).toBeCloseTo(59.4)
-    expect(level.enjoymentPending).toBe(false)
     // GSV's count supersedes RobTop's 65535 over-the-limit placeholder.
     expect(level.objectCount).toBe(220116)
     expect(level.communityCheckedAt).not.toBeNull()
@@ -264,8 +262,6 @@ describe('checkAndPersistCommunity', () => {
 
     const level = await readLevel('86407629')
     expect(Number(level.enjoyment)).toBe(50)
-    // EDEL's flag belongs to EDEL's score and must not ride along with GDDL's.
-    expect(level.enjoymentPending).toBeNull()
   })
 
   // "Insane demons and below always use GDDL, no exceptions" — including a
@@ -283,6 +279,19 @@ describe('checkAndPersistCommunity', () => {
     const level = await readLevel('86407629')
     expect(Number(level.enjoyment)).toBe(50)
     expect(level.aredlStatus).toBe('Legacy')
+  })
+
+  // Decimal(5,2): the value read back must be the two-decimal one written, not
+  // a float approximation of it.
+  it('stores a two-decimal score exactly', async () => {
+    await seedLevel({ partialDiff: 'demon-insane' })
+    gsvMock.mockResolvedValue(gsvResult())
+    gddlMock.mockResolvedValue(gddlResult({ enjoyment: 49.54 }))
+    aredlMock.mockResolvedValue(aredlResult())
+
+    await checkAndPersistCommunity('86407629')
+
+    expect(String((await readLevel('86407629')).enjoyment)).toBe('49.54')
   })
 
   // The featured variant of the token must not fall through to the GDDL branch.
@@ -531,7 +540,6 @@ describe('runAredlListSync', () => {
     position: 216,
     status: 'MainList',
     enjoyment: 59.4,
-    enjoymentPending: false,
     sheetTier: 12,
     ...overrides,
   })

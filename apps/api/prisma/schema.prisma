@@ -576,10 +576,14 @@ model Level {
   // enjoyment of the level, logged per progress update. Same name, same 0-100
   // scale, entirely different number — the pairing to keep straight is the one
   // gddlTier and LevelProgress.userGddlTier already have.
-  enjoyment             Float?
-  // Whether that figure is still provisional. Only EDEL publishes this, so it
-  // is null for every level taking GDDL's score.
-  enjoymentPending      Boolean?
+  //
+  // Stored to two decimal places from both sources (roundEnjoyment in
+  // utils/enjoyment.ts), the precision EDEL itself displays — hence
+  // Decimal(5,2), the same shape ProgressUpdate.percentage uses for a 0-100
+  // figure. An EDEL score still marked provisional (is_edel_pending) is stored
+  // as null: null already says "no settled score", so a separate flag would
+  // only repeat it.
+  enjoyment             Decimal?  @db.Decimal(5, 2)
   // Tier on the Non-Listworthy / Listworthy extreme demon spreadsheets, 0-21.
   // Tier >= 14 is listworthy (LW), below that non-listworthy (NLW) — the split
   // is the only thing that says which sheet the tier came from. The ladder and

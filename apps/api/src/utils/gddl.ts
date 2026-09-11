@@ -5,6 +5,7 @@
 // of request headers to this module.
 
 import { logger } from './logger'
+import { roundEnjoyment } from './enjoyment'
 import { acquireGddlSlot, reportGddlThrottled } from './gddlRateLimit'
 
 const GDDL_API_BASE_URL =
@@ -90,19 +91,14 @@ export function roundGddlTier(rating: number): number {
 
 /**
  * Rescales a GDDL enjoyment rating (0-10, e.g. 4.954022988505747) onto the
- * 0-100 scale EDEL reports, rounding to the nearest tenth of a GDDL point on
- * the way — so 4.954 becomes 50, not 49.54.
+ * 0-100 scale EDEL reports, to two decimal places — so 4.954 becomes 49.54.
  *
- * Rounding to a tenth and multiplying by ten is one operation, `round(x * 10)`,
- * and lands on a whole number every time. That is deliberate: the two enjoyment
- * sources share one column and one display, so a value from here must not be
- * distinguishable by having more decimal places than one from EDEL.
- *
- * Clamped, because the scale is upstream's promise rather than ours and a badge
- * reading "137" would be worse than a slightly wrong one.
+ * That is the precision EDEL itself displays, and both sources share one
+ * column, so a GDDL figure is stored exactly as an EDEL one would be. See
+ * {@link roundEnjoyment} for the rounding and clamping.
  */
 export function rescaleGddlEnjoyment(enjoyment: number): number {
-  return Math.min(100, Math.max(0, Math.round(enjoyment * 10)))
+  return roundEnjoyment(enjoyment * 10)
 }
 
 // How long to wait on the public GDDL level lookup before giving up. Like the

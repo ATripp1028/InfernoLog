@@ -60,7 +60,7 @@ The logging flow's level-entry field accepts **either an ID or a name** (one fie
 
 `GET https://gdladder.com/api/levels/{levelId}` — no key needed. Returns `Rating` (a decimal tier, rounded at ingestion via `roundGddlTier`), `Enjoyment` (a 0–10 community score), `Showcase` (a **bare 11-character YouTube video id**, not a URL), and `Meta.seconds` / `Meta.objects`. `fetchGddlLevel` in `apps/api/src/utils/gddl.ts` is the client; it feeds the community merge below.
 
-`Enjoyment` is rescaled at ingestion onto the **0–100 scale EDEL uses**, so the two are directly comparable wherever one stands in for the other: `rescaleGddlEnjoyment` rounds to the nearest tenth of a GDDL point and multiplies by ten, which is one operation (`round(x * 10)`) and always lands on a whole number. That matters — both scores share one column family and one stat card, so a GDDL value must not be identifiable by carrying more decimal places than an EDEL one. It is clamped to 0–100, since the range is upstream's promise rather than ours.
+`Enjoyment` is rescaled at ingestion onto the **0–100 scale EDEL uses, to two decimal places** — `rescaleGddlEnjoyment` multiplies by ten and hands off to `roundEnjoyment` (`apps/api/src/utils/enjoyment.ts`), the same rounding EDEL's own scores go through. So 4.954022988505747 is stored as 49.54. Both sources share one `Decimal(5,2)` column and one stat card, so a GDDL figure is stored exactly as an EDEL one would be and nothing about its precision gives away its origin. Clamped to 0–100, since the range is upstream's promise rather than ours.
 
 **The path is `/levels/` — plural.** `/level/{id}` (singular) responds `404 Cannot GET` for *every* id in existence. The suggested-tier lookup used that spelling from the day it was written and therefore returned `null` in production for its entire life; every test passed because `fetch` was mocked. If a GDDL lookup ever silently produces nothing, check the spelling first.
 
@@ -207,7 +207,7 @@ Per column, the first source that **answered** and had a value:
 | `sheetTier` | AREDL `nlw_tier` → GSV's SHEET value |
 | `objectCount` | GSV only, and only when it has one |
 | `aredlRank` / `aredlStatus` | AREDL only |
-| `enjoyment` / `enjoymentPending` | **Chosen by difficulty, not priority** — see below |
+| `enjoyment` | **Chosen by difficulty, not priority** — see below |
 
 **Enjoyment is one column fed by two lists, and the difficulty decides which — never a fallback.**
 
@@ -220,7 +220,9 @@ Exactly one source is consulted per level and the other is never consulted at al
 
 The consequence to know about: **a level whose difficulty moves across that line is holding a figure from the wrong source until it is re-checked.** The RobTop sync therefore clears `communityCheckedAt` whenever it sees `isRated` or `inGameDifficulty` change, so the level is re-fetched on the next rotation pass rather than sitting mislabelled for a full cadence.
 
-`enjoymentPending` is EDEL's "still being collected" flag. GDDL publishes no equivalent, so it is null on every level taking GDDL's score.
+**Stored to two decimal places, as `Decimal(5,2)`.** EDEL tracks its scores to as many as eight decimals (59.39285714) and displays them to at most two; both sources are stored at that display precision via `roundEnjoyment`. `Decimal(5,2)` matches how `ProgressUpdate.percentage` already stores a 0–100 two-decimal figure — and like it, needs converting at the wire: Prisma returns Decimal columns as `Decimal` instances, which JSON-serialize as **strings**. `mapLevelDetail` (`services/levels/selects.ts`) does the conversion, and every level-detail response already goes through it.
+
+**A provisional EDEL score is stored as null.** EDEL marks a score it is still collecting with `is_edel_pending` and sends the provisional number anyway — 71 of the 1606 list entries at time of writing, Society and Thinking Space II among them. Rather than carry that flag in a second column, the AREDL client drops the number: null already means "no settled score", so a separate flag would only repeat it. Those levels show no enjoyment until EDEL settles them.
 
 **The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source *did not answer*, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
 

@@ -122,17 +122,17 @@ export function knownObjectCount(level: GlobalLevelPageData): number | null {
  * Not to be confused with the viewer's OWN enjoyment, which lives on their
  * progress row for the level and is a different number entirely.
  *
- * @returns null when the level's source has no rating for it.
+ * @returns null when the level's source has no settled rating for it — which
+ *   includes an EDEL score still being collected, since the API stores a
+ *   provisional score as null rather than flagging it.
  */
 export function enjoymentDisplay(
   level: GlobalLevelPageData
-): { value: number; source: 'EDEL' | 'GDDL'; pending: boolean } | null {
+): { value: number; source: 'EDEL' | 'GDDL' } | null {
   if (level.enjoyment == null) return null
   return {
     value: level.enjoyment,
     source: isExtremeDemon(level) ? 'EDEL' : 'GDDL',
-    // Only EDEL publishes a provisional flag; a GDDL score is never pending.
-    pending: level.enjoymentPending === true,
   }
 }
 

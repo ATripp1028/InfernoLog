@@ -29,10 +29,12 @@ export function formatDuration(seconds: number | null): string | null {
 }
 
 /**
- * EDEL community enjoyment for display — one decimal, since the upstream figure
- * carries eight and the extra precision is noise.
+ * Community enjoyment for display — up to two decimal places, the precision
+ * EDEL itself shows and the API stores both sources at. Trailing zeros are
+ * dropped ("50", "49.5", "59.39"), so a whole-number score doesn't read as more
+ * precise than it is.
  */
 export function formatEnjoyment(enjoyment: number | null): string | null {
   if (enjoyment == null || !Number.isFinite(enjoyment)) return null
-  return enjoyment.toFixed(1)
+  return String(Math.round(enjoyment * 100) / 100)
 }

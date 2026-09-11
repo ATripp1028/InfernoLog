@@ -234,16 +234,10 @@ export function mergeCommunityData(
   // One source, picked by difficulty — never a fallback to the other. See the
   // module header for why an extreme EDEL hasn't rated stores nothing.
   if (isExtremeDemon(level)) {
+    // Already null for a score EDEL still marks provisional — see utils/aredl.
     put('enjoyment', from(applies.aredl, aredlAnswered, aredl?.enjoyment))
-    put(
-      'enjoymentPending',
-      from(applies.aredl, aredlAnswered, aredl?.enjoymentPending)
-    )
   } else {
     put('enjoyment', from(applies.gddl, gddlAnswered, gddl?.enjoyment))
-    // Only EDEL publishes a provisional flag, so a GDDL score clears it rather
-    // than inheriting whatever a previous difficulty left behind.
-    put('enjoymentPending', from(applies.gddl, gddlAnswered, null))
   }
 
   // GSV's object count supersedes RobTop's (which is 65535 over the object

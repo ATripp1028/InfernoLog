@@ -45,12 +45,11 @@ export const LevelSchema = z.object({
   // this is a list index and rendering it as "#n" states something false.
   aredlRank: z.number().int().nullable(),
   aredlStatus: z.string().nullable(),
-  // Community enjoyment, 0-100, from EDEL for extreme demons and from GDDL for
-  // everything at Insane and below. Which one is derivable from the difficulty
-  // (isExtremeDemon) and so is deliberately not sent. `enjoymentPending` is an
-  // EDEL-only flag, null on any level taking GDDL's score.
+  // Community enjoyment, 0-100 to at most two decimal places, from EDEL for
+  // extreme demons and from GDDL for everything at Insane and below. Which one
+  // is derivable from the difficulty (isExtremeDemon) and so is deliberately
+  // not sent. Null also covers an EDEL score still marked provisional.
   enjoyment: z.number().nullable(),
-  enjoymentPending: z.boolean().nullable(),
   sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
   // Level duration in whole seconds. Distinct from `length` above, which is

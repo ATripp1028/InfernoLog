@@ -16,6 +16,7 @@
 
 import { sheetTierFromName } from '@infernolog/core'
 import { logger } from './logger'
+import { roundEnjoyment } from './enjoyment'
 
 const AREDL_API_BASE_URL =
   process.env.AREDL_API_BASE_URL ?? 'https://api.aredl.net'
@@ -38,10 +39,11 @@ export interface AredlResult {
   position: number | null
   /** "MainList" | "Legacy" — see {@link AredlListEntry.status}. */
   status: string | null
-  /** EDEL enjoyment, 0-100. Null when the level has no rating yet. */
+  /**
+   * EDEL enjoyment, 0-100 to two decimal places. Null when EDEL has no settled
+   * score — no rating yet, or one it still marks provisional.
+   */
   enjoyment: number | null
-  /** Whether that enjoyment figure is still provisional. */
-  enjoymentPending: boolean | null
   /** NLW spreadsheet tier, resolved from AREDL's tier NAME. */
   sheetTier: number | null
   /** Verification video, normalized to a canonical watch URL. */
@@ -64,7 +66,6 @@ export interface AredlListEntry {
   position: number | null
   status: string | null
   enjoyment: number | null
-  enjoymentPending: boolean | null
   sheetTier: number | null
 }
 
@@ -104,14 +105,25 @@ function verificationUrl(raw: AredlLevelRaw): string | null {
   return null
 }
 
+// EDEL's score, if it is a settled one.
+//
+// EDEL marks a score it is still collecting with `is_edel_pending`, and sends
+// the provisional number regardless. Rather than store that flag beside the
+// number, a provisional score is stored as NO score: null already means "EDEL
+// has nothing settled for this level", and a second column would only repeat
+// it. Settled scores are rounded to the two decimals EDEL itself displays.
+function settledEnjoyment(raw: AredlLevelRaw): number | null {
+  if (raw.is_edel_pending === true) return null
+  const value = num(raw.edel_enjoyment)
+  return value === null ? null : roundEnjoyment(value)
+}
+
 // The fields shared by the per-level and bulk payloads.
 function normalizeCommon(raw: AredlLevelRaw) {
   return {
     position: num(raw.position),
     status: str(raw.status),
-    enjoyment: num(raw.edel_enjoyment),
-    enjoymentPending:
-      typeof raw.is_edel_pending === 'boolean' ? raw.is_edel_pending : null,
+    enjoyment: settledEnjoyment(raw),
     // AREDL reports the tier by name ("Relentless"); the cache stores the 0-21
     // index. An unrecognized name resolves to null rather than throwing — see
     // sheetTierFromName in packages/core.

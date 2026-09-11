@@ -63,11 +63,11 @@ export interface Level {
   // list index and showing it as "#n" would state something false.
   aredlRank: number | null
   aredlStatus: string | null
-  // Community enjoyment, 0-100, from EDEL for extreme demons and from GDDL for
-  // everything at Insane and below — see enjoymentDisplay, which recovers which
-  // from the difficulty. `enjoymentPending` is EDEL-only.
+  // Community enjoyment, 0-100 to at most two decimal places, from EDEL for
+  // extreme demons and from GDDL for everything at Insane and below — see
+  // enjoymentDisplay, which recovers which from the difficulty. Null also
+  // covers an EDEL score still marked provisional.
   enjoyment: number | null
-  enjoymentPending: boolean | null
   sheetTier: number | null
   showcaseUrl: string | null
   // Level duration in whole seconds. Distinct from `length`, which is RobTop's

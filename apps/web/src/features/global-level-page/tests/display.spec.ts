@@ -268,37 +268,15 @@ describe('enjoymentDisplay', () => {
   const insane = { partialDiff: 'demon-insane', inGameDifficulty: 'Insane Demon' }
 
   it('labels an extreme’s score as EDEL’s', () => {
-    const level = makeGlobalLevel({
-      ...extreme,
-      enjoyment: 59.4,
-      enjoymentPending: false,
-    })
+    const level = makeGlobalLevel({ ...extreme, enjoyment: 59.39 })
 
-    expect(enjoymentDisplay(level)).toEqual({
-      value: 59.4,
-      source: 'EDEL',
-      pending: false,
-    })
+    expect(enjoymentDisplay(level)).toEqual({ value: 59.39, source: 'EDEL' })
   })
 
   it('labels anything below extreme as GDDL’s', () => {
     const level = makeGlobalLevel({ ...insane, enjoyment: 50 })
 
-    expect(enjoymentDisplay(level)).toEqual({
-      value: 50,
-      source: 'GDDL',
-      pending: false,
-    })
-  })
-
-  it('carries EDEL’s pending flag through', () => {
-    const level = makeGlobalLevel({
-      ...extreme,
-      enjoyment: 63.3,
-      enjoymentPending: true,
-    })
-
-    expect(enjoymentDisplay(level)?.pending).toBe(true)
+    expect(enjoymentDisplay(level)).toEqual({ value: 50, source: 'GDDL' })
   })
 
   // An exact match on 'demon-extreme' would label every FEATURED extreme as

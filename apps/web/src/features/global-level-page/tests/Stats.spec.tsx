@@ -35,20 +35,18 @@ describe('Stats', () => {
   })
 
   describe('the Enjoyment card', () => {
-    it('shows the AREDL score to one decimal', () => {
+    it('shows the score to two decimals, as EDEL does', () => {
       render(
         <Stats
           level={makeGlobalLevel({
             partialDiff: 'demon-extreme',
-            enjoyment: 59.39285714,
-            enjoymentPending: false,
+            enjoyment: 59.39,
           })}
         />
       )
 
       expect(screen.getByText('Enjoyment')).toBeInTheDocument()
-      expect(screen.getByText('59.4')).toBeInTheDocument()
-      expect(screen.queryByText('Pending')).toBeNull()
+      expect(screen.getByText('59.39')).toBeInTheDocument()
     })
 
     // GDDL's score covers the levels EDEL doesn't rate, on the same 0-100.
@@ -62,7 +60,7 @@ describe('Stats', () => {
         />
       )
 
-      expect(screen.getByText('50.0')).toBeInTheDocument()
+      expect(screen.getByText('50')).toBeInTheDocument()
     })
 
     // The API stores nothing for an extreme EDEL hasn't rated — GDDL is not a
@@ -78,36 +76,6 @@ describe('Stats', () => {
       )
 
       expect(screen.queryByText('Enjoyment')).toBeNull()
-    })
-
-    it('marks a provisional score as pending', () => {
-      render(
-        <Stats
-          level={makeGlobalLevel({
-            partialDiff: 'demon-extreme',
-            enjoyment: 63.3,
-            enjoymentPending: true,
-          })}
-        />
-      )
-
-      expect(screen.getByText('Pending')).toBeInTheDocument()
-    })
-
-    // Only EDEL publishes a provisional flag, so a GDDL score must never carry
-    // the marker even though both render through the same card.
-    it('never marks a GDDL score as pending', () => {
-      render(
-        <Stats
-          level={makeGlobalLevel({
-            partialDiff: 'demon-insane',
-            enjoyment: 50,
-            enjoymentPending: null,
-          })}
-        />
-      )
-
-      expect(screen.queryByText('Pending')).toBeNull()
     })
 
     it('renders no card at all when the level has no score', () => {
