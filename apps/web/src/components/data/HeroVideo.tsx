@@ -1,35 +1,16 @@
-import { useState } from 'react'
 import { Play } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import {
-  detectSource,
-  extractTwitchClipSlug,
-  extractYouTubeId,
-} from './videoEmbed'
-import { useYouTubePoster } from './useYouTubePoster'
-
-// Hidden until a real size loads, so YouTube's grey stand-in never flashes.
-function YouTubePoster({ videoId }: { videoId: string }) {
-  const { src, ready, onLoad, onError } = useYouTubePoster(videoId)
-  if (!src) return null
-  return (
-    <img
-      src={src}
-      alt=""
-      aria-hidden
-      className={cn(
-        'absolute inset-0 size-full object-cover transition-opacity',
-        ready ? 'opacity-60' : 'opacity-0'
-      )}
-      onLoad={onLoad}
-      onError={onError}
-    />
-  )
-}
+import { useHeroVideo } from './useHeroVideo'
 
 /**
- * A video embed sitting where a level page's hero image would: a click-to-load
- * player over the video's own poster frame.
+ * A video embed sitting where a level page's hero image would.
+ *
+ * A YouTube video gets YouTube's own player straight away, showing its poster,
+ * title and channel and playing on the first tap. A click-to-load facade (our
+ * play button over a dark scrim) would cost mobile viewers a second tap, since
+ * the tap that loads an embedded player isn't allowed to start it too. A
+ * Twitch clip still sits behind that facade until pressed. So does a URL with
+ * no embeddable id, whose button does nothing.
  *
  * Shared by both level pages, which show different videos in that slot — the
  * viewer's own completion run on their page, the level's showcase on the
@@ -41,10 +22,9 @@ function YouTubePoster({ videoId }: { videoId: string }) {
  * load" with no error anywhere. A caller wanting a different box still wins,
  * since an explicit height makes the aspect ratio moot.
  *
- * @param url - Any YouTube or Twitch-clip URL. One that yields no embeddable
- * id renders as the poster-less placeholder rather than an inert player.
- * @param label - What the video is, shown under the play button and used as
- * the control's accessible name.
+ * @param url - Any YouTube or Twitch-clip URL.
+ * @param label - What the video is: the player's accessible name, and on the
+ * facade the text under the play button.
  */
 export function HeroVideo({
   url,
@@ -55,27 +35,9 @@ export function HeroVideo({
   label?: string
   className?: string
 }) {
-  const [playing, setPlaying] = useState(false)
+  const { player, sourceLabel, play, onKeyDown } = useHeroVideo(url)
 
-  const source = detectSource(url)
-  const youtubeId = source === 'youtube' ? extractYouTubeId(url) : null
-  const twitchSlug =
-    source === 'twitch-clip' ? extractTwitchClipSlug(url) : null
-
-  const iframeSrc = youtubeId
-    ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1`
-    : twitchSlug
-      ? `https://clips.twitch.tv/embed?clip=${twitchSlug}&parent=${location.hostname}&autoplay=true`
-      : null
-
-  const sourceLabel =
-    source === 'youtube'
-      ? '▶ youtube.com'
-      : source === 'twitch-clip'
-        ? '📡 twitch.tv'
-        : '▶ video'
-
-  if (playing && iframeSrc) {
+  if (player) {
     return (
       <div
         className={cn(
@@ -83,10 +45,14 @@ export function HeroVideo({
           className
         )}
       >
+        {/* YouTube refuses to play (error 153) without a Referer, so the
+          iframe states the policy rather than inheriting whatever the page
+          is served with. */}
         <iframe
-          src={iframeSrc}
+          src={player}
           title={label}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerPolicy="strict-origin-when-cross-origin"
           allowFullScreen
           className="size-full border-0"
         />
@@ -100,19 +66,12 @@ export function HeroVideo({
         'group relative aspect-video w-full cursor-pointer overflow-hidden bg-black',
         className
       )}
-      onClick={() => iframeSrc && setPlaying(true)}
+      onClick={play}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && iframeSrc) {
-          e.preventDefault()
-          setPlaying(true)
-        }
-      }}
+      onKeyDown={onKeyDown}
       aria-label={`Play ${label.toLowerCase()}`}
     >
-      {youtubeId && <YouTubePoster key={youtubeId} videoId={youtubeId} />}
-
       {/* Dark scrim — fixed opacity per DESIGN_LANGUAGE.md */}
       <div className="absolute inset-0 bg-black/50" />
 

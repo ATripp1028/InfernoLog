@@ -3,8 +3,7 @@ import {
   detectSource,
   extractTwitchClipSlug,
   extractYouTubeId,
-  isYouTubePlaceholder,
-  youTubePosterUrls,
+  resolveEmbed,
 } from '../videoEmbed'
 
 describe('extractYouTubeId', () => {
@@ -48,28 +47,6 @@ describe('extractYouTubeId', () => {
 
   it('accepts ids containing underscores and hyphens', () => {
     expect(extractYouTubeId('https://youtu.be/a_b-c_d-e_f')).toBe('a_b-c_d-e_f')
-  })
-})
-
-describe('youTubePosterUrls', () => {
-  it('tries the sizes best first, ending on the one every video has', () => {
-    expect(youTubePosterUrls('NjEiHIokTGM')).toEqual([
-      'https://img.youtube.com/vi/NjEiHIokTGM/maxresdefault.jpg',
-      'https://img.youtube.com/vi/NjEiHIokTGM/sddefault.jpg',
-      'https://img.youtube.com/vi/NjEiHIokTGM/hqdefault.jpg',
-    ])
-  })
-})
-
-describe('isYouTubePlaceholder', () => {
-  // A missing size still loads successfully, as a 120px grey stand-in, so
-  // width is the only way to tell it from a real poster.
-  it('recognizes the 120px stand-in', () => {
-    expect(isYouTubePlaceholder(120)).toBe(true)
-  })
-
-  it.each([1280, 640, 480])('accepts a real %ipx poster', (width) => {
-    expect(isYouTubePlaceholder(width)).toBe(false)
   })
 })
 
@@ -126,5 +103,40 @@ describe('detectSource', () => {
 
     expect(detectSource(url)).toBe('youtube')
     expect(extractYouTubeId(url)).toBeNull()
+  })
+})
+
+describe('resolveEmbed', () => {
+  // Rebuilt from the id alone, so a pasted timestamp or playlist never
+  // reaches the frame's src.
+  it('embeds YouTube’s privacy-enhanced player, loaded with the page', () => {
+    expect(
+      resolveEmbed(
+        'https://www.youtube.com/watch?list=PL123&v=dQw4w9WgXcQ&t=42s',
+        'infernolog.com'
+      )
+    ).toEqual({
+      source: 'youtube',
+      src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+      loadsWithPage: true,
+    })
+  })
+
+  it('holds a Twitch clip back for the facade, naming this page its parent', () => {
+    expect(
+      resolveEmbed('https://clips.twitch.tv/SomeClip', 'infernolog.com')
+    ).toEqual({
+      source: 'twitch-clip',
+      src: 'https://clips.twitch.tv/embed?clip=SomeClip&parent=infernolog.com&autoplay=true',
+      loadsWithPage: false,
+    })
+  })
+
+  it.each([
+    ['a YouTube channel page', 'https://www.youtube.com/@somechannel'],
+    ['a Twitch VOD', 'https://www.twitch.tv/videos/123456'],
+    ['an unknown host', 'https://vimeo.com/123456'],
+  ])('has no player for %s', (_label, url) => {
+    expect(resolveEmbed(url, 'infernolog.com').src).toBeNull()
   })
 })

@@ -28,35 +28,6 @@ export function extractYouTubeId(url: string): string | null {
 }
 
 /**
- * YouTube's poster sizes, best first. Not every video has every size:
- * `maxresdefault` exists only for uploads YouTube processed in HD, and
- * `sddefault` is missing on some older ones. `hqdefault` exists for any video
- * YouTube has processed at all, so it is the last resort.
- */
-const YOUTUBE_POSTER_SIZES = ['maxresdefault', 'sddefault', 'hqdefault'] as const
-
-/**
- * Poster image URLs for a YouTube video, in the order to try them.
- */
-export function youTubePosterUrls(videoId: string): string[] {
-  return YOUTUBE_POSTER_SIZES.map(
-    (size) => `https://img.youtube.com/vi/${videoId}/${size}.jpg`
-  )
-}
-
-/**
- * Whether a loaded poster is YouTube's stand-in for a size the video lacks.
- *
- * YouTube answers a missing size with a 404 whose body is a valid 120×90 grey
- * JPEG. Browsers decode it and fire `load`, never `error`, so width is the only
- * tell. It is unambiguous: none of the sizes in {@link youTubePosterUrls} is
- * genuinely 120px wide.
- */
-export function isYouTubePlaceholder(naturalWidth: number): boolean {
-  return naturalWidth === 120
-}
-
-/**
  * The clip slug from a clips.twitch.tv URL, or `null`.
  */
 export function extractTwitchClipSlug(url: string): string | null {
@@ -73,4 +44,56 @@ export function detectSource(url: string): VideoSource {
   if (/youtube\.com|youtu\.be/.test(url)) return 'youtube'
   if (/twitch\.tv/.test(url)) return 'twitch-clip'
   return 'unknown'
+}
+
+/**
+ * The player a video URL embeds as.
+ *
+ * `src` is `null` when the URL yields no embeddable id. Every `src` is rebuilt
+ * from an extracted id, never from the user's URL verbatim, which the CSP's
+ * `frame-src` allowlist relies on.
+ */
+export interface VideoEmbed {
+  source: VideoSource
+  src: string | null
+  /**
+   * Whether the player loads as soon as the page does. YouTube's does, so it
+   * can show its own poster, title and channel and play on the first tap. A
+   * player that doesn't sits behind HeroVideo's click-to-load facade.
+   */
+  loadsWithPage: boolean
+}
+
+/**
+ * Resolves a pasted video URL to the player HeroVideo embeds for it.
+ *
+ * YouTube goes through youtube-nocookie.com, YouTube's privacy-enhanced mode:
+ * the same official player, but views of it don't feed the viewer's YouTube
+ * history and recommendations.
+ *
+ * @param hostname - This page's hostname, which Twitch requires as the
+ * embed's `parent`.
+ */
+export function resolveEmbed(url: string, hostname: string): VideoEmbed {
+  const source = detectSource(url)
+  if (source === 'youtube') {
+    const id = extractYouTubeId(url)
+    return {
+      source,
+      src: id ? `https://www.youtube-nocookie.com/embed/${id}` : null,
+      loadsWithPage: true,
+    }
+  }
+  if (source === 'twitch-clip') {
+    const slug = extractTwitchClipSlug(url)
+    return {
+      source,
+      // Autoplay is safe to ask for: the facade's click is what loads it.
+      src: slug
+        ? `https://clips.twitch.tv/embed?clip=${slug}&parent=${hostname}&autoplay=true`
+        : null,
+      loadsWithPage: false,
+    }
+  }
+  return { source, src: null, loadsWithPage: false }
 }

@@ -95,9 +95,9 @@ export default $config({
       // and the font host in font-src.
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
-      // levelthumbs: level thumbnails. img.youtube.com: video posters.
-      // gdladder.com: the GDDL favicon on the API-key settings row.
-      "img-src 'self' data: blob: https://levelthumbs.prevter.me https://img.youtube.com https://gdladder.com",
+      // levelthumbs: level thumbnails. gdladder.com: the GDDL favicon on the
+      // API-key settings row.
+      "img-src 'self' data: blob: https://levelthumbs.prevter.me https://gdladder.com",
       [
         "connect-src 'self'",
         stripSlash(apiUrl.value),
@@ -108,9 +108,12 @@ export default $config({
       ]
         .filter(Boolean)
         .join(' '),
-      // Completion video embeds (HeroVideo). Both srcs are rebuilt from an
-      // extracted id, never from the user's URL verbatim.
-      'frame-src https://www.youtube.com https://clips.twitch.tv',
+      // Video embeds (HeroVideo). Every src is rebuilt from an extracted id,
+      // never from the user's URL verbatim. youtube-nocookie.com is the
+      // YouTube player itself. www.youtube.com stays so nothing breaks if the
+      // player redirects its own frame there, since frame-src governs those
+      // navigations too.
+      'frame-src https://www.youtube-nocookie.com https://www.youtube.com https://clips.twitch.tv',
       "media-src 'self' blob:",
       "worker-src 'self' blob:",
       // Nothing in this app is meant to be framed, embedded, or to post a

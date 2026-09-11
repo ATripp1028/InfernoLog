@@ -4,22 +4,22 @@ This privacy policy applies to the InfernoLog app for web browsers, together wit
 
 **Privacy Stance**
 
-InfernoLog tries to the best of its ability to only collect user data required for app operation or upon user request. InfernoLog will never sell your data or use it to train LLMs or AI models of any kind for any reason.
+InfernoLog tries to the best of its ability to only collect user data required for app operation or upon user request. InfernoLog will never sell your data or otherwise use it in a way that takes advantage of its users.
 
 If you have found anything within the codebase, legal documents, or public statements from the InfernoLog team that would contradict the above claim, report these findings to contact@infernolog.com.
 
 **Information Collection and Use**
 
-The Application collects information when you download and use it. This information may include information such as
+InfernoLog collects information when you use it. This information may include information such as
 
 - Your device's Internet Protocol address
-- The pages of the Application that you visit, the time and date of your visit, the time spent on those pages
-- The time spent on the Application
+- The pages of InfernoLog that you visit, the time and date of your visit, the time spent on those pages
+- The time spent on InfernoLog
 - your operating system you use
 
 **Cookies and tracking technologies**
 
-The Application or its third-party SDKs may use cookies, SDKs, pixels, and similar technologies to support functionality, analytics, or service delivery. Where required by applicable law, the Service Provider will obtain consent before using non-essential tracking technologies.
+InfernoLog or its third-party SDKs may use cookies, SDKs, pixels, and similar technologies to support functionality, analytics, or service delivery. This includes the embedded video players described under Third Party Access, which may store data on your device when a page with a video opens. Where required by applicable law, the Service Provider will obtain consent before using non-essential tracking technologies.
 
 **Your Rights**
 
@@ -31,14 +31,15 @@ If you are a California resident, you have the right to know what personal infor
 
 The Service Provider may use the information you provide to send important information, required notices, and, where permitted by law, marketing communications.
 
-For a better experience while using the Application, the Service Provider may require you to provide certain personally identifiable information, including but not limited to Email address, Username, Discord ID, YouTube URLs, User Generated Text, and, if you connect a third-party demon list account, that account's identifier (e.g. your GDDL username). The information the Service Provider requests will be retained and used as described in this privacy policy.
+For a better experience while using InfernoLog, the Service Provider may require you to provide certain personally identifiable information, including but not limited to Email address, Username, Discord ID, YouTube URLs, User Generated Text, and, if you connect a third-party demon list account, that account's identifier (e.g. your GDDL username). The information the Service Provider requests will be retained and used as described in this privacy policy.
 
 **Third Party Access**
 
-The Service Provider shares information with third parties in two ways:
+The Service Provider shares information with third parties in three ways:
 
-- **Infrastructure providers**, who process data solely on the Service Provider's behalf to operate the Application (hosting, authentication, database storage, error monitoring) and have no independent right to use it.
+- **Infrastructure providers**, who process data solely on the Service Provider's behalf to operate InfernoLog (hosting, authentication, database storage, error monitoring) and have no independent right to use it.
 - **Services you choose to connect**, where the Service Provider sends your identity or activity data only because you initiated the connection — for example, signing in with a Google account, linking a Discord account, or syncing with a third-party demon list using your own API key. This data is not aggregated or anonymized before being sent, since the connection itself depends on identifying you to that service.
+- **Embedded video players**, which your browser loads directly from the video's provider. A level page with a YouTube completion or showcase video loads YouTube's player as soon as the page opens, whether or not you press play. YouTube (Google) then receives your IP address and browser information, and may store data on your device, under its own privacy policy. The Service Provider uses YouTube's privacy-enhanced mode and shares nothing about your InfernoLog account with YouTube. A Twitch clip's player loads only when you press play.
 
 The Service Provider may share your information with third parties in the ways that are described in this privacy statement.
 
@@ -52,7 +53,7 @@ The Service Provider or its third-party service providers may transfer personal 
 
 Data protection laws in other countries may differ from those in your jurisdiction. Where required by law, the Service Provider will apply appropriate safeguards and obtain any consent required for the transfer.
 
-Please note that the Application utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by the Application:
+Please note that InfernoLog utilizes third-party services that have their own Privacy Policy about handling data. Below are the links to the Privacy Policy of the third-party service providers used by InfernoLog:
 
 Infrastructure providers (process data on the Service Provider's behalf only):
 
@@ -65,6 +66,11 @@ Services you may choose to connect:
 - [Google](https://policies.google.com/privacy) — used only if you sign in with a Google account
 - [Discord](https://discord.com/privacy) — used only if you link a Discord account
 - [Geometry Dash Demon Ladder (GDDL)](https://gdladder.com) — used only if you connect your GDDL account to sync records
+
+Embedded content (loads directly from the provider when a page shows its video):
+
+- [YouTube](https://policies.google.com/privacy) — the video player on level pages with a YouTube completion or showcase video
+- [Twitch](https://legal.twitch.com/legal/privacy-notice/) — the clip player, loaded only when you press play on a Twitch clip
 
 The Service Provider may disclose User Provided and Automatically Collected Information:
 
@@ -82,12 +88,12 @@ To request deletion of your personal data, to withdraw consent, or to exercise a
 
 The Service Provider retains personal data based on its necessity for the stated purposes:
 
-- User Provided Data: Retained for the duration of your use of the Application plus 12 months thereafter, unless longer retention is required by law
+- User Provided Data: Retained for the duration of your use of InfernoLog plus 12 months thereafter, unless longer retention is required by law
 - Automatically Collected Data: Retained for up to 24 months from collection, unless longer retention is required for legal compliance
 - Aggregated and Anonymized Data: Retained indefinitely as it no longer identifies you
 - Data required for legal compliance: Retained as long as required by applicable law
 
-You may request deletion of your personal data, subject to any legal obligation to retain it. If you want the Service Provider to delete User Provided Data submitted through the Application, please contact them at contact@infernolog.com. Please note that some User Provided Data may be required for the Application to function properly.
+You may request deletion of your personal data, subject to any legal obligation to retain it. If you want the Service Provider to delete User Provided Data submitted through InfernoLog, please contact them at contact@infernolog.com. Please note that some User Provided Data may be required for InfernoLog to function properly.
 
 **Data Deletion**
 
@@ -97,13 +103,9 @@ Upon verification of your identity, the Service Provider will delete your person
 
 **Children**
 
-The Application is not intended for children under 13 years of age, or such higher age as required by applicable law. The Service Provider does not knowingly solicit data from children or market the Application to them. No Personally Identifiable Information, including age, is stored when account creation is rejected on the basis of age.
+InfernoLog is not intended for children under 13 years of age, or such higher age as required by applicable law. The Service Provider does not knowingly solicit data from children or market InfernoLog to them. No Personally Identifiable Information, including age, is stored when account creation is rejected on the basis of age.
 
 If it is discovered that InfernoLog is storing information for a person under 13 years old, the account and information of the individual in question will be deleted.
-
-**Security**
-
-The Service Provider is concerned about safeguarding the confidentiality of your information. The Service Provider provides physical, electronic, and procedural safeguards to protect information the Service Provider processes and maintains.
 
 **Data Breach Notification**
 
@@ -111,11 +113,11 @@ If a data breach occurs that affects your personal data, the Service Provider wi
 
 **Changes**
 
-The Service Provider may update this Privacy Policy from time to time. The Service Provider will notify you of material changes by posting the updated Privacy Policy with an effective date. Where required by law, the Service Provider will seek your consent to material changes before they take effect.
+InfernoLog may update this Privacy Policy from time to time. By continuing to use InfernoLog, you are agreeing to the updated policy.
 
 Previous versions of this Privacy Policy will be maintained and made available upon request by contacting the Service Provider at contact@infernolog.com.
 
-This privacy policy is effective as of 2026-07-07
+This privacy policy is effective as of 2026-09-10
 
 **Your Consent**
 
@@ -123,7 +125,7 @@ Where processing is based on consent, you provide that consent by affirmatively 
 
 **Contact Us**
 
-If you have any questions regarding privacy while using the Application, or have questions about the practices, please contact the Service Provider via email at contact@infernolog.com.
+If you have any questions regarding privacy while using InfernoLog, or have questions about the practices, please contact the Service Provider via email at contact@infernolog.com.
 
 ---
 
