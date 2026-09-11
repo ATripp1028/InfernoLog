@@ -214,6 +214,21 @@ export function sortSelectionPatch(sort: LevelSort): Partial<SearchPageState> {
 }
 
 /**
+ * Holds an extremes-only sort (AREDL rank, sheet tier) to the filter that
+ * makes it meaningful. Picking one narrows difficulty to Extreme Demon (see
+ * {@link sortSelectionPatch}); if anything later clears or widens that — Clear
+ * all, toggling a difficulty face, a hand-edited URL — the sort falls back to
+ * the default, rather than ranking non-extremes, which neither list places, as
+ * one undifferentiated block after the extremes.
+ */
+export function reconcileExtremeSort(s: SearchPageState): SearchPageState {
+  if (!EXTREME_ONLY_SORTS.includes(s.sort)) return s
+  const d = s.difficulty
+  if (d?.length === 1 && d[0] === 'demon-extreme') return s
+  return { ...s, sort: DEFAULT_SEARCH_STATE.sort, sortDir: undefined }
+}
+
+/**
  * True when any level-independent filter is set (ignores query/searchBy/sort).
  */
 export function hasActiveFilters(s: LevelSearchFilters): boolean {
@@ -447,7 +462,7 @@ export function validateSearchState(
     ranges[rangeMinKey(f)] = boundOf(raw[rangeMinKey(f)], f)
     ranges[rangeMaxKey(f)] = boundOf(raw[rangeMaxKey(f)], f)
   }
-  return {
+  return reconcileExtremeSort({
     query:
       typeof raw.query === 'string' && raw.query.length > 0
         ? raw.query
@@ -465,7 +480,7 @@ export function validateSearchState(
     songType: oneOf(raw.songType, SONG_TYPE_VALUES),
     sheetTier: sheetTierOf(raw.sheetTier),
     ...ranges,
-  }
+  })
 }
 
 /**

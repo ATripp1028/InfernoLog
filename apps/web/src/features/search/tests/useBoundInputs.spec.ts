@@ -4,7 +4,7 @@ import { useBoundInputs, type Bounds } from '../useBoundInputs'
 
 const NONE: Bounds = { min: undefined, max: undefined }
 
-function render(initial: Bounds = NONE) {
+function render(initial: Bounds = NONE, exact = false) {
   const onChange = vi.fn()
   const view = renderHook(
     ({ value }: { value: Bounds }) =>
@@ -16,6 +16,7 @@ function render(initial: Bounds = NONE) {
         describe: (min, max) => `${min ?? '…'} to ${max ?? '…'}`,
         hint: 'How it works',
         invalidMessage: 'Not a number',
+        exact,
       }),
     { initialProps: { value: initial } }
   )
@@ -147,6 +148,26 @@ describe('useBoundInputs', () => {
 
     expect(result.current.text('min')).toBe('')
     expect(onChange).not.toHaveBeenCalled()
+  })
+
+  describe('in Exact mode', () => {
+    it('sets both ends to the one value typed', () => {
+      const { result, onChange } = render(NONE, true)
+
+      act(() => result.current.edit('min', '22'))
+      act(() => result.current.commit('min'))
+
+      expect(onChange).toHaveBeenCalledWith({ min: 22, max: 22 })
+    })
+
+    it('clears both ends when the box is emptied', () => {
+      const { result, onChange } = render({ min: 22, max: 22 }, true)
+
+      act(() => result.current.edit('min', ''))
+      act(() => result.current.commit('min'))
+
+      expect(onChange).toHaveBeenCalledWith({ min: undefined, max: undefined })
+    })
   })
 
   describe('the line under the boxes', () => {

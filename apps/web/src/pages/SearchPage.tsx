@@ -5,6 +5,7 @@ import {
   browseApiQueryString,
   canEscalateToGd,
   hasActiveFilters,
+  reconcileExtremeSort,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 import { useSearchPageBar } from '@/features/search/useSearchPageBar'
@@ -45,22 +46,25 @@ export function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateKey])
 
+  // Both run through reconcileExtremeSort so the URL itself drops an
+  // extremes-only sort once its Extreme Demon filter goes, not just the state
+  // validateSearch derives from it.
   const update = (patch: Partial<SearchPageState>) =>
     navigate({
       to: '/search',
       replace: true,
-      search: { ...state, ...patch },
+      search: reconcileExtremeSort({ ...state, ...patch }),
     })
 
   const resetFilters = () =>
     navigate({
       to: '/search',
       replace: true,
-      search: {
+      search: reconcileExtremeSort({
         query: state.query,
         searchBy: state.searchBy,
         sort: state.sort,
-      },
+      }),
     })
 
   // The RobTop offer is shown whenever a browse is running and we're not mid

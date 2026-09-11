@@ -105,6 +105,32 @@ describe('useRangeDrafts', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  describe('the single-value box', () => {
+    it('sets both ends to what was typed', () => {
+      const { result, onChange } = render()
+
+      act(() => result.current.commitSingle('40'))
+
+      expect(onChange).toHaveBeenCalledWith([40, 40])
+    })
+
+    it('clamps to the domain', () => {
+      const { result, onChange } = render()
+
+      act(() => result.current.commitSingle('150'))
+
+      expect(onChange).toHaveBeenCalledWith([100, 100])
+    })
+
+    it('discards an unparseable entry', () => {
+      const { result, onChange } = render()
+
+      act(() => result.current.commitSingle('abc'))
+
+      expect(onChange).not.toHaveBeenCalled()
+    })
+  })
+
   describe('dragging the slider', () => {
     // The Log page filters client-side, so following the thumb live is free.
     it('reports every step of a drag by default', () => {
@@ -159,6 +185,28 @@ describe('useRangeDrafts', () => {
       rerender({ value: [30, 100] })
 
       expect(result.current.shown).toEqual([30, 100])
+    })
+
+    // A filter narrowed to one value draws a single thumb; callers still get
+    // a range, just a zero-width one.
+    it('reads a one-thumb drag as a single value', () => {
+      const { result, onChange } = render()
+
+      act(() => result.current.slide([7]))
+
+      expect(onChange).toHaveBeenCalledWith([7, 7])
+    })
+
+    it('commits a one-thumb drag as a single value on release', () => {
+      const { result, onChange } = render({
+        value: [5, 5],
+        commitOnRelease: true,
+      })
+
+      act(() => result.current.slide([7]))
+      act(() => result.current.release([7]))
+
+      expect(onChange).toHaveBeenCalledWith([7, 7])
     })
 
     it('reports nothing for a drag that ended where it began', () => {

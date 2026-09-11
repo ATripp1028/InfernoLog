@@ -12,6 +12,10 @@
 // Unbounded fields (counts, AREDL rank, duration) get two labelled boxes
 // instead: empty means no limit, and the line under them explains the filter
 // until something is typed, then says what it matches.
+//
+// Most filters can also be switched to Exact — one value rather than a range
+// ("GDDL tier 22 only"). An exact value is simply min = max on the wire, so the
+// API needs no separate parameter for it.
 
 import type { CSSProperties } from 'react'
 import { LEVEL_RANGE_BOUNDS } from '@infernolog/core'
@@ -36,6 +40,8 @@ export interface SliderFilterConfig {
   domain: Range
   step: number
   format: (v: number) => string
+  /** Whether it offers an Exact mode — one thumb, one value. */
+  exact: boolean
   trackClassName?: string
   trackStyle?: CSSProperties
 }
@@ -60,6 +66,12 @@ export interface BoundFilterConfig {
   hint: string
   /** What a set filter matches, shown once either box is. */
   describe: (min: number | undefined, max: number | undefined) => string
+  /** Whether it offers an Exact mode — one box, one value. */
+  exact: boolean
+  /** The one box's label in Exact mode. */
+  exactLabel: string
+  /** How the filter works in Exact mode, shown while the box is empty. */
+  exactHint: string
 }
 
 export type RangeFilterConfig = SliderFilterConfig | BoundFilterConfig
@@ -138,6 +150,7 @@ export function describeAredlRange(
 }
 
 const NO_LIMIT_HINT = 'Leave a box empty for no limit.'
+const EXACT_HINT = 'Leave the box empty for no filter.'
 const WHOLE_NUMBER_MESSAGE = 'Enter a whole number, 0 or more.'
 
 /** The community-list filters, in panel order. The sheet tier joins them as a dropdown. */
@@ -149,6 +162,7 @@ export const COMMUNITY_RANGE_FILTERS: RangeFilterConfig[] = [
     domain: GDDL_TIER_DOMAIN,
     step: 1,
     format: (v) => String(v),
+    exact: true,
     trackClassName: 'bg-transparent',
     trackStyle: {
       backgroundImage: gddlTrackGradient(
@@ -164,6 +178,9 @@ export const COMMUNITY_RANGE_FILTERS: RangeFilterConfig[] = [
     domain: [0, 100],
     step: 1,
     format: (v) => String(v),
+    // Scores are stored to two decimals (59.39), so an exact whole number
+    // would match almost nothing.
+    exact: false,
   },
   {
     kind: 'bounds',
@@ -180,6 +197,9 @@ export const COMMUNITY_RANGE_FILTERS: RangeFilterConfig[] = [
     invalidMessage: 'Enter a rank of 1 or more, like 100.',
     hint: '#1 is the hardest level on the list. Fill in only “To rank” for a top N. Legacy levels have no rank.',
     describe: describeAredlRange,
+    exact: true,
+    exactLabel: 'Rank',
+    exactHint: '#1 is the hardest level on the list. Legacy levels have no rank.',
   },
 ]
 
@@ -200,6 +220,9 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     invalidMessage: 'Enter a time like 1:30, or seconds like 90.',
     hint: 'Minutes and seconds, like 2:30. Levels with no known duration never match.',
     describe: describeBetween((v) => formatDuration(v) ?? String(v), ''),
+    exact: true,
+    exactLabel: 'Exactly',
+    exactHint: 'Minutes and seconds, like 2:30. Matches to the second.',
   },
   {
     kind: 'bounds',
@@ -215,6 +238,9 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     invalidMessage: WHOLE_NUMBER_MESSAGE,
     hint: NO_LIMIT_HINT,
     describe: describeBetween(formatNumber, 'downloads'),
+    exact: true,
+    exactLabel: 'Exactly',
+    exactHint: EXACT_HINT,
   },
   {
     kind: 'bounds',
@@ -231,6 +257,9 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     invalidMessage: 'Enter a whole number.',
     hint: 'Net of dislikes, so it can go below zero. Leave a box empty for no limit.',
     describe: describeBetween(formatNumber, 'likes'),
+    exact: true,
+    exactLabel: 'Exactly',
+    exactHint: 'Net of dislikes, so it can go below zero. Leave the box empty for no filter.',
   },
   {
     kind: 'bounds',
@@ -246,6 +275,9 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     invalidMessage: WHOLE_NUMBER_MESSAGE,
     hint: NO_LIMIT_HINT,
     describe: describeBetween(formatNumber, 'objects'),
+    exact: true,
+    exactLabel: 'Exactly',
+    exactHint: EXACT_HINT,
   },
   {
     kind: 'slider',
@@ -254,6 +286,7 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     domain: [1, LATEST_GAME_VERSION],
     step: 0.1,
     format: (v) => v.toFixed(1),
+    exact: true,
   },
 ]
 
@@ -325,4 +358,51 @@ export function boundsPatch(
   patch[rangeMinKey(field)] = min
   patch[rangeMaxKey(field)] = max
   return patch
+}
+
+/**
+ * The state patch for one exact value from a slider: both bounds, snapped to
+ * the step. Unlike {@link rangePatch}, a value at a domain edge stays a real
+ * bound — "exactly tier 1" is not "no filter".
+ */
+export function exactValuePatch(
+  cfg: SliderFilterConfig,
+  v: number
+): LevelRangeFilters {
+  const snapped = snap(v, cfg.step)
+  return boundsPatch(cfg.field, { min: snapped, max: snapped })
+}
+
+/**
+ * The state patch for switching a filter to Exact, collapsing it to one value:
+ * the lower bound, else the upper. A slider always sits on some value, so with
+ * neither set it takes the bottom of its domain; boxes with nothing typed stay
+ * empty, which in Exact mode means no filter.
+ */
+export function exactModePatch(
+  cfg: RangeFilterConfig,
+  { min, max }: Bounds
+): LevelRangeFilters {
+  if (cfg.kind === 'slider') {
+    return exactValuePatch(cfg, clamp(min ?? max ?? cfg.domain[0], cfg.domain))
+  }
+  const v = min ?? max
+  return boundsPatch(cfg.field, { min: v, max: v })
+}
+
+/**
+ * The state patch for switching a filter back to Range. An exact value becomes
+ * the lower bound with the top left open ("tier 22 and up"), so the range
+ * starts from where the user was; a filter that is already a range is kept.
+ */
+export function rangeModePatch(
+  cfg: RangeFilterConfig,
+  { min, max }: Bounds
+): LevelRangeFilters {
+  if (min === undefined || min !== max) {
+    return boundsPatch(cfg.field, { min, max })
+  }
+  return cfg.kind === 'slider'
+    ? rangePatch(cfg, [min, cfg.domain[1]])
+    : boundsPatch(cfg.field, { min, max: undefined })
 }

@@ -1,7 +1,6 @@
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { Chip } from '@/components/generic/chip'
 import { Segmented } from '@/components/generic/segmented'
-import { RangeRow } from '@/components/inputs/RangeRow'
 import { cn } from '@/lib/utils'
 import {
   DIFFICULTY_FACE,
@@ -15,17 +14,10 @@ import {
   type LevelSongType,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
-import { BoundInputs } from './BoundInputs'
+import { FilterGroup } from './FilterGroup'
 import { TRISTATE, fromTri, toggle, triValue } from './filterControls'
-import {
-  COMMUNITY_RANGE_FILTERS,
-  STAT_RANGE_FILTERS,
-  boundsPatch,
-  boundsValue,
-  rangePatch,
-  rangeValue,
-  type RangeFilterConfig,
-} from './rangeFilters'
+import { RangeFilter } from './RangeFilter'
+import { COMMUNITY_RANGE_FILTERS, STAT_RANGE_FILTERS } from './rangeFilters'
 import { SheetTierSelect } from './SheetTierSelect'
 
 interface SearchFiltersProps {
@@ -75,25 +67,6 @@ function FaceToggle({
   )
 }
 
-function FilterGroup({
-  label,
-  className,
-  children,
-}: {
-  label: string
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className={className}>
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-        {label}
-      </p>
-      {children}
-    </div>
-  )
-}
-
 // A titled block of filters under a divider, laid out as a grid.
 function FilterSection({
   title,
@@ -109,44 +82,6 @@ function FilterSection({
         {children}
       </div>
     </div>
-  )
-}
-
-// One range filter, as a slider or as a pair of boxes depending on the field.
-function RangeFilter({
-  cfg,
-  state,
-  onChange,
-}: {
-  cfg: RangeFilterConfig
-  state: SearchPageState
-  onChange: (patch: Partial<SearchPageState>) => void
-}) {
-  return (
-    <FilterGroup label={cfg.label}>
-      {cfg.kind === 'slider' ? (
-        <RangeRow
-          label={cfg.label}
-          hideLabel
-          className="px-0 py-0"
-          min={cfg.domain[0]}
-          max={cfg.domain[1]}
-          step={cfg.step}
-          commitOnRelease
-          value={rangeValue(state, cfg)}
-          onChange={(v) => onChange(rangePatch(cfg, v))}
-          format={cfg.format}
-          trackClassName={cfg.trackClassName}
-          trackStyle={cfg.trackStyle}
-        />
-      ) : (
-        <BoundInputs
-          cfg={cfg}
-          value={boundsValue(state, cfg.field)}
-          onChange={(b) => onChange(boundsPatch(cfg.field, b))}
-        />
-      )}
-    </FilterGroup>
   )
 }
 

@@ -13,6 +13,7 @@ import {
   effectiveSortDir,
   hasActiveFilters,
   naturalSortDir,
+  reconcileExtremeSort,
   sortSelectionPatch,
   validateSearchState,
   type SearchPageState,
@@ -115,6 +116,68 @@ describe('sortSelectionPatch', () => {
 
   it('leaves the difficulty filter alone for any other sort', () => {
     expect(sortSelectionPatch('gddlTier')).not.toHaveProperty('difficulty')
+  })
+})
+
+// AREDL and the sheets place nothing but extremes, so their sorts only mean
+// something while the difficulty filter says Extreme Demon alone.
+describe('reconcileExtremeSort', () => {
+  it.each(['aredlRank', 'sheetTier'] as const)(
+    'keeps a %s sort while the filter is Extreme Demon only',
+    (sort) => {
+      const s = state({ sort, sortDir: 'desc', difficulty: ['demon-extreme'] })
+
+      expect(reconcileExtremeSort(s)).toBe(s)
+    }
+  )
+
+  it.each([
+    ['cleared', undefined],
+    ['widened', ['demon-extreme', 'demon-insane']],
+    ['moved', ['demon-hard']],
+  ] as const)(
+    'drops the sort once the Extreme Demon filter is %s',
+    (_label, difficulty) => {
+      const next = reconcileExtremeSort(
+        state({
+          sort: 'aredlRank',
+          sortDir: 'desc',
+          difficulty: difficulty as never,
+        })
+      )
+
+      expect(next.sort).toBe('relevance')
+      expect(next.sortDir).toBeUndefined()
+    }
+  )
+
+  // The reported bug: Clear all kept the sort and let every non-extreme in.
+  it('drops the sort when the filters are cleared', () => {
+    const cleared = { query: undefined, searchBy: 'name', sort: 'sheetTier' }
+
+    expect(reconcileExtremeSort(cleared as SearchPageState).sort).toBe(
+      'relevance'
+    )
+  })
+
+  it('leaves the filters alone', () => {
+    expect(
+      reconcileExtremeSort(state({ sort: 'aredlRank', twoPlayer: true }))
+        .twoPlayer
+    ).toBe(true)
+  })
+
+  it('leaves every other sort alone', () => {
+    const s = state({ sort: 'gddlTier' })
+
+    expect(reconcileExtremeSort(s)).toBe(s)
+  })
+
+  it('survives the very patch that picks the sort', () => {
+    expect(
+      reconcileExtremeSort({ ...state(), ...sortSelectionPatch('aredlRank') })
+        .sort
+    ).toBe('aredlRank')
   })
 })
 
@@ -268,6 +331,18 @@ describe('validateSearchState', () => {
     expect(validateSearchState({ [field]: value })[key as 'sort']).toBe(
       expected
     )
+  })
+
+  // A shared or hand-edited URL can name the sort without its filter.
+  it('drops an extremes-only sort that arrives without its filter', () => {
+    expect(validateSearchState({ sort: 'aredlRank' }).sort).toBe('relevance')
+  })
+
+  it('keeps an extremes-only sort that arrives with its filter', () => {
+    expect(
+      validateSearchState({ sort: 'aredlRank', difficulty: ['demon-extreme'] })
+        .sort
+    ).toBe('aredlRank')
   })
 
   it('drops an unrecognized sort direction rather than defaulting it', () => {

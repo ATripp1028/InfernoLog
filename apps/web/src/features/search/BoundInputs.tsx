@@ -73,16 +73,18 @@ function BoundField({
 }
 
 /**
- * An unbounded range filter as two labelled boxes. Empty is no limit, and the
- * line beneath explains the filter until a value is set, then restates what it
- * matches ("The top 100", "At least 10,000 downloads").
+ * An unbounded range filter as two labelled boxes — or, in Exact mode, one.
+ * Empty is no limit, and the line beneath explains the filter until a value is
+ * set, then restates what it matches ("The top 100", "Exactly 500 downloads").
  */
 export function BoundInputs({
   cfg,
+  exact,
   value,
   onChange,
 }: {
   cfg: BoundFilterConfig
+  exact: boolean
   value: Bounds
   onChange: (next: Bounds) => void
 }) {
@@ -93,8 +95,9 @@ export function BoundInputs({
       parse: cfg.parse,
       format: cfg.format,
       describe: cfg.describe,
-      hint: cfg.hint,
+      hint: exact ? cfg.exactHint : cfg.hint,
       invalidMessage: cfg.invalidMessage,
+      exact,
     })
 
   return (
@@ -103,9 +106,9 @@ export function BoundInputs({
         <BoundField
           id={ids.min}
           fieldLabel={cfg.label}
-          label={cfg.minLabel}
+          label={exact ? cfg.exactLabel : cfg.minLabel}
           prefix={cfg.prefix}
-          placeholder={cfg.minPlaceholder}
+          placeholder={exact ? 'No filter' : cfg.minPlaceholder}
           inputMode={cfg.inputMode}
           value={text('min')}
           invalid={invalid === 'min'}
@@ -114,23 +117,27 @@ export function BoundInputs({
           onCommit={() => commit('min')}
           onRevert={() => revert('min')}
         />
-        <span aria-hidden className="pb-2 text-text-tertiary">
-          –
-        </span>
-        <BoundField
-          id={ids.max}
-          fieldLabel={cfg.label}
-          label={cfg.maxLabel}
-          prefix={cfg.prefix}
-          placeholder={cfg.maxPlaceholder}
-          inputMode={cfg.inputMode}
-          value={text('max')}
-          invalid={invalid === 'max'}
-          describedBy={ids.message}
-          onEdit={(t) => edit('max', t)}
-          onCommit={() => commit('max')}
-          onRevert={() => revert('max')}
-        />
+        {!exact && (
+          <>
+            <span aria-hidden className="pb-2 text-text-tertiary">
+              –
+            </span>
+            <BoundField
+              id={ids.max}
+              fieldLabel={cfg.label}
+              label={cfg.maxLabel}
+              prefix={cfg.prefix}
+              placeholder={cfg.maxPlaceholder}
+              inputMode={cfg.inputMode}
+              value={text('max')}
+              invalid={invalid === 'max'}
+              describedBy={ids.message}
+              onEdit={(t) => edit('max', t)}
+              onCommit={() => commit('max')}
+              onRevert={() => revert('max')}
+            />
+          </>
+        )}
       </div>
       <p
         id={ids.message}

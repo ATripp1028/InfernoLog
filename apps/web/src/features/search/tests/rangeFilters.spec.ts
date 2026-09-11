@@ -8,7 +8,10 @@ import {
   boundsPatch,
   boundsValue,
   describeAredlRange,
+  exactModePatch,
+  exactValuePatch,
   parseWholeNumber,
+  rangeModePatch,
   rangePatch,
   rangeValue,
   type BoundFilterConfig,
@@ -212,6 +215,98 @@ describe('describing a set filter', () => {
 
   it('describes a duration as clock readings', () => {
     expect(boxes('duration').describe(60, 150)).toBe('Between 1:00 and 2:30')
+  })
+})
+
+describe('the Exact mode', () => {
+  it('is offered by every range filter but enjoyment', () => {
+    expect(RANGE_FILTERS.filter((c) => !c.exact).map((c) => c.field)).toEqual(
+      ['enjoyment']
+    )
+  })
+
+  describe('switching to it', () => {
+    it.each([
+      ['the lower bound', { min: 10, max: 30 }, 10],
+      ['the upper bound when that is all there is', { min: undefined, max: 30 }, 30],
+      ['the bottom of the domain when nothing is set', { min: undefined, max: undefined }, 1],
+      ['the domain edge for a bound past it', { min: undefined, max: 50 }, 40],
+    ])('puts a slider on %s', (_label, bounds, expected) => {
+      expect(exactModePatch(slider('gddlTier'), bounds)).toEqual({
+        gddlTierMin: expected,
+        gddlTierMax: expected,
+      })
+    })
+
+    it('collapses boxes to their lower end', () => {
+      expect(
+        exactModePatch(boxes('aredlRank'), { min: 5, max: 50 })
+      ).toEqual({ aredlRankMin: 5, aredlRankMax: 5 })
+    })
+
+    // An empty Exact box means no filter, so there is nothing to pick.
+    it('leaves empty boxes empty', () => {
+      const patch = exactModePatch(boxes('downloads'), {
+        min: undefined,
+        max: undefined,
+      })
+
+      expect(patch.downloadsMin).toBeUndefined()
+      expect(patch.downloadsMax).toBeUndefined()
+    })
+  })
+
+  describe('an exact slider value', () => {
+    it('stays a real bound at the domain edge', () => {
+      expect(exactValuePatch(slider('gddlTier'), 1)).toEqual({
+        gddlTierMin: 1,
+        gddlTierMax: 1,
+      })
+    })
+
+    it('snaps to the step', () => {
+      expect(
+        exactValuePatch(slider('gameVersion'), 2.1000000000000001).gameVersionMin
+      ).toBe(2.1)
+    })
+  })
+
+  describe('switching back to Range', () => {
+    it('widens a slider value into "that and up"', () => {
+      const patch = rangeModePatch(slider('gddlTier'), { min: 22, max: 22 })
+
+      expect(patch.gddlTierMin).toBe(22)
+      expect(patch.gddlTierMax).toBeUndefined()
+    })
+
+    // Tier 1 and up is every tier: the full, open range.
+    it('opens a slider value at the bottom edge completely', () => {
+      const patch = rangeModePatch(slider('gddlTier'), { min: 1, max: 1 })
+
+      expect(patch.gddlTierMin).toBeUndefined()
+      expect(patch.gddlTierMax).toBeUndefined()
+    })
+
+    it('reopens a box value as "at least"', () => {
+      const patch = rangeModePatch(boxes('downloads'), { min: 500, max: 500 })
+
+      expect(patch.downloadsMin).toBe(500)
+      expect(patch.downloadsMax).toBeUndefined()
+    })
+
+    it('keeps a filter that is already a range', () => {
+      expect(
+        rangeModePatch(boxes('downloads'), { min: 100, max: 500 })
+      ).toEqual({ downloadsMin: 100, downloadsMax: 500 })
+    })
+  })
+
+  it('gives every box pair an Exact label and hint', () => {
+    for (const c of RANGE_FILTERS.filter((r) => r.kind === 'bounds')) {
+      const cfg = c as BoundFilterConfig
+      expect(cfg.exactLabel.length).toBeGreaterThan(0)
+      expect(cfg.exactHint.length).toBeGreaterThan(0)
+    }
   })
 })
 

@@ -27,6 +27,9 @@ interface Draft {
  * State for a min/max pair of boxes. A box commits on blur or Enter: blank
  * clears that end, an unparseable entry is kept on screen and flagged rather
  * than silently thrown away, and a range typed backwards is flipped.
+ *
+ * With `exact`, only the `min` box is used and a commit sets both ends to it —
+ * one value rather than a range.
  */
 export function useBoundInputs({
   value,
@@ -36,6 +39,7 @@ export function useBoundInputs({
   describe,
   hint,
   invalidMessage,
+  exact = false,
 }: {
   value: Bounds
   onChange: (next: Bounds) => void
@@ -44,6 +48,7 @@ export function useBoundInputs({
   describe: (min: number | undefined, max: number | undefined) => string
   hint: string
   invalidMessage: string
+  exact?: boolean | undefined
 }) {
   const id = useId()
   const [drafts, setDrafts] = useState<Record<End, Draft | null>>({
@@ -95,7 +100,7 @@ export function useBoundInputs({
     }
     setInvalid(null)
 
-    let next: Bounds = { ...value, [end]: n }
+    let next: Bounds = exact ? { min: n, max: n } : { ...value, [end]: n }
     if (next.min !== undefined && next.max !== undefined && next.min > next.max) {
       next = { min: next.max, max: next.min }
     }

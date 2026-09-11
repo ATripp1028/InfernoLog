@@ -48,17 +48,33 @@ export function useRangeDrafts({
   const [drag, setDrag] = useState<{ from: Range; to: Range } | null>(null)
   const shown: Range = drag && sameRange(drag.from, value) ? drag.to : value
 
+  // Two thumbs report their ends; one thumb (a filter narrowed to a single
+  // value) reports [v, v], so callers only ever see a range.
+  function toRange(v: number[]): Range {
+    return [v[0]!, v[v.length - 1]!]
+  }
+
   function slide(v: number[]) {
-    const next: Range = [v[0]!, v[1]!]
+    const next = toRange(v)
     if (commitOnRelease) setDrag({ from: value, to: next })
     else onChange(next)
   }
 
   function release(v: number[]) {
     if (!commitOnRelease) return
-    const next: Range = [v[0]!, v[1]!]
+    const next = toRange(v)
     if (sameRange(next, value)) setDrag(null)
     else onChange(next)
+  }
+
+  // The one box under a single-value slider sets both ends at once.
+  function commitSingle(text: string) {
+    setMinDraft(null)
+    if (!parseInput) return
+    const n = parseInput(text, 'min')
+    if (n == null) return
+    const clamped = Math.min(Math.max(n, min), max)
+    onChange([clamped, clamped])
   }
 
   function commitMin(text: string) {
@@ -87,5 +103,6 @@ export function useRangeDrafts({
     maxDraft,
     setMaxDraft,
     commitMax,
+    commitSingle,
   }
 }
