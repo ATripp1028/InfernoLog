@@ -56,9 +56,30 @@ The logging flow's level-entry field accepts **either an ID or a name** (one fie
 **Called from:** Lambda only  
 **License:** Free platform — minimize load, never poll for live tier updates
 
+### Public level endpoint
+
+`GET https://gdladder.com/api/levels/{levelId}` — no key needed. Returns `Rating` (a decimal tier, rounded at ingestion via `roundGddlTier`), `Enjoyment` (a 0–10 community score), `Showcase` (a **bare 11-character YouTube video id**, not a URL), and `Meta.seconds` / `Meta.objects`. `fetchGddlLevel` in `apps/api/src/utils/gddl.ts` is the client; it feeds the community merge below.
+
+`Enjoyment` is rescaled at ingestion onto the **0–100 scale EDEL uses, to two decimal places** — `rescaleGddlEnjoyment` multiplies by ten and hands off to `roundEnjoyment` (`apps/api/src/utils/enjoyment.ts`), the same rounding EDEL's own scores go through. So 4.954022988505747 is stored as 49.54. Both sources share one `Decimal(5,2)` column and one stat card, so a GDDL figure is stored exactly as an EDEL one would be and nothing about its precision gives away its origin. Clamped to 0–100, since the range is upstream's promise rather than ours.
+
+**The path is `/levels/` — plural.** `/level/{id}` (singular) responds `404 Cannot GET` for *every* id in existence. The suggested-tier lookup used that spelling from the day it was written and therefore returned `null` in production for its entire life; every test passed because `fetch` was mocked. If a GDDL lookup ever silently produces nothing, check the spelling first.
+
+**"Not found" is HTTP 200 with body `{}`**, not a 404. Mapping only 404 to "not indexed" would file every un-indexed level under "the call failed" and keep it permanently due for a re-check. GDDL echoes the level id back as `ID`, so one identity check settles both cases: a body without a matching `ID` is a not-found, whatever the status line said.
+
+**GDDL publishes a rate limit and it is the tightest of the three sources:**
+
+```
+x-ratelimit-limit: 100
+x-ratelimit-reset: 60
+```
+
+100 requests per 60s per IP — a 600ms floor — against a NAT egress IP shared by the sync cron, `/resolve`, the GD search escalation and the import worker. Each path individually looks well-behaved; their sum is what trips it. `apps/api/src/utils/gddlRateLimit.ts` is a Postgres token bucket on the `robtop_rate_limit` model, gated inside `fetchGddlLevel`. **It denies rather than waits**: a denied call returns `undefined`, the merge reads that as "GDDL had no opinion this pass", and the level comes round again. A 429 opens a shared cooldown honouring `Retry-After`.
+
 ### Autofill
 
 Called after the level-metadata fetch when a rated level is detected. Returns the current GDDL tier as a **suggested value** — the user confirms or overrides before saving. This value becomes a snapshot on the completion record.
+
+`GET /v1/levels/:levelId/resolve` does **not** fetch this separately: the community check on the same request already wrote `levels.gddlTier` from the same endpoint and the same rounding, so the route reads it back from the row. Two calls to gdladder.com for one level, in one request, is how a user-facing route becomes the thing that throttles the sync job.
 
 GDDL placements update extremely frequently. InfernoLog does **not** maintain live parity with GDDL tiers. The snapshot approach is intentional and respectful of GDDL's free infrastructure.
 
@@ -124,13 +145,16 @@ The shared write step (`services/sfhSync.ts`) stamps `sfh_checked_at = now()` on
 
 ---
 
-## Global Stats Viewer (GSV)
+## Community lists (GSV + GDDL + AREDL)
+
+Three sources feed one set of `levels` columns — list placements, a showcase video, a duration and a trustworthy object count. They are fetched **together, in parallel, in one pass** (`apps/api/src/services/levels/communitySync.ts`) because the priority rules below can only be applied with every source's opinion in hand at once.
+
+### Global Stats Viewer
 
 **Base URL:** `https://api.globalstatsviewer.com` (override via `GSV_API_BASE_URL`)
 **Endpoint:** `GET /v3/levels/{levelId}`
-**Purpose:** A level's placements on the three community difficulty lists, its showcase video, and a trustworthy object count.
 **Auth:** None (public endpoint)
-**Called from:** Lambda only (`apps/api/src/utils/globalStatsViewer.ts`)
+**Client:** `apps/api/src/utils/globalStatsViewer.ts`
 **License:** Community-run aggregator — no published rate limit; pace calls and never poll.
 
 One request returns what would otherwise take three integrations. `additional_info.lists` is an array holding any subset of:
@@ -139,46 +163,112 @@ One request returns what would otherwise take three integrations. `additional_in
 | ------- | ------------------------------ | ----------------------------------------------------- |
 | `GDDL`  | decimal tier (`39.0`, `23.98`) | `gddlTier` (rounded at ingestion via `roundGddlTier`) |
 | `AREDL` | rank int (`5`)                 | `aredlRank`                                           |
-| `SHEET` | NLW/LW tier int, 0–21          | `sheetTier`                                           |
+| `SHEET` | NLW/LW tier int, 1–21          | `sheetTier`                                           |
 
-The array is often **empty** — a rated level on none of the three lists is normal, not an error.
+The array is often **empty** — a rated level on none of the three lists is normal, not an error. GSV also carries `length.seconds` (the level's duration) and `stats.object_count`.
 
-**GSV never reports sheet tier 0, so we infer it.** Its SHEET values run 1–21 — verified across all 1805 extreme demons it indexes, with no zeroes anywhere in the distribution — which means the spreadsheets' bottom "Fuck" tier is indistinguishable from having no placement at all. `sheetTierForMissingEntry` in the client resolves that toward tier 0 for **extreme demons** (GSV `difficulty` 12), the only population the sheets rank.
+**Why keep GSV now that we call GDDL and AREDL directly:** it is the only source of a trustworthy object count, and it is the fallback for everything the other two carry. Its coverage is also the widest — every *rated* level (~58.6k), where GDDL is demons only and AREDL is ~1600 extremes. Its showcase coverage, though, is thin: `showcase_url` is null for plenty of levels GDDL has a video for.
 
-This is an assumption, not something GSV states, and it deliberately over-reaches: 355 of those 1805 extreme demons (20%) carry no SHEET entry, and the evidence says most are unranked rather than bottom-tier — median level id 119.7M against 88.7M for placed levels, 89% above 100M, 347 of 355 on 2.2, and only 30% present on AREDL versus 100% of placed levels. A level the sheets simply haven't reached yet renders as tier 0. Because a real 0 never arrives from GSV, every stored 0 came from this rule and it reverses unambiguously with `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`. It also self-heals: once a level is placed, the next check overwrites the 0.
+**`SHEET` is two spreadsheets on one ladder.** Tiers 0–13 are the Non-Listworthy sheet, 14–21 the Listworthy one, and nothing on the wire says which; the threshold is the whole of that knowledge, and it lives in `packages/core/src/sheetTier.ts` (shared, because the AREDL client needs the same table to turn a tier NAME back into an index). **Tier 0 ("Fuck") is a real tier** — a level whose skillset is too niche to rank reliably, _not_ one easier than Beginner. Every guard on a sheet tier is `!= null`, never truthiness, or tier-0 levels vanish from the UI.
 
-**`SHEET` is two spreadsheets on one ladder.** Tiers 0–13 are the Non-Listworthy sheet, 14–21 the Listworthy one, and nothing on the wire says which; the threshold is the whole of that knowledge, and it lives in `apps/web/src/lib/sheetTier.ts`. **Tier 0 ("Fuck") is a real tier** — a level whose skillset is too niche to rank reliably, _not_ one easier than Beginner. Every guard on a sheet tier is `!= null`, never truthiness, or tier-0 levels vanish from the UI.
+**GSV never reports sheet tier 0, and we no longer infer it.** Its SHEET values run 1–21, so the bottom tier used to be indistinguishable from having no placement, and `sheetTierForMissingEntry` resolved that ambiguity by reading a missing entry on an extreme demon as tier 0. That inference reached ~355 levels for a tier that holds **24**, and the evidence said most of those were simply unranked (median level id 119.7M against 88.7M for placed levels, 89% above 100M, only 30% present on AREDL). AREDL now states the tier by name, so the inference was deleted and the pre-existing zeros nulled out in the same migration. A missing SHEET entry means what it says again.
+
+### AREDL
+
+**Base URL:** `https://api.aredl.net` (override via `AREDL_API_BASE_URL`)
+**Auth:** None (public endpoints)
+**Client:** `apps/api/src/utils/aredl.ts`
+
+| Endpoint | Returns |
+| -------- | ------- |
+| `GET /v2/api/aredl/levels` | The whole list in one ~840KB request: **1606 rows** (1573 `MainList`, 33 `Legacy`). Carries `position`, `level_id`, `status`, `edel_enjoyment`, `is_edel_pending`, `gddl_tier`, `nlw_tier`. **No `verifications`** — no showcase. |
+| `GET /v2/api/aredl/levels/{id}` | One level, adding `verifications[].video_url` / `hide_video`. `404` when the level is not on the list. |
+
+**⚠️ THE PER-LEVEL PATH SEGMENT RESOLVES AS EITHER A LEVEL ID OR A LIST POSITION.** `GET /v2/api/aredl/levels/128` does not 404 — it returns HTTP 200 for the level at *position* 128 (`level_id` 132751236), a completely different level in a perfectly well-formed body. (`/levels/pending` errors with "invalid digit found in string", confirming the segment is parsed as a number first.) Every GD level id low enough to also be a valid position is a live mis-identification hazard. **The client rejects any response whose `level_id` doesn't echo the requested id**, treating it as a not-found. Do not remove that check, and never assume a 200 is about the level you asked for.
+
+**`nlw_tier` is a tier NAME, and it is what makes tier 0 reportable.** "Relentless" resolves to index 9 via `sheetTierFromName`, cross-checked against GSV on the same levels (Sonic Wave: GSV `SHEET: 9`, AREDL `"Relentless"`; Bloodbath: GSV `5`, AREDL `"Very Hard"`). The names span **0–14 only** (`Fuck` … `Merciless`) and AREDL sends `null` for a listworthy level, so **AREDL cannot be the sole source of a sheet tier** — 15–21 still come from GSV through the merge's fallback.
+
+**⚠️ A Legacy `position` is not a rank.** AREDL appends its Legacy tier to the end of the position sequence rather than interleaving it: MainList runs 1–1573, Legacy 1574–1606. Rendering a Legacy level as "#1574" states something false, so `aredlStatus` is stored alongside `aredlRank` and every display of the rank checks it first. Legacy is also where levels **demoted out of extreme** live, which is the only reason an insane demon ever carries an AREDL value — and why the applicability gate is `isDemon` rather than a difficulty test.
+
+**`level_id` is not unique in the bulk list.** A two-player level is listed once per mode: `DICHOTOMY (2P)` and `DICHOTOMY (Solo)` both carry `103011600`. The client dedupes, preferring `MainList` and then the better position, so the winner is deterministic rather than whichever row the payload ordered last.
+
+There is no public pending-placement endpoint (`/aredl/submissions` is `401`).
+
+### Which source wins
+
+Per column, the first source that **answered** and had a value:
+
+| Column | Priority |
+| --- | --- |
+| `showcaseUrl` | AREDL → GSV → GDDL (all normalized to `https://www.youtube.com/watch?v=<id>`) |
+| `durationSeconds` | GDDL `Meta.seconds` → GSV `length.seconds` |
+| `gddlTier` | GDDL `Rating` → GSV's GDDL list value |
+| `aredlRank` | AREDL `position` → GSV's AREDL list value |
+| `sheetTier` | AREDL `nlw_tier` → GSV's SHEET value |
+| `objectCount` | GSV only, and only when it has one |
+| `aredlRank` / `aredlStatus` | AREDL only |
+| `enjoyment` | **Chosen by difficulty, not priority** — see below |
+
+**Enjoyment is one column fed by two lists, and the difficulty decides which — never a fallback.**
+
+- **Extreme Demon → EDEL** (the Extreme Demon Enjoyment List, via AREDL's `edel_enjoyment`).
+- **Insane and below → GDDL**, rescaled onto the same 0–100 scale.
+
+Exactly one source is consulted per level and the other is never consulted at all. An extreme EDEL has not rated stores **nothing**, on the reasoning that a level absent from EDEL is unlikely to be rated on GDDL either; and a level at Insane or below takes GDDL's score even when it has a real EDEL one — a level demoted off AREDL is the case that arises in practice, and it takes GDDL's.
+
+**The source is not stored.** It is a pure function of the difficulty (`isExtremeDemon` in `packages/core/src/starDifficulty.ts`), so recording it would mean storing a derivable fact that could then contradict the difficulty sitting next to it. The write in `communitySync.ts` and the label in `enjoymentDisplay` (`apps/web/src/features/global-level-page/display.ts`) call the same predicate, so they cannot disagree. It matches `partialDiff` by PREFIX — the token has a `-featured` variant that exact equality would miss — and falls back to the difficulty label for rows cached before that column existed.
+
+The consequence to know about: **a level whose difficulty moves across that line is holding a figure from the wrong source until it is re-checked.** The RobTop sync therefore clears `communityCheckedAt` whenever it sees `isRated` or `inGameDifficulty` change, so the level is re-fetched on the next rotation pass rather than sitting mislabelled for a full cadence.
+
+**Stored to two decimal places, as `Decimal(5,2)`.** EDEL tracks its scores to as many as eight decimals (59.39285714) and displays them to at most two; both sources are stored at that display precision via `roundEnjoyment`. `Decimal(5,2)` matches how `ProgressUpdate.percentage` already stores a 0–100 two-decimal figure — and like it, needs converting at the wire: Prisma returns Decimal columns as `Decimal` instances, which JSON-serialize as **strings**. `mapLevelDetail` (`services/levels/selects.ts`) does the conversion, and every level-detail response already goes through it.
+
+**A provisional EDEL score is stored as null.** EDEL marks a score it is still collecting with `is_edel_pending` and sends the provisional number anyway — 71 of the 1606 list entries at time of writing, Society and Thinking Space II among them. Rather than carry that flag in a second column, the AREDL client drops the number: null already means "no settled score", so a separate flag would only repeat it. Those levels show no enjoyment until EDEL settles them.
+
+**The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source *did not answer*, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
+
+Normalizing all three showcase forms to one canonical watch URL is part of the same guarantee: AREDL sends a full watch URL, GSV sends a `youtu.be` short link, GDDL sends a bare video id.
+
+### Applicability
+
+- **GSV** — `isRated`. It indexes rated levels only, so an unrated level would 404 on every pass forever.
+- **GDDL** — `isDemon`. It is a demon ladder.
+- **AREDL** — `isDemon`. Deliberately **not** a difficulty test: `partialDiff` has a `demon-extreme-featured` variant that equality would miss, and predicting AREDL membership from difficulty is exactly what the Legacy tier defeats. In the cron the bulk list is a precise membership oracle instead, so a non-member costs no request at all.
+
+A level that applies to no source is skipped rather than checked.
 
 ### Object count
 
 GSV's `stats.object_count` **supersedes RobTop's**. `getGJLevels21` key 45 reports `65535` for any level over the in-game object limit and `0`/null for older levels, so it cannot be shown to a user as-is. Both write the same `levels.objectCount` column: RobTop seeds it on first resolve, GSV overwrites it whenever GSV has a count. A GSV record _without_ one leaves RobTop's value standing rather than nulling it.
 
-### Coverage
-
-GSV indexes rated levels only (~58.6k at time of writing). An unrated or unindexed id returns **HTTP 404 `{"reason":"Level not found."}`** — an answer, not a failure. The check is therefore gated on `isRated`, since an unrated level would 404 on every pass forever; one that later gets rated is picked up anyway when its `gsvCheckedAt` ages out.
-
 ### Failure Handling
 
-Same golden rule as RobTop / GDDL / SFH: GSV being slow/down/erroring is an **expected branch**, never a blocking error. `fetchGlobalStatsViewerLevel` returns:
+Same golden rule as RobTop / SFH: a community source being slow/down/erroring is an **expected branch**, never a blocking error. Each client returns a result, `null` on a cacheable not-found, or `undefined` when the call itself failed — and never throws.
 
-- a result when GSV has the level,
-- `null` on a 404 (a valid, cacheable "checked, not indexed"),
-- `undefined` when the call itself failed (network/timeout/non-404 non-2xx).
+`communityCheckedAt` is stamped when **at least one applicable source answered**. A not-found counts as an answer.
 
-The shared write step (`services/levels/gsvSync.ts`) stamps `gsvCheckedAt = now()` on found **and** 404; a failure writes nothing and leaves `gsvCheckedAt` null so a later run retries. A 404 deliberately does **not** clear existing placements — a level dropping out of GSV's index is far more likely an upstream gap than a real de-listing from all three lists at once.
+- **No source answered** → nothing is written at all and the timestamp is left as it was, so the rotation picks the level up again.
+- **Some answered** → what was learned is written, and the timestamp is **backdated** so the level comes round again in `PARTIAL_RETRY_HOURS` rather than a full cadence.
+- **All answered** → written and stamped with `now()`.
+
+Withholding the stamp on a partial failure is the tempting rule and it is a trap: GDDL applies to every demon in the cache and is the one source with a hard rate limit, so a throttled run would leave all of those rows permanently in the eligible set, the lap would never shorten, and the next run would hit GDDL exactly as hard. The no-downgrade rule already makes a partial pass a *freshness* event rather than a data-loss one, so backdating gets the retry without the storm.
+
+A not-found deliberately does **not** clear placements a source can't speak to — a level dropping out of GSV's index is far more likely an upstream gap than a real de-listing from all three lists at once.
 
 ### When It Runs
 
-**Never on page view.** Two paths write it:
+**Never on page view.** Three paths write it:
 
-- **First resolve** — `findOrResolveLevel` runs `checkGsvIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
-- **Its own cron rotation** — `runGsvSyncSlice` in `services/levels/sync.ts`, driven by the same `LevelSync` cron, with its own `level_sync_cursor` key (`gsv`), a 200-level slice and ~300ms pacing.
+- **First resolve** — `findOrResolveLevel` runs `checkCommunityIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
+- **The bulk AREDL pass** — `runAredlListSync` in `services/levels/sync.ts`, once per cron invocation. One request refreshes every placed level's rank, status and enjoyment, and clears the levels that have fallen off the list. That set difference is the **only** way a removal is ever detected: per-level polling sees a removed level as a 404, which is indistinguishable from never having been placed. It also hands the rotation its membership oracle. It writes no `sheetTier` — that column is merged with GSV's SHEET entry, and this pass holds no GSV opinion to merge against — and it touches `enjoyment` only on extremes, since below that the column holds GDDL's score and an AREDL pass owns neither writing nor clearing it.
+- **The per-level rotation** — `runCommunitySyncSlice`, driven by the same `LevelSync` cron, with its own `level_sync_cursor` key (`community`), a 200-level slice and **700ms** pacing.
 
-**Why a separate rotation rather than piggybacking on the RobTop sweep** (the way the SFH check does): the RobTop slice is 50 levels/run, sized by RobTop's per-IP rate limit and the 670ms pacing — about 200 levels/day of turnover. List placements, GDDL tiers especially, move far faster than that. GSV is a different host under no such limit, so its rotation walks the cache several times faster while remaining a bounded cron slice. It also reaches levels the RobTop sweep deliberately skips: `official` rows are excluded there (getGJLevels21 never returns them, so a sync would look like a not-found and wrongly delist a level that plainly exists), but GSV does index them.
+**Why a separate rotation rather than piggybacking on the RobTop sweep** (the way the SFH check does): the RobTop slice is 50 levels/run, sized by RobTop's per-IP rate limit and the 670ms pacing — about 200 levels/day of turnover. List placements, GDDL tiers especially, move far faster than that. These are different hosts under looser limits, so the rotation walks the cache several times faster while remaining a bounded cron slice. It also reaches levels the RobTop sweep deliberately skips: `official` rows are excluded there (getGJLevels21 never returns them, so a sync would look like a not-found and wrongly delist a level that plainly exists), but the community lists do index them.
 
-The re-check cadence is `GSV_RECHECK_DAYS` (7), applied as a SQL filter so a slice is 200 levels of actual work rather than 200 rows it then skips. In practice the rotation's speed, not the cadence, is the binding constraint.
+The pacing is set by GDDL's published limit, not by politeness: 200 levels × 700ms ≈ 140s per run, inside both the 6-minute slice budget and the 15-minute Lambda. GSV and AREDL ride it for free, since a level's three calls go out in parallel and the per-level wall clock is the slowest of the three rather than their sum.
 
-`pnpm tsx src/scripts/backfillGsv.ts <dev|prod> [--dry-run]` (from `apps/api`) does the same check eagerly across the whole backlog, reusing the identical write path, so a freshly-shipped integration doesn't wait for the rotation to walk every cached level.
+The re-check cadence is `COMMUNITY_RECHECK_DAYS` (7), applied as a SQL filter so a slice is 200 levels of actual work rather than 200 rows it then skips. In practice the rotation's speed, not the cadence, is the binding constraint.
+
+`pnpm db:backfill:community <dev|prod> [--dry-run]` (from `apps/api`) does the same check eagerly across the whole backlog, reusing the identical write path, so a freshly-shipped integration doesn't wait for the rotation to walk every cached level.
 
 ---
 
@@ -251,16 +341,11 @@ EventBridge Scheduler is serverless and costs essentially nothing at InfernoLog'
 
 ---
 
-## AREDL API
+## AREDL / NLW
 
-**Purpose:** Rank autofill for All Rated Extreme Demons List  
-**Status:** Public API available, integration details to be confirmed
+Both are now live integrations — see **Community lists (GSV + GDDL + AREDL)** above for endpoints, the position-vs-level-id trap, and how their values are merged with the Global Stats Viewer's.
 
-AREDL rank is surfaced **only for extreme demons** (AREDL lists extreme demons only). Pointercrate was evaluated and **cut from v1** — its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
+AREDL rank is surfaced for extreme demons and, through the Legacy tier, the levels demoted out of extreme. Pointercrate was evaluated and **cut from v1** — its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
 
----
+The NLW/LW spreadsheets still have no API of their own. Their tiers reach InfernoLog two ways: GSV's `SHEET` entry (1–21) and AREDL's `nlw_tier` name (0–14, and the only source of tier 0).
 
-## NLW
-
-**Purpose:** Tier reference for Non-Listworthy Spreadsheet  
-**Status:** Likely no public API. Manual entry only for v1. Read-only scrape approach may be investigated for v2.

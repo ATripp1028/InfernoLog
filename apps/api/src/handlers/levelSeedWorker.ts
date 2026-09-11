@@ -13,7 +13,7 @@
 import prisma from '../utils/prisma'
 import { fetchRobtopLevelResult, type RobtopFetchResult } from '../utils/robtop'
 import { buildRobtopRefreshData } from '../services/levels/robtopMapping'
-import { checkGsvForSeededLevels } from '../services/levels/gsvSync'
+import { checkCommunityForSeededLevels } from '../services/levels/communitySync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
@@ -83,7 +83,7 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 
   // Levels this invocation actually enriched, so their community-list
   // placements can be fetched once the RobTop pass is done. Collected rather
-  // than fetched inline: interleaving the two would pace GSV behind RobTop's
+  // than fetched inline: interleaving the two would pace the community checks behind RobTop's
   // much slower cadence for no reason.
   const seeded: string[] = []
 
@@ -149,9 +149,9 @@ export const handler = async (event: SQSEvent): Promise<void> => {
 
   // Cache the community-list placements for everything just enriched. After the
   // RobTop pass and before the throw below, so a batch that ends in an SQS retry
-  // still keeps the GSV data it earned — a redelivery re-attempts only the
+  // still keeps the community data it earned — a redelivery re-attempts only the
   // levels that are still unenriched, and these are no longer among them.
-  await checkGsvForSeededLevels(seeded)
+  await checkCommunityForSeededLevels(seeded)
 
   // Fail the invocation so SQS makes the message visible again and redelivers
   // it (the queue is configured with retry: 3 → DLQ). The gap between attempts

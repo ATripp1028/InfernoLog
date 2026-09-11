@@ -33,15 +33,28 @@ export const LevelSchema = z.object({
   sfhDownloadUrl: z.string().nullable(),
   sfhFileType: z.string().nullable(),
   sfhDownloads: z.number().int().nullable(),
-  // Global Stats Viewer placements (gsvCheckedAt is internal and not on the
-  // wire). gddlTier is the level's COMMUNITY GDDL tier, rounded — NOT
-  // LevelProgress.userGddlTier, which is one user's own tier opinion.
-  // sheetTier is the NLW/LW spreadsheet tier 0-21, where >= 14 is listworthy;
-  // tier 0 is a real tier ("Fuck"), so never test it for truthiness.
+  // Community-list placements, merged from the Global Stats Viewer, GDDL and
+  // AREDL (communityCheckedAt is internal and not on the wire). gddlTier is the
+  // level's COMMUNITY GDDL tier, rounded — NOT LevelProgress.userGddlTier,
+  // which is one user's own tier opinion. sheetTier is the NLW/LW spreadsheet
+  // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
+  // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
+  // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
+  // its Legacy tier to the end of the position sequence, so for a Legacy level
+  // this is a list index and rendering it as "#n" states something false.
   aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  // Community enjoyment, 0-100 to at most two decimal places, from EDEL for
+  // extreme demons and from GDDL for everything at Insane and below. Which one
+  // is derivable from the difficulty (isExtremeDemon) and so is deliberately
+  // not sent. Null also covers an EDEL score still marked provisional.
+  enjoyment: z.number().nullable(),
   sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
+  // Level duration in whole seconds. Distinct from `length` above, which is
+  // RobTop's coarse band ("Long") and all GD itself exposes.
+  durationSeconds: z.number().int().nullable(),
   // Extended level metadata — a snapshot of RobTop's level object. All
   // nullable: absent on manual rows and on rows cached before capture existed.
   description: z.string().nullable(),
@@ -184,6 +197,9 @@ export const UpdateMeSchema = z
       .optional(),
     // Not a column — the handler strips this and stamps legalAcceptedAt when true.
     acceptLegal: z.literal(true).optional(),
+    // Not a column — the handler sets youtubeEmbedConsentAt to now when true
+    // and clears it when false.
+    youtubeEmbedConsent: z.boolean().optional(),
     onboardingCompleted: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')

@@ -52,14 +52,27 @@ export interface Level {
   sfhDownloadUrl: string | null
   sfhFileType: string | null
   sfhDownloads: number | null
-  // Global Stats Viewer placements. gddlTier is the level's COMMUNITY GDDL
-  // tier — not the viewer's own opinion, which lives on their progress row as
-  // userGddlTier. sheetTier is the NLW/LW spreadsheet tier 0-21 (>= 14 is
-  // listworthy); tier 0 is a real tier, so never test it for truthiness.
+  // Community-list placements, merged server-side from the Global Stats Viewer,
+  // GDDL and AREDL. gddlTier is the level's COMMUNITY GDDL tier — not the
+  // viewer's own opinion, which lives on their progress row as userGddlTier.
+  // sheetTier is the NLW/LW spreadsheet tier 0-21 (>= 14 is listworthy); tier 0
+  // is a real tier, so never test it for truthiness.
   gddlTier: number | null
+  // ⚠️ Only a RANK while aredlStatus is "MainList" — AREDL appends its Legacy
+  // tier to the end of the position sequence, so a Legacy level's number is a
+  // list index and showing it as "#n" would state something false.
   aredlRank: number | null
+  aredlStatus: string | null
+  // Community enjoyment, 0-100 to at most two decimal places, from EDEL for
+  // extreme demons and from GDDL for everything at Insane and below — see
+  // enjoymentDisplay, which recovers which from the difficulty. Null also
+  // covers an EDEL score still marked provisional.
+  enjoyment: number | null
   sheetTier: number | null
   showcaseUrl: string | null
+  // Level duration in whole seconds. Distinct from `length`, which is RobTop's
+  // coarse band ("Long") and all GD itself exposes.
+  durationSeconds: number | null
   // Extended RobTop level metadata snapshot (all nullable; see schema.prisma).
   description: string | null
   creatorPlayerId: string | null

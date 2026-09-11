@@ -3,6 +3,7 @@
 // like vs a dislike, a gold vs a bronze coin, a real object count vs "unknown"
 // — lives here so the components are left rendering the result.
 
+import { isExtremeDemon } from '@infernolog/core'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -101,6 +102,38 @@ export function coinDisplay(level: GlobalLevelPageData): CoinDisplay | null {
  */
 export function knownObjectCount(level: GlobalLevelPageData): number | null {
   return level.objectCount ? level.objectCount : null
+}
+
+/**
+ * The level's community enjoyment rating and which list it came from.
+ *
+ * The API stores ONE figure on a 0-100 scale, chosen by difficulty: an extreme
+ * demon takes EDEL's score (via AREDL), everything at Insane and below takes
+ * GDDL's, rescaled onto the same scale. Neither is ever a fallback for the
+ * other — an extreme EDEL has not rated shows nothing, on the reasoning that a
+ * level absent from EDEL is unlikely to be rated on GDDL either.
+ *
+ * The source is therefore not stored: it is a pure function of the difficulty,
+ * and this calls the same predicate the API used when it picked the value, so
+ * the label cannot disagree with what was written. (A level whose difficulty
+ * moves across that line is briefly holding a figure from the other source,
+ * which is why the RobTop sync forces a community re-check on a rating change.)
+ *
+ * Not to be confused with the viewer's OWN enjoyment, which lives on their
+ * progress row for the level and is a different number entirely.
+ *
+ * @returns null when the level's source has no settled rating for it — which
+ *   includes an EDEL score still being collected, since the API stores a
+ *   provisional score as null rather than flagging it.
+ */
+export function enjoymentDisplay(
+  level: GlobalLevelPageData
+): { value: number; source: 'EDEL' | 'GDDL' } | null {
+  if (level.enjoyment == null) return null
+  return {
+    value: level.enjoyment,
+    source: isExtremeDemon(level) ? 'EDEL' : 'GDDL',
+  }
 }
 
 /**

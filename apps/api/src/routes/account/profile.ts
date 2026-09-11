@@ -79,11 +79,17 @@ app.patch('/me', async (c) => {
   const parsed = await parseJsonBody(c, UpdateMeSchema)
   if (!parsed.ok) return parsed.response
 
-  // acceptLegal isn't a column — it just stamps legalAcceptedAt when true.
-  const { acceptLegal, ...rest } = parsed.data
+  // acceptLegal and youtubeEmbedConsent aren't columns. acceptLegal just
+  // stamps legalAcceptedAt; consent stamps youtubeEmbedConsentAt when given
+  // and clears it when withdrawn.
+  const { acceptLegal, youtubeEmbedConsent, ...rest } = parsed.data
   const data = stripUndefined(rest)
   if (acceptLegal) {
     ;(data as { legalAcceptedAt?: Date }).legalAcceptedAt = new Date()
+  }
+  if (youtubeEmbedConsent !== undefined) {
+    ;(data as { youtubeEmbedConsentAt?: Date | null }).youtubeEmbedConsentAt =
+      youtubeEmbedConsent ? new Date() : null
   }
 
   const updated = await prisma.user.update({

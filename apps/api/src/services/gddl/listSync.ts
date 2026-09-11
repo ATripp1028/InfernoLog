@@ -24,7 +24,7 @@ import {
 } from '../../utils/gddl'
 import { fetchRobtopLevel } from '../../utils/robtop'
 import { bisectIndices } from '../../utils/fractionalIndex'
-import { checkGsvIfDue } from '../levels/gsvSync'
+import { checkCommunityIfDue } from '../levels/communitySync'
 import {
   buildRobtopCreateData,
   buildRobtopRefreshData,
@@ -73,7 +73,7 @@ async function ensureLevelCached(levelId: string): Promise<boolean> {
         where: { inGameId: levelId },
         data: buildRobtopRefreshData(gd),
       })
-      await checkGsvIfDue(levelId)
+      await checkCommunityIfDue(levelId)
     }
     return true
   }
@@ -99,7 +99,7 @@ async function ensureLevelCached(levelId: string): Promise<boolean> {
   // Newly cached from RobTop — pick up its community-list placements too.
   // Self-gating and never throws, so a P2002 above (another request seeded it
   // concurrently) still lands here harmlessly.
-  await checkGsvIfDue(levelId)
+  await checkCommunityIfDue(levelId)
 
   return true
 }

@@ -128,8 +128,9 @@ export function AcknowledgmentsPage() {
           name="GD Demon Ladder (GDDL)"
           link={{ label: 'gdladder.com', href: 'https://gdladder.com/' }}
         >
-          Tier data autofill and optional record submission for rated demons.{' '}
-          <br />
+          Tier data autofill and optional record submission for rated demons,
+          plus the community tier, enjoyment rating, showcase video and level
+          duration shown on level pages. <br />
           Credit: GDDL team / maintainers.
         </Entry>
         <Entry
@@ -157,20 +158,21 @@ export function AcknowledgmentsPage() {
             href: 'https://globalstatsviewer.com',
           }}
         >
-          The source of every community-list placement InfernoLog shows — GDDL
-          tier, AREDL rank, and Non-Listworthy / Listworthy spreadsheet tier —
-          gathered in a single request per level, along with showcase links and
-          the object counts shown on level pages. InfernoLog reads from it only
-          and never writes back. <br />
+          Community-list placements gathered in a single request per level —
+          GDDL tier, AREDL rank, and Non-Listworthy / Listworthy spreadsheet
+          tier — along with showcase links, level durations, and the object
+          counts shown on level pages, which are the only trustworthy ones
+          available. InfernoLog reads from it only and never writes back. <br />
           Credit: Global Stats Viewer maintainers.
         </Entry>
         <Entry
           name="AREDL"
           link={{ label: 'aredl.net', href: 'https://aredl.net' }}
         >
-          Rank data for the All Rated Extreme Demons List, shown on level pages
-          and reached via the Global Stats Viewer rather than by querying AREDL
-          directly. <br />
+          Rank and placement data for the All Rated Extreme Demons List, its
+          verification videos, and the Extreme Demon Enjoyment List&rsquo;s
+          community enjoyment scores — all shown on level pages. InfernoLog
+          reads from it only and never writes back. <br />
           Credit: AREDL maintainers.
         </Entry>
         <Entry
@@ -181,7 +183,7 @@ export function AcknowledgmentsPage() {
           }}
         >
           Tier data for non-listworthy extreme demons, shown on level pages and
-          reached via the Global Stats Viewer. <br />
+          reached via AREDL and the Global Stats Viewer. <br />
           Credit: NLW Staff.
         </Entry>
         <Entry

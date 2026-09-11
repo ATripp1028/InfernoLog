@@ -34,8 +34,22 @@ vi.mock('../../utils/robtop', () => ({
   fetchRobtopLevelResult: vi.fn(),
   searchRobtopByNameResult: vi.fn(),
 }))
-vi.mock('../../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
+vi.mock('../../utils/gddl', async (importOriginal) => ({
+  // Spread the real module: communitySync reaches fetchGddlLevel and
+  // roundGddlTier through this route, and a bare factory would shadow them
+  // away with a missing-export error.
+  ...(await importOriginal<typeof import('../../utils/gddl')>()),
+  fetchGddlTier: vi.fn(),
+  fetchGddlLevel: vi.fn(async () => null),
+}))
 vi.mock('../../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
+vi.mock('../../utils/globalStatsViewer', () => ({
+  fetchGlobalStatsViewerLevel: vi.fn(async () => null),
+}))
+vi.mock('../../utils/aredl', () => ({
+  fetchAredlLevel: vi.fn(async () => null),
+  fetchAredlList: vi.fn(async () => undefined),
+}))
 
 const { default: levelsApp } = await import('./index')
 const { fetchRobtopLevel, fetchRobtopLevelResult, searchRobtopByNameResult } =

@@ -24,10 +24,24 @@ vi.mock('../../utils/robtop', () => ({
   // /gd-search runs the GD-server name search via runGdSearch.
   searchRobtopByNameResult: vi.fn(),
 }))
-vi.mock('../../utils/gddl', () => ({ fetchGddlTier: vi.fn() }))
+vi.mock('../../utils/gddl', async (importOriginal) => ({
+  // Spread the real module: communitySync reaches fetchGddlLevel and
+  // roundGddlTier through this route, and a bare factory would shadow them
+  // away with a missing-export error.
+  ...(await importOriginal<typeof import('../../utils/gddl')>()),
+  fetchGddlTier: vi.fn(),
+  fetchGddlLevel: vi.fn(async () => null),
+}))
 // Mock only the SFH HTTP client — checkSfhNongIfDue + the cache write run for
 // real against the test DB.
 vi.mock('../../utils/songFileHub', () => ({ fetchSongFileHubNong: vi.fn() }))
+vi.mock('../../utils/globalStatsViewer', () => ({
+  fetchGlobalStatsViewerLevel: vi.fn(async () => null),
+}))
+vi.mock('../../utils/aredl', () => ({
+  fetchAredlLevel: vi.fn(async () => null),
+  fetchAredlList: vi.fn(async () => undefined),
+}))
 
 const { default: levelsApp } = await import('./index')
 const { fetchRobtopLevelResult } = await import('../../utils/robtop')

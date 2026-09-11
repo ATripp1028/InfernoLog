@@ -7,6 +7,7 @@ import {
   isSheetTier,
   readableTextColor,
   sheetTierColor,
+  sheetTierFromName,
   sheetTierName,
   sheetTierSource,
 } from '../sheetTier'
@@ -96,5 +97,35 @@ describe('readableTextColor', () => {
 
   it('falls back to light text for an unparseable value', () => {
     expect(readableTextColor('nonsense')).toBe('#f5f5f5')
+  })
+})
+
+// AREDL reports the spreadsheet tier by NAME, so this is the inverse lookup the
+// API ingests through — the reason the ladder lives in packages/core at all.
+describe('sheetTierFromName', () => {
+  it('round-trips every tier through its name', () => {
+    for (let tier = 0; tier <= MAX_SHEET_TIER; tier++) {
+      expect(sheetTierFromName(sheetTierName(tier))).toBe(tier)
+    }
+  })
+
+  it('resolves the bottom tier, which is the one only AREDL reports', () => {
+    expect(sheetTierFromName('Fuck')).toBe(0)
+  })
+
+  it('matches case-insensitively and ignores surrounding space', () => {
+    expect(sheetTierFromName('  relentless ')).toBe(9)
+  })
+
+  // A renamed tier upstream must degrade to "no placement", never throw — the
+  // whole level check would otherwise fail over a copy change on a spreadsheet.
+  it.each([
+    ['an unknown name', 'Renamed Tier'],
+    ['an empty string', ''],
+    ['whitespace only', '   '],
+    ['null', null],
+    ['undefined', undefined],
+  ])('returns null for %s', (_label, value) => {
+    expect(sheetTierFromName(value)).toBeNull()
   })
 })

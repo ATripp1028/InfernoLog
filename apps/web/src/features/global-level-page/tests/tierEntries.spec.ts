@@ -7,6 +7,7 @@ const level = (overrides: Record<string, unknown> = {}) =>
     inGameId: '86407629',
     gddlTier: null,
     aredlRank: null,
+    aredlStatus: null,
     sheetTier: null,
     ...overrides,
   })
@@ -25,6 +26,49 @@ describe('tierEntries', () => {
     expect(entries.map((e) => e.key)).toEqual(['gddl', 'aredl', 'sheet'])
     // GDDL and AREDL show their number; the spreadsheet shows its tier's name.
     expect(entries.map((e) => e.badge)).toEqual(['39', '#5', 'Nightmare'])
+  })
+
+  // AREDL appends its Legacy tier to the end of the position sequence rather
+  // than interleaving it, so a Legacy level's position is a list index, not a
+  // rank — "#1574" would claim it is the 1574th hardest level when it means the
+  // level was removed from the list.
+  it('shows the status instead of the position for a non-MainList placement', () => {
+    const entries = tierEntries(
+      level({ aredlRank: 1574, aredlStatus: 'Legacy' })
+    )
+
+    expect(entries.map((e) => e.badge)).toEqual(['Legacy'])
+    // Unpainted, so a status can't be mistaken for a placement at a glance.
+    expect(entries[0]?.color).toBeNull()
+  })
+
+  it('keeps the rank for an explicit MainList placement', () => {
+    const entries = tierEntries(
+      level({ aredlRank: 216, aredlStatus: 'MainList' })
+    )
+
+    expect(entries.map((e) => e.badge)).toEqual(['#216'])
+  })
+
+  // A rank with no status came from the Global Stats Viewer, whose AREDL entry
+  // only ever reports main-list placements.
+  it.each([
+    ['null', null],
+    // A payload cached before aredlStatus existed carries no field at all.
+    ['undefined', undefined],
+  ])('treats a rank with a %s status as a rank', (_label, aredlStatus) => {
+    const entries = tierEntries(level({ aredlRank: 5, aredlStatus }))
+
+    expect(entries.map((e) => e.badge)).toEqual(['#5'])
+  })
+
+  it('renders an AREDL row for a status with no position at all', () => {
+    const entries = tierEntries(
+      level({ aredlRank: null, aredlStatus: 'Pending' })
+    )
+
+    expect(entries.map((e) => e.key)).toEqual(['aredl'])
+    expect(entries[0]?.badge).toBe('Pending')
   })
 
   it('skips the lists a level is absent from', () => {

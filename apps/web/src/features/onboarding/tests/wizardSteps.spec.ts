@@ -118,7 +118,8 @@ describe('nextStep', () => {
   it('advances through the wizard in order', () => {
     expect(nextStep('legal')).toBe('username')
     expect(nextStep('username')).toBe('logging')
-    expect(nextStep('logging')).toBe('rating')
+    expect(nextStep('logging')).toBe('videos')
+    expect(nextStep('videos')).toBe('rating')
     expect(nextStep('rating')).toBe('import')
     expect(nextStep('import')).toBe('gddl')
   })

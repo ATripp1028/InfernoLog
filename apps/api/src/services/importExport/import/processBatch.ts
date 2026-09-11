@@ -18,10 +18,11 @@ import type { ImportCommitRow, ImportCommitResponse } from '@infernolog/core'
 import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
 import { buildRobtopRefreshData } from '../../levels/robtopMapping'
-import { checkGsvForSeededLevels } from '../../levels/gsvSync'
+import { checkCommunityForSeededLevels } from '../../levels/communitySync'
 
-// Wall-clock ceiling on this batch's GSV pass — see the call site below.
-const GSV_IMPORT_BUDGET_MS = 20_000
+// Wall-clock ceiling on this batch's community-list pass — see the call site
+// below.
+const COMMUNITY_IMPORT_BUDGET_MS = 20_000
 import { resolveLevelDifficulty } from '../../levels/difficulty'
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
@@ -113,24 +114,6 @@ export async function processImportJobBatch(
     }
   }
 
-  // ── Pre-fetch GDDL tiers in parallel (outside the transaction) ────────
-  const gddlTierCache = new Map<string, number | null>()
-  const completionRows = rows.filter(
-    (r) => r.type === 'completion' && !r.data.userGddlTier
-  )
-  const idsNeedingGddl = [
-    ...new Set(
-      completionRows
-        .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
-        .filter((id): id is string => !!id)
-    ),
-  ]
-  await Promise.all(
-    idsNeedingGddl.map(async (id) => {
-      gddlTierCache.set(id, await fetchGddlTier(id))
-    })
-  )
-
   const allKnownIds = [
     ...new Set([
       ...rows.filter((r) => r.data.levelId).map((r) => r.data.levelId!),
@@ -186,6 +169,9 @@ export async function processImportJobBatch(
       inGameDifficulty: true,
       stars: true,
       coins: true,
+      // The cached community tier, read by the GDDL autofill below.
+      gddlTier: true,
+      communityCheckedAt: true,
     },
   })
   const levelDiff = new Map<string, string | null>(
@@ -200,6 +186,40 @@ export async function processImportJobBatch(
     levelDiff.set(id, resolveLevelDifficulty({ ...rt, inGameId: id }))
     levelCoins.set(id, rt.coins)
   }
+
+  // ── GDDL tier autofill: cache first, GDDL only on a miss ──────────────
+  // The community sync already stores each level's GDDL tier on its row, so a
+  // level it has answered for is read from there — including a cached "no
+  // tier", which is what a null gddlTier under a stamped communityCheckedAt
+  // means. Only a level the cache has never answered for (not cached yet, or
+  // every check so far failed) costs a live request. GDDL allows 100 requests a
+  // minute across every Lambda we run, and firing one per row of a 50-row batch
+  // at once is how an import drains the shared bucket for everyone else.
+  const cachedLevels = new Map(levelRows.map((l) => [l.inGameId, l]))
+  const gddlTierCache = new Map<string, number | null>()
+  const idsToFetchGddl: string[] = []
+  const idsNeedingGddl = new Set(
+    rows
+      .filter((r) => r.type === 'completion' && !r.data.userGddlTier)
+      .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
+      .filter((id): id is string => !!id)
+  )
+  for (const id of idsNeedingGddl) {
+    const cached = cachedLevels.get(id)
+    if (
+      cached &&
+      (cached.gddlTier !== null || cached.communityCheckedAt !== null)
+    ) {
+      gddlTierCache.set(id, cached.gddlTier)
+    } else {
+      idsToFetchGddl.push(id)
+    }
+  }
+  await Promise.all(
+    idsToFetchGddl.map(async (id) => {
+      gddlTierCache.set(id, await fetchGddlTier(id))
+    })
+  )
 
   // ── Pre-fetch existing progress entries referenced by progress_id ─────
   // Scoped to this user via the levelProgress relation filter, so a foreign
@@ -576,7 +596,7 @@ export async function processImportJobBatch(
 
   // ── Flush: stubs, batched writes, outcomes (one short transaction) ────
   let newStubIds: string[] = []
-  // Stubs the transaction upgraded with RobTop data. Their GSV check runs after
+  // Stubs the transaction upgraded with RobTop data. Their community check runs after
   // the commit — an outbound HTTP call inside this transaction would hold it
   // open across the network and is exactly what the tight timeout below guards
   // against.
@@ -680,7 +700,7 @@ export async function processImportJobBatch(
   // comes straight out of the margin it reserved to self-reinvoke. Overrun it
   // and the Lambda dies after these rows were already committed, with no
   // reinvoke — leaving the job stuck at `running` forever.
-  await checkGsvForSeededLevels(seededFromRobtop, GSV_IMPORT_BUDGET_MS)
+  await checkCommunityForSeededLevels(seededFromRobtop, COMMUNITY_IMPORT_BUDGET_MS)
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.
   if (newStubIds.length) {

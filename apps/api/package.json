@@ -16,7 +16,7 @@
     "db:backfill:sfh": "tsx src/scripts/backfillSfhData.ts",
     "db:backfill:levels": "tsx src/scripts/backfillLevelMetadata.ts",
     "db:seed:official": "tsx src/scripts/seedOfficialLevels.ts",
-    "db:backfill:gsv": "tsx src/scripts/backfillGsv.ts",
+    "db:backfill:community": "tsx src/scripts/backfillCommunity.ts",
     "e2e:provision": "tsx src/scripts/provisionE2eUser.ts",
     "e2e:reset": "tsx src/scripts/resetE2eUser.ts",
     "probe:robtop": "tsx src/scripts/probeRobtop.ts",

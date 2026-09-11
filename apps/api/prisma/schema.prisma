@@ -287,6 +287,27 @@ model RobtopRateLimit {
   @@map("robtop_rate_limit")
 }
 
+// Single shared token bucket for the PUBLIC GDDL level lookup, checked inside
+// fetchGddlLevel (utils/gddl.ts). Same shape and reasoning as
+// RobtopRateLimit above, for the one community source that publishes a hard
+// limit: 100 requests / 60s per IP, against an egress IP shared by the sync
+// cron, /resolve, the GD search escalation and the import worker.
+//
+// Unlike the RobTop bucket, a denial here never waits — the caller treats it as
+// "GDDL had no opinion this pass" and the level is re-checked on a later lap.
+// Always exactly one row (id = "singleton").
+model GddlRateLimit {
+  id            String    @id @default("singleton")
+  tokens        Float
+  lastRefillAt  DateTime  @default(now())
+  // Set when a caller reports a GDDL 429 (honouring Retry-After where sent).
+  // While now() < cooldownUntil no token is granted, so every consumer backs
+  // off together. Null when not throttled.
+  cooldownUntil DateTime?
+
+  @@map("gddl_rate_limit")
+}
+
 // Per-user budget for RobTop calls made on a user's behalf, sitting IN FRONT OF
 // the shared singleton bucket above. The two solve different problems and both
 // are needed: RobtopRateLimit protects RobTop from InfernoLog in aggregate, but
@@ -347,6 +368,12 @@ model User {
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
   // accounts, or an in-progress signup).
   legalAcceptedAt     DateTime?
+  // Consent to YouTube's player loading with a page (web HeroVideo), and the
+  // record of it: set when given, during onboarding or in Settings, and
+  // cleared when withdrawn. Null means no consent, which is also the default,
+  // so YouTube loads only once the viewer presses play. The wire carries only
+  // the derived boolean `youtubeEmbedConsent`.
+  youtubeEmbedConsentAt DateTime?
 
   // Privacy — global override. A private profile forces all entries private
   // regardless of per-entry EntryVisibility; see that enum for the current
@@ -489,43 +516,107 @@ model Level {
   sfhDownloads      Int? // used to pick canonical if
   // multiple results ever appear
 
-  // ── Global Stats Viewer (GSV) ────────────────────────────────────────────
-  // Community-list placements and a trustworthy object count, all from one
-  // call to api.globalstatsviewer.com. Read-only: InfernoLog never submits to
-  // these lists through GSV. See EXTERNAL_APIS.md and services/levels/gsvSync.
+  // ── Community lists (GSV + GDDL + AREDL) ─────────────────────────────────
+  // Community-list placements, a showcase video, a duration and a trustworthy
+  // object count, merged from three sources by services/levels/communitySync.
+  // Read-only: InfernoLog never submits to these lists through this path.
+  // See EXTERNAL_APIS.md.
   //
-  // gsvCheckedAt is null until a GSV call SUCCEEDS. A 404 counts as a success
-  // (GSV indexes rated levels only, so "not indexed" is a real answer worth
-  // caching); only network/timeout/5xx failures leave it null, which keeps the
-  // level due so a later run retries.
+  // WHICH SOURCE WINS, per column (first source that ANSWERED and had a value;
+  // a source that failed is skipped, one that answered with nothing falls
+  // through to the next):
+  //   showcaseUrl     AREDL → GSV → GDDL   (all normalized to a watch URL)
+  //   durationSeconds GDDL → GSV
+  //   gddlTier        GDDL → GSV
+  //   aredlRank       AREDL → GSV
+  //   sheetTier       AREDL → GSV
+  //   objectCount     GSV only (and never nulled out — see below)
+  //   aredlRank/Status AREDL only
+  //   enjoyment       AREDL (EDEL) for extremes, GDDL for everything else
+  //
+  // communityCheckedAt is null until at least one applicable source ANSWERS.
+  // A not-found counts as an answer (GSV indexes rated levels only, GDDL is
+  // demons only, AREDL is ~1600 extremes, so "not on this list" is a real
+  // result worth caching); only network/timeout/5xx failures leave it null,
+  // which keeps the level due so a later run retries. A pass where SOME source
+  // failed is stamped but backdated, so it comes round again in hours rather
+  // than a full re-check cadence.
   //
   // The level's COMMUNITY GDDL tier, rounded to a whole number at ingestion
   // (roundGddlTier). NOT to be confused with LevelProgress.userGddlTier, which
   // is one user's own tier OPINION captured at logging time — a different
   // number with a different meaning. Neither is derived from the other.
-  gddlTier     Int?
-  // Rank on the All Rated Extreme Demons List (1 = hardest). Extreme demons
-  // only; null for everything else.
-  aredlRank    Int?
+  gddlTier              Int?
+  // Rank on the All Rated Extreme Demons List (1 = hardest).
+  //
+  // ⚠️ NOT ALWAYS A RANK. AREDL appends its Legacy tier to the end of the
+  // position sequence instead of interleaving it (MainList 1-1573, Legacy
+  // 1574-1606 at time of writing), so for a Legacy row this is a list index,
+  // not a placement. Read aredlStatus before displaying it as "#n". Legacy is
+  // also where levels demoted out of extreme live, which is the only reason an
+  // insane demon ever carries a value here.
+  aredlRank             Int?
+  // "MainList" | "Legacy" — what makes aredlRank readable. Null when the level
+  // is not on AREDL at all.
+  aredlStatus           String?
+  // Community enjoyment, 0-100, from ONE of two sources depending on the
+  // level's difficulty — and the column deliberately does not record which:
+  //
+  //   Extreme Demon   → EDEL (the Extreme Demon Enjoyment List, via AREDL)
+  //   Insane and below → GDDL, rescaled from its native 0-10 onto this scale
+  //                      (rescaleGddlEnjoyment in utils/gddl.ts)
+  //
+  // The source is a pure function of the difficulty (isExtremeDemon in
+  // packages/core), so storing it would be storing a derivable fact that could
+  // then disagree with the difficulty next to it. Both the write in
+  // services/levels/communitySync.ts and the display label call that same
+  // predicate. It follows that a level whose difficulty CHANGES has an
+  // enjoyment figure from the wrong source until it is re-checked, which is why
+  // the sync clears communityCheckedAt whenever it sees the difficulty move.
+  //
+  // EDEL is preferred for extremes because it is the more reliable source
+  // there; an extreme it has not rated shows nothing, on the reasoning that a
+  // level absent from EDEL is unlikely to be rated on GDDL either.
+  //
+  // NOT to be confused with ProgressUpdate.enjoyment, which is ONE user's own
+  // enjoyment of the level, logged per progress update. Same name, same 0-100
+  // scale, entirely different number — the pairing to keep straight is the one
+  // gddlTier and LevelProgress.userGddlTier already have.
+  //
+  // Stored to two decimal places from both sources (roundEnjoyment in
+  // utils/enjoyment.ts), the precision EDEL itself displays — hence
+  // Decimal(5,2), the same shape ProgressUpdate.percentage uses for a 0-100
+  // figure. An EDEL score still marked provisional (is_edel_pending) is stored
+  // as null: null already says "no settled score", so a separate flag would
+  // only repeat it.
+  enjoyment             Decimal?  @db.Decimal(5, 2)
   // Tier on the Non-Listworthy / Listworthy extreme demon spreadsheets, 0-21.
   // Tier >= 14 is listworthy (LW), below that non-listworthy (NLW) — the split
-  // is the only thing that says which sheet the tier came from, since GSV
-  // reports both under one "SHEET" entry.
+  // is the only thing that says which sheet the tier came from. The ladder and
+  // that threshold live in packages/core/src/sheetTier.ts, which both apps and
+  // the AREDL client's name→index lookup share.
   //
   // ⚠️ TIER 0 IS A REAL TIER ("Fuck"): a level whose skillset is too niche to
   // rank reliably, NOT one easier than Beginner. Guard on `!= null`, never on
   // truthiness, or tier-0 levels silently render as unplaced.
   //
-  // Every 0 in this column is INFERRED, never reported: GSV's SHEET values run
-  // 1-21, so we read a missing entry on an extreme demon as tier 0. That rule
-  // is wider than the tier it stands for — see sheetTierForMissingEntry in
-  // utils/globalStatsViewer.ts — and undoes with
-  // `UPDATE levels SET "sheetTier" = NULL WHERE "sheetTier" = 0;`.
-  sheetTier    Int?
-  // Showcase/verification video, when GSV has one. A third-party URL — treat
-  // it as untrusted at the display layer (safeHref) like any other.
-  showcaseUrl  String?
-  gsvCheckedAt DateTime?
+  // A 0 here is now REPORTED, not inferred. GSV's SHEET values run 1-21 and it
+  // never sends a 0, which used to be resolved by inferring tier 0 for any
+  // extreme demon with no SHEET entry — an inference that reached ~355 levels
+  // for a tier that holds 24. AREDL states the tier by name instead, so the
+  // inference was deleted and the pre-existing zeros nulled out.
+  //
+  // AREDL's names span 0-14 only and it sends null for a listworthy level, so
+  // it cannot be the sole source: 15-21 still come from GSV via the fallback.
+  sheetTier             Int?
+  // Showcase/verification video, normalized to a canonical YouTube watch URL.
+  // A third-party URL — treat it as untrusted at the display layer (safeHref)
+  // like any other.
+  showcaseUrl           String?
+  // Level duration in whole seconds. Distinct from `length` above, which is
+  // RobTop's coarse band ("Long", "XL") and the only thing GD itself exposes.
+  durationSeconds       Int?
+  communityCheckedAt    DateTime?
 
   // ── Extended GDBrowser metadata ──────────────────────────────────────────
   // A snapshot of everything RobTop's level object exposes (via GDBrowser), so

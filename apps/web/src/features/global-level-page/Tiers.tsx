@@ -70,9 +70,7 @@ function SheetTierZeroInfo() {
         </p>
         <p className="text-text-secondary">
           The spreadsheets&rsquo; bottom tier is for levels whose skillset is
-          too niche to rank reliably &mdash; not levels easier than Beginner. It
-          is also inferred rather than reported, so an extreme demon the sheets
-          haven&rsquo;t ranked yet can land here.
+          too niche to rank reliably &mdash; not levels easier than Beginner.
         </p>
       </PopoverContent>
     </Popover>

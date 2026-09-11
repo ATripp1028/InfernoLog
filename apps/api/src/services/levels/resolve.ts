@@ -9,7 +9,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { checkSfhNongIfDue } from '../levels/sfhSync'
-import { checkGsvIfDue } from './gsvSync'
+import { checkCommunityIfDue } from './communitySync'
 import { buildRobtopCreateData } from './robtopMapping'
 
 /**
@@ -64,11 +64,11 @@ export async function findOrResolveLevel<T extends Prisma.LevelSelect>(
   // Populate NONG data and the level's community-list placements on this first
   // resolve so the page can render them immediately rather than only on the next
   // visit. Both are best-effort and never throw (see checkSfhNongIfDue /
-  // checkGsvIfDue); we re-read afterward to pick up whatever they persisted.
+  // checkCommunityIfDue); we re-read afterward to pick up whatever they persisted.
   //
   // Run in parallel — they hit unrelated hosts, and doing them in series would
   // add both timeouts to the one request a user is actually waiting on.
-  await Promise.all([checkSfhNongIfDue(levelId), checkGsvIfDue(levelId)])
+  await Promise.all([checkSfhNongIfDue(levelId), checkCommunityIfDue(levelId)])
 
   const level = await prisma.level.findUniqueOrThrow({
     where: { inGameId: levelId },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { makeGlobalLevel } from '@/utils/testUtils'
 import {
   coinDisplay,
+  enjoymentDisplay,
   knownObjectCount,
   likeDisplay,
   provenanceParts,
@@ -256,5 +257,65 @@ describe('songSource', () => {
     expect(songSource(makeGlobalLevel({ officialSongId: null }))).toBe(
       'Newgrounds'
     )
+  })
+})
+
+describe('enjoymentDisplay', () => {
+  const extreme = {
+    partialDiff: 'demon-extreme',
+    inGameDifficulty: 'Extreme Demon',
+  }
+  const insane = { partialDiff: 'demon-insane', inGameDifficulty: 'Insane Demon' }
+
+  it('labels an extreme’s score as EDEL’s', () => {
+    const level = makeGlobalLevel({ ...extreme, enjoyment: 59.39 })
+
+    expect(enjoymentDisplay(level)).toEqual({ value: 59.39, source: 'EDEL' })
+  })
+
+  it('labels anything below extreme as GDDL’s', () => {
+    const level = makeGlobalLevel({ ...insane, enjoyment: 50 })
+
+    expect(enjoymentDisplay(level)).toEqual({ value: 50, source: 'GDDL' })
+  })
+
+  // An exact match on 'demon-extreme' would label every FEATURED extreme as
+  // GDDL's, which is the wrong list entirely.
+  it('recognizes the featured-extreme difficulty token', () => {
+    const level = makeGlobalLevel({
+      partialDiff: 'demon-extreme-featured',
+      enjoyment: 59.4,
+    })
+
+    expect(enjoymentDisplay(level)?.source).toBe('EDEL')
+  })
+
+  // A row cached before partialDiff existed has only the label, and the label
+  // reaches us in more than one spelling.
+  it.each([
+    ['Extreme Demon', 'EDEL'],
+    ['EXTREME_DEMON', 'EDEL'],
+    ['Insane Demon', 'GDDL'],
+  ])('falls back to the %s label when partialDiff is absent', (label, source) => {
+    const level = makeGlobalLevel({
+      partialDiff: null,
+      inGameDifficulty: label,
+      enjoyment: 50,
+    })
+
+    expect(enjoymentDisplay(level)?.source).toBe(source)
+  })
+
+  it('returns null when the level has no rating', () => {
+    const level = makeGlobalLevel({ ...insane, enjoyment: null })
+
+    expect(enjoymentDisplay(level)).toBeNull()
+  })
+
+  // A zero score is a real rating, not an absent one.
+  it('treats a zero score as a rating', () => {
+    const level = makeGlobalLevel({ ...insane, enjoyment: 0 })
+
+    expect(enjoymentDisplay(level)?.value).toBe(0)
   })
 })

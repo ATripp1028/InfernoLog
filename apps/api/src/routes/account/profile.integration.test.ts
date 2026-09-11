@@ -133,6 +133,28 @@ describe('PATCH /me', () => {
     })
     expect(stored.legalAcceptedAt).toBeInstanceOf(Date)
   })
+
+  it('records YouTube consent and clears it again on withdrawal', async () => {
+    const user = await seedUser(prisma)
+
+    await send(user.id, 'PATCH', '/me', { youtubeEmbedConsent: true })
+    const given = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
+    expect(given.youtubeEmbedConsentAt).toBeInstanceOf(Date)
+
+    const res = await send(user.id, 'PATCH', '/me', {
+      youtubeEmbedConsent: false,
+    })
+    const body = (await res.json()) as {
+      data: { youtubeEmbedConsent: boolean }
+    }
+    const withdrawn = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+    })
+    expect(withdrawn.youtubeEmbedConsentAt).toBeNull()
+    expect(body.data.youtubeEmbedConsent).toBe(false)
+  })
 })
 
 // ─── PATCH /me/username ──────────────────────────────────────────────────────

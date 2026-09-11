@@ -1,48 +1,27 @@
-// The NLW / LW extreme demon spreadsheet tiers — names, colours, and the one
-// rule that decides which of the two sheets a tier belongs to.
+// The NLW / LW spreadsheet tiers as the UI needs them: the colour palette, and
+// a re-export of the ladder itself.
 //
-// InfernoLog receives these as a single 0-21 integer (`Level.sheetTier`, via
-// the Global Stats Viewer's "SHEET" list entry). The sheets themselves are two
-// documents sharing one continuous tier ladder: 0-13 are the Non-Listworthy
-// sheet, 14-21 the Listworthy one. Nothing on the wire says which sheet a tier
-// came from — the threshold below is the whole of that knowledge.
+// The names, the 0-21 range, and the NLW/LW split live in @infernolog/core —
+// apps/api reads the same table to turn AREDL's tier NAME back into a number.
+// Colours stay here because they are display only, and are re-exported through
+// this module so nothing in apps/web has to know where the split happened.
 //
 // ⚠️ TIER 0 IS A REAL TIER. "Fuck" does not mean "easier than Beginner"; it is
 // where levels go whose skillset is too niche to rank reliably. Every guard on
 // a sheet tier must be `!= null`, never a truthiness check, or tier-0 levels
 // silently disappear from the UI.
 
-/** Display names for sheet tiers 0-21, indexed by tier. */
-export const SHEET_TIER_NAMES = [
-  'Fuck',
-  'Beginner',
-  'Easy',
-  'Medium',
-  'Hard',
-  'Very Hard',
-  'Insane',
-  'Extreme',
-  'Remorseless',
-  'Relentless',
-  'Terrifying',
-  'Catastrophic',
-  'Inexorable',
-  'Excruciating',
-  'Merciless',
-  'Monstrous',
-  'Apocalyptic',
-  'Demonic',
-  'Menacing',
-  'Unreal',
-  'Nightmare',
-  'Unfathomable',
-] as const
+import { isSheetTier } from '@infernolog/core'
 
-/**
- * The lowest listworthy tier. At and above this the tier comes from the LW
- * sheet; below it, from the NLW sheet.
- */
-export const LISTWORTHY_MIN_TIER = 14
+export {
+  SHEET_TIER_NAMES,
+  LISTWORTHY_MIN_TIER,
+  MAX_SHEET_TIER,
+  isSheetTier,
+  sheetTierName,
+  sheetTierFromName,
+  sheetTierSource,
+} from '@infernolog/core'
 
 export const SHEET_TIER_COLORS = [
   '#000000', // 0  Fuck
@@ -68,43 +47,6 @@ export const SHEET_TIER_COLORS = [
   '#832828', // 20 Nightmare
   '#c76e00', // 21 Unfathomable
 ] as const
-
-/** The highest tier the sheets define. */
-export const MAX_SHEET_TIER = SHEET_TIER_NAMES.length - 1
-
-/** Whether a value is a tier the sheets actually define (0-21). */
-export function isSheetTier(tier: number | null | undefined): tier is number {
-  return (
-    tier != null &&
-    Number.isInteger(tier) &&
-    tier >= 0 &&
-    tier <= MAX_SHEET_TIER
-  )
-}
-
-/**
- * The tier's name ("Nightmare"), or null for a tier outside the defined range.
- *
- * Out-of-range returns null rather than clamping: a tier we don't recognize is
- * a data problem, and showing it under a neighbouring tier's name would hide
- * that behind a plausible-looking badge.
- */
-export function sheetTierName(tier: number | null | undefined): string | null {
-  return isSheetTier(tier) ? SHEET_TIER_NAMES[tier]! : null
-}
-
-/**
- * Which sheet the tier comes from — the only thing that distinguishes them,
- * since both arrive as one number.
- *
- * @returns null for a tier outside the defined range.
- */
-export function sheetTierSource(
-  tier: number | null | undefined
-): 'NLW' | 'LW' | null {
-  if (!isSheetTier(tier)) return null
-  return tier >= LISTWORTHY_MIN_TIER ? 'LW' : 'NLW'
-}
 
 /** The tier's badge background, or null for a tier outside the defined range. */
 export function sheetTierColor(tier: number | null | undefined): string | null {

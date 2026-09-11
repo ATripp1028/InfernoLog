@@ -8,23 +8,23 @@ There are **two entirely separate GDDL tiers in this app**, and conflating them 
 | ---------- | -------------------------------------------- | -------------------------------------------------------------- |
 | What it is | The level's **real, current** community tier | **One user's own tier opinion**                                |
 | Scope      | One value per level, shared by everyone      | One value per user per level                                   |
-| Source     | Cached from the Global Stats Viewer          | Entered/confirmed by the user when logging                     |
-| Updated    | By the GSV cron rotation                     | Never — it's a snapshot of what they thought when they beat it |
+| Source     | Cached from GDDL, or GSV as a fallback       | Entered/confirmed by the user when logging                     |
+| Updated    | By the community-list cron rotation          | Never — it's a snapshot of what they thought when they beat it |
 | Shown on   | The Global Level Page's TIERS section        | Their own level page, the Log, the demon list                  |
 
 Neither is derived from the other, and neither should ever be used to fill in the other.
 
-## Level-global placements (read-only, via GSV)
+## Level-global placements (read-only)
 
-A level's placements on all three community lists — **GDDL tier, AREDL rank, and the Non-Listworthy / Listworthy spreadsheet tier** — are cached on the `levels` row from a single Global Stats Viewer call. See `EXTERNAL_APIS.md` for the client, the write contract, and the cron rotation that refreshes them.
+A level's placements on all three community lists — **GDDL tier, AREDL rank, and the Non-Listworthy / Listworthy spreadsheet tier** — plus its showcase video and duration, are cached on the `levels` row by one pass that fetches **three sources in parallel**: the Global Stats Viewer, GDDL and AREDL. Each column has a priority order, since more than one source can speak to it. See `EXTERNAL_APIS.md` for the clients, the priority table, the write contract, and the cron rotation that refreshes them.
 
-This is **read-only**. InfernoLog reads placements through GSV and never submits to AREDL or the spreadsheets; the only write integration is GDDL record submission below, which goes to GDDL directly with the user's own key.
+This is **read-only**. InfernoLog never submits to AREDL or the spreadsheets; the only write integration is GDDL record submission below, which goes to GDDL directly with the user's own key.
 
-**Tier 0 is inferred, not transmitted.** GSV reports sheet tiers 1–21 and never 0, so the bottom "Fuck" tier only ever appears as a missing entry. An extreme demon with no SHEET placement is read as tier 0 — an assumption that also catches extremes the sheets haven't ranked yet. See `EXTERNAL_APIS.md` for the measurements and the one-line reversal.
+**Tier 0 is reported by AREDL, and used to be inferred.** GSV reports sheet tiers 1–21 and never 0, so the bottom "Fuck" tier only ever appeared there as a missing entry, and an extreme demon with no SHEET placement was read as tier 0 — an assumption that also swept up extremes the sheets simply hadn't ranked. AREDL states the tier by name, so the inference is gone. See `EXTERNAL_APIS.md` for the measurements.
 
-**The NLW/LW split is derived, not transmitted.** GSV reports one `SHEET` tier, 0–21; tiers 0–13 are the Non-Listworthy sheet and 14–21 the Listworthy one. `apps/web/src/lib/sheetTier.ts` owns that threshold along with the tier names and colours. Tier 0 ("Fuck") is a real tier — a skillset too niche to rank reliably, not a level easier than Beginner — so it is guarded with `!= null`, never truthiness.
+**The NLW/LW split is derived, not transmitted.** GSV reports one `SHEET` tier, 0–21; tiers 0–13 are the Non-Listworthy sheet and 14–21 the Listworthy one. `packages/core/src/sheetTier.ts` owns that threshold along with the tier names (shared, because AREDL reports the tier by name and the API needs the same table to turn it back into an index); `apps/web/src/lib/sheetTier.ts` keeps the colours. Tier 0 ("Fuck") is a real tier — a skillset too niche to rank reliably, not a level easier than Beginner — so it is guarded with `!= null`, never truthiness.
 
-This supersedes part of the "Abandoned Design" note below: AREDL and NLW _data_ are now surfaced, but nothing about the abandoned generic `list_references` / `ListProvider` machinery came back. There is no per-list table and no provider interface — three nullable columns on `levels`, written by one client.
+This supersedes part of the "Abandoned Design" note below: AREDL and NLW _data_ are now surfaced, but nothing about the abandoned generic `list_references` / `ListProvider` machinery came back. There is no per-list table and no provider interface — nullable columns on `levels`, written by one merge step with a fixed priority order per column.
 
 ## The per-user GDDL snapshot
 

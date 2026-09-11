@@ -3,6 +3,7 @@ import {
   detectSource,
   extractTwitchClipSlug,
   extractYouTubeId,
+  resolveEmbed,
 } from '../videoEmbed'
 
 describe('extractYouTubeId', () => {
@@ -102,5 +103,52 @@ describe('detectSource', () => {
 
     expect(detectSource(url)).toBe('youtube')
     expect(extractYouTubeId(url)).toBeNull()
+  })
+})
+
+describe('resolveEmbed', () => {
+  // Rebuilt from the id alone, so a pasted timestamp or playlist never
+  // reaches the frame's src.
+  it('loads YouTube’s privacy-enhanced player with the page when allowed', () => {
+    expect(
+      resolveEmbed(
+        'https://www.youtube.com/watch?list=PL123&v=dQw4w9WgXcQ&t=42s',
+        'infernolog.com',
+        true
+      )
+    ).toEqual({
+      source: 'youtube',
+      src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ',
+      loadsWithPage: true,
+    })
+  })
+
+  it('holds YouTube back for the facade without consent, autoplaying once pressed', () => {
+    expect(
+      resolveEmbed('https://youtu.be/dQw4w9WgXcQ', 'infernolog.com', false)
+    ).toEqual({
+      source: 'youtube',
+      src: 'https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1',
+      loadsWithPage: false,
+    })
+  })
+
+  // YouTube consent is YouTube's alone; it never lets another provider load.
+  it('holds a Twitch clip back for the facade whatever the consent', () => {
+    expect(
+      resolveEmbed('https://clips.twitch.tv/SomeClip', 'infernolog.com', true)
+    ).toEqual({
+      source: 'twitch-clip',
+      src: 'https://clips.twitch.tv/embed?clip=SomeClip&parent=infernolog.com&autoplay=true',
+      loadsWithPage: false,
+    })
+  })
+
+  it.each([
+    ['a YouTube channel page', 'https://www.youtube.com/@somechannel'],
+    ['a Twitch VOD', 'https://www.twitch.tv/videos/123456'],
+    ['an unknown host', 'https://vimeo.com/123456'],
+  ])('has no player for %s', (_label, url) => {
+    expect(resolveEmbed(url, 'infernolog.com', true).src).toBeNull()
   })
 })

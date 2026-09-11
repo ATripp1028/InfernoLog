@@ -53,6 +53,10 @@ export interface MeData {
   ratingCategories: RatingCategory[]
   onboardingCompleted: boolean
   legalAcceptedAt: string | null
+  // Whether the user has allowed YouTube's player to load with a page
+  // (HeroVideo). The server keeps when they consented; the client only needs
+  // whether.
+  youtubeEmbedConsent: boolean
   isVerified: boolean
   createdAt: string
 }
@@ -385,6 +389,7 @@ export interface UpdateMeInput {
   includeEnjoyment?: boolean
   enjoymentWeight?: number
   acceptLegal?: true
+  youtubeEmbedConsent?: boolean
   onboardingCompleted?: boolean
 }
 

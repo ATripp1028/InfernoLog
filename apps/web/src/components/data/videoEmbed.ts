@@ -45,3 +45,67 @@ export function detectSource(url: string): VideoSource {
   if (/twitch\.tv/.test(url)) return 'twitch-clip'
   return 'unknown'
 }
+
+/**
+ * The player a video URL embeds as.
+ *
+ * `src` is `null` when the URL yields no embeddable id. Every `src` is rebuilt
+ * from an extracted id, never from the user's URL verbatim, which the CSP's
+ * `frame-src` allowlist relies on.
+ */
+export interface VideoEmbed {
+  source: VideoSource
+  src: string | null
+  /**
+   * Whether the player loads as soon as the page does. YouTube's does once the
+   * viewer has consented, so it can show its own poster, title and channel
+   * and play on the first tap. A player that doesn't sits behind HeroVideo's
+   * click-to-load facade.
+   */
+  loadsWithPage: boolean
+}
+
+/**
+ * Resolves a pasted video URL to the player HeroVideo embeds for it.
+ *
+ * YouTube goes through youtube-nocookie.com, YouTube's privacy-enhanced mode:
+ * the same official player, but views of it don't feed the viewer's YouTube
+ * history and recommendations.
+ *
+ * @param hostname - This page's hostname, which Twitch requires as the
+ * embed's `parent`.
+ * @param youtubeConsent - Whether the viewer has allowed YouTube's player to
+ * load with the page. Without it, YouTube waits behind the facade like any
+ * other source, so nothing reaches YouTube until the viewer presses play.
+ */
+export function resolveEmbed(
+  url: string,
+  hostname: string,
+  youtubeConsent: boolean
+): VideoEmbed {
+  const source = detectSource(url)
+  if (source === 'youtube') {
+    const id = extractYouTubeId(url)
+    const player = id ? `https://www.youtube-nocookie.com/embed/${id}` : null
+    return {
+      source,
+      // Behind the facade the press is the request to watch, so the player
+      // should start rather than wait for a second one. Desktop browsers
+      // honour that; mobile ones still want a tap on the player itself.
+      src: player && !youtubeConsent ? `${player}?autoplay=1` : player,
+      loadsWithPage: youtubeConsent,
+    }
+  }
+  if (source === 'twitch-clip') {
+    const slug = extractTwitchClipSlug(url)
+    return {
+      source,
+      // Autoplay is safe to ask for: the facade's click is what loads it.
+      src: slug
+        ? `https://clips.twitch.tv/embed?clip=${slug}&parent=${hostname}&autoplay=true`
+        : null,
+      loadsWithPage: false,
+    }
+  }
+  return { source, src: null, loadsWithPage: false }
+}

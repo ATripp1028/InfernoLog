@@ -20,7 +20,13 @@ import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { buildRobtopRefreshData } from './robtopMapping'
 import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
-import { checkAndPersistGsv, GSV_RECHECK_DAYS } from './gsvSync'
+import {
+  checkAndPersistCommunity,
+  COMMUNITY_RECHECK_DAYS,
+} from './communitySync'
+import { isExtremeDemon } from '@infernolog/core'
+import { fetchAredlList } from '../../utils/aredl'
+import type { AredlListEntry } from '../../utils/aredl'
 import { logger } from '../../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
 
@@ -217,6 +223,19 @@ async function syncOneLevel(
     data.isRated = robtop.isRated
     data.inGameDifficulty = robtop.inGameDifficulty
     data.ratingStatusSince = now
+    // The fields the community check decides with move with the label:
+    // isExtremeDemon reads `partialDiff` before the label, and `isDemon` gates
+    // GDDL/AREDL entirely. Left stale, the forced re-check below would pick the
+    // enjoyment source from the OLD difficulty (or skip GDDL/AREDL altogether
+    // for a level newly rated as a demon).
+    if (robtop.partialDiff !== null) data.partialDiff = robtop.partialDiff
+    data.isDemon = robtop.isDemon
+    // The enjoyment column's SOURCE is a function of the difficulty (EDEL for
+    // extremes, GDDL below that — see communitySync), and so is the label the
+    // page puts on it. A level that just moved across that line is holding a
+    // figure from the wrong source, so force a re-check rather than let it sit
+    // mislabelled until its turn in the rotation comes round.
+    data.communityCheckedAt = null
   }
 
   // `stars` is the CANONICAL difficulty for a non-demon — every read path
@@ -263,9 +282,10 @@ async function syncOneLevel(
   const repaired = !current.verified
   if (repaired) Object.assign(data, buildRobtopRefreshData(robtop))
 
-  // No GSV check here, unlike every other RobTop write path (see the note in
-  // robtopMapping.ts). This one is already covered: runGsvSyncSlice runs in the
-  // same worker invocation, and a row repaired here has gsvCheckedAt null, so
+  // No community check here, unlike every other RobTop write path (see the note
+  // in robtopMapping.ts). This one is already covered: runCommunitySyncSlice
+  // runs in the same worker invocation, and a row repaired here has
+  // communityCheckedAt null, so
   // it is due by definition and the rotation picks it up. Adding a call would
   // just check the same level twice per run.
 
@@ -405,64 +425,77 @@ const reverifyEligibleWhere = {
   dataSource: { not: 'official' },
 } satisfies Prisma.LevelWhereInput
 
-// ── Global Stats Viewer rotation ────────────────────────────────────────────
-// GSV gets its own rotation rather than piggybacking on the RobTop sweep above,
+// ── Community list rotation (GSV + GDDL + AREDL) ────────────────────────────
+// The community lists get their own rotation rather than piggybacking on the
+// RobTop sweep above,
 // because the two are paced by completely different constraints. The RobTop
 // slice is 50 levels/run — sized by RobTop's per-IP rate limit and the 670ms
 // pacing — which is ~200 levels/day of turnover. List placements (GDDL tiers
 // especially) move far faster than that, so tiers refreshed at the sweep's rate
-// would read as stale on a cache of any real size. GSV is a different host under
-// no such limit, so this rotation walks the cache several times faster while
-// still being just another bounded cron slice.
+// would read as stale on a cache of any real size. These are different hosts
+// under far looser limits, so this rotation walks the cache several times
+// faster while still being just another bounded cron slice.
 //
 // It also reaches levels the RobTop sweep deliberately skips: `official` rows
 // are excluded there because getGJLevels21 never returns them (a sync would
 // look like a not-found and wrongly delist a level that plainly exists), but
-// GSV does index them, so they're eligible here.
+// the community lists do index them, so they're eligible here.
 
-/** How many levels one GSV rotation slice checks. */
-export const GSV_SLICE_SIZE = 200
+/** How many levels one community rotation slice checks. */
+export const COMMUNITY_SLICE_SIZE = 200
 
-// Pacing between GSV calls. Community infrastructure, so paced deliberately —
-// but it answers in well under a second and enforces no published limit, so this
-// is far below the RobTop pacing. 200 levels at 300ms is ~60s per run.
-const GSV_PACE_MS = 300
+// Pacing between levels. Set by GDDL, the only one of the three sources that
+// publishes a limit: 100 requests / 60s per IP is a 600ms floor, and the egress
+// IP is shared with /resolve, the GD search escalation and the import worker.
+// GSV and AREDL ride along for free, since a level's three calls go out in
+// parallel. 200 levels at 700ms is ~140s per run.
+const COMMUNITY_PACE_MS = 700
 
-// Wall-clock ceiling on one GSV slice. The pacing above describes a HEALTHY
-// GSV; a hanging one costs FETCH_TIMEOUT_MS (5s) per level, which puts 200
+// Wall-clock ceiling on one community slice. The pacing above describes HEALTHY
+// sources; a hanging one costs FETCH_TIMEOUT_MS (5s) per level, which puts 200
 // levels at ~17.7 minutes — past the worker's 15-minute Lambda timeout, and
 // this slice runs last, after the RobTop and reverify passes have already
 // spent minutes. Blowing that timeout kills the invocation before the cursor
 // write below, so the rotation would never advance off the failing stretch.
-const GSV_SLICE_BUDGET_MS = 6 * 60_000
+const COMMUNITY_SLICE_BUDGET_MS = 6 * 60_000
 
-/** Tallies from one pass of the GSV rotation. */
-export interface GsvSliceResult {
+/** Tallies from one pass of the community rotation. */
+export interface CommunitySliceResult {
   processed: number
-  // GSV had the level; its placements were cached.
+  // At least one source had the level; its data was cached.
   found: number
-  // GSV answered but doesn't index the level (404) — cached as checked.
+  // Every applicable source answered and none carried the level.
   none: number
   // The call itself failed; nothing written, retried on a later lap.
   failed: number
 }
 
-// Levels the GSV rotation considers: cached, not delisted, rated (GSV indexes
-// rated levels only, so an unrated level would 404 every lap forever), and due
-// for a check. The due filter is applied in SQL rather than after the fact so a
-// slice is 200 levels of actual WORK — without it a lap over a fully-checked
-// cache would burn its whole slice on rows it then skips.
-function gsvEligibleWhere(): Prisma.LevelWhereInput {
-  const cutoff = new Date(Date.now() - GSV_RECHECK_DAYS * 24 * 60 * 60 * 1000)
+// Levels the community rotation considers: cached, not delisted, indexed by at
+// least one source (GSV carries rated levels, GDDL and AREDL carry demons — a
+// level that is neither would 404 on every lap forever), and due for a check.
+// The due filter is applied in SQL rather than after the fact so a slice is 200
+// levels of actual WORK — without it a lap over a fully-checked cache would
+// burn its whole slice on rows it then skips.
+function communityEligibleWhere(): Prisma.LevelWhereInput {
+  const cutoff = new Date(
+    Date.now() - COMMUNITY_RECHECK_DAYS * 24 * 60 * 60 * 1000
+  )
   return {
     delistedAt: null,
-    isRated: true,
-    OR: [{ gsvCheckedAt: null }, { gsvCheckedAt: { lt: cutoff } }],
+    OR: [{ isRated: true }, { isDemon: true }],
+    AND: [
+      {
+        OR: [
+          { communityCheckedAt: null },
+          { communityCheckedAt: { lt: cutoff } },
+        ],
+      },
+    ],
   }
 }
 
 // Each rotation keeps its own cursor row in level_sync_cursor, keyed by id.
-type CursorKey = 'singleton' | 'reverify' | 'gsv'
+type CursorKey = 'singleton' | 'reverify' | 'community'
 
 async function readCursor(key: CursorKey): Promise<string | null> {
   const row = await prisma.levelSyncCursor.findUnique({
@@ -643,42 +676,162 @@ export async function runDelistedReverifySlice(
 }
 
 /**
- * One cron slice of the GSV rotation. Re-checks a bounded slice of levels due
- * for a Global Stats Viewer check and caches their community-list placements,
- * showcase URL, and object count.
+ * Refreshes every cached level's AREDL data from the list's BULK endpoint, and
+ * clears the levels that have fallen off it.
+ *
+ * One request covers all ~1600 placed levels. The per-level rotation below
+ * could not do this job at any acceptable cost: at 200 levels per 6 hours it
+ * would take days to notice a position change, and a REMOVAL is invisible to
+ * per-level polling altogether — a level that has dropped off simply 404s
+ * whenever its turn eventually comes round, which is indistinguishable from
+ * never having been placed. Only a set difference sees it.
+ *
+ * `sheetTier` is deliberately NOT written here even though the bulk payload
+ * carries AREDL's tier name: that column is merged with GSV's SHEET entry (see
+ * communitySync), and this pass holds no GSV opinion to merge against. Sheet
+ * tiers reach the cache through the per-level rotation instead, which is fine —
+ * they move far more slowly than positions do.
+ *
+ * Never throws, and never clears anything on a failed fetch: an empty list must
+ * read as "we couldn't ask", not as "AREDL is now empty".
+ *
+ * @returns The list keyed by level id, for the rotation below to use as a
+ *   membership oracle, or undefined when the fetch failed.
+ */
+export async function runAredlListSync(): Promise<
+  Map<string, AredlListEntry> | undefined
+> {
+  const list = await fetchAredlList()
+  if (!list) {
+    logger.warn('levelSync: AREDL list unavailable, skipping the list pass')
+    return undefined
+  }
+
+  // The DB side is guarded as well as the fetch: the handler runs the rotation
+  // right after this inside one try, so a throw here would silently cost the
+  // whole community slice for the run. The list is still a valid membership
+  // oracle whatever happens below, so it is returned regardless.
+  let cached: {
+    inGameId: string
+    partialDiff: string | null
+    inGameDifficulty: string | null
+  }[]
+  try {
+    cached = await prisma.level.findMany({
+      where: {
+        OR: [
+          { inGameId: { in: [...list.keys()] } },
+          { aredlStatus: { not: null } },
+        ],
+      },
+      select: { inGameId: true, partialDiff: true, inGameDifficulty: true },
+    })
+  } catch (err) {
+    logger.error({ err }, 'levelSync: AREDL list pass could not read the cache')
+    Sentry.captureException(err)
+    return list
+  }
+
+  let updated = 0
+  let cleared = 0
+  let failed = 0
+  for (const level of cached) {
+    const { inGameId } = level
+    const entry = list.get(inGameId)
+    // AREDL owns the enjoyment column only where EDEL is the chosen source. On
+    // an Insane-or-below level that figure belongs to GDDL, and this pass must
+    // not touch it in either direction — writing EDEL's score there would
+    // override the rule, and clearing it would delete GDDL's.
+    const ownsEnjoyment = isExtremeDemon(level)
+
+    try {
+      if (entry) {
+        await prisma.level.update({
+          where: { inGameId },
+          data: {
+            aredlRank: entry.position,
+            aredlStatus: entry.status,
+            ...(ownsEnjoyment ? { enjoyment: entry.enjoyment } : {}),
+          },
+        })
+        updated++
+      } else {
+        // On the list last time, not on it now — the only signal that a level
+        // was removed. Rank and status clear together, so a stale rank can't
+        // outlive the status that made it readable.
+        await prisma.level.update({
+          where: { inGameId },
+          data: {
+            aredlRank: null,
+            aredlStatus: null,
+            ...(ownsEnjoyment ? { enjoyment: null } : {}),
+          },
+        })
+        cleared++
+      }
+    } catch (err) {
+      // One row (deleted since the read above, or a transient DB error) must
+      // not abort the other ~1600. The next run's pass retries it.
+      failed++
+      logger.error({ inGameId, err }, 'levelSync: AREDL list pass row failed')
+      Sentry.captureException(err)
+    }
+  }
+
+  logger.info(
+    { listSize: list.size, updated, cleared, failed },
+    'levelSync: AREDL list sync complete'
+  )
+  return list
+}
+
+/**
+ * One cron slice of the community rotation. Re-checks a bounded slice of levels
+ * due for a community-list check and caches their placements, showcase URL,
+ * duration and object count.
  *
  * No circuit breaker: unlike the RobTop sweep, nothing here is destructive. A
- * run of 404s is the EXPECTED case (GSV indexes only part of the cache) and a
- * failed call writes nothing at all, so a wholly-unavailable GSV costs one lap
- * of no-ops rather than damaging the cache. The cursor still advances over the
- * attempted ids so a permanently-failing stretch can't pin the rotation.
+ * run of not-founds is the EXPECTED case (each source indexes only part of the
+ * cache) and a wholly failed check writes nothing at all, so an unavailable
+ * source costs one lap of no-ops rather than damaging the cache. The cursor
+ * still advances over the attempted ids so a permanently-failing stretch can't
+ * pin the rotation.
  *
- * There is a wall-clock budget instead, since a HANGING GSV is the case pacing
- * alone doesn't bound (see {@link GSV_SLICE_BUDGET_MS}). Running out of time
- * ends the slice where it stands and still writes the cursor, so the untouched
- * tail is picked up next run rather than being skipped for a whole lap.
+ * There is a wall-clock budget instead, since a HANGING source is the case
+ * pacing alone doesn't bound (see {@link COMMUNITY_SLICE_BUDGET_MS}). Running
+ * out of time ends the slice where it stands and still writes the cursor, so
+ * the untouched tail is picked up next run rather than being skipped for a
+ * whole lap.
+ *
+ * @param aredlList - The bulk AREDL list from {@link runAredlListSync}, so a
+ *   level that isn't on AREDL costs no AREDL request.
  */
-export async function runGsvSyncSlice(
-  size: number = GSV_SLICE_SIZE,
-  paceMs: number = GSV_PACE_MS,
-  budgetMs: number = GSV_SLICE_BUDGET_MS
-): Promise<GsvSliceResult> {
-  const result: GsvSliceResult = {
+export async function runCommunitySyncSlice(
+  aredlList?: Map<string, AredlListEntry>,
+  size: number = COMMUNITY_SLICE_SIZE,
+  paceMs: number = COMMUNITY_PACE_MS,
+  budgetMs: number = COMMUNITY_SLICE_BUDGET_MS
+): Promise<CommunitySliceResult> {
+  const result: CommunitySliceResult = {
     processed: 0,
     found: 0,
     none: 0,
     failed: 0,
   }
 
-  const { cursor, ids } = await nextSlice('gsv', gsvEligibleWhere(), size)
+  const { cursor, ids } = await nextSlice(
+    'community',
+    communityEligibleWhere(),
+    size
+  )
   if (ids.length === 0) {
-    logger.info('levelSync: no levels due for a GSV check')
+    logger.info('levelSync: no levels due for a community check')
     return result
   }
 
   logger.info(
     { count: ids.length, from: cursor, to: ids[ids.length - 1] },
-    'levelSync: GSV slice selected'
+    'levelSync: community slice selected'
   )
 
   const deadline = Date.now() + budgetMs
@@ -692,7 +845,7 @@ export async function runGsvSyncSlice(
     if (Date.now() >= deadline) {
       logger.warn(
         { budgetMs, processed: result.processed, sliceSize: ids.length },
-        'levelSync: GSV slice out of time, stopping early'
+        'levelSync: community slice out of time, stopping early'
       )
       break
     }
@@ -701,21 +854,21 @@ export async function runGsvSyncSlice(
     lastAttempted = levelId
 
     try {
-      const outcome = await checkAndPersistGsv(levelId)
+      const outcome = await checkAndPersistCommunity(levelId, aredlList)
       if (outcome === 'found') result.found++
       else if (outcome === 'none') result.none++
       else result.failed++
     } catch (err) {
-      // checkAndPersistGsv already swallows GSV failures, so reaching here means
-      // the cache WRITE failed (e.g. the row vanished mid-run). Tally it as a
-      // failure so gsvCheckedAt stays null and a later lap retries.
+      // checkAndPersistCommunity already swallows source failures, so reaching
+      // here means the cache WRITE failed (e.g. the row vanished mid-run). Tally
+      // it as a failure so communityCheckedAt stays put and a later lap retries.
       result.failed++
-      logger.error({ levelId, err }, 'levelSync: error on GSV check')
+      logger.error({ levelId, err }, 'levelSync: error on community check')
       Sentry.captureException(err)
     }
   }
 
-  await writeCursor('gsv', lastAttempted)
-  logger.info({ ...result }, 'levelSync: GSV slice complete')
+  await writeCursor('community', lastAttempted)
+  logger.info({ ...result }, 'levelSync: community slice complete')
   return result
 }
