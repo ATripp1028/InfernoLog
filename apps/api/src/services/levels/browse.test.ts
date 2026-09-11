@@ -156,6 +156,86 @@ describe('browseLevels — sorting', () => {
 
     expect(lastSql().text).toMatch(/ORDER BY[\s\S]*"inGameId" ASC/)
   })
+
+  it.each([
+    ['gddlTier', '"gddlTier"'],
+    ['aredlRank', '"aredlRank"'],
+    ['sheetTier', '"sheetTier"'],
+    ['enjoyment', '"enjoyment"'],
+    ['duration', '"durationSeconds"'],
+    ['gameVersion', '"gameVersion"'],
+    ['recentlyRated', '"ratingStatusSince"'],
+  ])('orders the %s sort by %s', async (sort, column) => {
+    await browseLevels(query({ sort: sort as LevelBrowseQuery['sort'] }))
+
+    expect(lastSql().text).toContain(column)
+  })
+
+  // AREDL rank 1 is the hardest level, so the list reads top-down by default.
+  it.each([
+    ['aredlRank', 'ASC'],
+    ['gddlTier', 'DESC'],
+    ['sheetTier', 'DESC'],
+  ])('uses the natural direction for %s', async (sort, expected) => {
+    await browseLevels(query({ sort: sort as LevelBrowseQuery['sort'] }))
+
+    expect(lastSql().text).toMatch(new RegExp(`ORDER BY[\\s\\S]*${expected}`))
+  })
+
+  // Unknown values have to trail in BOTH directions — an ascending GDDL sort
+  // that opened with every non-demon in the cache would be useless.
+  it.each([
+    ['desc', '-1e18'],
+    ['asc', '1e18'],
+  ])(
+    'pushes unknown values last when sorting %s',
+    async (sortDir, sentinel) => {
+      await browseLevels(
+        query({ sort: 'gddlTier', sortDir: sortDir as 'asc' | 'desc' })
+      )
+
+      expect(lastSql().text).toContain(`COALESCE("gddlTier", ${sentinel})`)
+    }
+  )
+
+  // The hand-made expression indexes match this exact expression; any other
+  // sentinel is a different expression and the planner will not use them.
+  it.each(['downloads', 'likes'])(
+    'keeps the indexed %s expression for the descending sort',
+    async (col) => {
+      await browseLevels(query({ sort: col as 'likes', sortDir: 'desc' }))
+
+      expect(lastSql().text).toContain(`(COALESCE("${col}", -1))::float8`)
+    }
+  )
+
+  it('sorts unknown downloads last when ascending, too', async () => {
+    await browseLevels(query({ sort: 'downloads', sortDir: 'asc' }))
+
+    expect(lastSql().text).toContain('COALESCE("downloads", 1e18)')
+  })
+
+  // Tier 0 holds levels too niche to rank, not ones easier than Beginner.
+  it('sorts sheet tier 0 apart from the ranked tiers', async () => {
+    await browseLevels(query({ sort: 'sheetTier' }))
+
+    expect(lastSql().text).toContain('"sheetTier" = 0')
+  })
+
+  it('falls back to the length band for an unknown duration', async () => {
+    await browseLevels(query({ sort: 'duration' }))
+
+    const { text } = lastSql()
+    expect(text).toContain('COALESCE("durationSeconds"')
+    expect(text).toContain("WHEN 'XL' THEN 120")
+  })
+
+  it('compares game versions as numbers, not strings', async () => {
+    // As text, "10.0" < "2.2"; only version-shaped values are cast.
+    await browseLevels(query({ sort: 'gameVersion' }))
+
+    expect(lastSql().text).toContain('"gameVersion"::float8')
+  })
 })
 
 // ─── filters ─────────────────────────────────────────────────────────────────
@@ -255,6 +335,54 @@ describe('browseLevels — filters', () => {
     await browseLevels(query({ twoPlayer: true, coinsVerified: true }))
 
     expect(whereClause()).toContain(' AND ')
+  })
+
+  it.each([
+    [{ downloadsMin: 1000 }, '"downloads" >=', 1000],
+    [{ starsMax: 5 }, '"stars" <=', 5],
+    [{ gddlTierMin: 20 }, '"gddlTier" >=', 20],
+    [{ aredlRankMax: 100 }, '"aredlRank" <=', 100],
+    [{ sheetTierMin: 0 }, '"sheetTier" >=', 0],
+    [{ enjoymentMin: 49.5 }, '"enjoyment" >=', 49.5],
+    [{ objectCountMax: 5000 }, '"objectCount" <=', 5000],
+    [{ likesMin: -10 }, '"likes" >=', -10],
+  ])('bounds the range filter %o', async (filter, expected, value) => {
+    await browseLevels(query(filter as Partial<LevelBrowseQuery>))
+
+    expect(whereClause()).toContain(expected)
+    expect(lastSql().values).toContain(value)
+  })
+
+  // Zero is a real bound (sheet tier 0, "no likes"), not an unset one.
+  it('applies a zero bound rather than treating it as unset', async () => {
+    await browseLevels(query({ sheetTierMin: 0 }))
+
+    expect(whereClause()).not.toBe('')
+  })
+
+  it('applies both ends of a range', async () => {
+    await browseLevels(query({ starsMin: 2, starsMax: 5 }))
+
+    const where = whereClause()
+    expect(where).toContain('"stars" >=')
+    expect(where).toContain('"stars" <=')
+  })
+
+  // The length band is the duration SORT's fallback only — the Length filter
+  // already covers the coarse case, and a band's lower bound is not a duration.
+  it('bounds the exact duration, without the length fallback', async () => {
+    await browseLevels(query({ durationMin: 60 }))
+
+    const where = whereClause()
+    expect(where).toContain('"durationSeconds" >=')
+    expect(where).not.toContain('"length"')
+  })
+
+  it('bounds the game version numerically', async () => {
+    await browseLevels(query({ gameVersionMin: 2.1 }))
+
+    expect(whereClause()).toContain('"gameVersion"::float8')
+    expect(lastSql().values).toContain(2.1)
   })
 })
 

@@ -6,19 +6,23 @@
 // Keyset pagination: rows are ordered by the chosen sort expression then
 // "inGameId" as a stable tiebreaker. The opaque cursor carries the last row's
 // sort value + inGameId; the next page's WHERE re-anchors on that pair. Nullable
-// sort columns are COALESCEd to a sentinel that sorts last so NULLs never break
-// the keyset comparison.
+// sort columns are COALESCEd to a sentinel picked per direction so NULLs sort
+// last whichever way the user orders, and never break the keyset comparison.
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { resolveLevelDifficulty } from './difficulty'
+import { LEVEL_RANGE_FIELDS } from '@infernolog/core'
 import type {
   LevelBrowseQuery,
   LevelBrowseResult,
+  LevelRangeField,
   LevelSort,
 } from '@infernolog/core'
 
 const PAGE_SIZE = 30
+
+type Dir = 'ASC' | 'DESC'
 
 // Filter length token → the label as stored on Level.length.
 const LENGTH_LABELS: Record<string, string> = {
@@ -47,64 +51,134 @@ const DIFFICULTY_RANK = Prisma.sql`(CASE "partialDiff"
   WHEN 'auto' THEN 1
   ELSE 0 END)`
 
+// Level.gameVersion as a comparable number ("2.1" → 2.1), NULL for anything not
+// shaped like a version. formatGameVersion writes a single-digit minor, so the
+// decimal order is the release order.
+const GAME_VERSION_NUM = Prisma.sql`(CASE WHEN "gameVersion" ~ '^[0-9]+[.][0-9]+$' THEN "gameVersion"::float8 END)`
+
+// Duration in seconds, falling back to the lower bound of RobTop's length band
+// (Tiny <10s, Short <30s, Medium <60s, Long <120s, XL 120s+) where the exact
+// duration is unknown. The lower bound is the one figure the band guarantees,
+// so an unknown XL sorts at 120s — below every XL whose real length is known to
+// be longer, never above one it might be shorter than. Platformer rows have no
+// band and stay NULL.
+const DURATION_WITH_FALLBACK = Prisma.sql`COALESCE("durationSeconds", CASE "length"
+  WHEN 'Tiny' THEN 0
+  WHEN 'Short' THEN 10
+  WHEN 'Medium' THEN 30
+  WHEN 'Long' THEN 60
+  WHEN 'XL' THEN 120
+  END)`
+
+// The column (or derived value) each range filter bounds. `duration` bounds the
+// exact figure only — the length band is a sort fallback, not a filter one.
+const RANGE_COLUMNS: Record<LevelRangeField, Prisma.Sql> = {
+  stars: Prisma.sql`"stars"`,
+  downloads: Prisma.sql`"downloads"`,
+  likes: Prisma.sql`"likes"`,
+  objectCount: Prisma.sql`"objectCount"`,
+  gddlTier: Prisma.sql`"gddlTier"`,
+  aredlRank: Prisma.sql`"aredlRank"`,
+  sheetTier: Prisma.sql`"sheetTier"`,
+  enjoyment: Prisma.sql`"enjoyment"`,
+  duration: Prisma.sql`"durationSeconds"`,
+  gameVersion: GAME_VERSION_NUM,
+}
+
+// A nullable numeric expression with NULLs pushed past every real value in the
+// given direction. The sentinels are finite so they survive the JSON cursor.
+function nullsLast(col: Prisma.Sql, dir: Dir): Prisma.Sql {
+  return dir === 'DESC'
+    ? Prisma.sql`(COALESCE(${col}, -1e18))::float8`
+    : Prisma.sql`(COALESCE(${col}, 1e18))::float8`
+}
+
 interface SortDef {
   // The (non-null) ordering expression, reused verbatim in SELECT, WHERE, and
   // ORDER BY so the keyset comparison stays consistent with the sort.
   expr: Prisma.Sql
-  // The direction used when the request doesn't override sortDir.
-  naturalDir: 'ASC' | 'DESC'
   type: 'num' | 'text'
 }
 
-function sortDef(sort: LevelSort, q: string, searchBy: string): SortDef {
+// The direction used when the request doesn't override sortDir: names read A→Z
+// and AREDL rank 1 is the hardest, so both start ascending; every other sort is
+// more useful highest-first.
+function naturalDir(sort: LevelSort): Dir {
+  return sort === 'name' || sort === 'aredlRank' ? 'ASC' : 'DESC'
+}
+
+function sortDef(
+  sort: LevelSort,
+  dir: Dir,
+  q: string,
+  searchBy: string
+): SortDef {
   const rel =
     searchBy === 'creator'
       ? Prisma.sql`similarity(COALESCE("creator", ''), ${q})`
       : Prisma.sql`similarity(COALESCE("name", ''), ${q})`
   switch (sort) {
     case 'relevance':
-      return {
-        expr: Prisma.sql`(${rel})::float8`,
-        naturalDir: 'DESC',
-        type: 'num',
-      }
+      return { expr: Prisma.sql`(${rel})::float8`, type: 'num' }
+    // Descending downloads/likes keep their original -1 sentinel, literally:
+    // the expression indexes from migration 20260804000100 are built on exactly
+    // `(COALESCE(col, -1))::float8`, and a different sentinel is a different
+    // expression the planner will not match to them.
     case 'likes':
       return {
-        expr: Prisma.sql`(COALESCE("likes", -1))::float8`,
-        naturalDir: 'DESC',
+        expr:
+          dir === 'DESC'
+            ? Prisma.sql`(COALESCE("likes", -1))::float8`
+            : nullsLast(Prisma.sql`"likes"`, dir),
         type: 'num',
       }
     case 'downloads':
       return {
-        expr: Prisma.sql`(COALESCE("downloads", -1))::float8`,
-        naturalDir: 'DESC',
+        expr:
+          dir === 'DESC'
+            ? Prisma.sql`(COALESCE("downloads", -1))::float8`
+            : nullsLast(Prisma.sql`"downloads"`, dir),
         type: 'num',
       }
     case 'stars':
       // Difficulty face first (× 1000), star count as the tiebreaker.
       return {
         expr: Prisma.sql`((${DIFFICULTY_RANK}) * 1000 + COALESCE("stars", 0))::float8`,
-        naturalDir: 'DESC',
         type: 'num',
       }
-    case 'objectCount':
+    case 'gddlTier':
+      return { expr: nullsLast(Prisma.sql`"gddlTier"`, dir), type: 'num' }
+    case 'aredlRank':
+      return { expr: nullsLast(Prisma.sql`"aredlRank"`, dir), type: 'num' }
+    case 'sheetTier':
+      // Tier 0 is a real placement but not an easier one — it holds levels too
+      // niche to rank — so it sorts after every ranked tier in either
+      // direction, ahead of levels with no placement at all.
       return {
-        expr: Prisma.sql`(COALESCE("objectCount", -1))::float8`,
-        naturalDir: 'DESC',
+        expr:
+          dir === 'DESC'
+            ? Prisma.sql`(CASE WHEN "sheetTier" IS NULL THEN -2 WHEN "sheetTier" = 0 THEN -1 ELSE "sheetTier" END)::float8`
+            : Prisma.sql`(CASE WHEN "sheetTier" IS NULL THEN 1001 WHEN "sheetTier" = 0 THEN 1000 ELSE "sheetTier" END)::float8`,
         type: 'num',
       }
+    case 'enjoyment':
+      return { expr: nullsLast(Prisma.sql`"enjoyment"`, dir), type: 'num' }
+    case 'duration':
+      return { expr: nullsLast(DURATION_WITH_FALLBACK, dir), type: 'num' }
+    case 'objectCount':
+      return { expr: nullsLast(Prisma.sql`"objectCount"`, dir), type: 'num' }
+    case 'gameVersion':
+      return { expr: nullsLast(GAME_VERSION_NUM, dir), type: 'num' }
     case 'recentlyRated':
       return {
-        expr: Prisma.sql`(EXTRACT(EPOCH FROM COALESCE("ratingStatusSince", 'epoch')))::float8`,
-        naturalDir: 'DESC',
+        expr: nullsLast(
+          Prisma.sql`EXTRACT(EPOCH FROM "ratingStatusSince")`,
+          dir
+        ),
         type: 'num',
       }
     case 'name':
-      return {
-        expr: Prisma.sql`LOWER(COALESCE("name", ''))`,
-        naturalDir: 'ASC',
-        type: 'text',
-      }
+      return { expr: Prisma.sql`LOWER(COALESCE("name", ''))`, type: 'text' }
   }
 }
 
@@ -217,13 +291,23 @@ export async function browseLevels(
     )
   }
 
-  const s = sortDef(sort, trimmed, searchBy)
-  const dir: 'ASC' | 'DESC' =
+  // Inclusive range bounds. A NULL column never satisfies a comparison, so any
+  // bound on a field also drops the levels where that field is unknown.
+  for (const field of LEVEL_RANGE_FIELDS) {
+    const col = RANGE_COLUMNS[field]
+    const min = query[`${field}Min` as const]
+    const max = query[`${field}Max` as const]
+    if (min !== undefined) conds.push(Prisma.sql`${col} >= ${min}`)
+    if (max !== undefined) conds.push(Prisma.sql`${col} <= ${max}`)
+  }
+
+  const dir: Dir =
     query.sortDir === 'asc'
       ? 'ASC'
       : query.sortDir === 'desc'
         ? 'DESC'
-        : s.naturalDir
+        : naturalDir(sort)
+  const s = sortDef(sort, dir, trimmed, searchBy)
 
   if (cursor) {
     const dec = decodeCursor(cursor)

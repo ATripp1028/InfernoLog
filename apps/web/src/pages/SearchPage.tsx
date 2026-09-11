@@ -28,10 +28,11 @@ export function SearchPage() {
 
   const query = state.query?.trim() ?? ''
   const filtersActive = hasActiveFilters(state)
-  const browsableSort = state.sort === 'downloads' || state.sort === 'likes'
-  // A search runs once there's a query, an active filter, or a browsable sort
-  // (most downloaded/liked). The default (relevance, empty) shows an idle prompt.
-  const enabled = query.length > 0 || filtersActive || browsableSort
+  // A search runs once there's a query, an active filter, or any sort other
+  // than relevance — picking an order is itself a request to browse the cache
+  // by it. The default (relevance, empty) shows an idle prompt.
+  const enabled =
+    query.length > 0 || filtersActive || state.sort !== 'relevance'
 
   const browse = useLevelBrowse(state, enabled)
 

@@ -251,6 +251,44 @@ describe('useSearchPageBar', () => {
     })
   })
 
+  describe('the filter panel', () => {
+    it('starts closed when the URL carries no filters', () => {
+      expect(render().result.current.filtersOpen).toBe(false)
+    })
+
+    // A shared or restored search should show what it is filtering on.
+    it.each([
+      ['a chip filter', { difficulty: ['demon-extreme'] }],
+      ['a range bound', { downloadsMin: 1000 }],
+    ] as const)('starts open when the URL carries %s', (_label, patch) => {
+      expect(
+        render(committed(patch as Partial<SearchPageState>)).result.current
+          .filtersOpen
+      ).toBe(true)
+    })
+
+    it('toggles open and closed', () => {
+      const { result } = render()
+
+      act(() => result.current.toggleFilters())
+      expect(result.current.filtersOpen).toBe(true)
+
+      act(() => result.current.toggleFilters())
+      expect(result.current.filtersOpen).toBe(false)
+    })
+
+    // Opening the panel is view state, not search state — it must not touch
+    // the URL or re-run the grid.
+    it('does not navigate', () => {
+      const { result } = render()
+
+      act(() => result.current.toggleFilters())
+      settle()
+
+      expect(navigate).not.toHaveBeenCalled()
+    })
+  })
+
   // Back/forward and in-app links change the URL from outside; the bar has to
   // follow those without mistaking its own debounced echo for one.
   describe('syncing back from the URL', () => {

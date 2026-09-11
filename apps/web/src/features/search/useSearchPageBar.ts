@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from '@tanstack/react-router'
 import { backOriginState } from '@/lib/backOrigin'
-import type { LevelSearchBy, SearchPageState } from '@/lib/levelSearchParams'
+import {
+  hasActiveFilters,
+  type LevelSearchBy,
+  type SearchPageState,
+} from '@/lib/levelSearchParams'
 
 const DEBOUNCE_MS = 250
 
@@ -17,6 +21,13 @@ export function useSearchPageBar(committed: SearchPageState) {
   const location = useLocation()
   const [query, setQuery] = useState(committed.query ?? '')
   const [searchBy, setSearchBy] = useState<LevelSearchBy>(committed.searchBy)
+  // Whether the inline filter panel under the bar is expanded. It starts open
+  // when the URL already carries filters, so a shared or restored search shows
+  // what it is filtering on instead of hiding it behind a dot on the button.
+  const [filtersOpen, setFiltersOpen] = useState(() =>
+    hasActiveFilters(committed)
+  )
+  const toggleFilters = useCallback(() => setFiltersOpen((open) => !open), [])
 
   // Always-current committed state for the debounced push (avoids resetting the
   // debounce timer when unrelated params — filters/sort — change). Updated in an
@@ -104,5 +115,7 @@ export function useSearchPageBar(committed: SearchPageState) {
     numericId,
     goToLevel,
     submit,
+    filtersOpen,
+    toggleFilters,
   }
 }

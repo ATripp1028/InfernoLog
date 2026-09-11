@@ -11,6 +11,7 @@ import {
   Device,
   GdVersion,
 } from './enums'
+import { MAX_SHEET_TIER } from './sheetTier'
 
 export const LevelSchema = z.object({
   inGameId: z.string(),
@@ -698,20 +699,89 @@ export const LevelSearchBySchema = z.enum(['name', 'creator'])
 
 // Result ordering. 'relevance' requires a query (falls back to downloads with an
 // empty query); the rest sort on stored, user-independent columns. 'stars' sorts
-// by difficulty face then star count (see browseLevels).
+// by difficulty face then star count, and 'duration' falls back to the level's
+// length band where the exact duration is unknown (see browseLevels).
 export const LevelSortSchema = z.enum([
   'relevance',
   'likes',
   'downloads',
   'stars',
+  'gddlTier',
+  'aredlRank',
+  'sheetTier',
+  'enjoyment',
+  'duration',
   'objectCount',
+  'gameVersion',
   'recentlyRated',
   'name',
 ])
 
 // Sort direction override. When omitted, each sort uses its natural direction
-// (name → asc, everything else → desc).
+// (name and aredlRank → asc, everything else → desc).
 export const LevelSortDirSchema = z.enum(['asc', 'desc'])
+
+// The quantitative columns the browse can bound to a range. Each field is two
+// optional query params, `<field>Min` and `<field>Max`, both inclusive; either
+// may be omitted for an open end. A bound excludes levels whose value is
+// unknown — "at least 10,000 downloads" cannot be claimed of a null.
+//
+// `duration` is Level.durationSeconds; unlike its sort, the filter does NOT fall
+// back to the length band (the Length filter already covers the coarse case).
+// `gameVersion` is the decimal version ("2.1" → 2.1).
+export const LEVEL_RANGE_FIELDS = [
+  'stars',
+  'downloads',
+  'likes',
+  'objectCount',
+  'gddlTier',
+  'aredlRank',
+  'sheetTier',
+  'enjoyment',
+  'duration',
+  'gameVersion',
+] as const
+
+export type LevelRangeField = (typeof LEVEL_RANGE_FIELDS)[number]
+
+// Hard validation limits per range field — what a bound may be at all, not the
+// UI's slider domain. null is unbounded on that side. Likes can go negative
+// (net dislikes); GDDL tiers carry no ceiling so a new top tier stays filterable.
+export const LEVEL_RANGE_BOUNDS: Record<
+  LevelRangeField,
+  { min: number | null; max: number | null; int: boolean }
+> = {
+  stars: { min: 0, max: 10, int: true },
+  downloads: { min: 0, max: null, int: true },
+  likes: { min: null, max: null, int: true },
+  objectCount: { min: 0, max: null, int: true },
+  gddlTier: { min: 1, max: null, int: true },
+  aredlRank: { min: 1, max: null, int: true },
+  sheetTier: { min: 0, max: MAX_SHEET_TIER, int: true },
+  enjoyment: { min: 0, max: 100, int: false },
+  duration: { min: 0, max: null, int: true },
+  gameVersion: { min: 1, max: null, int: false },
+}
+
+type LevelRangeKey = `${LevelRangeField}Min` | `${LevelRangeField}Max`
+
+function rangeBoundSchema(field: LevelRangeField) {
+  const b = LEVEL_RANGE_BOUNDS[field]
+  let s = z.number().finite()
+  if (b.int) s = s.int()
+  if (b.min !== null) s = s.min(b.min)
+  if (b.max !== null) s = s.max(b.max)
+  return s.optional()
+}
+
+// `{ starsMin, starsMax, downloadsMin, … }`, built from the table above so a
+// field's Min/Max pair can never be declared with different limits.
+const LevelRangeFiltersShape = Object.fromEntries(
+  LEVEL_RANGE_FIELDS.flatMap((f) => [
+    [`${f}Min`, rangeBoundSchema(f)],
+    [`${f}Max`, rangeBoundSchema(f)],
+  ])
+) as Record<LevelRangeKey, z.ZodOptional<z.ZodNumber>>
 
 // The filter set, shared by the cache browse and (where GD's schema permits) the
 // RobTop escalation. All optional — an empty object browses the whole cache.
@@ -724,6 +794,7 @@ export const LevelSearchFiltersSchema = z.object({
   length: z.array(LevelLengthSchema).optional(),
   levelType: LevelTypeFilterSchema.optional(),
   songType: LevelSongTypeSchema.optional(),
+  ...LevelRangeFiltersShape,
 })
 
 // Search terms are fed to pg_trgm similarity() and an ILIKE '%…%' over the

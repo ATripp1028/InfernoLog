@@ -19,7 +19,8 @@ import {
   likeDisplay,
   statFlags,
 } from './display'
-import { formatDuration, formatEnjoyment } from './format'
+import { formatDuration } from '@/lib/duration'
+import { formatEnjoyment } from './format'
 
 function StatCard({
   label,

@@ -1,6 +1,7 @@
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { Chip } from '@/components/generic/chip'
 import { Segmented } from '@/components/generic/segmented'
+import { RangeRow } from '@/components/inputs/RangeRow'
 import { cn } from '@/lib/utils'
 import {
   DIFFICULTY_FACE,
@@ -15,6 +16,7 @@ import {
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 import { TRISTATE, fromTri, toggle, triValue } from './filterControls'
+import { RANGE_FILTERS, rangePatch, rangeValue } from './rangeFilters'
 
 interface SearchFiltersProps {
   state: SearchPageState
@@ -65,13 +67,15 @@ function FaceToggle({
 
 function FilterGroup({
   label,
+  className,
   children,
 }: {
   label: string
+  className?: string
   children: React.ReactNode
 }) {
   return (
-    <div>
+    <div className={className}>
       <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
         {label}
       </p>
@@ -81,8 +85,10 @@ function FilterGroup({
 }
 
 /**
- * The /search filter panel (rendered inside a popover). Every change navigates
- * (via onChange → replace) so the URL stays the source of truth for the grid.
+ * The /search filter panel, rendered inline under the search bar. Every change
+ * navigates (via onChange → replace) so the URL stays the source of truth for
+ * the grid; the range sliders commit on release, so a drag is one query rather
+ * than one per step.
  */
 export function SearchFilters({
   state,
@@ -105,117 +111,142 @@ export function SearchFilters({
         )}
       </div>
 
-      <FilterGroup label="Difficulty">
-        <div className="flex flex-wrap gap-1">
-          {DIFFICULTY_OPTIONS.map((o) => (
-            <FaceToggle
-              key={o.value}
-              label={o.label}
-              difficulty={DIFFICULTY_FACE[o.value].difficulty}
-              selected={state.difficulty?.includes(o.value) ?? false}
-              onClick={() =>
-                onChange({ difficulty: toggle(state.difficulty, o.value) })
-              }
-            />
-          ))}
-        </div>
-      </FilterGroup>
-
-      <FilterGroup label="Rate status">
-        <div className="flex flex-wrap gap-1">
-          {RATE_STATUS_OPTIONS.map((o) => {
-            const face = RATE_STATUS_FACE[o.value]
-            return (
+      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+        <FilterGroup label="Difficulty" className="md:col-span-2">
+          <div className="flex flex-wrap gap-1">
+            {DIFFICULTY_OPTIONS.map((o) => (
               <FaceToggle
                 key={o.value}
                 label={o.label}
-                difficulty={face.difficulty}
-                featured={face.featured}
-                epicValue={face.epicValue}
-                selected={state.rateStatus?.includes(o.value) ?? false}
+                difficulty={DIFFICULTY_FACE[o.value].difficulty}
+                selected={state.difficulty?.includes(o.value) ?? false}
                 onClick={() =>
-                  onChange({ rateStatus: toggle(state.rateStatus, o.value) })
+                  onChange({ difficulty: toggle(state.difficulty, o.value) })
                 }
               />
-            )
-          })}
-        </div>
-      </FilterGroup>
+            ))}
+          </div>
+        </FilterGroup>
 
-      <FilterGroup label="Length">
-        <div className="flex flex-wrap gap-1.5">
-          {LENGTH_OPTIONS.map((o) => (
-            <Chip
-              key={o.value}
-              selected={state.length?.includes(o.value) ?? false}
-              onClick={() =>
-                onChange({ length: toggle(state.length, o.value) })
-              }
-            >
-              {o.label}
-            </Chip>
-          ))}
-        </div>
-      </FilterGroup>
+        <FilterGroup label="Rate status">
+          <div className="flex flex-wrap gap-1">
+            {RATE_STATUS_OPTIONS.map((o) => {
+              const face = RATE_STATUS_FACE[o.value]
+              return (
+                <FaceToggle
+                  key={o.value}
+                  label={o.label}
+                  difficulty={face.difficulty}
+                  featured={face.featured}
+                  epicValue={face.epicValue}
+                  selected={state.rateStatus?.includes(o.value) ?? false}
+                  onClick={() =>
+                    onChange({ rateStatus: toggle(state.rateStatus, o.value) })
+                  }
+                />
+              )
+            })}
+          </div>
+        </FilterGroup>
 
-      <FilterGroup label="Coins">
-        <div className="flex flex-wrap gap-1.5">
-          {[0, 1, 2, 3].map((n) => (
-            <Chip
-              key={n}
-              selected={state.coinCount?.includes(n) ?? false}
-              onClick={() =>
-                onChange({ coinCount: toggle(state.coinCount, n) })
-              }
-            >
-              {n} {n === 1 ? 'coin' : 'coins'}
-            </Chip>
-          ))}
-        </div>
-        <div className="mt-2">
+        <FilterGroup label="Length">
+          <div className="flex flex-wrap gap-1.5">
+            {LENGTH_OPTIONS.map((o) => (
+              <Chip
+                key={o.value}
+                selected={state.length?.includes(o.value) ?? false}
+                onClick={() =>
+                  onChange({ length: toggle(state.length, o.value) })
+                }
+              >
+                {o.label}
+              </Chip>
+            ))}
+          </div>
+        </FilterGroup>
+
+        <FilterGroup label="Coins">
+          <div className="flex flex-wrap gap-1.5">
+            {[0, 1, 2, 3].map((n) => (
+              <Chip
+                key={n}
+                selected={state.coinCount?.includes(n) ?? false}
+                onClick={() =>
+                  onChange({ coinCount: toggle(state.coinCount, n) })
+                }
+              >
+                {n} {n === 1 ? 'coin' : 'coins'}
+              </Chip>
+            ))}
+          </div>
+          <div className="mt-2">
+            <Segmented
+              options={[
+                { value: 'any', label: 'Any' },
+                { value: 'yes', label: 'Verified' },
+                { value: 'no', label: 'Unverified' },
+              ]}
+              value={triValue(state.coinsVerified)}
+              onChange={(v) => onChange({ coinsVerified: fromTri(v) })}
+            />
+          </div>
+        </FilterGroup>
+
+        <FilterGroup label="Two player">
           <Segmented
-            options={[
-              { value: 'any', label: 'Any' },
-              { value: 'yes', label: 'Verified' },
-              { value: 'no', label: 'Unverified' },
-            ]}
-            value={triValue(state.coinsVerified)}
-            onChange={(v) => onChange({ coinsVerified: fromTri(v) })}
+            options={TRISTATE}
+            value={triValue(state.twoPlayer)}
+            onChange={(v) => onChange({ twoPlayer: fromTri(v) })}
           />
-        </div>
-      </FilterGroup>
+        </FilterGroup>
 
-      <FilterGroup label="Two player">
-        <Segmented
-          options={TRISTATE}
-          value={triValue(state.twoPlayer)}
-          onChange={(v) => onChange({ twoPlayer: fromTri(v) })}
-        />
-      </FilterGroup>
+        <FilterGroup label="Level type">
+          <Segmented
+            options={[{ value: 'any', label: 'Any' }, ...LEVEL_TYPE_OPTIONS]}
+            value={state.levelType ?? 'any'}
+            onChange={(v) =>
+              onChange({
+                levelType: v === 'any' ? undefined : (v as LevelType),
+              })
+            }
+          />
+        </FilterGroup>
 
-      <FilterGroup label="Level type">
-        <Segmented
-          options={[{ value: 'any', label: 'Any' }, ...LEVEL_TYPE_OPTIONS]}
-          value={state.levelType ?? 'any'}
-          onChange={(v) =>
-            onChange({
-              levelType: v === 'any' ? undefined : (v as LevelType),
-            })
-          }
-        />
-      </FilterGroup>
+        <FilterGroup label="Song">
+          <Segmented
+            options={[{ value: 'any', label: 'Any' }, ...SONG_TYPE_OPTIONS]}
+            value={state.songType ?? 'any'}
+            onChange={(v) =>
+              onChange({
+                songType: v === 'any' ? undefined : (v as LevelSongType),
+              })
+            }
+          />
+        </FilterGroup>
+      </div>
 
-      <FilterGroup label="Song">
-        <Segmented
-          options={[{ value: 'any', label: 'Any' }, ...SONG_TYPE_OPTIONS]}
-          value={state.songType ?? 'any'}
-          onChange={(v) =>
-            onChange({
-              songType: v === 'any' ? undefined : (v as LevelSongType),
-            })
-          }
-        />
-      </FilterGroup>
+      <div className="grid gap-x-8 gap-y-5 border-t border-border-subtle pt-5 md:grid-cols-2 xl:grid-cols-3">
+        {RANGE_FILTERS.map((cfg) => (
+          <FilterGroup key={cfg.field} label={cfg.label}>
+            <RangeRow
+              label={cfg.label}
+              hideLabel
+              className="px-0 py-0"
+              min={cfg.domain[0]}
+              max={cfg.domain[1]}
+              step={cfg.step}
+              slider={cfg.slider}
+              commitOnRelease
+              value={rangeValue(state, cfg)}
+              onChange={(v) => onChange(rangePatch(cfg, v))}
+              format={cfg.format}
+              parseInput={cfg.parseInput}
+              trackClassName={cfg.trackClassName}
+              trackStyle={cfg.trackStyle}
+            />
+          </FilterGroup>
+        ))}
+      </div>
     </div>
   )
 }

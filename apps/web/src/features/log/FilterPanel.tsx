@@ -8,7 +8,8 @@ import { formatNumber } from '@/lib/numberFormat'
 import { formatEnjoyment, formatScore } from '@/lib/ratingScale'
 import { FilterSection } from './FilterSection'
 import { gddlTrackGradient } from '@/lib/tierColor'
-import { RangeRow, DatePickersRow } from './FilterInputs'
+import { RangeRow } from '@/components/inputs/RangeRow'
+import { DatePickersRow } from './FilterInputs'
 import {
   DEVICES,
   FLAGS,

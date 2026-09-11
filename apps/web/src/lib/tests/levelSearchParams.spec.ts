@@ -13,6 +13,7 @@ import {
   effectiveSortDir,
   hasActiveFilters,
   naturalSortDir,
+  sortSelectionPatch,
   validateSearchState,
   type SearchPageState,
 } from '../levelSearchParams'
@@ -45,12 +46,25 @@ describe('sort direction', () => {
     expect(naturalSortDir('name')).toBe('asc')
   })
 
-  it.each(['relevance', 'downloads', 'likes', 'stars', 'objectCount'] as const)(
-    'starts a %s sort descending',
-    (sort) => {
-      expect(naturalSortDir(sort)).toBe('desc')
-    }
-  )
+  it.each([
+    'relevance',
+    'downloads',
+    'likes',
+    'stars',
+    'gddlTier',
+    'sheetTier',
+    'enjoyment',
+    'duration',
+    'objectCount',
+    'gameVersion',
+  ] as const)('starts a %s sort descending', (sort) => {
+    expect(naturalSortDir(sort)).toBe('desc')
+  })
+
+  // AREDL rank 1 is the hardest level, so the list reads top-down.
+  it('starts an AREDL rank sort ascending', () => {
+    expect(naturalSortDir('aredlRank')).toBe('asc')
+  })
 
   it('gives every declared sort a natural direction', () => {
     for (const option of LEVEL_SORT_OPTIONS) {
@@ -73,6 +87,37 @@ describe('sort direction', () => {
   })
 })
 
+describe('sortSelectionPatch', () => {
+  it('sets the sort with its natural direction', () => {
+    expect(sortSelectionPatch('name')).toEqual({ sort: 'name', sortDir: 'asc' })
+    expect(sortSelectionPatch('likes')).toEqual({
+      sort: 'likes',
+      sortDir: 'desc',
+    })
+  })
+
+  // AREDL and the NLW/LW sheets rank nothing but extreme demons.
+  it.each(['aredlRank', 'sheetTier'] as const)(
+    'narrows a %s sort to extreme demons',
+    (sort) => {
+      expect(sortSelectionPatch(sort).difficulty).toEqual(['demon-extreme'])
+    }
+  )
+
+  it('replaces the difficulty selection rather than adding to it', () => {
+    const next = {
+      ...state({ difficulty: ['easy', 'demon-hard'] }),
+      ...sortSelectionPatch('aredlRank'),
+    }
+
+    expect(next.difficulty).toEqual(['demon-extreme'])
+  })
+
+  it('leaves the difficulty filter alone for any other sort', () => {
+    expect(sortSelectionPatch('gddlTier')).not.toHaveProperty('difficulty')
+  })
+})
+
 describe('hasActiveFilters', () => {
   it('reports nothing set on a fresh state', () => {
     expect(hasActiveFilters(state())).toBe(false)
@@ -87,6 +132,10 @@ describe('hasActiveFilters', () => {
     ['verified coins', { coinsVerified: true }],
     ['level type', { levelType: 'CLASSIC' }],
     ['song type', { songType: 'nong' }],
+    ['range lower bound', { downloadsMin: 1000 }],
+    ['range upper bound', { gddlTierMax: 20 }],
+    // Zero is a real bound, not an absent one.
+    ['zero bound', { sheetTierMin: 0 }],
   ] as const)('notices a %s filter', (_label, patch) => {
     expect(hasActiveFilters(state(patch as never))).toBe(true)
   })
@@ -176,6 +225,8 @@ describe('canEscalateToGd', () => {
     ['a NONG filter', { songType: 'nong' }],
     ['a stars sort', { sort: 'stars' }],
     ['an object-count sort', { sort: 'objectCount' }],
+    ['a GDDL tier sort', { sort: 'gddlTier' }],
+    ['a range bound', { downloadsMin: 1000 }],
   ] as const)('does not forward %s alone', (_label, patch) => {
     expect(canEscalateToGd(state(patch as never))).toBe(false)
   })
@@ -299,6 +350,45 @@ describe('validateSearchState', () => {
     })
   })
 
+  // Checked against core's own limits, so a hand-edited bound is dropped here
+  // instead of earning a 400 the grid would show as a failed search.
+  describe('range bounds', () => {
+    it('keeps a bound the API would accept', () => {
+      expect(
+        validateSearchState({ downloadsMin: 1000, starsMax: 5 })
+      ).toMatchObject({ downloadsMin: 1000, starsMax: 5 })
+    })
+
+    it('coerces a numeric string, since the URL carries text', () => {
+      expect(validateSearchState({ gddlTierMin: '20' }).gddlTierMin).toBe(20)
+    })
+
+    it('keeps a fraction where the field allows one', () => {
+      expect(validateSearchState({ enjoymentMin: 49.5 }).enjoymentMin).toBe(
+        49.5
+      )
+      expect(validateSearchState({ gameVersionMax: 2.1 }).gameVersionMax).toBe(
+        2.1
+      )
+    })
+
+    it.each([
+      ['beyond the field’s limit', { starsMax: 11 }, 'starsMax'],
+      ['below it', { gddlTierMin: 0 }, 'gddlTierMin'],
+      ['fractional on a whole-number field', { downloadsMin: 1.5 }, 'downloadsMin'],
+      ['unparseable', { likesMin: 'lots' }, 'likesMin'],
+      ['blank', { likesMin: '' }, 'likesMin'],
+      ['non-finite', { likesMax: Number.POSITIVE_INFINITY }, 'likesMax'],
+    ] as const)('drops a bound that is %s', (_label, raw, key) => {
+      expect(validateSearchState(raw)[key]).toBeUndefined()
+    })
+
+    // Likes are net of dislikes, so a negative bound is legitimate.
+    it('keeps a negative likes bound', () => {
+      expect(validateSearchState({ likesMax: -5 }).likesMax).toBe(-5)
+    })
+  })
+
   it('survives a URL of complete nonsense', () => {
     expect(() =>
       validateSearchState({
@@ -387,6 +477,23 @@ describe('browseApiQueryString', () => {
     expect(params(state()).has('cursor')).toBe(false)
   })
 
+  it('sends each range bound under its own key', () => {
+    const p = params(state({ downloadsMin: 1000, enjoymentMax: 49.5 }))
+
+    expect(p.get('downloadsMin')).toBe('1000')
+    expect(p.get('enjoymentMax')).toBe('49.5')
+  })
+
+  it('sends a zero bound rather than dropping it', () => {
+    expect(params(state({ sheetTierMin: 0 })).get('sheetTierMin')).toBe('0')
+  })
+
+  it('omits the bounds that are unset', () => {
+    expect(params(state({ downloadsMin: 1000 })).has('downloadsMax')).toBe(
+      false
+    )
+  })
+
   // The URL is the source of truth, so what the page serializes has to come
   // back through validation unchanged.
   it('round-trips a fully-specified state through validation', () => {
@@ -403,10 +510,20 @@ describe('browseApiQueryString', () => {
       coinsVerified: false,
       levelType: 'CLASSIC',
       songType: 'nong',
+      downloadsMin: 1000,
+      gddlTierMax: 20,
+      enjoymentMin: 49.5,
+      gameVersionMin: 2.1,
+      sheetTierMin: 0,
     })
     const p = params(original)
 
     const revalidated = validateSearchState({
+      downloadsMin: p.get('downloadsMin'),
+      gddlTierMax: p.get('gddlTierMax'),
+      enjoymentMin: p.get('enjoymentMin'),
+      gameVersionMin: p.get('gameVersionMin'),
+      sheetTierMin: p.get('sheetTierMin'),
       query: p.get('q') ?? undefined,
       searchBy: p.get('searchBy'),
       sort: p.get('sort'),

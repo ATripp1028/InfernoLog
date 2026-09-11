@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils'
 import {
   LEVEL_SORT_OPTIONS,
   effectiveSortDir,
-  naturalSortDir,
+  sortSelectionPatch,
   type LevelSort,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
@@ -45,19 +45,22 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
             <button
               key={o.value}
               type="button"
-              // Picking a sort resets the direction to that sort's natural one,
-              // so the toggle always starts from a predictable default.
-              onClick={() =>
-                onChange({ sort: o.value, sortDir: naturalSortDir(o.value) })
-              }
+              onClick={() => onChange(sortSelectionPatch(o.value))}
               className={cn(
-                'flex h-9 items-center justify-between rounded-md px-2 text-sm transition-colors',
+                'flex min-h-9 items-center justify-between rounded-md px-2 py-1 text-left text-sm transition-colors',
                 active
                   ? 'bg-primary-dim text-primary'
                   : 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
               )}
             >
-              {o.label}
+              <span className="flex flex-col">
+                {o.label}
+                {o.hint && (
+                  <span className="text-[11px] text-text-tertiary">
+                    {o.hint}
+                  </span>
+                )}
+              </span>
               {active && <Check size={15} />}
             </button>
           )

@@ -1,7 +1,8 @@
 import type { LevelProgressListItem } from '@infernolog/core'
+import type { Range } from '@/components/inputs/useRangeDrafts'
 import type { Device, LevelType, ProgressStatus } from '@/lib/api/wireEnums'
 
-export type { LevelType, ProgressStatus }
+export type { LevelType, ProgressStatus, Range }
 
 /**
  * The rated-status filter. `ALL` means no constraint, which is why it is a single value rather than an empty array like the other multi-selects.
@@ -25,11 +26,6 @@ export type StatusFlag =
   | 'twoPlayer'
   | 'hasCoins'
   | 'verifiedCoins'
-
-/**
- * A [min, max] inclusive range. Equal to its domain means "no constraint".
- */
-export type Range = [number, number]
 
 /**
  * Open-ended date bounds — either bound may be null (= unbounded).

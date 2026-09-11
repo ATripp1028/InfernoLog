@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  formatDuration,
-  formatEnjoyment,
-  formatSongSize,
-} from '../format'
+import { formatEnjoyment, formatSongSize } from '../format'
 
 describe('formatSongSize', () => {
   it.each([
@@ -27,36 +23,6 @@ describe('formatSongSize', () => {
 
   it('returns null for an unknown size', () => {
     expect(formatSongSize(null)).toBeNull()
-  })
-})
-
-describe('formatDuration', () => {
-  it.each([
-    [121, '2:01'],
-    [60, '1:00'],
-    [59, '0:59'],
-    // A zero-second reading is a known duration, not an absent one.
-    [0, '0:00'],
-    // Hours appear only when there are any — "0:02:01" reads as a stopwatch.
-    [3600, '1:00:00'],
-    [3849, '1:04:09'],
-  ])('renders %s seconds as %s', (seconds, expected) => {
-    expect(formatDuration(seconds)).toBe(expected)
-  })
-
-  it('rounds a fractional duration to the nearest second', () => {
-    expect(formatDuration(121.4)).toBe('2:01')
-    expect(formatDuration(121.6)).toBe('2:02')
-  })
-
-  // null is the caller's cue to fall back to RobTop's band, so a nonsense value
-  // has to reach it the same way rather than rendering "NaN:aN".
-  it.each([
-    ['null', null],
-    ['a negative', -5],
-    ['a non-finite number', Number.NaN],
-  ])('returns null for %s', (_label, value) => {
-    expect(formatDuration(value)).toBeNull()
   })
 })
 
