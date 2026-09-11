@@ -11,6 +11,7 @@ export const STEPS = [
   'legal',
   'username',
   'logging',
+  'videos',
   'rating',
   'import',
   'gddl',
@@ -26,6 +27,7 @@ export const STEP_LABELS: Record<Step, string> = {
   legal: 'Terms',
   username: 'Username',
   logging: 'Logging',
+  videos: 'Videos',
   rating: 'Rating',
   import: 'Import',
   gddl: 'GDDL',
@@ -51,9 +53,9 @@ export function isPlaceholderUsername(
  * Where a returning user picks the wizard back up: the first step they have
  * not yet completed.
  *
- * Only the first three steps are resumable — the rest (rating, import, GDDL)
- * are all optional, so there is nothing to detect and the wizard just runs
- * forward from `logging`.
+ * Only the first three steps are resumable — the rest (videos, rating, import,
+ * GDDL) are all optional, so there is nothing to detect and the wizard just
+ * runs forward from `logging`.
  */
 export function initialStep(user: {
   legalAcceptedAt: string | null

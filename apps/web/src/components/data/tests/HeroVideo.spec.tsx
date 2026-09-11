@@ -1,9 +1,23 @@
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import { useMe, type MeData } from '@/lib/api/me'
+import { makeMe, stubQuery } from '@/utils/testUtils'
 import { HeroVideo } from '../HeroVideo'
+
+vi.mock('@/lib/api/me', () => ({ useMe: vi.fn() }))
 
 const YT = 'https://youtu.be/6v_pWirR72Q'
 const CLIP = 'https://clips.twitch.tv/SomeFunnyClipName'
+
+function consent(youtubeEmbedConsent: boolean) {
+  vi.mocked(useMe).mockReturnValue(
+    stubQuery<MeData>({ data: makeMe({ youtubeEmbedConsent }) })
+  )
+}
+
+beforeEach(() => {
+  consent(true)
+})
 
 describe('HeroVideo', () => {
   // The element has no intrinsic height. Without a default box a caller passing
@@ -28,7 +42,7 @@ describe('HeroVideo', () => {
     expect(container.firstElementChild).toHaveClass('rounded-card')
   })
 
-  it('loads YouTube’s own player with the page, named from the label', () => {
+  it('loads YouTube’s own player with the page once the viewer allows it', () => {
     render(<HeroVideo url={YT} label="Showcase" />)
 
     expect(screen.getByTitle('Showcase')).toHaveAttribute(
@@ -36,6 +50,17 @@ describe('HeroVideo', () => {
       'https://www.youtube-nocookie.com/embed/6v_pWirR72Q'
     )
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('keeps YouTube behind the facade until the viewer allows it', () => {
+    consent(false)
+
+    render(<HeroVideo url={YT} />)
+
+    expect(
+      screen.getByRole('button', { name: 'Play completion video' })
+    ).toBeInTheDocument()
+    expect(screen.queryByTitle('Completion video')).not.toBeInTheDocument()
   })
 
   it('names a facade from the label, for the poster and its control', () => {

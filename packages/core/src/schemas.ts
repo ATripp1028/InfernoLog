@@ -197,6 +197,9 @@ export const UpdateMeSchema = z
       .optional(),
     // Not a column — the handler strips this and stamps legalAcceptedAt when true.
     acceptLegal: z.literal(true).optional(),
+    // Not a column — the handler sets youtubeEmbedConsentAt to now when true
+    // and clears it when false.
+    youtubeEmbedConsent: z.boolean().optional(),
     onboardingCompleted: z.boolean().optional(),
   })
   .refine((obj) => Object.keys(obj).length > 0, 'No fields to update')

@@ -10,6 +10,7 @@ import {
   type RatingSectionHandle,
 } from '@/components/inputs/RatingSection'
 import { GddlApiKeyEditor } from '@/components/inputs/GddlApiKeyEditor'
+import { YouTubeEmbedConsentField } from '@/components/inputs/YouTubeEmbedConsentField'
 import { SettingsSection } from '@/components/generic/settings-section'
 import { ImportWizard } from '@/features/import'
 import { LegalAcceptance } from './LegalAcceptance'
@@ -22,7 +23,7 @@ import {
 } from './wizardSteps'
 
 /**
- * First-run setup: legal acceptance, rating configuration, logging defaults, and the optional spreadsheet import.
+ * First-run setup: legal acceptance, logging defaults, YouTube consent, rating configuration, and the optional spreadsheet import.
  */
 export function OnboardingWizard() {
   const me = useMe()
@@ -122,6 +123,18 @@ export function OnboardingWizard() {
         >
           <SettingsSection title="" showSeparator={false}>
             <LoggingPreferencesFields me={me.data} />
+          </SettingsSection>
+        </StepShell>
+      )}
+
+      {step === 'videos' && (
+        <StepShell
+          title="YouTube videos"
+          description="Optional — you can change this anytime in Settings."
+          onContinue={goNext}
+        >
+          <SettingsSection title="" showSeparator={false}>
+            <YouTubeEmbedConsentField me={me.data} />
           </SettingsSection>
         </StepShell>
       )}

@@ -368,6 +368,12 @@ model User {
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
   // accounts, or an in-progress signup).
   legalAcceptedAt     DateTime?
+  // Consent to YouTube's player loading with a page (web HeroVideo), and the
+  // record of it: set when given, during onboarding or in Settings, and
+  // cleared when withdrawn. Null means no consent, which is also the default,
+  // so YouTube loads only once the viewer presses play. The wire carries only
+  // the derived boolean `youtubeEmbedConsent`.
+  youtubeEmbedConsentAt DateTime?
 
   // Privacy — global override. A private profile forces all entries private
   // regardless of per-entry EntryVisibility; see that enum for the current

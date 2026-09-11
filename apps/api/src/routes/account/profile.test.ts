@@ -445,6 +445,29 @@ describe('PATCH /me', () => {
     expect(updateData()).not.toHaveProperty('legalAcceptedAt')
   })
 
+  it('records YouTube consent as a timestamp, not as a column of its own', async () => {
+    const res = await patch({ youtubeEmbedConsent: true })
+
+    expect(res.status).toBe(200)
+    const data = updateData()
+    expect(data).not.toHaveProperty('youtubeEmbedConsent')
+    expect(data.youtubeEmbedConsentAt).toBeInstanceOf(Date)
+  })
+
+  // Withdrawing consent removes the record, rather than leaving a stale
+  // timestamp behind a flag.
+  it('clears the consent timestamp when consent is withdrawn', async () => {
+    await patch({ youtubeEmbedConsent: false })
+
+    expect(updateData()).toEqual({ youtubeEmbedConsentAt: null })
+  })
+
+  it('leaves consent alone when the flag is absent', async () => {
+    await patch({ profilePublic: true })
+
+    expect(updateData()).not.toHaveProperty('youtubeEmbedConsentAt')
+  })
+
   it('returns the serialized user with the ciphertext stripped', async () => {
     prisma.user.update.mockResolvedValue({
       ...updatedUser(),
@@ -457,6 +480,20 @@ describe('PATCH /me', () => {
 
     expect(body.data).not.toHaveProperty('gddlApiKeyEncrypted')
     expect(body.data.hasGddlApiKey).toBe(true)
+  })
+
+  it('reports consent as a boolean, keeping the timestamp server-side', async () => {
+    prisma.user.update.mockResolvedValue({
+      ...updatedUser(),
+      youtubeEmbedConsentAt: new Date(),
+    } as never)
+
+    const body = (await (
+      await patch({ youtubeEmbedConsent: true })
+    ).json()) as { data: Record<string, unknown> }
+
+    expect(body.data.youtubeEmbedConsent).toBe(true)
+    expect(body.data).not.toHaveProperty('youtubeEmbedConsentAt')
   })
 
   it('returns 500 on a database error', async () => {

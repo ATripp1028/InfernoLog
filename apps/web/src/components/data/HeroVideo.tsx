@@ -5,12 +5,14 @@ import { useHeroVideo } from './useHeroVideo'
 /**
  * A video embed sitting where a level page's hero image would.
  *
- * A YouTube video gets YouTube's own player straight away, showing its poster,
- * title and channel and playing on the first tap. A click-to-load facade (our
- * play button over a dark scrim) would cost mobile viewers a second tap, since
- * the tap that loads an embedded player isn't allowed to start it too. A
- * Twitch clip still sits behind that facade until pressed. So does a URL with
- * no embeddable id, whose button does nothing.
+ * A YouTube video gets YouTube's own player straight away once the viewer has
+ * allowed it (YouTubeEmbedConsentField), showing its poster, title and channel
+ * and playing on the first tap. Until then it sits behind a click-to-load
+ * facade (our play button over a dark scrim), and nothing loads from YouTube
+ * until that is pressed. The facade costs mobile viewers a second tap, since
+ * the tap that loads an embedded player isn't allowed to start it too, and
+ * that tap is what consenting buys back. A Twitch clip always sits behind the
+ * facade. So does a URL with no embeddable id, whose button does nothing.
  *
  * Shared by both level pages, which show different videos in that slot — the
  * viewer's own completion run on their page, the level's showcase on the

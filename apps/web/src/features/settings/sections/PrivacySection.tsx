@@ -4,6 +4,7 @@ import {
 } from '@/components/generic/settings-section'
 import { Switch } from '@/components/generic/switch'
 import { toast } from '@/components/generic/sonner'
+import { YouTubeEmbedConsentField } from '@/components/inputs/YouTubeEmbedConsentField'
 import { useUpdateMe, type MeData } from '@/lib/api/me'
 
 interface PrivacySectionProps {
@@ -11,7 +12,8 @@ interface PrivacySectionProps {
 }
 
 /**
- * Profile and Discord visibility.
+ * Profile and Discord visibility, and whether YouTube's player may load with
+ * a page.
  */
 export function PrivacySection({ me }: PrivacySectionProps) {
   const update = useUpdateMe()
@@ -55,6 +57,7 @@ export function PrivacySection({ me }: PrivacySectionProps) {
           }
         />
       )}
+      <YouTubeEmbedConsentField me={me} />
     </SettingsSection>
   )
 }

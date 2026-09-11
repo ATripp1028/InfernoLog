@@ -39,6 +39,9 @@ export const meSelect = {
   gddlUsername: true,
   onboardingCompleted: true,
   legalAcceptedAt: true,
+  // Selected only to derive the `youtubeEmbedConsent` boolean. The timestamp
+  // is the consent record and stays server-side.
+  youtubeEmbedConsentAt: true,
   verifiedAt: true,
   createdAt: true,
 } as const
@@ -61,6 +64,7 @@ export type RawUser = {
   enjoymentWeight: { toNumber(): number } | number
   gddlApiKeyEncrypted?: string | null
   verifiedAt?: Date | null
+  youtubeEmbedConsentAt?: Date | null
   ratingCategories?: Array<{
     id: string
     name: string
@@ -81,12 +85,14 @@ export function serializeMe(user: RawUser) {
     ratingCategories,
     gddlApiKeyEncrypted,
     verifiedAt,
+    youtubeEmbedConsentAt,
     ...rest
   } = user
   return {
     ...rest,
     hasGddlApiKey: Boolean(gddlApiKeyEncrypted),
     isVerified: verifiedAt != null,
+    youtubeEmbedConsent: youtubeEmbedConsentAt != null,
     enjoymentWeight:
       typeof enjoymentWeight === 'number'
         ? enjoymentWeight

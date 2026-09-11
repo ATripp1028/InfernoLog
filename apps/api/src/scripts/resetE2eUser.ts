@@ -155,6 +155,7 @@ async function resetPreferences(userId: string) {
       enjoymentSortOrder: 99,
       showHighlightUrl: false,
       autoExpandFabLabels: true,
+      youtubeEmbedConsentAt: null,
       timeMachineTopN: 10,
       profilePublic: true,
       discordPublic: true,

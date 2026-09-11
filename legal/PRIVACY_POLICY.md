@@ -19,7 +19,7 @@ InfernoLog collects information when you use it. This information may include in
 
 **Cookies and tracking technologies**
 
-InfernoLog or its third-party SDKs may use cookies, SDKs, pixels, and similar technologies to support functionality, analytics, or service delivery. This includes the embedded video players described under Third Party Access, which may store data on your device when a page with a video opens. Where required by applicable law, InfernoLog will obtain consent before using non-essential tracking technologies.
+InfernoLog or its third-party SDKs may use cookies, SDKs, pixels, and similar technologies to support functionality, analytics, or service delivery. This includes the embedded video players described under Third Party Access, which may store data on your device once they load. Where required by applicable law, InfernoLog will obtain consent before using non-essential tracking technologies.
 
 **Your Rights**
 
@@ -39,7 +39,7 @@ InfernoLog shares information with third parties in three ways:
 
 - **Infrastructure providers**, who process data solely on InfernoLog's behalf to operate InfernoLog (hosting, authentication, database storage, error monitoring) and have no independent right to use it.
 - **Services you choose to connect**, where InfernoLog sends your identity or activity data only because you initiated the connection — for example, signing in with a Google account, linking a Discord account, or syncing with a third-party demon list using your own API key. This data is not aggregated or anonymized before being sent, since the connection itself depends on identifying you to that service.
-- **Embedded video players**, which your browser loads directly from the video's provider. A level page with a YouTube completion or showcase video loads YouTube's player as soon as the page opens, whether or not you press play. YouTube (Google) then receives your IP address and browser information, and may store data on your device, under its own privacy policy. InfernoLog uses YouTube's privacy-enhanced mode and shares nothing about your InfernoLog account with YouTube. A Twitch clip's player loads only when you press play.
+- **Embedded video players**, which your browser loads directly from the video's provider. Nothing loads from YouTube until you press play on a video, unless you allow YouTube's player to load as soon as a level page opens, which you can choose during setup and change at any time in Settings. Once YouTube's player loads, YouTube (Google) receives your IP address and browser information, and may store data on your device, under its own privacy policy. InfernoLog uses YouTube's privacy-enhanced mode and shares nothing about your InfernoLog account with YouTube. A Twitch clip's player loads only when you press play.
 
 InfernoLog may share your information with third parties in the ways that are described in this privacy statement.
 
@@ -69,7 +69,7 @@ Services you may choose to connect:
 
 Embedded content (loads directly from the provider when a page shows its video):
 
-- [YouTube](https://policies.google.com/privacy) — the video player on level pages with a YouTube completion or showcase video
+- [YouTube](https://policies.google.com/privacy) — the video player for YouTube completion and showcase videos on level pages, loaded when you press play, or with the page if you allow it in Settings
 - [Twitch](https://legal.twitch.com/legal/privacy-notice/) — the clip player, loaded only when you press play on a Twitch clip
 
 InfernoLog may disclose User Provided and Automatically Collected Information:
