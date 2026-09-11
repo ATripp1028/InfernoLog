@@ -1,22 +1,53 @@
 // Collections API client — /v1/me/collections.
 
 import {
+  useInfiniteQuery,
   useMutation,
   useQueries,
   useQuery,
   useQueryClient,
+  type InfiniteData,
 } from '@tanstack/react-query'
 import type {
+  CollectionOrdering,
   CollectionSummary,
   CollectionDetail,
   CollectionEntry,
+  CopyCollectionEntriesResult,
   CreateCollectionInput,
   UpdateCollectionInput,
 } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
+import {
+  browseApiQueryString,
+  type LevelBrowseResult,
+  type SearchPageState,
+} from '@/lib/levelSearchParams'
 import { apiFetch, ApiError } from './client'
 
-export type { CollectionSummary, CollectionDetail, CollectionEntry }
+export type {
+  CollectionSummary,
+  CollectionDetail,
+  CollectionEntry,
+  CopyCollectionEntriesResult,
+}
+
+/**
+ * A row of a collection's browse: a search row plus the entry id its remove
+ * button needs. Mirrors core's CollectionBrowseResultSchema as plain TS, like
+ * {@link LevelBrowseResult} (JSON carries its dates as strings).
+ */
+export interface CollectionBrowseRow extends LevelBrowseResult {
+  entryId: string
+}
+
+/**
+ * One page of a collection's browse plus the keyset cursor for the next.
+ */
+export interface CollectionBrowsePage {
+  data: CollectionBrowseRow[]
+  nextCursor: string | null
+}
 
 /**
  * Machine-readable error codes the collections API returns in `error`.
@@ -55,6 +86,13 @@ export const collectionsQueryKey = ['collections'] as const
  * Cache key for one collection's full detail, including its entries.
  */
 export const collectionQueryKey = (id: string) => ['collections', id] as const
+/**
+ * Prefix of every browse of one collection (one query per sort/filter state).
+ * Nested under {@link collectionQueryKey}, so anything that invalidates or
+ * removes the detail by prefix takes the browses with it.
+ */
+export const collectionBrowseQueryKey = (id: string) =>
+  [...collectionQueryKey(id), 'browse'] as const
 
 /**
  * The collections index. Built-ins and custom collections come back together.
@@ -120,11 +158,41 @@ export function useCollectionDetails(ids: string[], enabled = true) {
   })
 }
 
-// Writes cache the returned detail and refresh the index (counts/previews).
+/**
+ * One collection's levels, sorted and filtered like the /search page — what an
+ * unordered collection's page lists. Infinite query keyed on the full browse
+ * state; each page threads the previous page's opaque keyset cursor.
+ */
+export function useCollectionBrowse(
+  collectionId: string,
+  state: SearchPageState
+) {
+  const { isAuthenticated, getIdToken } = useAuth()
+  return useInfiniteQuery({
+    queryKey: [...collectionBrowseQueryKey(collectionId), state],
+    enabled: isAuthenticated && !!collectionId,
+    staleTime: 30_000,
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last: CollectionBrowsePage) =>
+      last.nextCursor ?? undefined,
+    queryFn: async ({ pageParam }): Promise<CollectionBrowsePage> => {
+      const token = await getIdToken()
+      const qs = browseApiQueryString(state, pageParam)
+      return apiFetch<CollectionBrowsePage>(
+        `/v1/me/collections/${encodeURIComponent(collectionId)}/levels?${qs}`,
+        { token, method: 'GET' }
+      )
+    },
+  })
+}
+
+// Writes cache the returned detail, refetch that collection's browses (its
+// membership may have changed), and refresh the index (counts/previews).
 function useApplyDetail() {
   const qc = useQueryClient()
   return (detail: CollectionDetail) => {
     qc.setQueryData(collectionQueryKey(detail.id), detail)
+    void qc.invalidateQueries({ queryKey: collectionBrowseQueryKey(detail.id) })
     void qc.invalidateQueries({ queryKey: collectionsQueryKey, exact: true })
   }
 }
@@ -242,7 +310,9 @@ export function useRemoveCollectionEntry() {
       )
       return data
     },
-    // Optimistic removal so the row disappears immediately.
+    // Optimistic removal so the row disappears immediately — from the detail
+    // and from any browse of the collection that is showing it. (The prefix
+    // cancel below covers the browses too.)
     onMutate: async (vars) => {
       const key = collectionQueryKey(vars.collectionId)
       await qc.cancelQueries({ queryKey: key })
@@ -253,14 +323,80 @@ export function useRemoveCollectionEntry() {
           entries: previous.entries.filter((e) => e.id !== vars.entryId),
         })
       }
+      qc.setQueriesData<InfiniteData<CollectionBrowsePage>>(
+        { queryKey: collectionBrowseQueryKey(vars.collectionId) },
+        (old) =>
+          old && {
+            ...old,
+            pages: old.pages.map((page) => ({
+              ...page,
+              data: page.data.filter((row) => row.entryId !== vars.entryId),
+            })),
+          }
+      )
       return { previous }
     },
     onError: (_e, vars, ctx) => {
       if (ctx?.previous) {
         qc.setQueryData(collectionQueryKey(vars.collectionId), ctx.previous)
       }
+      void qc.invalidateQueries({
+        queryKey: collectionBrowseQueryKey(vars.collectionId),
+      })
     },
     onSuccess: applyDetail,
+  })
+}
+
+/**
+ * Switches a collection between ordered and unordered. Going unordered
+ * discards the curated order; either way the entries are renumbered by level
+ * ID. Fails with `ORDERING_FIXED` for Favorites and Least Favorites.
+ */
+export function useSetCollectionOrdering() {
+  const { getIdToken } = useAuth()
+  const applyDetail = useApplyDetail()
+  return useMutation({
+    mutationFn: async (vars: {
+      collectionId: string
+      ordering: CollectionOrdering
+    }): Promise<CollectionDetail> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: CollectionDetail }>(
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}/ordering`,
+        { token, method: 'PUT', body: { ordering: vars.ordering } }
+      )
+      return data
+    },
+    onSuccess: applyDetail,
+  })
+}
+
+/**
+ * Adds every level of `sourceCollectionId` that `collectionId` lacks. Into
+ * Want to Beat, beaten levels are skipped (and counted) rather than failing
+ * the copy.
+ */
+export function useCopyCollectionEntries() {
+  const { getIdToken } = useAuth()
+  const applyDetail = useApplyDetail()
+  return useMutation({
+    mutationFn: async (vars: {
+      collectionId: string
+      sourceCollectionId: string
+    }): Promise<CopyCollectionEntriesResult> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: CopyCollectionEntriesResult }>(
+        `/v1/me/collections/${encodeURIComponent(vars.collectionId)}/entries/copy`,
+        {
+          token,
+          method: 'POST',
+          body: { sourceCollectionId: vars.sourceCollectionId },
+        }
+      )
+      return data
+    },
+    onSuccess: (result) => applyDetail(result.collection),
   })
 }
 

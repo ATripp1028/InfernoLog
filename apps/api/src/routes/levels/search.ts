@@ -11,68 +11,17 @@
 
 import { Hono } from 'hono'
 import { Prisma } from '@prisma/client'
-import {
-  LEVEL_RANGE_FIELDS,
-  LevelBrowseQuerySchema,
-  MAX_SEARCH_QUERY_LENGTH,
-} from '@infernolog/core'
+import { MAX_SEARCH_QUERY_LENGTH } from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { runGdSearch } from '../../services/levels/gdSearch'
 import { resolveLevelDifficulty } from '../../services/levels/difficulty'
 import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 import { browseLevels } from '../../services/levels/browse'
+import { parseBrowseQuery } from '../../utils/browseQuery'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
-
-// Parses the shared browse/filter query string (arrays as repeated params,
-// booleans as "true"/"false", coin counts and range bounds as numbers) and
-// validates it. Used by both GET /v1/levels/browse and the filter-forwarding
-// GET /v1/levels/gd-search.
-function parseBrowseQuery(sp: URLSearchParams) {
-  const parseBool = (key: string): boolean | undefined => {
-    const v = sp.get(key)
-    if (v === 'true') return true
-    if (v === 'false') return false
-    return undefined
-  }
-  const arr = (key: string): string[] | undefined => {
-    const v = sp.getAll(key)
-    return v.length > 0 ? v : undefined
-  }
-  // An empty param is absent, not zero (Number('') is 0). Anything else that
-  // isn't numeric becomes NaN, which the schema rejects with a 400.
-  const num = (key: string): number | undefined => {
-    const v = sp.get(key)
-    return v === null || v.trim() === '' ? undefined : Number(v)
-  }
-  const ranges = Object.fromEntries(
-    LEVEL_RANGE_FIELDS.flatMap((f) => [
-      [`${f}Min`, num(`${f}Min`)],
-      [`${f}Max`, num(`${f}Max`)],
-    ])
-  )
-  return LevelBrowseQuerySchema.safeParse({
-    ...ranges,
-    q: sp.get('q') ?? undefined,
-    searchBy: sp.get('searchBy') ?? undefined,
-    sort: sp.get('sort') ?? undefined,
-    sortDir: sp.get('sortDir') ?? undefined,
-    cursor: sp.get('cursor') ?? undefined,
-    difficulty: arr('difficulty'),
-    rateStatus: arr('rateStatus'),
-    twoPlayer: parseBool('twoPlayer'),
-    coinCount: sp.getAll('coinCount').length
-      ? sp.getAll('coinCount').map(Number)
-      : undefined,
-    coinsVerified: parseBool('coinsVerified'),
-    length: arr('length'),
-    levelType: sp.get('levelType') ?? undefined,
-    songType: sp.get('songType') ?? undefined,
-    sheetTier: num('sheetTier'),
-  })
-}
 
 // GET /v1/levels/search?q= — name search backed by the pg_trgm GIN index.
 // Two complementary matchers, both index-supported by gin_trgm_ops:

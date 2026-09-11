@@ -7,7 +7,10 @@
 //                   GET    /v1/me/collections/:collectionId
 //                   PATCH  /v1/me/collections/:collectionId
 //                   DELETE /v1/me/collections/:collectionId
-//   entries.ts      POST   /v1/me/collections/:collectionId/entries
+//                   PUT    /v1/me/collections/:collectionId/ordering
+//   entries.ts      GET    /v1/me/collections/:collectionId/levels
+//                   POST   /v1/me/collections/:collectionId/entries
+//                   POST   /v1/me/collections/:collectionId/entries/copy
 //                   PATCH  /v1/me/collections/:collectionId/entries/:entryId
 //                   DELETE /v1/me/collections/:collectionId/entries/:entryId
 //

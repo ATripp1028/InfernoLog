@@ -14,14 +14,22 @@
 // accepts levels the user has NOT completed, and a level is auto-removed from
 // it when a completion is logged (removeFromWantToBeat is called inside the
 // completion write paths' transactions).
+//
+// Ordering: a collection is ORDERED (the fractional index above is its order)
+// or UNORDERED (no curated order — the page browses it through
+// browseCollection with the /search sorts and filters). Favorites and Least
+// Favorites are always ordered.
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import {
   COLLECTION_ERRORS,
+  isCollectionOrderingConvertible,
   isReservedCollectionName,
   type CollectionErrorCode,
+  type CollectionOrdering,
   type CreateCollectionInput,
+  type LevelBrowseQuery,
   type UpdateCollectionInput,
   type ReorderCollectionEntryInput,
 } from '@infernolog/core'
@@ -33,6 +41,7 @@ import {
   mapLevel,
   type CompletionRefs,
 } from '../levels/row'
+import { browseLevels } from '../levels/browse'
 
 type Tx = Prisma.TransactionClient
 
@@ -100,6 +109,7 @@ export async function getCollections(userId: string) {
       id: true,
       name: true,
       type: true,
+      ordering: true,
       description: true,
       createdAt: true,
       _count: { select: { entries: true } },
@@ -119,6 +129,7 @@ export async function getCollections(userId: string) {
     id: c.id,
     name: c.name,
     type: c.type,
+    ordering: c.ordering,
     description: c.description,
     entryCount: c._count.entries,
     previewLevelIds: c.entries.map((e) => e.levelId),
@@ -169,6 +180,7 @@ export async function getCollectionDetail(
       id: true,
       name: true,
       type: true,
+      ordering: true,
       description: true,
       createdAt: true,
       entries: {
@@ -193,6 +205,7 @@ export async function getCollectionDetail(
     id: collection.id,
     name: collection.name,
     type: collection.type,
+    ordering: collection.ordering,
     description: collection.description,
     createdAt: collection.createdAt,
     entries: collection.entries.map((e) => {
@@ -249,7 +262,8 @@ async function assertNameAvailable(
  * Creates a custom collection.
  *
  * @param userId - Internal user UUID from the JWT.
- * @param input - Name and optional description; both are trimmed.
+ * @param input - Name and optional description, both trimmed, and the
+ * ordering (ORDERED when omitted).
  * @returns The new collection in {@link getCollectionDetail} shape.
  * @throws {CollectionError} `RESERVED_NAME` (422) for a built-in name, or
  * `DUPLICATE_NAME` (409) if the user already has one by that name
@@ -265,6 +279,7 @@ export async function createCollection(
       userId,
       name: input.name.trim(),
       type: 'CUSTOM',
+      ordering: input.ordering ?? 'ORDERED',
       description: input.description?.trim() || null,
     },
     select: { id: true },
@@ -281,7 +296,7 @@ async function requireCollection(
 ) {
   const collection = await prisma.collection.findFirst({
     where: { id: collectionId, userId },
-    select: { id: true, type: true, name: true },
+    select: { id: true, type: true, name: true, ordering: true },
   })
   if (!collection) throw new CollectionNotFoundError('Collection not found')
   if (customOnly && collection.type !== 'CUSTOM') {
@@ -338,6 +353,72 @@ export async function deleteCollection(userId: string, collectionId: string) {
   await requireCollection(userId, collectionId, { customOnly: true })
   // Entries cascade via the FK.
   await prisma.collection.delete({ where: { id: collectionId } })
+}
+
+// Level ids are digits-only (LevelIdSchema), so length-then-text is numeric
+// order without a cast that one malformed id could fail.
+function compareLevelIds(a: string, b: string): number {
+  return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0)
+}
+
+// Rewrites a collection's indices to 1 … N in level-ID order, in one
+// statement. Runs inside the caller's transaction.
+async function renumberByLevelId(tx: Tx, collectionId: string): Promise<void> {
+  await tx.$executeRaw`
+    UPDATE "collection_entries" AS ce
+    SET "rankingIndex" = r.pos
+    FROM (
+      SELECT "id",
+             ROW_NUMBER() OVER (ORDER BY LENGTH("levelId"), "levelId") AS pos
+      FROM "collection_entries"
+      WHERE "collectionId" = ${collectionId}
+    ) AS r
+    WHERE ce."id" = r."id"
+  `
+}
+
+/**
+ * Switches a collection between ORDERED and UNORDERED.
+ *
+ * Either direction renumbers the entries by level ID. Going UNORDERED, that is
+ * the curated order being discarded — the client warns before it asks. Going
+ * ORDERED, it means the collection starts in the order its unordered view
+ * showed by default, rather than in whatever order levels happened to be
+ * added. Setting the ordering a collection already has is a no-op.
+ *
+ * @param userId - Internal user UUID from the JWT.
+ * @param collectionId - Any collection but Favorites / Least Favorites.
+ * @param ordering - The ordering to switch to.
+ * @returns The collection in {@link getCollectionDetail} shape.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ * @throws {CollectionError} `ORDERING_FIXED` (403) for Favorites or Least
+ * Favorites, which are always ordered.
+ */
+export async function setCollectionOrdering(
+  userId: string,
+  collectionId: string,
+  ordering: CollectionOrdering
+) {
+  const collection = await requireCollection(userId, collectionId, {
+    customOnly: false,
+  })
+  if (!isCollectionOrderingConvertible(collection.type)) {
+    throw new CollectionError(
+      COLLECTION_ERRORS.ORDERING_FIXED,
+      403,
+      `${collection.name} is always ordered`
+    )
+  }
+  if (collection.ordering !== ordering) {
+    await prisma.$transaction(async (tx) => {
+      await tx.collection.update({
+        where: { id: collectionId },
+        data: { ordering },
+      })
+      await renumberByLevelId(tx, collectionId)
+    })
+  }
+  return getCollectionDetail(userId, collectionId)
 }
 
 // ─────────────────────────────────────────────
@@ -553,6 +634,139 @@ export async function reorderEntry(
   })
 
   return getCollectionDetail(userId, collectionId)
+}
+
+/**
+ * Adds every level of one collection that another lacks.
+ *
+ * New entries are appended to the target in the source's display order —
+ * its curated order if ORDERED, level-ID order if not. Levels the target
+ * already holds are left where they are. Want to Beat's membership rule
+ * applies as it does to a single add, except that a beaten level is skipped
+ * and counted rather than failing the whole copy.
+ *
+ * @param userId - Internal user UUID from the JWT; owns both collections.
+ * @param targetId - The collection receiving the levels.
+ * @param sourceId - The collection whose levels are copied. It is not changed.
+ * @returns The target in {@link getCollectionDetail} shape, plus how many
+ * levels were added, already present, and skipped as beaten.
+ * @throws {CollectionError} `SAME_COLLECTION` (422) when source and target
+ * are the same collection.
+ * @throws {CollectionNotFoundError} Either collection doesn't exist for this
+ * user.
+ */
+export async function copyEntries(
+  userId: string,
+  targetId: string,
+  sourceId: string
+) {
+  if (targetId === sourceId) {
+    throw new CollectionError(
+      COLLECTION_ERRORS.SAME_COLLECTION,
+      422,
+      'A collection cannot be added to itself'
+    )
+  }
+  const target = await requireCollection(userId, targetId, {
+    customOnly: false,
+  })
+  const source = await requireCollection(userId, sourceId, {
+    customOnly: false,
+  })
+
+  const counts = await prisma.$transaction(async (tx) => {
+    const sourceEntries = await tx.collectionEntry.findMany({
+      where: { collectionId: sourceId },
+      orderBy: { rankingIndex: 'asc' },
+      select: { levelId: true },
+    })
+    const sourceIds = sourceEntries.map((e) => e.levelId)
+    if (source.ordering === 'UNORDERED') sourceIds.sort(compareLevelIds)
+
+    const present = await tx.collectionEntry.findMany({
+      where: { collectionId: targetId, levelId: { in: sourceIds } },
+      select: { levelId: true },
+    })
+    const presentIds = new Set(present.map((e) => e.levelId))
+    let toAdd = sourceIds.filter((id) => !presentIds.has(id))
+
+    // Want to Beat only holds levels without a completion.
+    let skippedCompleted = 0
+    if (target.type === 'WANT_TO_BEAT' && toAdd.length > 0) {
+      const completed = await tx.levelProgress.findMany({
+        where: {
+          userId,
+          levelId: { in: toAdd },
+          progressUpdates: { some: { kind: 'COMPLETION' } },
+        },
+        select: { levelId: true },
+      })
+      const completedIds = new Set(completed.map((c) => c.levelId))
+      skippedCompleted = toAdd.filter((id) => completedIds.has(id)).length
+      toAdd = toAdd.filter((id) => !completedIds.has(id))
+    }
+
+    let added = 0
+    if (toAdd.length > 0) {
+      const last = await tx.collectionEntry.findFirst({
+        where: { collectionId: targetId },
+        orderBy: { rankingIndex: 'desc' },
+        select: { rankingIndex: true },
+      })
+      let index = last?.rankingIndex ?? null
+      const data = toAdd.map((levelId) => {
+        index = bisectIndices(index, null)
+        return { collectionId: targetId, levelId, rankingIndex: index }
+      })
+      // skipDuplicates: a concurrent single add of the same level must not
+      // fail the whole copy on the (collection, level) unique.
+      const result = await tx.collectionEntry.createMany({
+        data,
+        skipDuplicates: true,
+      })
+      added = result.count
+    }
+
+    return { added, alreadyPresent: presentIds.size, skippedCompleted }
+  })
+
+  return {
+    ...counts,
+    collection: await getCollectionDetail(userId, targetId),
+  }
+}
+
+/**
+ * One page of a collection's levels, sorted and filtered like the /search
+ * page — what an UNORDERED collection's page shows (an ORDERED one may use it
+ * too). Each row carries the entry id its remove button needs.
+ *
+ * @param userId - Internal user UUID from the JWT; must own the collection.
+ * @param collectionId - The collection to browse.
+ * @param query - The same validated query GET /v1/levels/browse takes.
+ * @returns One page of rows plus `nextCursor`, null on the last page.
+ * @throws {CollectionNotFoundError} No such collection for this user.
+ */
+export async function browseCollection(
+  userId: string,
+  collectionId: string,
+  query: LevelBrowseQuery
+) {
+  await requireCollection(userId, collectionId, { customOnly: false })
+  const page = await browseLevels(query, { collectionId })
+  const entries = await prisma.collectionEntry.findMany({
+    where: { collectionId, levelId: { in: page.data.map((r) => r.inGameId) } },
+    select: { id: true, levelId: true },
+  })
+  const entryIds = new Map(entries.map((e) => [e.levelId, e.id]))
+  return {
+    // A row whose entry was removed between the two reads is dropped.
+    data: page.data.flatMap((row) => {
+      const entryId = entryIds.get(row.inGameId)
+      return entryId ? [{ ...row, entryId }] : []
+    }),
+    nextCursor: page.nextCursor,
+  }
 }
 
 /**

@@ -139,6 +139,29 @@ describe('collection CRUD', () => {
     })
   })
 
+  it('creates an ordered collection by default, unordered when asked', async () => {
+    const { user } = await seedAccount()
+
+    const ordered = await send(user.id, 'POST', base, { name: 'Ranked' })
+    const unordered = await send(user.id, 'POST', base, {
+      name: 'Backlog',
+      ordering: 'UNORDERED',
+    })
+
+    expect(await ordered.json()).toMatchObject({
+      data: { ordering: 'ORDERED' },
+    })
+    expect(await unordered.json()).toMatchObject({
+      data: { ordering: 'UNORDERED' },
+    })
+    const list = (await (await send(user.id, 'GET', base)).json()) as {
+      data: Array<{ name: string; ordering: string }>
+    }
+    expect(list.data.find((c) => c.name === 'Backlog')?.ordering).toBe(
+      'UNORDERED'
+    )
+  })
+
   it('rejects duplicate names (409) and reserved names (422), case-insensitively', async () => {
     const { user } = await seedAccount()
     await send(user.id, 'POST', base, { name: 'My Picks' })

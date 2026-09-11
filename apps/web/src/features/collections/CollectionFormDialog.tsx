@@ -1,7 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { RESERVED_COLLECTION_NAMES } from '@infernolog/core'
+import {
+  CollectionOrdering,
+  RESERVED_COLLECTION_NAMES,
+} from '@infernolog/core'
 import { Button } from '@/components/generic/button'
+import { Segmented } from '@/components/generic/segmented'
 import { Textarea } from '@/components/generic/textarea'
 import { cn } from '@/lib/utils'
 import { Modal } from '@/components/generic/modal'
@@ -11,13 +15,21 @@ import {
   type CollectionDetail,
 } from '@/lib/api/collections'
 
+const ORDERING_OPTIONS = [
+  { value: CollectionOrdering.ORDERED, label: 'Ordered' },
+  { value: CollectionOrdering.UNORDERED, label: 'Unordered' },
+]
+
 interface CollectionFormDialogProps {
   open: boolean
   onClose: () => void
   // Resolves when the save succeeds; rejects with the ApiError otherwise.
+  // `ordering` is sent on create only — an existing collection converts
+  // through its page's FAB, which warns before discarding an order.
   onSave: (input: {
     name: string
     description: string | null
+    ordering?: CollectionOrdering
   }) => Promise<unknown>
   isSaving: boolean
   // Edit mode: seed with the collection being edited (its own name is
@@ -48,12 +60,14 @@ export function CollectionFormDialog({
   const collections = useCollections()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [ordering, setOrdering] = useState(CollectionOrdering.ORDERED)
   const [serverError, setServerError] = useState<string | null>(null)
 
   useEffect(() => {
     if (open) {
       setName(editing?.name ?? '')
       setDescription(editing?.description ?? '')
+      setOrdering(CollectionOrdering.ORDERED)
       setServerError(null)
     }
   }, [open, editing])
@@ -82,7 +96,8 @@ export function CollectionFormDialog({
     if (!canSave) return
     setServerError(null)
     try {
-      await onSave({ name: trimmed, description: description.trim() || null })
+      const fields = { name: trimmed, description: description.trim() || null }
+      await onSave(editing ? fields : { ...fields, ordering })
     } catch (err) {
       const code = collectionErrorCode(err)
       if (code === 'DUPLICATE_NAME') {
@@ -156,6 +171,24 @@ export function CollectionFormDialog({
           className="resize-none"
         />
       </div>
+
+      {!editing && (
+        <div className="flex flex-col gap-2">
+          <span className="text-[13px] font-medium text-text-secondary">
+            Type
+          </span>
+          <Segmented
+            options={ORDERING_OPTIONS}
+            value={ordering}
+            onChange={setOrdering}
+          />
+          <p className="text-xs text-text-tertiary">
+            {ordering === CollectionOrdering.ORDERED
+              ? 'You drag levels into your own order.'
+              : 'Levels have no set order — sort and filter them like on the search page. You can convert it later.'}
+          </p>
+        </div>
+      )}
     </div>
   )
 

@@ -537,3 +537,44 @@ describe('browseLevels — pagination', () => {
     }
   )
 })
+
+// ─── level ID + collection scope ─────────────────────────────────────────────
+
+describe('browseLevels — level ID and collection scope', () => {
+  it('sorts level ids as numbers, oldest first by default', async () => {
+    // Lexically "1000" would sort before "300".
+    await browseLevels(query({ sort: 'levelId' }))
+
+    const { text } = lastSql()
+    expect(text).toContain('"inGameId"::float8')
+    expect(text).toMatch(/\) ASC, "inGameId" ASC/)
+  })
+
+  it('matches a digits-only name query against the level id too', async () => {
+    await browseLevels(query({ q: '4284013' }))
+
+    expect(whereClause()).toContain('"inGameId" = ?')
+    expect(lastSql().values).toContain('4284013')
+  })
+
+  it('does not read a creator query as a level id', async () => {
+    await browseLevels(query({ q: '71', searchBy: 'creator' }))
+
+    expect(whereClause()).not.toContain('"inGameId" =')
+  })
+
+  it("narrows to one collection's levels when scoped", async () => {
+    await browseLevels(query({ sort: 'levelId' }), { collectionId: 'c-1' })
+
+    expect(whereClause()).toContain(
+      'SELECT "levelId" FROM "collection_entries" WHERE "collectionId" = ?'
+    )
+    expect(lastSql().values).toContain('c-1')
+  })
+
+  it('adds no collection predicate when unscoped', async () => {
+    await browseLevels(query({ sort: 'levelId' }))
+
+    expect(lastSql().text).not.toContain('collection_entries')
+  })
+})

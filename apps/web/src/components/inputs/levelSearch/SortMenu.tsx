@@ -5,19 +5,26 @@ import {
   effectiveSortDir,
   sortSelectionPatch,
   type LevelSort,
+  type LevelSortOption,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 
 interface SortMenuProps {
   state: SearchPageState
   onChange: (patch: Partial<SearchPageState>) => void
+  /** The sorts offered; defaults to the /search page's. */
+  options?: readonly LevelSortOption[]
 }
 
 /**
  * The sort menu body (rendered inside a popover from the bar's sort button): the
  * sort options plus an explicit ascending/descending toggle.
  */
-export function SortMenu({ state, onChange }: SortMenuProps) {
+export function SortMenu({
+  state,
+  onChange,
+  options = LEVEL_SORT_OPTIONS,
+}: SortMenuProps) {
   const dir = effectiveSortDir(state)
 
   return (
@@ -39,7 +46,7 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
       </div>
 
       <div className="flex flex-col">
-        {LEVEL_SORT_OPTIONS.map((o) => {
+        {options.map((o) => {
           const active = state.sort === o.value
           return (
             <button
@@ -73,6 +80,9 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
 /**
  * Compact label for the bar's sort trigger.
  */
-export function sortTriggerLabel(sort: LevelSort): string {
-  return LEVEL_SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Sort'
+export function sortTriggerLabel(
+  sort: LevelSort,
+  options: readonly LevelSortOption[] = LEVEL_SORT_OPTIONS
+): string {
+  return options.find((o) => o.value === sort)?.label ?? 'Sort'
 }

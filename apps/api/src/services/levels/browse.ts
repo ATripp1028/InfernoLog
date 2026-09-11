@@ -112,11 +112,13 @@ interface SortDef {
   type: 'num' | 'text'
 }
 
-// The direction used when the request doesn't override sortDir: names read A→Z
-// and AREDL rank 1 is the hardest, so both start ascending; every other sort is
-// more useful highest-first.
+// The direction used when the request doesn't override sortDir: names read A→Z,
+// AREDL rank 1 is the hardest, and level IDs run oldest-first, so those start
+// ascending; every other sort is more useful highest-first.
 function naturalDir(sort: LevelSort): Dir {
-  return sort === 'name' || sort === 'aredlRank' ? 'ASC' : 'DESC'
+  return sort === 'name' || sort === 'aredlRank' || sort === 'levelId'
+    ? 'ASC'
+    : 'DESC'
 }
 
 function sortDef(
@@ -132,6 +134,17 @@ function sortDef(
   switch (sort) {
     case 'relevance':
       return { expr: Prisma.sql`(${rel})::float8`, type: 'num' }
+    case 'levelId':
+      // Numeric, not lexical — "99" is older than "100". Ids are digits-only
+      // (LevelIdSchema); the guard keeps one malformed row from failing the
+      // cast for the whole query.
+      return {
+        expr: nullsLast(
+          Prisma.sql`(CASE WHEN "inGameId" ~ '^[0-9]+$' THEN "inGameId"::float8 END)`,
+          dir
+        ),
+        type: 'num',
+      }
     // Descending downloads/likes keep their original -1 sentinel, literally:
     // the expression indexes from migration 20260804000100 are built on exactly
     // `(COALESCE(col, -1))::float8`, and a different sentinel is a different
@@ -228,11 +241,15 @@ function decodeCursor(c: string): { v: number | string; id: string } | null {
  *
  * @param query - Validated filters, sort, direction, and opaque cursor. A
  * `relevance` sort with no query term falls back to `downloads`, the natural
- * default for "browse the cache by filter".
+ * default for "browse the cache by filter". A digits-only name query also
+ * matches that exact level ID.
+ * @param scope - Narrows the browse to one collection's levels. The caller
+ * owns the ownership check — this only filters.
  * @returns One page of rows plus `nextCursor`, which is null on the last page.
  */
 export async function browseLevels(
-  query: LevelBrowseQuery
+  query: LevelBrowseQuery,
+  scope: { collectionId?: string } = {}
 ): Promise<{ data: LevelBrowseResult[]; nextCursor: string | null }> {
   const { searchBy, cursor } = query
   const trimmed = query.q?.trim() ?? ''
@@ -245,12 +262,25 @@ export async function browseLevels(
 
   const conds: Prisma.Sql[] = []
 
+  if (scope.collectionId) {
+    conds.push(
+      Prisma.sql`"inGameId" IN (SELECT "levelId" FROM "collection_entries" WHERE "collectionId" = ${scope.collectionId})`
+    )
+  }
+
   if (trimmed.length > 0) {
     // Escape ILIKE wildcards so a literal "100%" matches literally.
     const likePattern = `%${trimmed.replace(/[\\%_]/g, '\\$&')}%`
     const col =
       searchBy === 'creator' ? Prisma.sql`"creator"` : Prisma.sql`"name"`
-    conds.push(Prisma.sql`(${col} ILIKE ${likePattern} OR ${col} % ${trimmed})`)
+    const text = Prisma.sql`${col} ILIKE ${likePattern} OR ${col} % ${trimmed}`
+    // The /search bar turns a number into a jump to that level's page, so this
+    // only matters where a number is a browse term — a collection's own bar.
+    conds.push(
+      searchBy === 'name' && /^\d+$/.test(trimmed)
+        ? Prisma.sql`("inGameId" = ${trimmed} OR ${text})`
+        : Prisma.sql`(${text})`
+    )
   }
 
   if (query.difficulty?.length) {

@@ -58,9 +58,12 @@ export type LevelSongType = 'official' | 'custom' | 'nong'
  */
 export type LevelSearchBy = 'name' | 'creator'
 /**
- * Browse orderings. `relevance` is the server's default and is only meaningful with a text query.
+ * Browse orderings. `relevance` is the server's default and is only meaningful
+ * with a text query. `levelId` is upload order — the unordered-collection
+ * default, and not offered on /search.
  */
 export type LevelSort =
+  | 'levelId'
   | 'relevance'
   | 'likes'
   | 'downloads'
@@ -179,11 +182,14 @@ export const DEFAULT_SEARCH_STATE: SearchPageState = {
 
 /**
  * Each sort's default direction; the UI toggle overrides it via `sortDir`.
- * Names read A→Z and AREDL rank 1 is the hardest level, so both start
- * ascending; everything else is more useful highest-first.
+ * Names read A→Z, AREDL rank 1 is the hardest level, and level IDs read
+ * oldest-first, so those start ascending; everything else is more useful
+ * highest-first.
  */
 export function naturalSortDir(sort: LevelSort): LevelSortDir {
-  return sort === 'name' || sort === 'aredlRank' ? 'asc' : 'desc'
+  return sort === 'name' || sort === 'aredlRank' || sort === 'levelId'
+    ? 'asc'
+    : 'desc'
 }
 
 /**
@@ -218,14 +224,20 @@ export function sortSelectionPatch(sort: LevelSort): Partial<SearchPageState> {
  * makes it meaningful. Picking one narrows difficulty to Extreme Demon (see
  * {@link sortSelectionPatch}); if anything later clears or widens that — Clear
  * all, toggling a difficulty face, a hand-edited URL — the sort falls back to
- * the default, rather than ranking non-extremes, which neither list places, as
- * one undifferentiated block after the extremes.
+ * the page's default, rather than ranking non-extremes, which neither list
+ * places, as one undifferentiated block after the extremes.
+ *
+ * @param fallback - The page's default sort: relevance on /search, level ID
+ * on a collection.
  */
-export function reconcileExtremeSort(s: SearchPageState): SearchPageState {
+export function reconcileExtremeSort(
+  s: SearchPageState,
+  fallback: LevelSort = DEFAULT_SEARCH_STATE.sort
+): SearchPageState {
   if (!EXTREME_ONLY_SORTS.includes(s.sort)) return s
   const d = s.difficulty
   if (d?.length === 1 && d[0] === 'demon-extreme') return s
-  return { ...s, sort: DEFAULT_SEARCH_STATE.sort, sortDir: undefined }
+  return { ...s, sort: fallback, sortDir: undefined }
 }
 
 /**
@@ -334,15 +346,20 @@ export const LEVEL_TYPE_OPTIONS: { value: LevelType; label: string }[] = [
 ]
 
 /**
- * The browse sort menu. Distinct from the Log page's `LIST_SORT_OPTIONS`, which
- * sorts logged rows rather than levels. `hint` is a note shown under the label
- * for a sort that also changes the filters (see {@link sortSelectionPatch}).
+ * One entry in a browse sort menu. `hint` is a note shown under the label for
+ * a sort that also changes the filters (see {@link sortSelectionPatch}).
  */
-export const LEVEL_SORT_OPTIONS: {
+export interface LevelSortOption {
   value: LevelSort
   label: string
   hint?: string
-}[] = [
+}
+
+/**
+ * The /search sort menu. Distinct from the Log page's `LIST_SORT_OPTIONS`,
+ * which sorts logged rows rather than levels.
+ */
+export const LEVEL_SORT_OPTIONS: LevelSortOption[] = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'downloads', label: 'Downloads' },
   { value: 'likes', label: 'Likes' },
@@ -448,9 +465,17 @@ function sheetTierOf(v: unknown): number | undefined {
  * Coerces the router's raw search object into a well-formed SearchPageState,
  * dropping anything unrecognized. Used by the route's validateSearch so the URL
  * is always the source of truth and a hand-edited URL can't crash the page.
+ *
+ * @param opts - The page's sort vocabulary: the sorts it accepts (default the
+ * /search menu's) and the one a missing or unknown sort falls back to (default
+ * relevance).
  */
 export function validateSearchState(
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  {
+    sorts = SORT_VALUES,
+    defaultSort = DEFAULT_SEARCH_STATE.sort,
+  }: { sorts?: readonly LevelSort[]; defaultSort?: LevelSort } = {}
 ): SearchPageState {
   const coinCount = Array.isArray(raw.coinCount)
     ? (raw.coinCount as unknown[])
@@ -462,13 +487,14 @@ export function validateSearchState(
     ranges[rangeMinKey(f)] = boundOf(raw[rangeMinKey(f)], f)
     ranges[rangeMaxKey(f)] = boundOf(raw[rangeMaxKey(f)], f)
   }
-  return reconcileExtremeSort({
-    query:
-      typeof raw.query === 'string' && raw.query.length > 0
-        ? raw.query
-        : undefined,
-    searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
-    sort: oneOf(raw.sort, SORT_VALUES) ?? 'relevance',
+  return reconcileExtremeSort(
+    {
+      query:
+        typeof raw.query === 'string' && raw.query.length > 0
+          ? raw.query
+          : undefined,
+      searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
+      sort: oneOf(raw.sort, sorts) ?? defaultSort,
     sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
     difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
     rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
@@ -478,9 +504,11 @@ export function validateSearchState(
     coinsVerified: boolOf(raw.coinsVerified),
     levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
     songType: oneOf(raw.songType, SONG_TYPE_VALUES),
-    sheetTier: sheetTierOf(raw.sheetTier),
-    ...ranges,
-  })
+      sheetTier: sheetTierOf(raw.sheetTier),
+      ...ranges,
+    },
+    defaultSort
+  )
 }
 
 /**

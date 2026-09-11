@@ -72,6 +72,15 @@ export enum CollectionType {
   CUSTOM = 'CUSTOM',
 }
 
+// Whether a collection's entries have an order the user curates. ORDERED
+// collections display by their fractional index and reorder by drag; UNORDERED
+// ones have no stored order at all and are browsed like the search page —
+// sorted (level ID by default) and filtered by the viewer.
+export enum CollectionOrdering {
+  ORDERED = 'ORDERED',
+  UNORDERED = 'UNORDERED',
+}
+
 export enum Device {
   PC = 'pc',
   MOBILE = 'mobile',

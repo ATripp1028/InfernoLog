@@ -23,24 +23,30 @@ import {
   SelectValue,
 } from '@/components/generic/select'
 import {
+  LEVEL_SORT_OPTIONS,
   SEARCH_BY_OPTIONS,
   effectiveSortDir,
   hasActiveFilters,
   type LevelSearchBy,
+  type LevelSortOption,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 import { SearchFilters } from './SearchFilters'
 import { SortMenu, sortTriggerLabel } from './SortMenu'
-import { useSearchPageBar } from './useSearchPageBar'
+import { useLevelSearchBar } from './useLevelSearchBar'
 
 const FILTER_PANEL_ID = 'search-filters'
 
-interface SearchPageBarProps {
-  bar: ReturnType<typeof useSearchPageBar>
+interface LevelSearchBarProps {
+  bar: ReturnType<typeof useLevelSearchBar>
   state: SearchPageState
   onChange: (patch: Partial<SearchPageState>) => void
   onReset: () => void
   autoFocus?: boolean
+  /** The input's placeholder in name mode. */
+  placeholder?: string
+  /** The sorts the menu offers; defaults to the /search page's. */
+  sortOptions?: readonly LevelSortOption[]
 }
 
 // A bar-height pill button used for the sort and filter menu triggers.
@@ -132,20 +138,23 @@ function ResponsiveMenu({
 }
 
 /**
- * The top-center search bar for /search. On mobile the query input + Search
- * button sit on their own row above the search-by / sort / filter controls; on
- * desktop everything is a single row. The query is live (see useSearchPageBar);
- * Enter flushes, and a numeric-only input is a level id with a jump affordance.
- * The Filters button expands the filter panel inline beneath the bar, in both
+ * A level search bar — the /search page's, and an unordered collection's. On
+ * mobile the query input + Search button sit on their own row above the
+ * search-by / sort / filter controls; on desktop everything is a single row.
+ * The query is live (see useLevelSearchBar); Enter flushes, and where the page
+ * allows it a numeric-only input is a level id with a jump affordance. The
+ * Filters button expands the filter panel inline beneath the bar, in both
  * layouts; sort stays a popover (a bottom sheet on mobile).
  */
-export function SearchPageBar({
+export function LevelSearchBar({
   bar,
   state,
   onChange,
   onReset,
   autoFocus = false,
-}: SearchPageBarProps) {
+  placeholder = 'Search levels or enter a level ID…',
+  sortOptions = LEVEL_SORT_OPTIONS,
+}: LevelSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const dir = effectiveSortDir(state)
   const filtersActive = hasActiveFilters(state)
@@ -191,9 +200,7 @@ export function SearchPageBar({
               }
             }}
             placeholder={
-              bar.searchBy === 'creator'
-                ? 'Search by creator…'
-                : 'Search levels or enter a level ID…'
+              bar.searchBy === 'creator' ? 'Search by creator…' : placeholder
             }
             aria-label="Search levels"
             autoComplete="off"
@@ -226,12 +233,12 @@ export function SearchPageBar({
                 <ArrowDownWideNarrow size={16} />
               )}
               <span className="hidden sm:inline">
-                {sortTriggerLabel(state.sort)}
+                {sortTriggerLabel(state.sort, sortOptions)}
               </span>
             </>
           }
         >
-          <SortMenu state={state} onChange={onChange} />
+          <SortMenu state={state} onChange={onChange} options={sortOptions} />
         </ResponsiveMenu>
 
         {/* Filters: toggles the inline panel below the bar. */}

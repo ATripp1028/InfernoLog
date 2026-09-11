@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  CollectionOrdering,
   CollectionType,
   LevelType,
   Role,
@@ -700,8 +701,11 @@ export const LevelSearchBySchema = z.enum(['name', 'creator'])
 // Result ordering. 'relevance' requires a query (falls back to downloads with an
 // empty query); the rest sort on stored, user-independent columns. 'stars' sorts
 // by difficulty face then star count, and 'duration' falls back to the level's
-// length band where the exact duration is unknown (see browseLevels).
+// length band where the exact duration is unknown (see browseLevels). 'levelId'
+// is the in-game id compared as a number — upload order, and the default order
+// of an unordered collection; the /search page doesn't offer it.
 export const LevelSortSchema = z.enum([
+  'levelId',
   'relevance',
   'likes',
   'downloads',
@@ -844,6 +848,17 @@ export const LevelBrowseResultSchema = LevelSearchResultSchema.extend({
 // `nextCursor` is an opaque keyset token; null when the last page was returned.
 export const LevelBrowseResponseSchema = z.object({
   data: z.array(LevelBrowseResultSchema),
+  nextCursor: z.string().nullable(),
+})
+
+// GET /v1/me/collections/:collectionId/levels — the same browse, scoped to one
+// collection's levels, each row carrying the entry id its remove button needs.
+export const CollectionBrowseResultSchema = LevelBrowseResultSchema.extend({
+  entryId: z.string().uuid(),
+})
+
+export const CollectionBrowseResponseSchema = z.object({
+  data: z.array(CollectionBrowseResultSchema),
   nextCursor: z.string().nullable(),
 })
 
@@ -1070,6 +1085,13 @@ export const isReservedCollectionName = (name: string): boolean =>
     (r) => r.toLowerCase() === name.trim().toLowerCase()
   )
 
+// Favorites and Least Favorites are always ordered — they are rankings by
+// nature. Want to Beat and custom collections can switch either way.
+export const isCollectionOrderingConvertible = (
+  type: CollectionType | string
+): boolean =>
+  type !== CollectionType.FAVORITES && type !== CollectionType.LEAST_FAVORITES
+
 // Machine-readable error codes for collection writes.
 export const COLLECTION_ERRORS = {
   DUPLICATE_NAME: 'DUPLICATE_NAME',
@@ -1077,12 +1099,29 @@ export const COLLECTION_ERRORS = {
   BUILT_IN_COLLECTION: 'BUILT_IN_COLLECTION',
   LEVEL_ALREADY_COMPLETED: 'LEVEL_ALREADY_COMPLETED',
   SELF_REFERENTIAL_NEIGHBOR: 'SELF_REFERENTIAL_NEIGHBOR',
+  ORDERING_FIXED: 'ORDERING_FIXED',
+  SAME_COLLECTION: 'SAME_COLLECTION',
 } as const
 export type CollectionErrorCode = keyof typeof COLLECTION_ERRORS
 
 export const CreateCollectionInputSchema = z.object({
   name: z.string().trim().min(1).max(50),
   description: z.string().trim().max(200).nullable().optional(),
+  // Defaults to ORDERED.
+  ordering: z.nativeEnum(CollectionOrdering).optional(),
+})
+
+// Converting to UNORDERED discards the curated order; converting either way
+// renumbers the entries by level ID, so a collection converted back to ORDERED
+// starts in the order its unordered view showed by default.
+export const SetCollectionOrderingInputSchema = z.object({
+  ordering: z.nativeEnum(CollectionOrdering),
+})
+
+// Adds every level of the source collection that the target lacks, appended
+// in the source's display order. Into Want to Beat, beaten levels are skipped.
+export const CopyCollectionEntriesInputSchema = z.object({
+  sourceCollectionId: z.string().uuid(),
 })
 
 // Rename/edit description — custom collections only (built-ins are immutable).
@@ -1099,6 +1138,7 @@ export const CollectionSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   type: z.nativeEnum(CollectionType),
+  ordering: z.nativeEnum(CollectionOrdering),
   description: z.string().nullable(),
   entryCount: z.number().int(),
   previewLevelIds: z.array(z.string()),
@@ -1122,13 +1162,27 @@ export const CollectionEntrySchema = z.object({
   completed: z.boolean(),
 })
 
+// `entries` are in rankingIndex order either way; for an UNORDERED collection
+// that order means nothing, and the page browses GET …/levels instead.
 export const CollectionDetailSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   type: z.nativeEnum(CollectionType),
+  ordering: z.nativeEnum(CollectionOrdering),
   description: z.string().nullable(),
   createdAt: z.coerce.date(),
   entries: z.array(CollectionEntrySchema),
+})
+
+export const CopyCollectionEntriesResultSchema = z.object({
+  collection: CollectionDetailSchema,
+  // Levels newly added to the target.
+  added: z.number().int(),
+  // Source levels the target already held.
+  alreadyPresent: z.number().int(),
+  // Source levels left out because the target is Want to Beat and the user
+  // has beaten them.
+  skippedCompleted: z.number().int(),
 })
 
 export const AddCollectionEntryInputSchema = z.object({

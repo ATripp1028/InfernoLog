@@ -8,13 +8,13 @@ import {
   reconcileExtremeSort,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
-import { useSearchPageBar } from '@/features/search/useSearchPageBar'
+import { useLevelSearchBar } from '@/components/inputs/levelSearch/useLevelSearchBar'
 import { useEscalation } from '@/lib/useEscalation'
-import { SearchPageBar } from '@/features/search/SearchPageBar'
+import { LevelSearchBar } from '@/components/inputs/levelSearch/LevelSearchBar'
 import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'
 import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
-import { rowStatKeys } from '@/features/search/rowStats'
+import { rowStatKeys } from '@/lib/rowStats'
 
 /**
  * The Search tab. A top-center bar commits a full, filterable, cursor-paginated
@@ -25,7 +25,9 @@ import { rowStatKeys } from '@/features/search/rowStats'
 export function SearchPage() {
   const state = useSearch({ from: '/_authenticated/search' })
   const navigate = useNavigate()
-  const bar = useSearchPageBar(state)
+  const bar = useLevelSearchBar(state, {
+    commit: (next) => navigate({ to: '/search', replace: true, search: next }),
+  })
   const escalation = useEscalation()
 
   const query = state.query?.trim() ?? ''
@@ -80,7 +82,7 @@ export function SearchPage() {
     // Match the app's standard page padding (List/Ranking use p-4 md:p-6); the
     // extra bottom padding clears the fixed RobTop offer + mobile nav.
     <div className="p-4 pb-24 md:p-6">
-      <SearchPageBar
+      <LevelSearchBar
         bar={bar}
         state={state}
         onChange={update}

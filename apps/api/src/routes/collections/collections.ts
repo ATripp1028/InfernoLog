@@ -5,6 +5,7 @@
 //   GET    /v1/me/collections/:collectionId
 //   PATCH  /v1/me/collections/:collectionId
 //   DELETE /v1/me/collections/:collectionId
+//   PUT    /v1/me/collections/:collectionId/ordering
 //
 // Thin HTTP shell over services/collections.ts. Service errors are thrown, not
 // caught here — the module's onError maps them (see errors.ts).
@@ -12,6 +13,7 @@
 import { Hono } from 'hono'
 import {
   CreateCollectionInputSchema,
+  SetCollectionOrderingInputSchema,
   UpdateCollectionInputSchema,
 } from '@infernolog/core'
 import { logger } from '../../utils/logger'
@@ -21,6 +23,7 @@ import {
   deleteCollection,
   getCollectionDetail,
   getCollections,
+  setCollectionOrdering,
   updateCollection,
 } from '../../services/collections'
 import { parseJsonBody } from '../../utils/requestBody'
@@ -57,6 +60,26 @@ app.patch('/me/collections/:collectionId', async (c) => {
     userId,
     c.req.param('collectionId'),
     parsed.data
+  )
+  return c.json({ data: detail })
+})
+
+// Its own route rather than a PATCH field: the rule differs (built-in Want to
+// Beat may convert, Favorites / Least Favorites never), and converting to
+// UNORDERED discards the order, which a rename never does.
+app.put('/me/collections/:collectionId/ordering', async (c) => {
+  const userId = c.get('userId')
+  const parsed = await parseJsonBody(c, SetCollectionOrderingInputSchema)
+  if (!parsed.ok) return parsed.response
+
+  const detail = await setCollectionOrdering(
+    userId,
+    c.req.param('collectionId'),
+    parsed.data.ordering
+  )
+  logger.info(
+    { userId, collectionId: detail.id, ordering: detail.ordering },
+    'Collection ordering set'
   )
   return c.json({ data: detail })
 })

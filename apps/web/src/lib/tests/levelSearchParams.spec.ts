@@ -644,3 +644,47 @@ describe('browseApiQueryString', () => {
     expect(revalidated).toEqual(original)
   })
 })
+
+// Level ID is an unordered collection's sort; /search keeps its own menu.
+describe('the level ID sort', () => {
+  it('starts ascending, oldest level first', () => {
+    expect(naturalSortDir('levelId')).toBe('asc')
+  })
+
+  it('is not offered on /search', () => {
+    expect(LEVEL_SORT_OPTIONS.map((o) => o.value)).not.toContain('levelId')
+  })
+
+  it('is dropped from a /search URL', () => {
+    expect(validateSearchState({ sort: 'levelId' }).sort).toBe('relevance')
+  })
+})
+
+describe('a page-specific sort vocabulary', () => {
+  it('falls an extremes-only sort back to the default it is given', () => {
+    expect(reconcileExtremeSort(state({ sort: 'aredlRank' }), 'levelId')).toMatchObject(
+      { sort: 'levelId', sortDir: undefined }
+    )
+  })
+
+  it('accepts only the sorts it is given', () => {
+    expect(
+      validateSearchState(
+        { sort: 'relevance' },
+        { sorts: ['levelId', 'likes'], defaultSort: 'levelId' }
+      ).sort
+    ).toBe('levelId')
+    expect(
+      validateSearchState(
+        { sort: 'likes' },
+        { sorts: ['levelId', 'likes'], defaultSort: 'levelId' }
+      ).sort
+    ).toBe('likes')
+  })
+
+  it('falls back to the default it is given for a missing sort', () => {
+    expect(validateSearchState({}, { defaultSort: 'levelId' }).sort).toBe(
+      'levelId'
+    )
+  })
+})

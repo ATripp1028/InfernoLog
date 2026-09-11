@@ -53,6 +53,7 @@ export function AddToWantToBeatDialog({
     id: wtb.id,
     name: wtb.name,
     type: wtb.type,
+    ordering: wtb.ordering,
     description: wtb.description,
     createdAt: wtb.createdAt,
     entries: [],

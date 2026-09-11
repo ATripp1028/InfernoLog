@@ -1,12 +1,12 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
-import { SheetSourceChip, TierBadge } from '@/components/data/TierBadge'
+import { RowStatChip } from '@/components/data/RowStatChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { formatNumber } from '@/lib/numberFormat'
 import { gdStatIconSrc, difficultyLabel } from '@/lib/gdAssets'
 import { backOriginState } from '@/lib/backOrigin'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
-import { rowStats, type RowStat, type RowStatKey } from './rowStats'
+import { rowStats, type RowStatKey } from '@/lib/rowStats'
 
 function Stat({
   icon,
@@ -24,43 +24,6 @@ function Stat({
     >
       <img src={icon} alt="" aria-hidden className="size-3.5 object-contain" />
       {value}
-    </span>
-  )
-}
-
-// A figure the current sort or filters asked for (see rowStats): a list
-// placement as its painted badge beside the list's icon, or a labelled value.
-// Unknown values show a dash, since under a sort by them that blank is why the
-// row sits where it does.
-function ContextStat({ stat }: { stat: RowStat }) {
-  if (stat.kind === 'tier') {
-    return (
-      <span className="inline-flex items-center gap-1.5" title={stat.label}>
-        <img
-          src={stat.icon}
-          alt=""
-          aria-hidden
-          className="size-3.5 shrink-0 object-contain"
-        />
-        <span className="sr-only">{stat.label}:</span>
-        <TierBadge
-          look={stat.look}
-          className="min-w-0 px-1.5 py-0.5 text-[11px]"
-        />
-        {stat.source && <SheetSourceChip source={stat.source} />}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center gap-1" title={stat.label}>
-      <span className="text-text-tertiary">{stat.label}</span>
-      <span
-        className={
-          stat.value === null ? 'text-text-tertiary' : 'text-text-primary'
-        }
-      >
-        {stat.value ?? '—'}
-      </span>
     </span>
   )
 }
@@ -121,7 +84,7 @@ export function SearchGridRow({
         {stats.length > 0 && (
           <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs sm:hidden">
             {stats.map((stat) => (
-              <ContextStat key={stat.key} stat={stat} />
+              <RowStatChip key={stat.key} stat={stat} />
             ))}
           </span>
         )}
@@ -129,7 +92,7 @@ export function SearchGridRow({
 
       <span className="relative z-10 hidden max-w-[60%] shrink-0 flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs sm:flex">
         {stats.map((stat) => (
-          <ContextStat key={stat.key} stat={stat} />
+          <RowStatChip key={stat.key} stat={stat} />
         ))}
         {stats.length > 0 && (
           <span aria-hidden className="h-4 w-px bg-border-subtle" />

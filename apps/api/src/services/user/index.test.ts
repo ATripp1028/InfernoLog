@@ -131,10 +131,11 @@ describe('createUserForSignup — the new row', () => {
     const { collections } = createData() as {
       collections: { create: { name: string; type: string }[] }
     }
+    // Want to Beat is a backlog, so it alone starts unordered.
     expect(collections.create).toEqual([
-      { name: 'Favorites', type: 'FAVORITES' },
-      { name: 'Least Favorites', type: 'LEAST_FAVORITES' },
-      { name: 'Want to Beat', type: 'WANT_TO_BEAT' },
+      { name: 'Favorites', type: 'FAVORITES', ordering: 'ORDERED' },
+      { name: 'Least Favorites', type: 'LEAST_FAVORITES', ordering: 'ORDERED' },
+      { name: 'Want to Beat', type: 'WANT_TO_BEAT', ordering: 'UNORDERED' },
     ])
   })
 

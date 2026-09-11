@@ -12,22 +12,32 @@ vi.mock('@tanstack/react-router', () => ({
   useLocation: () => ({ href: '/search?query=x' }),
 }))
 
-const { useSearchPageBar } = await import('../useSearchPageBar')
+const { useLevelSearchBar } = await import('../useLevelSearchBar')
 
 const committed = (overrides: Partial<SearchPageState> = {}): SearchPageState =>
   ({ ...DEFAULT_SEARCH_STATE, ...overrides }) as SearchPageState
 
+// Where the bar writes the search. The hosting page owns the route (and the
+// replace-not-push), so here it is only a spy.
+const commit = vi.fn()
+
 beforeEach(() => {
   vi.useFakeTimers()
+  commit.mockReset()
+  navigate.mockReset()
 })
 
 afterEach(() => {
   vi.useRealTimers()
 })
 
-function render(initial: SearchPageState = committed()) {
+function render(
+  initial: SearchPageState = committed(),
+  options: { levelIdJump?: boolean } = {}
+) {
   return renderHook(
-    ({ state }: { state: SearchPageState }) => useSearchPageBar(state),
+    ({ state }: { state: SearchPageState }) =>
+      useLevelSearchBar(state, { commit, ...options }),
     { initialProps: { state: initial } }
   )
 }
@@ -35,10 +45,15 @@ function render(initial: SearchPageState = committed()) {
 /** Runs past the debounce window. */
 const settle = () => act(() => void vi.advanceTimersByTime(500))
 
-/** The search object of the most recent navigation. */
-const pushed = () => navigate.mock.calls[navigate.mock.calls.length - 1]![0]
+/** The search state of the most recent commit. */
+const lastCommit = () =>
+  commit.mock.calls[commit.mock.calls.length - 1]![0] as SearchPageState
 
-describe('useSearchPageBar', () => {
+/** The options of the most recent navigation — only level jumps navigate. */
+const lastNavigation = () =>
+  navigate.mock.calls[navigate.mock.calls.length - 1]![0]
+
+describe('useLevelSearchBar', () => {
   describe('seeding from the URL', () => {
     it('starts from the committed query and mode', () => {
       const { result } = render(
@@ -54,15 +69,15 @@ describe('useSearchPageBar', () => {
     })
   })
 
-  // Typing commits into the URL by itself — no Enter required — but debounced
-  // so every keystroke does not push a history entry.
+  // Typing commits by itself — no Enter required — but debounced so every
+  // keystroke does not become a navigation.
   describe('the debounced live commit', () => {
     it('does not commit while the user is still typing', () => {
       const { result } = render()
 
       act(() => result.current.setQuery('blood'))
 
-      expect(navigate).not.toHaveBeenCalled()
+      expect(commit).not.toHaveBeenCalled()
     })
 
     it('commits once the typing settles', () => {
@@ -71,22 +86,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('bloodbath'))
       settle()
 
-      expect(pushed()).toMatchObject({
-        to: '/search',
-        replace: true,
-        search: expect.objectContaining({ query: 'bloodbath' }),
-      })
-    })
-
-    // `replace` rather than a push, so typing does not fill the back button
-    // with every intermediate query.
-    it('replaces rather than pushing a history entry', () => {
-      const { result } = render()
-
-      act(() => result.current.setQuery('bloodbath'))
-      settle()
-
-      expect(pushed().replace).toBe(true)
+      expect(lastCommit()).toMatchObject({ query: 'bloodbath' })
     })
 
     it('commits a mode switch too', () => {
@@ -95,7 +95,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setSearchBy('creator'))
       settle()
 
-      expect(pushed().search).toMatchObject({ searchBy: 'creator' })
+      expect(lastCommit()).toMatchObject({ searchBy: 'creator' })
     })
 
     it('commits only once for a burst of keystrokes', () => {
@@ -106,7 +106,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('blood'))
       settle()
 
-      expect(navigate).toHaveBeenCalledTimes(1)
+      expect(commit).toHaveBeenCalledTimes(1)
     })
 
     it('writes nothing when the value has not actually changed', () => {
@@ -115,7 +115,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('bloodbath'))
       settle()
 
-      expect(navigate).not.toHaveBeenCalled()
+      expect(commit).not.toHaveBeenCalled()
     })
 
     it('trims the committed query', () => {
@@ -124,7 +124,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('  bloodbath  '))
       settle()
 
-      expect(pushed().search.query).toBe('bloodbath')
+      expect(lastCommit().query).toBe('bloodbath')
     })
 
     // An empty box means no query, not an empty one — only the absent form
@@ -135,7 +135,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('   '))
       settle()
 
-      expect(pushed().search.query).toBeUndefined()
+      expect(lastCommit().query).toBeUndefined()
     })
 
     // Filters and sort live in the same URL; the bar must carry them through
@@ -148,7 +148,7 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('bloodbath'))
       settle()
 
-      expect(pushed().search).toMatchObject({
+      expect(lastCommit()).toMatchObject({
         sort: 'likes',
         difficulty: ['demon-extreme'],
       })
@@ -163,7 +163,21 @@ describe('useSearchPageBar', () => {
       rerender({ state: committed({ sort: 'downloads' }) })
       settle()
 
-      expect(pushed().search).toMatchObject({ sort: 'downloads' })
+      expect(lastCommit()).toMatchObject({ sort: 'downloads' })
+    })
+
+    // Pages pass a fresh arrow every render; that must not restart the timer.
+    it('uses the latest commit callback without restarting the debounce', () => {
+      const { result, rerender } = render()
+      const later = vi.fn()
+
+      act(() => result.current.setQuery('bloodbath'))
+      act(() => void vi.advanceTimersByTime(200))
+      rerender({ state: committed() })
+      act(() => void vi.advanceTimersByTime(100))
+
+      expect(commit).toHaveBeenCalledOnce()
+      expect(later).not.toHaveBeenCalled()
     })
   })
 
@@ -202,7 +216,38 @@ describe('useSearchPageBar', () => {
       act(() => result.current.setQuery('128'))
       settle()
 
-      expect(pushed().search.query).toBeUndefined()
+      expect(lastCommit().query).toBeUndefined()
+    })
+  })
+
+  // A collection's bar: its browse matches a number against its own levels'
+  // ids, so a number is a query like any other rather than a jump.
+  describe('without level-id jumps', () => {
+    it('reads digits as an ordinary query', () => {
+      const { result } = render(committed(), { levelIdJump: false })
+
+      act(() => result.current.setQuery('128'))
+
+      expect(result.current.numericId).toBeNull()
+    })
+
+    it('commits the digits as the query', () => {
+      const { result } = render(committed(), { levelIdJump: false })
+
+      act(() => result.current.setQuery('128'))
+      settle()
+
+      expect(lastCommit()).toMatchObject({ query: '128' })
+    })
+
+    it('submits the digits as a search instead of navigating', () => {
+      const { result } = render(committed(), { levelIdJump: false })
+      act(() => result.current.setQuery('128'))
+
+      act(() => result.current.submit())
+
+      expect(lastCommit()).toMatchObject({ query: '128' })
+      expect(navigate).not.toHaveBeenCalled()
     })
   })
 
@@ -213,7 +258,7 @@ describe('useSearchPageBar', () => {
 
       act(() => result.current.submit())
 
-      expect(pushed()).toMatchObject({
+      expect(lastNavigation()).toMatchObject({
         to: '/levels/$levelId',
         params: { levelId: '128' },
       })
@@ -225,7 +270,7 @@ describe('useSearchPageBar', () => {
 
       act(() => result.current.submit())
 
-      expect(pushed().state).toBeDefined()
+      expect(lastNavigation().state).toBeDefined()
     })
 
     // Enter flushes the pending debounce so the search runs now rather than
@@ -236,7 +281,7 @@ describe('useSearchPageBar', () => {
 
       act(() => result.current.submit())
 
-      expect(pushed().search).toMatchObject({ query: 'bloodbath' })
+      expect(lastCommit()).toMatchObject({ query: 'bloodbath' })
     })
 
     it('navigates to a level on demand', () => {
@@ -244,7 +289,7 @@ describe('useSearchPageBar', () => {
 
       act(() => result.current.goToLevel('999'))
 
-      expect(pushed()).toMatchObject({
+      expect(lastNavigation()).toMatchObject({
         to: '/levels/$levelId',
         params: { levelId: '999' },
       })
@@ -278,13 +323,14 @@ describe('useSearchPageBar', () => {
     })
 
     // Opening the panel is view state, not search state — it must not touch
-    // the URL or re-run the grid.
-    it('does not navigate', () => {
+    // the URL or re-run the results.
+    it('does not commit or navigate', () => {
       const { result } = render()
 
       act(() => result.current.toggleFilters())
       settle()
 
+      expect(commit).not.toHaveBeenCalled()
       expect(navigate).not.toHaveBeenCalled()
     })
   })

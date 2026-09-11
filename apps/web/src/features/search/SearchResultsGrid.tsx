@@ -1,7 +1,7 @@
-import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { useLevelBrowse } from '@/lib/api/levelBrowse'
-import type { RowStatKey } from './rowStats'
+import { useInfiniteScrollSentinel } from '@/lib/useInfiniteScrollSentinel'
+import type { RowStatKey } from '@/lib/rowStats'
 import { SearchGridRow } from './SearchGridRow'
 
 interface SearchResultsGridProps {
@@ -30,23 +30,8 @@ export function SearchResultsGrid({
   emptyHint,
   trailing,
 }: SearchResultsGridProps) {
-  const sentinelRef = useRef<HTMLDivElement>(null)
-  const { fetchNextPage, hasNextPage, isFetchingNextPage } = query
-
-  useEffect(() => {
-    const el = sentinelRef.current
-    if (!el || !hasNextPage) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0]?.isIntersecting && !isFetchingNextPage) {
-          void fetchNextPage()
-        }
-      },
-      { rootMargin: '400px' }
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
+  const sentinelRef = useInfiniteScrollSentinel(query)
+  const { isFetchingNextPage } = query
 
   if (!enabled) return null
 
