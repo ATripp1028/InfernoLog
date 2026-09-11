@@ -223,6 +223,13 @@ async function syncOneLevel(
     data.isRated = robtop.isRated
     data.inGameDifficulty = robtop.inGameDifficulty
     data.ratingStatusSince = now
+    // The fields the community check decides with move with the label:
+    // isExtremeDemon reads `partialDiff` before the label, and `isDemon` gates
+    // GDDL/AREDL entirely. Left stale, the forced re-check below would pick the
+    // enjoyment source from the OLD difficulty (or skip GDDL/AREDL altogether
+    // for a level newly rated as a demon).
+    if (robtop.partialDiff !== null) data.partialDiff = robtop.partialDiff
+    data.isDemon = robtop.isDemon
     // The enjoyment column's SOURCE is a function of the difficulty (EDEL for
     // extremes, GDDL below that — see communitySync), and so is the label the
     // page puts on it. A level that just moved across that line is holding a
@@ -700,15 +707,34 @@ export async function runAredlListSync(): Promise<
     return undefined
   }
 
-  const cached = await prisma.level.findMany({
-    where: {
-      OR: [{ inGameId: { in: [...list.keys()] } }, { aredlStatus: { not: null } }],
-    },
-    select: { inGameId: true, partialDiff: true, inGameDifficulty: true },
-  })
+  // The DB side is guarded as well as the fetch: the handler runs the rotation
+  // right after this inside one try, so a throw here would silently cost the
+  // whole community slice for the run. The list is still a valid membership
+  // oracle whatever happens below, so it is returned regardless.
+  let cached: {
+    inGameId: string
+    partialDiff: string | null
+    inGameDifficulty: string | null
+  }[]
+  try {
+    cached = await prisma.level.findMany({
+      where: {
+        OR: [
+          { inGameId: { in: [...list.keys()] } },
+          { aredlStatus: { not: null } },
+        ],
+      },
+      select: { inGameId: true, partialDiff: true, inGameDifficulty: true },
+    })
+  } catch (err) {
+    logger.error({ err }, 'levelSync: AREDL list pass could not read the cache')
+    Sentry.captureException(err)
+    return list
+  }
 
   let updated = 0
   let cleared = 0
+  let failed = 0
   for (const level of cached) {
     const { inGameId } = level
     const entry = list.get(inGameId)
@@ -718,34 +744,42 @@ export async function runAredlListSync(): Promise<
     // override the rule, and clearing it would delete GDDL's.
     const ownsEnjoyment = isExtremeDemon(level)
 
-    if (entry) {
-      await prisma.level.update({
-        where: { inGameId },
-        data: {
-          aredlRank: entry.position,
-          aredlStatus: entry.status,
-          ...(ownsEnjoyment ? { enjoyment: entry.enjoyment } : {}),
-        },
-      })
-      updated++
-    } else {
-      // On the list last time, not on it now — the only signal that a level was
-      // removed. Rank and status clear together, so a stale rank can't outlive
-      // the status that made it readable.
-      await prisma.level.update({
-        where: { inGameId },
-        data: {
-          aredlRank: null,
-          aredlStatus: null,
-          ...(ownsEnjoyment ? { enjoyment: null } : {}),
-        },
-      })
-      cleared++
+    try {
+      if (entry) {
+        await prisma.level.update({
+          where: { inGameId },
+          data: {
+            aredlRank: entry.position,
+            aredlStatus: entry.status,
+            ...(ownsEnjoyment ? { enjoyment: entry.enjoyment } : {}),
+          },
+        })
+        updated++
+      } else {
+        // On the list last time, not on it now — the only signal that a level
+        // was removed. Rank and status clear together, so a stale rank can't
+        // outlive the status that made it readable.
+        await prisma.level.update({
+          where: { inGameId },
+          data: {
+            aredlRank: null,
+            aredlStatus: null,
+            ...(ownsEnjoyment ? { enjoyment: null } : {}),
+          },
+        })
+        cleared++
+      }
+    } catch (err) {
+      // One row (deleted since the read above, or a transient DB error) must
+      // not abort the other ~1600. The next run's pass retries it.
+      failed++
+      logger.error({ inGameId, err }, 'levelSync: AREDL list pass row failed')
+      Sentry.captureException(err)
     }
   }
 
   logger.info(
-    { listSize: list.size, updated, cleared },
+    { listSize: list.size, updated, cleared, failed },
     'levelSync: AREDL list sync complete'
   )
   return list

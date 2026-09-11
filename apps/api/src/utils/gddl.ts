@@ -175,8 +175,17 @@ export async function fetchGddlLevel(
   levelId: string
 ): Promise<GddlLevelResult | null | undefined> {
   // Denied means the bucket is empty or a 429 cooldown is open. Treated as a
-  // failed call: no opinion, retried on a later lap. Never waits.
-  if (!(await acquireGddlSlot())) return undefined
+  // failed call: no opinion, retried on a later lap. Never waits. The limiter
+  // is a DB round-trip, so its own failure is the same "no opinion" — this
+  // function must not throw.
+  let acquired: boolean
+  try {
+    acquired = await acquireGddlSlot()
+  } catch (err) {
+    logger.warn({ levelId, err }, 'fetchGddlLevel: rate limiter unavailable')
+    return undefined
+  }
+  if (!acquired) return undefined
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), LEVEL_TIMEOUT_MS)

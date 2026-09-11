@@ -459,12 +459,66 @@ describe('processImportJobBatch — recording outcomes', () => {
 // ─── GDDL tier prefetch ──────────────────────────────────────────────────────
 
 describe('processImportJobBatch — GDDL tier autofill', () => {
-  it('fetches a tier for a completion that did not supply one', async () => {
+  /** A cached level row as the batch's level prefetch returns it. */
+  function cachedLevel(
+    gddlTier: number | null,
+    communityCheckedAt: Date | null
+  ) {
+    return {
+      inGameId: '12345',
+      inGameDifficulty: 'Extreme Demon',
+      stars: 10,
+      coins: 0,
+      gddlTier,
+      communityCheckedAt,
+    }
+  }
+
+  /** The autoGddlTier argument the planner was handed. */
+  const plannedTier = () => mockPlanCompletion.mock.lastCall?.[4]
+
+  it('fetches a tier for a level that is not cached yet', async () => {
     mockFetchGddlTier.mockResolvedValue(18)
 
     await run([row('completion', 0, { levelId: '12345' })])
 
     expect(mockFetchGddlTier).toHaveBeenCalledWith('12345')
+    expect(plannedTier()).toBe(18)
+  })
+
+  it('reads a cached tier instead of asking GDDL', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      cachedLevel(24, new Date()),
+    ] as never)
+
+    await run([row('completion', 0, { levelId: '12345' })])
+
+    expect(mockFetchGddlTier).not.toHaveBeenCalled()
+    expect(plannedTier()).toBe(24)
+  })
+
+  it('trusts a cached "no tier" instead of asking GDDL', async () => {
+    // A stamped check with no tier means the sources answered and had none.
+    prisma.level.findMany.mockResolvedValue([
+      cachedLevel(null, new Date()),
+    ] as never)
+
+    await run([row('completion', 0, { levelId: '12345' })])
+
+    expect(mockFetchGddlTier).not.toHaveBeenCalled()
+    expect(plannedTier()).toBeNull()
+  })
+
+  it('fetches a cached level whose community check never answered', async () => {
+    prisma.level.findMany.mockResolvedValue([
+      cachedLevel(null, null),
+    ] as never)
+    mockFetchGddlTier.mockResolvedValue(18)
+
+    await run([row('completion', 0, { levelId: '12345' })])
+
+    expect(mockFetchGddlTier).toHaveBeenCalledWith('12345')
+    expect(plannedTier()).toBe(18)
   })
 
   it('does not fetch when the sheet already gave a tier', async () => {
