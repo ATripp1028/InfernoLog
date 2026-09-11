@@ -10,6 +10,7 @@
 import {
   LEVEL_RANGE_BOUNDS,
   LEVEL_RANGE_FIELDS,
+  isSheetTier,
   type LevelRangeField,
 } from '@infernolog/core'
 import type { LevelType } from './api/wireEnums'
@@ -110,6 +111,8 @@ export interface LevelSearchFilters extends LevelRangeFilters {
   length?: LevelLength[] | undefined
   levelType?: LevelType | undefined
   songType?: LevelSongType | undefined
+  /** One NLW/LW sheet tier (0–21), matched exactly — the tiers are named categories, not a scale. */
+  sheetTier?: number | undefined
 }
 
 /**
@@ -133,6 +136,18 @@ export interface LevelBrowseResult {
   twoPlayer: boolean | null
   isDemon: boolean
   levelType: LevelType
+  // The figures a row surfaces when the user sorts or filters by them.
+  objectCount: number | null
+  gddlTier: number | null
+  aredlRank: number | null
+  aredlStatus: string | null
+  sheetTier: number | null
+  enjoyment: number | null
+  durationSeconds: number | null
+  gameVersion: string | null
+  /** ISO timestamp — JSON carries no dates. */
+  ratingStatusSince: string | null
+  songType: LevelSongType | null
 }
 
 /**
@@ -211,6 +226,7 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
     s.coinsVerified !== undefined ||
     s.levelType !== undefined ||
     s.songType !== undefined ||
+    s.sheetTier !== undefined ||
     LEVEL_RANGE_FIELDS.some(
       (f) =>
         s[rangeMinKey(f)] !== undefined || s[rangeMaxKey(f)] !== undefined
@@ -226,8 +242,8 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
  * Newgrounds-song filter, or a downloads/likes sort. Creator queries aren't
  * forwardable (GD has no creator search), so in creator mode only the
  * filters/sort count. Cache-only refinements (exact coin count, coinsVerified,
- * levelType, official/NONG song, every range bound, and every sort but
- * downloads/likes) do NOT make an escalation forwardable.
+ * levelType, official/NONG song, the sheet tier, every range bound, and every
+ * sort but downloads/likes) do NOT make an escalation forwardable.
  */
 export function canEscalateToGd(s: SearchPageState): boolean {
   const hasNameQuery = s.searchBy === 'name' && !!s.query?.trim()
@@ -408,6 +424,10 @@ function boundOf(v: unknown, field: LevelRangeField): number | undefined {
   if (b.max !== null && n > b.max) return undefined
   return n
 }
+function sheetTierOf(v: unknown): number | undefined {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
+  return typeof n === 'number' && isSheetTier(n) ? n : undefined
+}
 
 /**
  * Coerces the router's raw search object into a well-formed SearchPageState,
@@ -443,6 +463,7 @@ export function validateSearchState(
     coinsVerified: boolOf(raw.coinsVerified),
     levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
     songType: oneOf(raw.songType, SONG_TYPE_VALUES),
+    sheetTier: sheetTierOf(raw.sheetTier),
     ...ranges,
   }
 }
@@ -473,6 +494,7 @@ export function browseApiQueryString(
     sp.set('coinsVerified', String(s.coinsVerified))
   if (s.levelType) sp.set('levelType', s.levelType)
   if (s.songType) sp.set('songType', s.songType)
+  if (s.sheetTier !== undefined) sp.set('sheetTier', String(s.sheetTier))
   for (const f of LEVEL_RANGE_FIELDS) {
     for (const key of [rangeMinKey(f), rangeMaxKey(f)]) {
       const v = s[key]

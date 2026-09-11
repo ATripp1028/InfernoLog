@@ -728,15 +728,16 @@ export const LevelSortDirSchema = z.enum(['asc', 'desc'])
 //
 // `duration` is Level.durationSeconds; unlike its sort, the filter does NOT fall
 // back to the length band (the Length filter already covers the coarse case).
-// `gameVersion` is the decimal version ("2.1" → 2.1).
+// `gameVersion` is the decimal version ("2.1" → 2.1). `aredlRank` bounds
+// main-list placements only — a Legacy row's position is a list index, not a
+// rank. The sheet tier is deliberately absent: its tiers are named categories,
+// so it is the exact-match `sheetTier` filter instead.
 export const LEVEL_RANGE_FIELDS = [
-  'stars',
   'downloads',
   'likes',
   'objectCount',
   'gddlTier',
   'aredlRank',
-  'sheetTier',
   'enjoyment',
   'duration',
   'gameVersion',
@@ -751,13 +752,11 @@ export const LEVEL_RANGE_BOUNDS: Record<
   LevelRangeField,
   { min: number | null; max: number | null; int: boolean }
 > = {
-  stars: { min: 0, max: 10, int: true },
   downloads: { min: 0, max: null, int: true },
   likes: { min: null, max: null, int: true },
   objectCount: { min: 0, max: null, int: true },
   gddlTier: { min: 1, max: null, int: true },
   aredlRank: { min: 1, max: null, int: true },
-  sheetTier: { min: 0, max: MAX_SHEET_TIER, int: true },
   enjoyment: { min: 0, max: 100, int: false },
   duration: { min: 0, max: null, int: true },
   gameVersion: { min: 1, max: null, int: false },
@@ -794,6 +793,9 @@ export const LevelSearchFiltersSchema = z.object({
   length: z.array(LevelLengthSchema).optional(),
   levelType: LevelTypeFilterSchema.optional(),
   songType: LevelSongTypeSchema.optional(),
+  // One NLW/LW sheet tier, matched exactly. The tiers are named categories that
+  // people pick by name, not points on a scale, so there is no range form.
+  sheetTier: z.number().int().min(0).max(MAX_SHEET_TIER).optional(),
   ...LevelRangeFiltersShape,
 })
 
@@ -826,6 +828,17 @@ export const LevelBrowseResultSchema = LevelSearchResultSchema.extend({
   twoPlayer: z.boolean().nullable(),
   isDemon: z.boolean(),
   levelType: LevelTypeFilterSchema,
+  // The figures a row surfaces when the user sorts or filters by them.
+  objectCount: z.number().int().nullable(),
+  gddlTier: z.number().int().nullable(),
+  aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  sheetTier: z.number().int().nullable(),
+  enjoyment: z.number().nullable(),
+  durationSeconds: z.number().int().nullable(),
+  gameVersion: z.string().nullable(),
+  ratingStatusSince: z.coerce.date().nullable(),
+  songType: LevelSongTypeSchema.nullable(),
 })
 
 // `nextCursor` is an opaque keyset token; null when the last page was returned.

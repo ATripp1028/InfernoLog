@@ -134,8 +134,9 @@ describe('hasActiveFilters', () => {
     ['song type', { songType: 'nong' }],
     ['range lower bound', { downloadsMin: 1000 }],
     ['range upper bound', { gddlTierMax: 20 }],
-    // Zero is a real bound, not an absent one.
-    ['zero bound', { sheetTierMin: 0 }],
+    ['sheet tier', { sheetTier: 14 }],
+    // Tier 0 is a real tier, not an absent filter.
+    ['sheet tier 0', { sheetTier: 0 }],
   ] as const)('notices a %s filter', (_label, patch) => {
     expect(hasActiveFilters(state(patch as never))).toBe(true)
   })
@@ -227,6 +228,7 @@ describe('canEscalateToGd', () => {
     ['an object-count sort', { sort: 'objectCount' }],
     ['a GDDL tier sort', { sort: 'gddlTier' }],
     ['a range bound', { downloadsMin: 1000 }],
+    ['a sheet tier', { sheetTier: 14 }],
   ] as const)('does not forward %s alone', (_label, patch) => {
     expect(canEscalateToGd(state(patch as never))).toBe(false)
   })
@@ -355,8 +357,8 @@ describe('validateSearchState', () => {
   describe('range bounds', () => {
     it('keeps a bound the API would accept', () => {
       expect(
-        validateSearchState({ downloadsMin: 1000, starsMax: 5 })
-      ).toMatchObject({ downloadsMin: 1000, starsMax: 5 })
+        validateSearchState({ downloadsMin: 1000, gddlTierMax: 5 })
+      ).toMatchObject({ downloadsMin: 1000, gddlTierMax: 5 })
     })
 
     it('coerces a numeric string, since the URL carries text', () => {
@@ -373,7 +375,7 @@ describe('validateSearchState', () => {
     })
 
     it.each([
-      ['beyond the field’s limit', { starsMax: 11 }, 'starsMax'],
+      ['beyond the field’s limit', { enjoymentMax: 101 }, 'enjoymentMax'],
       ['below it', { gddlTierMin: 0 }, 'gddlTierMin'],
       ['fractional on a whole-number field', { downloadsMin: 1.5 }, 'downloadsMin'],
       ['unparseable', { likesMin: 'lots' }, 'likesMin'],
@@ -387,6 +389,27 @@ describe('validateSearchState', () => {
     it('keeps a negative likes bound', () => {
       expect(validateSearchState({ likesMax: -5 }).likesMax).toBe(-5)
     })
+  })
+
+  describe('the sheet tier', () => {
+    it.each([
+      [14, 14],
+      ['14', 14],
+      // Tier 0 is a real tier, so it must not fall out as falsy.
+      [0, 0],
+      ['0', 0],
+    ])('keeps %p as tier %s', (raw, expected) => {
+      expect(validateSearchState({ sheetTier: raw }).sheetTier).toBe(expected)
+    })
+
+    it.each([22, -1, 1.5, '', 'Nightmare', null])(
+      'drops %p, which is not a tier on the ladder',
+      (raw) => {
+        expect(
+          validateSearchState({ sheetTier: raw as never }).sheetTier
+        ).toBeUndefined()
+      }
+    )
   })
 
   it('survives a URL of complete nonsense', () => {
@@ -485,7 +508,12 @@ describe('browseApiQueryString', () => {
   })
 
   it('sends a zero bound rather than dropping it', () => {
-    expect(params(state({ sheetTierMin: 0 })).get('sheetTierMin')).toBe('0')
+    expect(params(state({ likesMin: 0 })).get('likesMin')).toBe('0')
+  })
+
+  it('sends the sheet tier, tier 0 included', () => {
+    expect(params(state({ sheetTier: 0 })).get('sheetTier')).toBe('0')
+    expect(params(state()).has('sheetTier')).toBe(false)
   })
 
   it('omits the bounds that are unset', () => {
@@ -514,7 +542,7 @@ describe('browseApiQueryString', () => {
       gddlTierMax: 20,
       enjoymentMin: 49.5,
       gameVersionMin: 2.1,
-      sheetTierMin: 0,
+      sheetTier: 0,
     })
     const p = params(original)
 
@@ -523,7 +551,7 @@ describe('browseApiQueryString', () => {
       gddlTierMax: p.get('gddlTierMax'),
       enjoymentMin: p.get('enjoymentMin'),
       gameVersionMin: p.get('gameVersionMin'),
-      sheetTierMin: p.get('sheetTierMin'),
+      sheetTier: p.get('sheetTier'),
       query: p.get('q') ?? undefined,
       searchBy: p.get('searchBy'),
       sort: p.get('sort'),

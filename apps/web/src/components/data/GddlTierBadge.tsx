@@ -1,4 +1,5 @@
 import { gddlTierColor } from '@/lib/tierColor'
+import { gddlTierTextColor } from '@/lib/tierBadges'
 
 /**
  * How the badge sizes itself and what it does with a missing tier.
@@ -33,11 +34,9 @@ export function GddlTierBadge({
     )
   }
 
-  // Low tiers (1–15) use light backgrounds, so their number reads black; the
-  // palette only darkens from tier 16 up.
   const style = {
     backgroundColor: gddlTierColor(tier),
-    color: tier <= 15 ? '#0d0d0d' : '#f5f5f5',
+    color: gddlTierTextColor(tier),
   }
 
   // Each variant keeps the element it had before they were merged: the cell is

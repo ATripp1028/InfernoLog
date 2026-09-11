@@ -1,5 +1,6 @@
-// Level durations as a clock reading, both ways. Lives in lib/ because the
-// Global Level Page renders one and the /search duration filter reads one back.
+// Level-global figures as the UI prints them, and the one that is also typed
+// back in. Lives in lib/ because the Global Level Page and the /search page
+// both render these, and the /search duration filter parses one.
 
 /**
  * Level duration from whole seconds, as a clock reading ("2:01", "1:04:09").
@@ -38,4 +39,20 @@ export function parseDuration(text: string): number | null {
   const parts = t.split(':').map(Number)
   if (parts.slice(1).some((p) => p >= 60)) return null
   return parts.reduce((total, p) => total * 60 + p, 0)
+}
+
+/**
+ * The level's COMMUNITY enjoyment (Level.enjoyment, from EDEL or GDDL) — up to
+ * two decimal places, the precision EDEL itself shows and the API stores both
+ * sources at. Trailing zeros are dropped ("50", "49.5", "59.39"), so a
+ * whole-number score doesn't read as more precise than it is.
+ *
+ * Not lib/ratingScale's `formatEnjoyment`, which prints one user's own logged
+ * enjoyment — a different number that happens to share the 0-100 scale.
+ */
+export function formatCommunityEnjoyment(
+  enjoyment: number | null
+): string | null {
+  if (enjoyment == null || !Number.isFinite(enjoyment)) return null
+  return String(Math.round(enjoyment * 100) / 100)
 }

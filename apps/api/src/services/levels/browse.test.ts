@@ -339,10 +339,8 @@ describe('browseLevels — filters', () => {
 
   it.each([
     [{ downloadsMin: 1000 }, '"downloads" >=', 1000],
-    [{ starsMax: 5 }, '"stars" <=', 5],
     [{ gddlTierMin: 20 }, '"gddlTier" >=', 20],
     [{ aredlRankMax: 100 }, '"aredlRank" <=', 100],
-    [{ sheetTierMin: 0 }, '"sheetTier" >=', 0],
     [{ enjoymentMin: 49.5 }, '"enjoyment" >=', 49.5],
     [{ objectCountMax: 5000 }, '"objectCount" <=', 5000],
     [{ likesMin: -10 }, '"likes" >=', -10],
@@ -353,19 +351,43 @@ describe('browseLevels — filters', () => {
     expect(lastSql().values).toContain(value)
   })
 
-  // Zero is a real bound (sheet tier 0, "no likes"), not an unset one.
+  // Zero is a real bound ("no likes or more"), not an unset one.
   it('applies a zero bound rather than treating it as unset', async () => {
-    await browseLevels(query({ sheetTierMin: 0 }))
+    await browseLevels(query({ likesMin: 0 }))
 
-    expect(whereClause()).not.toBe('')
+    expect(whereClause()).toContain('"likes" >=')
   })
 
   it('applies both ends of a range', async () => {
-    await browseLevels(query({ starsMin: 2, starsMax: 5 }))
+    await browseLevels(query({ gddlTierMin: 2, gddlTierMax: 5 }))
 
     const where = whereClause()
-    expect(where).toContain('"stars" >=')
-    expect(where).toContain('"stars" <=')
+    expect(where).toContain('"gddlTier" >=')
+    expect(where).toContain('"gddlTier" <=')
+  })
+
+  // Sheet tiers are named categories, picked one at a time.
+  it('matches one sheet tier exactly, tier 0 included', async () => {
+    await browseLevels(query({ sheetTier: 0 }))
+
+    expect(whereClause()).toContain('"sheetTier" =')
+    expect(lastSql().values).toContain(0)
+  })
+
+  // A Legacy row's AREDL position is a list index past the main list, not a
+  // rank, so a rank bound must not reach it.
+  it('bounds AREDL rank over main-list placements only', async () => {
+    await browseLevels(query({ aredlRankMin: 1, aredlRankMax: 100 }))
+
+    const where = whereClause()
+    expect(where).toContain(`"aredlStatus" = 'MainList'`)
+    expect(where.match(/MainList/g)).toHaveLength(1)
+  })
+
+  it('adds no main-list guard without an AREDL bound', async () => {
+    await browseLevels(query({ downloadsMin: 1 }))
+
+    expect(whereClause()).not.toContain('aredlStatus')
   })
 
   // The length band is the duration SORT's fallback only — the Length filter
@@ -427,6 +449,16 @@ describe('browseLevels — pagination', () => {
     const result = await browseLevels(query())
 
     expect(result).toEqual({ data: [], nextCursor: null })
+  })
+
+  // Decimal columns come back from a raw query as Prisma.Decimal, which
+  // serializes as a string; the row promises a number.
+  it('selects enjoyment as a number and derives the song type', async () => {
+    await browseLevels(query())
+
+    const { text } = lastSql()
+    expect(text).toContain('"enjoyment"::float8 AS "enjoyment"')
+    expect(text).toContain('AS "songType"')
   })
 
   it('strips the internal keyset value from the returned rows', async () => {

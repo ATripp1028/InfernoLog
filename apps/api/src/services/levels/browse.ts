@@ -73,17 +73,29 @@ const DURATION_WITH_FALLBACK = Prisma.sql`COALESCE("durationSeconds", CASE "leng
 // The column (or derived value) each range filter bounds. `duration` bounds the
 // exact figure only — the length band is a sort fallback, not a filter one.
 const RANGE_COLUMNS: Record<LevelRangeField, Prisma.Sql> = {
-  stars: Prisma.sql`"stars"`,
   downloads: Prisma.sql`"downloads"`,
   likes: Prisma.sql`"likes"`,
   objectCount: Prisma.sql`"objectCount"`,
   gddlTier: Prisma.sql`"gddlTier"`,
   aredlRank: Prisma.sql`"aredlRank"`,
-  sheetTier: Prisma.sql`"sheetTier"`,
   enjoyment: Prisma.sql`"enjoyment"`,
   duration: Prisma.sql`"durationSeconds"`,
   gameVersion: GAME_VERSION_NUM,
 }
+
+// What a bound on a field implies beyond the comparison itself. An AREDL
+// position is only a rank on the main list: Legacy is appended after it as a
+// list index (MainList 1-1573, Legacy 1574+), so a rank bound matches main-list
+// placements only. A rank with no status came from the Global Stats Viewer,
+// which only ever reports main-list placements, so it counts as ranked.
+const RANGE_GUARDS: Partial<Record<LevelRangeField, Prisma.Sql>> = {
+  aredlRank: Prisma.sql`("aredlStatus" IS NULL OR "aredlStatus" = 'MainList')`,
+}
+
+// Song provenance for the result row, with the songType filter's predicates in
+// its order: an official track, else a NONG (which still carries its
+// placeholder songId), else a Newgrounds song.
+const SONG_TYPE = Prisma.sql`(CASE WHEN "officialSongId" IS NOT NULL THEN 'official' WHEN "isNong" THEN 'nong' WHEN "songId" IS NOT NULL THEN 'custom' END)`
 
 // A nullable numeric expression with NULLs pushed past every real value in the
 // given direction. The sentinels are finite so they survive the JSON cursor.
@@ -290,6 +302,9 @@ export async function browseLevels(
           : Prisma.sql`("songId" IS NOT NULL AND "isNong" = false)`
     )
   }
+  if (query.sheetTier !== undefined) {
+    conds.push(Prisma.sql`"sheetTier" = ${query.sheetTier}`)
+  }
 
   // Inclusive range bounds. A NULL column never satisfies a comparison, so any
   // bound on a field also drops the levels where that field is unknown.
@@ -299,6 +314,8 @@ export async function browseLevels(
     const max = query[`${field}Max` as const]
     if (min !== undefined) conds.push(Prisma.sql`${col} >= ${min}`)
     if (max !== undefined) conds.push(Prisma.sql`${col} <= ${max}`)
+    const guard = RANGE_GUARDS[field]
+    if (guard && (min !== undefined || max !== undefined)) conds.push(guard)
   }
 
   const dir: Dir =
@@ -337,6 +354,10 @@ export async function browseLevels(
            "stars", "featured", "epicValue", "isRated",
            "likes", "downloads", "length", "coins", "coinsVerified",
            "twoPlayer", "isDemon", "levelType",
+           "objectCount", "gddlTier", "aredlRank", "aredlStatus", "sheetTier",
+           "enjoyment"::float8 AS "enjoyment", "durationSeconds",
+           "gameVersion", "ratingStatusSince",
+           ${SONG_TYPE} AS "songType",
            (${s.expr}) AS "_sortval"
     FROM "levels"
     ${whereSql}

@@ -286,6 +286,7 @@ async function seedBrowseLevel(over: {
   objectCount?: number | null
   gddlTier?: number | null
   aredlRank?: number | null
+  aredlStatus?: string | null
   sheetTier?: number | null
   enjoyment?: number | null
   durationSeconds?: number | null
@@ -315,6 +316,7 @@ async function seedBrowseLevel(over: {
       objectCount: over.objectCount ?? null,
       gddlTier: over.gddlTier ?? null,
       aredlRank: over.aredlRank ?? null,
+      aredlStatus: over.aredlStatus ?? null,
       sheetTier: over.sheetTier ?? null,
       enjoyment: over.enjoyment ?? null,
       durationSeconds: over.durationSeconds ?? null,
@@ -620,8 +622,63 @@ describe('GET /levels/browse (range filters and community sorts)', () => {
     expect(new Set(all).size).toBe(35)
   })
 
+  it('matches one sheet tier exactly, tier 0 included', async () => {
+    await seedBrowseLevel({ inGameId: 't0', sheetTier: 0 })
+    await seedBrowseLevel({ inGameId: 't1', sheetTier: 1 })
+    await seedBrowseLevel({ inGameId: 'none', sheetTier: null })
+
+    expect(await ids('/levels/browse?sheetTier=0')).toEqual(['t0'])
+  })
+
+  it('bounds AREDL rank over main-list placements, not Legacy positions', async () => {
+    await seedBrowseLevel({
+      inGameId: 'main',
+      aredlRank: 50,
+      aredlStatus: 'MainList',
+    })
+    // A GSV-sourced rank carries no status and is a main-list placement.
+    await seedBrowseLevel({ inGameId: 'gsv', aredlRank: 60 })
+    await seedBrowseLevel({
+      inGameId: 'legacy',
+      aredlRank: 1580,
+      aredlStatus: 'Legacy',
+    })
+
+    expect(
+      (await ids('/levels/browse?aredlRankMin=1')).sort()
+    ).toEqual(['gsv', 'main'])
+  })
+
+  it('returns the figures a row shows for the sort and filters', async () => {
+    await seedBrowseLevel({
+      inGameId: 'full',
+      gddlTier: 20,
+      enjoyment: 49.5,
+      durationSeconds: 125,
+      gameVersion: '2.2',
+      songId: '123',
+      isNong: true,
+    })
+    const user = await seedUser(prisma)
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?sort=gddlTier'
+    )
+    const body = (await res.json()) as { data: Record<string, unknown>[] }
+
+    expect(body.data[0]).toMatchObject({
+      gddlTier: 20,
+      // A number, not the Decimal's string form.
+      enjoyment: 49.5,
+      durationSeconds: 125,
+      gameVersion: '2.2',
+      songType: 'nong',
+      ratingStatusSince: null,
+    })
+  })
+
   it.each([
-    ['an out-of-range bound', 'starsMax=11'],
+    ['an out-of-range sheet tier', 'sheetTier=22'],
     ['a non-numeric bound', 'downloadsMin=abc'],
     ['a fractional bound on a whole-number field', 'gddlTierMin=2.5'],
   ])('400s on %s', async (_label, qs) => {

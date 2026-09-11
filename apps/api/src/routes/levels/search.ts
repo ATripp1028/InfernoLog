@@ -70,6 +70,7 @@ function parseBrowseQuery(sp: URLSearchParams) {
     length: arr('length'),
     levelType: sp.get('levelType') ?? undefined,
     songType: sp.get('songType') ?? undefined,
+    sheetTier: num('sheetTier'),
   })
 }
 

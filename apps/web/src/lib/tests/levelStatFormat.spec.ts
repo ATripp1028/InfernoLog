@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { formatDuration, parseDuration } from '../duration'
+import {
+  formatCommunityEnjoyment,
+  formatDuration,
+  parseDuration,
+} from '../levelStatFormat'
 
 describe('formatDuration', () => {
   it.each([
@@ -61,4 +65,26 @@ describe('parseDuration', () => {
       expect(parseDuration(text)).toBeNull()
     }
   )
+})
+
+describe('formatCommunityEnjoyment', () => {
+  it.each([
+    // Up to two decimals, as EDEL displays — trailing zeros dropped.
+    [59.39, '59.39'],
+    [59.39285714, '59.39'],
+    [49.5, '49.5'],
+    [50, '50'],
+    // A zero score is a real rating, distinct from having none.
+    [0, '0'],
+    [100, '100'],
+  ])('renders %s as %s', (value, expected) => {
+    expect(formatCommunityEnjoyment(value)).toBe(expected)
+  })
+
+  it.each([
+    ['null', null],
+    ['a non-finite number', Number.NaN],
+  ])('returns null for %s', (_label, value) => {
+    expect(formatCommunityEnjoyment(value)).toBeNull()
+  })
 })

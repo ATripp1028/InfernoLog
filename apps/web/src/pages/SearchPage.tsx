@@ -13,6 +13,7 @@ import { SearchPageBar } from '@/features/search/SearchPageBar'
 import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'
 import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
+import { rowStatKeys } from '@/features/search/rowStats'
 
 /**
  * The Search tab. A top-center bar commits a full, filterable, cursor-paginated
@@ -88,6 +89,7 @@ export function SearchPage() {
           <SearchResultsGrid
             query={browse}
             enabled={enabled}
+            statKeys={rowStatKeys(state)}
             emptyHint={
               <div className="rounded-card border border-border-subtle bg-bg-surface p-6 text-center">
                 <p className="text-sm font-medium text-text-primary">

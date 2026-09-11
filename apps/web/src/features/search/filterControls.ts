@@ -1,6 +1,9 @@
 // Mapping filter state onto the controls that edit it, and back. Pure —
-// SearchFilters renders the chips and segmented controls; this decides what
-// each one reads and what a click produces.
+// SearchFilters renders the chips, segmented controls and the sheet-tier
+// dropdown; this decides what each one reads and what a click produces.
+
+import { SHEET_TIER_NAMES, isSheetTier } from '@/lib/sheetTier'
+import { sheetTierLook, type TierBadgeLook } from '@/lib/tierBadges'
 
 /**
  * Toggles membership of `v` in a filter array.
@@ -43,4 +46,43 @@ export function triValue(b: boolean | undefined): TriValue {
  */
 export function fromTri(v: TriValue): boolean | undefined {
   return v === 'any' ? undefined : v === 'yes'
+}
+
+/**
+ * The sheet-tier dropdown's "no filter" entry. Radix Select values are strings
+ * and cannot be empty, so the absent filter needs a token of its own.
+ */
+export const ANY_SHEET_TIER = 'any'
+
+/**
+ * One dropdown entry per sheet tier, in ladder order, each carrying the badge
+ * it is painted with and whether it is listworthy. Tier 0 gets a note: its
+ * name reads as "easier than Beginner" to anyone who doesn't know the ladder,
+ * when it holds levels too niche to rank.
+ */
+export const SHEET_TIER_OPTIONS: {
+  value: string
+  tier: number
+  look: TierBadgeLook & { source: 'NLW' | 'LW' }
+  note: string | null
+}[] = SHEET_TIER_NAMES.map((_, tier) => ({
+  value: String(tier),
+  tier,
+  look: sheetTierLook(tier)!,
+  note: tier === 0 ? 'Too niche to rank' : null,
+}))
+
+/** The dropdown value for the current sheet-tier filter. */
+export function sheetTierSelectValue(tier: number | undefined): string {
+  return tier === undefined ? ANY_SHEET_TIER : String(tier)
+}
+
+/**
+ * Inverse of {@link sheetTierSelectValue}. Anything that isn't a tier on the
+ * ladder — the "any" entry included — clears the filter.
+ */
+export function sheetTierFromSelect(value: string): number | undefined {
+  if (value === ANY_SHEET_TIER) return undefined
+  const n = Number(value)
+  return isSheetTier(n) ? n : undefined
 }

@@ -15,8 +15,18 @@ import {
   type LevelSongType,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
+import { BoundInputs } from './BoundInputs'
 import { TRISTATE, fromTri, toggle, triValue } from './filterControls'
-import { RANGE_FILTERS, rangePatch, rangeValue } from './rangeFilters'
+import {
+  COMMUNITY_RANGE_FILTERS,
+  STAT_RANGE_FILTERS,
+  boundsPatch,
+  boundsValue,
+  rangePatch,
+  rangeValue,
+  type RangeFilterConfig,
+} from './rangeFilters'
+import { SheetTierSelect } from './SheetTierSelect'
 
 interface SearchFiltersProps {
   state: SearchPageState
@@ -84,11 +94,67 @@ function FilterGroup({
   )
 }
 
+// A titled block of filters under a divider, laid out as a grid.
+function FilterSection({
+  title,
+  children,
+}: {
+  title: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="space-y-4 border-t border-border-subtle pt-5">
+      <p className="text-xs font-medium text-text-secondary">{title}</p>
+      <div className="grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+// One range filter, as a slider or as a pair of boxes depending on the field.
+function RangeFilter({
+  cfg,
+  state,
+  onChange,
+}: {
+  cfg: RangeFilterConfig
+  state: SearchPageState
+  onChange: (patch: Partial<SearchPageState>) => void
+}) {
+  return (
+    <FilterGroup label={cfg.label}>
+      {cfg.kind === 'slider' ? (
+        <RangeRow
+          label={cfg.label}
+          hideLabel
+          className="px-0 py-0"
+          min={cfg.domain[0]}
+          max={cfg.domain[1]}
+          step={cfg.step}
+          commitOnRelease
+          value={rangeValue(state, cfg)}
+          onChange={(v) => onChange(rangePatch(cfg, v))}
+          format={cfg.format}
+          trackClassName={cfg.trackClassName}
+          trackStyle={cfg.trackStyle}
+        />
+      ) : (
+        <BoundInputs
+          cfg={cfg}
+          value={boundsValue(state, cfg.field)}
+          onChange={(b) => onChange(boundsPatch(cfg.field, b))}
+        />
+      )}
+    </FilterGroup>
+  )
+}
+
 /**
  * The /search filter panel, rendered inline under the search bar. Every change
  * navigates (via onChange → replace) so the URL stays the source of truth for
- * the grid; the range sliders commit on release, so a drag is one query rather
- * than one per step.
+ * the grid; the range sliders commit on release and the boxes on blur/Enter,
+ * so an edit is one query rather than one per step or keystroke.
  */
 export function SearchFilters({
   state,
@@ -225,28 +291,33 @@ export function SearchFilters({
         </FilterGroup>
       </div>
 
-      <div className="grid gap-x-8 gap-y-5 border-t border-border-subtle pt-5 md:grid-cols-2 xl:grid-cols-3">
-        {RANGE_FILTERS.map((cfg) => (
-          <FilterGroup key={cfg.field} label={cfg.label}>
-            <RangeRow
-              label={cfg.label}
-              hideLabel
-              className="px-0 py-0"
-              min={cfg.domain[0]}
-              max={cfg.domain[1]}
-              step={cfg.step}
-              slider={cfg.slider}
-              commitOnRelease
-              value={rangeValue(state, cfg)}
-              onChange={(v) => onChange(rangePatch(cfg, v))}
-              format={cfg.format}
-              parseInput={cfg.parseInput}
-              trackClassName={cfg.trackClassName}
-              trackStyle={cfg.trackStyle}
-            />
-          </FilterGroup>
+      <FilterSection title="Community lists">
+        {COMMUNITY_RANGE_FILTERS.map((cfg) => (
+          <RangeFilter
+            key={cfg.field}
+            cfg={cfg}
+            state={state}
+            onChange={onChange}
+          />
         ))}
-      </div>
+        <FilterGroup label="Sheet tier">
+          <SheetTierSelect
+            value={state.sheetTier}
+            onChange={(sheetTier) => onChange({ sheetTier })}
+          />
+        </FilterGroup>
+      </FilterSection>
+
+      <FilterSection title="Level stats">
+        {STAT_RANGE_FILTERS.map((cfg) => (
+          <RangeFilter
+            key={cfg.field}
+            cfg={cfg}
+            state={state}
+            onChange={onChange}
+          />
+        ))}
+      </FilterSection>
     </div>
   )
 }

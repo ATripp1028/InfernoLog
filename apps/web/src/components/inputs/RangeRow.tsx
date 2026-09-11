@@ -26,7 +26,6 @@ export function RangeRow({
   trackClassName,
   trackStyle,
   parseInput,
-  slider = true,
   commitOnRelease = false,
   className,
 }: {
@@ -42,8 +41,6 @@ export function RangeRow({
   trackClassName?: string | undefined
   trackStyle?: React.CSSProperties | undefined
   parseInput?: ((text: string, end: 'min' | 'max') => number | null) | undefined
-  /** Render only the two boxes, for a field no slider can usefully span. Needs parseInput. */
-  slider?: boolean | undefined
   /** Report a slider change once, when the thumb is let go, not on every step of the drag. */
   commitOnRelease?: boolean | undefined
   className?: string | undefined
@@ -69,18 +66,16 @@ export function RangeRow({
       >
         {label}
       </p>
-      {slider && (
-        <RangeSlider
-          min={min}
-          max={max}
-          step={step}
-          value={shown}
-          onValueChange={slide}
-          onValueCommit={release}
-          trackClassName={trackClassName}
-          trackStyle={trackStyle}
-        />
-      )}
+      <RangeSlider
+        min={min}
+        max={max}
+        step={step}
+        value={shown}
+        onValueChange={slide}
+        onValueCommit={release}
+        trackClassName={trackClassName}
+        trackStyle={trackStyle}
+      />
       {parseInput ? (
         <div className="flex gap-1.5">
           <input

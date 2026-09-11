@@ -1,11 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { useLevelBrowse } from '@/lib/api/levelBrowse'
+import type { RowStatKey } from './rowStats'
 import { SearchGridRow } from './SearchGridRow'
 
 interface SearchResultsGridProps {
   query: ReturnType<typeof useLevelBrowse>
   enabled: boolean
+  /** The figures each row adds for the current sort and filters. */
+  statKeys: RowStatKey[]
   emptyHint: React.ReactNode
   /** Escalation (GD-server) results rendered after the cache results. */
   trailing?: React.ReactNode
@@ -23,6 +26,7 @@ function RowSkeleton() {
 export function SearchResultsGrid({
   query,
   enabled,
+  statKeys,
   emptyHint,
   trailing,
 }: SearchResultsGridProps) {
@@ -83,7 +87,11 @@ export function SearchResultsGrid({
       {rows.length === 0
         ? emptyHint
         : rows.map((level) => (
-            <SearchGridRow key={level.inGameId} level={level} />
+            <SearchGridRow
+              key={level.inGameId}
+              level={level}
+              statKeys={statKeys}
+            />
           ))}
 
       {/* Sentinel + spinner for the next page. */}
