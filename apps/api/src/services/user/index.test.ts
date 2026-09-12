@@ -55,14 +55,16 @@ describe('createUserForSignup — idempotency', () => {
     const existing = { id: 'user-1', onboardingCompleted: true }
     prisma.user.findUnique.mockResolvedValue(existing as never)
 
-    await expect(createUserForSignup(EMAIL, SUB)).resolves.toBe(existing)
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
+      existing
+    )
     expect(prisma.user.create).not.toHaveBeenCalled()
   })
 
   it('keys the existence check on cognitoSub, not email', async () => {
     // cognitoSub is unique and known before the row exists; email is not a
     // safe key here (a user can change it, and it isn't the identity).
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     expect(prisma.user.findUnique).toHaveBeenCalledWith({
       where: { cognitoSub: SUB },
@@ -74,7 +76,7 @@ describe('createUserForSignup — idempotency', () => {
 
 describe('createUserForSignup — the new row', () => {
   it('stores the email and cognitoSub, and starts pre-onboarding', async () => {
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     expect(createData()).toMatchObject({
       email: EMAIL,
@@ -83,8 +85,18 @@ describe('createUserForSignup — the new row', () => {
     })
   })
 
+  it('creates the signing-up identity in the same write as the row', async () => {
+    // Nested rather than a second call, so an account can never exist without
+    // the identity that created it.
+    await createUserForSignup(EMAIL, SUB, 'PASSWORD')
+
+    expect(createData().authIdentities).toEqual({
+      create: { provider: 'PASSWORD', cognitoSub: SUB, email: EMAIL },
+    })
+  })
+
   it('derives a username from the email local part with a random suffix', async () => {
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     const username = createData().username as string
     expect(username).toMatch(/^player_[0-9a-f]{8}$/)
@@ -93,16 +105,16 @@ describe('createUserForSignup — the new row', () => {
   it('gives two users with the same email local part different usernames', async () => {
     // The suffix is what stops the unique constraint rejecting the second
     // signup from, say, two different providers' alex@… addresses.
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
     const first = createData().username
-    await createUserForSignup(EMAIL, 'another-sub')
+    await createUserForSignup(EMAIL, 'another-sub', 'GOOGLE')
     const second = createData().username
 
     expect(second).not.toBe(first)
   })
 
   it('seeds a single Overall rating category', async () => {
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     const { ratingCategories } = createData() as {
       ratingCategories: { create: { name: string; weight: number }[] }
@@ -113,7 +125,7 @@ describe('createUserForSignup — the new row', () => {
   it('seeds category weights that sum to exactly 1.00', async () => {
     // The rating-config route rejects any config whose weights miss 1.00, so a
     // new user would be unable to save until they fixed it by hand.
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     const { ratingCategories } = createData() as {
       ratingCategories: { create: { weight: number }[] }
@@ -126,7 +138,7 @@ describe('createUserForSignup — the new row', () => {
   })
 
   it('seeds the three built-in collections', async () => {
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     const { collections } = createData() as {
       collections: { create: { name: string; type: string }[] }
@@ -141,7 +153,7 @@ describe('createUserForSignup — the new row', () => {
 
   it('copies the defaults rather than passing the shared constants', async () => {
     // Prisma mutating the payload would otherwise corrupt every later signup.
-    await createUserForSignup(EMAIL, SUB)
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     const { ratingCategories } = createData() as {
       ratingCategories: { create: unknown[] }
@@ -156,6 +168,8 @@ describe('createUserForSignup — the new row', () => {
     const created = { id: 'user-1', onboardingCompleted: false }
     prisma.user.create.mockResolvedValue(created as never)
 
-    await expect(createUserForSignup(EMAIL, SUB)).resolves.toBe(created)
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
+      created
+    )
   })
 })

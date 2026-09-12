@@ -117,7 +117,7 @@ describe('POST /auth/signup/start', () => {
     await expect(res.json()).resolves.toEqual({
       data: { id: 'user-1', onboardingCompleted: false },
     })
-    expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB)
+    expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB, 'GOOGLE')
   })
 
   it('reports the existing onboarding state on a repeat submit', async () => {

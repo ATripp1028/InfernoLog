@@ -98,6 +98,20 @@ describe('POST /auth/signup/start', () => {
     ])
   })
 
+  it('records the Google identity against the new user', async () => {
+    await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { cognitoSub: SUB },
+    })
+    const identities = await prisma.authIdentity.findMany({
+      where: { userId: user.id },
+    })
+    expect(identities).toMatchObject([
+      { provider: 'GOOGLE', cognitoSub: SUB, email: EMAIL },
+    ])
+  })
+
   it('seeds category weights that sum to exactly 1.00', async () => {
     // Otherwise the rating-config route rejects the user's very first save.
     await post('/auth/signup/start', { sub: SUB, email: EMAIL })
@@ -127,6 +141,7 @@ describe('POST /auth/signup/start', () => {
     expect(secondBody.data.id).toBe(firstBody.data.id)
     expect(await prisma.user.count()).toBe(1)
     expect(await prisma.ratingCategory.count()).toBe(1)
+    expect(await prisma.authIdentity.count()).toBe(1)
   })
 
   it('reports the existing onboarding state on a repeat call', async () => {

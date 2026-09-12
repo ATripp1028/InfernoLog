@@ -56,6 +56,17 @@ enum Role {
   ADMIN
 }
 
+// The sign-in method behind an AuthIdentity. Stamped by the flow that creates
+// the identity, which knows which provider it started, rather than parsed back
+// out of a token on each request.
+//
+// PASSWORD is a native Cognito user. Only the E2E user is one today
+// (scripts/provisionE2eUser.ts); the web client has no password flow.
+enum AuthProvider {
+  GOOGLE
+  PASSWORD
+}
+
 // SUSPENDED/BANNED are placeholders in v1: no code currently reads or sets
 // accountStatus, and there is no moderation route implementation (see
 // docs/MODERATION.md for the intended design — a ban should permanently
@@ -365,18 +376,21 @@ model LevelSyncCursor {
 // ─────────────────────────────────────────────
 
 model User {
-  id                  String    @id @default(uuid())
-  username            String    @unique
-  usernameChangedAt   DateTime?
-  previousUsername    String?
-  email               String    @unique
-  discordId           String?   @unique
-  cognitoSub          String?   @unique
-  onboardingCompleted Boolean   @default(false)
+  id                    String    @id @default(uuid())
+  username              String    @unique
+  usernameChangedAt     DateTime?
+  previousUsername      String?
+  email                 String    @unique
+  discordId             String?   @unique
+  // Being replaced by AuthIdentity, which already mirrors it: every write of
+  // this column also writes the matching identity. It is still the column the
+  // request path reads; once the lookups move to AuthIdentity, it is dropped.
+  cognitoSub            String?   @unique
+  onboardingCompleted   Boolean   @default(false)
   // Set when the user checks "I agree" on the combined ToS/Privacy Policy
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
   // accounts, or an in-progress signup).
-  legalAcceptedAt     DateTime?
+  legalAcceptedAt       DateTime?
   // Consent to YouTube's player loading with a page (web HeroVideo), and the
   // record of it: set when given, during onboarding or in Settings, and
   // cleared when withdrawn. Null means no consent, which is also the default,
@@ -451,8 +465,38 @@ model User {
   moderationActionsOn ModerationAction[] @relation("TargetUserRelation")
   banAppealsReviewed  BanAppeal[]        @relation("ReviewedByRelation")
   activityLog         ActivityLog[]
+  authIdentities      AuthIdentity[]
 
   @@map("users")
+}
+
+// One way of signing in to an account. An account can have several: the
+// identity is how someone proves who they are, the User row is who they are,
+// and no sign-in method is the account itself.
+//
+// Every identity is its own Cognito user, including two belonging to the same
+// account. Cognito's AdminLinkProviderForUser would instead merge providers
+// into one Cognito user, but that merge cannot be undone, which would make
+// unlinking a provider impossible.
+model AuthIdentity {
+  id         String       @id @default(uuid())
+  userId     String
+  provider   AuthProvider
+  // Unique on its own rather than per provider. A sub names exactly one
+  // Cognito user, and the request path has only the token's sub to resolve an
+  // identity from — it does not know which provider minted the token.
+  cognitoSub String       @unique
+  // The email this provider asserted when the identity was created: a record
+  // of what the provider said, not the account's address (User.email). The two
+  // can disagree once an account has more than one provider, and a provider's
+  // email is not always verified, so this is never used to match accounts.
+  email      String?
+  createdAt  DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_identities")
 }
 
 // ─────────────────────────────────────────────

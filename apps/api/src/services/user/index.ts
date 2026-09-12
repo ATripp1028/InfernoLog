@@ -1,4 +1,5 @@
 import { randomBytes } from 'crypto'
+import type { AuthProvider } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 
@@ -22,8 +23,21 @@ const DEFAULT_COLLECTIONS = [
  * Idempotent: a double-submit (e.g. a duplicate call while the first is still
  * in flight) returns the already-created row instead of erroring, keyed by
  * cognitoSub since that's unique and known before the row exists.
+ *
+ * The row and its first `AuthIdentity` are created in one write, so no account
+ * ever exists without the identity that signed it up.
+ *
+ * @param email - The address the provider asserted. Becomes the account's
+ *   email and is also recorded on the identity.
+ * @param cognitoSub - The Cognito sub of the identity signing up.
+ * @param provider - Which sign-in method that identity is. The caller knows
+ *   this from the flow it ran; it is not derived from the token.
  */
-export async function createUserForSignup(email: string, cognitoSub: string) {
+export async function createUserForSignup(
+  email: string,
+  cognitoSub: string,
+  provider: AuthProvider
+) {
   const existing = await prisma.user.findUnique({ where: { cognitoSub } })
   if (existing) return existing
 
@@ -32,6 +46,7 @@ export async function createUserForSignup(email: string, cognitoSub: string) {
       email,
       username: email.split('@')[0] + '_' + randomBytes(4).toString('hex'),
       cognitoSub,
+      authIdentities: { create: { provider, cognitoSub, email } },
       onboardingCompleted: false,
       ratingCategories: {
         create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })),

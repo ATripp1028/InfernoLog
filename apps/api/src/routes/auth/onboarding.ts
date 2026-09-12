@@ -37,7 +37,9 @@ app.post('/auth/signup/start', async (c) => {
   const claims = getVerifiedClaims(c)
   if (!claims?.email) return c.json({ error: 'Unauthorized' }, 401)
 
-  const user = await createUserForSignup(claims.email, claims.sub)
+  // Google is the only way to reach Sign Up today, so every identity arriving
+  // here is a Google one.
+  const user = await createUserForSignup(claims.email, claims.sub, 'GOOGLE')
   return c.json(
     { data: { id: user.id, onboardingCompleted: user.onboardingCompleted } },
     200

@@ -67,7 +67,28 @@ describe('postAuthentication — cognitoSub backfill', () => {
     })
     expect(prisma.user.update).toHaveBeenCalledWith({
       where: { id: 'user-1' },
-      data: { cognitoSub: SUB },
+      data: expect.objectContaining({ cognitoSub: SUB }),
+    })
+  })
+
+  it('writes the matching identity in the same update', async () => {
+    // AuthIdentity mirrors cognitoSub; a backfill that set only the column
+    // would leave the account with no identity row to resolve to.
+    prisma.user.findUnique.mockResolvedValue({
+      id: 'user-1',
+      cognitoSub: null,
+    } as never)
+
+    await invoke(event({ email: EMAIL, sub: SUB }))
+
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: 'user-1' },
+      data: {
+        cognitoSub: SUB,
+        authIdentities: {
+          create: { provider: 'GOOGLE', cognitoSub: SUB, email: EMAIL },
+        },
+      },
     })
   })
 

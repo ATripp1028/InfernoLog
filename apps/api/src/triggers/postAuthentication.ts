@@ -13,6 +13,10 @@ import * as Sentry from '@sentry/node'
  * (legacy accounts from before cognitoSub existed); it must never create a
  * row, since a Sign-In attempt with no matching account relies on this
  * trigger being a no-op for unrecognized identities.
+ *
+ * The backfill writes the matching `AuthIdentity` alongside the column, which
+ * that table mirrors. It is recorded as GOOGLE because the legacy accounts this
+ * exists for predate every other provider.
  */
 export const handler: PostAuthenticationTriggerHandler = async (event) => {
   const { email, sub } = event.request.userAttributes
@@ -25,7 +29,12 @@ export const handler: PostAuthenticationTriggerHandler = async (event) => {
     if (existing && !existing.cognitoSub) {
       await prisma.user.update({
         where: { id: existing.id },
-        data: { cognitoSub: sub },
+        data: {
+          cognitoSub: sub,
+          authIdentities: {
+            create: { provider: 'GOOGLE', cognitoSub: sub, email },
+          },
+        },
       })
     }
   } catch (error) {

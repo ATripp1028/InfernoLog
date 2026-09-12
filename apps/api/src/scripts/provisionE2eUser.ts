@@ -119,7 +119,7 @@ async function ensureUserRow(email: string, cognitoSub: string) {
   const existing = await prisma.user.findUnique({ where: { email } })
 
   if (!existing) {
-    const created = await createUserForSignup(email, cognitoSub)
+    const created = await createUserForSignup(email, cognitoSub, 'PASSWORD')
     await prisma.user.update({
       where: { id: created.id },
       data: { onboardingCompleted: true, legalAcceptedAt: new Date() },
@@ -135,10 +135,22 @@ async function ensureUserRow(email: string, cognitoSub: string) {
       `Repointing users row ${existing.id} at Cognito sub ${cognitoSub}.`
     )
   }
-  await prisma.user.update({
-    where: { id: existing.id },
-    data: { cognitoSub, onboardingCompleted: true },
-  })
+  // The identity is repointed with it. Any identity left on another sub names a
+  // Cognito user the redeploy destroyed, so it is dropped rather than kept.
+  await prisma.$transaction([
+    prisma.authIdentity.deleteMany({
+      where: { userId: existing.id, cognitoSub: { not: cognitoSub } },
+    }),
+    prisma.authIdentity.upsert({
+      where: { cognitoSub },
+      create: { userId: existing.id, provider: 'PASSWORD', cognitoSub, email },
+      update: { userId: existing.id, provider: 'PASSWORD', email },
+    }),
+    prisma.user.update({
+      where: { id: existing.id },
+      data: { cognitoSub, onboardingCompleted: true },
+    }),
+  ])
   return existing.id
 }
 
