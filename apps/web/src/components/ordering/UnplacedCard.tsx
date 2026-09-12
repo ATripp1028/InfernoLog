@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/components/generic/drag-handle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
-import { IdChip } from '@/components/data/CopyableId'
+import { CopyableId } from '@/components/data/CopyableId'
 import { TierChips } from '@/components/data/TierChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { communityTierChips } from '@/lib/communityTiers'
@@ -60,10 +60,12 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
               <span className="truncate text-sm font-medium text-text-primary">
                 {level.name ?? `Level #${level.inGameId}`}
               </span>
-              <IdChip
+              {/* The card places the level on click; CopyableId stops the
+                  click reaching it, so copying never also places. */}
+              <CopyableId
                 id={level.inGameId}
                 label="Level ID"
-                className="shrink-0"
+                className="shrink-0 px-1.5 py-0.5 text-[10px]"
               />
             </div>
             <div className="truncate text-xs text-text-secondary">

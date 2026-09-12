@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { CopyableId, IdChip } from '../CopyableId'
+import { CopyableId } from '../CopyableId'
 import { toast } from '@/components/generic/sonner'
 import { renderWithProviders } from '@/utils/testUtils'
 
@@ -80,36 +80,5 @@ describe('CopyableId', () => {
 
     expect(writeText).toHaveBeenCalled()
     expect(onRowClick).not.toHaveBeenCalled()
-  })
-})
-
-// The half that goes inside a row that is itself a link, where a <button>
-// would be invalid markup and would follow the anchor instead of copying.
-describe('IdChip', () => {
-  it('shows the id and names the kind of id for assistive tech', () => {
-    renderWithProviders(<IdChip id="4284013" label="Level ID" />)
-
-    expect(screen.getByText('4284013')).toBeInTheDocument()
-    expect(screen.getByText('Level ID:')).toBeInTheDocument()
-  })
-
-  it('is not an interactive control', () => {
-    renderWithProviders(<IdChip id="4284013" label="Level ID" />)
-
-    expect(screen.queryByRole('button')).toBeNull()
-  })
-
-  it('leaves a click to the row it sits in', async () => {
-    const onRowClick = vi.fn()
-    renderWithProviders(
-      <div onClick={onRowClick}>
-        <IdChip id="4284013" />
-      </div>
-    )
-
-    await userEvent.click(screen.getByText('4284013'))
-
-    expect(writeText).not.toHaveBeenCalled()
-    expect(onRowClick).toHaveBeenCalled()
   })
 })

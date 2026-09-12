@@ -8,11 +8,13 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/generic/sheet'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
 import { backOriginState } from '@/lib/backOrigin'
-import { IdChip } from '@/components/data/CopyableId'
+import { CopyableId } from '@/components/data/CopyableId'
 import { TierChips } from '@/components/data/TierChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { communityTierChips } from '@/lib/communityTiers'
 import { medalColor } from '@/lib/medals'
+import { ROW_CONTROL, ROW_LINK_STRETCH } from '@/lib/rowLink'
+import { cn } from '@/lib/utils'
 import { useMobileDemonList } from './useMobileDemonList'
 import type { DemonListItem } from './types'
 
@@ -172,10 +174,11 @@ export function MobileDemonList({
               </p>
             ) : (
               unplacedView.map((entry) => (
-                <button
+                // Not a <button> around the whole card: the id's copy button
+                // would then be a button inside a button. The place action is
+                // the name, stretched over the card (lib/rowLink).
+                <div
                   key={entry.levelProgressId}
-                  type="button"
-                  onClick={() => placeFromUnplaced(entry.levelProgressId)}
                   className="relative w-full overflow-hidden rounded-card border border-border-subtle bg-bg-elevated text-left"
                 >
                   <ThumbnailWash
@@ -193,13 +196,26 @@ export function MobileDemonList({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-medium text-text-primary">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            placeFromUnplaced(entry.levelProgressId)
+                          }
+                          aria-label={`Place ${entry.level.name ?? `Level #${entry.level.inGameId}`}`}
+                          className={cn(
+                            'truncate text-sm font-medium text-text-primary',
+                            ROW_LINK_STRETCH
+                          )}
+                        >
                           {entry.level.name ?? `Level #${entry.level.inGameId}`}
-                        </span>
-                        <IdChip
+                        </button>
+                        <CopyableId
                           id={entry.level.inGameId}
                           label="Level ID"
-                          className="shrink-0"
+                          className={cn(
+                            ROW_CONTROL,
+                            'shrink-0 px-1.5 py-0.5 text-[10px]'
+                          )}
                         />
                       </div>
                       <div className="truncate text-xs text-text-secondary">
@@ -213,7 +229,7 @@ export function MobileDemonList({
                       />
                     </div>
                   </div>
-                </button>
+                </div>
               ))
             )}
           </div>
@@ -253,39 +269,8 @@ function MobileRow({
   onRemove,
 }: MobileRowProps) {
   const location = useLocation()
-  const levelInfo = (
-    <>
-      <DifficultyFace
-        difficulty={item.level.inGameDifficulty}
-        featured={item.level.featured}
-        epicValue={item.level.epicValue}
-        rated={item.level.isRated}
-        size={36}
-        className="shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            className="truncate text-sm font-semibold text-text-primary"
-            style={{ color: medalColor(rank) }}
-          >
-            #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
-          </span>
-          <IdChip
-            id={item.level.inGameId}
-            label="Level ID"
-            className="shrink-0"
-          />
-        </div>
-        <div className="truncate text-xs text-text-secondary">
-          {item.level.creator
-            ? `Published by ${item.level.creator}`
-            : 'Unknown creator'}
-        </div>
-        <StatRow attempts={item.attempts} tiers={item.communityTiers} />
-      </div>
-    </>
-  )
+  const name = `#${rank} — ${item.level.name ?? `Level #${item.level.inGameId}`}`
+  const nameClass = 'truncate text-sm font-semibold text-text-primary'
 
   return (
     <div
@@ -297,19 +282,48 @@ function MobileRow({
       ].join(' ')}
     >
       <ThumbnailWash levelId={item.level.inGameId} />
+      {/* The one `relative` the stretched link measures itself against. */}
       <div className="relative z-10 flex items-center gap-3 p-2">
-        {canEdit ? (
-          <>{levelInfo}</>
-        ) : (
-          <Link
-            to="/log/$levelId"
-            params={{ levelId: item.level.inGameId }}
-            state={backOriginState(location.href)}
-            className="flex min-w-0 flex-1 items-center gap-3"
-          >
-            {levelInfo}
-          </Link>
-        )}
+        <DifficultyFace
+          difficulty={item.level.inGameDifficulty}
+          featured={item.level.featured}
+          epicValue={item.level.epicValue}
+          rated={item.level.isRated}
+          size={36}
+          className="shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            {/* In edit mode the row's controls own it, so the name is not a
+                link — tapping to navigate mid-reorder would be a trap. */}
+            {canEdit ? (
+              <span className={nameClass} style={{ color: medalColor(rank) }}>
+                {name}
+              </span>
+            ) : (
+              <Link
+                to="/log/$levelId"
+                params={{ levelId: item.level.inGameId }}
+                state={backOriginState(location.href)}
+                className={cn(nameClass, ROW_LINK_STRETCH)}
+                style={{ color: medalColor(rank) }}
+              >
+                {name}
+              </Link>
+            )}
+            <CopyableId
+              id={item.level.inGameId}
+              label="Level ID"
+              className={cn(ROW_CONTROL, 'shrink-0 px-1.5 py-0.5 text-[10px]')}
+            />
+          </div>
+          <div className="truncate text-xs text-text-secondary">
+            {item.level.creator
+              ? `Published by ${item.level.creator}`
+              : 'Unknown creator'}
+          </div>
+          <StatRow attempts={item.attempts} tiers={item.communityTiers} />
+        </div>
 
         {canEdit &&
           (jumping ? (
