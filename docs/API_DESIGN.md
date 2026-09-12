@@ -112,7 +112,7 @@ DELETE /v1/me/connect-discord
 - `POST /v1/me/connect-discord` — Returns a Discord OAuth URL carrying a signed state that encodes the signed-in user's id. The browser navigates there; Discord redirects to the public callback.
 - `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before `discordId` is written.
 
-> **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. The Cognito post-authentication trigger (`src/triggers/postAuthentication.ts`) never creates one — a sign-in by an unrecognized identity depends on it being a no-op.
+> **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. Nothing else creates one, or attaches a sign-in identity to an existing one by matching email — a sign-in by an unrecognized identity depends on nothing having been created for it.
 
 ## Users
 

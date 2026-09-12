@@ -71,7 +71,7 @@ interface DetailBody {
   }
 }
 
-// Seed a user (with the three built-ins the post-auth trigger would create)
+// Seed a user (with the three built-ins createUserForSignup would create)
 // plus a few cached levels.
 async function seedAccount() {
   const user = await seedUser(prisma)

@@ -228,9 +228,6 @@ everything else the API emits. Log structured context as the first argument and
 a static message as the second — `logger.info({ userId, levelId }, 'Logged
 completion')` — so lines aggregate rather than each being unique.
 
-The one sanctioned exception is `triggers/postAuthentication.ts`, which is
-intentionally noisy with `console.log` while the auth flow settles.
-
 Never log secrets: not the plaintext GDDL API key, not its ciphertext, not a
 request body that might contain either.
 

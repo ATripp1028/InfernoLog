@@ -1,13 +1,6 @@
 /// <reference path="../.sst/platform/config.d.ts" />
 
-import { sharedNodeOptions } from './defaults'
-import {
-  DATABASE_URL,
-  DATABASE_URL_DIRECT,
-  GOOGLE_CLIENT_ID,
-  GOOGLE_CLIENT_SECRET,
-  SENTRY_DSN,
-} from './secrets'
+import { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET } from './secrets'
 
 // ─────────────────────────────────────────────
 // AUTH — Cognito User Pool
@@ -29,18 +22,14 @@ export const userPool = new sst.aws.CognitoUserPool('InfernoLogUserPool', {
       adminCreateUserConfig: { allowAdminCreateUserOnly: true },
     },
   },
-  triggers: {
-    postAuthentication: {
-      handler: 'src/triggers/postAuthentication.handler',
-      link: [DATABASE_URL, DATABASE_URL_DIRECT, SENTRY_DSN],
-      environment: {
-        DATABASE_URL: DATABASE_URL.value,
-        DATABASE_URL_DIRECT: DATABASE_URL_DIRECT.value,
-        SENTRY_DSN: SENTRY_DSN.value,
-      },
-      ...sharedNodeOptions,
-    },
-  },
+  // No Lambda triggers, deliberately. The pool used to run a post-authentication
+  // trigger that attached a signing-in Cognito user to whichever InfernoLog
+  // account had the same email. Once an account can have several sign-in
+  // providers, that is an account takeover: register the victim's address with
+  // any provider that doesn't verify email, sign in, and inherit the account.
+  // Identities are attached only by flows that know which account they are
+  // acting for (signup, and linking under the account's own session) — never
+  // by matching an email.
 })
 
 new aws.cognito.UserPoolDomain('InfernoLogDomain', {

@@ -6,8 +6,8 @@
 // The user is native (username + password), NOT Google-federated, so the suite
 // can sign in through ADMIN_USER_PASSWORD_AUTH without a browser ever visiting
 // the OAuth flow. The consequence is that the suite does not exercise the
-// federated login path; signup, sign-in rejection, and the postAuthentication
-// trigger's cognitoSub backfill stay covered by the API's integration tests.
+// federated login path; signup and sign-in rejection stay covered by the API's
+// integration tests.
 //
 // Idempotent: re-running against an already-provisioned stage resets the
 // password and reconciles the users row rather than erroring.
