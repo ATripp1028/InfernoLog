@@ -35,7 +35,7 @@ export function DemonList() {
     if (scrolledFor.current === placeId) return
     scrolledFor.current = placeId
     const target = data.unplaced.find((u) => u.levelProgressId === placeId)
-    const idx = preScrollIndex(data.placed, target?.badge ?? null)
+    const idx = preScrollIndex(data.placed, target?.communityTiers ?? null)
     const anchor = data.placed[idx]
     const el = document.getElementById(
       anchor ? `rk-${anchor.levelProgressId}` : `rk-${placeId}`

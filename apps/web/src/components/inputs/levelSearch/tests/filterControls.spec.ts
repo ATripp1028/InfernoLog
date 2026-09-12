@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { TRISTATE, fromTri, toggle, triValue } from '../filterControls'
+import {
+  ANY_SHEET_TIER,
+  SHEET_TIER_OPTIONS,
+  TRISTATE,
+  fromTri,
+  sheetTierFromSelect,
+  sheetTierSelectValue,
+  toggle,
+  triValue,
+} from '../filterControls'
 import { sortTriggerLabel } from '../SortMenu'
 import { LEVEL_SORT_OPTIONS } from '@/lib/levelSearchParams'
 
@@ -87,6 +96,52 @@ describe('the tri-state control', () => {
       expect(triValue(fromTri(value))).toBe(value)
     }
   })
+})
+
+describe('the sheet tier dropdown', () => {
+  // Tier 0 is a real tier, so the ladder starts there.
+  it('offers every tier on the ladder once, tier 0 included', () => {
+    expect(SHEET_TIER_OPTIONS.map((o) => o.tier)).toEqual(
+      Array.from({ length: 22 }, (_, i) => i)
+    )
+  })
+
+  it('marks tiers 14 and up as listworthy', () => {
+    expect(
+      SHEET_TIER_OPTIONS.filter((o) => o.look.source === 'LW').map(
+        (o) => o.tier
+      )
+    ).toEqual([14, 15, 16, 17, 18, 19, 20, 21])
+  })
+
+  // People pick the tiers by name; the number is the sheets' internal index.
+  it('names each tier rather than numbering it', () => {
+    expect(SHEET_TIER_OPTIONS[14]!.look.badge).toBe('Merciless')
+  })
+
+  it('explains tier 0, and only tier 0', () => {
+    expect(SHEET_TIER_OPTIONS.filter((o) => o.note).map((o) => o.tier)).toEqual(
+      [0]
+    )
+  })
+
+  it('shows an absent filter as the "any" entry', () => {
+    expect(sheetTierSelectValue(undefined)).toBe(ANY_SHEET_TIER)
+  })
+
+  it('round-trips every tier through the dropdown', () => {
+    for (const { tier, value } of SHEET_TIER_OPTIONS) {
+      expect(sheetTierSelectValue(tier)).toBe(value)
+      expect(sheetTierFromSelect(value)).toBe(tier)
+    }
+  })
+
+  it.each([ANY_SHEET_TIER, '22', '-1', 'abc'])(
+    'clears the filter for %p',
+    (value) => {
+      expect(sheetTierFromSelect(value)).toBeUndefined()
+    }
+  )
 })
 
 describe('sortTriggerLabel', () => {

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import {
+  CollectionOrdering,
   CollectionType,
   LevelType,
   Role,
@@ -11,6 +12,7 @@ import {
   Device,
   GdVersion,
 } from './enums'
+import { MAX_SHEET_TIER } from './sheetTier'
 
 export const LevelSchema = z.object({
   inGameId: z.string(),
@@ -698,20 +700,91 @@ export const LevelSearchBySchema = z.enum(['name', 'creator'])
 
 // Result ordering. 'relevance' requires a query (falls back to downloads with an
 // empty query); the rest sort on stored, user-independent columns. 'stars' sorts
-// by difficulty face then star count (see browseLevels).
+// by difficulty face then star count, and 'duration' falls back to the level's
+// length band where the exact duration is unknown (see browseLevels). 'levelId'
+// is the in-game id compared as a number — upload order, and the default order
+// of an unordered collection; the /search page doesn't offer it.
 export const LevelSortSchema = z.enum([
+  'levelId',
   'relevance',
   'likes',
   'downloads',
   'stars',
+  'gddlTier',
+  'aredlRank',
+  'sheetTier',
+  'enjoyment',
+  'duration',
   'objectCount',
+  'gameVersion',
   'recentlyRated',
   'name',
 ])
 
 // Sort direction override. When omitted, each sort uses its natural direction
-// (name → asc, everything else → desc).
+// (name and aredlRank → asc, everything else → desc).
 export const LevelSortDirSchema = z.enum(['asc', 'desc'])
+
+// The quantitative columns the browse can bound to a range. Each field is two
+// optional query params, `<field>Min` and `<field>Max`, both inclusive; either
+// may be omitted for an open end. A bound excludes levels whose value is
+// unknown — "at least 10,000 downloads" cannot be claimed of a null.
+//
+// `duration` is Level.durationSeconds; unlike its sort, the filter does NOT fall
+// back to the length band (the Length filter already covers the coarse case).
+// `gameVersion` is the decimal version ("2.1" → 2.1). `aredlRank` bounds
+// main-list placements only — a Legacy row's position is a list index, not a
+// rank. The sheet tier is deliberately absent: its tiers are named categories,
+// so it is the exact-match `sheetTier` filter instead.
+export const LEVEL_RANGE_FIELDS = [
+  'downloads',
+  'likes',
+  'objectCount',
+  'gddlTier',
+  'aredlRank',
+  'enjoyment',
+  'duration',
+  'gameVersion',
+] as const
+
+export type LevelRangeField = (typeof LEVEL_RANGE_FIELDS)[number]
+
+// Hard validation limits per range field — what a bound may be at all, not the
+// UI's slider domain. null is unbounded on that side. Likes can go negative
+// (net dislikes); GDDL tiers carry no ceiling so a new top tier stays filterable.
+export const LEVEL_RANGE_BOUNDS: Record<
+  LevelRangeField,
+  { min: number | null; max: number | null; int: boolean }
+> = {
+  downloads: { min: 0, max: null, int: true },
+  likes: { min: null, max: null, int: true },
+  objectCount: { min: 0, max: null, int: true },
+  gddlTier: { min: 1, max: null, int: true },
+  aredlRank: { min: 1, max: null, int: true },
+  enjoyment: { min: 0, max: 100, int: false },
+  duration: { min: 0, max: null, int: true },
+  gameVersion: { min: 1, max: null, int: false },
+}
+
+type LevelRangeKey = `${LevelRangeField}Min` | `${LevelRangeField}Max`
+
+function rangeBoundSchema(field: LevelRangeField) {
+  const b = LEVEL_RANGE_BOUNDS[field]
+  let s = z.number().finite()
+  if (b.int) s = s.int()
+  if (b.min !== null) s = s.min(b.min)
+  if (b.max !== null) s = s.max(b.max)
+  return s.optional()
+}
+
+// `{ starsMin, starsMax, downloadsMin, … }`, built from the table above so a
+// field's Min/Max pair can never be declared with different limits.
+const LevelRangeFiltersShape = Object.fromEntries(
+  LEVEL_RANGE_FIELDS.flatMap((f) => [
+    [`${f}Min`, rangeBoundSchema(f)],
+    [`${f}Max`, rangeBoundSchema(f)],
+  ])
+) as Record<LevelRangeKey, z.ZodOptional<z.ZodNumber>>
 
 // The filter set, shared by the cache browse and (where GD's schema permits) the
 // RobTop escalation. All optional — an empty object browses the whole cache.
@@ -724,6 +797,10 @@ export const LevelSearchFiltersSchema = z.object({
   length: z.array(LevelLengthSchema).optional(),
   levelType: LevelTypeFilterSchema.optional(),
   songType: LevelSongTypeSchema.optional(),
+  // One NLW/LW sheet tier, matched exactly. The tiers are named categories that
+  // people pick by name, not points on a scale, so there is no range form.
+  sheetTier: z.number().int().min(0).max(MAX_SHEET_TIER).optional(),
+  ...LevelRangeFiltersShape,
 })
 
 // Search terms are fed to pg_trgm similarity() and an ILIKE '%…%' over the
@@ -755,11 +832,33 @@ export const LevelBrowseResultSchema = LevelSearchResultSchema.extend({
   twoPlayer: z.boolean().nullable(),
   isDemon: z.boolean(),
   levelType: LevelTypeFilterSchema,
+  // The figures a row surfaces when the user sorts or filters by them.
+  objectCount: z.number().int().nullable(),
+  gddlTier: z.number().int().nullable(),
+  aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  sheetTier: z.number().int().nullable(),
+  enjoyment: z.number().nullable(),
+  durationSeconds: z.number().int().nullable(),
+  gameVersion: z.string().nullable(),
+  ratingStatusSince: z.coerce.date().nullable(),
+  songType: LevelSongTypeSchema.nullable(),
 })
 
 // `nextCursor` is an opaque keyset token; null when the last page was returned.
 export const LevelBrowseResponseSchema = z.object({
   data: z.array(LevelBrowseResultSchema),
+  nextCursor: z.string().nullable(),
+})
+
+// GET /v1/me/collections/:collectionId/levels — the same browse, scoped to one
+// collection's levels, each row carrying the entry id its remove button needs.
+export const CollectionBrowseResultSchema = LevelBrowseResultSchema.extend({
+  entryId: z.string().uuid(),
+})
+
+export const CollectionBrowseResponseSchema = z.object({
+  data: z.array(CollectionBrowseResultSchema),
   nextCursor: z.string().nullable(),
 })
 
@@ -910,14 +1009,40 @@ export const LevelProgressListResponseSchema = z.object({
 // CLASSIC RANKING — the personal difficulty-ordering page.
 // ─────────────────────────────────────────────
 
-// The GDDL tier badge shown on a ranking row / unplaced card.
+// The GDDL tier badge shown on a collection entry.
 // Sourced from LevelProgress.userGddlTier (the user's own opinion).
 // Null when the user has not given a GDDL tier opinion for this level.
+//
+// NOT what the demon list shows — its rows carry CommunityTiersSchema, the
+// level's real placements, which is a different number with a different
+// meaning (see that schema).
 export const DemonListBadgeSchema = z
   .object({
     gddlTier: z.number().int(),
   })
   .nullable()
+
+/**
+ * A level's placements on the three community difficulty lists, straight off
+ * the Level row as services/levels/communitySync merged them. Each list covers
+ * a different slice of the game — GDDL rates demons, AREDL and the two
+ * spreadsheets cover extremes — so a level normally holds some and not others,
+ * and every field is null for one on none of them.
+ *
+ * `aredlRank` IS NOT ALWAYS A RANK: read `aredlStatus` first (see the Level
+ * model, and lib/tierBadges on the client). `sheetTier` 0 is a real tier —
+ * guard on `!= null`, never on truthiness.
+ *
+ * NOT to be confused with the user's own GDDL tier OPINION
+ * (DemonListBadgeSchema / LevelProgress.userGddlTier): same list, same scale,
+ * different number, and neither is derived from the other.
+ */
+export const CommunityTiersSchema = z.object({
+  gddlTier: z.number().int().nullable(),
+  aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  sheetTier: z.number().int().nullable(),
+})
 
 export const ClassicDemonListEntrySchema = z.object({
   // 1-based position in the placed list (ordered by listIndex DESC, so
@@ -931,14 +1056,16 @@ export const ClassicDemonListEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
-  badge: DemonListBadgeSchema,
+  // The row's community-list chips, and the pre-scroll hint's tier. A "list
+  // reference" in DEMON_LIST.md's sense — a convenience, never a placement.
+  communityTiers: CommunityTiersSchema,
 })
 
 export const UnplacedDemonListEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
   attempts: z.number().int().nullable(),
-  badge: DemonListBadgeSchema,
+  communityTiers: CommunityTiersSchema,
 })
 
 // Both columns in one round trip — the page always renders them together.
@@ -986,6 +1113,13 @@ export const isReservedCollectionName = (name: string): boolean =>
     (r) => r.toLowerCase() === name.trim().toLowerCase()
   )
 
+// Favorites and Least Favorites are always ordered — they are rankings by
+// nature. Want to Beat and custom collections can switch either way.
+export const isCollectionOrderingConvertible = (
+  type: CollectionType | string
+): boolean =>
+  type !== CollectionType.FAVORITES && type !== CollectionType.LEAST_FAVORITES
+
 // Machine-readable error codes for collection writes.
 export const COLLECTION_ERRORS = {
   DUPLICATE_NAME: 'DUPLICATE_NAME',
@@ -993,12 +1127,29 @@ export const COLLECTION_ERRORS = {
   BUILT_IN_COLLECTION: 'BUILT_IN_COLLECTION',
   LEVEL_ALREADY_COMPLETED: 'LEVEL_ALREADY_COMPLETED',
   SELF_REFERENTIAL_NEIGHBOR: 'SELF_REFERENTIAL_NEIGHBOR',
+  ORDERING_FIXED: 'ORDERING_FIXED',
+  SAME_COLLECTION: 'SAME_COLLECTION',
 } as const
 export type CollectionErrorCode = keyof typeof COLLECTION_ERRORS
 
 export const CreateCollectionInputSchema = z.object({
   name: z.string().trim().min(1).max(50),
   description: z.string().trim().max(200).nullable().optional(),
+  // Defaults to ORDERED.
+  ordering: z.nativeEnum(CollectionOrdering).optional(),
+})
+
+// Converting to UNORDERED discards the curated order; converting either way
+// renumbers the entries by level ID, so a collection converted back to ORDERED
+// starts in the order its unordered view showed by default.
+export const SetCollectionOrderingInputSchema = z.object({
+  ordering: z.nativeEnum(CollectionOrdering),
+})
+
+// Adds every level of the source collection that the target lacks, appended
+// in the source's display order. Into Want to Beat, beaten levels are skipped.
+export const CopyCollectionEntriesInputSchema = z.object({
+  sourceCollectionId: z.string().uuid(),
 })
 
 // Rename/edit description — custom collections only (built-ins are immutable).
@@ -1015,6 +1166,7 @@ export const CollectionSummarySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   type: z.nativeEnum(CollectionType),
+  ordering: z.nativeEnum(CollectionOrdering),
   description: z.string().nullable(),
   entryCount: z.number().int(),
   previewLevelIds: z.array(z.string()),
@@ -1038,13 +1190,27 @@ export const CollectionEntrySchema = z.object({
   completed: z.boolean(),
 })
 
+// `entries` are in rankingIndex order either way; for an UNORDERED collection
+// that order means nothing, and the page browses GET …/levels instead.
 export const CollectionDetailSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   type: z.nativeEnum(CollectionType),
+  ordering: z.nativeEnum(CollectionOrdering),
   description: z.string().nullable(),
   createdAt: z.coerce.date(),
   entries: z.array(CollectionEntrySchema),
+})
+
+export const CopyCollectionEntriesResultSchema = z.object({
+  collection: CollectionDetailSchema,
+  // Levels newly added to the target.
+  added: z.number().int(),
+  // Source levels the target already held.
+  alreadyPresent: z.number().int(),
+  // Source levels left out because the target is Want to Beat and the user
+  // has beaten them.
+  skippedCompleted: z.number().int(),
 })
 
 export const AddCollectionEntryInputSchema = z.object({

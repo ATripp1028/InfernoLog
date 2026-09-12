@@ -780,6 +780,33 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
     await expectWantToBeatUnbeaten()
   })
 
+  it('holds when a whole collection is copied into it', async () => {
+    // A copy is a bulk add: it must apply the rule to each level, not let a
+    // beaten one ride in with the rest.
+    const { user, wtb } = await seedWorld()
+    const favorites = await prisma.collection.create({
+      data: { userId: user.id, name: 'Favorites', type: 'FAVORITES' },
+    })
+    await addToWantToBeat(favorites.id, LEVEL_ID)
+    const log = await logCompletion(user.id, { attempts: 100 })
+    expect(log.status).toBe(201)
+
+    const res = await buildApp(collectionsApp, { userId: user.id }).request(
+      `/me/collections/${wtb.id}/entries/copy`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sourceCollectionId: favorites.id }),
+      }
+    )
+
+    expect(res.status).toBe(200)
+    expect(
+      await prisma.collectionEntry.count({ where: { collectionId: wtb.id } })
+    ).toBe(0)
+    await expectWantToBeatUnbeaten()
+  })
+
   it('leaves a level in Favorites when it is completed', async () => {
     // Only Want to Beat has this rule — a beaten level belongs in Favorites.
     const { user } = await seedWorld()

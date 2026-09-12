@@ -90,7 +90,13 @@ async function resolveCollectionId(
   if (found) return found.id
 
   const created = await tx.collection.create({
-    data: { userId, name: target.name, type: target.type },
+    data: {
+      userId,
+      name: target.name,
+      type: target.type,
+      // A re-created Want to Beat matches the one signup seeds.
+      ordering: target.type === 'WANT_TO_BEAT' ? 'UNORDERED' : 'ORDERED',
+    },
     select: { id: true, name: true, type: true },
   })
   existing.push(created as CollectionRow)

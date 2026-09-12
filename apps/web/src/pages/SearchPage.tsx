@@ -5,14 +5,16 @@ import {
   browseApiQueryString,
   canEscalateToGd,
   hasActiveFilters,
+  reconcileExtremeSort,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
-import { useSearchPageBar } from '@/features/search/useSearchPageBar'
+import { useLevelSearchBar } from '@/components/inputs/levelSearch/useLevelSearchBar'
 import { useEscalation } from '@/lib/useEscalation'
-import { SearchPageBar } from '@/features/search/SearchPageBar'
+import { LevelSearchBar } from '@/components/inputs/levelSearch/LevelSearchBar'
 import { SearchResultsGrid } from '@/features/search/SearchResultsGrid'
 import { GdBrowseResults } from '@/features/search/GdBrowseResults'
 import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
+import { rowStatKeys } from '@/lib/rowStats'
 
 /**
  * The Search tab. A top-center bar commits a full, filterable, cursor-paginated
@@ -23,15 +25,18 @@ import { RobtopSearchOffer } from '@/features/search/RobtopSearchOffer'
 export function SearchPage() {
   const state = useSearch({ from: '/_authenticated/search' })
   const navigate = useNavigate()
-  const bar = useSearchPageBar(state)
+  const bar = useLevelSearchBar(state, {
+    commit: (next) => navigate({ to: '/search', replace: true, search: next }),
+  })
   const escalation = useEscalation()
 
   const query = state.query?.trim() ?? ''
   const filtersActive = hasActiveFilters(state)
-  const browsableSort = state.sort === 'downloads' || state.sort === 'likes'
-  // A search runs once there's a query, an active filter, or a browsable sort
-  // (most downloaded/liked). The default (relevance, empty) shows an idle prompt.
-  const enabled = query.length > 0 || filtersActive || browsableSort
+  // A search runs once there's a query, an active filter, or any sort other
+  // than relevance — picking an order is itself a request to browse the cache
+  // by it. The default (relevance, empty) shows an idle prompt.
+  const enabled =
+    query.length > 0 || filtersActive || state.sort !== 'relevance'
 
   const browse = useLevelBrowse(state, enabled)
 
@@ -43,22 +48,25 @@ export function SearchPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stateKey])
 
+  // Both run through reconcileExtremeSort so the URL itself drops an
+  // extremes-only sort once its Extreme Demon filter goes, not just the state
+  // validateSearch derives from it.
   const update = (patch: Partial<SearchPageState>) =>
     navigate({
       to: '/search',
       replace: true,
-      search: { ...state, ...patch },
+      search: reconcileExtremeSort({ ...state, ...patch }),
     })
 
   const resetFilters = () =>
     navigate({
       to: '/search',
       replace: true,
-      search: {
+      search: reconcileExtremeSort({
         query: state.query,
         searchBy: state.searchBy,
         sort: state.sort,
-      },
+      }),
     })
 
   // The RobTop offer is shown whenever a browse is running and we're not mid
@@ -74,7 +82,7 @@ export function SearchPage() {
     // Match the app's standard page padding (List/Ranking use p-4 md:p-6); the
     // extra bottom padding clears the fixed RobTop offer + mobile nav.
     <div className="p-4 pb-24 md:p-6">
-      <SearchPageBar
+      <LevelSearchBar
         bar={bar}
         state={state}
         onChange={update}
@@ -87,6 +95,7 @@ export function SearchPage() {
           <SearchResultsGrid
             query={browse}
             enabled={enabled}
+            statKeys={rowStatKeys(state)}
             emptyHint={
               <div className="rounded-card border border-border-subtle bg-bg-surface p-6 text-center">
                 <p className="text-sm font-medium text-text-primary">

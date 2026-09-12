@@ -43,7 +43,7 @@ export function Collections() {
   const customs = collections.data.filter((c) => c.type === 'CUSTOM')
 
   return (
-    <div className="mx-auto flex max-w-[1136px] flex-col gap-7 p-4 pb-24 md:p-8">
+    <div className="mx-auto flex flex-col gap-7 p-4 pb-24 md:p-8">
       <header>
         <h1 className="text-2xl font-bold text-text-primary">Collections</h1>
         <p className="mt-1 text-sm text-text-secondary">

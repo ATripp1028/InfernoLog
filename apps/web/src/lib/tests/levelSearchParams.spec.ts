@@ -13,6 +13,8 @@ import {
   effectiveSortDir,
   hasActiveFilters,
   naturalSortDir,
+  reconcileExtremeSort,
+  sortSelectionPatch,
   validateSearchState,
   type SearchPageState,
 } from '../levelSearchParams'
@@ -45,12 +47,25 @@ describe('sort direction', () => {
     expect(naturalSortDir('name')).toBe('asc')
   })
 
-  it.each(['relevance', 'downloads', 'likes', 'stars', 'objectCount'] as const)(
-    'starts a %s sort descending',
-    (sort) => {
-      expect(naturalSortDir(sort)).toBe('desc')
-    }
-  )
+  it.each([
+    'relevance',
+    'downloads',
+    'likes',
+    'stars',
+    'gddlTier',
+    'sheetTier',
+    'enjoyment',
+    'duration',
+    'objectCount',
+    'gameVersion',
+  ] as const)('starts a %s sort descending', (sort) => {
+    expect(naturalSortDir(sort)).toBe('desc')
+  })
+
+  // AREDL rank 1 is the hardest level, so the list reads top-down.
+  it('starts an AREDL rank sort ascending', () => {
+    expect(naturalSortDir('aredlRank')).toBe('asc')
+  })
 
   it('gives every declared sort a natural direction', () => {
     for (const option of LEVEL_SORT_OPTIONS) {
@@ -73,6 +88,99 @@ describe('sort direction', () => {
   })
 })
 
+describe('sortSelectionPatch', () => {
+  it('sets the sort with its natural direction', () => {
+    expect(sortSelectionPatch('name')).toEqual({ sort: 'name', sortDir: 'asc' })
+    expect(sortSelectionPatch('likes')).toEqual({
+      sort: 'likes',
+      sortDir: 'desc',
+    })
+  })
+
+  // AREDL and the NLW/LW sheets rank nothing but extreme demons.
+  it.each(['aredlRank', 'sheetTier'] as const)(
+    'narrows a %s sort to extreme demons',
+    (sort) => {
+      expect(sortSelectionPatch(sort).difficulty).toEqual(['demon-extreme'])
+    }
+  )
+
+  it('replaces the difficulty selection rather than adding to it', () => {
+    const next = {
+      ...state({ difficulty: ['easy', 'demon-hard'] }),
+      ...sortSelectionPatch('aredlRank'),
+    }
+
+    expect(next.difficulty).toEqual(['demon-extreme'])
+  })
+
+  it('leaves the difficulty filter alone for any other sort', () => {
+    expect(sortSelectionPatch('gddlTier')).not.toHaveProperty('difficulty')
+  })
+})
+
+// AREDL and the sheets place nothing but extremes, so their sorts only mean
+// something while the difficulty filter says Extreme Demon alone.
+describe('reconcileExtremeSort', () => {
+  it.each(['aredlRank', 'sheetTier'] as const)(
+    'keeps a %s sort while the filter is Extreme Demon only',
+    (sort) => {
+      const s = state({ sort, sortDir: 'desc', difficulty: ['demon-extreme'] })
+
+      expect(reconcileExtremeSort(s)).toBe(s)
+    }
+  )
+
+  it.each([
+    ['cleared', undefined],
+    ['widened', ['demon-extreme', 'demon-insane']],
+    ['moved', ['demon-hard']],
+  ] as const)(
+    'drops the sort once the Extreme Demon filter is %s',
+    (_label, difficulty) => {
+      const next = reconcileExtremeSort(
+        state({
+          sort: 'aredlRank',
+          sortDir: 'desc',
+          difficulty: difficulty as never,
+        })
+      )
+
+      expect(next.sort).toBe('relevance')
+      expect(next.sortDir).toBeUndefined()
+    }
+  )
+
+  // The reported bug: Clear all kept the sort and let every non-extreme in.
+  it('drops the sort when the filters are cleared', () => {
+    const cleared = { query: undefined, searchBy: 'name', sort: 'sheetTier' }
+
+    expect(reconcileExtremeSort(cleared as SearchPageState).sort).toBe(
+      'relevance'
+    )
+  })
+
+  it('leaves the filters alone', () => {
+    expect(
+      reconcileExtremeSort(state({ sort: 'aredlRank', twoPlayer: true }))
+        .twoPlayer
+    ).toBe(true)
+  })
+
+  it('leaves every other sort alone', () => {
+    const s = state({ sort: 'gddlTier' })
+
+    expect(reconcileExtremeSort(s)).toBe(s)
+  })
+
+  it('survives the very patch that picks the sort', () => {
+    expect(
+      reconcileExtremeSort({ ...state(), ...sortSelectionPatch('aredlRank') })
+        .sort
+    ).toBe('aredlRank')
+  })
+})
+
 describe('hasActiveFilters', () => {
   it('reports nothing set on a fresh state', () => {
     expect(hasActiveFilters(state())).toBe(false)
@@ -87,6 +195,11 @@ describe('hasActiveFilters', () => {
     ['verified coins', { coinsVerified: true }],
     ['level type', { levelType: 'CLASSIC' }],
     ['song type', { songType: 'nong' }],
+    ['range lower bound', { downloadsMin: 1000 }],
+    ['range upper bound', { gddlTierMax: 20 }],
+    ['sheet tier', { sheetTier: 14 }],
+    // Tier 0 is a real tier, not an absent filter.
+    ['sheet tier 0', { sheetTier: 0 }],
   ] as const)('notices a %s filter', (_label, patch) => {
     expect(hasActiveFilters(state(patch as never))).toBe(true)
   })
@@ -176,6 +289,9 @@ describe('canEscalateToGd', () => {
     ['a NONG filter', { songType: 'nong' }],
     ['a stars sort', { sort: 'stars' }],
     ['an object-count sort', { sort: 'objectCount' }],
+    ['a GDDL tier sort', { sort: 'gddlTier' }],
+    ['a range bound', { downloadsMin: 1000 }],
+    ['a sheet tier', { sheetTier: 14 }],
   ] as const)('does not forward %s alone', (_label, patch) => {
     expect(canEscalateToGd(state(patch as never))).toBe(false)
   })
@@ -215,6 +331,18 @@ describe('validateSearchState', () => {
     expect(validateSearchState({ [field]: value })[key as 'sort']).toBe(
       expected
     )
+  })
+
+  // A shared or hand-edited URL can name the sort without its filter.
+  it('drops an extremes-only sort that arrives without its filter', () => {
+    expect(validateSearchState({ sort: 'aredlRank' }).sort).toBe('relevance')
+  })
+
+  it('keeps an extremes-only sort that arrives with its filter', () => {
+    expect(
+      validateSearchState({ sort: 'aredlRank', difficulty: ['demon-extreme'] })
+        .sort
+    ).toBe('aredlRank')
   })
 
   it('drops an unrecognized sort direction rather than defaulting it', () => {
@@ -297,6 +425,70 @@ describe('validateSearchState', () => {
         validateSearchState({ twoPlayer: raw as never }).twoPlayer
       ).toBeUndefined()
     })
+  })
+
+  // Checked against core's own limits, so a hand-edited bound is dropped here
+  // instead of earning a 400 the grid would show as a failed search.
+  describe('range bounds', () => {
+    it('keeps a bound the API would accept', () => {
+      expect(
+        validateSearchState({ downloadsMin: 1000, gddlTierMax: 5 })
+      ).toMatchObject({ downloadsMin: 1000, gddlTierMax: 5 })
+    })
+
+    it('coerces a numeric string, since the URL carries text', () => {
+      expect(validateSearchState({ gddlTierMin: '20' }).gddlTierMin).toBe(20)
+    })
+
+    it('keeps a fraction where the field allows one', () => {
+      expect(validateSearchState({ enjoymentMin: 49.5 }).enjoymentMin).toBe(
+        49.5
+      )
+      expect(validateSearchState({ gameVersionMax: 2.1 }).gameVersionMax).toBe(
+        2.1
+      )
+    })
+
+    it.each([
+      ['beyond the field’s limit', { enjoymentMax: 101 }, 'enjoymentMax'],
+      ['below it', { gddlTierMin: 0 }, 'gddlTierMin'],
+      [
+        'fractional on a whole-number field',
+        { downloadsMin: 1.5 },
+        'downloadsMin',
+      ],
+      ['unparseable', { likesMin: 'lots' }, 'likesMin'],
+      ['blank', { likesMin: '' }, 'likesMin'],
+      ['non-finite', { likesMax: Number.POSITIVE_INFINITY }, 'likesMax'],
+    ] as const)('drops a bound that is %s', (_label, raw, key) => {
+      expect(validateSearchState(raw)[key]).toBeUndefined()
+    })
+
+    // Likes are net of dislikes, so a negative bound is legitimate.
+    it('keeps a negative likes bound', () => {
+      expect(validateSearchState({ likesMax: -5 }).likesMax).toBe(-5)
+    })
+  })
+
+  describe('the sheet tier', () => {
+    it.each([
+      [14, 14],
+      ['14', 14],
+      // Tier 0 is a real tier, so it must not fall out as falsy.
+      [0, 0],
+      ['0', 0],
+    ])('keeps %p as tier %s', (raw, expected) => {
+      expect(validateSearchState({ sheetTier: raw }).sheetTier).toBe(expected)
+    })
+
+    it.each([22, -1, 1.5, '', 'Nightmare', null])(
+      'drops %p, which is not a tier on the ladder',
+      (raw) => {
+        expect(
+          validateSearchState({ sheetTier: raw as never }).sheetTier
+        ).toBeUndefined()
+      }
+    )
   })
 
   it('survives a URL of complete nonsense', () => {
@@ -387,6 +579,28 @@ describe('browseApiQueryString', () => {
     expect(params(state()).has('cursor')).toBe(false)
   })
 
+  it('sends each range bound under its own key', () => {
+    const p = params(state({ downloadsMin: 1000, enjoymentMax: 49.5 }))
+
+    expect(p.get('downloadsMin')).toBe('1000')
+    expect(p.get('enjoymentMax')).toBe('49.5')
+  })
+
+  it('sends a zero bound rather than dropping it', () => {
+    expect(params(state({ likesMin: 0 })).get('likesMin')).toBe('0')
+  })
+
+  it('sends the sheet tier, tier 0 included', () => {
+    expect(params(state({ sheetTier: 0 })).get('sheetTier')).toBe('0')
+    expect(params(state()).has('sheetTier')).toBe(false)
+  })
+
+  it('omits the bounds that are unset', () => {
+    expect(params(state({ downloadsMin: 1000 })).has('downloadsMax')).toBe(
+      false
+    )
+  })
+
   // The URL is the source of truth, so what the page serializes has to come
   // back through validation unchanged.
   it('round-trips a fully-specified state through validation', () => {
@@ -403,10 +617,20 @@ describe('browseApiQueryString', () => {
       coinsVerified: false,
       levelType: 'CLASSIC',
       songType: 'nong',
+      downloadsMin: 1000,
+      gddlTierMax: 20,
+      enjoymentMin: 49.5,
+      gameVersionMin: 2.1,
+      sheetTier: 0,
     })
     const p = params(original)
 
     const revalidated = validateSearchState({
+      downloadsMin: p.get('downloadsMin'),
+      gddlTierMax: p.get('gddlTierMax'),
+      enjoymentMin: p.get('enjoymentMin'),
+      gameVersionMin: p.get('gameVersionMin'),
+      sheetTier: p.get('sheetTier'),
       query: p.get('q') ?? undefined,
       searchBy: p.get('searchBy'),
       sort: p.get('sort'),
@@ -422,5 +646,49 @@ describe('browseApiQueryString', () => {
     })
 
     expect(revalidated).toEqual(original)
+  })
+})
+
+// Level ID is an unordered collection's sort; /search keeps its own menu.
+describe('the level ID sort', () => {
+  it('starts ascending, oldest level first', () => {
+    expect(naturalSortDir('levelId')).toBe('asc')
+  })
+
+  it('is not offered on /search', () => {
+    expect(LEVEL_SORT_OPTIONS.map((o) => o.value)).not.toContain('levelId')
+  })
+
+  it('is dropped from a /search URL', () => {
+    expect(validateSearchState({ sort: 'levelId' }).sort).toBe('relevance')
+  })
+})
+
+describe('a page-specific sort vocabulary', () => {
+  it('falls an extremes-only sort back to the default it is given', () => {
+    expect(
+      reconcileExtremeSort(state({ sort: 'aredlRank' }), 'levelId')
+    ).toMatchObject({ sort: 'levelId', sortDir: undefined })
+  })
+
+  it('accepts only the sorts it is given', () => {
+    expect(
+      validateSearchState(
+        { sort: 'relevance' },
+        { sorts: ['levelId', 'likes'], defaultSort: 'levelId' }
+      ).sort
+    ).toBe('levelId')
+    expect(
+      validateSearchState(
+        { sort: 'likes' },
+        { sorts: ['levelId', 'likes'], defaultSort: 'levelId' }
+      ).sort
+    ).toBe('likes')
+  })
+
+  it('falls back to the default it is given for a missing sort', () => {
+    expect(validateSearchState({}, { defaultSort: 'levelId' }).sort).toBe(
+      'levelId'
+    )
   })
 })

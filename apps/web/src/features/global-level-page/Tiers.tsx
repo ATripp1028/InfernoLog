@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react'
+import { SheetSourceChip, TierBadge } from '@/components/data/TierBadge'
 import {
   Popover,
   PopoverContent,
@@ -10,44 +11,6 @@ import type { TierEntry } from './tierEntries'
 // Desktop renders the tiers inside a bordered card ('card'); mobile renders
 // them bare inside the collapsible section ('plain'). Matches Song/Links.
 type TiersVariant = 'card' | 'plain'
-
-// The coloured placement badge. An unpainted badge (a tier whose sheet color
-// hasn't been transcribed yet) falls back to the page's subtle surface rather
-// than to an invented color.
-function TierBadge({ entry }: { entry: TierEntry }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex min-w-8 items-center justify-center rounded px-2.5 py-1 text-xs font-bold',
-        entry.color ? undefined : 'bg-bg-subtle'
-      )}
-      style={
-        entry.color
-          ? { backgroundColor: entry.color, color: entry.textColor }
-          : undefined
-      }
-    >
-      {entry.badge}
-    </span>
-  )
-}
-
-// Which of the two spreadsheets a sheet tier came from. Purely derived from the
-// tier number (see lib/sheetTier.ts), and the only cue that they are two lists.
-function SourceChip({ source }: { source: 'NLW' | 'LW' }) {
-  return (
-    <span
-      className="rounded bg-white/[0.06] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary"
-      title={
-        source === 'LW'
-          ? 'Listworthy spreadsheet'
-          : 'Non-listworthy spreadsheet'
-      }
-    >
-      {source}
-    </span>
-  )
-}
 
 // Sheet tier 0 ("Fuck") reads as "easier than Beginner" to anyone who doesn't
 // already know the ladder, so the one tier that needs explaining gets a
@@ -97,8 +60,8 @@ function TierRow({ entry, pad }: { entry: TierEntry; pad: string }) {
               {entry.detail}
             </span>
           )}
-          {entry.source && <SourceChip source={entry.source} />}
-          <TierBadge entry={entry} />
+          {entry.source && <SheetSourceChip source={entry.source} />}
+          <TierBadge look={entry} />
           {entry.href && (
             <span aria-hidden className="text-text-tertiary">
               ↗

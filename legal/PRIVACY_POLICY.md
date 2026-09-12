@@ -1,6 +1,6 @@
 **Privacy Policy**
 
-This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, "InfernoLog"). 
+This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, "InfernoLog").
 
 **Privacy Stance**
 
@@ -103,7 +103,7 @@ Upon verification of your identity, InfernoLog will delete your personal data fr
 
 **Children**
 
-InfernoLog is not intended for children under 13 years of age, or such higher age as required by applicable law. InfernoLog does not knowingly solicit data from children or market InfernoLog to them. No Personally Identifiable Information, including age, is stored when account creation is rejected on the basis of age.
+InfernoLog is not intended for children under 13 years of age. InfernoLog does not knowingly solicit data from children or market InfernoLog to them. No Personally Identifiable Information, including age, is stored when account creation is rejected on the basis of age.
 
 If it is discovered that InfernoLog is storing information for a person under 13 years old, the account and information of the individual in question will be deleted.
 
@@ -117,7 +117,7 @@ InfernoLog may update this Privacy Policy from time to time. By continuing to us
 
 Previous versions of this Privacy Policy will be maintained and made available upon request by contacting InfernoLog at contact@infernolog.com.
 
-This privacy policy is effective as of 2026-09-10
+This privacy policy is effective as of 2026-09-11
 
 **Your Consent**
 

@@ -19,6 +19,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { UseMutationResult, UseQueryResult } from '@tanstack/react-query'
 import {
+  CollectionOrdering,
   CollectionType,
   Device,
   EntryVisibility,
@@ -251,6 +252,7 @@ export function makeCollectionDetail(
     id: 'collection-1',
     name: 'My Collection',
     type: CollectionType.CUSTOM,
+    ordering: CollectionOrdering.ORDERED,
     description: null,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     entries: [],
@@ -268,6 +270,7 @@ export function makeCollectionSummary(
     id: 'collection-1',
     name: 'My Collection',
     type: CollectionType.CUSTOM,
+    ordering: CollectionOrdering.ORDERED,
     description: null,
     entryCount: 0,
     previewLevelIds: [],

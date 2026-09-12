@@ -20,8 +20,9 @@ interface CopyableIdProps {
  * render at different widths. Keyboard-accessible and announced: it is a real
  * interactive control, not decoration.
  *
- * New in the Global Level Page PR; used here only. Migrating the app's other
- * id spots onto it is a separate PR.
+ * Used on the level pages at its own size, and in level rows shrunk by a
+ * `className` so it does not compete with the level's name. In a row it must
+ * be a SIBLING of the row's link, never a descendant — see lib/rowLink.
  */
 export function CopyableId({ id, label = 'ID', className }: CopyableIdProps) {
   async function handleCopy(e: React.MouseEvent) {

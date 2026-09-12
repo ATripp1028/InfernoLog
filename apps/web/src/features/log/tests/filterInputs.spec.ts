@@ -5,9 +5,8 @@ import {
   toIso,
   useDateField,
 } from '@/components/inputs/useDateField'
-import { useRangeDrafts } from '../useFilterInputs'
 import { FLAGS, LEVEL_FLAGS, toggle, useFilterPanel } from '../useFilterPanel'
-import { RATING_DOMAIN, TIER_DOMAIN, type Range } from '../types'
+import { RATING_DOMAIN, TIER_DOMAIN } from '../types'
 import { filters } from './fixtures'
 
 describe('toggle', () => {
@@ -242,100 +241,6 @@ describe('toIso', () => {
     const ms = new Date(2026, 2, 14).getTime()
 
     expect(parseFilterDate(toIso(ms), 'ISO')).toBe(ms)
-  })
-})
-
-describe('useRangeDrafts', () => {
-  const render = (opts: { value?: Range; parseInput?: null } = {}) => {
-    const onChange = vi.fn()
-    const view = renderHook(() =>
-      useRangeDrafts({
-        min: 0,
-        max: 100,
-        value: opts.value ?? [0, 100],
-        onChange,
-        parseInput:
-          opts.parseInput === null
-            ? undefined
-            : (text) => {
-                const n = Number(text)
-                return Number.isNaN(n) ? null : n
-              },
-      })
-    )
-    return { ...view, onChange }
-  }
-
-  it('starts with no draft, showing the committed value', () => {
-    const { result } = render()
-
-    expect(result.current.minDraft).toBeNull()
-    expect(result.current.maxDraft).toBeNull()
-  })
-
-  // While typing, the draft is shown verbatim — clamping mid-keystroke would
-  // fight the user.
-  it('holds the typed text verbatim', () => {
-    const { result } = render()
-
-    act(() => result.current.setMinDraft('4'))
-
-    expect(result.current.minDraft).toBe('4')
-  })
-
-  it('commits a parsed value and drops the draft', () => {
-    const { result, onChange } = render()
-
-    act(() => result.current.commitMin('40'))
-
-    expect(onChange).toHaveBeenCalledWith([40, 100])
-    expect(result.current.minDraft).toBeNull()
-  })
-
-  it('clamps a commit to the domain', () => {
-    const { result, onChange } = render()
-
-    act(() => result.current.commitMin('-20'))
-    expect(onChange).toHaveBeenCalledWith([0, 100])
-
-    act(() => result.current.commitMax('200'))
-    expect(onChange).toHaveBeenLastCalledWith([0, 100])
-  })
-
-  // The two ends cannot cross — a min above the current max is pinned to it.
-  it('stops the lower end passing the upper', () => {
-    const { result, onChange } = render({ value: [0, 50] })
-
-    act(() => result.current.commitMin('80'))
-
-    expect(onChange).toHaveBeenCalledWith([50, 50])
-  })
-
-  it('stops the upper end passing the lower', () => {
-    const { result, onChange } = render({ value: [50, 100] })
-
-    act(() => result.current.commitMax('20'))
-
-    expect(onChange).toHaveBeenCalledWith([50, 50])
-  })
-
-  // Unparseable input drops the draft, which restores the committed value on
-  // the next render rather than writing something wrong.
-  it('discards an unparseable commit', () => {
-    const { result, onChange } = render()
-
-    act(() => result.current.commitMin('abc'))
-
-    expect(onChange).not.toHaveBeenCalled()
-    expect(result.current.minDraft).toBeNull()
-  })
-
-  it('writes nothing when the caller supplied no parser', () => {
-    const { result, onChange } = render({ parseInput: null })
-
-    act(() => result.current.commitMin('40'))
-
-    expect(onChange).not.toHaveBeenCalled()
   })
 })
 

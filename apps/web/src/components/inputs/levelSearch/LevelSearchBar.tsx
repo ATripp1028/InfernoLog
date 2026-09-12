@@ -3,6 +3,7 @@ import {
   ArrowDownWideNarrow,
   ArrowRight,
   ArrowUpNarrowWide,
+  ChevronDown,
   Search,
   SlidersHorizontal,
 } from 'lucide-react'
@@ -22,22 +23,30 @@ import {
   SelectValue,
 } from '@/components/generic/select'
 import {
+  LEVEL_SORT_OPTIONS,
   SEARCH_BY_OPTIONS,
   effectiveSortDir,
   hasActiveFilters,
   type LevelSearchBy,
+  type LevelSortOption,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 import { SearchFilters } from './SearchFilters'
 import { SortMenu, sortTriggerLabel } from './SortMenu'
-import { useSearchPageBar } from './useSearchPageBar'
+import { useLevelSearchBar } from './useLevelSearchBar'
 
-interface SearchPageBarProps {
-  bar: ReturnType<typeof useSearchPageBar>
+const FILTER_PANEL_ID = 'search-filters'
+
+interface LevelSearchBarProps {
+  bar: ReturnType<typeof useLevelSearchBar>
   state: SearchPageState
   onChange: (patch: Partial<SearchPageState>) => void
   onReset: () => void
   autoFocus?: boolean
+  /** The input's placeholder in name mode. */
+  placeholder?: string
+  /** The sorts the menu offers; defaults to the /search page's. */
+  sortOptions?: readonly LevelSortOption[]
 }
 
 // A bar-height pill button used for the sort and filter menu triggers.
@@ -129,18 +138,23 @@ function ResponsiveMenu({
 }
 
 /**
- * The top-center search bar for /search. On mobile the query input + Search
- * button sit on their own row above the search-by / sort / filter controls; on
- * desktop everything is a single row. The query is live (see useSearchPageBar);
- * Enter flushes, and a numeric-only input is a level id with a jump affordance.
+ * A level search bar — the /search page's, and an unordered collection's. On
+ * mobile the query input + Search button sit on their own row above the
+ * search-by / sort / filter controls; on desktop everything is a single row.
+ * The query is live (see useLevelSearchBar); Enter flushes, and where the page
+ * allows it a numeric-only input is a level id with a jump affordance. The
+ * Filters button expands the filter panel inline beneath the bar, in both
+ * layouts; sort stays a popover (a bottom sheet on mobile).
  */
-export function SearchPageBar({
+export function LevelSearchBar({
   bar,
   state,
   onChange,
   onReset,
   autoFocus = false,
-}: SearchPageBarProps) {
+  placeholder = 'Search levels or enter a level ID…',
+  sortOptions = LEVEL_SORT_OPTIONS,
+}: LevelSearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const dir = effectiveSortDir(state)
   const filtersActive = hasActiveFilters(state)
@@ -186,9 +200,7 @@ export function SearchPageBar({
               }
             }}
             placeholder={
-              bar.searchBy === 'creator'
-                ? 'Search by creator…'
-                : 'Search levels or enter a level ID…'
+              bar.searchBy === 'creator' ? 'Search by creator…' : placeholder
             }
             aria-label="Search levels"
             autoComplete="off"
@@ -221,37 +233,36 @@ export function SearchPageBar({
                 <ArrowDownWideNarrow size={16} />
               )}
               <span className="hidden sm:inline">
-                {sortTriggerLabel(state.sort)}
+                {sortTriggerLabel(state.sort, sortOptions)}
               </span>
             </>
           }
         >
-          <SortMenu state={state} onChange={onChange} />
+          <SortMenu state={state} onChange={onChange} options={sortOptions} />
         </ResponsiveMenu>
 
-        {/* Filters. */}
-        <ResponsiveMenu
-          ariaLabel="Filters"
+        {/* Filters: toggles the inline panel below the bar. */}
+        <BarButton
           active={filtersActive}
+          aria-label="Filters"
+          aria-expanded={bar.filtersOpen}
+          aria-controls={FILTER_PANEL_ID}
           className="order-6 md:order-4"
-          popoverClassName="max-h-[70vh] w-[min(92vw,400px)] overflow-y-auto p-4"
-          triggerInner={
-            <>
-              <SlidersHorizontal size={16} />
-              <span className="hidden sm:inline">Filters</span>
-              {filtersActive && (
-                <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
-              )}
-            </>
-          }
+          onClick={bar.toggleFilters}
         >
-          <SearchFilters
-            state={state}
-            onChange={onChange}
-            onReset={onReset}
-            hasFilters={filtersActive}
+          <SlidersHorizontal size={16} />
+          <span className="hidden sm:inline">Filters</span>
+          <ChevronDown
+            size={14}
+            className={cn(
+              'hidden transition-transform sm:block',
+              bar.filtersOpen && 'rotate-180'
+            )}
           />
-        </ResponsiveMenu>
+          {filtersActive && (
+            <span className="absolute -right-1 -top-1 size-2.5 rounded-full bg-primary" />
+          )}
+        </BarButton>
       </div>
 
       {/* A numeric input is a level id, not a browse term — offer the jump. */}
@@ -265,6 +276,20 @@ export function SearchPageBar({
           Go to level {bar.numericId}
           <span className="text-text-tertiary">· press Enter</span>
         </button>
+      )}
+
+      {bar.filtersOpen && (
+        <div
+          id={FILTER_PANEL_ID}
+          className="mt-3 rounded-card border border-border-subtle bg-bg-surface p-4 md:p-5"
+        >
+          <SearchFilters
+            state={state}
+            onChange={onChange}
+            onReset={onReset}
+            hasFilters={filtersActive}
+          />
+        </div>
       )}
     </div>
   )

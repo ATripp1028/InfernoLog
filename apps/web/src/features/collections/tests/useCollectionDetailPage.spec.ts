@@ -3,11 +3,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import type { FabAction } from '@/context/FabActionsContext'
 import type { CollectionDetail } from '@/lib/api/collections'
-import { CollectionType } from '@infernolog/core'
+import { CollectionOrdering, CollectionType } from '@infernolog/core'
 import {
   apiError,
   makeCollectionDetail,
   makeEntry,
+  makeLevel,
   queryWrapper,
   stubMutation,
   stubQuery,
@@ -26,6 +27,7 @@ vi.mock('@/lib/api/collections', () => ({
   useDeleteCollection: vi.fn(),
   useRemoveCollectionEntry: vi.fn(),
   useReorderCollectionEntry: vi.fn(),
+  useSetCollectionOrdering: vi.fn(),
 }))
 
 const { toast } = await import('@/components/generic/sonner')
@@ -35,6 +37,7 @@ const {
   useDeleteCollection,
   useRemoveCollectionEntry,
   useReorderCollectionEntry,
+  useSetCollectionOrdering,
   useUpdateCollection,
 } = await import('@/lib/api/collections')
 const { useCollectionDetailPage, useLoadedCollection } =
@@ -45,12 +48,17 @@ let updateAsync: ReturnType<typeof vi.fn>
 let deleteAsync: ReturnType<typeof vi.fn>
 let removeMutate: ReturnType<typeof vi.fn>
 let reorderMutate: ReturnType<typeof vi.fn>
+let setOrderingAsync: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   updateAsync = vi.fn().mockResolvedValue(undefined)
   deleteAsync = vi.fn().mockResolvedValue(undefined)
   removeMutate = vi.fn()
   reorderMutate = vi.fn()
+  setOrderingAsync = vi.fn().mockResolvedValue(undefined)
+  vi.mocked(useSetCollectionOrdering).mockReturnValue(
+    stubMutation({ mutateAsync: setOrderingAsync })
+  )
   vi.mocked(useUpdateCollection).mockReturnValue(
     stubMutation({ mutateAsync: updateAsync })
   )
@@ -139,6 +147,8 @@ describe('useCollectionDetailPage', () => {
     const { result } = render()
 
     expect(result.current.addOpen).toBe(false)
+    expect(result.current.copyOpen).toBe(false)
+    expect(result.current.confirmConvert).toBe(false)
     expect(result.current.editOpen).toBe(false)
     expect(result.current.confirmDelete).toBe(false)
   })
@@ -166,25 +176,53 @@ describe('useCollectionDetailPage', () => {
 
     expect(registeredFabActions()?.map((a) => a.key)).toEqual([
       'add',
+      'copy',
+      'convert',
       'edit',
       'delete',
     ])
   })
 
+  // Want to Beat can't be renamed or deleted, but it can change ordering.
   it('drops edit and delete for a built-in collection', () => {
     vi.mocked(useCollection).mockReturnValue(
       stubQuery({
-        data: makeCollectionDetail({ type: CollectionType.WANT_TO_BEAT }),
+        data: makeCollectionDetail({
+          type: CollectionType.WANT_TO_BEAT,
+          ordering: CollectionOrdering.UNORDERED,
+        }),
       })
     )
 
     render()
 
-    expect(registeredFabActions()?.map((a) => a.key)).toEqual(['add'])
+    expect(registeredFabActions()?.map((a) => a.key)).toEqual([
+      'add',
+      'copy',
+      'convert',
+    ])
+    expect(
+      registeredFabActions()?.find((a) => a.key === 'convert')
+    ).toMatchObject({ label: 'Convert to ordered' })
   })
+
+  it.each([CollectionType.FAVORITES, CollectionType.LEAST_FAVORITES])(
+    'never offers convert for %s, which is always ordered',
+    (type) => {
+      vi.mocked(useCollection).mockReturnValue(
+        stubQuery({ data: makeCollectionDetail({ type }) })
+      )
+
+      render()
+
+      expect(registeredFabActions()?.map((a) => a.key)).toEqual(['add', 'copy'])
+    }
+  )
 
   it.each([
     ['add', 'addOpen'],
+    ['copy', 'copyOpen'],
+    ['convert', 'confirmConvert'],
     ['edit', 'editOpen'],
     ['delete', 'confirmDelete'],
   ] as const)('opens the %s dialog from its FAB action', (key, flag) => {
@@ -214,15 +252,16 @@ describe('useLoadedCollection', () => {
 
   const render = (
     initial: CollectionDetail = collection,
-    onEditSaved = vi.fn()
+    onEditSaved = vi.fn(),
+    onConverted = vi.fn()
   ) => {
     const { queryClient, wrapper } = queryWrapper()
     const view = renderHook(
       ({ data }: { data: CollectionDetail }) =>
-        useLoadedCollection(data, onEditSaved),
+        useLoadedCollection(data, onEditSaved, onConverted),
       { wrapper, initialProps: { data: initial } }
     )
-    return { ...view, queryClient, onEditSaved }
+    return { ...view, queryClient, onEditSaved, onConverted }
   }
 
   const dragEnd = (activeId: string, overId: string) =>
@@ -471,6 +510,111 @@ describe('useLoadedCollection', () => {
       ).rejects.toThrow()
       expect(toast.success).not.toHaveBeenCalled()
       expect(onEditSaved).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('searching the ordered list', () => {
+    const named = makeCollectionDetail({
+      id: 'collection-1',
+      entries: [
+        makeEntry({
+          id: 'e1',
+          level: makeLevel({ inGameId: '100', name: 'Bloodbath' }),
+        }),
+        makeEntry({
+          id: 'e2',
+          level: makeLevel({ inGameId: '200', name: 'Cataclysm' }),
+        }),
+        makeEntry({
+          id: 'e3',
+          level: makeLevel({ inGameId: '300', name: 'Bloodlust' }),
+        }),
+      ],
+    })
+
+    it('shows every row at its position with no search', () => {
+      const { result } = render(named)
+
+      expect(result.current.filterActive).toBe(false)
+      expect(
+        result.current.visibleRows.map((r) => [r.entry.id, r.position])
+      ).toEqual([
+        ['e1', 1],
+        ['e2', 2],
+        ['e3', 3],
+      ])
+    })
+
+    // A narrowed row keeps its real rank — "3" means third in the
+    // collection, not third among the matches.
+    it('keeps the matching rows at their real positions', () => {
+      const { result } = render(named)
+
+      act(() => result.current.setFilterQuery('blood'))
+
+      expect(result.current.filterActive).toBe(true)
+      expect(
+        result.current.visibleRows.map((r) => [r.entry.id, r.position])
+      ).toEqual([
+        ['e1', 1],
+        ['e3', 3],
+      ])
+    })
+
+    it('treats a blank search as none', () => {
+      const { result } = render(named)
+
+      act(() => result.current.setFilterQuery('   '))
+
+      expect(result.current.filterActive).toBe(false)
+      expect(result.current.visibleRows).toHaveLength(3)
+    })
+  })
+
+  describe('converting', () => {
+    it('converts an ordered collection to unordered, then lets the page close its confirm', async () => {
+      const { result, onConverted } = render(
+        makeCollectionDetail({ ordering: CollectionOrdering.ORDERED })
+      )
+
+      expect(result.current.convertTo).toBe(CollectionOrdering.UNORDERED)
+      await act(async () => result.current.handleConvert())
+
+      expect(setOrderingAsync).toHaveBeenCalledWith({
+        collectionId: 'collection-1',
+        ordering: CollectionOrdering.UNORDERED,
+      })
+      expect(toast.success).toHaveBeenCalledWith(
+        'My Collection is now unordered'
+      )
+      expect(onConverted).toHaveBeenCalledOnce()
+    })
+
+    it('converts an unordered collection to ordered', async () => {
+      const { result } = render(
+        makeCollectionDetail({ ordering: CollectionOrdering.UNORDERED })
+      )
+
+      expect(result.current.convertTo).toBe(CollectionOrdering.ORDERED)
+      await act(async () => result.current.handleConvert())
+
+      expect(setOrderingAsync).toHaveBeenCalledWith({
+        collectionId: 'collection-1',
+        ordering: CollectionOrdering.ORDERED,
+      })
+      expect(toast.success).toHaveBeenCalledWith('My Collection is now ordered')
+    })
+
+    it('toasts and keeps the confirm open when the conversion fails', async () => {
+      setOrderingAsync.mockRejectedValue(
+        apiError(403, 'Favorites is always ordered')
+      )
+      const { result, onConverted } = render()
+
+      await act(async () => result.current.handleConvert())
+
+      expect(toast.error).toHaveBeenCalledWith('Favorites is always ordered')
+      expect(onConverted).not.toHaveBeenCalled()
     })
   })
 

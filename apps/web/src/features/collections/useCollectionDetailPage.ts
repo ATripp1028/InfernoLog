@@ -2,13 +2,18 @@
 // (`src/pages/CollectionDetail.tsx`), split the same way the page is: the
 // shell hook covers the query + dialog state + FAB registration and runs
 // before data lands; the loaded hook covers everything that needs a resolved
-// collection (drag-to-reorder, remove, rename, delete).
+// collection (drag-to-reorder and the ordered list's search, remove, rename,
+// convert, delete). An unordered collection's browse is useUnorderedEntryList.
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutationState } from '@tanstack/react-query'
 import { arrayMove } from '@dnd-kit/sortable'
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import {
+  CollectionOrdering,
+  isCollectionOrderingConvertible,
+} from '@infernolog/core'
 import { toast } from '@/components/generic/sonner'
 import { useSortableSensors } from '@/lib/dnd/useSortableSensors'
 import { ApiError } from '@/lib/api/client'
@@ -17,20 +22,33 @@ import {
   useDeleteCollection,
   useRemoveCollectionEntry,
   useReorderCollectionEntry,
+  useSetCollectionOrdering,
   useUpdateCollection,
   type CollectionDetail as CollectionDetailData,
 } from '@/lib/api/collections'
 import { isBuiltIn } from './identity'
 import { collectionDetailActions } from './collectionDetailActions'
+import { entryMatches } from './entryFilter'
 import { useFabActions } from '@/context/FabActionsContext'
 
 /**
- * Page shell: the collection query, the three dialogs' open state, and the
+ * The ordering a collection would convert to.
+ */
+function otherOrdering(ordering: CollectionOrdering): CollectionOrdering {
+  return ordering === CollectionOrdering.ORDERED
+    ? CollectionOrdering.UNORDERED
+    : CollectionOrdering.ORDERED
+}
+
+/**
+ * Page shell: the collection query, the dialogs' open state, and the
  * collection-scoped FAB.
  */
 export function useCollectionDetailPage(collectionId: string) {
   const collection = useCollection(collectionId)
   const [addOpen, setAddOpen] = useState(false)
+  const [copyOpen, setCopyOpen] = useState(false)
+  const [confirmConvert, setConfirmConvert] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -43,7 +61,12 @@ export function useCollectionDetailPage(collectionId: string) {
     collection.data
       ? collectionDetailActions({
           isCustom: !isBuiltIn(collection.data.type),
+          convertTo: isCollectionOrderingConvertible(collection.data.type)
+            ? otherOrdering(collection.data.ordering)
+            : null,
           onAddLevels: () => setAddOpen(true),
+          onCopyTo: () => setCopyOpen(true),
+          onConvert: () => setConfirmConvert(true),
           onEdit: () => setEditOpen(true),
           onDelete: () => setConfirmDelete(true),
         })
@@ -60,6 +83,10 @@ export function useCollectionDetailPage(collectionId: string) {
     failed: collection.error != null || !collection.data,
     addOpen,
     setAddOpen,
+    copyOpen,
+    setCopyOpen,
+    confirmConvert,
+    setConfirmConvert,
     editOpen,
     setEditOpen,
     confirmDelete,
@@ -73,7 +100,9 @@ export function useCollectionDetailPage(collectionId: string) {
 export function useLoadedCollection(
   collection: CollectionDetailData,
   // Called after a rename saves, so the page can close its edit dialog.
-  onEditSaved: () => void
+  onEditSaved: () => void,
+  // Called after a conversion lands, so the page can close its confirm.
+  onConverted: () => void = () => {}
 ) {
   const navigate = useNavigate()
 
@@ -81,6 +110,7 @@ export function useLoadedCollection(
   const deleteCollection = useDeleteCollection()
   const removeEntry = useRemoveCollectionEntry()
   const reorderEntry = useReorderCollectionEntry()
+  const setOrdering = useSetCollectionOrdering()
   const removingEntryIds = useMutationState({
     filters: { mutationKey: ['removeCollectionEntry'], status: 'pending' },
     select: (mutation) =>
@@ -103,6 +133,19 @@ export function useLoadedCollection(
     if (pendingCollectionsCount > 0) return
     setDisplayEntries(collection.entries)
   }, [collection.entries, activeId, pendingCollectionsCount])
+
+  // The ordered list's search box. While it narrows the list, rows keep their
+  // real positions and dragging is off — the neighbours of a drop among
+  // filtered rows would not be the entry's real neighbours.
+  const [filterQuery, setFilterQuery] = useState('')
+  const filterActive = filterQuery.trim().length > 0
+  const visibleRows = useMemo(
+    () =>
+      displayEntries
+        .map((entry, i) => ({ entry, position: i + 1 }))
+        .filter(({ entry }) => entryMatches(entry, filterQuery)),
+    [displayEntries, filterQuery]
+  )
 
   function handleDragStart(e: DragStartEvent) {
     setActiveId(String(e.active.id))
@@ -161,6 +204,27 @@ export function useLoadedCollection(
     onEditSaved()
   }
 
+  const convertTo = otherOrdering(collection.ordering)
+
+  async function handleConvert() {
+    try {
+      await setOrdering.mutateAsync({
+        collectionId: collection.id,
+        ordering: convertTo,
+      })
+      toast.success(
+        convertTo === CollectionOrdering.UNORDERED
+          ? `${collection.name} is now unordered`
+          : `${collection.name} is now ordered`
+      )
+      onConverted()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : 'Could not convert collection'
+      )
+    }
+  }
+
   async function handleDelete() {
     try {
       await deleteCollection.mutateAsync(collection.id)
@@ -182,6 +246,12 @@ export function useLoadedCollection(
     removingEntryIds,
     handleRemoveEntry,
 
+    // The ordered list's search
+    filterQuery,
+    setFilterQuery,
+    filterActive,
+    visibleRows,
+
     // Drag to reorder
     sensors,
     activeId,
@@ -191,9 +261,12 @@ export function useLoadedCollection(
     handleDragEnd,
     handleDragCancel: () => setActiveId(null),
 
-    // Rename / delete
+    // Rename / convert / delete
     handleSaveEdit,
     isSaving: updateCollection.isPending,
+    convertTo,
+    handleConvert: () => void handleConvert(),
+    isConverting: setOrdering.isPending,
     handleDelete: () => void handleDelete(),
     isDeleting: deleteCollection.isPending,
   }

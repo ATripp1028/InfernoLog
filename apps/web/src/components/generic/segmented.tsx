@@ -15,6 +15,8 @@ export const segmentedItemVariants = cva(
   {
     variants: {
       size: {
+        // For a switch that sits in a label row rather than in a form.
+        xs: 'h-6 px-2 text-[11px]',
         sm: 'h-8 px-3 text-xs',
         default: 'h-9 px-4 text-sm',
         block: 'px-4 py-2.5 text-sm',

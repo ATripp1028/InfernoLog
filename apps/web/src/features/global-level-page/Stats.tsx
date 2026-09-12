@@ -19,7 +19,7 @@ import {
   likeDisplay,
   statFlags,
 } from './display'
-import { formatDuration, formatEnjoyment } from './format'
+import { formatCommunityEnjoyment, formatDuration } from '@/lib/levelStatFormat'
 
 function StatCard({
   label,
@@ -263,7 +263,7 @@ export function Stats({ level }: { level: GlobalLevelPageData }) {
         {enjoyment != null && (
           <StatCard
             label="Enjoyment"
-            value={formatEnjoyment(enjoyment.value)}
+            value={formatCommunityEnjoyment(enjoyment.value)}
             info={<EnjoymentInfoButton source={enjoyment.source} />}
           />
         )}

@@ -1,21 +1,15 @@
 // Which community-list rows the TIERS section shows, and what each one says.
 // Pure derivation — Tiers.tsx only paints what this returns.
 //
-// All three placements arrive on the level row already merged from the Global
-// Stats Viewer, GDDL and AREDL (see EXTERNAL_APIS.md). They are the level's
-// REAL, current placements, which is a different thing from
-// LevelProgress.userGddlTier — one user's own tier opinion, captured when they
-// logged the level and never updated.
+// WHICH lists a level is on, and how each placement is painted, is
+// lib/communityTiers — shared with the /search result rows and the demon list,
+// so the rules that are easy to get wrong (AREDL's Legacy positions, sheet
+// tier 0) exist exactly once. This module adds only what the section has that
+// a row chip does not: the list's own name as a visible label, and the
+// outbound link to its page for the level.
 
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
-import { gddlTierColor } from '@/lib/tierColor'
-import {
-  isSheetTier,
-  readableTextColor,
-  sheetTierColor,
-  sheetTierName,
-  sheetTierSource,
-} from '@/lib/sheetTier'
+import { communityTierChips, type CommunityListKey } from '@/lib/communityTiers'
 import { aredlLevelUrl, gddlLevelUrl } from './linkTargets'
 
 /**
@@ -28,7 +22,7 @@ import { aredlLevelUrl, gddlLevelUrl } from './linkTargets'
  * spreadsheets a sheet tier came from and is null for every other list.
  */
 export interface TierEntry {
-  key: 'gddl' | 'aredl' | 'sheet'
+  key: CommunityListKey
   /** The list's name, as the community knows it. */
   label: string
   /**
@@ -51,14 +45,19 @@ export interface TierEntry {
   icon: string
 }
 
-// AREDL has no community color convention the way the other two lists do (see
-// docs/DESIGN_LANGUAGE.md), so its badge is painted from InfernoLog's own
-// accent rather than from anything AREDL publishes.
-const AREDL_BADGE_COLOR = '#ff9f1c'
 const NLW_SPREADSHEET_LINK =
   'https://docs.google.com/spreadsheets/d/1YxUE2kkvhT2E6AjnkvTf-o8iu_shSLbuFkEFcZOvieA/edit?gid=1850281333#gid=1850281333'
 const LW_SPREADSHEET_LINK =
   'https://docs.google.com/spreadsheets/d/15YvW2rRQKlkNpdFMTaRt9CWefDkng6BSh6xRDXSw9r8/edit?gid=190861115#gid=190861115'
+
+// The section names each list rather than labelling the figure — it has room
+// for the name, where a row chip has only the favicon and so has to spell out
+// what the number is ("AREDL rank") in its accessible label instead.
+const LIST_LABELS: Record<CommunityListKey, string> = {
+  gddl: 'GDDL',
+  aredl: 'AREDL',
+  sheet: 'Spreadsheet',
+}
 
 /**
  * The list placements to render for a level, in list order, skipping any the
@@ -69,94 +68,31 @@ const LW_SPREADSHEET_LINK =
  * as a loading failure rather than as "not ranked anywhere".
  */
 export function tierEntries(level: GlobalLevelPageData): TierEntry[] {
-  const entries: TierEntry[] = []
+  return communityTierChips(level).map((chip) => ({
+    key: chip.key,
+    label: LIST_LABELS[chip.key],
+    value: chip.value,
+    badge: chip.look.badge,
+    detail: null,
+    source: chip.source,
+    color: chip.look.color,
+    textColor: chip.look.textColor,
+    href: hrefFor(chip.key, level.inGameId, chip.source),
+    icon: chip.icon,
+  }))
+}
 
-  // GDDL exposes decimals but treats the whole number as canonical; it is
-  // already rounded on ingestion, and rounded again here so a value cached
-  // before that rule existed can't render as "23.98".
-  if (level.gddlTier != null) {
-    const tier = Math.round(level.gddlTier)
-    const color = gddlTierColor(tier)
-    entries.push({
-      key: 'gddl',
-      label: 'GDDL',
-      value: tier,
-      badge: String(tier),
-      detail: null,
-      source: null,
-      color,
-      textColor: readableTextColor(color),
-      href: gddlLevelUrl(level.inGameId),
-      icon: '/assets/integrations/gddl.ico',
-    })
-  }
-
-  // AREDL rows exist for a status alone, not just a rank: its Legacy tier is
-  // where levels demoted out of extreme go, and that placement is worth showing
-  // even though the number attached to it is not a rank.
-  if (level.aredlRank != null || level.aredlStatus != null) {
-    // ⚠️ THE POSITION IS ONLY A RANK ON THE MAIN LIST. AREDL appends Legacy to
-    // the end of the position sequence rather than interleaving it (MainList
-    // runs 1-1573, Legacy 1574-1606), so "#1574" would read as "the 1574th
-    // hardest level" when it means "removed from the list". A known status
-    // other than MainList shows the status instead of the number.
-    //
-    // A MISSING status with a rank is NOT that case: it means the rank came
-    // from the Global Stats Viewer, whose AREDL entry only ever reports
-    // main-list placements. Treating it as unranked would blank the badge on
-    // every level AREDL itself hasn't been asked about yet. `== null` rather
-    // than `=== null` on purpose — a payload cached before this field existed
-    // carries undefined, and that is the same "no status known" case.
-    const ranked =
-      level.aredlRank != null &&
-      (level.aredlStatus == null || level.aredlStatus === 'MainList')
-    entries.push({
-      key: 'aredl',
-      label: 'AREDL',
-      value: level.aredlRank ?? 0,
-      badge: ranked ? `#${level.aredlRank}` : (level.aredlStatus ?? '—'),
-      detail: null,
-      source: null,
-      // Only a real placement earns the painted badge; a status chip stays
-      // unpainted so it doesn't read as a rank at a glance.
-      color: ranked ? AREDL_BADGE_COLOR : null,
-      textColor: ranked ? readableTextColor(AREDL_BADGE_COLOR) : '#f5f5f5',
-      href: aredlLevelUrl(level.inGameId),
-      icon: '/assets/integrations/aredl.ico',
-    })
-  }
-
-  // `isSheetTier`, not a truthiness check — tier 0 ("Fuck") is a real
-  // placement, and the sheets start at 0.
-  if (isSheetTier(level.sheetTier)) {
-    const color = sheetTierColor(level.sheetTier)
-    const source = sheetTierSource(level.sheetTier)
-    entries.push({
-      key: 'sheet',
-      label: 'Spreadsheet',
-      value: level.sheetTier,
-      // The NAME, not the number. The sheets' tier numbers are an internal
-      // index — a reader who doesn't already know the ladder learns nothing
-      // from "20" and everything from "Nightmare", so the name is what earns
-      // the coloured chip and the number isn't shown at all.
-      badge: sheetTierName(level.sheetTier) ?? String(level.sheetTier),
-      detail: null,
-      source,
-      color,
-      // Unpainted badges sit on the page's own surface, so light text reads.
-      textColor: color ? readableTextColor(color) : '#f5f5f5',
-      // Unlike GDDL and AREDL, the sheets have no per-level anchor — this
-      // points at whichever of the two documents holds the tier, and the row's
-      // NLW/LW chip is what says which one the reader is about to open.
-      href:
-        source === 'NLW'
-          ? NLW_SPREADSHEET_LINK
-          : source === 'LW'
-            ? LW_SPREADSHEET_LINK
-            : null,
-      icon: '/assets/integrations/sheets.svg',
-    })
-  }
-
-  return entries
+/**
+ * Where a list's row points. GDDL and AREDL have a page per level; the
+ * spreadsheets do not, so their row opens whichever of the two documents holds
+ * the tier — and the row's NLW/LW chip is what says which one that is.
+ */
+function hrefFor(
+  key: CommunityListKey,
+  inGameId: string,
+  source: 'NLW' | 'LW' | null
+): string | null {
+  if (key === 'gddl') return gddlLevelUrl(inGameId)
+  if (key === 'aredl') return aredlLevelUrl(inGameId)
+  return source === 'LW' ? LW_SPREADSHEET_LINK : NLW_SPREADSHEET_LINK
 }

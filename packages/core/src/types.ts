@@ -29,6 +29,7 @@ import {
   LevelProgressListItemSchema,
   LevelProgressListResponseSchema,
   DemonListBadgeSchema,
+  CommunityTiersSchema,
   ClassicDemonListEntrySchema,
   UnplacedDemonListEntrySchema,
   ClassicDemonListResponseSchema,
@@ -45,6 +46,11 @@ import {
   CollectionDetailSchema,
   AddCollectionEntryInputSchema,
   ReorderCollectionEntryInputSchema,
+  SetCollectionOrderingInputSchema,
+  CopyCollectionEntriesInputSchema,
+  CopyCollectionEntriesResultSchema,
+  CollectionBrowseResultSchema,
+  CollectionBrowseResponseSchema,
   ActivityFieldChangeSchema,
   ActivityLevelImpactSchema,
   ActivityFeedEventSchema,
@@ -98,6 +104,7 @@ export type LevelProgressListResponse = z.infer<
 >
 
 export type DemonListBadge = z.infer<typeof DemonListBadgeSchema>
+export type CommunityTiers = z.infer<typeof CommunityTiersSchema>
 export type ClassicDemonListEntry = z.infer<typeof ClassicDemonListEntrySchema>
 export type UnplacedDemonListEntry = z.infer<
   typeof UnplacedDemonListEntrySchema
@@ -123,6 +130,21 @@ export type AddCollectionEntryInput = z.infer<
 >
 export type ReorderCollectionEntryInput = z.infer<
   typeof ReorderCollectionEntryInputSchema
+>
+export type SetCollectionOrderingInput = z.infer<
+  typeof SetCollectionOrderingInputSchema
+>
+export type CopyCollectionEntriesInput = z.infer<
+  typeof CopyCollectionEntriesInputSchema
+>
+export type CopyCollectionEntriesResult = z.infer<
+  typeof CopyCollectionEntriesResultSchema
+>
+export type CollectionBrowseResult = z.infer<
+  typeof CollectionBrowseResultSchema
+>
+export type CollectionBrowseResponse = z.infer<
+  typeof CollectionBrowseResponseSchema
 >
 
 export type ActivityFieldChange = z.infer<typeof ActivityFieldChangeSchema>

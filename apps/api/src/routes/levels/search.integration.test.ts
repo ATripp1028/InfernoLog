@@ -283,6 +283,14 @@ async function seedBrowseLevel(over: {
   officialSongId?: number | null
   songId?: string | null
   isNong?: boolean
+  objectCount?: number | null
+  gddlTier?: number | null
+  aredlRank?: number | null
+  aredlStatus?: string | null
+  sheetTier?: number | null
+  enjoyment?: number | null
+  durationSeconds?: number | null
+  gameVersion?: string | null
 }) {
   return prisma.level.create({
     data: {
@@ -305,6 +313,14 @@ async function seedBrowseLevel(over: {
       officialSongId: over.officialSongId ?? null,
       songId: over.songId ?? null,
       isNong: over.isNong ?? false,
+      objectCount: over.objectCount ?? null,
+      gddlTier: over.gddlTier ?? null,
+      aredlRank: over.aredlRank ?? null,
+      aredlStatus: over.aredlStatus ?? null,
+      sheetTier: over.sheetTier ?? null,
+      enjoyment: over.enjoyment ?? null,
+      durationSeconds: over.durationSeconds ?? null,
+      gameVersion: over.gameVersion ?? null,
       dataSource: 'robtop_autofill',
       verified: true,
     },
@@ -463,5 +479,221 @@ describe('GET /levels/browse (filtered cursor search)', () => {
 
     expect(res.status).toBe(200)
     expect(body.data.map((r) => r.inGameId)).toEqual(['1'])
+  })
+})
+
+describe('GET /levels/browse (range filters and community sorts)', () => {
+  /** The ids a browse returns, in order. */
+  async function ids(path: string): Promise<string[]> {
+    const user = await seedUser(prisma)
+    const res = await buildApp(levelsApp, { userId: user.id }).request(path)
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as BrowseBody
+    return body.data.map((r) => r.inGameId)
+  }
+
+  it('bounds a range inclusively and drops levels where the value is unknown', async () => {
+    await seedBrowseLevel({ inGameId: 'lo', downloads: 100 })
+    await seedBrowseLevel({ inGameId: 'min', downloads: 500 })
+    await seedBrowseLevel({ inGameId: 'max', downloads: 1000 })
+    await seedBrowseLevel({ inGameId: 'hi', downloads: 5000 })
+    await seedBrowseLevel({ inGameId: 'unknown', downloads: null })
+
+    expect(
+      await ids('/levels/browse?downloadsMin=500&downloadsMax=1000')
+    ).toEqual(['max', 'min'])
+  })
+
+  // enjoyment is Decimal(5,2); the bound arrives as a JS float.
+  it('bounds a fractional enjoyment against the decimal column', async () => {
+    await seedBrowseLevel({ inGameId: 'a', enjoyment: 49.5 })
+    await seedBrowseLevel({ inGameId: 'b', enjoyment: 49.49 })
+    await seedBrowseLevel({ inGameId: 'c', enjoyment: 80 })
+
+    expect(
+      await ids('/levels/browse?enjoymentMin=49.5&enjoymentMax=60')
+    ).toEqual(['a'])
+  })
+
+  it('bounds the game version numerically, ignoring malformed versions', async () => {
+    await seedBrowseLevel({ inGameId: 'v19', gameVersion: '1.9' })
+    await seedBrowseLevel({ inGameId: 'v21', gameVersion: '2.1' })
+    await seedBrowseLevel({ inGameId: 'v22', gameVersion: '2.2' })
+    await seedBrowseLevel({ inGameId: 'odd', gameVersion: '8' })
+
+    expect(
+      (await ids('/levels/browse?gameVersionMin=2.0&gameVersionMax=2.1')).sort()
+    ).toEqual(['v21'])
+  })
+
+  it('sorts GDDL tier with unknown tiers last in both directions', async () => {
+    await seedBrowseLevel({ inGameId: 't5', gddlTier: 5 })
+    await seedBrowseLevel({ inGameId: 't20', gddlTier: 20 })
+    await seedBrowseLevel({ inGameId: 'none', gddlTier: null })
+
+    expect(await ids('/levels/browse?sort=gddlTier')).toEqual([
+      't20',
+      't5',
+      'none',
+    ])
+    expect(await ids('/levels/browse?sort=gddlTier&sortDir=asc')).toEqual([
+      't5',
+      't20',
+      'none',
+    ])
+  })
+
+  it('sorts AREDL rank hardest-first by default', async () => {
+    await seedBrowseLevel({ inGameId: 'r3', aredlRank: 3 })
+    await seedBrowseLevel({ inGameId: 'r1', aredlRank: 1 })
+    await seedBrowseLevel({ inGameId: 'none', aredlRank: null })
+
+    expect(await ids('/levels/browse?sort=aredlRank')).toEqual([
+      'r1',
+      'r3',
+      'none',
+    ])
+  })
+
+  it('sorts sheet tier 0 after the ranked tiers, ahead of unplaced levels', async () => {
+    await seedBrowseLevel({ inGameId: 't14', sheetTier: 14 })
+    await seedBrowseLevel({ inGameId: 't0', sheetTier: 0 })
+    await seedBrowseLevel({ inGameId: 't3', sheetTier: 3 })
+    await seedBrowseLevel({ inGameId: 'none', sheetTier: null })
+
+    expect(await ids('/levels/browse?sort=sheetTier')).toEqual([
+      't14',
+      't3',
+      't0',
+      'none',
+    ])
+    expect(await ids('/levels/browse?sort=sheetTier&sortDir=asc')).toEqual([
+      't3',
+      't14',
+      't0',
+      'none',
+    ])
+  })
+
+  it('sorts duration with the length band standing in for an unknown one', async () => {
+    await seedBrowseLevel({ inGameId: 'long-known', durationSeconds: 200 })
+    await seedBrowseLevel({ inGameId: 'xl-band', length: 'XL' })
+    await seedBrowseLevel({ inGameId: 'mid-known', durationSeconds: 90 })
+    await seedBrowseLevel({ inGameId: 'long-band', length: 'Long' })
+    await seedBrowseLevel({
+      inGameId: 'platformer',
+      length: 'Platformer',
+      levelType: 'PLATFORMER',
+    })
+
+    expect(await ids('/levels/browse?sort=duration')).toEqual([
+      'long-known',
+      'xl-band',
+      'mid-known',
+      'long-band',
+      'platformer',
+    ])
+  })
+
+  // The unknown-value sentinel is carried in the cursor; if it didn't survive
+  // the round trip, page two would restart or skip the null block.
+  it('paginates a nulls-last sort without gaps or repeats', async () => {
+    for (let i = 0; i < 35; i++) {
+      await seedBrowseLevel({
+        inGameId: String(2000 + i),
+        gddlTier: i % 2 === 0 ? (i % 30) + 1 : null,
+      })
+    }
+    const user = await seedUser(prisma)
+    const app = buildApp(levelsApp, { userId: user.id })
+
+    const page1 = (await (
+      await app.request('/levels/browse?sort=gddlTier&sortDir=asc')
+    ).json()) as BrowseBody
+    const page2 = (await (
+      await app.request(
+        `/levels/browse?sort=gddlTier&sortDir=asc&cursor=${encodeURIComponent(page1.nextCursor!)}`
+      )
+    ).json()) as BrowseBody
+
+    const all = [...page1.data, ...page2.data].map((r) => r.inGameId)
+    expect(page1.data).toHaveLength(30)
+    expect(page2.nextCursor).toBeNull()
+    expect(new Set(all).size).toBe(35)
+  })
+
+  it('matches one sheet tier exactly, tier 0 included', async () => {
+    await seedBrowseLevel({ inGameId: 't0', sheetTier: 0 })
+    await seedBrowseLevel({ inGameId: 't1', sheetTier: 1 })
+    await seedBrowseLevel({ inGameId: 'none', sheetTier: null })
+
+    expect(await ids('/levels/browse?sheetTier=0')).toEqual(['t0'])
+  })
+
+  it('bounds AREDL rank over main-list placements, not Legacy positions', async () => {
+    await seedBrowseLevel({
+      inGameId: 'main',
+      aredlRank: 50,
+      aredlStatus: 'MainList',
+    })
+    // A GSV-sourced rank carries no status and is a main-list placement.
+    await seedBrowseLevel({ inGameId: 'gsv', aredlRank: 60 })
+    await seedBrowseLevel({
+      inGameId: 'legacy',
+      aredlRank: 1580,
+      aredlStatus: 'Legacy',
+    })
+
+    expect((await ids('/levels/browse?aredlRankMin=1')).sort()).toEqual([
+      'gsv',
+      'main',
+    ])
+  })
+
+  it('returns the figures a row shows for the sort and filters', async () => {
+    await seedBrowseLevel({
+      inGameId: 'full',
+      gddlTier: 20,
+      enjoyment: 49.5,
+      durationSeconds: 125,
+      gameVersion: '2.2',
+      songId: '123',
+      isNong: true,
+    })
+    const user = await seedUser(prisma)
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/browse?sort=gddlTier'
+    )
+    const body = (await res.json()) as { data: Record<string, unknown>[] }
+
+    expect(body.data[0]).toMatchObject({
+      gddlTier: 20,
+      // A number, not the Decimal's string form.
+      enjoyment: 49.5,
+      durationSeconds: 125,
+      gameVersion: '2.2',
+      songType: 'nong',
+      ratingStatusSince: null,
+    })
+  })
+
+  it.each([
+    ['an out-of-range sheet tier', 'sheetTier=22'],
+    ['a non-numeric bound', 'downloadsMin=abc'],
+    ['a fractional bound on a whole-number field', 'gddlTierMin=2.5'],
+  ])('400s on %s', async (_label, qs) => {
+    const user = await seedUser(prisma)
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      `/levels/browse?${qs}`
+    )
+
+    expect(res.status).toBe(400)
+  })
+
+  it('reads an empty bound as absent, not zero', async () => {
+    await seedBrowseLevel({ inGameId: 'negative', likes: -5 })
+
+    expect(await ids('/levels/browse?likesMin=')).toEqual(['negative'])
   })
 })

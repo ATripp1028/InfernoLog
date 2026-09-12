@@ -209,6 +209,15 @@ enum CollectionType {
   CUSTOM
 }
 
+// ORDERED — entries display by rankingIndex and the user drags them into
+// order. UNORDERED — no curated order; the collection page sorts and filters
+// the entries like the search page does (level ID by default). See
+// Collection.ordering.
+enum CollectionOrdering {
+  ORDERED
+  UNORDERED
+}
+
 enum ReportStatus {
   PENDING
   DISMISSED
@@ -986,6 +995,12 @@ model Collection {
 
   name        String
   type        CollectionType
+  // Want to Beat is seeded UNORDERED, everything else ORDERED. Favorites and
+  // Least Favorites can never convert (isCollectionOrderingConvertible in
+  // @infernolog/core). An UNORDERED collection still writes rankingIndex on
+  // add (append), but nothing reads it as an order; converting either way
+  // renumbers the entries by level ID.
+  ordering    CollectionOrdering @default(ORDERED)
   description String?
 
   createdAt DateTime @default(now())

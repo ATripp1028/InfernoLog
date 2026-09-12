@@ -2,11 +2,21 @@
 //
 // These mirror packages/core's Zod schemas as plain TS (the same convention as
 // lib/api/logging.ts — apps/web pins zod@3 while core is on zod@4, and the
-// server is the source of truth for validation).
+// server is the source of truth for validation). The range-filter field list
+// and its limits are the exception: they are plain constants rather than
+// schemas, so they are imported from core instead of copied — a second copy is
+// exactly what could drift from what the API accepts.
 
+import {
+  LEVEL_RANGE_BOUNDS,
+  LEVEL_RANGE_FIELDS,
+  isSheetTier,
+  type LevelRangeField,
+} from '@infernolog/core'
 import type { LevelType } from './api/wireEnums'
 
-export type { LevelType }
+export type { LevelType, LevelRangeField }
+export { LEVEL_RANGE_FIELDS }
 
 /**
  * In-game difficulty as the browse endpoint filters on it — lowercase and hyphenated, unlike the display strings on a `Level`.
@@ -48,14 +58,23 @@ export type LevelSongType = 'official' | 'custom' | 'nong'
  */
 export type LevelSearchBy = 'name' | 'creator'
 /**
- * Browse orderings. `relevance` is the server's default and is only meaningful with a text query.
+ * Browse orderings. `relevance` is the server's default and is only meaningful
+ * with a text query. `levelId` is upload order — the unordered-collection
+ * default, and not offered on /search.
  */
 export type LevelSort =
+  | 'levelId'
   | 'relevance'
   | 'likes'
   | 'downloads'
   | 'stars'
+  | 'gddlTier'
+  | 'aredlRank'
+  | 'sheetTier'
+  | 'enjoyment'
+  | 'duration'
   | 'objectCount'
+  | 'gameVersion'
   | 'recentlyRated'
   | 'name'
 /**
@@ -64,10 +83,29 @@ export type LevelSort =
 export type LevelSortDir = 'asc' | 'desc'
 
 /**
+ * One optional inclusive bound per quantitative field — `starsMin`,
+ * `starsMax`, … — named exactly as the API's query params. An absent bound is
+ * an open end.
+ */
+export type LevelRangeFilters = {
+  [K in `${LevelRangeField}Min` | `${LevelRangeField}Max`]?: number | undefined
+}
+
+/** The state key holding a field's lower bound. */
+export function rangeMinKey(field: LevelRangeField) {
+  return `${field}Min` as const
+}
+
+/** The state key holding a field's upper bound. */
+export function rangeMaxKey(field: LevelRangeField) {
+  return `${field}Max` as const
+}
+
+/**
  * Optionals are explicitly `| undefined` so a filter can be cleared by merging
  * `{ key: undefined }` into the state (exactOptionalPropertyTypes is on).
  */
-export interface LevelSearchFilters {
+export interface LevelSearchFilters extends LevelRangeFilters {
   difficulty?: LevelDifficulty[] | undefined
   rateStatus?: LevelRateStatus[] | undefined
   twoPlayer?: boolean | undefined
@@ -76,6 +114,8 @@ export interface LevelSearchFilters {
   length?: LevelLength[] | undefined
   levelType?: LevelType | undefined
   songType?: LevelSongType | undefined
+  /** One NLW/LW sheet tier (0–21), matched exactly — the tiers are named categories, not a scale. */
+  sheetTier?: number | undefined
 }
 
 /**
@@ -99,6 +139,18 @@ export interface LevelBrowseResult {
   twoPlayer: boolean | null
   isDemon: boolean
   levelType: LevelType
+  // The figures a row surfaces when the user sorts or filters by them.
+  objectCount: number | null
+  gddlTier: number | null
+  aredlRank: number | null
+  aredlStatus: string | null
+  sheetTier: number | null
+  enjoyment: number | null
+  durationSeconds: number | null
+  gameVersion: string | null
+  /** ISO timestamp — JSON carries no dates. */
+  ratingStatusSince: string | null
+  songType: LevelSongType | null
 }
 
 /**
@@ -130,9 +182,14 @@ export const DEFAULT_SEARCH_STATE: SearchPageState = {
 
 /**
  * Each sort's default direction; the UI toggle overrides it via `sortDir`.
+ * Names read A→Z, AREDL rank 1 is the hardest level, and level IDs read
+ * oldest-first, so those start ascending; everything else is more useful
+ * highest-first.
  */
 export function naturalSortDir(sort: LevelSort): LevelSortDir {
-  return sort === 'name' ? 'asc' : 'desc'
+  return sort === 'name' || sort === 'aredlRank' || sort === 'levelId'
+    ? 'asc'
+    : 'desc'
 }
 
 /**
@@ -140,6 +197,47 @@ export function naturalSortDir(sort: LevelSort): LevelSortDir {
  */
 export function effectiveSortDir(s: SearchPageState): LevelSortDir {
   return s.sortDir ?? naturalSortDir(s.sort)
+}
+
+// Sorts that only rank extreme demons: AREDL lists nothing else, and the
+// NLW/LW sheets are extreme-demon spreadsheets.
+const EXTREME_ONLY_SORTS: readonly LevelSort[] = ['aredlRank', 'sheetTier']
+
+/**
+ * The state change for picking a sort from the menu. The direction resets to
+ * the sort's natural one so the toggle always starts from a predictable
+ * default, and a sort that only ranks extreme demons narrows the difficulty
+ * filter to Extreme Demon, replacing whatever was selected — the rest of the
+ * cache would otherwise sort as one undifferentiated block after them.
+ */
+export function sortSelectionPatch(sort: LevelSort): Partial<SearchPageState> {
+  const patch: Partial<SearchPageState> = {
+    sort,
+    sortDir: naturalSortDir(sort),
+  }
+  if (EXTREME_ONLY_SORTS.includes(sort)) patch.difficulty = ['demon-extreme']
+  return patch
+}
+
+/**
+ * Holds an extremes-only sort (AREDL rank, sheet tier) to the filter that
+ * makes it meaningful. Picking one narrows difficulty to Extreme Demon (see
+ * {@link sortSelectionPatch}); if anything later clears or widens that — Clear
+ * all, toggling a difficulty face, a hand-edited URL — the sort falls back to
+ * the page's default, rather than ranking non-extremes, which neither list
+ * places, as one undifferentiated block after the extremes.
+ *
+ * @param fallback - The page's default sort: relevance on /search, level ID
+ * on a collection.
+ */
+export function reconcileExtremeSort(
+  s: SearchPageState,
+  fallback: LevelSort = DEFAULT_SEARCH_STATE.sort
+): SearchPageState {
+  if (!EXTREME_ONLY_SORTS.includes(s.sort)) return s
+  const d = s.difficulty
+  if (d?.length === 1 && d[0] === 'demon-extreme') return s
+  return { ...s, sort: fallback, sortDir: undefined }
 }
 
 /**
@@ -154,7 +252,11 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
     s.twoPlayer !== undefined ||
     s.coinsVerified !== undefined ||
     s.levelType !== undefined ||
-    s.songType !== undefined
+    s.songType !== undefined ||
+    s.sheetTier !== undefined ||
+    LEVEL_RANGE_FIELDS.some(
+      (f) => s[rangeMinKey(f)] !== undefined || s[rangeMaxKey(f)] !== undefined
+    )
   )
 }
 
@@ -166,7 +268,8 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
  * Newgrounds-song filter, or a downloads/likes sort. Creator queries aren't
  * forwardable (GD has no creator search), so in creator mode only the
  * filters/sort count. Cache-only refinements (exact coin count, coinsVerified,
- * levelType, official/NONG song) do NOT make an escalation forwardable.
+ * levelType, official/NONG song, the sheet tier, every range bound, and every
+ * sort but downloads/likes) do NOT make an escalation forwardable.
  */
 export function canEscalateToGd(s: SearchPageState): boolean {
   const hasNameQuery = s.searchBy === 'name' && !!s.query?.trim()
@@ -242,14 +345,31 @@ export const LEVEL_TYPE_OPTIONS: { value: LevelType; label: string }[] = [
 ]
 
 /**
- * The browse sort menu. Distinct from the Log page's `LIST_SORT_OPTIONS`, which sorts logged rows rather than levels.
+ * One entry in a browse sort menu. `hint` is a note shown under the label for
+ * a sort that also changes the filters (see {@link sortSelectionPatch}).
  */
-export const LEVEL_SORT_OPTIONS: { value: LevelSort; label: string }[] = [
+export interface LevelSortOption {
+  value: LevelSort
+  label: string
+  hint?: string
+}
+
+/**
+ * The /search sort menu. Distinct from the Log page's `LIST_SORT_OPTIONS`,
+ * which sorts logged rows rather than levels.
+ */
+export const LEVEL_SORT_OPTIONS: LevelSortOption[] = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'downloads', label: 'Downloads' },
   { value: 'likes', label: 'Likes' },
   { value: 'stars', label: 'Difficulty' },
+  { value: 'gddlTier', label: 'GDDL tier' },
+  { value: 'aredlRank', label: 'AREDL rank', hint: 'Extreme demons only' },
+  { value: 'sheetTier', label: 'Sheet tier', hint: 'Extreme demons only' },
+  { value: 'enjoyment', label: 'Enjoyment' },
+  { value: 'duration', label: 'Duration' },
   { value: 'objectCount', label: 'Object count' },
+  { value: 'gameVersion', label: 'Game version' },
   { value: 'recentlyRated', label: 'Recently rated' },
   { value: 'name', label: 'Name' },
 ]
@@ -318,43 +438,83 @@ function boolOf(v: unknown): boolean | undefined {
   if (v === false || v === 'false') return false
   return undefined
 }
+// A range bound the API would accept for this field, or undefined. Checked
+// against core's own limits so a hand-edited URL is dropped here rather than
+// earning a 400 that the grid would show as a failed search.
+function boundOf(v: unknown, field: LevelRangeField): number | undefined {
+  const n =
+    typeof v === 'number'
+      ? v
+      : typeof v === 'string' && v.trim() !== ''
+        ? Number(v)
+        : Number.NaN
+  if (!Number.isFinite(n)) return undefined
+  const b = LEVEL_RANGE_BOUNDS[field]
+  if (b.int && !Number.isInteger(n)) return undefined
+  if (b.min !== null && n < b.min) return undefined
+  if (b.max !== null && n > b.max) return undefined
+  return n
+}
+function sheetTierOf(v: unknown): number | undefined {
+  const n = typeof v === 'string' && v.trim() !== '' ? Number(v) : v
+  return typeof n === 'number' && isSheetTier(n) ? n : undefined
+}
 
 /**
  * Coerces the router's raw search object into a well-formed SearchPageState,
  * dropping anything unrecognized. Used by the route's validateSearch so the URL
  * is always the source of truth and a hand-edited URL can't crash the page.
+ *
+ * @param opts - The page's sort vocabulary: the sorts it accepts (default the
+ * /search menu's) and the one a missing or unknown sort falls back to (default
+ * relevance).
  */
 export function validateSearchState(
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  {
+    sorts = SORT_VALUES,
+    defaultSort = DEFAULT_SEARCH_STATE.sort,
+  }: { sorts?: readonly LevelSort[]; defaultSort?: LevelSort } = {}
 ): SearchPageState {
   const coinCount = Array.isArray(raw.coinCount)
     ? (raw.coinCount as unknown[])
         .map(Number)
         .filter((n) => Number.isInteger(n) && n >= 0 && n <= 3)
     : undefined
-  return {
-    query:
-      typeof raw.query === 'string' && raw.query.length > 0
-        ? raw.query
-        : undefined,
-    searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
-    sort: oneOf(raw.sort, SORT_VALUES) ?? 'relevance',
-    sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
-    difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
-    rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
-    length: arrOf(raw.length, LENGTH_VALUES),
-    coinCount: coinCount?.length ? coinCount : undefined,
-    twoPlayer: boolOf(raw.twoPlayer),
-    coinsVerified: boolOf(raw.coinsVerified),
-    levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
-    songType: oneOf(raw.songType, SONG_TYPE_VALUES),
+  const ranges: LevelRangeFilters = {}
+  for (const f of LEVEL_RANGE_FIELDS) {
+    ranges[rangeMinKey(f)] = boundOf(raw[rangeMinKey(f)], f)
+    ranges[rangeMaxKey(f)] = boundOf(raw[rangeMaxKey(f)], f)
   }
+  return reconcileExtremeSort(
+    {
+      query:
+        typeof raw.query === 'string' && raw.query.length > 0
+          ? raw.query
+          : undefined,
+      searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
+      sort: oneOf(raw.sort, sorts) ?? defaultSort,
+      sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
+      difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
+      rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
+      length: arrOf(raw.length, LENGTH_VALUES),
+      coinCount: coinCount?.length ? coinCount : undefined,
+      twoPlayer: boolOf(raw.twoPlayer),
+      coinsVerified: boolOf(raw.coinsVerified),
+      levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
+      songType: oneOf(raw.songType, SONG_TYPE_VALUES),
+      sheetTier: sheetTierOf(raw.sheetTier),
+      ...ranges,
+    },
+    defaultSort
+  )
 }
 
 /**
  * Serializes the search state into the query string GET /v1/levels/browse (and
  * /v1/levels/gd-search) expect: arrays as repeated params, booleans as
- * "true"/"false". `cursor` is the keyset page token (browse only).
+ * "true"/"false", range bounds as `<field>Min`/`<field>Max`. `cursor` is the
+ * keyset page token (browse only).
  */
 export function browseApiQueryString(
   s: SearchPageState,
@@ -376,5 +536,12 @@ export function browseApiQueryString(
     sp.set('coinsVerified', String(s.coinsVerified))
   if (s.levelType) sp.set('levelType', s.levelType)
   if (s.songType) sp.set('songType', s.songType)
+  if (s.sheetTier !== undefined) sp.set('sheetTier', String(s.sheetTier))
+  for (const f of LEVEL_RANGE_FIELDS) {
+    for (const key of [rangeMinKey(f), rangeMaxKey(f)]) {
+      const v = s[key]
+      if (v !== undefined) sp.set(key, String(v))
+    }
+  }
   return sp.toString()
 }

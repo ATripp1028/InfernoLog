@@ -3,21 +3,28 @@ import { cn } from '@/lib/utils'
 import {
   LEVEL_SORT_OPTIONS,
   effectiveSortDir,
-  naturalSortDir,
+  sortSelectionPatch,
   type LevelSort,
+  type LevelSortOption,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
 
 interface SortMenuProps {
   state: SearchPageState
   onChange: (patch: Partial<SearchPageState>) => void
+  /** The sorts offered; defaults to the /search page's. */
+  options?: readonly LevelSortOption[]
 }
 
 /**
  * The sort menu body (rendered inside a popover from the bar's sort button): the
  * sort options plus an explicit ascending/descending toggle.
  */
-export function SortMenu({ state, onChange }: SortMenuProps) {
+export function SortMenu({
+  state,
+  onChange,
+  options = LEVEL_SORT_OPTIONS,
+}: SortMenuProps) {
   const dir = effectiveSortDir(state)
 
   return (
@@ -39,25 +46,28 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
       </div>
 
       <div className="flex flex-col">
-        {LEVEL_SORT_OPTIONS.map((o) => {
+        {options.map((o) => {
           const active = state.sort === o.value
           return (
             <button
               key={o.value}
               type="button"
-              // Picking a sort resets the direction to that sort's natural one,
-              // so the toggle always starts from a predictable default.
-              onClick={() =>
-                onChange({ sort: o.value, sortDir: naturalSortDir(o.value) })
-              }
+              onClick={() => onChange(sortSelectionPatch(o.value))}
               className={cn(
-                'flex h-9 items-center justify-between rounded-md px-2 text-sm transition-colors',
+                'flex min-h-9 items-center justify-between rounded-md px-2 py-1 text-left text-sm transition-colors',
                 active
                   ? 'bg-primary-dim text-primary'
                   : 'text-text-secondary hover:bg-bg-elevated hover:text-text-primary'
               )}
             >
-              {o.label}
+              <span className="flex flex-col">
+                {o.label}
+                {o.hint && (
+                  <span className="text-[11px] text-text-tertiary">
+                    {o.hint}
+                  </span>
+                )}
+              </span>
               {active && <Check size={15} />}
             </button>
           )
@@ -70,6 +80,9 @@ export function SortMenu({ state, onChange }: SortMenuProps) {
 /**
  * Compact label for the bar's sort trigger.
  */
-export function sortTriggerLabel(sort: LevelSort): string {
-  return LEVEL_SORT_OPTIONS.find((o) => o.value === sort)?.label ?? 'Sort'
+export function sortTriggerLabel(
+  sort: LevelSort,
+  options: readonly LevelSortOption[] = LEVEL_SORT_OPTIONS
+): string {
+  return options.find((o) => o.value === sort)?.label ?? 'Sort'
 }

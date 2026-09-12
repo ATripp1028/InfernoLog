@@ -10,10 +10,11 @@ const DEFAULT_RATING_CATEGORIES = [
   { name: 'Overall', weight: 1, sortOrder: 0 },
 ] as const
 
+// Want to Beat is a backlog rather than a ranking, so it starts unordered.
 const DEFAULT_COLLECTIONS = [
-  { name: 'Favorites', type: 'FAVORITES' },
-  { name: 'Least Favorites', type: 'LEAST_FAVORITES' },
-  { name: 'Want to Beat', type: 'WANT_TO_BEAT' },
+  { name: 'Favorites', type: 'FAVORITES', ordering: 'ORDERED' },
+  { name: 'Least Favorites', type: 'LEAST_FAVORITES', ordering: 'ORDERED' },
+  { name: 'Want to Beat', type: 'WANT_TO_BEAT', ordering: 'UNORDERED' },
 ] as const
 
 /**

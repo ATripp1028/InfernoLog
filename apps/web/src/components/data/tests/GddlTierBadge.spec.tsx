@@ -4,29 +4,18 @@ import { GddlTierBadge } from '../GddlTierBadge'
 import { renderWithProviders } from '@/utils/testUtils'
 
 describe('GddlTierBadge', () => {
-  it('shows the tier in either variant', () => {
-    const { unmount } = renderWithProviders(<GddlTierBadge tier={28} />)
-    expect(screen.getByText('28')).toBeInTheDocument()
-    unmount()
+  it('shows the tier', () => {
+    renderWithProviders(<GddlTierBadge tier={28} />)
 
-    renderWithProviders(<GddlTierBadge tier={28} variant="inline" />)
     expect(screen.getByText('28')).toBeInTheDocument()
   })
 
-  // The whole reason the two variants exist: a table cell has to hold its slot
-  // when there is no tier, while an inline badge must not invent one.
-  it('holds the slot with an em dash when a cell has no tier', () => {
+  // It is a table cell: it has to hold its slot when there is no tier, which
+  // is what separates it from the TierChip a row of chips uses.
+  it('holds the slot with an em dash when there is no tier', () => {
     renderWithProviders(<GddlTierBadge tier={null} />)
 
     expect(screen.getByText('—')).toBeInTheDocument()
-  })
-
-  it('renders nothing at all when an inline badge has no tier', () => {
-    const { container } = renderWithProviders(
-      <GddlTierBadge tier={null} variant="inline" />
-    )
-
-    expect(container).toBeEmptyDOMElement()
   })
 
   // Low tiers sit on light backgrounds, so the number has to flip to black.
