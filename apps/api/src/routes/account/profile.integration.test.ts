@@ -17,6 +17,7 @@ import {
   truncateAll,
   seedUser,
   seedLevel,
+  seedAuthIdentity,
 } from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
@@ -237,6 +238,10 @@ describe('DELETE /me', () => {
     const other = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '100' })
 
+    await seedAuthIdentity(prisma, user.id, 'user-google-sub', 'GOOGLE')
+    await seedAuthIdentity(prisma, user.id, 'user-password-sub', 'PASSWORD')
+    await seedAuthIdentity(prisma, other.id, 'other-sub')
+
     const category = await prisma.ratingCategory.create({
       data: { userId: user.id, name: 'Gameplay', weight: 1, sortOrder: 0 },
     })
@@ -330,6 +335,23 @@ describe('DELETE /me', () => {
     expect(await prisma.banAppeal.count({ where: { userId: user.id } })).toBe(0)
     expect(await prisma.report.count()).toBe(0)
     expect(await prisma.moderationAction.count()).toBe(0)
+    expect(
+      await prisma.authIdentity.count({ where: { userId: user.id } })
+    ).toBe(0)
+  })
+
+  it("deletes the Cognito user behind each of the account's identities", async () => {
+    // Read before the purge; afterwards the cascade has removed the rows that
+    // say which Cognito users were this account's.
+    const { user } = await seedFullAccount()
+
+    await send(user.id, 'DELETE', '/me', CONFIRMATION)
+
+    const usernames = mockCognitoSend.mock.calls.map(
+      (call) =>
+        (call as unknown as [{ input: { Username: string } }])[0].input.Username
+    )
+    expect(usernames.sort()).toEqual(['user-google-sub', 'user-password-sub'])
   })
 
   it('leaves the other user and the shared level intact', async () => {
@@ -340,6 +362,11 @@ describe('DELETE /me', () => {
 
     expect(
       await prisma.user.findUnique({ where: { id: other.id } })
+    ).not.toBeNull()
+    expect(
+      await prisma.authIdentity.findUnique({
+        where: { cognitoSub: 'other-sub' },
+      })
     ).not.toBeNull()
     expect(
       await prisma.level.findUnique({ where: { inGameId: '100' } })

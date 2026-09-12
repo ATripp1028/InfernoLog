@@ -110,6 +110,22 @@ export async function seedUser(
   })
 }
 
+/**
+ * Gives an existing user a sign-in identity, which is what the auth middleware
+ * and the claims-only routes resolve a token's sub through. A user seeded
+ * without one exists but cannot be signed in to.
+ */
+export async function seedAuthIdentity(
+  prisma: PrismaClient,
+  userId: string,
+  cognitoSub: string,
+  provider: 'GOOGLE' | 'PASSWORD' = 'GOOGLE'
+) {
+  return prisma.authIdentity.create({
+    data: { userId, cognitoSub, provider },
+  })
+}
+
 export async function seedLevel(
   prisma: PrismaClient,
   overrides: Partial<{

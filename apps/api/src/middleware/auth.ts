@@ -71,10 +71,17 @@ export function accountStatusDenial(
 /**
  * Authenticates a request and puts the caller's identity on the context.
  *
- * Reads the claims API Gateway's Cognito JWT authorizer already verified, looks
- * up the matching `users` row by `cognitoSub`, and sets `userId` (the INTERNAL
- * UUID) and `userEmail`. Downstream handlers must take identity from
- * `c.get('userId')` and never from the Cognito sub or a request payload.
+ * Reads the claims API Gateway's Cognito JWT authorizer already verified,
+ * resolves the token's sub to the `AuthIdentity` it names and from there to the
+ * account, and sets `userId` (the INTERNAL UUID) and `userEmail`. Downstream
+ * handlers must take identity from `c.get('userId')` and never from the Cognito
+ * sub or a request payload.
+ *
+ * An account can hold several identities, so the sub says only which sign-in
+ * method this request arrived through. `userEmail` is therefore always the
+ * account's address, never the token's `email` claim: that claim belongs to
+ * the one provider, and letting it stand in for the account would make the
+ * account's email depend on how the user happened to sign in.
  *
  * Responds 401 when claims are missing (which means the authorizer is
  * misconfigured — it should have rejected the request first, so this also
@@ -101,15 +108,20 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
       return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    const user = await prisma.user.findUnique({
+    const identity = await prisma.authIdentity.findUnique({
       where: { cognitoSub: claims.sub },
       select: {
-        id: true,
-        email: true,
-        accountStatus: true,
-        suspensionUntil: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            accountStatus: true,
+            suspensionUntil: true,
+          },
+        },
       },
     })
+    const user = identity?.user
     if (!user) return c.json({ error: 'User not found' }, 404)
 
     const denial = accountStatusDenial(user)
@@ -122,7 +134,7 @@ export const authMiddleware = createMiddleware<{ Variables: HonoVariables }>(
     }
 
     c.set('userId', user.id)
-    c.set('userEmail', claims.email ?? user.email)
+    c.set('userEmail', user.email)
 
     await next()
   }

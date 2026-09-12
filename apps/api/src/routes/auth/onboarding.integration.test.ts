@@ -2,14 +2,20 @@
  * Integration tests for the claims-only auth routes.
  *
  * Signup is idempotent, and the thing that makes that non-trivial is the unique
- * constraint on `cognitoSub`: a second call must return the existing row rather
- * than collide. The generated username has a random suffix precisely so two
- * accounts sharing an email local part don't hit `User.username`'s unique
- * constraint either — both are database properties a mocked test can't check.
+ * constraint on the identity's Cognito sub: a second call must return the
+ * existing row rather than collide. The generated username has a random suffix
+ * precisely so two accounts sharing an email local part don't hit
+ * `User.username`'s unique constraint either — both are database properties a
+ * mocked test can't check.
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { getTestPrisma, truncateAll, seedUser } from '../../test/utils'
+import {
+  getTestPrisma,
+  truncateAll,
+  seedUser,
+  seedAuthIdentity,
+} from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
   const { getTestPrisma } = await import('../../test/utils')
@@ -58,6 +64,15 @@ function post(path: string, claims: Record<string, string> | null) {
   )
 }
 
+/** The account the identity with this sub signs in to. */
+async function userForSub(cognitoSub: string) {
+  const { user } = await prisma.authIdentity.findUniqueOrThrow({
+    where: { cognitoSub },
+    select: { user: true },
+  })
+  return user
+}
+
 beforeEach(async () => {
   vi.clearAllMocks()
   await truncateAll(prisma)
@@ -75,9 +90,7 @@ describe('POST /auth/signup/start', () => {
     const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
 
     expect(res.status).toBe(200)
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { cognitoSub: SUB },
-    })
+    const user = await userForSub(SUB)
     expect(user.email).toBe(EMAIL)
     expect(user.onboardingCompleted).toBe(false)
 
@@ -101,9 +114,7 @@ describe('POST /auth/signup/start', () => {
   it('records the Google identity against the new user', async () => {
     await post('/auth/signup/start', { sub: SUB, email: EMAIL })
 
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { cognitoSub: SUB },
-    })
+    const user = await userForSub(SUB)
     const identities = await prisma.authIdentity.findMany({
       where: { userId: user.id },
     })
@@ -116,9 +127,7 @@ describe('POST /auth/signup/start', () => {
     // Otherwise the rating-config route rejects the user's very first save.
     await post('/auth/signup/start', { sub: SUB, email: EMAIL })
 
-    const user = await prisma.user.findUniqueOrThrow({
-      where: { cognitoSub: SUB },
-    })
+    const user = await userForSub(SUB)
     const cats = await prisma.ratingCategory.findMany({
       where: { userId: user.id },
     })
@@ -130,7 +139,7 @@ describe('POST /auth/signup/start', () => {
   })
 
   it('is idempotent — a second call returns the same row', async () => {
-    // cognitoSub is unique, so a naive re-create would throw instead.
+    // The sub is unique, so a naive re-create would throw instead.
     const first = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
     const firstBody = (await first.json()) as { data: { id: string } }
 
@@ -144,10 +153,23 @@ describe('POST /auth/signup/start', () => {
     expect(await prisma.authIdentity.count()).toBe(1)
   })
 
+  it('finds an existing account through its identity alone', async () => {
+    // An account whose users row carries no cognitoSub: only AuthIdentity
+    // connects it to the sub, so a lookup still reading the column would
+    // create a second account here.
+    const user = await seedUser(prisma)
+    await seedAuthIdentity(prisma, user.id, SUB)
+
+    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+
+    await expect(res.json()).resolves.toMatchObject({ data: { id: user.id } })
+    expect(await prisma.user.count()).toBe(1)
+  })
+
   it('reports the existing onboarding state on a repeat call', async () => {
     await post('/auth/signup/start', { sub: SUB, email: EMAIL })
     await prisma.user.update({
-      where: { cognitoSub: SUB },
+      where: { id: (await userForSub(SUB)).id },
       data: { onboardingCompleted: true },
     })
 
@@ -190,26 +212,24 @@ describe('POST /auth/signin/reject', () => {
     expect(command.input.Username).toBe(SUB)
   })
 
-  it('refuses when a real account holds that cognitoSub', async () => {
+  it('refuses when a real account holds that identity', async () => {
     // The frontend only calls this after GET /me 404s — a hit means the two
     // requests raced, and deleting would orphan a live account's identity.
     const user = await seedUser(prisma)
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { cognitoSub: SUB },
-    })
+    await seedAuthIdentity(prisma, user.id, SUB)
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 
     expect(res.status).toBe(400)
     expect(mockCognitoSend).not.toHaveBeenCalled()
     expect(
-      await prisma.user.findUnique({ where: { cognitoSub: SUB } })
+      await prisma.authIdentity.findUnique({ where: { cognitoSub: SUB } })
     ).not.toBeNull()
   })
 
   it('leaves an unrelated account alone', async () => {
-    await seedUser(prisma)
+    const other = await seedUser(prisma)
+    await seedAuthIdentity(prisma, other.id, 'someone-elses-sub')
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 

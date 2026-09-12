@@ -17,7 +17,6 @@ import { UpdateMeSchema, UpdateUsernameSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { isUniqueViolation } from '../../middleware/errors'
 import { logger } from '../../utils/logger'
-import { getVerifiedClaims } from '../../middleware/auth'
 import type { HonoVariables } from '../../types/hono'
 import {
   meWithCategoriesSelect,
@@ -210,6 +209,13 @@ app.delete('/me', async (c) => {
   })
   if (!parsed.ok) return parsed.response
 
+  // Read before the purge: AuthIdentity cascades from `users`, so afterwards
+  // there is no record left of which Cognito users belonged to this account.
+  const identities = await prisma.authIdentity.findMany({
+    where: { userId },
+    select: { cognitoSub: true },
+  })
+
   await prisma.$transaction([
     prisma.report.deleteMany({
       where: { OR: [{ reporterId: userId }, { reportedUserId: userId }] },
@@ -225,16 +231,17 @@ app.delete('/me', async (c) => {
     prisma.user.delete({ where: { id: userId } }),
   ])
 
-  // Best-effort — the InfernoLog account is already gone at this point
-  // regardless of whether this succeeds. A leftover Cognito identity just
-  // means the user gets a fresh account if they sign back in.
-  const claims = getVerifiedClaims(c)
-  if (claims) {
+  // Every identity's Cognito user goes, not just the one this request signed in
+  // through — each is a separate Cognito user, and one left behind would still
+  // hold that provider's personal data. Best-effort: the InfernoLog account is
+  // already gone whatever happens here, and a leftover Cognito user owns no
+  // account, so signing in with it again is refused like any unknown identity.
+  for (const { cognitoSub } of identities) {
     try {
       await cognito.send(
         new AdminDeleteUserCommand({
           UserPoolId: process.env.COGNITO_USER_POOL_ID,
-          Username: claims.sub,
+          Username: cognitoSub,
         })
       )
     } catch (err) {

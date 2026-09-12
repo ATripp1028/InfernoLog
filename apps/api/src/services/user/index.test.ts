@@ -43,7 +43,7 @@ function createData(): Record<string, unknown> {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  prisma.user.findUnique.mockReset().mockResolvedValue(null)
+  prisma.authIdentity.findUnique.mockReset().mockResolvedValue(null)
   prisma.user.create.mockReset().mockResolvedValue({ id: 'user-1' } as never)
 })
 
@@ -53,7 +53,9 @@ describe('createUserForSignup — idempotency', () => {
   it('returns the existing row without creating a second one', async () => {
     // A double-submit must not produce two accounts for one identity.
     const existing = { id: 'user-1', onboardingCompleted: true }
-    prisma.user.findUnique.mockResolvedValue(existing as never)
+    prisma.authIdentity.findUnique.mockResolvedValue({
+      user: existing,
+    } as never)
 
     await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
       existing
@@ -61,14 +63,16 @@ describe('createUserForSignup — idempotency', () => {
     expect(prisma.user.create).not.toHaveBeenCalled()
   })
 
-  it('keys the existence check on cognitoSub, not email', async () => {
-    // cognitoSub is unique and known before the row exists; email is not a
-    // safe key here (a user can change it, and it isn't the identity).
+  it("keys the existence check on the identity's sub, not email", async () => {
+    // The sub is unique and known before the row exists; email is not a safe
+    // key here (a user can change it, and it isn't the identity).
     await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+    expect(prisma.authIdentity.findUnique).toHaveBeenCalledWith({
       where: { cognitoSub: SUB },
+      select: { user: true },
     })
+    expect(prisma.user.findUnique).not.toHaveBeenCalled()
   })
 })
 

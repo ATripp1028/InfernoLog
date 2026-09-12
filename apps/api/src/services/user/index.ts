@@ -21,11 +21,13 @@ const DEFAULT_COLLECTIONS = [
 /**
  * Creates the InfernoLog `User` row for a confirmed (age-gated) sign-up.
  * Idempotent: a double-submit (e.g. a duplicate call while the first is still
- * in flight) returns the already-created row instead of erroring, keyed by
- * cognitoSub since that's unique and known before the row exists.
+ * in flight) returns the already-created row instead of erroring. The check is
+ * keyed on the identity's Cognito sub, which is unique and known before the row
+ * exists, and resolves through `AuthIdentity` like every other lookup.
  *
  * The row and its first `AuthIdentity` are created in one write, so no account
- * ever exists without the identity that signed it up.
+ * ever exists without the identity that signed it up. `User.cognitoSub` is
+ * still written as well, but nothing reads it; it goes when the column does.
  *
  * @param email - The address the provider asserted. Becomes the account's
  *   email and is also recorded on the identity.
@@ -38,8 +40,11 @@ export async function createUserForSignup(
   cognitoSub: string,
   provider: AuthProvider
 ) {
-  const existing = await prisma.user.findUnique({ where: { cognitoSub } })
-  if (existing) return existing
+  const existing = await prisma.authIdentity.findUnique({
+    where: { cognitoSub },
+    select: { user: true },
+  })
+  if (existing) return existing.user
 
   const user = await prisma.user.create({
     data: {

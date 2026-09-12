@@ -50,7 +50,8 @@ const cognito = new CognitoIdentityProviderClient({
  * to a permanent one so `ADMIN_USER_PASSWORD_AUTH` returns tokens directly
  * rather than a NEW_PASSWORD_REQUIRED challenge.
  *
- * @returns The identity's `sub`, which is what `User.cognitoSub` is keyed to.
+ * @returns The identity's `sub`, which is what `AuthIdentity.cognitoSub` is
+ *   keyed to.
  */
 async function ensureCognitoUser(
   userPoolId: string,
@@ -130,7 +131,11 @@ async function ensureUserRow(email: string, cognitoSub: string) {
 
   // A stage that was torn down and redeployed hands the same email a new
   // Cognito identity, so the sub is repointed rather than trusted.
-  if (existing.cognitoSub !== cognitoSub) {
+  const identity = await prisma.authIdentity.findUnique({
+    where: { cognitoSub },
+    select: { userId: true },
+  })
+  if (identity?.userId !== existing.id) {
     console.log(
       `Repointing users row ${existing.id} at Cognito sub ${cognitoSub}.`
     )

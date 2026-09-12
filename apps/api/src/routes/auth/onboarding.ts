@@ -56,7 +56,7 @@ app.post('/auth/signin/reject', async (c) => {
   const claims = getVerifiedClaims(c)
   if (!claims) return c.json({ error: 'Unauthorized' }, 401)
 
-  const existing = await prisma.user.findUnique({
+  const existing = await prisma.authIdentity.findUnique({
     where: { cognitoSub: claims.sub },
     select: { id: true },
   })

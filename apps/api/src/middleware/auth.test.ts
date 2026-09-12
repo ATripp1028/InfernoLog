@@ -64,28 +64,26 @@ function request(claims: Record<string, string> | null) {
   return appUnderTest().request('/probe', {}, envWith(claims))
 }
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  prisma.user.findUnique.mockReset().mockResolvedValue({
-    id: USER_ID,
-    email: 'stored@example.com',
-    accountStatus: 'ACTIVE',
-    suspensionUntil: null,
-  } as never)
-})
-
-/** Makes the looked-up user carry a given moderation state. */
+/** Resolves the token's identity to an account in the given state. */
 function withAccountState(
   accountStatus: string,
   suspensionUntil: Date | null = null
 ) {
-  prisma.user.findUnique.mockResolvedValue({
-    id: USER_ID,
-    email: 'stored@example.com',
-    accountStatus,
-    suspensionUntil,
+  prisma.authIdentity.findUnique.mockResolvedValue({
+    user: {
+      id: USER_ID,
+      email: 'stored@example.com',
+      accountStatus,
+      suspensionUntil,
+    },
   } as never)
 }
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  prisma.authIdentity.findUnique.mockReset()
+  withAccountState('ACTIVE')
+})
 
 // ─── the happy path ──────────────────────────────────────────────────────────
 
@@ -100,30 +98,29 @@ describe('authMiddleware — resolving identity', () => {
     expect(body.userId).not.toBe(SUB)
   })
 
-  it('looks the user up by cognitoSub', async () => {
+  it('resolves the sub through its AuthIdentity, not a column on users', async () => {
     await request({ sub: SUB })
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+    expect(prisma.authIdentity.findUnique).toHaveBeenCalledWith({
       where: { cognitoSub: SUB },
       select: {
-        id: true,
-        email: true,
-        accountStatus: true,
-        suspensionUntil: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            accountStatus: true,
+            suspensionUntil: true,
+          },
+        },
       },
     })
+    expect(prisma.user.findUnique).not.toHaveBeenCalled()
   })
 
-  it('prefers the email from the token over the stored one', async () => {
-    // The token is fresher — the user may have changed it at the provider.
+  it("uses the account's email, not the token's", async () => {
+    // The token's email belongs to whichever provider this request signed in
+    // through; with several identities on one account it is not the account's.
     const res = await request({ sub: SUB, email: 'jwt@example.com' })
-
-    const body = (await res.json()) as { userEmail: string }
-    expect(body.userEmail).toBe('jwt@example.com')
-  })
-
-  it('falls back to the stored email when the token carries none', async () => {
-    const res = await request({ sub: SUB })
 
     const body = (await res.json()) as { userEmail: string }
     expect(body.userEmail).toBe('stored@example.com')
@@ -146,20 +143,20 @@ describe('authMiddleware — rejections', () => {
 
     expect(res.status).toBe(401)
     expect(mockCaptureMessage).toHaveBeenCalled()
-    expect(prisma.user.findUnique).not.toHaveBeenCalled()
+    expect(prisma.authIdentity.findUnique).not.toHaveBeenCalled()
   })
 
   it('401s when the claims carry no sub', async () => {
     const res = await request({ email: 'jwt@example.com' })
 
     expect(res.status).toBe(401)
-    expect(prisma.user.findUnique).not.toHaveBeenCalled()
+    expect(prisma.authIdentity.findUnique).not.toHaveBeenCalled()
   })
 
   it('404s when the Cognito identity has no InfernoLog user yet', async () => {
     // Signed in with Google but never completed signup — a distinct state the
     // frontend branches on to start the signup flow.
-    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
 
     const res = await request({ sub: SUB })
 
