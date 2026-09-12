@@ -124,6 +124,11 @@ export async function seedLevel(
     levelType: 'CLASSIC' | 'PLATFORMER'
     isNong: boolean
     sfhCheckedAt: Date
+    // Community-list placements, for views that return them (the demon list).
+    gddlTier: number
+    aredlRank: number
+    aredlStatus: string
+    sheetTier: number
   }> = {}
 ) {
   return prisma.level.create({
@@ -141,6 +146,10 @@ export async function seedLevel(
       levelType: overrides.levelType ?? 'CLASSIC',
       isNong: overrides.isNong ?? false,
       sfhCheckedAt: overrides.sfhCheckedAt ?? null,
+      gddlTier: overrides.gddlTier ?? null,
+      aredlRank: overrides.aredlRank ?? null,
+      aredlStatus: overrides.aredlStatus ?? null,
+      sheetTier: overrides.sheetTier ?? null,
     },
   })
 }

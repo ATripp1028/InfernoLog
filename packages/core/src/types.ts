@@ -29,6 +29,7 @@ import {
   LevelProgressListItemSchema,
   LevelProgressListResponseSchema,
   DemonListBadgeSchema,
+  CommunityTiersSchema,
   ClassicDemonListEntrySchema,
   UnplacedDemonListEntrySchema,
   ClassicDemonListResponseSchema,
@@ -103,6 +104,7 @@ export type LevelProgressListResponse = z.infer<
 >
 
 export type DemonListBadge = z.infer<typeof DemonListBadgeSchema>
+export type CommunityTiers = z.infer<typeof CommunityTiersSchema>
 export type ClassicDemonListEntry = z.infer<typeof ClassicDemonListEntrySchema>
 export type UnplacedDemonListEntry = z.infer<
   typeof UnplacedDemonListEntrySchema

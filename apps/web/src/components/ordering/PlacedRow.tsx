@@ -7,8 +7,11 @@ import { DragHandle } from '@/components/generic/drag-handle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
 import { backOriginState } from '@/lib/backOrigin'
-import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { IdChip } from '@/components/data/CopyableId'
+import { RowHoverGlow } from '@/components/data/RowHoverGlow'
+import { TierChips } from '@/components/data/TierChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
+import { communityTierChips } from '@/lib/communityTiers'
 import { medalColor } from '@/lib/medals'
 import type { OrderedItem } from '@/lib/ordering/types'
 
@@ -51,7 +54,7 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
     },
     ref
   ) => {
-    const { level, badge, attempts } = item
+    const { level, communityTiers, attempts } = item
     const location = useLocation()
     return (
       <div
@@ -85,11 +88,18 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
               className="shrink-0"
             />
             <div className="min-w-0 flex-1">
-              <div
-                className="truncate text-sm font-semibold text-text-primary"
-                style={{ color: medalColor(rank) }}
-              >
-                #{rank} — {level.name ?? `Level #${level.inGameId}`}
+              <div className="flex min-w-0 items-center gap-2">
+                <span
+                  className="truncate text-sm font-semibold text-text-primary"
+                  style={{ color: medalColor(rank) }}
+                >
+                  #{rank} — {level.name ?? `Level #${level.inGameId}`}
+                </span>
+                <IdChip
+                  id={level.inGameId}
+                  label="Level ID"
+                  className="shrink-0"
+                />
               </div>
               <div className="truncate text-xs text-text-secondary">
                 {level.creator
@@ -105,7 +115,10 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
                 {formatNumber(attempts)} att
               </span>
             )}
-            <GddlTierBadge tier={badge?.gddlTier ?? null} variant="inline" />
+            <TierChips
+              chips={communityTierChips(communityTiers)}
+              className="shrink-0 justify-end"
+            />
           </Link>
           {onRemove && (
             <button
@@ -119,11 +132,8 @@ export const PlacedRow = forwardRef<HTMLDivElement, PlacedRowProps>(
             </button>
           )}
         </div>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 z-20 opacity-0 transition-opacity group-hover:opacity-100"
-          style={{ boxShadow: 'inset 0 0 40px rgba(255, 159, 28, 0.22)' }}
-        />
+        {/* Gold: this row opens the viewer's own page for the level. */}
+        <RowHoverGlow variant="progress" />
       </div>
     )
   }

@@ -27,10 +27,10 @@ import {
 } from '../activityLog'
 import {
   levelSummarySelect,
+  communityTiersSelect,
   completionSelect,
-  deriveBadge,
   completionAttempts,
-  mapLevel,
+  splitCommunityTiers,
 } from '../levels/row'
 import type {
   PlaceOnDemonListInput,
@@ -145,8 +145,12 @@ async function computeIndex(
  *
  * Placed rows come back listIndex DESC, so index 0 is #1 — the hardest.
  *
- * Row serialization (levelSummarySelect / completionSelect / deriveBadge /
- * completionAttempts / mapLevel) is shared with collections — see levels/row.ts.
+ * Row serialization (levelSummarySelect / completionSelect /
+ * completionAttempts / splitCommunityTiers) is shared with collections — see
+ * levels/row.ts. Unlike collections, a demon list row carries the level's
+ * COMMUNITY placements rather than the user's own GDDL tier opinion: the page
+ * is where the user arranges levels against the outside lists, so the outside
+ * lists are what the rows have to show.
  *
  * @param userId - Internal user UUID from the JWT.
  */
@@ -160,8 +164,9 @@ export async function getClassicDemonList(userId: string) {
         levelProgress: {
           select: {
             id: true,
-            userGddlTier: true,
-            level: { select: levelSummarySelect },
+            level: {
+              select: { ...levelSummarySelect, ...communityTiersSelect },
+            },
             progressUpdates: completionSelect,
           },
         },
@@ -180,34 +185,25 @@ export async function getClassicDemonList(userId: string) {
       orderBy: { updatedAt: 'desc' },
       select: {
         id: true,
-        userGddlTier: true,
-        level: { select: levelSummarySelect },
+        level: { select: { ...levelSummarySelect, ...communityTiersSelect } },
         progressUpdates: completionSelect,
       },
     }),
   ])
 
-  const placed = placedRows.map((row, i) => {
-    const level = row.levelProgress.level
-    return {
-      rank: i + 1,
-      levelProgressId: row.levelProgress.id,
-      listIndex: row.listIndex.toNumber(),
-      level: mapLevel(level),
-      attempts: completionAttempts(row.levelProgress.progressUpdates),
-      badge: deriveBadge(row.levelProgress.userGddlTier),
-    }
-  })
+  const placed = placedRows.map((row, i) => ({
+    rank: i + 1,
+    levelProgressId: row.levelProgress.id,
+    listIndex: row.listIndex.toNumber(),
+    attempts: completionAttempts(row.levelProgress.progressUpdates),
+    ...splitCommunityTiers(row.levelProgress.level),
+  }))
 
-  const unplaced = unplacedRows.map((row) => {
-    const level = row.level
-    return {
-      levelProgressId: row.id,
-      level: mapLevel(level),
-      attempts: completionAttempts(row.progressUpdates),
-      badge: deriveBadge(row.userGddlTier),
-    }
-  })
+  const unplaced = unplacedRows.map((row) => ({
+    levelProgressId: row.id,
+    attempts: completionAttempts(row.progressUpdates),
+    ...splitCommunityTiers(row.level),
+  }))
 
   return { placed, unplaced }
 }

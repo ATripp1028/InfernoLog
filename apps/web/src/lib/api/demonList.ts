@@ -76,7 +76,7 @@ function toUnplaced(entry: ClassicDemonListEntry): UnplacedDemonListEntry {
     levelProgressId: entry.levelProgressId,
     level: entry.level,
     attempts: entry.attempts,
-    badge: entry.badge,
+    communityTiers: entry.communityTiers,
   }
 }
 
@@ -90,7 +90,7 @@ function toPlaced(
     listIndex: 0, // placeholder; reconciled from the server response
     level: card.level,
     attempts: card.attempts,
-    badge: card.badge,
+    communityTiers: card.communityTiers,
   }
 }
 

@@ -107,10 +107,15 @@ describe('rowStatKeys', () => {
 })
 
 describe('rowStat', () => {
+  // The chip itself is lib/communityTiers' business — what rowStat owes is
+  // handing the right list's chip back under the 'tier' kind.
   it('paints a GDDL tier as its badge', () => {
     const stat = rowStat(level({ gddlTier: 20 }), 'gddlTier')
 
-    expect(stat).toMatchObject({ kind: 'tier', look: { badge: '20' } })
+    expect(stat).toMatchObject({
+      kind: 'tier',
+      chip: { key: 'gddl', look: { badge: '20' } },
+    })
   })
 
   // Under a sort by it, an unknown value is why the row sits where it does, so
@@ -134,14 +139,17 @@ describe('rowStat', () => {
   it('shows a main-list AREDL rank', () => {
     expect(
       rowStat(level({ aredlRank: 12, aredlStatus: 'MainList' }), 'aredlRank')
-    ).toMatchObject({ kind: 'tier', label: 'AREDL rank', look: { badge: '#12' } })
+    ).toMatchObject({
+      kind: 'tier',
+      chip: { label: 'AREDL rank', look: { badge: '#12' } },
+    })
   })
 
   // A Legacy position is a list index, not a rank.
   it('shows a Legacy entry as its status', () => {
     expect(
       rowStat(level({ aredlRank: 1580, aredlStatus: 'Legacy' }), 'aredlRank')
-    ).toMatchObject({ label: 'AREDL status', look: { badge: 'Legacy' } })
+    ).toMatchObject({ chip: { label: 'AREDL status', look: { badge: 'Legacy' } } })
   })
 
   it.each([
@@ -150,8 +158,7 @@ describe('rowStat', () => {
   ] as const)('names sheet tier %s and marks its sheet', (tier, name, source) => {
     expect(rowStat(level({ sheetTier: tier }), 'sheetTier')).toMatchObject({
       kind: 'tier',
-      look: { badge: name },
-      source,
+      chip: { look: { badge: name }, source },
     })
   })
 

@@ -1,6 +1,6 @@
 import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronUp, ChevronDown, Hash, Pencil, Search, X } from 'lucide-react'
-import type { ClassicDemonListResponse } from '@infernolog/core'
+import type { ClassicDemonListResponse, CommunityTiers } from '@infernolog/core'
 import { Input } from '@/components/generic/input'
 import { Button } from '@/components/generic/button'
 import { Chip } from '@/components/generic/chip'
@@ -8,8 +8,10 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/generic/sheet'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
 import { backOriginState } from '@/lib/backOrigin'
-import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { IdChip } from '@/components/data/CopyableId'
+import { TierChips } from '@/components/data/TierChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
+import { communityTierChips } from '@/lib/communityTiers'
 import { medalColor } from '@/lib/medals'
 import { useMobileDemonList } from './useMobileDemonList'
 import type { DemonListItem } from './types'
@@ -190,31 +192,26 @@ export function MobileDemonList({
                       className="shrink-0"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-text-primary">
-                        {entry.level.name ?? `Level #${entry.level.inGameId}`}
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span className="truncate text-sm font-medium text-text-primary">
+                          {entry.level.name ?? `Level #${entry.level.inGameId}`}
+                        </span>
+                        <IdChip
+                          id={entry.level.inGameId}
+                          label="Level ID"
+                          className="shrink-0"
+                        />
                       </div>
                       <div className="truncate text-xs text-text-secondary">
                         {entry.level.creator
                           ? `By ${entry.level.creator}`
                           : 'Unknown creator'}
                       </div>
+                      <StatRow
+                        attempts={entry.attempts}
+                        tiers={entry.communityTiers}
+                      />
                     </div>
-                    {(entry.attempts != null || entry.badge) && (
-                      <div className="flex shrink-0 items-center gap-2">
-                        {entry.attempts != null && (
-                          <span
-                            title="Attempts"
-                            className="text-[11px] tabular-nums text-text-secondary"
-                          >
-                            {formatNumber(entry.attempts)} att
-                          </span>
-                        )}
-                        <GddlTierBadge
-                          tier={entry.badge?.gddlTier ?? null}
-                          variant="inline"
-                        />
-                      </div>
-                    )}
                   </div>
                 </button>
               ))
@@ -267,33 +264,25 @@ function MobileRow({
         className="shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <div
-          className="truncate text-sm font-semibold text-text-primary"
-          style={{ color: medalColor(rank) }}
-        >
-          #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="truncate text-sm font-semibold text-text-primary"
+            style={{ color: medalColor(rank) }}
+          >
+            #{rank} — {item.level.name ?? `Level #${item.level.inGameId}`}
+          </span>
+          <IdChip
+            id={item.level.inGameId}
+            label="Level ID"
+            className="shrink-0"
+          />
         </div>
         <div className="truncate text-xs text-text-secondary">
           {item.level.creator
             ? `Published by ${item.level.creator}`
             : 'Unknown creator'}
         </div>
-        {(item.attempts != null || item.badge) && (
-          <div className="mt-1 flex items-center gap-2">
-            {item.attempts != null && (
-              <span
-                title="Attempts"
-                className="text-[11px] tabular-nums text-text-secondary"
-              >
-                {formatNumber(item.attempts)} att
-              </span>
-            )}
-            <GddlTierBadge
-              tier={item.badge?.gddlTier ?? null}
-              variant="inline"
-            />
-          </div>
-        )}
+        <StatRow attempts={item.attempts} tiers={item.communityTiers} />
       </div>
     </>
   )
@@ -353,6 +342,35 @@ function MobileRow({
             </div>
           ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * The line under a row's name: attempts, then the level's community-list
+ * placements. Renders nothing at all when there is neither, rather than an
+ * empty line with the gap above it still there.
+ */
+function StatRow({
+  attempts,
+  tiers,
+}: {
+  attempts: number | null
+  tiers: CommunityTiers
+}) {
+  const chips = communityTierChips(tiers)
+  if (attempts == null && chips.length === 0) return null
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+      {attempts != null && (
+        <span
+          title="Attempts"
+          className="text-[11px] tabular-nums text-text-secondary"
+        >
+          {formatNumber(attempts)} att
+        </span>
+      )}
+      <TierChips chips={chips} />
     </div>
   )
 }

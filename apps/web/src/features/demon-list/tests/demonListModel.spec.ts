@@ -7,7 +7,7 @@ import {
 import { medalColor } from '@/lib/medals'
 import { neighboursAround } from '@/lib/neighbours'
 import { preScrollIndex } from '../placement'
-import { level, placed, ranked, unplaced } from './fixtures'
+import { level, placed, ranked, tiers, unplaced } from './fixtures'
 
 describe('medalColor', () => {
   // Gold for your hardest, then silver and bronze; 4th–5th get a cool azure
@@ -81,21 +81,21 @@ describe('neighboursAround', () => {
   })
 })
 
-// The GDDL tier is a scroll hint only — it never places the level.
+// The community GDDL tier is a scroll hint only — it never places the level.
 describe('preScrollIndex', () => {
-  const withTiers = (tiers: (number | null)[]) =>
-    tiers.map((t, i) =>
+  const withTiers = (gddlTiers: (number | null)[]) =>
+    gddlTiers.map((t, i) =>
       placed({
         levelProgressId: `p${i}`,
         rank: i + 1,
-        badge: t == null ? null : { gddlTier: t },
+        communityTiers: tiers({ gddlTier: t }),
       })
     )
 
   it('scrolls to the topmost row at the same tier', () => {
     const list = withTiers([30, 25, 25, 20])
 
-    expect(preScrollIndex(list, { gddlTier: 25 })).toBe(1)
+    expect(preScrollIndex(list, tiers({ gddlTier: 25 }))).toBe(1)
   })
 
   // No exact match: land just above the first row that is easier, which is
@@ -103,41 +103,41 @@ describe('preScrollIndex', () => {
   it('scrolls to the first easier row when no tier matches', () => {
     const list = withTiers([30, 28, 20, 18])
 
-    expect(preScrollIndex(list, { gddlTier: 25 })).toBe(2)
+    expect(preScrollIndex(list, tiers({ gddlTier: 25 }))).toBe(2)
   })
 
   it('scrolls to the top when everything is easier', () => {
     const list = withTiers([20, 18, 15])
 
-    expect(preScrollIndex(list, { gddlTier: 30 })).toBe(0)
+    expect(preScrollIndex(list, tiers({ gddlTier: 30 }))).toBe(0)
   })
 
   // Nothing to slot above, so the bottom is the closest thing to right.
   it('scrolls to the bottom when everything is harder', () => {
     const list = withTiers([30, 28, 26])
 
-    expect(preScrollIndex(list, { gddlTier: 10 })).toBe(2)
+    expect(preScrollIndex(list, tiers({ gddlTier: 10 }))).toBe(2)
   })
 
   it('ignores untiered rows when looking for somewhere easier', () => {
     const list = withTiers([30, null, null, 20])
 
-    expect(preScrollIndex(list, { gddlTier: 25 })).toBe(3)
+    expect(preScrollIndex(list, tiers({ gddlTier: 25 }))).toBe(3)
   })
 
   it('lands on the bottom when every row is untiered', () => {
     const list = withTiers([null, null, null])
 
-    expect(preScrollIndex(list, { gddlTier: 25 })).toBe(2)
+    expect(preScrollIndex(list, tiers({ gddlTier: 25 }))).toBe(2)
   })
 
-  // No tier opinion means no hint, so the top is as good a guess as any.
-  it('scrolls to the top for a level with no tier opinion', () => {
+  // No GDDL tier means no hint, so the top is as good a guess as any.
+  it('scrolls to the top for a level GDDL has not rated', () => {
     expect(preScrollIndex(withTiers([30, 20]), null)).toBe(0)
   })
 
   it('scrolls to the top of an empty ranking', () => {
-    expect(preScrollIndex([], { gddlTier: 25 })).toBe(0)
+    expect(preScrollIndex([], tiers({ gddlTier: 25 }))).toBe(0)
     expect(preScrollIndex([], null)).toBe(0)
   })
 })

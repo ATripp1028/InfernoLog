@@ -55,6 +55,42 @@ export type CompletionRefs = Prisma.ProgressUpdateGetPayload<{
 }>[]
 
 /**
+ * The level's community-list placement columns. Selected alongside
+ * {@link levelSummarySelect} by views that show the level's real GDDL / AREDL
+ * / spreadsheet standing — currently the demon list — and split back out of
+ * the row by {@link splitCommunityTiers}, since they are their own wire field
+ * rather than part of the level summary.
+ */
+export const communityTiersSelect = {
+  gddlTier: true,
+  aredlRank: true,
+  aredlStatus: true,
+  sheetTier: true,
+} satisfies Prisma.LevelSelect
+
+/** A level as returned by {@link levelSummarySelect} + {@link communityTiersSelect}. */
+export type LevelWithTiersRow = Prisma.LevelGetPayload<{
+  select: typeof levelSummarySelect & typeof communityTiersSelect
+}>
+
+/**
+ * Splits a row selected with both selects into the wire's two halves: the
+ * level summary (already run through {@link mapLevel}) and the community
+ * placements.
+ *
+ * They travel separately because they mean different things — the summary is
+ * what the level IS, the tiers are where three outside lists put it — and
+ * because `LevelListSummary` is shared with views that have no use for them.
+ */
+export function splitCommunityTiers(level: LevelWithTiersRow) {
+  const { gddlTier, aredlRank, aredlStatus, sheetTier, ...summary } = level
+  return {
+    level: mapLevel(summary),
+    communityTiers: { gddlTier, aredlRank, aredlStatus, sheetTier },
+  }
+}
+
+/**
  * Badge sourced from the user's own GDDL tier opinion on LevelProgress.
  */
 export function deriveBadge(userGddlTier: number | null) {

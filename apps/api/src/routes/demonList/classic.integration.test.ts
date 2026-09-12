@@ -48,6 +48,15 @@ function send(
   return buildApp(rankingApp, { userId }).request(path, init)
 }
 
+// The level's real list placements, which rows show instead of the user's own
+// GDDL tier opinion.
+type CommunityTiersBody = {
+  gddlTier: number | null
+  aredlRank: number | null
+  aredlStatus: string | null
+  sheetTier: number | null
+}
+
 type RankingBody = {
   data: {
     placed: Array<{
@@ -56,12 +65,12 @@ type RankingBody = {
       listIndex: number
       attempts: number | null
       level: { inGameId: string; isRated: boolean }
-      badge: { listSource: string; tierOrRank: string } | null
+      communityTiers: CommunityTiersBody
     }>
     unplaced: Array<{
       levelProgressId: string
       attempts: number | null
-      badge: { listSource: string; tierOrRank: string } | null
+      communityTiers: CommunityTiersBody
     }>
   }
 }
@@ -189,6 +198,52 @@ describe('GET /me/demon-list/classic', () => {
 
     expect(data.placed[0]?.level.isRated).toBe(false)
     expect(data.placed[0]?.attempts).toBe(14231)
+  })
+
+  // Rows show where the community lists put the level, NOT the user's own
+  // userGddlTier opinion — a different number with a different meaning.
+  it('surfaces the level’s community-list placements on both columns', async () => {
+    const user = await seedUser(prisma)
+    await seedPlaced(user.id, 1, {
+      levelOverrides: {
+        isDemon: true,
+        gddlTier: 34,
+        aredlRank: 5,
+        aredlStatus: 'MainList',
+        sheetTier: 20,
+      },
+    })
+    await seedCompletion(user.id, {
+      levelOverrides: { isDemon: true, gddlTier: 12 },
+    })
+
+    const { data } = await getRanking(user.id)
+
+    expect(data.placed[0]?.communityTiers).toEqual({
+      gddlTier: 34,
+      aredlRank: 5,
+      aredlStatus: 'MainList',
+      sheetTier: 20,
+    })
+    expect(data.unplaced[0]?.communityTiers).toEqual({
+      gddlTier: 12,
+      aredlRank: null,
+      aredlStatus: null,
+      sheetTier: null,
+    })
+  })
+
+  // The tiers travel as their own field; they must not leak into the level
+  // summary, which is shared with views that don't select them.
+  it('keeps the placements out of the level summary', async () => {
+    const user = await seedUser(prisma)
+    await seedPlaced(user.id, 1, {
+      levelOverrides: { isDemon: true, gddlTier: 34 },
+    })
+
+    const { data } = await getRanking(user.id)
+
+    expect(data.placed[0]?.level).not.toHaveProperty('gddlTier')
   })
 
   it('scopes the demon list to the authed user', async () => {

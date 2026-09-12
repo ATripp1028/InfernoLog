@@ -13,6 +13,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Loader2, X } from 'lucide-react'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
+import { IdChip } from '@/components/data/CopyableId'
+import { RowHoverGlow } from '@/components/data/RowHoverGlow'
 import { RowStatChip } from '@/components/data/RowStatChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { backOriginState } from '@/lib/backOrigin'
@@ -74,8 +76,11 @@ function RowFrame({
         className="shrink-0"
       />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-text-primary">
-          {level.name ?? `Level #${level.inGameId}`}
+        <p className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-semibold text-text-primary">
+            {level.name ?? `Level #${level.inGameId}`}
+          </span>
+          <IdChip id={level.inGameId} label="Level ID" className="shrink-0" />
         </p>
         <p className="truncate text-xs text-text-secondary">
           {level.creator
@@ -97,11 +102,9 @@ function RowFrame({
       ].join(' ')}
     >
       <ThumbnailWash levelId={level.inGameId} />
-      {/* The /search row's hover glow. */}
-      <span
-        aria-hidden
-        className="absolute inset-0 bg-white/0 transition-colors group-hover:bg-white/[0.04]"
-      />
+      {/* White: this row opens the level's Global Level Page, as a /search
+          result does. */}
+      <RowHoverGlow variant="global" />
       {handle}
       {overlay ? (
         <div className={bodyClass}>{body}</div>

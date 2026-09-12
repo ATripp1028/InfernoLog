@@ -1009,14 +1009,40 @@ export const LevelProgressListResponseSchema = z.object({
 // CLASSIC RANKING — the personal difficulty-ordering page.
 // ─────────────────────────────────────────────
 
-// The GDDL tier badge shown on a ranking row / unplaced card.
+// The GDDL tier badge shown on a collection entry.
 // Sourced from LevelProgress.userGddlTier (the user's own opinion).
 // Null when the user has not given a GDDL tier opinion for this level.
+//
+// NOT what the demon list shows — its rows carry CommunityTiersSchema, the
+// level's real placements, which is a different number with a different
+// meaning (see that schema).
 export const DemonListBadgeSchema = z
   .object({
     gddlTier: z.number().int(),
   })
   .nullable()
+
+/**
+ * A level's placements on the three community difficulty lists, straight off
+ * the Level row as services/levels/communitySync merged them. Each list covers
+ * a different slice of the game — GDDL rates demons, AREDL and the two
+ * spreadsheets cover extremes — so a level normally holds some and not others,
+ * and every field is null for one on none of them.
+ *
+ * `aredlRank` IS NOT ALWAYS A RANK: read `aredlStatus` first (see the Level
+ * model, and lib/tierBadges on the client). `sheetTier` 0 is a real tier —
+ * guard on `!= null`, never on truthiness.
+ *
+ * NOT to be confused with the user's own GDDL tier OPINION
+ * (DemonListBadgeSchema / LevelProgress.userGddlTier): same list, same scale,
+ * different number, and neither is derived from the other.
+ */
+export const CommunityTiersSchema = z.object({
+  gddlTier: z.number().int().nullable(),
+  aredlRank: z.number().int().nullable(),
+  aredlStatus: z.string().nullable(),
+  sheetTier: z.number().int().nullable(),
+})
 
 export const ClassicDemonListEntrySchema = z.object({
   // 1-based position in the placed list (ordered by listIndex DESC, so
@@ -1030,14 +1056,16 @@ export const ClassicDemonListEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
-  badge: DemonListBadgeSchema,
+  // The row's community-list chips, and the pre-scroll hint's tier. A "list
+  // reference" in DEMON_LIST.md's sense — a convenience, never a placement.
+  communityTiers: CommunityTiersSchema,
 })
 
 export const UnplacedDemonListEntrySchema = z.object({
   levelProgressId: z.string().uuid(),
   level: LevelListSummarySchema,
   attempts: z.number().int().nullable(),
-  badge: DemonListBadgeSchema,
+  communityTiers: CommunityTiersSchema,
 })
 
 // Both columns in one round trip — the page always renders them together.

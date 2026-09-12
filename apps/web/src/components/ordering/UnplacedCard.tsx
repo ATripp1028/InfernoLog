@@ -4,8 +4,10 @@ import { CSS } from '@dnd-kit/utilities'
 import { DragHandle } from '@/components/generic/drag-handle'
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { formatNumber } from '@/lib/numberFormat'
-import { GddlTierBadge } from '@/components/data/GddlTierBadge'
+import { IdChip } from '@/components/data/CopyableId'
+import { TierChips } from '@/components/data/TierChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
+import { communityTierChips } from '@/lib/communityTiers'
 import type { OrderedItem } from '@/lib/ordering/types'
 
 interface UnplacedCardProps {
@@ -26,7 +28,7 @@ interface UnplacedCardProps {
  */
 export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
   ({ item, handle, highlight, isDragging, style, onClick, domId }, ref) => {
-    const { level, badge, attempts } = item
+    const { level, communityTiers, attempts } = item
     return (
       <div
         ref={ref}
@@ -54,13 +56,20 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
             className="shrink-0"
           />
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-medium text-text-primary">
-              {level.name ?? `Level #${level.inGameId}`}
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium text-text-primary">
+                {level.name ?? `Level #${level.inGameId}`}
+              </span>
+              <IdChip
+                id={level.inGameId}
+                label="Level ID"
+                className="shrink-0"
+              />
             </div>
             <div className="truncate text-xs text-text-secondary">
               {level.creator ? `By ${level.creator}` : 'Unknown creator'}
             </div>
-            <div className="mt-1 flex items-center gap-2">
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               {attempts != null && (
                 <span
                   title="Attempts"
@@ -69,16 +78,14 @@ export const UnplacedCard = forwardRef<HTMLDivElement, UnplacedCardProps>(
                   {formatNumber(attempts)} att
                 </span>
               )}
-              {badge ? (
-                <GddlTierBadge
-                  tier={badge?.gddlTier ?? null}
-                  variant="inline"
-                />
-              ) : (
-                <span className="text-[11px] text-text-secondary">
-                  No list reference
-                </span>
-              )}
+              <TierChips
+                chips={communityTierChips(communityTiers)}
+                fallback={
+                  <span className="text-[11px] text-text-secondary">
+                    No list reference
+                  </span>
+                }
+              />
             </div>
           </div>
         </div>

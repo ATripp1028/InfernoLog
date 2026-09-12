@@ -1,19 +1,21 @@
-// The two hand-arranged orderings — the demon list (hardest first) and the
-// MANUAL rating ranking (best first) — are the same board on different axes.
-// Their shared vocabulary lives here so neither feature owns it.
+// The demon list — the user's own hardest-first arrangement of their
+// completions — is a two-column drag board. Its vocabulary lives here rather
+// than in the feature so the board components under components/ordering can
+// name it without importing from a feature.
 
 import type { ClassicDemonListEntry } from '@infernolog/core'
 
 /**
- * The level data a row or card renders from, in either ordering.
+ * The level data a row or card renders from.
  *
- * Shaped from the demon list's entry because it is the wider of the two: the
- * ranking has no tier badge of its own and passes `badge: null`, which renders
- * nothing rather than a placeholder.
+ * A subset of the demon list's entry rather than its own shape: the board
+ * renders placed rows and unplaced cards from the same fields, and the two
+ * wire types differ only in the placement data (`rank`, `listIndex`) that
+ * only a placed row has.
  */
 export type OrderedItem = Pick<
   ClassicDemonListEntry,
-  'levelProgressId' | 'level' | 'badge' | 'attempts'
+  'levelProgressId' | 'level' | 'communityTiers' | 'attempts'
 >
 
 /**

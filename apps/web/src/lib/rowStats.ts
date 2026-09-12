@@ -20,12 +20,9 @@ import {
 } from '@/lib/levelStatFormat'
 import { formatNumber } from '@/lib/numberFormat'
 import {
-  TIER_LIST_ICONS,
-  aredlLook,
-  gddlTierLook,
-  sheetTierLook,
-  type TierBadgeLook,
-} from '@/lib/tierBadges'
+  communityTierChip,
+  type CommunityTierChip,
+} from '@/lib/communityTiers'
 
 /** A figure a row can surface for the current sort or filters. */
 export type RowStatKey =
@@ -92,20 +89,16 @@ export function rowStatKeys(state: SearchPageState): RowStatKey[] {
 }
 
 /**
- * One figure, ready to render: a community-list placement as a painted badge
- * beside its list's icon, or a labelled value. A null value is unknown, and
- * renders as a dash rather than being left out — under a sort by it, the
- * blank is the reason the row sits where it does.
+ * One figure, ready to render: a community-list placement as the shared tier
+ * chip (lib/communityTiers decides what goes in it), or a labelled value. A
+ * null value is unknown, and renders as a dash rather than being left out —
+ * under a sort by it, the blank is the reason the row sits where it does.
+ *
+ * A list the level is NOT on has no chip to show, so it falls back to the text
+ * form with a null value — the dash is the point.
  */
 export type RowStat =
-  | {
-      key: RowStatKey
-      kind: 'tier'
-      label: string
-      icon: string
-      look: TierBadgeLook
-      source: 'NLW' | 'LW' | null
-    }
+  | { key: RowStatKey; kind: 'tier'; chip: CommunityTierChip }
   | { key: RowStatKey; kind: 'text'; label: string; value: string | null }
 
 const RATED_DATE = new Intl.DateTimeFormat('en-US', {
@@ -116,6 +109,16 @@ const RATED_DATE = new Intl.DateTimeFormat('en-US', {
 
 function text(key: RowStatKey, label: string, value: string | null): RowStat {
   return { key, kind: 'text', label, value }
+}
+
+/** The chip form of one list's placement, or null when the level isn't on it. */
+function tier(
+  key: RowStatKey,
+  level: LevelBrowseResult,
+  list: Parameters<typeof communityTierChip>[1]
+): RowStat | null {
+  const chip = communityTierChip(level, list)
+  return chip ? { key, kind: 'tier', chip } : null
 }
 
 function coinsValue(level: LevelBrowseResult): string | null {
@@ -131,42 +134,11 @@ function coinsValue(level: LevelBrowseResult): string | null {
 export function rowStat(level: LevelBrowseResult, key: RowStatKey): RowStat {
   switch (key) {
     case 'gddlTier':
-      return level.gddlTier == null
-        ? text(key, 'GDDL', null)
-        : {
-            key,
-            kind: 'tier',
-            label: 'GDDL tier',
-            icon: TIER_LIST_ICONS.gddl,
-            look: gddlTierLook(level.gddlTier),
-            source: null,
-          }
-    case 'aredlRank': {
-      const look = aredlLook(level.aredlRank, level.aredlStatus)
-      return look
-        ? {
-            key,
-            kind: 'tier',
-            label: look.ranked ? 'AREDL rank' : 'AREDL status',
-            icon: TIER_LIST_ICONS.aredl,
-            look,
-            source: null,
-          }
-        : text(key, 'AREDL', null)
-    }
-    case 'sheetTier': {
-      const look = sheetTierLook(level.sheetTier)
-      return look
-        ? {
-            key,
-            kind: 'tier',
-            label: 'Sheet tier',
-            icon: TIER_LIST_ICONS.sheet,
-            look,
-            source: look.source,
-          }
-        : text(key, 'Sheet', null)
-    }
+      return tier(key, level, 'gddl') ?? text(key, 'GDDL', null)
+    case 'aredlRank':
+      return tier(key, level, 'aredl') ?? text(key, 'AREDL', null)
+    case 'sheetTier':
+      return tier(key, level, 'sheet') ?? text(key, 'Sheet', null)
     case 'enjoyment':
       return text(key, 'Enjoyment', formatCommunityEnjoyment(level.enjoyment))
     case 'duration':

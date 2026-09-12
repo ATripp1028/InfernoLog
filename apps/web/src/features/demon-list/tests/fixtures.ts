@@ -6,6 +6,7 @@
 import type {
   ClassicDemonListEntry,
   ClassicDemonListResponse,
+  CommunityTiers,
   LevelListSummary,
   UnplacedDemonListEntry,
 } from '@infernolog/core'
@@ -15,6 +16,20 @@ import type {
 type Loose<T> = Partial<Record<keyof T, unknown>>
 
 let seq = 0
+
+/**
+ * A level's community-list placements. Defaults to "on none of the lists", so
+ * a spec names only the list it is about.
+ */
+export function tiers(overrides: Partial<CommunityTiers> = {}): CommunityTiers {
+  return {
+    gddlTier: null,
+    aredlRank: null,
+    aredlStatus: null,
+    sheetTier: null,
+    ...overrides,
+  }
+}
 
 /** The level metadata a ranked row renders. */
 export function level(overrides: Loose<LevelListSummary> = {}) {
@@ -41,8 +56,8 @@ export function level(overrides: Loose<LevelListSummary> = {}) {
 }
 
 /**
- * One placed row. `rank` is 1-based and hardest-first; `badge` carries the
- * user's GDDL tier opinion, which the pre-scroll hint reads.
+ * One placed row. `rank` is 1-based and hardest-first; `communityTiers` carries
+ * the level's real list placements, whose GDDL tier the pre-scroll hint reads.
  */
 export function placed(
   overrides: Loose<ClassicDemonListEntry> = {}
@@ -54,7 +69,7 @@ export function placed(
     listIndex: 1,
     level: level(),
     attempts: null,
-    badge: null,
+    communityTiers: tiers(),
     ...overrides,
   } as ClassicDemonListEntry
 }
@@ -67,7 +82,7 @@ export function unplaced(
     levelProgressId: `progress-${seq++}`,
     level: level(),
     attempts: null,
-    badge: null,
+    communityTiers: tiers(),
     ...overrides,
   } as UnplacedDemonListEntry
 }
