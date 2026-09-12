@@ -452,7 +452,11 @@ describe('validateSearchState', () => {
     it.each([
       ['beyond the field’s limit', { enjoymentMax: 101 }, 'enjoymentMax'],
       ['below it', { gddlTierMin: 0 }, 'gddlTierMin'],
-      ['fractional on a whole-number field', { downloadsMin: 1.5 }, 'downloadsMin'],
+      [
+        'fractional on a whole-number field',
+        { downloadsMin: 1.5 },
+        'downloadsMin',
+      ],
       ['unparseable', { likesMin: 'lots' }, 'likesMin'],
       ['blank', { likesMin: '' }, 'likesMin'],
       ['non-finite', { likesMax: Number.POSITIVE_INFINITY }, 'likesMax'],
@@ -662,9 +666,9 @@ describe('the level ID sort', () => {
 
 describe('a page-specific sort vocabulary', () => {
   it('falls an extremes-only sort back to the default it is given', () => {
-    expect(reconcileExtremeSort(state({ sort: 'aredlRank' }), 'levelId')).toMatchObject(
-      { sort: 'levelId', sortDir: undefined }
-    )
+    expect(
+      reconcileExtremeSort(state({ sort: 'aredlRank' }), 'levelId')
+    ).toMatchObject({ sort: 'levelId', sortDir: undefined })
   })
 
   it('accepts only the sorts it is given', () => {

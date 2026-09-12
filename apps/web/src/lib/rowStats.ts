@@ -14,15 +14,9 @@ import {
   type LevelSort,
   type SearchPageState,
 } from '@/lib/levelSearchParams'
-import {
-  formatCommunityEnjoyment,
-  formatDuration,
-} from '@/lib/levelStatFormat'
+import { formatCommunityEnjoyment, formatDuration } from '@/lib/levelStatFormat'
 import { formatNumber } from '@/lib/numberFormat'
-import {
-  communityTierChip,
-  type CommunityTierChip,
-} from '@/lib/communityTiers'
+import { communityTierChip, type CommunityTierChip } from '@/lib/communityTiers'
 
 /** A figure a row can surface for the current sort or filters. */
 export type RowStatKey =
@@ -39,7 +33,7 @@ export type RowStatKey =
   | 'song'
 
 // Sorts and range filters whose figure the row doesn't already carry. The
-// rest are covered: downloads, likes and length are standing stats, and the
+// rest are covered: downloads, likes and length are standing stats on the search results page only, and the
 // difficulty face shows the difficulty sort and the difficulty / rate-status
 // filters.
 const SORT_STAT: Partial<Record<LevelSort, RowStatKey>> = {
@@ -171,8 +165,7 @@ export function rowStat(level: LevelBrowseResult, key: RowStatKey): RowStat {
       return text(
         key,
         'Song',
-        SONG_TYPE_OPTIONS.find((o) => o.value === level.songType)?.label ??
-          null
+        SONG_TYPE_OPTIONS.find((o) => o.value === level.songType)?.label ?? null
       )
   }
 }

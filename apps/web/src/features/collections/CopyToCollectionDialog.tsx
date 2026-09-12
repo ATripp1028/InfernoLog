@@ -90,8 +90,8 @@ export function CopyToCollectionDialog({
             </div>
           ) : dialog.failed ? (
             <p className="px-5 py-10 text-center text-sm text-text-tertiary">
-              Couldn&apos;t load your collections. Check your connection and
-              try again.
+              Couldn&apos;t load your collections. Check your connection and try
+              again.
             </p>
           ) : !dialog.hasOthers ? (
             <p className="px-5 py-10 text-center text-sm text-text-tertiary">

@@ -201,9 +201,9 @@ describe('useCollectionDetailPage', () => {
       'copy',
       'convert',
     ])
-    expect(registeredFabActions()?.find((a) => a.key === 'convert')).toMatchObject(
-      { label: 'Convert to ordered' }
-    )
+    expect(
+      registeredFabActions()?.find((a) => a.key === 'convert')
+    ).toMatchObject({ label: 'Convert to ordered' })
   })
 
   it.each([CollectionType.FAVORITES, CollectionType.LEAST_FAVORITES])(
@@ -215,10 +215,7 @@ describe('useCollectionDetailPage', () => {
 
       render()
 
-      expect(registeredFabActions()?.map((a) => a.key)).toEqual([
-        'add',
-        'copy',
-      ])
+      expect(registeredFabActions()?.map((a) => a.key)).toEqual(['add', 'copy'])
     }
   )
 

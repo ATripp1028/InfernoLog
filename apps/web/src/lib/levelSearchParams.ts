@@ -255,8 +255,7 @@ export function hasActiveFilters(s: LevelSearchFilters): boolean {
     s.songType !== undefined ||
     s.sheetTier !== undefined ||
     LEVEL_RANGE_FIELDS.some(
-      (f) =>
-        s[rangeMinKey(f)] !== undefined || s[rangeMaxKey(f)] !== undefined
+      (f) => s[rangeMinKey(f)] !== undefined || s[rangeMaxKey(f)] !== undefined
     )
   )
 }
@@ -495,15 +494,15 @@ export function validateSearchState(
           : undefined,
       searchBy: oneOf(raw.searchBy, SEARCH_BY_VALUES) ?? 'name',
       sort: oneOf(raw.sort, sorts) ?? defaultSort,
-    sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
-    difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
-    rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
-    length: arrOf(raw.length, LENGTH_VALUES),
-    coinCount: coinCount?.length ? coinCount : undefined,
-    twoPlayer: boolOf(raw.twoPlayer),
-    coinsVerified: boolOf(raw.coinsVerified),
-    levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
-    songType: oneOf(raw.songType, SONG_TYPE_VALUES),
+      sortDir: oneOf(raw.sortDir, ['asc', 'desc'] as const),
+      difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
+      rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
+      length: arrOf(raw.length, LENGTH_VALUES),
+      coinCount: coinCount?.length ? coinCount : undefined,
+      twoPlayer: boolOf(raw.twoPlayer),
+      coinsVerified: boolOf(raw.coinsVerified),
+      levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),
+      songType: oneOf(raw.songType, SONG_TYPE_VALUES),
       sheetTier: sheetTierOf(raw.sheetTier),
       ...ranges,
     },

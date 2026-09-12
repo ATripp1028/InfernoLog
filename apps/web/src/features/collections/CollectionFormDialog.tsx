@@ -1,9 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
-import {
-  CollectionOrdering,
-  RESERVED_COLLECTION_NAMES,
-} from '@infernolog/core'
+import { CollectionOrdering, RESERVED_COLLECTION_NAMES } from '@infernolog/core'
 import { Button } from '@/components/generic/button'
 import { Segmented } from '@/components/generic/segmented'
 import { Textarea } from '@/components/generic/textarea'

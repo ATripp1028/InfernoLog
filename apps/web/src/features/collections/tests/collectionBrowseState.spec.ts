@@ -41,7 +41,11 @@ describe('validateCollectionSearch', () => {
         difficulty: ['demon-hard'],
         query: 'blood',
       })
-    ).toMatchObject({ sort: 'likes', difficulty: ['demon-hard'], query: 'blood' })
+    ).toMatchObject({
+      sort: 'likes',
+      difficulty: ['demon-hard'],
+      query: 'blood',
+    })
   })
 
   it('drops a sort the collection menu does not offer', () => {

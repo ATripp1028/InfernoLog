@@ -225,7 +225,12 @@ describe('commitImportCollections — writing membership', () => {
     await commitImportCollections(USER_ID, [entry('My Grind List')])
 
     expect(tx.collection.create).toHaveBeenCalledWith({
-      data: { userId: USER_ID, name: 'My Grind List', type: 'CUSTOM' },
+      data: {
+        userId: USER_ID,
+        name: 'My Grind List',
+        type: 'CUSTOM',
+        ordering: 'ORDERED',
+      },
       select: { id: true, name: true, type: true },
     })
   })

@@ -8,10 +8,7 @@ import {
   useCollectionBrowse,
   type CollectionDetail,
 } from '@/lib/api/collections'
-import {
-  hasActiveFilters,
-  type SearchPageState,
-} from '@/lib/levelSearchParams'
+import { hasActiveFilters, type SearchPageState } from '@/lib/levelSearchParams'
 import { rowStatKeys } from '@/lib/rowStats'
 import { useInfiniteScrollSentinel } from '@/lib/useInfiniteScrollSentinel'
 import {
@@ -23,7 +20,9 @@ import {
  * State for an unordered collection's level list.
  */
 export function useUnorderedEntryList(collection: CollectionDetail) {
-  const params = useSearch({ from: '/_authenticated/collections/$collectionId' })
+  const params = useSearch({
+    from: '/_authenticated/collections/$collectionId',
+  })
   const navigate = useNavigate()
   const state = collectionBrowseState(params)
 
@@ -54,7 +53,11 @@ export function useUnorderedEntryList(collection: CollectionDetail) {
     update: (patch: Partial<SearchPageState>) => commit({ ...state, ...patch }),
     // The filter panel's Clear all — keeps the query, like /search.
     resetFilters: () =>
-      commit({ query: state.query, searchBy: state.searchBy, sort: state.sort }),
+      commit({
+        query: state.query,
+        searchBy: state.searchBy,
+        sort: state.sort,
+      }),
     // The no-results state's way out: drop the query too.
     clearSearch: () => commit({ searchBy: state.searchBy, sort: state.sort }),
     narrowed: !!state.query?.trim() || hasActiveFilters(state),

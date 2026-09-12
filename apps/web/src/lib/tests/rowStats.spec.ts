@@ -95,7 +95,9 @@ describe('rowStatKeys', () => {
 
   it('leads with the sort, then the filters', () => {
     expect(
-      rowStatKeys(state({ sort: 'enjoyment', gddlTierMin: 10, twoPlayer: true }))
+      rowStatKeys(
+        state({ sort: 'enjoyment', gddlTierMin: 10, twoPlayer: true })
+      )
     ).toEqual(['enjoyment', 'gddlTier', 'twoPlayer'])
   })
 
@@ -149,18 +151,23 @@ describe('rowStat', () => {
   it('shows a Legacy entry as its status', () => {
     expect(
       rowStat(level({ aredlRank: 1580, aredlStatus: 'Legacy' }), 'aredlRank')
-    ).toMatchObject({ chip: { label: 'AREDL status', look: { badge: 'Legacy' } } })
+    ).toMatchObject({
+      chip: { label: 'AREDL status', look: { badge: 'Legacy' } },
+    })
   })
 
   it.each([
     [0, 'Fuck', 'NLW'],
     [14, 'Merciless', 'LW'],
-  ] as const)('names sheet tier %s and marks its sheet', (tier, name, source) => {
-    expect(rowStat(level({ sheetTier: tier }), 'sheetTier')).toMatchObject({
-      kind: 'tier',
-      chip: { look: { badge: name }, source },
-    })
-  })
+  ] as const)(
+    'names sheet tier %s and marks its sheet',
+    (tier, name, source) => {
+      expect(rowStat(level({ sheetTier: tier }), 'sheetTier')).toMatchObject({
+        kind: 'tier',
+        chip: { look: { badge: name }, source },
+      })
+    }
+  )
 
   it.each([
     [{ enjoyment: 49.5 }, 'enjoyment', '49.5'],
@@ -181,14 +188,20 @@ describe('rowStat', () => {
 
   it('dates the rating, spelled out so no date order can misread it', () => {
     expect(
-      rowStat(level({ ratingStatusSince: '2026-09-03T12:00:00.000Z' }), 'ratedAt')
+      rowStat(
+        level({ ratingStatusSince: '2026-09-03T12:00:00.000Z' }),
+        'ratedAt'
+      )
     ).toMatchObject({ label: 'Rated', value: 'Sep 3, 2026' })
   })
 
   it('labels the date of an unrating as such', () => {
     expect(
       rowStat(
-        level({ isRated: false, ratingStatusSince: '2026-09-03T12:00:00.000Z' }),
+        level({
+          isRated: false,
+          ratingStatusSince: '2026-09-03T12:00:00.000Z',
+        }),
         'ratedAt'
       )
     ).toMatchObject({ label: 'Unrated' })

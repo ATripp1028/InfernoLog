@@ -71,8 +71,7 @@ export function useLevelSearchBar(
   const trimmed = query.trim()
   // A digits-only input is a level id only when searching by name; in creator
   // mode it's a (numeric) creator name to browse, not a level to jump to.
-  const isNumeric =
-    levelIdJump && searchBy === 'name' && /^\d+$/.test(trimmed)
+  const isNumeric = levelIdJump && searchBy === 'name' && /^\d+$/.test(trimmed)
   const numericId = isNumeric && trimmed.length > 0 ? trimmed : null
   // The browse query the current input commits to: a numeric id is NOT a browse
   // term (it jumps via Enter), so it clears the committed query.

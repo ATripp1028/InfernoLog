@@ -124,7 +124,10 @@ describe('useRangeFilter', () => {
 
       act(() => result.current.setMode('exact'))
 
-      expect(onChange).toHaveBeenCalledWith({ aredlRankMin: 5, aredlRankMax: 5 })
+      expect(onChange).toHaveBeenCalledWith({
+        aredlRankMin: 5,
+        aredlRankMax: 5,
+      })
     })
 
     it('stays Exact, and empty, through Clear all', () => {

@@ -42,9 +42,7 @@ export function SheetTierSelect({
               <TierBadge look={o.look} className="min-w-0 px-2 py-0.5" />
               <SheetSourceChip source={o.look.source} />
               {o.note && (
-                <span className="text-[11px] text-text-tertiary">
-                  {o.note}
-                </span>
+                <span className="text-[11px] text-text-tertiary">{o.note}</span>
               )}
             </span>
           </SelectItem>

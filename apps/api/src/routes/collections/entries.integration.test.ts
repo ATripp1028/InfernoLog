@@ -344,9 +344,11 @@ describe('copying one collection into another', () => {
       skippedCompleted: 0,
     })
     // 100 keeps its place; the rest append in Favorites' order.
-    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual(
-      ['100', '300', '200']
-    )
+    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual([
+      '100',
+      '300',
+      '200',
+    ])
     // The source is untouched.
     expect(
       await prisma.collectionEntry.count({
@@ -370,9 +372,10 @@ describe('copying one collection into another', () => {
     })
 
     const body = (await res.json()) as CopyBody
-    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual(
-      ['100', '300']
-    )
+    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual([
+      '100',
+      '300',
+    ])
   })
 
   it('skips beaten levels when the target is Want to Beat', async () => {
@@ -400,9 +403,9 @@ describe('copying one collection into another', () => {
       alreadyPresent: 0,
       skippedCompleted: 1,
     })
-    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual(
-      ['100']
-    )
+    expect(body.data.collection.entries.map((e) => e.level.inGameId)).toEqual([
+      '100',
+    ])
   })
 
   it('rejects copying a collection into itself', async () => {
@@ -429,9 +432,14 @@ describe('copying one collection into another', () => {
       data: { userId: other.id, name: 'Mine', type: 'CUSTOM' },
     })
 
-    const res = await send(other.id, 'POST', `${base}/${theirs.id}/entries/copy`, {
-      sourceCollectionId: favorites.id,
-    })
+    const res = await send(
+      other.id,
+      'POST',
+      `${base}/${theirs.id}/entries/copy`,
+      {
+        sourceCollectionId: favorites.id,
+      }
+    )
 
     expect(res.status).toBe(404)
     expect(

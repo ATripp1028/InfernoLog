@@ -19,10 +19,7 @@ import {
   likeDisplay,
   statFlags,
 } from './display'
-import {
-  formatCommunityEnjoyment,
-  formatDuration,
-} from '@/lib/levelStatFormat'
+import { formatCommunityEnjoyment, formatDuration } from '@/lib/levelStatFormat'
 
 function StatCard({
   label,

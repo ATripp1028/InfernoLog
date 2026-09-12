@@ -199,7 +199,8 @@ export const COMMUNITY_RANGE_FILTERS: RangeFilterConfig[] = [
     describe: describeAredlRange,
     exact: true,
     exactLabel: 'Rank',
-    exactHint: '#1 is the hardest level on the list. Legacy levels have no rank.',
+    exactHint:
+      '#1 is the hardest level on the list. Legacy levels have no rank.',
   },
 ]
 
@@ -259,7 +260,8 @@ export const STAT_RANGE_FILTERS: RangeFilterConfig[] = [
     describe: describeBetween(formatNumber, 'likes'),
     exact: true,
     exactLabel: 'Exactly',
-    exactHint: 'Net of dislikes, so it can go below zero. Leave the box empty for no filter.',
+    exactHint:
+      'Net of dislikes, so it can go below zero. Leave the box empty for no filter.',
   },
   {
     kind: 'bounds',

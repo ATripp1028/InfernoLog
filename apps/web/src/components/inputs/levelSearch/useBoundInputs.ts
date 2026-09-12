@@ -101,7 +101,11 @@ export function useBoundInputs({
     setInvalid(null)
 
     let next: Bounds = exact ? { min: n, max: n } : { ...value, [end]: n }
-    if (next.min !== undefined && next.max !== undefined && next.min > next.max) {
+    if (
+      next.min !== undefined &&
+      next.max !== undefined &&
+      next.min > next.max
+    ) {
       next = { min: next.max, max: next.min }
     }
     if (next.min === value.min && next.max === value.max) {

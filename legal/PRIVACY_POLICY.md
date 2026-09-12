@@ -1,6 +1,6 @@
 **Privacy Policy**
 
-This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, "InfernoLog"). 
+This privacy policy applies to the InfernoLog app for web browsers, together with any related services operated by InfernoLog Team (collectively, "InfernoLog").
 
 **Privacy Stance**
 

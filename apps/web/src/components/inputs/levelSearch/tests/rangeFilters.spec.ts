@@ -31,9 +31,7 @@ describe('the range filter table', () => {
   })
 
   it.each(['stars', 'sheetTier'])('has no %s range', (field) => {
-    expect(RANGE_FILTERS.some((c) => (c.field as string) === field)).toBe(
-      false
-    )
+    expect(RANGE_FILTERS.some((c) => (c.field as string) === field)).toBe(false)
   })
 
   it('takes the GDDL slider to tier 40', () => {
@@ -96,9 +94,7 @@ describe('rangeValue', () => {
   })
 
   it('draws a bound beyond the domain at the edge it passed', () => {
-    expect(rangeValue({ gddlTierMax: 50 }, slider('gddlTier'))).toEqual([
-      1, 40,
-    ])
+    expect(rangeValue({ gddlTierMax: 50 }, slider('gddlTier'))).toEqual([1, 40])
   })
 })
 
@@ -220,16 +216,24 @@ describe('describing a set filter', () => {
 
 describe('the Exact mode', () => {
   it('is offered by every range filter but enjoyment', () => {
-    expect(RANGE_FILTERS.filter((c) => !c.exact).map((c) => c.field)).toEqual(
-      ['enjoyment']
-    )
+    expect(RANGE_FILTERS.filter((c) => !c.exact).map((c) => c.field)).toEqual([
+      'enjoyment',
+    ])
   })
 
   describe('switching to it', () => {
     it.each([
       ['the lower bound', { min: 10, max: 30 }, 10],
-      ['the upper bound when that is all there is', { min: undefined, max: 30 }, 30],
-      ['the bottom of the domain when nothing is set', { min: undefined, max: undefined }, 1],
+      [
+        'the upper bound when that is all there is',
+        { min: undefined, max: 30 },
+        30,
+      ],
+      [
+        'the bottom of the domain when nothing is set',
+        { min: undefined, max: undefined },
+        1,
+      ],
       ['the domain edge for a bound past it', { min: undefined, max: 50 }, 40],
     ])('puts a slider on %s', (_label, bounds, expected) => {
       expect(exactModePatch(slider('gddlTier'), bounds)).toEqual({
@@ -239,9 +243,10 @@ describe('the Exact mode', () => {
     })
 
     it('collapses boxes to their lower end', () => {
-      expect(
-        exactModePatch(boxes('aredlRank'), { min: 5, max: 50 })
-      ).toEqual({ aredlRankMin: 5, aredlRankMax: 5 })
+      expect(exactModePatch(boxes('aredlRank'), { min: 5, max: 50 })).toEqual({
+        aredlRankMin: 5,
+        aredlRankMax: 5,
+      })
     })
 
     // An empty Exact box means no filter, so there is nothing to pick.
@@ -266,7 +271,8 @@ describe('the Exact mode', () => {
 
     it('snaps to the step', () => {
       expect(
-        exactValuePatch(slider('gameVersion'), 2.1000000000000001).gameVersionMin
+        exactValuePatch(slider('gameVersion'), 2.1000000000000001)
+          .gameVersionMin
       ).toBe(2.1)
     })
   })

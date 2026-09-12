@@ -644,9 +644,10 @@ describe('GET /levels/browse (range filters and community sorts)', () => {
       aredlStatus: 'Legacy',
     })
 
-    expect(
-      (await ids('/levels/browse?aredlRankMin=1')).sort()
-    ).toEqual(['gsv', 'main'])
+    expect((await ids('/levels/browse?aredlRankMin=1')).sort()).toEqual([
+      'gsv',
+      'main',
+    ])
   })
 
   it('returns the figures a row shows for the sort and filters', async () => {
