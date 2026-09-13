@@ -6,8 +6,8 @@
 // The user is native (username + password), NOT Google-federated, so the suite
 // can sign in through ADMIN_USER_PASSWORD_AUTH without a browser ever visiting
 // the OAuth flow. The consequence is that the suite does not exercise the
-// federated login path; signup, sign-in rejection, and the postAuthentication
-// trigger's cognitoSub backfill stay covered by the API's integration tests.
+// federated login path; signup and sign-in rejection stay covered by the API's
+// integration tests.
 //
 // Idempotent: re-running against an already-provisioned stage resets the
 // password and reconciles the users row rather than erroring.
@@ -50,7 +50,8 @@ const cognito = new CognitoIdentityProviderClient({
  * to a permanent one so `ADMIN_USER_PASSWORD_AUTH` returns tokens directly
  * rather than a NEW_PASSWORD_REQUIRED challenge.
  *
- * @returns The identity's `sub`, which is what `User.cognitoSub` is keyed to.
+ * @returns The identity's `sub`, which is what `AuthIdentity.cognitoSub` is
+ *   keyed to.
  */
 async function ensureCognitoUser(
   userPoolId: string,
@@ -119,7 +120,7 @@ async function ensureUserRow(email: string, cognitoSub: string) {
   const existing = await prisma.user.findUnique({ where: { email } })
 
   if (!existing) {
-    const created = await createUserForSignup(email, cognitoSub)
+    const created = await createUserForSignup(email, cognitoSub, 'PASSWORD')
     await prisma.user.update({
       where: { id: created.id },
       data: { onboardingCompleted: true, legalAcceptedAt: new Date() },
@@ -129,16 +130,32 @@ async function ensureUserRow(email: string, cognitoSub: string) {
   }
 
   // A stage that was torn down and redeployed hands the same email a new
-  // Cognito identity, so the sub is repointed rather than trusted.
-  if (existing.cognitoSub !== cognitoSub) {
+  // Cognito identity, so the identity is repointed rather than trusted.
+  const identity = await prisma.authIdentity.findUnique({
+    where: { cognitoSub },
+    select: { userId: true },
+  })
+  if (identity?.userId !== existing.id) {
     console.log(
       `Repointing users row ${existing.id} at Cognito sub ${cognitoSub}.`
     )
   }
-  await prisma.user.update({
-    where: { id: existing.id },
-    data: { cognitoSub, onboardingCompleted: true },
-  })
+  // Any identity left on another sub names a Cognito user the redeploy
+  // destroyed, so it is dropped rather than kept.
+  await prisma.$transaction([
+    prisma.authIdentity.deleteMany({
+      where: { userId: existing.id, cognitoSub: { not: cognitoSub } },
+    }),
+    prisma.authIdentity.upsert({
+      where: { cognitoSub },
+      create: { userId: existing.id, provider: 'PASSWORD', cognitoSub, email },
+      update: { userId: existing.id, provider: 'PASSWORD', email },
+    }),
+    prisma.user.update({
+      where: { id: existing.id },
+      data: { onboardingCompleted: true },
+    }),
+  ])
   return existing.id
 }
 

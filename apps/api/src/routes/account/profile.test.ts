@@ -288,6 +288,7 @@ describe('DELETE /me', () => {
   })
 
   it('purges moderation/audit rows, the GDDL sync job, and the user in one transaction', async () => {
+    prisma.authIdentity.findMany.mockResolvedValue([])
     ;(
       prisma.$transaction as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValueOnce([])
@@ -319,12 +320,15 @@ describe('DELETE /me', () => {
     expect(prisma.user.delete).toHaveBeenCalledWith({
       where: { id: USER_ID },
     })
-    // No verified JWT claims in the test harness — Cognito deletion is
-    // skipped rather than attempted with undefined claims.
+    // An account with no identities has no Cognito users to delete.
     expect(mockCognitoSend).not.toHaveBeenCalled()
   })
 
   it('returns 500 and does not attempt Cognito deletion when the transaction fails', async () => {
+    // Identities exist, so a skipped Cognito call is down to the failure.
+    prisma.authIdentity.findMany.mockResolvedValue([
+      { cognitoSub: 'cognito-sub' },
+    ] as never)
     ;(
       prisma.$transaction as unknown as ReturnType<typeof vi.fn>
     ).mockRejectedValueOnce(new Error('DB error'))
@@ -577,20 +581,19 @@ describe('PATCH /me/username — concurrency and no-ops', () => {
 // ─── DELETE /me — Cognito cleanup ────────────────────────────────────────────
 
 describe('DELETE /me — Cognito cleanup', () => {
-  /** The API Gateway env carrying verified JWT claims. */
-  const envWithClaims = {
-    requestContext: { authorizer: { jwt: { claims: { sub: 'cognito-sub' } } } },
+  function deleteMe() {
+    return buildApp().request('/me', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ confirmation: 'Delete this account' }),
+    })
   }
 
-  function deleteMe(env?: unknown) {
-    return buildApp().request(
-      '/me',
-      {
-        method: 'DELETE',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ confirmation: 'Delete this account' }),
-      },
-      env
+  /** The Username of every AdminDeleteUserCommand sent, in order. */
+  function deletedUsernames() {
+    return mockCognitoSend.mock.calls.map(
+      (call) =>
+        (call as unknown as [{ input: { Username: string } }])[0].input.Username
     )
   }
 
@@ -598,16 +601,60 @@ describe('DELETE /me — Cognito cleanup', () => {
     ;(
       prisma.$transaction as unknown as ReturnType<typeof vi.fn>
     ).mockResolvedValue([])
+    prisma.authIdentity.findMany.mockResolvedValue([
+      { cognitoSub: 'cognito-sub' },
+    ] as never)
+  })
+
+  it('reads the Cognito-backed identities before purging the account', async () => {
+    // AuthIdentity cascades from users, so after the transaction there would
+    // be nothing left to read. A linked Discord account has no sub, and so no
+    // Cognito user to delete.
+    await deleteMe()
+
+    expect(prisma.authIdentity.findMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, cognitoSub: { not: null } },
+      select: { cognitoSub: true },
+    })
+    const [readOrder] = prisma.authIdentity.findMany.mock.invocationCallOrder
+    const [purgeOrder] = (
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mock.invocationCallOrder
+    expect(readOrder).toBeLessThan(purgeOrder!)
   })
 
   it('deletes the Cognito identity after purging the account', async () => {
-    const res = await deleteMe(envWithClaims)
+    const res = await deleteMe()
 
     expect(res.status).toBe(200)
-    const [{ input }] = mockCognitoSend.mock.lastCall as unknown as [
-      { input: { Username: string } },
-    ]
-    expect(input.Username).toBe('cognito-sub')
+    expect(deletedUsernames()).toEqual(['cognito-sub'])
+  })
+
+  it("deletes every identity's Cognito user, not only the caller's", async () => {
+    // Each identity is its own Cognito user; one left behind would keep that
+    // provider's data after the account is gone.
+    prisma.authIdentity.findMany.mockResolvedValue([
+      { cognitoSub: 'google-sub' },
+      { cognitoSub: 'password-sub' },
+    ] as never)
+
+    await deleteMe()
+
+    expect(deletedUsernames()).toEqual(['google-sub', 'password-sub'])
+  })
+
+  it('keeps going when one Cognito delete fails', async () => {
+    prisma.authIdentity.findMany.mockResolvedValue([
+      { cognitoSub: 'google-sub' },
+      { cognitoSub: 'password-sub' },
+    ] as never)
+    mockCognitoSend.mockRejectedValueOnce(new Error('AccessDenied'))
+
+    const res = await deleteMe()
+
+    expect(res.status).toBe(200)
+    expect(deletedUsernames()).toEqual(['google-sub', 'password-sub'])
+    expect(Sentry.captureException).toHaveBeenCalledTimes(1)
   })
 
   it('still succeeds when the Cognito identity is already gone', async () => {
@@ -617,18 +664,18 @@ describe('DELETE /me — Cognito cleanup', () => {
       new (UserNotFoundException as unknown as new () => Error)()
     )
 
-    const res = await deleteMe(envWithClaims)
+    const res = await deleteMe()
 
     expect(res.status).toBe(200)
     expect(Sentry.captureException).not.toHaveBeenCalled()
   })
 
   it('reports, but does not fail, an unexpected Cognito failure', async () => {
-    // The InfernoLog account is already gone; a leftover identity just means a
-    // fresh account on next sign-in.
+    // The InfernoLog account is already gone; a leftover Cognito user owns no
+    // account, so signing in with it again is refused.
     mockCognitoSend.mockRejectedValueOnce(new Error('AccessDenied'))
 
-    const res = await deleteMe(envWithClaims)
+    const res = await deleteMe()
 
     expect(res.status).toBe(200)
     expect(Sentry.captureException).toHaveBeenCalled()

@@ -58,6 +58,20 @@ const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 const OTHER_USER_ID = '00000000-1111-2222-3333-444444444444'
 const DISCORD_ID = '987654321'
 
+/** The DISCORD identity row the link transaction creates. */
+const IDENTITY_ROW = {
+  id: 'identity-1',
+  provider: 'DISCORD',
+  cognitoSub: null,
+  providerAccountId: DISCORD_ID,
+  email: null,
+  createdAt: new Date('2026-09-12T00:00:00.000Z'),
+}
+
+/** The link transaction, as the Prisma mock sees it. */
+const transaction = () =>
+  prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+
 /** A genuinely signed state for `userId`. */
 function stateFor(userId: string) {
   return mintConnectDiscordState(userId, 'nonce-abc')
@@ -78,7 +92,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockExchange.mockResolvedValue('discord-access-token')
   mockFetchUserId.mockResolvedValue(DISCORD_ID)
-  prisma.user.update.mockResolvedValue({} as never)
+  // [replace any existing Discord identity, create the new one]
+  transaction().mockResolvedValue([{ count: 0 }, IDENTITY_ROW])
 })
 
 // ─── the authorization check ─────────────────────────────────────────────────
@@ -112,18 +127,42 @@ describe('the state must name the caller', () => {
   it('writes nothing when the state names someone else', async () => {
     await complete({ code: 'victims-code', state: stateFor(OTHER_USER_ID) })
 
-    expect(prisma.user.update).not.toHaveBeenCalled()
+    expect(transaction()).not.toHaveBeenCalled()
+    expect(prisma.authIdentity.create).not.toHaveBeenCalled()
   })
 
   it('links against the authenticated caller, never the state payload', async () => {
     await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
 
-    // Belt and braces on the check above: even for a matching state, the id
-    // written is the one from the JWT.
-    expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { id: TEST_USER_ID },
-      data: { discordId: DISCORD_ID },
+    // Belt and braces on the check above: even for a matching state, the
+    // account written to is the one from the JWT.
+    expect(prisma.authIdentity.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: {
+          userId: TEST_USER_ID,
+          provider: 'DISCORD',
+          providerAccountId: DISCORD_ID,
+        },
+      })
+    )
+  })
+
+  it("replaces the caller's existing Discord identity, and only theirs", async () => {
+    // An account holds one Discord link; linking another account swaps it.
+    await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
+
+    expect(prisma.authIdentity.deleteMany).toHaveBeenCalledWith({
+      where: { userId: TEST_USER_ID, provider: 'DISCORD' },
     })
+  })
+
+  it('replaces and creates in one transaction', async () => {
+    // Otherwise a create refused as already-linked-elsewhere would leave the
+    // caller with their old link deleted and no new one.
+    await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
+
+    expect(transaction()).toHaveBeenCalledTimes(1)
+    expect(transaction().mock.lastCall?.[0]).toHaveLength(2)
   })
 })
 
@@ -163,11 +202,22 @@ describe('state validity', () => {
 // ─── the happy path and upstream failures ────────────────────────────────────
 
 describe('completing the link', () => {
-  it('returns the linked Discord id', async () => {
+  it('returns the new identity', async () => {
     const res = await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
 
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ data: { discordId: DISCORD_ID } })
+    expect(await res.json()).toEqual({
+      data: {
+        identity: {
+          id: 'identity-1',
+          provider: 'DISCORD',
+          providerAccountId: DISCORD_ID,
+          email: null,
+          canSignIn: false,
+          createdAt: '2026-09-12T00:00:00.000Z',
+        },
+      },
+    })
   })
 
   it('exchanges the code before reading the identity', async () => {
@@ -187,7 +237,7 @@ describe('completing the link', () => {
   })
 
   it('reports a Discord account already linked elsewhere', async () => {
-    prisma.user.update.mockRejectedValue(
+    transaction().mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError('unique', {
         code: 'P2002',
         clientVersion: '5',
@@ -203,7 +253,7 @@ describe('completing the link', () => {
   })
 
   it('lets an unexpected write failure become a 500, not a linking verdict', async () => {
-    prisma.user.update.mockRejectedValue(new Error('connection reset'))
+    transaction().mockRejectedValue(new Error('connection reset'))
 
     const res = await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
 

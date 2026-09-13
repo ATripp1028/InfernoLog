@@ -72,3 +72,12 @@ export type LevelType = 'CLASSIC' | 'PLATFORMER'
  * wire shape carries it too — it had inlined its own copy of the union.
  */
 export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
+
+/**
+ * The external account behind one of the user's identities. Mirrors the API's
+ * Prisma `AuthProvider`.
+ *
+ * `PASSWORD` is a native Cognito user (only the E2E user has one today).
+ * `DISCORD` is a linked account that cannot be signed in with yet.
+ */
+export type AuthProvider = 'GOOGLE' | 'PASSWORD' | 'DISCORD'

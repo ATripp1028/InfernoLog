@@ -307,7 +307,7 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
     username: 'someone',
     usernameChangedAt: null,
     email: 'someone@example.com',
-    discordId: null,
+    identities: [],
     profilePublic: false,
     discordPublic: false,
     defaultFps: 60,

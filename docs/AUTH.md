@@ -10,10 +10,22 @@ All auth flows go through Cognito. The backend validates Cognito-issued JWTs on 
 
 ## Registration & Linking
 
-1. User signs in with Google
-2. On first sign-in, a User record is created in the InfernoLog database
-3. After account creation, users can link the other provider (Google or Discord) from their settings page under a "Connected Accounts" panel
+1. User signs up with Google (behind the age gate — see below)
+2. `POST /v1/auth/signup/start` creates the User record together with its first identity
+3. After account creation, users can link a Discord account from the "Connected accounts" panel in settings
 4. Discord visibility is independently togglable (public by default)
+
+### Accounts and identities
+
+An account (`users` row) is who someone is; an identity (`auth_identities` row) is an external account connected to it, and an account can have several. An identity is attached only by a flow that already knows which account it acts for (signup, or linking under that account's own session), never by matching an email address.
+
+| Provider   | How it is connected                           | Can sign in | Key                                   |
+| ---------- | --------------------------------------------- | ----------- | ------------------------------------- |
+| `GOOGLE`   | Sign up, via Cognito's Google federation      | Yes         | Cognito sub                           |
+| `PASSWORD` | Native Cognito user (only the E2E user today) | Yes         | Cognito sub                           |
+| `DISCORD`  | Linked from settings, via Discord OAuth       | Not yet     | Discord user id (`providerAccountId`) |
+
+Each Cognito-backed identity is its own Cognito user, so deleting an account deletes every one of them. An account holds at most one Discord identity; linking another replaces it, and one Discord account can be linked to only one InfernoLog account.
 
 ### Sign up vs. Sign in — two entry points
 

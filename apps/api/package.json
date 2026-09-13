@@ -52,7 +52,6 @@
   "devDependencies": {
     "@infernolog/tsconfig": "workspace:*",
     "@prisma/adapter-pg": "5.22.0",
-    "@types/aws-lambda": "^8.10.161",
     "@types/node": "^25.6.0",
     "@types/pg": "^8.15.6",
     "@types/ws": "^8.18.1",

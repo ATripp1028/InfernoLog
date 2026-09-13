@@ -110,9 +110,9 @@ DELETE /v1/me/connect-discord
 - `POST /v1/auth/signup/start` — Creates the InfernoLog `users` row for a confirmed, age-gated sign-up. Idempotent: a double-submit for the same Cognito identity returns the already-created row rather than erroring, which also covers a Google account that already has an InfernoLog account going through Sign Up by mistake. Returns `onboardingCompleted` so the frontend knows whether to route into the wizard or straight into the app.
 - `POST /v1/auth/signin/reject` — Called when a Sign In attempt finds no matching InfernoLog user for the just-completed Google OAuth identity. Synchronously deletes the Cognito user so no trace of the attempt persists. Load-bearing for the COPPA argument that a rejected sign-in never retains a would-be user's data — neither this handler nor the app-wide request logger logs the claims payload, only the `sub`.
 - `POST /v1/me/connect-discord` — Returns a Discord OAuth URL carrying a signed state that encodes the signed-in user's id. The browser navigates there; Discord redirects to the public callback.
-- `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before `discordId` is written.
+- `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before the Discord identity is written.
 
-> **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. The Cognito post-authentication trigger (`src/triggers/postAuthentication.ts`) never creates one — a sign-in by an unrecognized identity depends on it being a no-op.
+> **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. Nothing else creates one, or attaches a sign-in identity to an existing one by matching email — a sign-in by an unrecognized identity depends on nothing having been created for it.
 
 ## Users
 

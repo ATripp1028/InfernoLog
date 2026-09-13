@@ -17,6 +17,7 @@ import {
   truncateAll,
   seedUser,
   seedLevel,
+  seedAuthIdentity,
 } from '../../test/utils'
 
 vi.mock('../../utils/prisma', async () => {
@@ -98,6 +99,52 @@ describe('GET /me', () => {
 
     expect(text).not.toContain('ciphertext')
     expect(JSON.parse(text).data.hasGddlApiKey).toBe(true)
+  })
+
+  it('returns the identities oldest first, without their Cognito subs', async () => {
+    const user = await seedUser(prisma)
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'DISCORD',
+        providerAccountId: '987654321',
+        createdAt: new Date('2026-09-02T00:00:00.000Z'),
+      },
+    })
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'GOOGLE',
+        cognitoSub: 'google-sub',
+        email: 'player@example.com',
+        createdAt: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    })
+
+    const res = await send(user.id, 'GET', '/me')
+    const text = await res.text()
+    const { data } = JSON.parse(text)
+
+    expect(text).not.toContain('google-sub')
+    expect(data.identities).toEqual([
+      {
+        id: expect.any(String),
+        provider: 'GOOGLE',
+        providerAccountId: null,
+        email: 'player@example.com',
+        canSignIn: true,
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: expect.any(String),
+        provider: 'DISCORD',
+        providerAccountId: '987654321',
+        email: null,
+        canSignIn: false,
+        createdAt: '2026-09-02T00:00:00.000Z',
+      },
+    ])
+    expect(data).not.toHaveProperty('discordId')
   })
 
   it('404s for a user id with no row', async () => {
@@ -237,6 +284,14 @@ describe('DELETE /me', () => {
     const other = await seedUser(prisma)
     await seedLevel(prisma, { inGameId: '100' })
 
+    await seedAuthIdentity(prisma, user.id, 'user-google-sub', 'GOOGLE')
+    await seedAuthIdentity(prisma, user.id, 'user-password-sub', 'PASSWORD')
+    // A linked Discord account: an identity with no Cognito user to delete.
+    await prisma.authIdentity.create({
+      data: { userId: user.id, provider: 'DISCORD', providerAccountId: '9876' },
+    })
+    await seedAuthIdentity(prisma, other.id, 'other-sub')
+
     const category = await prisma.ratingCategory.create({
       data: { userId: user.id, name: 'Gameplay', weight: 1, sortOrder: 0 },
     })
@@ -330,6 +385,23 @@ describe('DELETE /me', () => {
     expect(await prisma.banAppeal.count({ where: { userId: user.id } })).toBe(0)
     expect(await prisma.report.count()).toBe(0)
     expect(await prisma.moderationAction.count()).toBe(0)
+    expect(
+      await prisma.authIdentity.count({ where: { userId: user.id } })
+    ).toBe(0)
+  })
+
+  it("deletes the Cognito user behind each of the account's identities", async () => {
+    // Read before the purge; afterwards the cascade has removed the rows that
+    // say which Cognito users were this account's.
+    const { user } = await seedFullAccount()
+
+    await send(user.id, 'DELETE', '/me', CONFIRMATION)
+
+    const usernames = mockCognitoSend.mock.calls.map(
+      (call) =>
+        (call as unknown as [{ input: { Username: string } }])[0].input.Username
+    )
+    expect(usernames.sort()).toEqual(['user-google-sub', 'user-password-sub'])
   })
 
   it('leaves the other user and the shared level intact', async () => {
@@ -340,6 +412,11 @@ describe('DELETE /me', () => {
 
     expect(
       await prisma.user.findUnique({ where: { id: other.id } })
+    ).not.toBeNull()
+    expect(
+      await prisma.authIdentity.findUnique({
+        where: { cognitoSub: 'other-sub' },
+      })
     ).not.toBeNull()
     expect(
       await prisma.level.findUnique({ where: { inGameId: '100' } })

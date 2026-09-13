@@ -96,7 +96,7 @@ function lastDeleteInput(): { UserPoolId?: string; Username: string } {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  prisma.user.findUnique.mockReset()
+  prisma.authIdentity.findUnique.mockReset()
   mockCreateUserForSignup.mockReset()
   mockCognitoSend.mockReset().mockResolvedValue({})
   vi.stubEnv('COGNITO_USER_POOL_ID', 'pool-1')
@@ -117,7 +117,7 @@ describe('POST /auth/signup/start', () => {
     await expect(res.json()).resolves.toEqual({
       data: { id: 'user-1', onboardingCompleted: false },
     })
-    expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB)
+    expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB, 'GOOGLE')
   })
 
   it('reports the existing onboarding state on a repeat submit', async () => {
@@ -151,7 +151,7 @@ describe('POST /auth/signup/start', () => {
 
 describe('POST /auth/signin/reject', () => {
   it('deletes the Cognito identity when no InfernoLog user matches', async () => {
-    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 
@@ -163,12 +163,12 @@ describe('POST /auth/signin/reject', () => {
     })
   })
 
-  it('looks the user up by cognitoSub, not by email', async () => {
-    prisma.user.findUnique.mockResolvedValue(null)
+  it('looks the identity up by its sub, not by email', async () => {
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
 
     await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 
-    expect(prisma.user.findUnique).toHaveBeenCalledWith({
+    expect(prisma.authIdentity.findUnique).toHaveBeenCalledWith({
       where: { cognitoSub: SUB },
       select: { id: true },
     })
@@ -177,7 +177,7 @@ describe('POST /auth/signin/reject', () => {
   it('refuses, without deleting, when a real account matches', async () => {
     // The frontend only calls this after GET /v1/me 404s, so a hit here means
     // the requests raced — deleting would orphan a live account's identity.
-    prisma.user.findUnique.mockResolvedValue({ id: 'user-1' } as never)
+    prisma.authIdentity.findUnique.mockResolvedValue({ id: 'user-1' } as never)
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 
@@ -187,7 +187,7 @@ describe('POST /auth/signin/reject', () => {
 
   it('treats an already-deleted identity as success', async () => {
     // Double-click race: a concurrent reject got there first.
-    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
     mockCognitoSend.mockRejectedValue(new UserNotFoundException())
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
@@ -199,7 +199,7 @@ describe('POST /auth/signin/reject', () => {
   it('does not report success when the delete fails for another reason', async () => {
     // Anything other than "already gone" means the identity may still exist,
     // so it must not be reported as discarded.
-    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
     mockCognitoSend.mockRejectedValue(new Error('AccessDenied'))
 
     const res = await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
@@ -211,12 +211,12 @@ describe('POST /auth/signin/reject', () => {
     const res = await post('/auth/signin/reject', null)
 
     expect(res.status).toBe(401)
-    expect(prisma.user.findUnique).not.toHaveBeenCalled()
+    expect(prisma.authIdentity.findUnique).not.toHaveBeenCalled()
     expect(mockCognitoSend).not.toHaveBeenCalled()
   })
 
   it('logs the sub alone, never the claims payload', async () => {
-    prisma.user.findUnique.mockResolvedValue(null)
+    prisma.authIdentity.findUnique.mockResolvedValue(null)
 
     await post('/auth/signin/reject', { sub: SUB, email: EMAIL })
 

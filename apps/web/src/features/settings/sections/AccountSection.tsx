@@ -1,16 +1,13 @@
-import { useState } from 'react'
+import { KeyRound } from 'lucide-react'
 import { SettingsSection } from '@/components/generic/settings-section'
 import { UsernameEditor } from '@/components/inputs/UsernameEditor'
 import { ConnectedAccountRow } from '@/components/data/ConnectedAccountRow'
 import { GddlApiKeyEditor } from '@/components/inputs/GddlApiKeyEditor'
 import { Button } from '@/components/generic/button'
 import { AlertDialog } from '@/components/generic/alert-dialog'
-import { toast } from '@/components/generic/sonner'
-import {
-  useConnectDiscord,
-  useDisconnectDiscord,
-  type MeData,
-} from '@/lib/api/me'
+import type { MeData } from '@/lib/api/me'
+import type { AuthProvider } from '@/lib/api/wireEnums'
+import { useAccountSection } from './useAccountSection'
 
 interface AccountSectionProps {
   me: MeData
@@ -18,37 +15,22 @@ interface AccountSectionProps {
 
 /**
  * Account settings: username, connected accounts, GDDL API key.
+ *
+ * Connected accounts lists every way the user can sign in, then the Discord
+ * link, which can be connected and disconnected here.
  */
 export function AccountSection({ me }: AccountSectionProps) {
-  const connect = useConnectDiscord()
-  const disconnect = useDisconnectDiscord()
-  const [confirmDiscordDisconnect, setConfirmDiscordDisconnect] =
-    useState(false)
-
-  const handleConnect = async () => {
-    try {
-      const { url } = await connect.mutateAsync()
-      window.location.href = url
-    } catch (err) {
-      toast.error(
-        err instanceof Error
-          ? err.message
-          : 'Failed to start Discord connection'
-      )
-    }
-  }
-
-  const handleDisconnect = async () => {
-    try {
-      await disconnect.mutateAsync()
-      toast.success('Discord account disconnected')
-      setConfirmDiscordDisconnect(false)
-    } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : 'Failed to disconnect Discord'
-      )
-    }
-  }
+  const {
+    signInMethods,
+    discordLinked,
+    discordIdentifier,
+    connectPending,
+    disconnectPending,
+    confirmDiscordDisconnect,
+    setConfirmDiscordDisconnect,
+    handleConnect,
+    handleDisconnect,
+  } = useAccountSection(me)
 
   return (
     <SettingsSection title="Account">
@@ -62,37 +44,40 @@ export function AccountSection({ me }: AccountSectionProps) {
           Connected accounts
         </div>
         <div className="space-y-2">
-          <ConnectedAccountRow
-            icon={<GoogleIcon />}
-            providerName="Google"
-            identifier={me.email}
-            status={
-              <span className="text-xs text-muted-foreground">
-                Primary login
-              </span>
-            }
-          />
+          {signInMethods.map((method) => (
+            <ConnectedAccountRow
+              key={method.id}
+              icon={<ProviderIcon provider={method.provider} />}
+              providerName={method.providerName}
+              identifier={method.identifier}
+              status={
+                <span className="text-xs text-muted-foreground">
+                  Sign-in method
+                </span>
+              }
+            />
+          ))}
           <ConnectedAccountRow
             icon={<DiscordIcon />}
             providerName="Discord"
-            identifier={me.discordId ? `Discord ID ${me.discordId}` : null}
+            identifier={discordIdentifier}
             action={
-              me.discordId ? (
+              discordLinked ? (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => setConfirmDiscordDisconnect(true)}
-                  disabled={disconnect.isPending}
+                  disabled={disconnectPending}
                 >
-                  {disconnect.isPending ? 'Disconnecting…' : 'Disconnect'}
+                  {disconnectPending ? 'Disconnecting…' : 'Disconnect'}
                 </Button>
               ) : (
                 <Button
                   size="sm"
                   onClick={() => void handleConnect()}
-                  disabled={connect.isPending}
+                  disabled={connectPending}
                 >
-                  {connect.isPending ? 'Opening Discord…' : 'Connect'}
+                  {connectPending ? 'Opening Discord…' : 'Connect'}
                 </Button>
               )
             }
@@ -108,11 +93,22 @@ export function AccountSection({ me }: AccountSectionProps) {
         description="This unlinks your Discord account from InfernoLog."
         confirmLabel="Disconnect"
         destructive
-        isPending={disconnect.isPending}
+        isPending={disconnectPending}
         onConfirm={() => void handleDisconnect()}
       />
     </SettingsSection>
   )
+}
+
+function ProviderIcon({ provider }: { provider: AuthProvider }) {
+  switch (provider) {
+    case 'GOOGLE':
+      return <GoogleIcon />
+    case 'DISCORD':
+      return <DiscordIcon />
+    case 'PASSWORD':
+      return <KeyRound size={18} aria-hidden="true" />
+  }
 }
 
 function GoogleIcon() {

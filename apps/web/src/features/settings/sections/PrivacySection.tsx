@@ -5,7 +5,7 @@ import {
 import { Switch } from '@/components/generic/switch'
 import { toast } from '@/components/generic/sonner'
 import { YouTubeEmbedConsentField } from '@/components/inputs/YouTubeEmbedConsentField'
-import { useUpdateMe, type MeData } from '@/lib/api/me'
+import { findDiscordIdentity, useUpdateMe, type MeData } from '@/lib/api/me'
 
 interface PrivacySectionProps {
   me: MeData
@@ -41,7 +41,7 @@ export function PrivacySection({ me }: PrivacySectionProps) {
           />
         }
       />
-      {me.discordId && (
+      {findDiscordIdentity(me.identities) && (
         <SettingRow
           label={
             me.discordPublic

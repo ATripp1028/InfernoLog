@@ -56,6 +56,22 @@ enum Role {
   ADMIN
 }
 
+// The sign-in method behind an AuthIdentity. Stamped by the flow that creates
+// the identity, which knows which provider it started, rather than parsed back
+// out of a token on each request.
+//
+// PASSWORD is a native Cognito user. Only the E2E user is one today
+// (scripts/provisionE2eUser.ts); the web client has no password flow.
+//
+// DISCORD is a Discord account linked from settings. It cannot be signed in
+// with yet: the link is made with Discord's OAuth directly, not through
+// Cognito, so it has no Cognito user.
+enum AuthProvider {
+  GOOGLE
+  PASSWORD
+  DISCORD
+}
+
 // SUSPENDED/BANNED are placeholders in v1: no code currently reads or sets
 // accountStatus, and there is no moderation route implementation (see
 // docs/MODERATION.md for the intended design — a ban should permanently
@@ -365,18 +381,27 @@ model LevelSyncCursor {
 // ─────────────────────────────────────────────
 
 model User {
-  id                  String    @id @default(uuid())
-  username            String    @unique
-  usernameChangedAt   DateTime?
-  previousUsername    String?
-  email               String    @unique
-  discordId           String?   @unique
-  cognitoSub          String?   @unique
-  onboardingCompleted Boolean   @default(false)
+  id                    String    @id @default(uuid())
+  username              String    @unique
+  usernameChangedAt     DateTime?
+  previousUsername      String?
+  // The account's own address. Not how the account is found: sign-in goes
+  // through authIdentities, and each identity records the email its provider
+  // asserted separately.
+  email                 String    @unique
+  // discordId and cognitoSub are legacy: read and written by nothing, since
+  // AuthIdentity replaced both (a DISCORD identity's providerAccountId, and a
+  // sign-in identity's cognitoSub). They stay only so the previous release keeps
+  // working during a deploy, and are dropped in a follow-up migration. Accounts
+  // created since hold null in both, so rolling back to that release would not
+  // find them.
+  discordId             String?   @unique
+  cognitoSub            String?   @unique
+  onboardingCompleted   Boolean   @default(false)
   // Set when the user checks "I agree" on the combined ToS/Privacy Policy
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
   // accounts, or an in-progress signup).
-  legalAcceptedAt     DateTime?
+  legalAcceptedAt       DateTime?
   // Consent to YouTube's player loading with a page (web HeroVideo), and the
   // record of it: set when given, during onboarding or in Settings, and
   // cleared when withdrawn. Null means no consent, which is also the default,
@@ -451,8 +476,51 @@ model User {
   moderationActionsOn ModerationAction[] @relation("TargetUserRelation")
   banAppealsReviewed  BanAppeal[]        @relation("ReviewedByRelation")
   activityLog         ActivityLog[]
+  authIdentities      AuthIdentity[]
 
   @@map("users")
+}
+
+// An external account connected to an InfernoLog account: a way of signing in
+// (Google, a password) or a linked account (Discord). An account can have
+// several. The identity is how someone proves who they are, the User row is
+// who they are, and no identity is the account itself.
+//
+// An identity carries up to two keys, and a CHECK constraint in the migration
+// requires at least one:
+//   - cognitoSub, when the identity signs in through Cognito. Its presence is
+//     what "can sign in with this" means.
+//   - providerAccountId, the provider's own id for the account, when known.
+//     A Discord link has only this.
+//
+// Every Cognito-backed identity is its own Cognito user, including two
+// belonging to the same account. Cognito's AdminLinkProviderForUser would
+// instead merge providers into one Cognito user, but that merge cannot be
+// undone, which would make unlinking a provider impossible.
+model AuthIdentity {
+  id                String       @id @default(uuid())
+  userId            String
+  provider          AuthProvider
+  // Unique on its own rather than per provider. A sub names exactly one
+  // Cognito user, and the request path has only the token's sub to resolve an
+  // identity from — it does not know which provider minted the token.
+  cognitoSub        String?      @unique
+  // Unique per provider: one Discord account can be connected to at most one
+  // InfernoLog account. Null for identities created before the provider's own
+  // id was recorded, which today is every GOOGLE and PASSWORD identity.
+  providerAccountId String?
+  // The email this provider asserted when the identity was created: a record
+  // of what the provider said, not the account's address (User.email). The two
+  // can disagree once an account has more than one provider, and a provider's
+  // email is not always verified, so this is never used to match accounts.
+  email             String?
+  createdAt         DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_identities")
 }
 
 // ─────────────────────────────────────────────

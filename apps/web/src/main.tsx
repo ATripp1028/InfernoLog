@@ -7,7 +7,7 @@ import { defaultShouldDehydrateQuery } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { Sentry, reportedEventId } from './lib/sentry'
 import { queryClient } from './lib/queryClient'
-import { persister, MAX_AGE } from './lib/persister'
+import { persister, MAX_AGE, CACHE_BUSTER } from './lib/persister'
 import { gddlSyncStatusQueryKey } from './lib/api/me'
 import { AuthProvider } from './context/AuthContext'
 import { Toaster } from './components/generic/sonner'
@@ -51,6 +51,7 @@ createRoot(document.getElementById('root')!).render(
         persistOptions={{
           persister,
           maxAge: MAX_AGE,
+          buster: CACHE_BUSTER,
           dehydrateOptions: {
             // gddl-sync is live, ack-gated session state, not cacheable data —
             // persisting it can rehydrate a completed-but-not-yet-acknowledged
