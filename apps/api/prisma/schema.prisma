@@ -389,14 +389,6 @@ model User {
   // through authIdentities, and each identity records the email its provider
   // asserted separately.
   email                 String    @unique
-  // discordId and cognitoSub are legacy: read and written by nothing, since
-  // AuthIdentity replaced both (a DISCORD identity's providerAccountId, and a
-  // sign-in identity's cognitoSub). They stay only so the previous release keeps
-  // working during a deploy, and are dropped in a follow-up migration. Accounts
-  // created since hold null in both, so rolling back to that release would not
-  // find them.
-  discordId             String?   @unique
-  cognitoSub            String?   @unique
   onboardingCompleted   Boolean   @default(false)
   // Set when the user checks "I agree" on the combined ToS/Privacy Policy
   // view during onboarding. Null means never accepted (pre-onboarding-rebuild
