@@ -64,9 +64,8 @@ export const meSelect = {
   username: true,
   usernameChangedAt: true,
   email: true,
-  // The account's identities, oldest first, in place of the legacy
-  // `users.discordId` column: `identities` and the derived `discordId` in
-  // serializeMe both come from here.
+  // The account's identities, oldest first; serializeMe sends them as
+  // `identities`.
   authIdentities: { select: identitySelect, orderBy: { createdAt: 'asc' } },
   profilePublic: true,
   discordPublic: true,
@@ -145,12 +144,6 @@ export function serializeMe(user: RawUser) {
   return {
     ...rest,
     identities,
-    // Deprecated: read `identities` instead. Kept, derived from them, so a
-    // frontend deployed before `identities` existed still sees its Discord
-    // link. Removed along with the users.discordId column.
-    discordId:
-      identities.find((i) => i.provider === 'DISCORD')?.providerAccountId ??
-      null,
     hasGddlApiKey: Boolean(gddlApiKeyEncrypted),
     isVerified: verifiedAt != null,
     youtubeEmbedConsent: youtubeEmbedConsentAt != null,

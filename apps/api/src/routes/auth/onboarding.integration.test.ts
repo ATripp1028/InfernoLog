@@ -154,9 +154,8 @@ describe('POST /auth/signup/start', () => {
   })
 
   it('finds an existing account through its identity alone', async () => {
-    // An account whose users row carries no cognitoSub: only AuthIdentity
-    // connects it to the sub, so a lookup still reading the column would
-    // create a second account here.
+    // An account created outside signup, reachable only through its identity:
+    // a lookup that missed the identity would create a second account here.
     const user = await seedUser(prisma)
     await seedAuthIdentity(prisma, user.id, SUB)
 

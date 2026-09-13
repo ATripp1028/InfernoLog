@@ -130,7 +130,7 @@ async function ensureUserRow(email: string, cognitoSub: string) {
   }
 
   // A stage that was torn down and redeployed hands the same email a new
-  // Cognito identity, so the sub is repointed rather than trusted.
+  // Cognito identity, so the identity is repointed rather than trusted.
   const identity = await prisma.authIdentity.findUnique({
     where: { cognitoSub },
     select: { userId: true },
@@ -140,8 +140,8 @@ async function ensureUserRow(email: string, cognitoSub: string) {
       `Repointing users row ${existing.id} at Cognito sub ${cognitoSub}.`
     )
   }
-  // The identity is repointed with it. Any identity left on another sub names a
-  // Cognito user the redeploy destroyed, so it is dropped rather than kept.
+  // Any identity left on another sub names a Cognito user the redeploy
+  // destroyed, so it is dropped rather than kept.
   await prisma.$transaction([
     prisma.authIdentity.deleteMany({
       where: { userId: existing.id, cognitoSub: { not: cognitoSub } },
@@ -153,7 +153,7 @@ async function ensureUserRow(email: string, cognitoSub: string) {
     }),
     prisma.user.update({
       where: { id: existing.id },
-      data: { cognitoSub, onboardingCompleted: true },
+      data: { onboardingCompleted: true },
     }),
   ])
   return existing.id

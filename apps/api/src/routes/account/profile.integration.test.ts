@@ -144,7 +144,7 @@ describe('GET /me', () => {
         createdAt: '2026-09-02T00:00:00.000Z',
       },
     ])
-    expect(data.discordId).toBe('987654321')
+    expect(data).not.toHaveProperty('discordId')
   })
 
   it('404s for a user id with no row', async () => {

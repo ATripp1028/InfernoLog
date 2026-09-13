@@ -26,8 +26,7 @@ const DEFAULT_COLLECTIONS = [
  * exists, and resolves through `AuthIdentity` like every other lookup.
  *
  * The row and its first `AuthIdentity` are created in one write, so no account
- * ever exists without the identity that signed it up. `User.cognitoSub` is
- * still written as well, but nothing reads it; it goes when the column does.
+ * ever exists without the identity that signed it up.
  *
  * @param email - The address the provider asserted. Becomes the account's
  *   email and is also recorded on the identity.
@@ -50,7 +49,6 @@ export async function createUserForSignup(
     data: {
       email,
       username: email.split('@')[0] + '_' + randomBytes(4).toString('hex'),
-      cognitoSub,
       authIdentities: { create: { provider, cognitoSub, email } },
       onboardingCompleted: false,
       ratingCategories: {

@@ -92,8 +92,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   mockExchange.mockResolvedValue('discord-access-token')
   mockFetchUserId.mockResolvedValue(DISCORD_ID)
-  // [replace any existing Discord identity, create the new one, legacy column]
-  transaction().mockResolvedValue([{ count: 0 }, IDENTITY_ROW, {}])
+  // [replace any existing Discord identity, create the new one]
+  transaction().mockResolvedValue([{ count: 0 }, IDENTITY_ROW])
 })
 
 // ─── the authorization check ─────────────────────────────────────────────────
@@ -129,7 +129,6 @@ describe('the state must name the caller', () => {
 
     expect(transaction()).not.toHaveBeenCalled()
     expect(prisma.authIdentity.create).not.toHaveBeenCalled()
-    expect(prisma.user.update).not.toHaveBeenCalled()
   })
 
   it('links against the authenticated caller, never the state payload', async () => {
@@ -157,14 +156,13 @@ describe('the state must name the caller', () => {
     })
   })
 
-  it('still writes the legacy discordId column in the same transaction', async () => {
+  it('replaces and creates in one transaction', async () => {
+    // Otherwise a create refused as already-linked-elsewhere would leave the
+    // caller with their old link deleted and no new one.
     await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
 
-    expect(prisma.user.update).toHaveBeenCalledWith({
-      where: { id: TEST_USER_ID },
-      data: { discordId: DISCORD_ID },
-    })
     expect(transaction()).toHaveBeenCalledTimes(1)
+    expect(transaction().mock.lastCall?.[0]).toHaveLength(2)
   })
 })
 
@@ -204,13 +202,12 @@ describe('state validity', () => {
 // ─── the happy path and upstream failures ────────────────────────────────────
 
 describe('completing the link', () => {
-  it('returns the linked Discord id and the new identity', async () => {
+  it('returns the new identity', async () => {
     const res = await complete({ code: 'abc', state: stateFor(TEST_USER_ID) })
 
     expect(res.status).toBe(200)
     expect(await res.json()).toEqual({
       data: {
-        discordId: DISCORD_ID,
         identity: {
           id: 'identity-1',
           provider: 'DISCORD',

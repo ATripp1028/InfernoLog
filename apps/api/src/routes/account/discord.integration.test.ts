@@ -4,8 +4,9 @@
  * Drives the whole round trip against a real database: mint a state on the
  * authenticated start endpoint, bounce it through the public redirect target
  * the way Discord would, and redeem it on the authenticated completion
- * endpoint. `User.discordId` is unique, so "already linked to another user" is
- * a real constraint rather than a mocked one.
+ * endpoint. A Discord account is unique per provider in `auth_identities`, so
+ * "already linked to another user" is a real constraint rather than a mocked
+ * one.
  *
  * The case this file exists for is `redeeming someone else's state`: the
  * account-linking CSRF that the old design allowed, where a state minted by one
@@ -129,12 +130,6 @@ async function storedDiscordId(userId: string) {
   return identities[0]?.providerAccountId ?? null
 }
 
-/** The legacy users.discordId column, still mirrored until it is dropped. */
-async function legacyDiscordId(userId: string) {
-  const row = await prisma.user.findUniqueOrThrow({ where: { id: userId } })
-  return row.discordId
-}
-
 beforeEach(async () => {
   vi.clearAllMocks()
   mockFetch.mockReset()
@@ -179,15 +174,6 @@ describe('connecting Discord', () => {
       providerAccountId: DISCORD_ID,
       cognitoSub: null,
     })
-  })
-
-  it('mirrors the link into the legacy discordId column', async () => {
-    const user = await seedUser(prisma)
-    mockDiscordHappyPath()
-
-    await link(user.id)
-
-    expect(await legacyDiscordId(user.id)).toBe(DISCORD_ID)
   })
 
   it('refuses a Discord account already linked elsewhere', async () => {
@@ -308,9 +294,9 @@ describe('redeeming a state minted by a different account', () => {
   })
 
   it('does not leave the victim unable to link their own account later', async () => {
-    // The squatting half of the original impact: because discordId is unique,
-    // a successful attack would have permanently blocked the victim from ever
-    // linking their own Discord.
+    // The squatting half of the original impact: because a Discord account can
+    // be linked to only one user, a successful attack would have permanently
+    // blocked the victim from ever linking their own Discord.
     const attacker = await seedUser(prisma)
     const victim = await seedUser(prisma)
     mockDiscordHappyPath()
@@ -340,7 +326,6 @@ describe('DELETE /me/connect-discord', () => {
 
     expect(response.status).toBe(200)
     expect(await storedDiscordId(user.id)).toBeNull()
-    expect(await legacyDiscordId(user.id)).toBeNull()
   })
 
   it('leaves the sign-in identities alone', async () => {

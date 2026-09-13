@@ -3,8 +3,8 @@
  *
  * serializeMe is the boundary between identity rows and the wire, so the
  * properties that matter are what it withholds — no identity's Cognito sub is
- * ever sent — and that the deprecated `discordId` field is derived from the
- * identities rather than read from anywhere else.
+ * ever sent — and that identities are the only form Discord links reach the
+ * client in.
  */
 
 import { describe, expect, it } from 'vitest'
@@ -74,24 +74,16 @@ describe('serializeMe — identities', () => {
     expect(payload).not.toHaveProperty('authIdentities')
   })
 
-  it('derives the deprecated discordId from the DISCORD identity', () => {
-    const payload = me([
-      identity(),
-      identity({
-        id: 'd',
-        provider: 'DISCORD',
-        cognitoSub: null,
-        providerAccountId: '987654321',
-      }),
-    ])
-
-    expect(payload.discordId).toBe('987654321')
-  })
-
-  it('sends a null discordId and no identities for a row without them', () => {
+  it('sends no identities for a row without them', () => {
     const payload = serializeMe({ id: 'user-1', enjoymentWeight: 0 })
 
     expect(payload.identities).toEqual([])
-    expect(payload.discordId).toBeNull()
+  })
+
+  it('no longer sends the derived discordId', () => {
+    // Removed with the users.discordId column; `identities` replaced it.
+    const payload = me([identity({ provider: 'DISCORD', cognitoSub: null })])
+
+    expect(payload).not.toHaveProperty('discordId')
   })
 })

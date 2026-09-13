@@ -79,14 +79,19 @@ describe('createUserForSignup — idempotency', () => {
 // ─── the created row ─────────────────────────────────────────────────────────
 
 describe('createUserForSignup — the new row', () => {
-  it('stores the email and cognitoSub, and starts pre-onboarding', async () => {
+  it('stores the email and starts pre-onboarding', async () => {
     await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 
     expect(createData()).toMatchObject({
       email: EMAIL,
-      cognitoSub: SUB,
       onboardingCompleted: false,
     })
+  })
+
+  it('keeps the sub off the users row, on the identity alone', async () => {
+    await createUserForSignup(EMAIL, SUB, 'GOOGLE')
+
+    expect(createData()).not.toHaveProperty('cognitoSub')
   })
 
   it('creates the signing-up identity in the same write as the row', async () => {

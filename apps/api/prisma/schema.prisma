@@ -385,11 +385,16 @@ model User {
   username              String    @unique
   usernameChangedAt     DateTime?
   previousUsername      String?
+  // The account's own address. Not how the account is found: sign-in goes
+  // through authIdentities, and each identity records the email its provider
+  // asserted separately.
   email                 String    @unique
-  // discordId and cognitoSub are legacy and read by nothing: AuthIdentity has
-  // replaced both (a DISCORD identity's providerAccountId, and a sign-in
-  // identity's cognitoSub). Every write of either still writes the matching
-  // identity, so the switch can be rolled back, until both columns are dropped.
+  // discordId and cognitoSub are legacy: read and written by nothing, since
+  // AuthIdentity replaced both (a DISCORD identity's providerAccountId, and a
+  // sign-in identity's cognitoSub). They stay only so the previous release keeps
+  // working during a deploy, and are dropped in a follow-up migration. Accounts
+  // created since hold null in both, so rolling back to that release would not
+  // find them.
   discordId             String?   @unique
   cognitoSub            String?   @unique
   onboardingCompleted   Boolean   @default(false)

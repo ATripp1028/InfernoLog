@@ -14,9 +14,7 @@
 // closes, and why a confirmation step would not have closed it.
 //
 // A link is a DISCORD AuthIdentity keyed by the Discord user id. An account
-// holds at most one: linking replaces any existing Discord identity on it. The
-// legacy users.discordId column is still written in the same transaction, but
-// nothing reads it.
+// holds at most one: linking replaces any existing Discord identity on it.
 
 import { Hono } from 'hono'
 import { randomBytes } from 'crypto'
@@ -138,7 +136,6 @@ app.post('/me/connect-discord/complete', async (c) => {
         data: { userId, provider: 'DISCORD', providerAccountId: discordId },
         select: identitySelect,
       }),
-      prisma.user.update({ where: { id: userId }, data: { discordId } }),
     ])
   } catch (err) {
     // P2002: a Discord account is unique per provider — this one is already on
@@ -159,17 +156,16 @@ app.post('/me/connect-discord/complete', async (c) => {
   }
 
   logger.info({ userId }, 'Discord connected')
-  return c.json({ data: { discordId, identity: serializeIdentity(identity) } })
+  return c.json({ data: { identity: serializeIdentity(identity) } })
 })
 
 // DELETE /v1/me/connect-discord
 app.delete('/me/connect-discord', async (c) => {
   const userId = c.get('userId')
 
-  await prisma.$transaction([
-    prisma.authIdentity.deleteMany({ where: { userId, provider: 'DISCORD' } }),
-    prisma.user.update({ where: { id: userId }, data: { discordId: null } }),
-  ])
+  await prisma.authIdentity.deleteMany({
+    where: { userId, provider: 'DISCORD' },
+  })
   logger.info({ userId }, 'Disconnected Discord from account')
   return c.json({ data: { disconnected: true } })
 })

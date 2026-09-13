@@ -4,8 +4,7 @@
  * The unit tests assert the query shape against a mocked Prisma. What only a
  * real database proves is that the sub actually resolves through the
  * `auth_identities` join to the right account — including when one account
- * holds several identities — and that `User.cognitoSub`, which is still
- * written, no longer grants access on its own.
+ * holds several identities.
  */
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -92,18 +91,6 @@ describe('authMiddleware — resolving a sub against the database', () => {
     await seedAuthIdentity(prisma, other.id, 'sub-b')
 
     expect((await probe({ sub: 'sub-b' })).body.userId).toBe(other.id)
-  })
-
-  it('404s a sub that only User.cognitoSub carries', async () => {
-    // The column is still written until it is dropped, but it is no longer an
-    // identity: an account reachable only through it cannot be signed in to.
-    const user = await seedUser(prisma)
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { cognitoSub: 'column-only-sub' },
-    })
-
-    expect((await probe({ sub: 'column-only-sub' })).status).toBe(404)
   })
 
   it('404s a sub with no identity at all', async () => {
