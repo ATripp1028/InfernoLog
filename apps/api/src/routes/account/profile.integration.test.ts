@@ -101,6 +101,52 @@ describe('GET /me', () => {
     expect(JSON.parse(text).data.hasGddlApiKey).toBe(true)
   })
 
+  it('returns the identities oldest first, without their Cognito subs', async () => {
+    const user = await seedUser(prisma)
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'DISCORD',
+        providerAccountId: '987654321',
+        createdAt: new Date('2026-09-02T00:00:00.000Z'),
+      },
+    })
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'GOOGLE',
+        cognitoSub: 'google-sub',
+        email: 'player@example.com',
+        createdAt: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    })
+
+    const res = await send(user.id, 'GET', '/me')
+    const text = await res.text()
+    const { data } = JSON.parse(text)
+
+    expect(text).not.toContain('google-sub')
+    expect(data.identities).toEqual([
+      {
+        id: expect.any(String),
+        provider: 'GOOGLE',
+        providerAccountId: null,
+        email: 'player@example.com',
+        canSignIn: true,
+        createdAt: '2026-09-01T00:00:00.000Z',
+      },
+      {
+        id: expect.any(String),
+        provider: 'DISCORD',
+        providerAccountId: '987654321',
+        email: null,
+        canSignIn: false,
+        createdAt: '2026-09-02T00:00:00.000Z',
+      },
+    ])
+    expect(data.discordId).toBe('987654321')
+  })
+
   it('404s for a user id with no row', async () => {
     const res = await send('11111111-2222-3333-4444-555555555555', 'GET', '/me')
 
@@ -240,6 +286,10 @@ describe('DELETE /me', () => {
 
     await seedAuthIdentity(prisma, user.id, 'user-google-sub', 'GOOGLE')
     await seedAuthIdentity(prisma, user.id, 'user-password-sub', 'PASSWORD')
+    // A linked Discord account: an identity with no Cognito user to delete.
+    await prisma.authIdentity.create({
+      data: { userId: user.id, provider: 'DISCORD', providerAccountId: '9876' },
+    })
     await seedAuthIdentity(prisma, other.id, 'other-sub')
 
     const category = await prisma.ratingCategory.create({

@@ -59,12 +59,13 @@ export function Settings() {
     if (handledDiscordResultRef.current === resultKey) return
     handledDiscordResultRef.current = resultKey
     if (search.discord === 'connected') {
-      // The completion mutation already wrote discordId into the cache (it had
-      // the value first-hand, from an authenticated response). This used to
-      // read the id out of the URL instead, because the write happened in a
-      // server-side redirect the client never saw — and it toasted success
-      // unconditionally, so a victim of the linking CSRF was told their own
-      // account had connected while the link landed on someone else's.
+      // The completion mutation already wrote the Discord identity into the
+      // cache (it had the value first-hand, from an authenticated response).
+      // This used to read the id out of the URL instead, because the write
+      // happened in a server-side redirect the client never saw — and it
+      // toasted success unconditionally, so a victim of the linking CSRF was
+      // told their own account had connected while the link landed on
+      // someone else's.
       toast.success('Discord account connected')
       void queryClient.refetchQueries({ queryKey: meQueryKey })
     } else if (search.discord === 'error') {

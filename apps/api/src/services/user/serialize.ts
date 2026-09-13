@@ -4,9 +4,53 @@
 // Single-copy on purpose. serializeMe is the boundary that strips
 // gddlApiKeyEncrypted — a second copy that forgot to would leak the stored
 // GDDL key's ciphertext to the client, so every route that returns `me`
-// (routes/account/{profile,gddlKey,ratings}.ts) shares this one.
+// (routes/account/{profile,gddlKey,ratings}.ts) shares this one. The same
+// holds for an identity's Cognito sub, which the serializer reduces to whether
+// the identity can sign in.
 
-import { Prisma } from '@prisma/client'
+import { Prisma, type AuthProvider } from '@prisma/client'
+
+/**
+ * Columns selected for one of the user's identities. `cognitoSub` is selected
+ * only so {@link serializeIdentity} can derive `canSignIn`; it never reaches
+ * the wire.
+ */
+export const identitySelect = {
+  id: true,
+  provider: true,
+  cognitoSub: true,
+  providerAccountId: true,
+  email: true,
+  createdAt: true,
+} as const satisfies Prisma.AuthIdentitySelect
+
+/** An identity row as selected by {@link identitySelect}. */
+export type RawIdentity = {
+  id: string
+  provider: AuthProvider
+  cognitoSub: string | null
+  providerAccountId: string | null
+  email: string | null
+  createdAt: Date
+}
+
+/**
+ * Shapes an identity for the wire.
+ *
+ * @returns The identity without its Cognito sub. `canSignIn` is true when the
+ *   identity is backed by a Cognito user, which is what signing in with it
+ *   requires; a linked Discord account is false.
+ */
+export function serializeIdentity(identity: RawIdentity) {
+  return {
+    id: identity.id,
+    provider: identity.provider,
+    providerAccountId: identity.providerAccountId,
+    email: identity.email,
+    canSignIn: identity.cognitoSub != null,
+    createdAt: identity.createdAt.toISOString(),
+  }
+}
 
 /**
  * Columns selected for the authenticated user's own payload.
@@ -20,7 +64,10 @@ export const meSelect = {
   username: true,
   usernameChangedAt: true,
   email: true,
-  discordId: true,
+  // The account's identities, oldest first, in place of the legacy
+  // `users.discordId` column: `identities` and the derived `discordId` in
+  // serializeMe both come from here.
+  authIdentities: { select: identitySelect, orderBy: { createdAt: 'asc' } },
   profilePublic: true,
   discordPublic: true,
   defaultFps: true,
@@ -65,6 +112,7 @@ export type RawUser = {
   gddlApiKeyEncrypted?: string | null
   verifiedAt?: Date | null
   youtubeEmbedConsentAt?: Date | null
+  authIdentities?: RawIdentity[]
   ratingCategories?: Array<{
     id: string
     name: string
@@ -75,7 +123,11 @@ export type RawUser = {
 }
 
 /**
- * Prisma returns Decimal as a Decimal instance; the wire shape uses plain numbers.
+ * Shapes a {@link meSelect} row for the wire.
+ *
+ * Strips the stored GDDL key's ciphertext and every identity's Cognito sub,
+ * converts Prisma Decimals to plain numbers, and turns the consent and
+ * verification timestamps into the booleans the client needs.
  */
 export function serializeMe(user: RawUser) {
   // gddlApiKeyEncrypted is destructured out so it can never leak to the client;
@@ -86,10 +138,19 @@ export function serializeMe(user: RawUser) {
     gddlApiKeyEncrypted,
     verifiedAt,
     youtubeEmbedConsentAt,
+    authIdentities,
     ...rest
   } = user
+  const identities = (authIdentities ?? []).map(serializeIdentity)
   return {
     ...rest,
+    identities,
+    // Deprecated: read `identities` instead. Kept, derived from them, so a
+    // frontend deployed before `identities` existed still sees its Discord
+    // link. Removed along with the users.discordId column.
+    discordId:
+      identities.find((i) => i.provider === 'DISCORD')?.providerAccountId ??
+      null,
     hasGddlApiKey: Boolean(gddlApiKeyEncrypted),
     isVerified: verifiedAt != null,
     youtubeEmbedConsent: youtubeEmbedConsentAt != null,

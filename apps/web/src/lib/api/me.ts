@@ -3,7 +3,12 @@ import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
 import { presetsQueryKey } from './presets'
 import { invalidateOnEvent } from './activity'
-import type { DateFormatPreference, Device, GdVersion } from './wireEnums'
+import type {
+  AuthProvider,
+  DateFormatPreference,
+  Device,
+  GdVersion,
+} from './wireEnums'
 
 export { ApiError }
 
@@ -21,6 +26,28 @@ export interface RatingCategory {
 }
 
 /**
+ * An external account connected to the user's InfernoLog account: a way of
+ * signing in, or a linked account such as Discord.
+ *
+ * The API never sends an identity's Cognito sub; `canSignIn` is what the
+ * client gets in its place.
+ */
+export interface AuthIdentity {
+  id: string
+  provider: AuthProvider
+  // The provider's own id for the account. A Discord identity's is its Discord
+  // user id; null when it was never recorded, as for Google today.
+  providerAccountId: string | null
+  // The email the provider asserted when the identity was connected. Not the
+  // account's email, which is `MeData.email`.
+  email: string | null
+  // Whether this identity can be used to sign in. A linked Discord account
+  // cannot.
+  canSignIn: boolean
+  createdAt: string
+}
+
+/**
  * The signed-in user's account, settings, and rating configuration.
  *
  * This is the app's single source for every display preference — rating
@@ -32,7 +59,9 @@ export interface MeData {
   username: string
   usernameChangedAt: string | null
   email: string
-  discordId: string | null
+  // Oldest first. The source for everything about connected accounts,
+  // including whether Discord is linked — see {@link findDiscordIdentity}.
+  identities: AuthIdentity[]
   profilePublic: boolean
   discordPublic: boolean
   defaultFps: number
@@ -59,6 +88,26 @@ export interface MeData {
   youtubeEmbedConsent: boolean
   isVerified: boolean
   createdAt: string
+}
+
+/**
+ * The account's linked Discord identity, if it has one. An account holds at
+ * most one; linking another replaces it.
+ */
+export function findDiscordIdentity(
+  identities: AuthIdentity[]
+): AuthIdentity | undefined {
+  return identities.find((identity) => identity.provider === 'DISCORD')
+}
+
+// The cached user with its Discord identity swapped out: replaced by `next`,
+// or removed when `next` is null. Mirrors what the API did, so the settings
+// page is right before any refetch lands.
+function withDiscordIdentity(me: MeData, next: AuthIdentity | null): MeData {
+  const others = me.identities.filter(
+    (identity) => identity.provider !== 'DISCORD'
+  )
+  return { ...me, identities: next ? [...others, next] : others }
 }
 
 /**
@@ -116,7 +165,7 @@ export function useConnectDiscord() {
  * a stranger and collecting the stranger's Discord identity onto their own
  * profile. See apps/api/src/routes/auth/discord.ts.
  *
- * Writes the resulting `discordId` straight into the cached user, so the
+ * Writes the new Discord identity straight into the cached user, so the
  * settings page is correct the moment it renders.
  */
 export function useCompleteDiscordLink() {
@@ -126,24 +175,24 @@ export function useCompleteDiscordLink() {
     mutationFn: async (input: {
       code: string
       state: string
-    }): Promise<{ discordId: string }> => {
+    }): Promise<{ identity: AuthIdentity }> => {
       const token = await getIdToken()
-      const { data } = await apiFetch<{ data: { discordId: string } }>(
+      const { data } = await apiFetch<{ data: { identity: AuthIdentity } }>(
         '/v1/me/connect-discord/complete',
         { token, method: 'POST', body: input }
       )
       return data
     },
-    onSuccess: ({ discordId }) => {
+    onSuccess: ({ identity }) => {
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
-        old ? { ...old, discordId } : old
+        old ? withDiscordIdentity(old, identity) : old
       )
     },
   })
 }
 
 /**
- * Unlinks the Discord account, clearing `discordId` in the cache immediately.
+ * Unlinks the Discord account, removing its identity from the cache immediately.
  */
 export function useDisconnectDiscord() {
   const { getIdToken } = useAuth()
@@ -155,7 +204,7 @@ export function useDisconnectDiscord() {
     },
     onSuccess: () => {
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
-        old ? { ...old, discordId: null } : old
+        old ? withDiscordIdentity(old, null) : old
       )
     },
   })

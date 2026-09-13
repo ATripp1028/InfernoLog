@@ -606,13 +606,14 @@ describe('DELETE /me — Cognito cleanup', () => {
     ] as never)
   })
 
-  it('reads the identities before purging the account', async () => {
+  it('reads the Cognito-backed identities before purging the account', async () => {
     // AuthIdentity cascades from users, so after the transaction there would
-    // be nothing left to read.
+    // be nothing left to read. A linked Discord account has no sub, and so no
+    // Cognito user to delete.
     await deleteMe()
 
     expect(prisma.authIdentity.findMany).toHaveBeenCalledWith({
-      where: { userId: USER_ID },
+      where: { userId: USER_ID, cognitoSub: { not: null } },
       select: { cognitoSub: true },
     })
     const [readOrder] = prisma.authIdentity.findMany.mock.invocationCallOrder

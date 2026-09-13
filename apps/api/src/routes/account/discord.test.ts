@@ -133,29 +133,29 @@ describe('POST /me/connect-discord', () => {
   })
 })
 describe('DELETE /me/connect-discord', () => {
-  it('disconnects the user from Discord', async () => {
-    prisma.user.update.mockResolvedValue({
-      id: USER_ID,
-      username: 'alex',
-      enjoymentWeight: 0.5,
-      ratingCategories: [],
-    } as never)
+  it("removes the account's Discord identity and clears the legacy column", async () => {
+    ;(
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockResolvedValue([{ count: 1 }, {}])
 
     const res = await buildApp().request('/me/connect-discord', {
       method: 'DELETE',
     })
 
     expect(res.status).toBe(200)
-    expect(prisma.user.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { id: USER_ID },
-        data: { discordId: null },
-      })
-    )
+    expect(prisma.authIdentity.deleteMany).toHaveBeenCalledWith({
+      where: { userId: USER_ID, provider: 'DISCORD' },
+    })
+    expect(prisma.user.update).toHaveBeenCalledWith({
+      where: { id: USER_ID },
+      data: { discordId: null },
+    })
   })
 
   it('returns 500 on database errors', async () => {
-    prisma.user.update.mockRejectedValue(new Error('DB error'))
+    ;(
+      prisma.$transaction as unknown as ReturnType<typeof vi.fn>
+    ).mockRejectedValue(new Error('DB error'))
 
     const res = await buildApp().request('/me/connect-discord', {
       method: 'DELETE',

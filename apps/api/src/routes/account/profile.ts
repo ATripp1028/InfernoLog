@@ -211,10 +211,15 @@ app.delete('/me', async (c) => {
 
   // Read before the purge: AuthIdentity cascades from `users`, so afterwards
   // there is no record left of which Cognito users belonged to this account.
+  // Only identities with a sub have a Cognito user; a linked Discord account
+  // has none, and deleting its row is all unlinking it takes.
   const identities = await prisma.authIdentity.findMany({
-    where: { userId },
+    where: { userId, cognitoSub: { not: null } },
     select: { cognitoSub: true },
   })
+  const cognitoSubs = identities.flatMap(({ cognitoSub }) =>
+    cognitoSub ? [cognitoSub] : []
+  )
 
   await prisma.$transaction([
     prisma.report.deleteMany({
@@ -236,7 +241,7 @@ app.delete('/me', async (c) => {
   // hold that provider's personal data. Best-effort: the InfernoLog account is
   // already gone whatever happens here, and a leftover Cognito user owns no
   // account, so signing in with it again is refused like any unknown identity.
-  for (const { cognitoSub } of identities) {
+  for (const cognitoSub of cognitoSubs) {
     try {
       await cognito.send(
         new AdminDeleteUserCommand({

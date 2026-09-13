@@ -12,6 +12,11 @@
 //
 // See routes/auth/discord.ts for the account-linking CSRF this structure
 // closes, and why a confirmation step would not have closed it.
+//
+// A link is a DISCORD AuthIdentity keyed by the Discord user id. An account
+// holds at most one: linking replaces any existing Discord identity on it. The
+// legacy users.discordId column is still written in the same transaction, but
+// nothing reads it.
 
 import { Hono } from 'hono'
 import { randomBytes } from 'crypto'
@@ -29,6 +34,10 @@ import {
   DiscordOAuthError,
 } from '../../utils/discord'
 import { parseJsonBody } from '../../utils/requestBody'
+import {
+  identitySelect,
+  serializeIdentity,
+} from '../../services/user/serialize'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -119,11 +128,22 @@ app.post('/me/connect-discord/complete', async (c) => {
     throw err
   }
 
+  let identity
   try {
-    await prisma.user.update({ where: { id: userId }, data: { discordId } })
+    ;[, identity] = await prisma.$transaction([
+      prisma.authIdentity.deleteMany({
+        where: { userId, provider: 'DISCORD' },
+      }),
+      prisma.authIdentity.create({
+        data: { userId, provider: 'DISCORD', providerAccountId: discordId },
+        select: identitySelect,
+      }),
+      prisma.user.update({ where: { id: userId }, data: { discordId } }),
+    ])
   } catch (err) {
-    // P2002: discordId is unique — this Discord account is already on another
-    // InfernoLog user.
+    // P2002: a Discord account is unique per provider — this one is already on
+    // another InfernoLog user. The whole transaction rolls back, so the
+    // caller's existing link, if any, is left as it was.
     if (isUniqueViolation(err)) {
       logger.warn({ userId }, 'Discord account already linked to another user')
       return c.json(
@@ -139,17 +159,17 @@ app.post('/me/connect-discord/complete', async (c) => {
   }
 
   logger.info({ userId }, 'Discord connected')
-  return c.json({ data: { discordId } })
+  return c.json({ data: { discordId, identity: serializeIdentity(identity) } })
 })
 
 // DELETE /v1/me/connect-discord
 app.delete('/me/connect-discord', async (c) => {
   const userId = c.get('userId')
 
-  await prisma.user.update({
-    where: { id: userId },
-    data: { discordId: null },
-  })
+  await prisma.$transaction([
+    prisma.authIdentity.deleteMany({ where: { userId, provider: 'DISCORD' } }),
+    prisma.user.update({ where: { id: userId }, data: { discordId: null } }),
+  ])
   logger.info({ userId }, 'Disconnected Discord from account')
   return c.json({ data: { disconnected: true } })
 })
