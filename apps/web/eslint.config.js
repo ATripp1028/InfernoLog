@@ -3,6 +3,7 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
+import { credentialRules } from '../../eslint.credentials.mjs'
 
 export default tseslint.config(
   {
@@ -23,6 +24,9 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       'react-hooks/set-state-in-effect': 'off',
       'react-refresh/only-export-components': 'off',
+      // Passwords and verification codes never reach a log, console, Sentry
+      // call, or error message. See eslint.credentials.mjs.
+      ...credentialRules,
     },
   },
   {
@@ -35,5 +39,8 @@ export default tseslint.config(
       ecmaVersion: 2022,
       globals: globals.node,
     },
+    // The suite reads the E2E user's password from its env file; it must not
+    // print it either.
+    rules: credentialRules,
   }
 )

@@ -88,6 +88,16 @@ describe('createUserForSignup — the new row', () => {
     })
   })
 
+  it('lowercases the email on the row and the identity', async () => {
+    await createUserForSignup('  Player@Example.COM ', SUB, 'GOOGLE')
+
+    expect(createData()).toMatchObject({ email: EMAIL })
+    expect(createData().authIdentities).toEqual({
+      create: { provider: 'GOOGLE', cognitoSub: SUB, email: EMAIL },
+    })
+    expect(createData().username).toMatch(/^player_[0-9a-f]{8}$/)
+  })
+
   it('keeps the sub off the users row, on the identity alone', async () => {
     await createUserForSignup(EMAIL, SUB, 'GOOGLE')
 

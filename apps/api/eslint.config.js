@@ -1,6 +1,7 @@
 import js from '@eslint/js'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
+import { credentialRules } from '../../eslint.credentials.mjs'
 
 export default tseslint.config(
   {
@@ -15,6 +16,9 @@ export default tseslint.config(
     },
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
+      // Passwords and verification codes never reach a log, console, Sentry
+      // call, or error message. See eslint.credentials.mjs.
+      ...credentialRules,
     },
   },
   {
@@ -28,5 +32,5 @@ export default tseslint.config(
     rules: {
       '@typescript-eslint/triple-slash-reference': 'off',
     },
-  },
+  }
 )

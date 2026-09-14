@@ -49,6 +49,32 @@ jobs:
       - name: Typecheck infra
         run: pnpm turbo run typecheck:infra
 
+  # ⚠️ CREDENTIALS — fails the PR if a secret is committed anywhere in history.
+  # This repo is public, so a pushed secret is a published secret. GitHub's
+  # secret scanning and push protection (enabled on the repo) catch known
+  # provider tokens; gitleaks adds generic ones and the hardcoded-password rules
+  # in .gitleaks.toml. See CLAUDE.md "Credential handling".
+  #
+  # The pinned image rather than a marketplace action, so the exact scanner
+  # version is reviewed in this file. The safe.directory env stops git refusing
+  # a checkout owned by the runner's user rather than the container's.
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history: a secret removed in a later commit is still published.
+          fetch-depth: 0
+
+      - name: Scan for committed secrets
+        run: >-
+          docker run --rm -v "$PWD:/repo"
+          -e GIT_CONFIG_COUNT=1
+          -e GIT_CONFIG_KEY_0=safe.directory
+          -e GIT_CONFIG_VALUE_0=/repo
+          zricethezav/gitleaks:v8.28.0
+          git /repo --config /repo/.gitleaks.toml --redact --no-banner
+
   test:
     runs-on: ubuntu-latest
     steps:

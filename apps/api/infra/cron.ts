@@ -26,6 +26,25 @@ const syncFunctionOptions = {
 }
 
 // ─────────────────────────────────────────────
+// EMAIL VERIFICATION PURGE — every stage, hourly.
+//
+// Deletes verification-code rows 24 hours after creation
+// (services/verification). Every stage has its own database and its own
+// rows, so unlike the RobTop crons below this one runs everywhere. The window
+// is what bounds how long a requester's hashed IP is retained.
+// ─────────────────────────────────────────────
+new sst.aws.CronV2('PurgeEmailVerifications', {
+  schedule: 'rate(1 hour)',
+  function: {
+    handler: 'src/handlers/verificationPurgeWorker.handler',
+    link: sharedLinks,
+    environment: sharedEnvironment,
+    timeout: '1 minute' as const,
+    ...sharedNodeOptions,
+  },
+})
+
+// ─────────────────────────────────────────────
 // PRODUCTION ONLY.
 //
 // This cron used to be deployed to every stage, on the same fixed UTC schedule,

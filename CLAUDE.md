@@ -29,6 +29,7 @@ Run from repo root unless noted. Turbo fans out to each workspace.
 - `pnpm remove:staging` — tears down the staging stack
 
 Backend-specific (run from `apps/api`):
+
 - `pnpm prisma migrate dev --name <desc>` — create + apply a migration locally
 - `pnpm prisma generate` — regenerate the Prisma client (also runs on `postinstall` and as part of `build`)
 - `pnpm prisma studio` — DB browser
@@ -38,11 +39,12 @@ Backend-specific (run from `apps/api`):
 - `pnpm test:coverage` — both projects under v8 coverage, enforcing the thresholds in `vitest.config.ts`. This is what CI runs for `apps/api`, so a drop below them fails the PR. The thresholds assume both projects ran; `--project unit --coverage` alone will trip them.
 
 Frontend-specific (run from `apps/web`):
+
 - `pnpm preview` — preview the production build locally
 - `pnpm test` — vitest under jsdom. Unit and component tests only. Specs live in a `tests/` subdirectory beside the file they cover and are named `<subject>.spec.ts` — see `docs/CODE_QUALITY.md` §7 (Frontend) for the conventions, and `src/utils/testUtils.tsx` for the shared helpers (`renderWithProviders`, `setViewport`, the query wrapper, stubs and fixtures). **Specs must never import `routeTree.gen.ts`** — it is gitignored and not generated in CI's test job, so such a spec passes locally and fails in CI.
 - `pnpm test:e2e` — Playwright against a deployed stage. **Not part of `pnpm test`**: it drives real staging Cognito/API/Postgres and resets a shared user's data, so it only runs after a deploy, as a post-deploy gate (`.github/workflows/e2e.yml`). Since `deploy-staging.yml` is `pull_request`-triggered, that gate does fail PRs touching `apps/**` or `packages/**` — deliberately, which is why the suite must stay small and non-flaky. Specs live in `apps/web/e2e/` (outside `src/`, so the two runners cannot pick up each other's files) and are named `*.e2e.ts`. `E2E_STAGE` is required with no default and rejects `production`. **`apps/web/e2e/README.md` is the whole documentation for this suite** — what it is for, what a spec has to do to belong in it, the local setup (`.env.e2e`, and stop `pnpm dev` first — the suite will not reuse a server on :5173), and the one-time provisioning a new stage needs. Read it before adding a spec or running it for the first time.
 
-`pnpm test` (root) fans out to both suites via turbo. `packages/core` has no tests.
+`pnpm test` (root) fans out via turbo to both app suites and `packages/core`'s, which is plain vitest over `src/tests/*.spec.ts`.
 
 ## Architecture Notes Not Obvious From The Code
 
@@ -65,6 +67,23 @@ All Lambdas share `sharedEnvironment`, `sharedLinks`, and `sharedNodeOptions`. `
 - `apps/api/src/middleware/auth.ts` reads the claims API Gateway's JWT authorizer already verified (it does no token verification itself), resolves the sub through `AuthIdentity` to the user, and sets `userId` (the internal UUID) and `userEmail` (always the account's email, never the token's) on the Hono context. **All authenticated routes must use `c.get('userId')`, never the Cognito sub directly.**
 - The frontend uses `aws-amplify/auth` (configured in `apps/web/src/lib/auth.ts`, imported first in `main.tsx`). `AuthContext` calls `GET /v1/me` on mount to hydrate the app user from the API.
 - Routing gate: `App.tsx` redirects to `/onboarding` when `user.onboardingCompleted` is false; `AuthenticatedRoutes` is only mounted post-onboarding.
+
+### Credential handling
+
+**Passwords and verification codes are credentials, and they never reach a log line, a Sentry event, an error message, a response body, or storage.** Since password sign-in, the API handles both in plaintext: it creates Cognito users with `AdminSetUserPassword`, checks a current password with `AdminInitiateAuth`, and issues and checks emailed codes itself (`services/verification`). This repo is public. The rules, and what enforces each:
+
+- **Name them so tooling can see them.** A variable or field holding a credential is named with `password` or `verificationCode`, never a bare `code`, which already means error codes and level codes here. `eslint.credentials.mjs`, shared by both apps, fails lint when a `logger.*`, `console.*`, or `Sentry.*` call, or a `new …Error(…)`, contains anything with such a name or a `.reveal()` call. `src/test/credentialLint.test.ts` proves the rule still fires. Never `eslint-disable` it: rename the harmless `hasPassword` flag instead.
+- **In the API, wrap on arrival.** Turn a credential into a `Sensitive` (`utils/sensitive.ts`) as soon as its body is parsed. It prints `[REDACTED]` through `String`, `JSON.stringify`, `inspect`, and Pino. `.reveal()` is only for the call that genuinely needs the plaintext: the Cognito SDK or the HMAC.
+- **Never persist.** Codes are stored only as an HMAC keyed by `VERIFICATION_CODE_SECRET` (`EmailVerification.codeHash`), and requesters' IPs only as an HMAC too. In the browser, a credential lives in flow state and is never written to localStorage, sessionStorage, or the persisted query cache.
+- **Every route that receives a credential gets a leak test.** Use `src/test/captureLeaks.ts`: send `leakSentinel()` values down the success path, every expected failure, and a forced 500, then call `leakCapture.expectNoLeak(...)`, which checks every Pino line and the raw arguments of every Sentry call. `middleware/errors.leak.test.ts` is the model.
+- **Safety nets, not permission.** Pino's `redact` (built from core's `SENSITIVE_FIELD_NAMES`) and Sentry's `beforeSend`/`beforeBreadcrumb` (core's `scrubErrorEvent`, wired in both apps) strip credential fields that slip through. The web Sentry spec also pins `sendDefaultPii: false` and no Session Replay. Workers under `handlers/` initialize Sentry through the Lambda auto-import and get neither scrubber, so a worker that ever touches a credential must be given one first.
+- **Committed secrets fail CI.** The `secrets` job in `ci.yml` runs gitleaks over full history with `.gitleaks.toml`: the default rules plus custom rules for hardcoded credential-named assignments, which the defaults miss. GitHub secret scanning and push protection are on as well. Test fixtures use `leakSentinel()` or the `Leak-Canary-` prefix, the one allowlisted pattern. Never allowlist a real value: remove it, rotate it, and purge it from history.
+
+### Email
+
+- **SES is set up by hand, not in SST.** The `infernolog.com` domain identity (DKIM, MAIL FROM `mail.infernolog.com`, DMARC, production access) was created in the AWS console. It belongs to the one AWS account every stage shares, so it must never become an SST resource. `infra/email.ts` only references it by ARN. Cognito sends forgot-password emails through it on every stage (`emailConfiguration` plus a per-stage sending-authorization policy in `infra/auth.ts`). The API sends through it with `services/email`, and a route that sends needs `sesSendPermission` and `emailEnvironment`.
+- **Every stored email is lowercase.** CHECK constraints on `users.email` and `auth_identities.email` (migration `lowercase_emails`) refuse anything else, so normalize with core's `EmailSchema` before writing.
+- **No user is visible to anyone else until onboarding is complete.** Until then the account carries a placeholder username built from its email's local part. Every public read of other users merges `publicUsers()`/`publicUserWhere` (`services/user/publicUser.ts`) into its `where`. None exist yet; the first one is where this gets forgotten.
 
 ### Data model conventions
 

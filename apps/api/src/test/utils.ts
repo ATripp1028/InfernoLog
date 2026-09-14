@@ -80,6 +80,8 @@ const TABLES = [
   'levels',
   'rating_categories',
   'gddl_sync_jobs',
+  // SIGNUP rows have no userId, so the users cascade does not reach them.
+  'email_verifications',
   'users',
 ]
 

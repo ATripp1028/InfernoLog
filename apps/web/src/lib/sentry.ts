@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react'
+import { scrubBreadcrumb, scrubErrorEvent } from '@infernolog/core'
 import { ApiError } from './api/client'
 
 // Imported for its side effect as the very first import in main.tsx, mirroring
@@ -56,9 +57,21 @@ function isExpectedFailure(error: unknown): boolean {
   return NETWORK_NOISE.some((noise) => text.includes(noise))
 }
 
-if (dsn) {
-  Sentry.init({
-    dsn,
+/**
+ * The options `Sentry.init` runs with, exported so a spec can pin them.
+ *
+ * Two settings here are privacy guarantees rather than tuning, and the spec
+ * fails if either changes: `sendDefaultPii` stays false, and no Session Replay
+ * integration is added. Credential fields (passwords, verification codes) are
+ * scrubbed from every event and breadcrumb — a safety net only; never put a
+ * credential into an error or a Sentry call. See CLAUDE.md "Credential
+ * handling".
+ *
+ * @param sentryDsn - The browser DSN baked in at build time.
+ */
+export function buildSentryOptions(sentryDsn: string): Sentry.BrowserOptions {
+  return {
+    dsn: sentryDsn,
     // Set from `$app.stage` at deploy time (see apps/web/sst.config.ts).
     // Falling back to MODE only matters for a build that somehow ships a DSN
     // without a stage; MODE cannot tell the stages apart on its own, so it is
@@ -72,11 +85,17 @@ if (dsn) {
     //
     // Session Replay is off for the same reason plus a second one — it records
     // the DOM, which on this app includes the user's email and linked Discord
-    // id on the settings page. Enabling it means configuring masking first.
+    // id on the settings page, and will include password and code fields.
+    // Enabling it means configuring masking first.
     sendDefaultPii: false,
     beforeSend: (event, hint) =>
-      isExpectedFailure(hint.originalException) ? null : event,
-  })
+      isExpectedFailure(hint.originalException) ? null : scrubErrorEvent(event),
+    beforeBreadcrumb: (breadcrumb) => scrubBreadcrumb(breadcrumb),
+  }
+}
+
+if (dsn) {
+  Sentry.init(buildSentryOptions(dsn))
 }
 
 /**
