@@ -225,6 +225,20 @@ describe('createUserForSignup — an email another account has', () => {
     }
   )
 
+  it('returns the winning row when a concurrent call for the same identity created it', async () => {
+    // A double-submit where both calls passed the lookup: the loser must not
+    // report the email as taken, or the route discards the winner's identity.
+    const winner = { id: 'user-1', onboardingCompleted: false }
+    prisma.authIdentity.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ user: winner } as never)
+    prisma.user.create.mockRejectedValue(uniqueViolation(['email']))
+
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
+      winner
+    )
+  })
+
   it('rethrows a unique violation on anything else, and other failures', async () => {
     prisma.user.create.mockRejectedValue(uniqueViolation(['username']))
     await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).rejects.toThrow(

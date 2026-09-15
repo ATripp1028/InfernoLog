@@ -72,8 +72,9 @@ export async function createUserForSignup(
   if (existing) return existing.user
 
   const address = email.trim().toLowerCase()
-  const user = await prisma.user
-    .create({
+  let user
+  try {
+    user = await prisma.user.create({
       data: {
         email: address,
         username: address.split('@')[0] + '_' + randomBytes(4).toString('hex'),
@@ -85,12 +86,21 @@ export async function createUserForSignup(
         collections: { create: DEFAULT_COLLECTIONS.map((c) => ({ ...c })) },
       },
     })
-    .catch((error: unknown) => {
-      // Checked by the constraint rather than a lookup first, so two signups
-      // racing for one address cannot both pass.
-      if (isEmailUniqueViolation(error)) throw new SignupEmailTakenError()
-      throw error
+  } catch (error) {
+    // Checked by the constraint rather than a lookup first, so two signups
+    // racing for one address cannot both pass.
+    if (!isEmailUniqueViolation(error)) throw error
+    // A concurrent call for this same identity may be the one that won. That
+    // is the double-submit this function is idempotent for, not a second
+    // account — and the caller discards the identity on SignupEmailTakenError,
+    // which would lock the winner's new account out.
+    const winner = await prisma.authIdentity.findUnique({
+      where: { cognitoSub },
+      select: { user: true },
     })
+    if (winner) return winner.user
+    throw new SignupEmailTakenError()
+  }
 
   logger.info({ userId: user.id }, 'Created user for signup')
   return user

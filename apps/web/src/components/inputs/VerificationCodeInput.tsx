@@ -20,7 +20,6 @@ export const VerificationCodeInput = forwardRef<
     type="text"
     inputMode="numeric"
     autoComplete="one-time-code"
-    maxLength={6}
     pattern="[0-9]*"
     spellCheck={false}
     className={cn(

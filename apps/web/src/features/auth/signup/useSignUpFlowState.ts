@@ -4,7 +4,7 @@
 // never written to storage, and gone when the page unmounts. See CLAUDE.md
 // "Credential handling".
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { signOut } from 'aws-amplify/auth'
 import { useAuth } from '@/context/AuthContext'
@@ -50,6 +50,11 @@ export function useSignUpFlowState() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<SignUpError | null>(null)
   const [resent, setResent] = useState(false)
+  // Whether the API already created the sign-in for this address. The code is
+  // single-use, so a retry after a later step failed (signing in, creating the
+  // account) must not verify again — it would always be told the code is
+  // invalid.
+  const verifiedRef = useRef(false)
 
   /**
    * Requests a code for the address and moves to the code step. The response
@@ -63,6 +68,7 @@ export function useSignUpFlowState() {
       await passwordSignupStart({ email: nextEmail })
       setEmail(nextEmail)
       setPassword(nextPassword)
+      verifiedRef.current = false
       setResent(false)
       setStep('verify')
     } catch (err) {
@@ -89,6 +95,7 @@ export function useSignUpFlowState() {
   /** Back to the credentials step to fix the address; the password is dropped. */
   const changeEmail = () => {
     setPassword('')
+    verifiedRef.current = false
     setError(null)
     setResent(false)
     setStep('credentials')
@@ -102,7 +109,10 @@ export function useSignUpFlowState() {
     setPending(true)
     setError(null)
     try {
-      await passwordSignupVerify({ email, verificationCode, password })
+      if (!verifiedRef.current) {
+        await passwordSignupVerify({ email, verificationCode, password })
+        verifiedRef.current = true
+      }
       await signInWithPassword(email, password)
       const to = await destinationAfterSignIn(await getIdToken())
       setPassword('')
@@ -110,6 +120,8 @@ export function useSignUpFlowState() {
     } catch (err) {
       const next = toError(err)
       if (next.kind === 'account-exists') {
+        // The API discarded the sign-in, so only a fresh code can go further.
+        verifiedRef.current = false
         // Raced by another signup for the same address after the code was
         // sent. If a session opened, it names a discarded identity.
         await signOut().catch(() => undefined)

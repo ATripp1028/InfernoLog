@@ -149,6 +149,21 @@ describe('code step', () => {
     expect(mocks.captureException).toHaveBeenCalledWith(failure)
   })
 
+  it('retries a failed sign-in without verifying the used-up code again', async () => {
+    mocks.signInWithPassword.mockRejectedValueOnce(new Error('boom'))
+    const { result } = await atVerifyStep()
+
+    await act(() => result.current.submitCode(CODE))
+    await act(() => result.current.submitCode(CODE))
+
+    expect(mocks.passwordSignupVerify).toHaveBeenCalledTimes(1)
+    expect(mocks.signInWithPassword).toHaveBeenCalledTimes(2)
+    expect(mocks.navigate).toHaveBeenCalledWith({
+      to: '/onboarding',
+      replace: true,
+    })
+  })
+
   it('resends a code to the same address', async () => {
     const { result } = await atVerifyStep()
     mocks.passwordSignupStart.mockClear()
