@@ -17,6 +17,7 @@ export function EmailDetailsStep() {
     currentPassword,
     setCurrentPassword,
     emailError,
+    emailLocked,
     hasPassword,
     googleConfirmed,
     canSubmit,
@@ -38,6 +39,7 @@ export function EmailDetailsStep() {
           autoComplete="email"
           value={newEmail}
           onChange={(e) => setNewEmail(e.target.value)}
+          disabled={emailLocked}
           aria-invalid={emailError ? true : undefined}
         />
         {emailError && <FieldError>{emailError}</FieldError>}

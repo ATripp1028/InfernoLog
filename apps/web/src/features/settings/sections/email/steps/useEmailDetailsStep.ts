@@ -18,6 +18,9 @@ export function useEmailDetailsStep() {
     ? currentPassword.length > 0
     : flow.googleConfirmed
   const canSubmit = newEmail.trim().length > 0 && proven && !flow.pending
+  // Re-confirming with Google leaves the page and loses anything typed, so
+  // the address can't be entered until that's done.
+  const emailLocked = !flow.hasPassword && !flow.googleConfirmed
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -39,6 +42,7 @@ export function useEmailDetailsStep() {
     currentPassword,
     setCurrentPassword,
     emailError,
+    emailLocked,
     hasPassword: flow.hasPassword,
     googleConfirmed: flow.googleConfirmed,
     canSubmit,

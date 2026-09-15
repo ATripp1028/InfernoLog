@@ -167,12 +167,14 @@ app.post('/me/email/verify', async (c) => {
     select: { email: true },
   })
   const passwordIdentity = await findPasswordIdentity(userId)
-  const movesSignIn = Boolean(passwordIdentity?.email)
+  // Where the native user's email was before the move, so a revert puts it
+  // back exactly there.
+  const previousSignInEmail = passwordIdentity?.email ?? null
 
   // Cognito first: a native user that can't move (an account already signs in
   // with the new address) stops the change before anything is written.
-  if (passwordIdentity?.email) {
-    await changeNativeUserEmail(passwordIdentity.email, newEmail)
+  if (previousSignInEmail) {
+    await changeNativeUserEmail(previousSignInEmail, newEmail)
   }
 
   try {
@@ -188,9 +190,9 @@ app.post('/me/email/verify', async (c) => {
         : []),
     ])
   } catch (error) {
-    if (movesSignIn) {
+    if (previousSignInEmail) {
       try {
-        await revertNativeUserEmail(newEmail, user.email)
+        await revertNativeUserEmail(newEmail, previousSignInEmail)
       } catch (revertError) {
         // The sign-in email now differs from the account email. Surface it
         // loudly: the invariant sweep would flag it, and support has to fix it.
@@ -205,7 +207,7 @@ app.post('/me/email/verify', async (c) => {
     throw error
   }
 
-  logger.info({ userId, movedSignIn: movesSignIn }, 'Changed account email')
+  logger.info({ userId, movedSignIn: previousSignInEmail !== null }, 'Changed account email')
 
   // The change has happened; a failed notice is reported rather than failing
   // the request the user would then retry.
