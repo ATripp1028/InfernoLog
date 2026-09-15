@@ -293,17 +293,45 @@ app.post('/me/password/setup', async (c) => {
 
   // Cognito and Postgres can't share a transaction, so the Cognito user made
   // above is removed again if the account can't take it.
+  let alreadyAdded = false
   try {
-    await prisma.$transaction([
-      prisma.authIdentity.create({
+    await prisma.$transaction(async (tx) => {
+      // Serializes setups for this account: a concurrent one (a double submit,
+      // a second tab) passed the check above too, and must not add a second
+      // PASSWORD identity.
+      await tx.$queryRaw`SELECT id FROM "users" WHERE id = ${userId} FOR UPDATE`
+      const existing = await tx.authIdentity.findFirst({
+        where: { userId, provider: 'PASSWORD', cognitoSub: { not: null } },
+        select: { id: true },
+      })
+      if (existing) {
+        alreadyAdded = true
+        throw new Error('A password was added concurrently')
+      }
+      await tx.authIdentity.create({
         data: { userId, provider: 'PASSWORD', cognitoSub, email },
-      }),
-      ...(emailChanges
-        ? [prisma.user.update({ where: { id: userId }, data: { email } })]
-        : []),
-    ])
+      })
+      if (emailChanges) {
+        await tx.user.update({ where: { id: userId }, data: { email } })
+      }
+    })
   } catch (error) {
-    await deleteCognitoUserIfExists(cognitoSub)
+    // A concurrent setup for the same email took over this same Cognito user
+    // and attached it; deleting it would break that live sign-in.
+    const attached = await prisma.authIdentity.findUnique({
+      where: { cognitoSub },
+      select: { id: true },
+    })
+    if (!attached) await deleteCognitoUserIfExists(cognitoSub)
+    if (alreadyAdded) {
+      return c.json(
+        {
+          error: 'This account already has a password.',
+          code: AuthErrorCode.PASSWORD_EXISTS,
+        },
+        409
+      )
+    }
     if (isUniqueViolation(error)) {
       return c.json(
         {
