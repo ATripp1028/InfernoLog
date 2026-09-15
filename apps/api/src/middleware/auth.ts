@@ -11,6 +11,17 @@ import type { HonoVariables } from '../types/hono'
 export type JwtClaims = {
   sub: string
   email?: string
+  /**
+   * API Gateway's HTTP API authorizer flattens every claim to a string, so
+   * this arrives as `'true'`/`'false'`. Typed wide in case that ever changes;
+   * read it through `isEmailVerified` rather than comparing directly.
+   */
+  email_verified?: string | boolean
+  /**
+   * Present only on federated identities (Google), describing the provider.
+   * Arrives flattened to a string; read it through `signupProviderFromClaims`.
+   */
+  identities?: unknown
 }
 
 /**

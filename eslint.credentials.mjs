@@ -28,11 +28,29 @@ const SINKS = [
 const MESSAGE =
   'Credentials (passwords, verification codes) must never reach a log, console, Sentry call, or error message. See CLAUDE.md "Credential handling".'
 
-/** The `no-restricted-syntax` entries enforcing the credential rules. */
+/**
+ * The `no-restricted-syntax` entries enforcing the credential rules.
+ *
+ * Each sink is checked through its arguments only — an argument that is itself
+ * a credential name or a `.reveal()` call, or one containing either — so the
+ * callee is never inspected. Without that, `new PasswordRejectedError()` would
+ * be flagged for its own class name.
+ */
 export const credentialRestrictedSyntax = SINKS.flatMap((sink) => [
-  { selector: `${sink} Identifier[name=${CREDENTIAL_NAME}]`, message: MESSAGE },
   {
-    selector: `${sink} CallExpression[callee.property.name='reveal']`,
+    selector: `${sink} > Identifier.arguments[name=${CREDENTIAL_NAME}]`,
+    message: MESSAGE,
+  },
+  {
+    selector: `${sink} > *.arguments Identifier[name=${CREDENTIAL_NAME}]`,
+    message: MESSAGE,
+  },
+  {
+    selector: `${sink} > CallExpression.arguments[callee.property.name='reveal']`,
+    message: MESSAGE,
+  },
+  {
+    selector: `${sink} > *.arguments CallExpression[callee.property.name='reveal']`,
     message: MESSAGE,
   },
 ])

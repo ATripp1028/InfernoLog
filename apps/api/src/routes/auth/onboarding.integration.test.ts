@@ -54,6 +54,16 @@ const prisma = getTestPrisma()
 const SUB = 'cognito-sub-abc'
 const EMAIL = 'player@example.com'
 
+/** Signup claims for a Google identity: verified email, Google provider. */
+function signupClaims(sub: string, email: string) {
+  return {
+    sub,
+    email,
+    email_verified: 'true',
+    identities: '[{"providerName":"Google"}]',
+  }
+}
+
 function post(path: string, claims: Record<string, string> | null) {
   return onboardingApp.request(
     path,
@@ -87,7 +97,7 @@ afterAll(async () => {
 
 describe('POST /auth/signup/start', () => {
   it('creates the user with its defaults', async () => {
-    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const res = await post('/auth/signup/start', signupClaims(SUB, EMAIL))
 
     expect(res.status).toBe(200)
     const user = await userForSub(SUB)
@@ -112,7 +122,7 @@ describe('POST /auth/signup/start', () => {
   })
 
   it('records the Google identity against the new user', async () => {
-    await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    await post('/auth/signup/start', signupClaims(SUB, EMAIL))
 
     const user = await userForSub(SUB)
     const identities = await prisma.authIdentity.findMany({
@@ -125,7 +135,7 @@ describe('POST /auth/signup/start', () => {
 
   it('seeds category weights that sum to exactly 1.00', async () => {
     // Otherwise the rating-config route rejects the user's very first save.
-    await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    await post('/auth/signup/start', signupClaims(SUB, EMAIL))
 
     const user = await userForSub(SUB)
     const cats = await prisma.ratingCategory.findMany({
@@ -140,10 +150,10 @@ describe('POST /auth/signup/start', () => {
 
   it('is idempotent — a second call returns the same row', async () => {
     // The sub is unique, so a naive re-create would throw instead.
-    const first = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const first = await post('/auth/signup/start', signupClaims(SUB, EMAIL))
     const firstBody = (await first.json()) as { data: { id: string } }
 
-    const second = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const second = await post('/auth/signup/start', signupClaims(SUB, EMAIL))
     const secondBody = (await second.json()) as { data: { id: string } }
 
     expect(second.status).toBe(200)
@@ -159,20 +169,20 @@ describe('POST /auth/signup/start', () => {
     const user = await seedUser(prisma)
     await seedAuthIdentity(prisma, user.id, SUB)
 
-    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const res = await post('/auth/signup/start', signupClaims(SUB, EMAIL))
 
     await expect(res.json()).resolves.toMatchObject({ data: { id: user.id } })
     expect(await prisma.user.count()).toBe(1)
   })
 
   it('reports the existing onboarding state on a repeat call', async () => {
-    await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    await post('/auth/signup/start', signupClaims(SUB, EMAIL))
     await prisma.user.update({
       where: { id: (await userForSub(SUB)).id },
       data: { onboardingCompleted: true },
     })
 
-    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const res = await post('/auth/signup/start', signupClaims(SUB, EMAIL))
 
     await expect(res.json()).resolves.toMatchObject({
       data: { onboardingCompleted: true },
@@ -181,13 +191,51 @@ describe('POST /auth/signup/start', () => {
 
   it('gives two accounts sharing an email local part distinct usernames', async () => {
     // User.username is unique; the random suffix is what avoids the collision.
-    await post('/auth/signup/start', { sub: 'sub-a', email: 'alex@a.test' })
-    await post('/auth/signup/start', { sub: 'sub-b', email: 'alex@b.test' })
+    await post('/auth/signup/start', signupClaims('sub-a', 'alex@a.test'))
+    await post('/auth/signup/start', signupClaims('sub-b', 'alex@b.test'))
 
     const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
     expect(users).toHaveLength(2)
     expect(users[0]!.username).not.toBe(users[1]!.username)
     expect(users.every((u) => u.username.startsWith('alex_'))).toBe(true)
+  })
+
+  it('refuses a second identity on an address another account has, and discards it', async () => {
+    // The constraint that decides this is the database's unique email, so
+    // only a real Postgres shows the refusal holds — including for an address
+    // that differs only in case.
+    await post('/auth/signup/start', signupClaims('sub-first', EMAIL))
+
+    const res = await post(
+      '/auth/signup/start',
+      signupClaims('sub-second', 'Player@Example.com')
+    )
+
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toMatchObject({ code: 'ACCOUNT_EXISTS' })
+    expect(await prisma.user.count()).toBe(1)
+    expect(await prisma.authIdentity.count()).toBe(1)
+    expect(mockCognitoSend).toHaveBeenCalledTimes(1)
+  })
+
+  it('records a native Cognito user as a PASSWORD identity', async () => {
+    const res = await post('/auth/signup/start', {
+      sub: SUB,
+      email: EMAIL,
+      email_verified: 'true',
+    })
+
+    expect(res.status).toBe(200)
+    await expect(
+      prisma.authIdentity.findUniqueOrThrow({ where: { cognitoSub: SUB } })
+    ).resolves.toMatchObject({ provider: 'PASSWORD', email: EMAIL })
+  })
+
+  it('refuses a token whose email is not verified', async () => {
+    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+
+    expect(res.status).toBe(403)
+    expect(await prisma.user.count()).toBe(0)
   })
 
   it('401s and creates nothing without claims', async () => {

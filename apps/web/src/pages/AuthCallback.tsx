@@ -7,7 +7,13 @@ import {
   AUTH_INTENT_KEY,
   type AuthIntent,
 } from '@/context/AuthContext'
-import { signupStart, signinReject } from '@/lib/api/authOnboarding'
+import { AuthErrorCode } from '@infernolog/core'
+import {
+  authErrorCode,
+  signupStart,
+  signinReject,
+} from '@/lib/api/authOnboarding'
+import { setAuthNotice } from '@/features/auth/authNotice'
 import { apiFetch, ApiError } from '@/lib/api/client'
 import type { MeData } from '@/lib/api/me'
 import { Button } from '@/components/generic/button'
@@ -41,7 +47,24 @@ export function AuthCallback() {
         const token = await getIdToken()
 
         if (intent === 'signup') {
-          const { onboardingCompleted } = await signupStart(token)
+          let result
+          try {
+            result = await signupStart(token)
+          } catch (err) {
+            if (authErrorCode(err) !== AuthErrorCode.ACCOUNT_EXISTS) throw err
+            // This Google account's email already belongs to another
+            // InfernoLog account. The API discarded the new Cognito identity
+            // and never attaches accounts by email, so end the session and
+            // explain on /signup (a registered logout URL — a real navigation
+            // through Cognito's logout endpoint, like the reject path below).
+            setAuthNotice('account-exists')
+            await signOut({
+              global: false,
+              oauth: { redirectUrl: `${window.location.origin}/signup` },
+            })
+            return
+          }
+          const { onboardingCompleted } = result
           // This Google account may already have an InfernoLog account
           // (signed up by mistake instead of using Sign In) — in that case
           // signupStart returned the existing, already-onboarded row rather

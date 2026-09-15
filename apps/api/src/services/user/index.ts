@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto'
-import type { AuthProvider } from '@prisma/client'
+import { Prisma, type AuthProvider } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 
@@ -19,6 +19,29 @@ const DEFAULT_COLLECTIONS = [
 ] as const
 
 /**
+ * The address is already another account's email. The signing-up identity is
+ * a different one (a matching identity returns its account instead), so this
+ * is a second account being attempted on one address. Carries no address.
+ */
+export class SignupEmailTakenError extends Error {
+  constructor() {
+    super('Another account already uses this email')
+    this.name = 'SignupEmailTakenError'
+  }
+}
+
+function isEmailUniqueViolation(error: unknown): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2002'
+  ) {
+    return false
+  }
+  // The target's shape differs by driver: a field list, or the index name.
+  return String(error.meta?.target ?? '').includes('email')
+}
+
+/**
  * Creates the InfernoLog `User` row for a confirmed (age-gated) sign-up.
  * Idempotent: a double-submit (e.g. a duplicate call while the first is still
  * in flight) returns the already-created row instead of erroring. The check is
@@ -32,8 +55,10 @@ const DEFAULT_COLLECTIONS = [
  *   email and is also recorded on the identity, lowercased: every stored email
  *   is lowercase, and the database's CHECK constraints refuse anything else.
  * @param cognitoSub - The Cognito sub of the identity signing up.
- * @param provider - Which sign-in method that identity is. The caller knows
- *   this from the flow it ran; it is not derived from the token.
+ * @param provider - Which sign-in method that identity is, read from the
+ *   verified token by the caller (`signupProviderFromClaims`).
+ * @throws {SignupEmailTakenError} When a different account already has the
+ *   email. Accounts are never merged or attached by email.
  */
 export async function createUserForSignup(
   email: string,
@@ -47,18 +72,25 @@ export async function createUserForSignup(
   if (existing) return existing.user
 
   const address = email.trim().toLowerCase()
-  const user = await prisma.user.create({
-    data: {
-      email: address,
-      username: address.split('@')[0] + '_' + randomBytes(4).toString('hex'),
-      authIdentities: { create: { provider, cognitoSub, email: address } },
-      onboardingCompleted: false,
-      ratingCategories: {
-        create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })),
+  const user = await prisma.user
+    .create({
+      data: {
+        email: address,
+        username: address.split('@')[0] + '_' + randomBytes(4).toString('hex'),
+        authIdentities: { create: { provider, cognitoSub, email: address } },
+        onboardingCompleted: false,
+        ratingCategories: {
+          create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })),
+        },
+        collections: { create: DEFAULT_COLLECTIONS.map((c) => ({ ...c })) },
       },
-      collections: { create: DEFAULT_COLLECTIONS.map((c) => ({ ...c })) },
-    },
-  })
+    })
+    .catch((error: unknown) => {
+      // Checked by the constraint rather than a lookup first, so two signups
+      // racing for one address cannot both pass.
+      if (isEmailUniqueViolation(error)) throw new SignupEmailTakenError()
+      throw error
+    })
 
   logger.info({ userId: user.id }, 'Created user for signup')
   return user

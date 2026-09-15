@@ -108,8 +108,12 @@ ranking` behaves as you would expect.
 
 **`E2E_STAGE` is required, has no default, and rejects `production`** — in the
 CI job, in the Playwright entry point, and in both `apps/api` scripts, which
-additionally refuse any `E2E_USER_EMAIL` outside the `e2e+` namespace. Pointing
-the suite at a stage resets that stage's E2E user data.
+additionally refuse any `E2E_USER_EMAIL` that doesn't both start with `e2e+`
+and use a reserved test domain (`example.com`/`.net`/`.org`, or `.test`,
+`.example`, `.invalid`). The domain half exists because anyone can sign up with
+an email and password: nobody can verify an address that receives no mail, so no
+real account can ever match. Pointing the suite at a stage resets that stage's
+E2E user data.
 
 **Stop `pnpm dev` first.** The suite needs port 5173 and will not reuse a
 server it finds there. Its own build is configured with the E2E Cognito app

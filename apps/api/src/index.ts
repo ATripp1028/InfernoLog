@@ -12,7 +12,11 @@ import collectionsRoutes from './routes/collections'
 import presetsRoutes from './routes/presets'
 import importExportRoutes from './routes/importExport'
 import activityRoutes from './routes/activity'
-import { discordCallbackRoutes, onboardingRoutes } from './routes/auth'
+import {
+  discordCallbackRoutes,
+  onboardingRoutes,
+  passwordSignupRoutes,
+} from './routes/auth'
 import type { HonoVariables } from './types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -34,6 +38,10 @@ app.route('/v1', usersRoutes)
 // Claims-only routes (verified Cognito identity, no User row required) —
 // registered before authMiddleware so they never hit its Prisma-lookup-or-404.
 app.route('/v1', onboardingRoutes)
+
+// Public email-and-password signup (no token exists until the address is
+// verified) — also ahead of authMiddleware.
+app.route('/v1', passwordSignupRoutes)
 
 // Authenticated routes
 app.use('/v1/*', authMiddleware)
