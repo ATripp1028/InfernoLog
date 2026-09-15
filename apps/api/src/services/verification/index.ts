@@ -101,8 +101,10 @@ export interface IssueCodeInput {
  * way keeps the two responses indistinguishable. Just don't send the code.
  *
  * Rate limits are checked against rows from the past hour. Two concurrent
- * requests can each pass the check before either writes, so a burst may exceed
- * a limit by one; the per-route API Gateway throttle bounds anything larger.
+ * requests can each pass the check before either writes, so a concurrent burst
+ * may exceed a limit by up to its size less one; the per-route API Gateway
+ * throttle bounds that. The extra rows cannot extend guessing: `consumeCode`
+ * only ever considers the newest unconsumed code.
  *
  * @returns The plaintext code, wrapped, for the email and nothing else.
  * @throws {VerificationRateLimitedError} When the address or IP is over its hourly limit.
@@ -192,18 +194,22 @@ export async function consumeCode(
   now: Date = new Date()
 ): Promise<boolean> {
   const email = input.email.toLowerCase()
+  // Only the newest unconsumed row is ever a candidate. Expiry and the attempt
+  // limit are checked on it afterwards rather than filtered in the query:
+  // filtering would fall through to an older row that concurrent issueCode
+  // calls left live, handing out a fresh attempt budget per such row.
   const row = await prisma.emailVerification.findFirst({
     where: {
       purpose: input.purpose,
       email,
       userId: input.userId ?? null,
       consumedAt: null,
-      expiresAt: { gt: now },
-      attempts: { lt: MAX_ATTEMPTS },
     },
     orderBy: { createdAt: 'desc' },
   })
-  if (!row) return false
+  if (!row || row.expiresAt <= now || row.attempts >= MAX_ATTEMPTS) {
+    return false
+  }
 
   const expected = Buffer.from(row.codeHash, 'hex')
   const actual = Buffer.from(

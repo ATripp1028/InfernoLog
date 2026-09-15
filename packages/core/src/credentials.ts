@@ -139,6 +139,11 @@ export const PasswordSchema = z
       })
     }
     for (const rule of PASSWORD_RULES) {
+      // Too long is already reported by `.max` above; the length rule's
+      // "at least" message would be wrong for it.
+      if (rule.id === 'length' && password.length > PASSWORD_MAX_LENGTH) {
+        continue
+      }
       if (!rule.test(password)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: rule.message })
       }
