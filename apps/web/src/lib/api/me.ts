@@ -4,6 +4,12 @@ import { ApiError, apiFetch } from './client'
 import { presetsQueryKey } from './presets'
 import { invalidateOnEvent } from './activity'
 import type {
+  ChangePasswordBody,
+  ConnectGoogleBody,
+  PasswordSetupBody,
+  PasswordSetupStartBody,
+} from '@infernolog/core'
+import type {
   AuthProvider,
   DateFormatPreference,
   Device,
@@ -205,6 +211,124 @@ export function useDisconnectDiscord() {
     onSuccess: () => {
       queryClient.setQueryData<MeData>(meQueryKey, (old) =>
         old ? withDiscordIdentity(old, null) : old
+      )
+    },
+  })
+}
+
+// ─────────────────────────────────────────────
+// Sign-in methods — ⚠️ CREDENTIALS: the password hooks carry passwords and
+// codes straight to the API. Never log their inputs or keep them past the call.
+// ─────────────────────────────────────────────
+
+/**
+ * Changes the account's password. The API checks the current one first and,
+ * with `signOutOthers`, revokes every session that signed in with the
+ * password — this one included, if that is how it signed in.
+ */
+export function useChangePassword() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (body: ChangePasswordBody): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/password', { token, method: 'PUT', body })
+    },
+  })
+}
+
+/**
+ * Starts adding a password to an account without one: checks the Google
+ * re-confirmation and, when the chosen email isn't the account's, emails a
+ * code to it.
+ */
+export function useStartPasswordSetup() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (
+      body: PasswordSetupStartBody
+    ): Promise<{ codeRequired: boolean }> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: { codeRequired: boolean } }>(
+        '/v1/me/password/setup/start',
+        { token, method: 'POST', body }
+      )
+      return data
+    },
+  })
+}
+
+/**
+ * Adds the password. The chosen email becomes the account's, so the cached
+ * user is refetched afterwards.
+ */
+export function useCompletePasswordSetup() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: PasswordSetupBody): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/password/setup', { token, method: 'POST', body })
+    },
+    onSuccess: () => {
+      void queryClient.refetchQueries({ queryKey: meQueryKey })
+    },
+  })
+}
+
+/**
+ * Connects the Google account a re-confirmation proved, writing its identity
+ * into the cache from the response.
+ */
+export function useConnectGoogle() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      body: ConnectGoogleBody
+    ): Promise<{ identity: AuthIdentity }> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{ data: { identity: AuthIdentity } }>(
+        '/v1/me/identities/google',
+        { token, method: 'POST', body }
+      )
+      return data
+    },
+    onSuccess: ({ identity }) => {
+      queryClient.setQueryData<MeData>(meQueryKey, (old) =>
+        old ? { ...old, identities: [...old.identities, identity] } : old
+      )
+    },
+  })
+}
+
+/**
+ * Removes a sign-in method. `signedOut` is true when it was the method this
+ * session signed in with, which leaves the session unable to reach the API.
+ */
+export function useRemoveSignInMethod() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (
+      identityId: string
+    ): Promise<{ identityId: string; signedOut: boolean }> => {
+      const token = await getIdToken()
+      const { data } = await apiFetch<{
+        data: { removed: boolean; signedOut: boolean }
+      }>(`/v1/me/identities/${encodeURIComponent(identityId)}`, {
+        token,
+        method: 'DELETE',
+      })
+      return { identityId, signedOut: data.signedOut }
+    },
+    onSuccess: ({ identityId }) => {
+      queryClient.setQueryData<MeData>(meQueryKey, (old) =>
+        old
+          ? {
+              ...old,
+              identities: old.identities.filter((i) => i.id !== identityId),
+            }
+          : old
       )
     },
   })

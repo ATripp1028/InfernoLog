@@ -21,6 +21,8 @@ const { mockSend } = vi.hoisted(() => ({ mockSend: vi.fn() }))
 vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
   class UsernameExistsException extends Error {}
   class InvalidPasswordException extends Error {}
+  class NotAuthorizedException extends Error {}
+  class UserNotFoundException extends Error {}
   const command = (name: string) =>
     class {
       readonly name = name
@@ -33,8 +35,13 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
     AdminCreateUserCommand: command('AdminCreateUser'),
     AdminGetUserCommand: command('AdminGetUser'),
     AdminSetUserPasswordCommand: command('AdminSetUserPassword'),
+    AdminInitiateAuthCommand: command('AdminInitiateAuth'),
+    AdminUserGlobalSignOutCommand: command('AdminUserGlobalSignOut'),
+    AdminDeleteUserCommand: command('AdminDeleteUser'),
     UsernameExistsException,
     InvalidPasswordException,
+    NotAuthorizedException,
+    UserNotFoundException,
   }
 })
 
@@ -42,11 +49,20 @@ const sdk = await import('@aws-sdk/client-cognito-identity-provider')
 const UsernameExists = sdk.UsernameExistsException as unknown as new () => Error
 const InvalidPassword =
   sdk.InvalidPasswordException as unknown as new () => Error
+const NotAuthorized = sdk.NotAuthorizedException as unknown as new (
+  message: string
+) => Error
+const UserNotFound = sdk.UserNotFoundException as unknown as new () => Error
 const {
+  CurrentPasswordIncorrectError,
   PasswordRejectedError,
   PasswordUserExistsError,
+  TooManyPasswordAttemptsError,
   createVerifiedPasswordUser,
+  signOutEverywhere,
+  verifyCurrentPassword,
 } = await import('./passwordUser')
+const { deleteCognitoUserIfExists } = await import('./client')
 const { Sensitive } = await import('../../utils/sensitive')
 
 const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
@@ -180,5 +196,82 @@ describe('createVerifiedPasswordUser', () => {
     await expect(
       createVerifiedPasswordUser(EMAIL, new Sensitive(PASSWORD))
     ).rejects.toThrow('COGNITO_USER_POOL_ID is not set')
+  })
+})
+
+describe('verifyCurrentPassword', () => {
+  beforeEach(() => vi.stubEnv('COGNITO_SERVER_CLIENT_ID', 'server-client'))
+
+  it('checks through the server client and returns on success', async () => {
+    mockSend.mockResolvedValue({ ChallengeName: 'NEW_PASSWORD_REQUIRED' })
+
+    await expect(
+      verifyCurrentPassword(EMAIL, new Sensitive(PASSWORD))
+    ).resolves.toBeUndefined()
+    expect(sent()[0]).toMatchObject({
+      name: 'AdminInitiateAuth',
+      input: {
+        ClientId: 'server-client',
+        AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
+        AuthParameters: { USERNAME: EMAIL, PASSWORD },
+      },
+    })
+  })
+
+  it.each([
+    [
+      'a wrong password',
+      new NotAuthorized('Incorrect username or password.'),
+      CurrentPasswordIncorrectError,
+    ],
+    [
+      'the lockout',
+      new NotAuthorized('Password attempts exceeded'),
+      TooManyPasswordAttemptsError,
+    ],
+    [
+      'a missing native user',
+      new UserNotFound(),
+      CurrentPasswordIncorrectError,
+    ],
+  ])('translates %s', async (_label, rejection, expected) => {
+    mockSend.mockRejectedValue(rejection)
+    const error = await verifyCurrentPassword(
+      EMAIL,
+      new Sensitive(PASSWORD)
+    ).catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(expected)
+    expect(String(error)).not.toContain(PASSWORD)
+  })
+
+  it('rethrows anything else, and needs the server client configured', async () => {
+    mockSend.mockRejectedValue(new Error('throttled'))
+    await expect(
+      verifyCurrentPassword(EMAIL, new Sensitive(PASSWORD))
+    ).rejects.toThrow('throttled')
+
+    vi.stubEnv('COGNITO_SERVER_CLIENT_ID', '')
+    await expect(
+      verifyCurrentPassword(EMAIL, new Sensitive(PASSWORD))
+    ).rejects.toThrow('COGNITO_SERVER_CLIENT_ID is not set')
+  })
+})
+
+describe('signOutEverywhere and deleteCognitoUserIfExists', () => {
+  it('signs out every session of the native user', async () => {
+    mockSend.mockResolvedValue({})
+    await signOutEverywhere(EMAIL)
+    expect(sent()[0]).toMatchObject({
+      name: 'AdminUserGlobalSignOut',
+      input: { UserPoolId: 'pool-1', Username: EMAIL },
+    })
+  })
+
+  it('treats an already-deleted user as success and rethrows other failures', async () => {
+    mockSend.mockRejectedValueOnce(new UserNotFound())
+    await expect(deleteCognitoUserIfExists('sub-1')).resolves.toBeUndefined()
+
+    mockSend.mockRejectedValueOnce(new Error('down'))
+    await expect(deleteCognitoUserIfExists('sub-1')).rejects.toThrow('down')
   })
 })

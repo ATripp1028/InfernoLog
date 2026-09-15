@@ -62,6 +62,9 @@ importers:
       '@sentry/node':
         specifier: ^10.49.0
         version: 10.49.0
+      aws-jwt-verify:
+        specifier: ^5.2.1
+        version: 5.2.1
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -4073,6 +4076,10 @@ packages:
 
   aws-amplify@6.20.0:
     resolution: {integrity: sha512-VXf7IODV1Sil+DTGU7AFccFlD7VMg671o3s9frH/FSRr6/P9PjWydvdFUZFtbzlI0Ow0RT0/7O76kmIdEirPSw==}
+
+  aws-jwt-verify@5.2.1:
+    resolution: {integrity: sha512-J+buA4M+qvQDk58WXFBLkDodkEX3DDL1ac5XFQPW3opxAsaLXYu5hYnlSHsaBRDBUXBAn695kE/cw/mdyJKwJg==}
+    engines: {node: '>=18.0.0'}
 
   aws4fetch@1.0.18:
     resolution: {integrity: sha512-3Cf+YaUl07p24MoQ46rFwulAmiyCwH2+1zw1ZyPAX5OtJ34Hh185DwB8y/qRLb6cYYYtSFJ9pthyLc0MD4e8sQ==}
@@ -10499,6 +10506,8 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - '@aws-amplify/react-native'
+
+  aws-jwt-verify@5.2.1: {}
 
   aws4fetch@1.0.18: {}
 

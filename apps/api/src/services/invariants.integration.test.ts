@@ -34,6 +34,16 @@ vi.mock('@sentry/aws-serverless', () => ({
   captureException: vi.fn(),
   captureMessage: vi.fn(),
 }))
+// Removing a sign-in method deletes its Cognito user; nothing here reaches AWS.
+vi.mock('@aws-sdk/client-cognito-identity-provider', () => ({
+  CognitoIdentityProviderClient: class {
+    send = vi.fn(async () => ({}))
+  },
+  AdminDeleteUserCommand: class {
+    constructor(public input: unknown) {}
+  },
+  UserNotFoundException: class extends Error {},
+}))
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
@@ -72,6 +82,7 @@ vi.mock('./importExport/import/levelResolution', async (importOriginal) => ({
 }))
 
 const { default: onboardingApp } = await import('../routes/auth/onboarding')
+const { default: accountApp } = await import('../routes/account/index')
 const { default: loggingApp } = await import('../routes/progress/index')
 const { default: rankingApp } = await import('../routes/demonList/index')
 const { default: collectionsApp } = await import('../routes/collections/index')
@@ -133,6 +144,27 @@ async function expectPasswordEmailIsAccountEmail() {
     JOIN "users" u ON u.id = ai."userId"
     WHERE ai.provider = 'PASSWORD'
       AND ai.email IS DISTINCT FROM u.email
+  `
+  expect(rows).toEqual([])
+}
+
+/**
+ * Fails if ANY onboarded account has no identity it can sign in with.
+ *
+ * Removing a sign-in method is the only write that can break this, and
+ * DELETE /v1/me/identities/:id refuses the last one under a row lock. An
+ * account still mid-onboarding is exempt only because test seeds create bare
+ * rows; every real account is created with its signing-up identity.
+ */
+async function expectEveryAccountCanSignIn() {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT u.id
+    FROM "users" u
+    WHERE u."onboardingCompleted"
+      AND NOT EXISTS (
+        SELECT 1 FROM "auth_identities" ai
+        WHERE ai."userId" = u.id AND ai."cognitoSub" IS NOT NULL
+      )
   `
   expect(rows).toEqual([])
 }
@@ -365,6 +397,19 @@ describe('the invariant sweeps', () => {
   // A sweep that cannot fail is worse than no sweep — it reads as protection
   // while asserting nothing. These plant a violation directly through Prisma,
   // bypassing every service, and check the sweep notices.
+
+  it('expectEveryAccountCanSignIn catches an onboarded account left with no sign-in', async () => {
+    const user = await seedUser(prisma)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingCompleted: true },
+    })
+    await prisma.authIdentity.create({
+      data: { userId: user.id, provider: 'DISCORD', providerAccountId: '1' },
+    })
+
+    await expect(expectEveryAccountCanSignIn()).rejects.toThrow()
+  })
 
   it('expectPasswordEmailIsAccountEmail catches a planted mismatch', async () => {
     const user = await seedUser(prisma, { email: 'account@example.com' })
@@ -916,5 +961,33 @@ describe("INVARIANT: a PASSWORD identity's email is its account's email", () => 
       })
     ).resolves.toMatchObject({ provider: 'PASSWORD' })
     await expectPasswordEmailIsAccountEmail()
+  })
+})
+
+describe('INVARIANT: every account keeps a way to sign in', () => {
+  it('holds when removal of the last sign-in method is attempted', async () => {
+    vi.stubEnv('COGNITO_USER_POOL_ID', 'pool-1')
+    const user = await seedUser(prisma)
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { onboardingCompleted: true },
+    })
+    const google = await prisma.authIdentity.create({
+      data: { userId: user.id, provider: 'GOOGLE', cognitoSub: 'sub-g' },
+    })
+    const password = await prisma.authIdentity.create({
+      data: { userId: user.id, provider: 'PASSWORD', cognitoSub: 'sub-p' },
+    })
+
+    const remove = (id: string) =>
+      buildApp(accountApp, { userId: user.id }).request(
+        `/me/identities/${id}`,
+        { method: 'DELETE' },
+        { requestContext: {} }
+      )
+    expect((await remove(google.id)).status).toBe(200)
+    expect((await remove(password.id)).status).toBe(409)
+
+    await expectEveryAccountCanSignIn()
   })
 })

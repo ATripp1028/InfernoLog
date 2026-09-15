@@ -15,6 +15,12 @@
 //                 POST   /v1/me/gddl-lists-sync
 //   discord.ts    POST   /v1/me/connect-discord
 //                 DELETE /v1/me/connect-discord
+//   password.ts   PUT    /v1/me/password
+//                 POST   /v1/me/password/setup/start
+//                 POST   /v1/me/password/setup
+//   signInMethods.ts
+//                 POST   /v1/me/identities/google
+//                 DELETE /v1/me/identities/:id
 //
 // serialize.ts holds the shared `me` select and its serializer — the single
 // place that strips the stored GDDL key's ciphertext from responses.
@@ -32,6 +38,8 @@ import ratingsRoutes from './ratings'
 import gddlKeyRoutes from './gddlKey'
 import gddlSyncRoutes from './gddlSync'
 import discordRoutes from './discord'
+import passwordRoutes from './password'
+import signInMethodRoutes from './signInMethods'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -42,5 +50,7 @@ app.route('/', ratingsRoutes)
 app.route('/', gddlKeyRoutes)
 app.route('/', gddlSyncRoutes)
 app.route('/', discordRoutes)
+app.route('/', passwordRoutes)
+app.route('/', signInMethodRoutes)
 
 export default app
