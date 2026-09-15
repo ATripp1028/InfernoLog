@@ -69,6 +69,25 @@ export const ConnectGoogleSchema = z.object({
 export type ConnectGoogleBody = z.infer<typeof ConnectGoogleSchema>
 
 /**
+ * POST /v1/me/email/start. Proves who is asking with the current password when
+ * the account has one, and with a fresh Google proof when it doesn't — the
+ * route decides which is required.
+ */
+export const EmailChangeStartSchema = z.object({
+  newEmail: EmailSchema,
+  currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH).optional(),
+  googleProof: GoogleProofSchema.optional(),
+})
+export type EmailChangeStartBody = z.infer<typeof EmailChangeStartSchema>
+
+/** POST /v1/me/email/verify */
+export const EmailChangeVerifySchema = z.object({
+  newEmail: EmailSchema,
+  verificationCode: VerificationCodeSchema,
+})
+export type EmailChangeVerifyBody = z.infer<typeof EmailChangeVerifySchema>
+
+/**
  * Machine-readable `code` values on auth route errors, which the frontend
  * branches on. The `error` string beside each is for display.
  */
@@ -97,5 +116,7 @@ export const AuthErrorCode = {
   CONNECTED_ELSEWHERE: 'CONNECTED_ELSEWHERE',
   /** Removing this would leave the account with no way to sign in. */
   LAST_SIGN_IN_METHOD: 'LAST_SIGN_IN_METHOD',
+  /** The new email is already the account's email. */
+  SAME_EMAIL: 'SAME_EMAIL',
 } as const
 export type AuthErrorCode = (typeof AuthErrorCode)[keyof typeof AuthErrorCode]

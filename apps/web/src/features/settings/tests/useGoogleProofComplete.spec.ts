@@ -58,6 +58,21 @@ describe('useGoogleProofComplete', () => {
     expect(mocks.completeGoogleProof).toHaveBeenCalledTimes(1)
   })
 
+  it('keeps an email-change proof for its dialog', async () => {
+    mocks.completeGoogleProof.mockResolvedValue({
+      purpose: 'email-change',
+      idToken: 'id-token',
+    })
+
+    renderHook(() => useGoogleProofComplete(search))
+
+    await leftWith({ google: 'reconfirmed' })
+    expect(mocks.storeGoogleProof).toHaveBeenCalledWith(
+      'email-change',
+      'id-token'
+    )
+  })
+
   it('keeps a password-setup proof for the form instead of using it', async () => {
     mocks.completeGoogleProof.mockResolvedValue({
       purpose: 'password-setup',

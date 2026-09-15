@@ -47,6 +47,7 @@ import {
   PasswordUserExistsError,
   createVerifiedPasswordUser,
 } from '../../services/cognito/passwordUser'
+import { frontendUrl } from '../../utils/frontendUrl'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -80,10 +81,6 @@ app.onError(
     return undefined
   })
 )
-
-function frontendUrl(): string {
-  return process.env.FRONTEND_URL ?? 'https://infernolog.com'
-}
 
 async function accountHasEmail(email: string): Promise<boolean> {
   const user = await prisma.user.findUnique({

@@ -49,8 +49,20 @@ export interface OrderingData<
  * optimistic move.
  */
 export interface OrderingWrites {
-  place: { mutate: (v: { levelProgressId: string; aboveId?: string; belowId?: string }) => void }
-  reorder: { mutate: (v: { levelProgressId: string; aboveId?: string; belowId?: string }) => void }
+  place: {
+    mutate: (v: {
+      levelProgressId: string
+      aboveId?: string
+      belowId?: string
+    }) => void
+  }
+  reorder: {
+    mutate: (v: {
+      levelProgressId: string
+      aboveId?: string
+      belowId?: string
+    }) => void
+  }
   unplace: { mutate: (levelProgressId: string) => void }
   reorderMutationKey: readonly unknown[]
 }

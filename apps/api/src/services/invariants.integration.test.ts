@@ -35,14 +35,36 @@ vi.mock('@sentry/aws-serverless', () => ({
   captureMessage: vi.fn(),
 }))
 // Removing a sign-in method deletes its Cognito user; nothing here reaches AWS.
-vi.mock('@aws-sdk/client-cognito-identity-provider', () => ({
-  CognitoIdentityProviderClient: class {
-    send = vi.fn(async () => ({}))
+vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
+  const command = class {
+    constructor(public input: unknown) {}
+  }
+  return {
+    CognitoIdentityProviderClient: class {
+      send = vi.fn(async () => ({}))
+    },
+    AdminDeleteUserCommand: command,
+    AdminInitiateAuthCommand: command,
+    AdminUpdateUserAttributesCommand: command,
+    AdminGetUserCommand: command,
+    AdminCreateUserCommand: command,
+    AdminSetUserPasswordCommand: command,
+    AdminUserGlobalSignOutCommand: command,
+    UserNotFoundException: class extends Error {},
+    NotAuthorizedException: class extends Error {},
+    AliasExistsException: class extends Error {},
+    UsernameExistsException: class extends Error {},
+    InvalidPasswordException: class extends Error {},
+  }
+})
+const { mockSesSend } = vi.hoisted(() => ({ mockSesSend: vi.fn() }))
+vi.mock('@aws-sdk/client-sesv2', () => ({
+  SESv2Client: class {
+    send = mockSesSend
   },
-  AdminDeleteUserCommand: class {
+  SendEmailCommand: class {
     constructor(public input: unknown) {}
   },
-  UserNotFoundException: class extends Error {},
 }))
 vi.mock('../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
@@ -989,5 +1011,58 @@ describe('INVARIANT: every account keeps a way to sign in', () => {
     expect((await remove(password.id)).status).toBe(409)
 
     await expectEveryAccountCanSignIn()
+  })
+})
+
+describe("INVARIANT: a PASSWORD identity's email is its account's email", () => {
+  it('holds after an email change moves the account and its sign-in', async () => {
+    vi.stubEnv('COGNITO_USER_POOL_ID', 'pool-1')
+    vi.stubEnv('COGNITO_SERVER_CLIENT_ID', 'server-client')
+    vi.stubEnv('VERIFICATION_CODE_SECRET', 'test-hmac-key-not-a-real-secret')
+    vi.stubEnv('EMAIL_FROM', 'InfernoLog <no-reply@infernolog.com>')
+    vi.stubEnv(
+      'SES_IDENTITY_ARN',
+      'arn:aws:ses:us-east-1:0:identity/infernolog.com'
+    )
+    mockSesSend.mockReset().mockResolvedValue({})
+
+    const user = await seedUser(prisma, { email: 'before@example.com' })
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'PASSWORD',
+        cognitoSub: 'sub-p',
+        email: 'before@example.com',
+      },
+    })
+    const post = (path: string, body: unknown) =>
+      buildApp(accountApp, { userId: user.id }).request(
+        path,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        },
+        { requestContext: {} }
+      )
+
+    await post('/me/email/start', {
+      newEmail: 'after@example.com',
+      currentPassword: 'Leak-Canary-Pa55!invariant',
+    })
+    const text = (
+      mockSesSend.mock.lastCall?.[0] as {
+        input: { Content: { Simple: { Body: { Text: { Data: string } } } } }
+      }
+    ).input.Content.Simple.Body.Text.Data
+    const verificationCode = /\b(\d{6})\b/.exec(text)?.[1]
+
+    const res = await post('/me/email/verify', {
+      newEmail: 'after@example.com',
+      verificationCode,
+    })
+    expect(res.status).toBe(200)
+
+    await expectPasswordEmailIsAccountEmail()
   })
 })

@@ -31,7 +31,10 @@ const CALLBACK_PATH = '/auth/google-proof'
 export const PROOF_TTL_MS = 4.5 * 60 * 1000
 
 /** What a re-confirmation is for, which decides where the callback goes next. */
-export type GoogleProofPurpose = 'connect-google' | 'password-setup'
+export type GoogleProofPurpose =
+  | 'connect-google'
+  | 'password-setup'
+  | 'email-change'
 
 interface Pending {
   purpose: GoogleProofPurpose

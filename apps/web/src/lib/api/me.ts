@@ -6,6 +6,8 @@ import { invalidateOnEvent } from './activity'
 import type {
   ChangePasswordBody,
   ConnectGoogleBody,
+  EmailChangeStartBody,
+  EmailChangeVerifyBody,
   PasswordSetupBody,
   PasswordSetupStartBody,
 } from '@infernolog/core'
@@ -330,6 +332,39 @@ export function useRemoveSignInMethod() {
             }
           : old
       )
+    },
+  })
+}
+
+/**
+ * Starts changing the account email: proves who is asking (current password,
+ * or a Google proof for an account without one) and emails a code to the new
+ * address. ⚠️ CREDENTIALS — carries the current password.
+ */
+export function useStartEmailChange() {
+  const { getIdToken } = useAuth()
+  return useMutation({
+    mutationFn: async (body: EmailChangeStartBody): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/email/start', { token, method: 'POST', body })
+    },
+  })
+}
+
+/**
+ * Finishes changing the account email with the emailed code, then refetches
+ * the cached user. ⚠️ CREDENTIALS — carries the code.
+ */
+export function useVerifyEmailChange() {
+  const { getIdToken } = useAuth()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (body: EmailChangeVerifyBody): Promise<void> => {
+      const token = await getIdToken()
+      await apiFetch('/v1/me/email/verify', { token, method: 'POST', body })
+    },
+    onSuccess: () => {
+      void queryClient.refetchQueries({ queryKey: meQueryKey })
     },
   })
 }
