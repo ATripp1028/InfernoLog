@@ -18,6 +18,9 @@ export interface SignInMethodRow {
   providerName: string
   // What the row identifies the account by: the email the provider asserted.
   identifier: string | null
+  // Whether it can be removed: only while another way to sign in remains. The
+  // API enforces the same rule; this only decides whether to offer it.
+  canRemove: boolean
 }
 
 /**
@@ -30,14 +33,36 @@ export interface SignInMethodRow {
 export function signInMethodRows(
   identities: AuthIdentity[]
 ): SignInMethodRow[] {
-  return identities
-    .filter((identity) => identity.canSignIn)
-    .map((identity) => ({
-      id: identity.id,
-      provider: identity.provider,
-      providerName: PROVIDER_NAMES[identity.provider],
-      identifier: identity.email,
-    }))
+  const signIns = identities.filter((identity) => identity.canSignIn)
+  return signIns.map((identity) => ({
+    id: identity.id,
+    provider: identity.provider,
+    providerName: PROVIDER_NAMES[identity.provider],
+    identifier: identity.email,
+    canRemove: signIns.length > 1,
+  }))
+}
+
+/**
+ * Whether the account can sign in with Google — when it can't, the list offers
+ * to connect a Google account instead.
+ */
+export function hasGoogleSignIn(identities: AuthIdentity[]): boolean {
+  return identities.some(
+    (identity) => identity.provider === 'GOOGLE' && identity.canSignIn
+  )
+}
+
+/**
+ * The account's email-and-password sign-in, or undefined when it has none —
+ * which decides whether Settings offers to change a password or add one.
+ */
+export function findPasswordIdentity(
+  identities: AuthIdentity[]
+): AuthIdentity | undefined {
+  return identities.find(
+    (identity) => identity.provider === 'PASSWORD' && identity.canSignIn
+  )
 }
 
 /**

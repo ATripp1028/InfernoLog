@@ -43,6 +43,7 @@
     "@prisma/client": "5.22.0",
     "@sentry/aws-serverless": "^10.49.0",
     "@sentry/node": "^10.49.0",
+    "aws-jwt-verify": "^5.2.1",
     "dotenv": "^17.4.2",
     "hono": "^4.13.5",
     "pino": "^10.3.1",

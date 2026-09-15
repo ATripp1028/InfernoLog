@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthIdentity } from '@/lib/api/me'
-import { discordIdentifier, signInMethodRows } from '../connectedAccounts'
+import {
+  discordIdentifier,
+  findPasswordIdentity,
+  hasGoogleSignIn,
+  signInMethodRows,
+} from '../connectedAccounts'
 
 // The Connected accounts list used to hard-code one Google row showing the
 // account's email as "Primary login", whatever the account actually signed in
@@ -39,12 +44,14 @@ describe('signInMethodRows', () => {
         provider: 'GOOGLE',
         providerName: 'Google',
         identifier: 'player@gmail.com',
+        canRemove: true,
       },
       {
         id: 'pw-1',
         provider: 'PASSWORD',
         providerName: 'Email and password',
         identifier: 'e2e+x@test.dev',
+        canRemove: true,
       },
     ])
   })
@@ -74,5 +81,25 @@ describe('discordIdentifier', () => {
 
   it('is null when no Discord account is linked', () => {
     expect(discordIdentifier([identity()])).toBeNull()
+  })
+})
+
+describe('removing and adding sign-in methods', () => {
+  const password = identity({ id: 'pw-1', provider: 'PASSWORD' })
+
+  it('offers removal only while another way to sign in remains', () => {
+    expect(
+      signInMethodRows([identity(), discord]).map((r) => r.canRemove)
+    ).toEqual([false])
+    expect(
+      signInMethodRows([identity(), password]).map((r) => r.canRemove)
+    ).toEqual([true, true])
+  })
+
+  it('knows whether Google and a password are already sign-in methods', () => {
+    expect(hasGoogleSignIn([password, discord])).toBe(false)
+    expect(hasGoogleSignIn([identity()])).toBe(true)
+    expect(findPasswordIdentity([identity()])).toBeUndefined()
+    expect(findPasswordIdentity([identity(), password])?.id).toBe('pw-1')
   })
 })

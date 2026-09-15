@@ -11,24 +11,18 @@
 import {
   AdminCreateUserCommand,
   AdminGetUserCommand,
+  AdminInitiateAuthCommand,
   AdminSetUserPasswordCommand,
-  CognitoIdentityProviderClient,
+  AdminUserGlobalSignOutCommand,
   InvalidPasswordException,
+  NotAuthorizedException,
+  UserNotFoundException,
   UsernameExistsException,
 } from '@aws-sdk/client-cognito-identity-provider'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import type { Sensitive } from '../../utils/sensitive'
-
-const cognito = new CognitoIdentityProviderClient({
-  region: process.env.AWS_REGION ?? 'us-east-1',
-})
-
-function userPoolId(): string {
-  const id = process.env.COGNITO_USER_POOL_ID
-  if (!id) throw new Error('COGNITO_USER_POOL_ID is not set')
-  return id
-}
+import { cognito, userPoolId } from './client'
 
 /**
  * The address already has a native Cognito user that an account signs in with.
@@ -110,13 +104,30 @@ export async function createVerifiedPasswordUser(
     logger.info({ cognitoSub }, 'Taking over an orphaned native Cognito user')
   }
 
+  await setPermanentPassword(email, password)
+
+  cognitoSub ??= await subForUsername(email)
+  return { cognitoSub }
+}
+
+/**
+ * Replaces a native user's password.
+ *
+ * @param email - The native user's sign-in email.
+ * @param password - The new password, already validated against the policy.
+ * @throws {PasswordRejectedError} When Cognito refuses the password.
+ */
+export async function setPermanentPassword(
+  email: string,
+  password: Sensitive
+): Promise<void> {
   try {
     await cognito.send(
       new AdminSetUserPasswordCommand({
         UserPoolId: userPoolId(),
         Username: email,
         Password: password.reveal(),
-        // Permanent, so the first sign-in returns tokens rather than a
+        // Permanent, so the next sign-in returns tokens rather than a
         // NEW_PASSWORD_REQUIRED challenge.
         Permanent: true,
       })
@@ -127,7 +138,83 @@ export async function createVerifiedPasswordUser(
     }
     throw err
   }
+}
 
-  cognitoSub ??= await subForUsername(email)
-  return { cognitoSub }
+/** The password given to confirm a change was wrong. Carries no part of it. */
+export class CurrentPasswordIncorrectError extends Error {
+  constructor() {
+    super('The current password was incorrect')
+    this.name = 'CurrentPasswordIncorrectError'
+  }
+}
+
+/**
+ * Cognito has temporarily locked password checks for this user after repeated
+ * failures. This lockout is what rate-limits guessing through
+ * PUT /v1/me/password: it is per user, and it grows with each failure.
+ */
+export class TooManyPasswordAttemptsError extends Error {
+  constructor() {
+    super('Too many password attempts for this user')
+    this.name = 'TooManyPasswordAttemptsError'
+  }
+}
+
+/**
+ * Checks a native user's current password, through the server-only app client
+ * (`ADMIN_USER_PASSWORD_AUTH`, which needs IAM to call). The tokens a correct
+ * password produces are discarded unread.
+ *
+ * @param email - The native user's sign-in email.
+ * @param password - The password to check.
+ * @throws {CurrentPasswordIncorrectError} When it is wrong.
+ * @throws {TooManyPasswordAttemptsError} When Cognito has locked checks.
+ */
+export async function verifyCurrentPassword(
+  email: string,
+  password: Sensitive
+): Promise<void> {
+  const clientId = process.env.COGNITO_SERVER_CLIENT_ID
+  if (!clientId) throw new Error('COGNITO_SERVER_CLIENT_ID is not set')
+  try {
+    // A challenge in the response still means the password was accepted;
+    // nothing here continues it.
+    await cognito.send(
+      new AdminInitiateAuthCommand({
+        UserPoolId: userPoolId(),
+        ClientId: clientId,
+        AuthFlow: 'ADMIN_USER_PASSWORD_AUTH',
+        AuthParameters: { USERNAME: email, PASSWORD: password.reveal() },
+      })
+    )
+  } catch (err) {
+    if (err instanceof NotAuthorizedException) {
+      // Cognito uses the one exception for both; only the message differs,
+      // and the message never contains the password.
+      throw /attempts exceeded/i.test(err.message)
+        ? new TooManyPasswordAttemptsError()
+        : new CurrentPasswordIncorrectError()
+    }
+    if (err instanceof UserNotFoundException) {
+      throw new CurrentPasswordIncorrectError()
+    }
+    throw err
+  }
+}
+
+/**
+ * Revokes every refresh token a native user holds, signing out every session
+ * that signed in with the password — including the caller's own, if that is
+ * how they signed in. Sessions of the account's other sign-in methods are
+ * separate Cognito users and are untouched.
+ *
+ * @param email - The native user's sign-in email.
+ */
+export async function signOutEverywhere(email: string): Promise<void> {
+  await cognito.send(
+    new AdminUserGlobalSignOutCommand({
+      UserPoolId: userPoolId(),
+      Username: email,
+    })
+  )
 }

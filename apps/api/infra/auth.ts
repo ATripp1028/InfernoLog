@@ -152,13 +152,24 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
     // spending a code they cannot see, but anything listening on the victim's
     // localhost:5173 — another dev server, a random local tool — can see it.
     // Production has no reason to accept a loopback redirect, so it doesn't.
+    //
+    // /auth/google-proof receives the Google re-confirmation Settings runs
+    // outside Amplify (web lib/googleProof.ts), so it never disturbs the
+    // account's own session. Same PKCE protection, same stage split.
     callbackUrls: [
       'https://infernolog.com/auth/callback',
+      'https://infernolog.com/auth/google-proof',
       ...($app.stage !== 'production'
-        ? ['http://localhost:5173/auth/callback']
+        ? [
+            'http://localhost:5173/auth/callback',
+            'http://localhost:5173/auth/google-proof',
+          ]
         : []),
       ...($app.stage !== 'production' && $app.stage !== 'alextripp'
-        ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
+        ? [
+            `https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`,
+            `https://d1r4gy6uhfg2w9.cloudfront.net/auth/google-proof`,
+          ]
         : []),
     ],
     // /signup is where a Google signup lands after being refused because its

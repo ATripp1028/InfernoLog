@@ -18,6 +18,7 @@ import { RatingSection } from '@/components/inputs/RatingSection'
 import { DesignSection } from '@/features/settings/sections/DesignSection'
 import { DangerZoneSection } from '@/features/settings/sections/DangerZoneSection'
 import { useSettingsSaveNotifier } from '@/features/settings/hooks/useSettingsSaveNotifier'
+import { googleErrorMessage } from '@/features/settings/googleResultMessage'
 import { ImportStatusPanel } from '@/features/import/ImportStatusPanel'
 import {
   Sheet,
@@ -37,6 +38,7 @@ export function Settings() {
   const importStatus = useImportStatus()
   const search = useSearch({ from: '/_authenticated/settings' }) as {
     discord?: 'connected' | 'error'
+    google?: 'connected' | 'error' | 'reconfirmed'
     reason?: string
     importStatus?: true
   }
@@ -73,6 +75,27 @@ export function Settings() {
     }
     void navigate({ to: '/settings', replace: true, search: {} })
   }, [search.discord, search.reason, navigate, queryClient])
+
+  // The same one-toast guard, for the Google re-confirmation callback. A
+  // `reconfirmed` result needs no toast: the password form picks the stored
+  // proof up on its own.
+  const handledGoogleResultRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (!search.google) {
+      handledGoogleResultRef.current = null
+      return
+    }
+    const resultKey = `${search.google}:${search.reason ?? ''}`
+    if (handledGoogleResultRef.current === resultKey) return
+    handledGoogleResultRef.current = resultKey
+    if (search.google === 'connected') {
+      toast.success('Google account connected')
+    } else if (search.google === 'error') {
+      toast.error(googleErrorMessage(search.reason))
+    }
+    void navigate({ to: '/settings', replace: true, search: {} })
+  }, [search.google, search.reason, navigate])
 
   useEffect(() => {
     if (!search.importStatus) return

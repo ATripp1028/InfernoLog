@@ -6,15 +6,11 @@
 // normal authMiddleware would apply.
 
 import { Hono } from 'hono'
-import {
-  CognitoIdentityProviderClient,
-  AdminDeleteUserCommand,
-  UserNotFoundException,
-} from '@aws-sdk/client-cognito-identity-provider'
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import { getVerifiedClaims } from '../../middleware/auth'
 import { createErrorHandler } from '../../middleware/errors'
+import { deleteCognitoUserIfExists } from '../../services/cognito/client'
 import { AuthErrorCode } from '@infernolog/core'
 import { SignupEmailTakenError, createUserForSignup } from '../../services/user'
 import {
@@ -26,10 +22,6 @@ import type { HonoVariables } from '../../types/hono'
 const app = new Hono<{ Variables: HonoVariables }>()
 
 app.onError(createErrorHandler('Onboarding'))
-
-const cognito = new CognitoIdentityProviderClient({
-  region: process.env.AWS_REGION ?? 'us-east-1',
-})
 
 // POST /v1/auth/signup/start — creates the InfernoLog `users` row for a
 // confirmed (age-gated) sign-up, for either sign-in method: a Google identity
@@ -74,7 +66,7 @@ app.post('/auth/signup/start', async (c) => {
     user = await createUserForSignup(claims.email, claims.sub, provider)
   } catch (error) {
     if (!(error instanceof SignupEmailTakenError)) throw error
-    await discardCognitoUser(claims.sub)
+    await deleteCognitoUserIfExists(claims.sub)
     logger.info(
       { sub: claims.sub },
       'Discarded Cognito identity (signup, email belongs to another account)'
@@ -94,23 +86,6 @@ app.post('/auth/signup/start', async (c) => {
     200
   )
 })
-
-/**
- * Deletes a Cognito user that no account will own, treating one already gone
- * as success (a concurrent request got there first).
- */
-async function discardCognitoUser(sub: string): Promise<void> {
-  try {
-    await cognito.send(
-      new AdminDeleteUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        Username: sub,
-      })
-    )
-  } catch (err) {
-    if (!(err instanceof UserNotFoundException)) throw err
-  }
-}
 
 // POST /v1/auth/signin/reject — called when a Sign In attempt finds no
 // matching InfernoLog user for the just-completed Google OAuth identity.
@@ -134,7 +109,7 @@ app.post('/auth/signin/reject', async (c) => {
   }
 
   // A double-click race (a concurrent reject already deleted it) is success.
-  await discardCognitoUser(claims.sub)
+  await deleteCognitoUserIfExists(claims.sub)
 
   logger.info(
     { sub: claims.sub },

@@ -33,11 +33,12 @@ entropy = 3.0
 keywords = ["password", "passwd", "pwd", "verificationcode"]
 
 [[rules.allowlists]]
-description = "Known non-secrets: PASSWORD_SYMBOLS (Cognito's symbol list) and React component displayName assignments (PasswordInput.displayName = 'PasswordInput')"
+description = "Known non-secrets: PASSWORD_SYMBOLS (Cognito's symbol list), React component displayName assignments (PasswordInput.displayName = 'PasswordInput'), and UPPER_SNAKE_CASE code constants (NO_PASSWORD: 'NO_PASSWORD')"
 regexTarget = "line"
 regexes = [
   '''export const PASSWORD_SYMBOLS\s*=''',
   '''^\s*\w+\.displayName\s*=\s*['"`]\w+['"`]\s*$''',
+  '''^\s*[A-Z][A-Z0-9_]*:\s*['"][A-Z][A-Z0-9_]*['"],?\s*$''',
 ]
 
 [[rules]]

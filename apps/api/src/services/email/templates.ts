@@ -79,7 +79,7 @@ export function existingAccountEmail(appUrl: string): EmailContent {
   const signIn = `${appUrl}/signin`
   const reset = `${appUrl}/forgot-password`
   const lead =
-    'Someone tried to use this email address for a new InfernoLog account, but it already belongs to one.'
+    'Someone tried to use this email address on InfernoLog, but it already belongs to an account.'
   const action =
     'If that was you, sign in instead, or reset your password if you’ve forgotten it.'
   const ignore =
