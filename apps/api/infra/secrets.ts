@@ -14,3 +14,11 @@ export const DISCORD_CLIENT_SECRET = new sst.Secret('DISCORD_CLIENT_SECRET')
 // for why the two lifecycles are worth keeping apart. Set it like any other:
 //   npx sst secret set DISCORD_STATE_SECRET "$(openssl rand -hex 32)"
 export const DISCORD_STATE_SECRET = new sst.Secret('DISCORD_STATE_SECRET')
+// ⚠️ CREDENTIALS — the HMAC key for emailed verification codes and requesters'
+// source IPs (src/services/verification). Rotating it invalidates every code
+// currently in flight and resets IP rate-limit history, and nothing else.
+// Never commit it. Set it per stage before deploying:
+//   npx sst secret set VERIFICATION_CODE_SECRET "$(openssl rand -hex 32)" --stage <stage>
+export const VERIFICATION_CODE_SECRET = new sst.Secret(
+  'VERIFICATION_CODE_SECRET'
+)

@@ -387,7 +387,10 @@ model User {
   previousUsername      String?
   // The account's own address. Not how the account is found: sign-in goes
   // through authIdentities, and each identity records the email its provider
-  // asserted separately.
+  // asserted separately. Always lowercase — a CHECK constraint in the
+  // lowercase_emails migration enforces it, so normalize (core's EmailSchema)
+  // before writing. When the account has a PASSWORD identity, this is also
+  // that identity's sign-in email and the two change together.
   email                 String    @unique
   onboardingCompleted   Boolean   @default(false)
   // Set when the user checks "I agree" on the combined ToS/Privacy Policy
@@ -469,6 +472,7 @@ model User {
   banAppealsReviewed  BanAppeal[]        @relation("ReviewedByRelation")
   activityLog         ActivityLog[]
   authIdentities      AuthIdentity[]
+  emailVerifications  EmailVerification[]
 
   @@map("users")
 }
@@ -505,6 +509,7 @@ model AuthIdentity {
   // of what the provider said, not the account's address (User.email). The two
   // can disagree once an account has more than one provider, and a provider's
   // email is not always verified, so this is never used to match accounts.
+  // Always lowercase (CHECK constraint, lowercase_emails migration).
   email             String?
   createdAt         DateTime     @default(now())
 
@@ -513,6 +518,68 @@ model AuthIdentity {
   @@unique([provider, providerAccountId])
   @@index([userId])
   @@map("auth_identities")
+}
+
+// What an EmailVerification code proves ownership of an address for.
+//
+// There is deliberately no password-reset purpose. Forgot password is Cognito's
+// own ForgotPassword / ConfirmForgotPassword flow, called from the browser:
+// Cognito issues, sends (through our SES identity, via the pool's
+// emailConfiguration), and checks that code itself. That works because a reset
+// is for a Cognito user that already exists and needs no session. The purposes
+// below exist because each one needs a code before a Cognito user exists, or
+// for an address Cognito doesn't know, which Cognito cannot do.
+enum VerificationPurpose {
+  // A new email-and-password account; no user exists yet.
+  SIGNUP
+  // An existing account moving to a new address.
+  EMAIL_CHANGE
+  // A Google-only account adding a password under a different address.
+  PASSWORD_SETUP
+}
+
+// ⚠️ CREDENTIALS — one emailed verification code. See CLAUDE.md "Credential
+// handling".
+//
+// The API issues and checks these itself rather than using Cognito's
+// attribute verification, which can only send a code to a user who already
+// exists and is signed in (services/verification). The plaintext code is
+// NEVER stored: `codeHash` is an HMAC keyed by VERIFICATION_CODE_SECRET over
+// the purpose, address, and code, so a leaked row cannot be replayed and a
+// code for one purpose or address cannot be used for another.
+//
+// Rows double as the rate-limit ledger — recent rows are counted per address
+// and per hashed IP — so a row is written for every request, including one
+// whose email is a notice rather than a code (the code is simply never sent).
+// That also keeps both responses indistinguishable. Rows are deleted 24 hours
+// after creation by the PurgeEmailVerifications cron, which bounds how long a
+// requester's hashed IP is retained.
+model EmailVerification {
+  id              String              @id @default(uuid())
+  purpose         VerificationPurpose
+  // The address the code was sent to (lowercase).
+  email           String
+  // The account acting, for EMAIL_CHANGE and PASSWORD_SETUP. Null for SIGNUP.
+  userId          String?
+  codeHash        String
+  // Wrong guesses so far. The code stops working at the limit.
+  attempts        Int                 @default(0)
+  expiresAt       DateTime
+  // Set when the code is used successfully, or when a newer code for the same
+  // purpose and address replaces it. A consumed row still counts toward rate
+  // limits until it is purged.
+  consumedAt      DateTime?
+  // HMAC of the requester's source IP. Never the raw IP.
+  requesterIpHash String
+  createdAt       DateTime            @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([purpose, email, createdAt])
+  @@index([requesterIpHash, createdAt])
+  @@index([userId, purpose])
+  @@index([createdAt])
+  @@map("email_verifications")
 }
 
 // ─────────────────────────────────────────────

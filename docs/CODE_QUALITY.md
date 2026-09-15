@@ -231,6 +231,15 @@ completion')` — so lines aggregate rather than each being unique.
 Never log secrets: not the plaintext GDDL API key, not its ciphertext, not a
 request body that might contain either.
 
+**Never log, report, or put a credential in an error message.** Passwords and
+verification codes get stricter handling than other secrets, because this API
+holds them in plaintext and the repo is public. Wrap one in `Sensitive` the
+moment it is parsed, call `.reveal()` only at the Cognito SDK or HMAC call that
+needs the plaintext, and name credential variables with `password` or
+`verificationCode` so `eslint.credentials.mjs` can see them. Every route that
+receives one needs a leak test built on `src/test/captureLeaks.ts`. The full
+rules, and what enforces each, are in CLAUDE.md "Credential handling".
+
 ### 3. Request handling
 
 **Parse bodies with `await c.req.json().catch(() => ({}))`.** The empty object
@@ -635,7 +644,7 @@ as well.
 
 ### 9. Security constraints that are not local to one file
 
-Four rules the frontend depends on that no single file makes obvious. All four
+Five rules the frontend depends on that no single file makes obvious. All five
 fail quietly — nothing throws, the wrong thing just works.
 
 **Route guards are UX, never authorization.** `lib/useRouteGuard.ts` and the
@@ -660,6 +669,14 @@ API is script execution in a logged-in session. `packages/core`'s
 render-side pair, because that gate arrived after rows already existed and does
 not cover metadata InfernoLog never wrote. Level ids and internal routes do not
 need it — anything a person typed does.
+
+**Credentials never leave the form they were typed into.** A password or
+verification code lives in a flow's in-memory state and is cleared on unmount.
+It is never written to localStorage, sessionStorage, or the persisted query cache,
+and never logged or put in an error. The shared lint rule
+(`eslint.credentials.mjs`) catches logging and error messages, provided the
+variable is named with `password` or `verificationCode`; storage needs a spec
+proving the flow leaves no sentinel behind. See CLAUDE.md "Credential handling".
 
 **The persisted query cache belongs to an account, not a browser.**
 `lib/persister.ts` writes one fixed localStorage key holding `MeData` (email,

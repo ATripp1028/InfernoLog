@@ -29,7 +29,9 @@ export function assertNotProduction(stage: string | undefined): string {
  * than defaulted so a mistyped environment can never resolve to a real user.
  */
 export function requireE2eEmail(): string {
-  const email = process.env.E2E_USER_EMAIL
+  // Lowercased like every stored email (the lowercase_emails migration), so a
+  // mixed-case env value still finds the row.
+  const email = process.env.E2E_USER_EMAIL?.trim().toLowerCase()
   if (!email) {
     throw new Error('E2E_USER_EMAIL is required and has no default.')
   }

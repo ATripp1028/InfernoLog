@@ -29,7 +29,8 @@ const DEFAULT_COLLECTIONS = [
  * ever exists without the identity that signed it up.
  *
  * @param email - The address the provider asserted. Becomes the account's
- *   email and is also recorded on the identity.
+ *   email and is also recorded on the identity, lowercased: every stored email
+ *   is lowercase, and the database's CHECK constraints refuse anything else.
  * @param cognitoSub - The Cognito sub of the identity signing up.
  * @param provider - Which sign-in method that identity is. The caller knows
  *   this from the flow it ran; it is not derived from the token.
@@ -45,11 +46,12 @@ export async function createUserForSignup(
   })
   if (existing) return existing.user
 
+  const address = email.trim().toLowerCase()
   const user = await prisma.user.create({
     data: {
-      email,
-      username: email.split('@')[0] + '_' + randomBytes(4).toString('hex'),
-      authIdentities: { create: { provider, cognitoSub, email } },
+      email: address,
+      username: address.split('@')[0] + '_' + randomBytes(4).toString('hex'),
+      authIdentities: { create: { provider, cognitoSub, email: address } },
       onboardingCompleted: false,
       ratingCategories: {
         create: DEFAULT_RATING_CATEGORIES.map((c) => ({ ...c })),
