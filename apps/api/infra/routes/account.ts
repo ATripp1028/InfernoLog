@@ -156,3 +156,58 @@ api.route(
   },
   { auth: jwtAuth }
 )
+
+// Changing the account email (routes/account/email.ts). `start` checks the
+// current password (server client) and sends the code; `verify` moves the
+// email-and-password sign-in's Cognito user, deleting a leftover native user
+// that holds the new address when no account owns it, and notifies the old
+// address.
+api.route(
+  'POST /v1/me/email/start',
+  {
+    handler: 'src/index.handler',
+    link: [...sharedLinks, VERIFICATION_CODE_SECRET],
+    environment: {
+      ...sharedEnvironment,
+      ...emailEnvironment,
+      VERIFICATION_CODE_SECRET: VERIFICATION_CODE_SECRET.value,
+      COGNITO_SERVER_CLIENT_ID: serverClient.id,
+      FRONTEND_URL,
+    },
+    permissions: [
+      sesSendPermission,
+      {
+        actions: ['cognito-idp:AdminInitiateAuth'],
+        resources: [userPool.arn],
+      },
+    ],
+    ...sharedNodeOptions,
+  },
+  { auth: jwtAuth }
+)
+
+api.route(
+  'POST /v1/me/email/verify',
+  {
+    handler: 'src/index.handler',
+    link: [...sharedLinks, VERIFICATION_CODE_SECRET],
+    environment: {
+      ...sharedEnvironment,
+      ...emailEnvironment,
+      VERIFICATION_CODE_SECRET: VERIFICATION_CODE_SECRET.value,
+    },
+    permissions: [
+      sesSendPermission,
+      {
+        actions: [
+          'cognito-idp:AdminUpdateUserAttributes',
+          'cognito-idp:AdminGetUser',
+          'cognito-idp:AdminDeleteUser',
+        ],
+        resources: [userPool.arn],
+      },
+    ],
+    ...sharedNodeOptions,
+  },
+  { auth: jwtAuth }
+)

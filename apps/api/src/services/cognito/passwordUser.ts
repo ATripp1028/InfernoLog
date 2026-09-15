@@ -11,6 +11,8 @@
 import {
   AdminCreateUserCommand,
   AdminGetUserCommand,
+  AdminUpdateUserAttributesCommand,
+  AliasExistsException,
   AdminInitiateAuthCommand,
   AdminSetUserPasswordCommand,
   AdminUserGlobalSignOutCommand,
@@ -22,7 +24,7 @@ import {
 import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import type { Sensitive } from '../../utils/sensitive'
-import { cognito, userPoolId } from './client'
+import { cognito, deleteCognitoUserIfExists, userPoolId } from './client'
 
 /**
  * The address already has a native Cognito user that an account signs in with.
@@ -217,4 +219,76 @@ export async function signOutEverywhere(email: string): Promise<void> {
       Username: email,
     })
   )
+}
+
+async function setNativeUserEmail(
+  currentEmail: string,
+  nextEmail: string
+): Promise<void> {
+  await cognito.send(
+    new AdminUpdateUserAttributesCommand({
+      UserPoolId: userPoolId(),
+      Username: currentEmail,
+      UserAttributes: [
+        { Name: 'email', Value: nextEmail },
+        // Verified by the caller, with our own emailed code.
+        { Name: 'email_verified', Value: 'true' },
+      ],
+    })
+  )
+}
+
+/**
+ * Moves a native user's sign-in email to a new, already-verified address.
+ *
+ * The pool signs native users in by email, and an email names at most one
+ * native user. A native user can already hold the new address without any
+ * account owning it — a signup that stopped before creating its account — and
+ * the code the caller just verified proves the address is theirs, so that
+ * leftover is deleted and the move retried. One an account signs in with is
+ * refused.
+ *
+ * @param currentEmail - The native user's email now.
+ * @param nextEmail - The verified address to move it to.
+ * @throws {PasswordUserExistsError} When an account already signs in with the
+ *   new address.
+ */
+export async function changeNativeUserEmail(
+  currentEmail: string,
+  nextEmail: string
+): Promise<void> {
+  try {
+    await setNativeUserEmail(currentEmail, nextEmail)
+    return
+  } catch (err) {
+    if (!(err instanceof AliasExistsException)) throw err
+  }
+
+  const leftover = await subForUsername(nextEmail)
+  const attached = await prisma.authIdentity.findUnique({
+    where: { cognitoSub: leftover },
+    select: { id: true },
+  })
+  if (attached) throw new PasswordUserExistsError()
+  logger.info(
+    { cognitoSub: leftover },
+    'Deleting an orphaned native Cognito user'
+  )
+  await deleteCognitoUserIfExists(leftover)
+  await setNativeUserEmail(currentEmail, nextEmail)
+}
+
+/**
+ * Puts a native user's email back after the account update that followed
+ * {@link changeNativeUserEmail} failed, so the sign-in email and the account
+ * email never disagree. A failure here is left for the caller to report.
+ *
+ * @param nextEmail - Where the native user's email was moved to.
+ * @param previousEmail - Where to move it back.
+ */
+export async function revertNativeUserEmail(
+  nextEmail: string,
+  previousEmail: string
+): Promise<void> {
+  await setNativeUserEmail(nextEmail, previousEmail)
 }

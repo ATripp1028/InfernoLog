@@ -18,6 +18,8 @@
 //   password.ts   PUT    /v1/me/password
 //                 POST   /v1/me/password/setup/start
 //                 POST   /v1/me/password/setup
+//   email.ts      POST   /v1/me/email/start
+//                 POST   /v1/me/email/verify
 //   signInMethods.ts
 //                 POST   /v1/me/identities/google
 //                 DELETE /v1/me/identities/:id
@@ -39,6 +41,7 @@ import gddlKeyRoutes from './gddlKey'
 import gddlSyncRoutes from './gddlSync'
 import discordRoutes from './discord'
 import passwordRoutes from './password'
+import emailRoutes from './email'
 import signInMethodRoutes from './signInMethods'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -51,6 +54,7 @@ app.route('/', gddlKeyRoutes)
 app.route('/', gddlSyncRoutes)
 app.route('/', discordRoutes)
 app.route('/', passwordRoutes)
+app.route('/', emailRoutes)
 app.route('/', signInMethodRoutes)
 
 export default app

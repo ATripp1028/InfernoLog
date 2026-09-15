@@ -23,6 +23,7 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
   class InvalidPasswordException extends Error {}
   class NotAuthorizedException extends Error {}
   class UserNotFoundException extends Error {}
+  class AliasExistsException extends Error {}
   const command = (name: string) =>
     class {
       readonly name = name
@@ -38,6 +39,8 @@ vi.mock('@aws-sdk/client-cognito-identity-provider', () => {
     AdminInitiateAuthCommand: command('AdminInitiateAuth'),
     AdminUserGlobalSignOutCommand: command('AdminUserGlobalSignOut'),
     AdminDeleteUserCommand: command('AdminDeleteUser'),
+    AdminUpdateUserAttributesCommand: command('AdminUpdateUserAttributes'),
+    AliasExistsException,
     UsernameExistsException,
     InvalidPasswordException,
     NotAuthorizedException,
@@ -53,12 +56,15 @@ const NotAuthorized = sdk.NotAuthorizedException as unknown as new (
   message: string
 ) => Error
 const UserNotFound = sdk.UserNotFoundException as unknown as new () => Error
+const AliasExists = sdk.AliasExistsException as unknown as new () => Error
 const {
   CurrentPasswordIncorrectError,
   PasswordRejectedError,
   PasswordUserExistsError,
   TooManyPasswordAttemptsError,
+  changeNativeUserEmail,
   createVerifiedPasswordUser,
+  revertNativeUserEmail,
   signOutEverywhere,
   verifyCurrentPassword,
 } = await import('./passwordUser')
@@ -273,5 +279,74 @@ describe('signOutEverywhere and deleteCognitoUserIfExists', () => {
 
     mockSend.mockRejectedValueOnce(new Error('down'))
     await expect(deleteCognitoUserIfExists('sub-1')).rejects.toThrow('down')
+  })
+})
+
+describe('changeNativeUserEmail', () => {
+  it('moves the email and marks it verified', async () => {
+    mockSend.mockResolvedValue({})
+    await changeNativeUserEmail(EMAIL, 'new@example.com')
+    expect(sent()).toEqual([
+      {
+        name: 'AdminUpdateUserAttributes',
+        input: {
+          UserPoolId: 'pool-1',
+          Username: EMAIL,
+          UserAttributes: [
+            { Name: 'email', Value: 'new@example.com' },
+            { Name: 'email_verified', Value: 'true' },
+          ],
+        },
+      },
+    ])
+  })
+
+  it('deletes an orphaned native user holding the address, then retries', async () => {
+    let first = true
+    mockSend.mockImplementation(async (command: Sent) => {
+      if (command.name === 'AdminUpdateUserAttributes' && first) {
+        first = false
+        throw new AliasExists()
+      }
+      if (command.name === 'AdminGetUser') {
+        return { UserAttributes: [{ Name: 'sub', Value: 'sub-orphan' }] }
+      }
+      return {}
+    })
+
+    await changeNativeUserEmail(EMAIL, 'new@example.com')
+
+    expect(sent().map((c) => c.name)).toEqual([
+      'AdminUpdateUserAttributes',
+      'AdminGetUser',
+      'AdminDeleteUser',
+      'AdminUpdateUserAttributes',
+    ])
+  })
+
+  it('refuses when an account signs in with the holder, and rethrows other failures', async () => {
+    prisma.authIdentity.findUnique.mockResolvedValue({ id: 'owned' } as never)
+    mockSend.mockImplementation(async (command: Sent) => {
+      if (command.name === 'AdminUpdateUserAttributes') throw new AliasExists()
+      return { UserAttributes: [{ Name: 'sub', Value: 'sub-owned' }] }
+    })
+    await expect(
+      changeNativeUserEmail(EMAIL, 'new@example.com')
+    ).rejects.toBeInstanceOf(PasswordUserExistsError)
+    expect(sent().map((c) => c.name)).not.toContain('AdminDeleteUser')
+
+    mockSend.mockReset().mockRejectedValue(new Error('down'))
+    await expect(
+      changeNativeUserEmail(EMAIL, 'new@example.com')
+    ).rejects.toThrow('down')
+  })
+
+  it('reverts to the previous address', async () => {
+    mockSend.mockResolvedValue({})
+    await revertNativeUserEmail('new@example.com', EMAIL)
+    expect(sent()[0]?.input).toMatchObject({
+      Username: 'new@example.com',
+      UserAttributes: [{ Name: 'email', Value: EMAIL }, expect.anything()],
+    })
   })
 })

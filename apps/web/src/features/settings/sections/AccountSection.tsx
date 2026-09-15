@@ -10,6 +10,7 @@ import type { MeData } from '@/lib/api/me'
 import type { AuthProvider } from '@/lib/api/wireEnums'
 import { useAccountSection } from './useAccountSection'
 import { PasswordSettings } from './password/PasswordSettings'
+import { EmailSettings } from './email/EmailSettings'
 
 interface AccountSectionProps {
   me: MeData
@@ -50,6 +51,8 @@ export function AccountSection({ me }: AccountSectionProps) {
         <div className="text-sm font-medium text-foreground">Username</div>
         <UsernameEditor me={me} />
       </div>
+
+      <EmailSettings me={me} showEmails={showEmails} />
 
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-3">

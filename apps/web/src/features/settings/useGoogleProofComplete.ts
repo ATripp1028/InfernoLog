@@ -2,7 +2,8 @@
 //
 // The hosted UI returns here with a code. This exchanges it (lib/googleProof.ts),
 // then does what the re-confirmation was started for: connect the Google
-// account, or keep the proof for the password setup form in Settings.
+// account, or keep the proof for the Settings form that asked for it (adding a
+// password, changing the email).
 
 import { useEffect, useRef } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -60,8 +61,8 @@ export function useGoogleProofComplete(search: {
         return
       }
 
-      if (proof.purpose === 'password-setup') {
-        storeGoogleProof('password-setup', proof.idToken)
+      if (proof.purpose !== 'connect-google') {
+        storeGoogleProof(proof.purpose, proof.idToken)
         leaveWith({ google: 'reconfirmed' })
         return
       }

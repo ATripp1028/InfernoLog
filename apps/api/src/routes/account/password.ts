@@ -31,13 +31,8 @@ import { logger } from '../../utils/logger'
 import { parseJsonBody } from '../../utils/requestBody'
 import { sourceIp } from '../../utils/requestContext'
 import { Sensitive } from '../../utils/sensitive'
-import { GoogleProofError, verifyGoogleProof } from '../../utils/googleProof'
 import { createErrorHandler, isUniqueViolation } from '../../middleware/errors'
 import {
-  CurrentPasswordIncorrectError,
-  PasswordRejectedError,
-  PasswordUserExistsError,
-  TooManyPasswordAttemptsError,
   createVerifiedPasswordUser,
   setPermanentPassword,
   signOutEverywhere,
@@ -45,7 +40,6 @@ import {
 } from '../../services/cognito/passwordUser'
 import { deleteCognitoUserIfExists } from '../../services/cognito/client'
 import {
-  VerificationRateLimitedError,
   consumeCode,
   hashSourceIp,
   issueCode,
@@ -56,102 +50,20 @@ import {
   sendEmail,
   verificationCodeEmail,
 } from '../../services/email'
+import {
+  emailBelongsToAnotherAccount,
+  findPasswordIdentity,
+  requireOwnGoogleProof,
+} from '../../services/user/signInChecks'
+import { frontendUrl } from '../../utils/frontendUrl'
 import type { HonoVariables } from '../../types/hono'
+import { credentialErrorResponse } from './credentialErrors'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
 const INVALID_BODY = 'Check the fields and try again.'
 
-app.onError(
-  createErrorHandler('Password', (error, c) => {
-    if (error instanceof CurrentPasswordIncorrectError) {
-      return c.json(
-        {
-          error: "That's not your current password.",
-          code: AuthErrorCode.CURRENT_PASSWORD_INCORRECT,
-        },
-        400
-      )
-    }
-    if (error instanceof TooManyPasswordAttemptsError) {
-      return c.json(
-        {
-          error: 'Too many attempts. Try again in a few minutes.',
-          code: AuthErrorCode.TOO_MANY_ATTEMPTS,
-        },
-        429
-      )
-    }
-    if (error instanceof GoogleProofError) {
-      return c.json(
-        {
-          error: 'Confirm with Google again, then try once more.',
-          code: AuthErrorCode.REAUTH_REQUIRED,
-        },
-        403
-      )
-    }
-    if (error instanceof VerificationRateLimitedError) {
-      return c.json(
-        {
-          error: 'Too many codes have been requested. Try again in an hour.',
-          code: AuthErrorCode.RATE_LIMITED,
-        },
-        429
-      )
-    }
-    if (error instanceof PasswordUserExistsError) {
-      return c.json(
-        {
-          error: 'An account already uses this email.',
-          code: AuthErrorCode.ACCOUNT_EXISTS,
-        },
-        409
-      )
-    }
-    if (error instanceof PasswordRejectedError) {
-      return c.json(
-        { error: "That password doesn't meet the requirements." },
-        400
-      )
-    }
-    return undefined
-  })
-)
-
-function frontendUrl(): string {
-  return process.env.FRONTEND_URL ?? 'https://infernolog.com'
-}
-
-async function passwordIdentity(userId: string) {
-  return prisma.authIdentity.findFirst({
-    where: { userId, provider: 'PASSWORD', cognitoSub: { not: null } },
-    select: { id: true, email: true },
-  })
-}
-
-/**
- * Verifies a Google re-confirmation and that it is one of THIS account's
- * Google identities. A valid proof for somebody else's Google account proves
- * nothing about the caller.
- */
-async function requireOwnGoogleProof(userId: string, googleProof: string) {
-  const proof = await verifyGoogleProof(googleProof)
-  const owned = await prisma.authIdentity.findFirst({
-    where: { userId, provider: 'GOOGLE', cognitoSub: proof.cognitoSub },
-    select: { id: true },
-  })
-  if (!owned) throw new GoogleProofError('invalid')
-  return proof
-}
-
-async function emailBelongsToAnotherAccount(email: string, userId: string) {
-  const other = await prisma.user.findFirst({
-    where: { email, NOT: { id: userId } },
-    select: { id: true },
-  })
-  return other !== null
-}
+app.onError(createErrorHandler('Password', credentialErrorResponse))
 
 // PUT /v1/me/password
 app.put('/me/password', async (c) => {
@@ -163,7 +75,7 @@ app.put('/me/password', async (c) => {
   const currentPassword = new Sensitive(body.data.currentPassword)
   const newPassword = new Sensitive(body.data.newPassword)
 
-  const identity = await passwordIdentity(userId)
+  const identity = await findPasswordIdentity(userId)
   if (!identity?.email) {
     return c.json(
       {
@@ -194,7 +106,7 @@ app.post('/me/password/setup/start', async (c) => {
   if (!body.ok) return body.response
   const { email, googleProof } = body.data
 
-  if (await passwordIdentity(userId)) {
+  if (await findPasswordIdentity(userId)) {
     return c.json(
       {
         error: 'This account already has a password.',
@@ -243,7 +155,7 @@ app.post('/me/password/setup', async (c) => {
   const { email, googleProof } = body.data
   const newPassword = new Sensitive(body.data.newPassword)
 
-  if (await passwordIdentity(userId)) {
+  if (await findPasswordIdentity(userId)) {
     return c.json(
       {
         error: 'This account already has a password.',
