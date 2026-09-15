@@ -27,12 +27,13 @@ Two live routes sit outside the version prefix by design: `GET /health` and `GET
 
 ### Cognito JWT (live)
 
-The first-party frontend passes a Cognito ID token as `Authorization: Bearer <token>`. `apps/api/src/middleware/auth.ts` verifies it with `aws-jwt-verify`, looks the user up by `googleId` (the Cognito `sub`), and sets `userId` (internal UUID) and `userEmail` on the Hono context. Handlers must use `c.get('userId')` — never the Cognito sub directly.
+The first-party frontend passes a Cognito ID token as `Authorization: Bearer <token>`, from either sign-in method (email and password over SRP, or Google). API Gateway's JWT authorizer verifies it before the Lambda runs; `apps/api/src/middleware/auth.ts` reads those verified claims, resolves the token's `sub` through `auth_identities` to the account, and sets `userId` (internal UUID) and `userEmail` (always the account's address, never the token's) on the Hono context. Handlers must use `c.get('userId')` — never the Cognito sub directly.
 
-The middleware is mounted on `/v1/*`, so **every `/v1` route is authenticated** unless it is registered before the middleware in `src/index.ts`. Today that carve-out is exactly two things:
+The middleware is mounted on `/v1/*`, so **every `/v1` route is authenticated** unless it is registered before the middleware in `src/index.ts`. Today that carve-out is exactly three things:
 
 - `GET /v1/users/check-username` — `routes/users.ts`, mounted on `/v1` ahead of the middleware
 - `POST /v1/auth/signup/start` and `POST /v1/auth/signin/reject` — "claims-only" routes that verify the Cognito token but tolerate a missing `User` row, since they run before one exists
+- `POST /v1/auth/password-signup/start` and `…/verify` — fully public: an email-and-password signup has no token until the address is verified and the Cognito user exists
 
 Note this means the `/v1/levels/*` read endpoints are **currently authenticated**, even though they expose no per-user data and are intended to become public reads. Opening them up is a deliberate future change, not an oversight to fix incidentally.
 
@@ -44,9 +45,14 @@ Third-party tools would pass an API key as `X-InfernoLog-Key: <key>`, validated 
 
 ## Rate Limiting
 
-**Planned.** No per-key or per-IP rate limiting is enforced at the API layer today. Specific limits are TBD based on observed usage during beta.
+**Mostly planned.** No general per-key or per-IP rate limiting is enforced at the API layer; specific limits are TBD based on observed usage during beta.
 
-The one live limiter is unrelated to inbound traffic: `apps/api/src/utils/robtopRateLimit.ts` throttles InfernoLog's **outbound** calls to the GD servers, shared across the `resolve`, `page`, and `gd-search` paths.
+Two limiters are live, both on the credential paths (see docs/AUTH.md):
+
+- **Verification codes** — 3 per address per hour and 10 per source IP per hour, counted from `email_verifications` rows and enforced in `services/verification`. A code survives 5 wrong guesses.
+- **Current-password checks** — Cognito's own per-user lockout, which `PUT /v1/me/password` and `POST /v1/me/email/start` surface as `429 TOO_MANY_ATTEMPTS`.
+
+A third limiter is unrelated to inbound traffic: `apps/api/src/utils/robtopRateLimit.ts` throttles InfernoLog's **outbound** calls to the GD servers, shared across the `resolve`, `page`, and `gd-search` paths.
 
 ---
 
@@ -101,13 +107,18 @@ Returns `{ status: 'ok', app: 'InfernoLog' }`.
 
 ```
 GET   /auth/discord/callback                    (no auth — signed state instead)
+POST  /v1/auth/password-signup/start            (no auth)
+POST  /v1/auth/password-signup/verify           (no auth)
 POST  /v1/auth/signup/start                     (claims-only)
 POST  /v1/auth/signin/reject                    (claims-only)
 POST  /v1/me/connect-discord
 DELETE /v1/me/connect-discord
 ```
 
-- `POST /v1/auth/signup/start` — Creates the InfernoLog `users` row for a confirmed, age-gated sign-up. Idempotent: a double-submit for the same Cognito identity returns the already-created row rather than erroring, which also covers a Google account that already has an InfernoLog account going through Sign Up by mistake. Returns `onboardingCompleted` so the frontend knows whether to route into the wizard or straight into the app.
+- `POST /v1/auth/password-signup/start` — Emails a six-digit code to the address, or, when it already belongs to an account, a notice saying so. Always `202` with the same body either way, so the form never reveals which addresses are registered. Rate-limited per address and per hashed source IP.
+- `POST /v1/auth/password-signup/verify` — Checks the code and creates the native Cognito user, already confirmed and verified. The browser then signs in with it and calls `signup/start` like a Google signup, so the `users` row is still created in exactly one place. `400 INVALID_CODE` for a wrong, expired, used, or over-guessed code; `409 ACCOUNT_EXISTS` when the address gained an account meanwhile.
+
+- `POST /v1/auth/signup/start` — Creates the InfernoLog `users` row for a confirmed, age-gated sign-up, from either sign-in method. Refuses a token whose `email_verified` is not true, and reads the provider from the token's `identities` claim rather than being told. Idempotent: a double-submit for the same Cognito identity returns the already-created row rather than erroring, which also covers an identity that already has an InfernoLog account going through Sign Up by mistake. A **different** identity arriving with an email another account already has gets `409 ACCOUNT_EXISTS`, and its Cognito user is discarded like a rejected sign-in's. Returns `onboardingCompleted` so the frontend knows whether to route into the wizard or straight into the app.
 - `POST /v1/auth/signin/reject` — Called when a Sign In attempt finds no matching InfernoLog user for the just-completed Google OAuth identity. Synchronously deletes the Cognito user so no trace of the attempt persists. Load-bearing for the COPPA argument that a rejected sign-in never retains a would-be user's data — neither this handler nor the app-wide request logger logs the claims payload, only the `sub`.
 - `POST /v1/me/connect-discord` — Returns a Discord OAuth URL carrying a signed state that encodes the signed-in user's id. The browser navigates there; Discord redirects to the public callback.
 - `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before the Discord identity is written.
@@ -237,11 +248,23 @@ GET    /v1/me
 PATCH  /v1/me
 PATCH  /v1/me/username
 DELETE /v1/me
+PUT    /v1/me/password
+POST   /v1/me/password/setup/start
+POST   /v1/me/password/setup
+POST   /v1/me/email/start
+POST   /v1/me/email/verify
+POST   /v1/me/identities/google
+DELETE /v1/me/identities/{id}
 ```
 
 - `GET /v1/me` — The authenticated user plus rating categories. `gddlApiKeyEncrypted` is destructured out server-side and replaced by a derived `hasGddlApiKey` boolean; the ciphertext never reaches a client. `verifiedAt` is likewise reduced to `isVerified`.
 - `PATCH /v1/me` — Partial update of user preferences (privacy, logging defaults, display options). Rating configuration is not among them — it lives entirely on `PUT /v1/me/rating-config`.
 - `PATCH /v1/me/username` — Separate from `PATCH /v1/me` because it carries a 30-day cooldown and a uniqueness check.
+- `PUT /v1/me/password` — Changes the password. Checks the current one through the server-only app client (`400 CURRENT_PASSWORD_INCORRECT`, or `429 TOO_MANY_ATTEMPTS` once Cognito's lockout engages), then optionally revokes every session that signed in with it.
+- `POST /v1/me/password/setup/start` and `POST /v1/me/password/setup` — Add a password to an account that has none. Both require a fresh Google proof (docs/AUTH.md). `start` answers `{ codeRequired }` — false for the account's own address, true otherwise, with a code emailed to it. The address chosen becomes the account email.
+- `POST /v1/me/email/start` and `POST /v1/me/email/verify` — Change the account email: the current password (or a Google proof for an account without one), then a code at the new address. Moves the `PASSWORD` identity's Cognito user with it, and notifies the old address.
+- `POST /v1/me/identities/google` — Connects a Google account, identified by a Google proof rather than by email. `409` when it is already connected here (`ALREADY_CONNECTED`), belongs to another account (`CONNECTED_ELSEWHERE`), or the account already has a Google sign-in.
+- `DELETE /v1/me/identities/{id}` — Removes a sign-in method, refusing the last one (`409 LAST_SIGN_IN_METHOD`). Deletes its Cognito user, and reports `signedOut: true` when it was the method the caller signed in with. Discord is unlinked through `DELETE /v1/me/connect-discord` instead.
 - `DELETE /v1/me` — Full account purge, then the Cognito user. Most relations cascade from the `users` delete, but several are removed explicitly first: the moderation tables (`ON DELETE RESTRICT`, an intentional audit-trail protection), `GddlSyncJob` (no declared FK to `users`), and `RatingScore` (its `categoryId → RatingCategory` FK has no `onDelete` action, and Postgres validates it before the cascade from `LevelProgress → ProgressUpdate` is guaranteed to have run — P2003 otherwise). Requires a literal `confirmation: "Delete this account"` in the body.
 
 ## GDDL Integration

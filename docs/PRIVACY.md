@@ -50,11 +50,12 @@ This applies to:
 
 Within a public profile, one field has independent visibility control:
 
-| Field                    | Default                | Toggleable                                |
-| ------------------------ | ---------------------- | ----------------------------------------- |
-| Discord account          | Public                 | Yes — user can hide Discord independently |
-| Google account           | Not displayed publicly | N/A                                       |
-| All other profile fields | Public                 | Controlled by profile toggle only         |
+| Field                    | Default                  | Toggleable                                                                                    |
+| ------------------------ | ------------------------ | --------------------------------------------------------------------------------------------- |
+| Discord account          | Public                   | Yes — user can hide Discord independently                                                     |
+| Google account           | Not displayed publicly   | N/A                                                                                           |
+| Email address            | Never displayed publicly | N/A — no public read includes it, and an account appears in none until onboarding is finished |
+| All other profile fields | Public                   | Controlled by profile toggle only                                                             |
 
 ---
 

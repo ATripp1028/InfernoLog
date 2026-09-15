@@ -17,6 +17,12 @@ InfernoLog collects information when you use it. This information may include in
 - The time spent on InfernoLog
 - your operating system you use
 
+To create and secure your account, InfernoLog also collects:
+
+- **Your email address**, which you either provide when you sign up or which comes from the Google account you sign up with. It is how you sign in and how you recover access to your account, and it is never shown to other users. You can change it in Settings, which sends a code to the new address and a notice to the old one.
+- **Your password**, if you choose to sign in with one. Passwords are handled and stored by Amazon Cognito, InfernoLog's authentication provider, and InfernoLog never stores one. When you sign in, your browser proves it knows your password without sending the password itself.
+- **Verification codes**, which InfernoLog emails to confirm an address belongs to you. Only a one-way hash of a code is stored, alongside a one-way hash of the Internet Protocol address that requested it, which is used solely to limit how many codes can be requested. These records are deleted 24 hours after they are created.
+
 **Cookies and tracking technologies**
 
 InfernoLog or its third-party SDKs may use cookies, SDKs, pixels, and similar technologies to support functionality, analytics, or service delivery. This includes the embedded video players described under Third Party Access, which may store data on your device once they load. Where required by applicable law, InfernoLog will obtain consent before using non-essential tracking technologies.
@@ -37,7 +43,7 @@ For a better experience while using InfernoLog, InfernoLog may require you to pr
 
 InfernoLog shares information with third parties in three ways:
 
-- **Infrastructure providers**, who process data solely on InfernoLog's behalf to operate InfernoLog (hosting, authentication, database storage, error monitoring) and have no independent right to use it.
+- **Infrastructure providers**, who process data solely on InfernoLog's behalf to operate InfernoLog (hosting, authentication, database storage, sending account emails, error monitoring) and have no independent right to use it. Your email address and password are held by Amazon Cognito for authentication, and your address is passed to Amazon Simple Email Service to deliver verification codes and account notices.
 - **Services you choose to connect**, where InfernoLog sends your identity or activity data only because you initiated the connection — for example, signing in with a Google account, linking a Discord account, or syncing with a third-party demon list using your own API key. This data is not aggregated or anonymized before being sent, since the connection itself depends on identifying you to that service.
 - **Embedded video players**, which your browser loads directly from the video's provider. Nothing loads from YouTube until you press play on a video, unless you allow YouTube's player to load as soon as a level page opens, which you can choose during setup and change at any time in Settings. Once YouTube's player loads, YouTube (Google) receives your IP address and browser information, and may store data on your device, under its own privacy policy. InfernoLog uses YouTube's privacy-enhanced mode and shares nothing about your InfernoLog account with YouTube. A Twitch clip's player loads only when you press play.
 
@@ -58,7 +64,7 @@ Please note that InfernoLog utilizes third-party services that have their own Pr
 Infrastructure providers (process data on InfernoLog's behalf only):
 
 - [Sentry](https://sentry.io/privacy/) — error monitoring
-- [Amazon Web Services (AWS)](https://aws.amazon.com/privacy/) — hosting, authentication, and encryption key management
+- [Amazon Web Services (AWS)](https://aws.amazon.com/privacy/) — hosting, authentication (Amazon Cognito, which stores your password), sending account emails (Amazon Simple Email Service), and encryption key management
 - [Neon](https://neon.tech/privacy-policy) — database hosting
 
 Services you may choose to connect:
@@ -92,6 +98,7 @@ InfernoLog retains personal data based on its necessity for the stated purposes:
 - Automatically Collected Data: Retained for up to 24 months from collection, unless longer retention is required for legal compliance
 - Aggregated and Anonymized Data: Retained indefinitely as it no longer identifies you
 - Data required for legal compliance: Retained as long as required by applicable law
+- Verification code records, including the hashed Internet Protocol address that requested them: Deleted 24 hours after they are created
 
 You may request deletion of your personal data, subject to any legal obligation to retain it. If you want InfernoLog to delete User Provided Data submitted through InfernoLog, please contact them at contact@infernolog.com. Please note that some User Provided Data may be required for InfernoLog to function properly.
 

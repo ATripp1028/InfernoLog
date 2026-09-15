@@ -77,7 +77,7 @@ export type ProgressStatus = 'IN_PROGRESS' | 'DROPPED' | 'COMPLETED'
  * The external account behind one of the user's identities. Mirrors the API's
  * Prisma `AuthProvider`.
  *
- * `PASSWORD` is a native Cognito user (only the E2E user has one today).
+ * `PASSWORD` is a native Cognito user: an email-and-password sign-in.
  * `DISCORD` is a linked account that cannot be signed in with yet.
  */
 export type AuthProvider = 'GOOGLE' | 'PASSWORD' | 'DISCORD'

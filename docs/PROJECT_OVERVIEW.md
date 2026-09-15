@@ -30,6 +30,7 @@ infernolog/
 `apps/web` serves an unauthenticated marketing landing page and a small set of public pages, all outside the authenticated app shell:
 
 - `/` — landing page (hero, feature sections, scroll-linked ember background). Authenticated users are redirected to their List.
+- `/signin`, `/age-gate`, `/signup`, `/forgot-password` — the way in: an email and password, or Google. Sign up runs behind the age gate. See `AUTH.md`.
 - `/terms`, `/privacy`, `/dmca` — legal documents, rendered from `/legal/*.md` through a shared `LegalDocPage`.
 - `/about` — acknowledgments / credits page (structure from `ACKNOWLEDGMENTS_TEMPLATE.md`), also linked from Settings.
 
@@ -67,7 +68,8 @@ Change in packages/core/ → rebuild both, deploy both
 - **SST (Serverless Stack)** — Lambda/API Gateway orchestration with TypeScript
 - **PostgreSQL (Neon)** — serverless Postgres database
 - **Prisma** — ORM with TypeScript-native schema
-- **AWS Cognito** — authentication (Google OAuth)
+- **AWS Cognito** — authentication (email and password, and Google OAuth)
+- **AWS SES** — verification codes and account emails
 - **AWS EventBridge Scheduler** — RobTop level-cache sync jobs (weekly + monthly)
 - **AWS CloudWatch** — logging and observability
 - **Sentry** — error tracking
@@ -120,7 +122,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 | Document                        | Contents                                                                                                                                                                                                                                               |
 | ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `apps/api/prisma/schema.prisma` | Full schema, entity relationships, fractional indexing — inline comments are the source of truth for the data model (superseded the old `DATA_MODEL.md`)                                                                                               |
-| `AUTH.md`                       | Cognito, OAuth, API keys, username rules                                                                                                                                                                                                               |
+| `AUTH.md`                       | Cognito, sign-in methods, verification codes, API keys, username rules                                                                                                                                                                                 |
 | `PRIVACY.md`                    | Per-entry privacy, profile visibility, API behavior                                                                                                                                                                                                    |
 | `DEMON_LIST.md`                 | The user's own demon list: manual placement, demon list events, reconstruction definitions                                                                                                                                                             |
 | `LIST_INTEGRATIONS.md`          | GDDL tier tracking (multi-list AREDL/NLW design was abandoned)                                                                                                                                                                                         |
