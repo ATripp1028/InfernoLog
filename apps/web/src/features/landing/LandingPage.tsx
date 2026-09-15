@@ -1,6 +1,5 @@
 import { Link, useLocation, useNavigate } from '@tanstack/react-router'
 import { ReactNode } from 'react'
-import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/generic/button'
 import { cn } from '@/lib/utils'
 import { backOriginState } from '@/lib/backOrigin'
@@ -30,10 +29,9 @@ function LandingBody({ children }: { children: ReactNode }) {
 }
 
 // Sign up and Sign in are deliberately separate entry points (COPPA — the age
-// gate must precede OAuth for new accounts). Sign up → /age-gate → OAuth →
-// onboarding; Sign in → OAuth → List. See docs/AUTH.md.
+// gate must precede collecting anything about a new account). Sign up →
+// /age-gate → /signup → onboarding; Sign in → /signin → List. See docs/AUTH.md.
 function CtaRow({ align = 'start' }: { align?: 'start' | 'center' }) {
-  const { signIn } = useAuth()
   const navigate = useNavigate()
 
   return (
@@ -55,7 +53,7 @@ function CtaRow({ align = 'start' }: { align?: 'start' | 'center' }) {
       <Button
         variant="outline"
         size="lg"
-        onClick={signIn}
+        onClick={() => navigate({ to: '/signin' })}
         className="h-auto rounded-md px-7 py-3 text-base"
       >
         Sign in

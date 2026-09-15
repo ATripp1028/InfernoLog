@@ -1,25 +1,27 @@
 import { useState } from 'react'
+import { useNavigate } from '@tanstack/react-router'
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
 import { Label } from '@/components/generic/label'
-import { useAuth } from '@/context/AuthContext'
 import {
   hasActiveAgeGateFailureCookie,
+  markAgeGatePassed,
   setAgeGateFailureCookie,
 } from '@/lib/ageGate'
 import { MIN_AGE, isOldEnough, parseBirthDateInput } from './ageCheck'
 
 /**
- * Gates Sign Up on age BEFORE Google OAuth starts — Cognito creates a
- * federated identity on the OAuth callback regardless of path, so gating
- * after OAuth would mean a child's data already round-tripped through
- * Cognito before rejection. Nothing here is ever sent to the server: a
- * failed attempt only sets a client-side cookie so a retry with a different
- * birthdate doesn't work — no fingerprinting, no server-side record of
- * anyone who hasn't actually signed up.
+ * Gates Sign Up on age BEFORE anything about a would-be user is collected —
+ * before Google OAuth starts (Cognito creates a federated identity on the
+ * callback regardless of path) and before an email address is typed. Passing
+ * leads to /signup, where the visitor picks email-and-password or Google.
+ * Nothing here is ever sent to the server: a failed attempt only sets a
+ * client-side cookie so a retry with a different birthdate doesn't work — no
+ * fingerprinting, no server-side record of anyone who hasn't actually signed
+ * up.
  */
 export function AgeGate() {
-  const { signUp } = useAuth()
+  const navigate = useNavigate()
   const [birthDate, setBirthDate] = useState('')
   const [rejected, setRejected] = useState(hasActiveAgeGateFailureCookie())
 
@@ -49,7 +51,8 @@ export function AgeGate() {
       return
     }
 
-    signUp()
+    markAgeGatePassed()
+    void navigate({ to: '/signup' })
   }
 
   return (

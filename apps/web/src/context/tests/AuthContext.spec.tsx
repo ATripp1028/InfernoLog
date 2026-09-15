@@ -6,6 +6,7 @@ const { amplify, hub, cache, sentry } = vi.hoisted(() => ({
   amplify: {
     fetchAuthSession: vi.fn(),
     signInWithRedirect: vi.fn(),
+    signIn: vi.fn(),
     signOut: vi.fn(),
   },
   hub: { listen: vi.fn(), handlers: [] as ((p: unknown) => void)[] },
@@ -432,6 +433,70 @@ describe('recovering a session the mount read could not reach', () => {
     })
 
     expect(amplify.fetchAuthSession).not.toHaveBeenCalled()
+  })
+})
+
+// Email-and-password sign-in never reaches AuthCallback, so the provider has to
+// report the session (and claim the cache for it) before resolving.
+describe('signing in with a password', () => {
+  const PASSWORD = 'Leak-Canary-Pa55!context'
+
+  it('signs in over SRP and reports the session before resolving', async () => {
+    amplify.fetchAuthSession.mockResolvedValue(session(null))
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+
+    amplify.signIn.mockResolvedValue({ isSignedIn: true, nextStep: {} })
+    amplify.fetchAuthSession.mockResolvedValue(session('id-token', 'sub-new'))
+    await act(() =>
+      result.current.signInWithPassword('player@example.com', PASSWORD)
+    )
+
+    expect(amplify.signIn).toHaveBeenCalledWith({
+      username: 'player@example.com',
+      password: PASSWORD,
+    })
+    expect(result.current.isAuthenticated).toBe(true)
+  })
+
+  it('ends a lingering session and tries once more', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+
+    amplify.signIn
+      .mockRejectedValueOnce({ name: 'UserAlreadyAuthenticatedException' })
+      .mockResolvedValueOnce({ isSignedIn: true, nextStep: {} })
+    await act(() =>
+      result.current.signInWithPassword('player@example.com', PASSWORD)
+    )
+
+    expect(amplify.signOut).toHaveBeenCalled()
+    expect(amplify.signIn).toHaveBeenCalledTimes(2)
+  })
+
+  it('rejects with what Cognito rejected with', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+    const wrong = { name: 'NotAuthorizedException', message: 'Incorrect' }
+    amplify.signIn.mockRejectedValue(wrong)
+
+    await expect(
+      result.current.signInWithPassword('player@example.com', PASSWORD)
+    ).rejects.toBe(wrong)
+    expect(amplify.signOut).not.toHaveBeenCalled()
+  })
+
+  it('refuses a sign-in that stops at an unexpected step', async () => {
+    const { result } = render()
+    await waitFor(() => expect(result.current.isAuthInitializing).toBe(false))
+    amplify.signIn.mockResolvedValue({
+      isSignedIn: false,
+      nextStep: { signInStep: 'CONFIRM_SIGN_UP' },
+    })
+
+    await expect(
+      result.current.signInWithPassword('player@example.com', PASSWORD)
+    ).rejects.toThrow(/CONFIRM_SIGN_UP/)
   })
 })
 

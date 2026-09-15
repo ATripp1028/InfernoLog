@@ -24,8 +24,12 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { createUserForSignup, DEFAULT_RATING_CATEGORIES } =
-  await import('./index')
+const {
+  createUserForSignup,
+  DEFAULT_RATING_CATEGORIES,
+  SignupEmailTakenError,
+} = await import('./index')
+const { Prisma } = await import('@prisma/client')
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -189,6 +193,61 @@ describe('createUserForSignup — the new row', () => {
 
     await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
       created
+    )
+  })
+})
+
+// ─── email conflicts ─────────────────────────────────────────────────────────
+
+describe('createUserForSignup — an email another account has', () => {
+  function uniqueViolation(target: unknown) {
+    return new Prisma.PrismaClientKnownRequestError(
+      'Unique constraint failed',
+      {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target },
+      }
+    )
+  }
+
+  it.each([
+    ['a field list', ['email']],
+    ['an index name', 'users_email_key'],
+  ])(
+    'becomes SignupEmailTakenError when the target is %s',
+    async (_label, target) => {
+      prisma.user.create.mockRejectedValue(uniqueViolation(target))
+
+      await expect(
+        createUserForSignup(EMAIL, SUB, 'GOOGLE')
+      ).rejects.toBeInstanceOf(SignupEmailTakenError)
+    }
+  )
+
+  it('returns the winning row when a concurrent call for the same identity created it', async () => {
+    // A double-submit where both calls passed the lookup: the loser must not
+    // report the email as taken, or the route discards the winner's identity.
+    const winner = { id: 'user-1', onboardingCompleted: false }
+    prisma.authIdentity.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ user: winner } as never)
+    prisma.user.create.mockRejectedValue(uniqueViolation(['email']))
+
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).resolves.toBe(
+      winner
+    )
+  })
+
+  it('rethrows a unique violation on anything else, and other failures', async () => {
+    prisma.user.create.mockRejectedValue(uniqueViolation(['username']))
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).rejects.toThrow(
+      'Unique constraint failed'
+    )
+
+    prisma.user.create.mockRejectedValue(new Error('database down'))
+    await expect(createUserForSignup(EMAIL, SUB, 'GOOGLE')).rejects.toThrow(
+      'database down'
     )
   })
 })

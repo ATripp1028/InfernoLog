@@ -45,11 +45,11 @@ export const EMAIL_FROM = `InfernoLog <no-reply@${SES_DOMAIN}>`
 export const EMAIL_REPLY_TO: string | undefined = undefined
 
 /** Environment for a Lambda that calls `sendEmail`. */
-export const emailEnvironment = {
+export const emailEnvironment: Record<string, $util.Input<string>> = {
   EMAIL_FROM,
   SES_IDENTITY_ARN: sesIdentityArn,
-  ...(EMAIL_REPLY_TO ? { EMAIL_REPLY_TO } : {}),
 }
+if (EMAIL_REPLY_TO) emailEnvironment.EMAIL_REPLY_TO = EMAIL_REPLY_TO
 
 /** The IAM permission a Lambda that calls `sendEmail` needs. */
 export const sesSendPermission = {

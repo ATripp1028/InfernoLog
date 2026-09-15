@@ -71,6 +71,7 @@ vi.mock('./importExport/import/levelResolution', async (importOriginal) => ({
   resolveByName: mockResolveByName,
 }))
 
+const { default: onboardingApp } = await import('../routes/auth/onboarding')
 const { default: loggingApp } = await import('../routes/progress/index')
 const { default: rankingApp } = await import('../routes/demonList/index')
 const { default: collectionsApp } = await import('../routes/collections/index')
@@ -113,6 +114,25 @@ async function expectCompletionOnlyFieldsOnCompletions() {
       AND ("videoUrl" IS NOT NULL
         OR "twoPlayerSolo" IS NOT NULL
         OR "twoPlayerPartner" IS NOT NULL)
+  `
+  expect(rows).toEqual([])
+}
+
+/**
+ * Fails if ANY PASSWORD identity's email differs from its account's email.
+ *
+ * An email-and-password sign-in uses the account's own address: the email a
+ * user signs in with is the email InfernoLog knows them by. Every path that
+ * creates a PASSWORD identity or changes an account's email has to keep the
+ * two together.
+ */
+async function expectPasswordEmailIsAccountEmail() {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT ai.id
+    FROM "auth_identities" ai
+    JOIN "users" u ON u.id = ai."userId"
+    WHERE ai.provider = 'PASSWORD'
+      AND ai.email IS DISTINCT FROM u.email
   `
   expect(rows).toEqual([])
 }
@@ -345,6 +365,20 @@ describe('the invariant sweeps', () => {
   // A sweep that cannot fail is worse than no sweep — it reads as protection
   // while asserting nothing. These plant a violation directly through Prisma,
   // bypassing every service, and check the sweep notices.
+
+  it('expectPasswordEmailIsAccountEmail catches a planted mismatch', async () => {
+    const user = await seedUser(prisma, { email: 'account@example.com' })
+    await prisma.authIdentity.create({
+      data: {
+        userId: user.id,
+        provider: 'PASSWORD',
+        cognitoSub: 'sub-planted',
+        email: 'somewhere-else@example.com',
+      },
+    })
+
+    await expect(expectPasswordEmailIsAccountEmail()).rejects.toThrow()
+  })
 
   it('expectNoDuplicateCompletions catches a planted second completion', async () => {
     const { user } = await seedWorld()
@@ -850,5 +884,37 @@ describe('INVARIANT: Want to Beat holds only unbeaten levels', () => {
       })
     ).toBe(1)
     await expectWantToBeatUnbeaten()
+  })
+})
+
+describe("INVARIANT: a PASSWORD identity's email is its account's email", () => {
+  it('holds after email-and-password signup creates the account', async () => {
+    // What the browser does after POST /v1/auth/password-signup/verify: sign
+    // in as the new native Cognito user and create the account from its token.
+    const res = await onboardingApp.request(
+      '/auth/signup/start',
+      { method: 'POST' },
+      {
+        requestContext: {
+          authorizer: {
+            jwt: {
+              claims: {
+                sub: 'sub-password',
+                email: 'Player@Example.com',
+                email_verified: 'true',
+              },
+            },
+          },
+        },
+      }
+    )
+    expect(res.status).toBe(200)
+
+    await expect(
+      prisma.authIdentity.findUniqueOrThrow({
+        where: { cognitoSub: 'sub-password' },
+      })
+    ).resolves.toMatchObject({ provider: 'PASSWORD' })
+    await expectPasswordEmailIsAccountEmail()
   })
 })

@@ -571,3 +571,31 @@ export function setViewport(viewport: 'desktop' | 'mobile') {
     dispatchEvent: () => false,
   }))
 }
+
+/**
+ * Fails if any credential sentinel appears anywhere in localStorage or
+ * sessionStorage — keys or values, which also covers the persisted query cache.
+ *
+ * ⚠️ CREDENTIALS — every flow that handles a password or verification code gets
+ * a spec calling this after exercising the flow. See CLAUDE.md "Credential
+ * handling".
+ *
+ * @param sentinels - The fake credentials the spec typed, e.g. `Leak-Canary-…`.
+ */
+export function expectNotInBrowserStorage(...sentinels: string[]): void {
+  const dump = [localStorage, sessionStorage]
+    .flatMap((storage) =>
+      Array.from({ length: storage.length }, (_, i) => {
+        const key = storage.key(i) ?? ''
+        return `${key}=${storage.getItem(key) ?? ''}`
+      })
+    )
+    .join('\n')
+  for (const sentinel of sentinels) {
+    if (dump.includes(sentinel)) {
+      throw new Error(
+        `A credential was written to browser storage: ${sentinel.slice(0, 16)}…`
+      )
+    }
+  }
+}

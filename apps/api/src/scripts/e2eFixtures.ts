@@ -25,6 +25,18 @@ export function assertNotProduction(stage: string | undefined): string {
 }
 
 /**
+ * Whether an address is on a domain reserved for documentation and testing,
+ * which can never receive mail and so can never be verified by a real signup.
+ */
+export function isReservedTestDomain(email: string): boolean {
+  const domain = email.slice(email.lastIndexOf('@') + 1)
+  return (
+    ['example.com', 'example.net', 'example.org'].includes(domain) ||
+    /\.(test|example|invalid)$/.test(domain)
+  )
+}
+
+/**
  * The E2E user's email, doubling as its Cognito sign-in alias. Required rather
  * than defaulted so a mistyped environment can never resolve to a real user.
  */
@@ -36,12 +48,15 @@ export function requireE2eEmail(): string {
     throw new Error('E2E_USER_EMAIL is required and has no default.')
   }
   // A blast-radius guard, not validation: whatever else is misconfigured, the
-  // scripts can only ever delete rows belonging to an address marked as a test
-  // account. Ordinary users cannot hold an address in this namespace because
-  // sign-up derives the email from Google.
-  if (!email.startsWith('e2e+')) {
+  // scripts can only ever delete rows belonging to an address that no real
+  // user can hold. The `e2e+` prefix alone stopped being enough once anyone
+  // could sign up with an email and password — `e2e+me@gmail.com` is a real,
+  // registrable address. So the domain must also be one reserved for testing
+  // (RFC 2606 / RFC 6761): nothing receives mail there, so nobody can verify it
+  // at signup, and Google accounts cannot have one either.
+  if (!email.startsWith('e2e+') || !isReservedTestDomain(email)) {
     throw new Error(
-      `Refusing to operate on ${email}: the E2E user's email must start with "e2e+".`
+      `Refusing to operate on ${email}: the E2E user's email must start with "e2e+" and use a reserved test domain (example.com, example.net, example.org, or a .test / .example / .invalid domain).`
     )
   }
   return email

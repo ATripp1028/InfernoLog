@@ -3,11 +3,19 @@
 import { api, jwtAuth, sharedEnvironment, sharedLinks } from '../api'
 import { userPool } from '../auth'
 import { sharedNodeOptions } from '../defaults'
+import { emailEnvironment, sesSendPermission } from '../email'
 import {
   DISCORD_CLIENT_ID,
   DISCORD_CLIENT_SECRET,
   DISCORD_STATE_SECRET,
+  VERIFICATION_CODE_SECRET,
 } from '../secrets'
+
+// The frontend origin, for links in emails and Discord's redirect back.
+const FRONTEND_URL =
+  $app.stage === 'production'
+    ? 'https://infernolog.com'
+    : 'http://localhost:5173'
 
 api.route('GET /v1/users/check-username', {
   handler: 'src/index.handler',
@@ -20,16 +28,62 @@ api.route('GET /v1/users/check-username', {
 // existing User row (createUserForSignup hasn't run yet, or never will
 // for a rejected sign-in). Both still require the JWT authorizer — only
 // the Prisma "does a user row exist" check is skipped.
+// AdminDeleteUser discards the Cognito user when a different identity arrives
+// with an email another account already has.
 api.route(
   'POST /v1/auth/signup/start',
   {
     handler: 'src/index.handler',
     link: sharedLinks,
     environment: sharedEnvironment,
+    permissions: [
+      {
+        actions: ['cognito-idp:AdminDeleteUser'],
+        resources: [userPool.arn],
+      },
+    ],
     ...sharedNodeOptions,
   },
   { auth: jwtAuth }
 )
+
+// ⚠️ CREDENTIALS — email-and-password signup (routes/auth/passwordSignup.ts).
+// Public: no token exists until the address is verified. Each route gets only
+// what its step needs — `start` can send email but cannot touch Cognito;
+// `verify` can create a Cognito user but cannot send email.
+const verificationEnvironment = {
+  ...sharedEnvironment,
+  VERIFICATION_CODE_SECRET: VERIFICATION_CODE_SECRET.value,
+}
+
+api.route('POST /v1/auth/password-signup/start', {
+  handler: 'src/index.handler',
+  link: [...sharedLinks, VERIFICATION_CODE_SECRET],
+  environment: {
+    ...verificationEnvironment,
+    ...emailEnvironment,
+    FRONTEND_URL,
+  },
+  permissions: [sesSendPermission],
+  ...sharedNodeOptions,
+})
+
+api.route('POST /v1/auth/password-signup/verify', {
+  handler: 'src/index.handler',
+  link: [...sharedLinks, VERIFICATION_CODE_SECRET],
+  environment: verificationEnvironment,
+  permissions: [
+    {
+      actions: [
+        'cognito-idp:AdminCreateUser',
+        'cognito-idp:AdminGetUser',
+        'cognito-idp:AdminSetUserPassword',
+      ],
+      resources: [userPool.arn],
+    },
+  ],
+  ...sharedNodeOptions,
+})
 
 api.route(
   'POST /v1/auth/signin/reject',
@@ -58,10 +112,7 @@ const discordUrls = {
     $app.stage === 'production'
       ? 'https://api.infernolog.com/auth/discord/callback'
       : 'https://6jeoegiga7.execute-api.us-east-1.amazonaws.com/auth/discord/callback',
-  FRONTEND_URL:
-    $app.stage === 'production'
-      ? 'https://infernolog.com'
-      : 'http://localhost:5173',
+  FRONTEND_URL,
 }
 
 // The public bouncer forwards `code` and `state` to the frontend and nothing

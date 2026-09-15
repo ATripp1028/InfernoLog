@@ -15,7 +15,12 @@ import prisma from '../../utils/prisma'
 import { logger } from '../../utils/logger'
 import { getVerifiedClaims } from '../../middleware/auth'
 import { createErrorHandler } from '../../middleware/errors'
-import { createUserForSignup } from '../../services/user'
+import { AuthErrorCode } from '@infernolog/core'
+import { SignupEmailTakenError, createUserForSignup } from '../../services/user'
+import {
+  isEmailVerified,
+  signupProviderFromClaims,
+} from '../../utils/identityClaims'
 import type { HonoVariables } from '../../types/hono'
 
 const app = new Hono<{ Variables: HonoVariables }>()
@@ -27,24 +32,85 @@ const cognito = new CognitoIdentityProviderClient({
 })
 
 // POST /v1/auth/signup/start — creates the InfernoLog `users` row for a
-// confirmed (age-gated) sign-up. Idempotent: a double-submit for the same
-// Cognito identity returns the already-created row rather than erroring —
-// which also covers a Google account that already has an InfernoLog account
-// going through Sign Up by mistake. Either way, the frontend needs
-// onboardingCompleted in the response to know whether to route into the
-// wizard or straight into the app.
+// confirmed (age-gated) sign-up, for either sign-in method: a Google identity
+// straight from OAuth, or a native Cognito user the browser just signed in with
+// after POST /v1/auth/password-signup/verify created it.
+//
+// Idempotent on the identity: a double-submit for the same Cognito identity
+// returns the already-created row rather than erroring — which also covers an
+// identity that already has an InfernoLog account going through Sign Up by
+// mistake. Either way, the frontend needs onboardingCompleted in the response
+// to know whether to route into the wizard or straight into the app.
+//
+// Refuses a token whose email isn't verified: User.email is unique, so an
+// account created on an unproven address would let anyone hold someone else's.
+// A DIFFERENT identity arriving with an email another account already has is
+// refused too, and its Cognito user is discarded like a rejected sign-in's —
+// accounts are never merged or attached by email.
 app.post('/auth/signup/start', async (c) => {
   const claims = getVerifiedClaims(c)
   if (!claims?.email) return c.json({ error: 'Unauthorized' }, 401)
 
-  // Google is the only way to reach Sign Up today, so every identity arriving
-  // here is a Google one.
-  const user = await createUserForSignup(claims.email, claims.sub, 'GOOGLE')
+  if (!isEmailVerified(claims)) {
+    return c.json(
+      {
+        error: 'Verify your email before creating an account.',
+        code: AuthErrorCode.EMAIL_NOT_VERIFIED,
+      },
+      403
+    )
+  }
+
+  const provider = signupProviderFromClaims(claims)
+  if (!provider) {
+    return c.json(
+      { error: 'This sign-in method cannot create an account.' },
+      400
+    )
+  }
+
+  let user
+  try {
+    user = await createUserForSignup(claims.email, claims.sub, provider)
+  } catch (error) {
+    if (!(error instanceof SignupEmailTakenError)) throw error
+    await discardCognitoUser(claims.sub)
+    logger.info(
+      { sub: claims.sub },
+      'Discarded Cognito identity (signup, email belongs to another account)'
+    )
+    return c.json(
+      {
+        error:
+          'An account already uses this email. Sign in, then connect this sign-in method in Settings.',
+        code: AuthErrorCode.ACCOUNT_EXISTS,
+      },
+      409
+    )
+  }
+
   return c.json(
     { data: { id: user.id, onboardingCompleted: user.onboardingCompleted } },
     200
   )
 })
+
+/**
+ * Deletes a Cognito user that no account will own, treating one already gone
+ * as success (a concurrent request got there first).
+ */
+async function discardCognitoUser(sub: string): Promise<void> {
+  try {
+    await cognito.send(
+      new AdminDeleteUserCommand({
+        UserPoolId: process.env.COGNITO_USER_POOL_ID,
+        Username: sub,
+      })
+    )
+  } catch (err) {
+    if (!(err instanceof UserNotFoundException)) throw err
+  }
+}
 
 // POST /v1/auth/signin/reject — called when a Sign In attempt finds no
 // matching InfernoLog user for the just-completed Google OAuth identity.
@@ -67,17 +133,8 @@ app.post('/auth/signin/reject', async (c) => {
     return c.json({ error: 'A matching account exists' }, 400)
   }
 
-  try {
-    await cognito.send(
-      new AdminDeleteUserCommand({
-        UserPoolId: process.env.COGNITO_USER_POOL_ID,
-        Username: claims.sub,
-      })
-    )
-  } catch (err) {
-    // Double-click race: a concurrent reject already deleted this identity.
-    if (!(err instanceof UserNotFoundException)) throw err
-  }
+  // A double-click race (a concurrent reject already deleted it) is success.
+  await discardCognitoUser(claims.sub)
 
   logger.info(
     { sub: claims.sub },

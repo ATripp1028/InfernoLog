@@ -41,6 +41,11 @@ describe('credential lint rule', () => {
     ['a verification code', `console.log(body.verificationCode)`],
     ['a revealed Sensitive value', `logger.info({ v: wrapped.reveal() }, 'x')`],
     [
+      'a revealed value as the argument itself',
+      `console.log(wrapped.reveal())`,
+    ],
+    ['a credential as the argument itself', `console.log(password)`],
+    [
       'a credential sent to Sentry',
       `Sentry.captureException(new Error(password))`,
     ],
@@ -58,6 +63,10 @@ describe('credential lint rule', () => {
     [
       'a static message about passwords',
       `logger.info({ userId }, 'Password changed')`,
+    ],
+    [
+      'an error class whose own name mentions passwords',
+      `class PasswordRejectedError extends Error {}; throw new PasswordRejectedError()`,
     ],
     [
       'using a credential outside a sink',

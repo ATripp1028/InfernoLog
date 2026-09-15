@@ -83,6 +83,16 @@ export const userPool = new sst.aws.CognitoUserPool('InfernoLogUserPool', {
         fromEmailAddress: EMAIL_FROM,
         ...(EMAIL_REPLY_TO ? { replyToEmailAddress: EMAIL_REPLY_TO } : {}),
       }
+      // The forgot-password email. Cognito sends it from its own
+      // ForgotPassword flow using this template; the API sends every other
+      // code itself (services/verification), so nothing else uses it.
+      // `{####}` is where Cognito puts the code.
+      args.verificationMessageTemplate = {
+        defaultEmailOption: 'CONFIRM_WITH_CODE',
+        emailSubject: 'Reset your InfernoLog password',
+        emailMessage:
+          'Use this code to reset your InfernoLog password:<br><br><b style="font-size:22px;letter-spacing:4px">{####}</b><br><br>It expires in 1 hour. If you didn\'t ask to reset your password, you can ignore this email — your password hasn\'t changed.',
+      }
       // Cognito checks it may send as the identity when the configuration is
       // applied, so the authorization has to land first.
       opts.dependsOn = [cognitoSesPolicy]
@@ -151,16 +161,24 @@ export const userPoolClient = new aws.cognito.UserPoolClient(
         ? [`https://d1r4gy6uhfg2w9.cloudfront.net/auth/callback`]
         : []),
     ],
+    // /signup is where a Google signup lands after being refused because its
+    // email already belongs to another account (pages/AuthCallback.tsx).
     logoutUrls: [
       'https://infernolog.com',
       'https://infernolog.com/no-account-found',
+      'https://infernolog.com/signup',
       ...($app.stage !== 'production'
-        ? ['http://localhost:5173', 'http://localhost:5173/no-account-found']
+        ? [
+            'http://localhost:5173',
+            'http://localhost:5173/no-account-found',
+            'http://localhost:5173/signup',
+          ]
         : []),
       ...($app.stage !== 'production' && $app.stage !== 'alextripp'
         ? [
             `https://d1r4gy6uhfg2w9.cloudfront.net`,
             `https://d1r4gy6uhfg2w9.cloudfront.net/no-account-found`,
+            `https://d1r4gy6uhfg2w9.cloudfront.net/signup`,
           ]
         : []),
     ],

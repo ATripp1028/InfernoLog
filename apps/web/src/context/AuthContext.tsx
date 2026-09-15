@@ -8,6 +8,7 @@ import {
 } from 'react'
 import {
   fetchAuthSession,
+  signIn as amplifySignIn,
   signInWithRedirect,
   signOut,
   type AuthSession,
@@ -36,6 +37,15 @@ interface AuthContextType {
   isAuthInitializing: boolean
   signIn: () => void
   signUp: () => void
+  /**
+   * Signs in with an email and password (Cognito SRP — the password itself is
+   * never sent) and claims the persisted cache for that identity before
+   * resolving. Rejects with whatever Amplify rejected with; classify it with
+   * `passwordAuthErrorKind`.
+   *
+   * ⚠️ CREDENTIALS — never log the arguments or keep them past the call.
+   */
+  signInWithPassword: (email: string, password: string) => Promise<void>
   signOut: () => void
   getIdToken: () => Promise<string>
 }
@@ -154,6 +164,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionStorage.setItem(AUTH_INTENT_KEY, intent)
     return signInWithRedirect({ provider: 'Google' })
   }
+  // Unlike the OAuth round trip, this never leaves the page or reaches
+  // AuthCallback, so the cache-owner claim that refreshAuthStatus performs has
+  // to happen here, before the caller routes anywhere — otherwise a previous
+  // account's persisted cache could render for the new one.
+  const handleSignInWithPassword = async (email: string, password: string) => {
+    const attempt = () => amplifySignIn({ username: email, password })
+    let result: Awaited<ReturnType<typeof amplifySignIn>>
+    try {
+      result = await attempt()
+    } catch (error) {
+      // A session Amplify still holds (a stale tab, a half-finished flow)
+      // blocks a new sign-in outright. The visitor is on a signed-out page, so
+      // end it and try once more.
+      if (
+        (error as { name?: string } | null)?.name !==
+        'UserAlreadyAuthenticatedException'
+      ) {
+        throw error
+      }
+      await signOut()
+      result = await attempt()
+    }
+    if (!result.isSignedIn) {
+      // The pool has no MFA and creates users confirmed, so any further step
+      // means its configuration changed under the app.
+      throw new Error(`Unexpected sign-in step: ${result.nextStep.signInStep}`)
+    }
+    await refreshAuthStatus()
+  }
   const handleSignIn = () => startOAuth('signin')
   const handleSignUp = () => startOAuth('signup')
   const handleSignOut = () => signOut()
@@ -165,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthInitializing,
         signIn: handleSignIn,
         signUp: handleSignUp,
+        signInWithPassword: handleSignInWithPassword,
         signOut: handleSignOut,
         getIdToken,
       }}

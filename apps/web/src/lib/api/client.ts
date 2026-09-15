@@ -64,12 +64,17 @@ export function retryAfterSeconds(error: unknown): number {
  * `BodyInit`); the Content-Type header is set for you when it is present.
  */
 export interface ApiFetchOptions extends Omit<RequestInit, 'body'> {
-  token: string
+  /**
+   * The bearer token. Omit it only for the API's public routes (email-and-
+   * password signup), which run before any session exists.
+   */
+  token?: string
   body?: unknown
 }
 
 /**
- * Calls the InfernoLog API with a bearer token, parsing JSON both ways.
+ * Calls the InfernoLog API, with a bearer token when given, parsing JSON both
+ * ways.
  *
  * @param path - Path only; `VITE_API_URL` is prepended.
  * @returns The parsed body, or `undefined` for a 204.
@@ -83,7 +88,7 @@ export async function apiFetch<T = unknown>(
   const init: RequestInit = {
     ...rest,
     headers: {
-      Authorization: `Bearer ${token}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
       ...headers,
     },

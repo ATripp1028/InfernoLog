@@ -33,9 +33,10 @@ vi.mock('../../utils/logger', () => ({
 const { mockCreateUserForSignup } = vi.hoisted(() => ({
   mockCreateUserForSignup: vi.fn(),
 }))
-vi.mock('../../services/user', () => ({
-  createUserForSignup: mockCreateUserForSignup,
-}))
+vi.mock('../../services/user', () => {
+  class SignupEmailTakenError extends Error {}
+  return { createUserForSignup: mockCreateUserForSignup, SignupEmailTakenError }
+})
 
 const { mockCognitoSend } = vi.hoisted(() => ({ mockCognitoSend: vi.fn() }))
 
@@ -65,6 +66,7 @@ const { UserNotFoundException: SdkUserNotFound } =
   await import('@aws-sdk/client-cognito-identity-provider')
 const UserNotFoundException = SdkUserNotFound as unknown as new () => Error
 const { logger } = await import('../../utils/logger')
+const { SignupEmailTakenError } = await import('../../services/user')
 const app = (await import('./onboarding')).default
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -73,6 +75,18 @@ const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 
 const SUB = 'cognito-sub-abc'
 const EMAIL = 'player@example.com'
+
+/** A Google identity's claims, as API Gateway flattens them. */
+const GOOGLE_CLAIMS = {
+  sub: SUB,
+  email: EMAIL,
+  email_verified: 'true',
+  identities:
+    '[{"userId":"1234","providerName":"Google","providerType":"Google","primary":"true"}]',
+}
+
+/** A native (email-and-password) Cognito user's claims: no `identities`. */
+const PASSWORD_CLAIMS = { sub: SUB, email: EMAIL, email_verified: 'true' }
 
 /** The API Gateway env shape getVerifiedClaims reads the JWT claims out of. */
 function envWithClaims(claims: Record<string, string> | null) {
@@ -111,13 +125,88 @@ describe('POST /auth/signup/start', () => {
       onboardingCompleted: false,
     })
 
-    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
       data: { id: 'user-1', onboardingCompleted: false },
     })
     expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB, 'GOOGLE')
+  })
+
+  it('creates a PASSWORD identity for a native Cognito user', async () => {
+    mockCreateUserForSignup.mockResolvedValue({
+      id: 'user-1',
+      onboardingCompleted: false,
+    })
+
+    const res = await post('/auth/signup/start', PASSWORD_CLAIMS)
+
+    expect(res.status).toBe(200)
+    expect(mockCreateUserForSignup).toHaveBeenCalledWith(EMAIL, SUB, 'PASSWORD')
+  })
+
+  it.each([
+    ['absent', { sub: SUB, email: EMAIL }],
+    ['false', { ...PASSWORD_CLAIMS, email_verified: 'false' }],
+  ])(
+    '403s and creates nothing when email_verified is %s',
+    async (_label, claims) => {
+      const res = await post('/auth/signup/start', claims)
+
+      expect(res.status).toBe(403)
+      await expect(res.json()).resolves.toMatchObject({
+        code: 'EMAIL_NOT_VERIFIED',
+      })
+      expect(mockCreateUserForSignup).not.toHaveBeenCalled()
+    }
+  )
+
+  it('400s for a federated provider InfernoLog does not support', async () => {
+    const res = await post('/auth/signup/start', {
+      ...GOOGLE_CLAIMS,
+      identities: '[{"providerName":"Facebook"}]',
+    })
+
+    expect(res.status).toBe(400)
+    expect(mockCreateUserForSignup).not.toHaveBeenCalled()
+  })
+
+  it('409s and discards the Cognito user when another account has the email', async () => {
+    mockCreateUserForSignup.mockRejectedValue(new SignupEmailTakenError())
+
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
+
+    expect(res.status).toBe(409)
+    await expect(res.json()).resolves.toMatchObject({ code: 'ACCOUNT_EXISTS' })
+    expect(lastDeleteInput()).toEqual({ UserPoolId: 'pool-1', Username: SUB })
+  })
+
+  it('still 409s when that Cognito user is already gone', async () => {
+    mockCreateUserForSignup.mockRejectedValue(new SignupEmailTakenError())
+    mockCognitoSend.mockRejectedValue(new UserNotFoundException())
+
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
+
+    expect(res.status).toBe(409)
+  })
+
+  it('500s when discarding the Cognito user fails for another reason', async () => {
+    mockCreateUserForSignup.mockRejectedValue(new SignupEmailTakenError())
+    mockCognitoSend.mockRejectedValue(new Error('Cognito unavailable'))
+
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
+
+    expect(res.status).toBe(500)
+  })
+
+  it('500s on any other failure creating the user', async () => {
+    mockCreateUserForSignup.mockRejectedValue(new Error('database down'))
+
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
+
+    expect(res.status).toBe(500)
+    expect(mockCognitoSend).not.toHaveBeenCalled()
   })
 
   it('reports the existing onboarding state on a repeat submit', async () => {
@@ -128,7 +217,7 @@ describe('POST /auth/signup/start', () => {
       onboardingCompleted: true,
     })
 
-    const res = await post('/auth/signup/start', { sub: SUB, email: EMAIL })
+    const res = await post('/auth/signup/start', GOOGLE_CLAIMS)
 
     expect(res.status).toBe(200)
     await expect(res.json()).resolves.toEqual({
