@@ -37,12 +37,11 @@ export const sesIdentityArn = $interpolate`arn:aws:ses:us-east-1:${account.accou
 export const EMAIL_FROM = `InfernoLog <no-reply@${SES_DOMAIN}>`
 
 /**
- * Where replies go: the support alias. Unset for now, which leaves replies
- * addressed to no-reply@, where nothing receives them. The email-changed
- * notice tells people to reply if a change wasn't theirs, so set this before
- * that email ships (PR 4).
+ * Where replies go. Nothing receives mail at `no-reply@`, and the
+ * email-changed notice asks people to reply if a change wasn't theirs, so
+ * every message carries this instead.
  */
-export const EMAIL_REPLY_TO: string | undefined = undefined
+export const EMAIL_REPLY_TO: string | undefined = 'support@infernolog.com'
 
 /** Environment for a Lambda that calls `sendEmail`. */
 export const emailEnvironment: Record<string, $util.Input<string>> = {
