@@ -49,7 +49,7 @@ Third-party tools would pass an API key as `X-InfernoLog-Key: <key>`, validated 
 
 Two limiters are live, both on the credential paths (see docs/AUTH.md):
 
-- **Verification codes** — 3 per address per hour and 10 per source IP per hour, counted from `email_verifications` rows and enforced in `services/verification`. A code survives 5 wrong guesses.
+- **Verification codes** — 3 per address per hour and 10 per source IP per hour, counted from `email_verifications` rows and enforced in `services/verification`. A code allows 5 attempts in total: 4 wrong guesses leave it usable, the 5th kills it.
 - **Current-password checks** — Cognito's own per-user lockout, which `PUT /v1/me/password` and `POST /v1/me/email/start` surface as `429 TOO_MANY_ATTEMPTS`.
 
 A third limiter is unrelated to inbound traffic: `apps/api/src/utils/robtopRateLimit.ts` throttles InfernoLog's **outbound** calls to the GD servers, shared across the `resolve`, `page`, and `gd-search` paths.
@@ -112,6 +112,7 @@ POST  /v1/auth/password-signup/verify           (no auth)
 POST  /v1/auth/signup/start                     (claims-only)
 POST  /v1/auth/signin/reject                    (claims-only)
 POST  /v1/me/connect-discord
+POST  /v1/me/connect-discord/complete
 DELETE /v1/me/connect-discord
 ```
 
@@ -121,7 +122,8 @@ DELETE /v1/me/connect-discord
 - `POST /v1/auth/signup/start` — Creates the InfernoLog `users` row for a confirmed, age-gated sign-up, from either sign-in method. Refuses a token whose `email_verified` is not true, and reads the provider from the token's `identities` claim rather than being told. Idempotent: a double-submit for the same Cognito identity returns the already-created row rather than erroring, which also covers an identity that already has an InfernoLog account going through Sign Up by mistake. A **different** identity arriving with an email another account already has gets `409 ACCOUNT_EXISTS`, and its Cognito user is discarded like a rejected sign-in's. Returns `onboardingCompleted` so the frontend knows whether to route into the wizard or straight into the app.
 - `POST /v1/auth/signin/reject` — Called when a Sign In attempt finds no matching InfernoLog user for the just-completed Google OAuth identity. Synchronously deletes the Cognito user so no trace of the attempt persists. Load-bearing for the COPPA argument that a rejected sign-in never retains a would-be user's data — neither this handler nor the app-wide request logger logs the claims payload, only the `sub`.
 - `POST /v1/me/connect-discord` — Returns a Discord OAuth URL carrying a signed state that encodes the signed-in user's id. The browser navigates there; Discord redirects to the public callback.
-- `GET /auth/discord/callback` — Public because Discord calls it. The signed state is what proves which signed-in user initiated the flow; it is validated before the Discord identity is written.
+- `POST /v1/me/connect-discord/complete` — Exchanges the code for the Discord account and writes the identity. The only write in the flow, and the only place the state's claimed user id is checked against the authenticated caller.
+- `GET /auth/discord/callback` — Public because Discord calls it. A bouncer: it forwards `code` and `state` to the frontend and decides nothing. The signed state is what proves which signed-in user initiated the flow, and it is validated on `/complete`, before the Discord identity is written.
 
 > **Note:** the `users` row is created **only** by `POST /v1/auth/signup/start`, which calls `createUserForSignup` to seed the default rating category and the built-in collections. Nothing else creates one, or attaches a sign-in identity to an existing one by matching email — a sign-in by an unrecognized identity depends on nothing having been created for it.
 

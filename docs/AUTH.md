@@ -60,7 +60,7 @@ The API issues, emails and checks its own six-digit codes (`services/verificatio
 It does this rather than use Cognito's attribute verification because Cognito can only send such a code to a user who already exists and is signed in — which would mean an unverified, password-holding Cognito user existing before the address was proven — and cannot send the other emails these flows need.
 
 - Only an HMAC of a code is stored, keyed by `VERIFICATION_CODE_SECRET` and bound to the purpose and address, so a code for one is never valid for another.
-- A code lasts 15 minutes, survives 5 wrong guesses, works once, and is replaced by any newer code for the same purpose and address.
+- A code lasts 15 minutes, allows 5 attempts in total (so it survives 4 wrong guesses and the 5th kills it), works once, and is replaced by any newer code for the same purpose and address.
 - Rate limits: 3 codes per address per hour and 10 per source IP per hour, counted from the rows themselves, which is why a row is written even when the email sent is a notice rather than a code. IPs are stored only as an HMAC.
 - Rows are deleted 24 hours after creation by the `PurgeEmailVerifications` cron, which also bounds how long a hashed IP is kept.
 
@@ -72,7 +72,7 @@ Adding a password, connecting Google, and changing the email of an account witho
 
 The browser gets it by running its own PKCE authorization-code flow against the hosted UI (`identity_provider=Google`), returning to `/auth/google-proof` — a path Amplify does not watch — and exchanging the code itself (`apps/web/src/lib/googleProof.ts`). Amplify refuses `signInWithRedirect` while a session exists, and signing out first would swap the account's session for the Google one, so the request that uses the proof would no longer carry the account's JWT. This way the account's session is untouched, and the refresh token from the exchange is revoked immediately.
 
-The proof is the resulting Cognito ID token. `apps/api/src/utils/googleProof.ts` verifies it with `aws-jwt-verify` — signature, audience, `token_use`, a Google entry in `identities`, and `auth_time` within 5 minutes — and every caller additionally checks it names one of **that account's own** Google identities. A live Google session means Google may re-confirm without asking for anything; that is accepted as sufficient. Between its callback and the form that uses it, the proof waits in sessionStorage for at most 4.5 minutes and is removed once used.
+The proof is the resulting Cognito ID token. `apps/api/src/utils/googleProof.ts` verifies it with `aws-jwt-verify` — signature, audience, `token_use`, a Google entry in `identities`, and `auth_time` within 5 minutes. The callers that re-confirm an identity the account already has — adding a password and changing the email, both through `requireOwnGoogleProof` (`services/user/signInChecks.ts`) — additionally check the proof names one of **that account's own** Google identities. Connecting a Google account cannot: there the proof names an account InfernoLog has never seen, so `POST /v1/me/identities/google` checks the opposite — that the identity belongs to no account yet and that this one has no Google sign-in — and the session's own JWT is what says which account is acting. A live Google session means Google may re-confirm without asking for anything; that is accepted as sufficient. Between its callback and the form that uses it, the proof waits in sessionStorage for at most 4.5 minutes and is removed once used.
 
 ### Where the API handles passwords
 
