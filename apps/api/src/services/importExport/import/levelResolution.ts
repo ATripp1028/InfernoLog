@@ -13,13 +13,11 @@ import prisma from '../../../utils/prisma'
 import { SQSClient, SendMessageBatchCommand } from '@aws-sdk/client-sqs'
 import type { Prisma } from '@prisma/client'
 import {
-  MAX_NON_DEMON_STARS,
-  faceMatchesStars,
-  faceToStarRange,
-  starsToFace,
-} from '@infernolog/core'
-import { searchRobtopByName, type RobtopLevel } from '../../../utils/robtop'
-import { OFFICIAL_LEVELS_BY_ID } from '../../../data/officialLevels'
+  fetchRobtopLevelResult,
+  searchRobtopByName,
+  type RobtopLevel,
+} from '../../../utils/robtop'
+import { isAdmissible } from '../../levels/admission'
 
 type Tx = Prisma.TransactionClient
 
@@ -28,33 +26,17 @@ const sqs = new SQSClient({ region: process.env.AWS_REGION ?? 'us-east-1' })
 // ── Name-based level resolution ────────────────────────────────────────────
 
 // Demon tier names, keyed without the redundant "Demon" suffix. A bare tier name
-// in a sheet means the DEMON tier — "Easy" is Easy Demon, not the 2-star Easy.
-// That convention predates non-demon support and is what the import template
-// documents ('e.g. "Easy" (Demon is implied)'), so it stays; a sheet that means
-// the non-demon difficulty says so unambiguously — with a star count, or with
-// the explicit marker when it has no count to give (see
-// nonDemonClaimFromSheetValue). Levels in our DB store the suffixed form for demons
-// (see deriveDifficulty in robtop.ts), so both sides normalize through this.
+// in a sheet means the DEMON tier — "Easy" is Easy Demon — which is now the only
+// reading there is: a rated non-demon is never cached (see
+// services/levels/admission.ts), so no sheet value can name one. Levels in our
+// DB store the suffixed form for demons (see deriveDifficulty in robtop.ts), so
+// both sides normalize through this.
 const DEMON_TIER_FILTERS: Record<string, string> = {
   easy: '1',
   medium: '2',
   hard: '3',
   insane: '4',
   extreme: '5',
-}
-
-// GD search's `diff` parameter by difficulty face. These are NOT star counts —
-// GD numbers its difficulty buckets separately (Auto is -3), and a bucket covers
-// a whole band (both 4- and 5-star levels are `diff=3`). Keyed by face rather
-// than count for exactly that reason. Mirrors NONDEMON_DIFF in
-// services/levels/gdSearch.ts.
-const FACE_TO_GD_DIFF: Record<string, string> = {
-  auto: '-3',
-  easy: '1',
-  normal: '2',
-  hard: '3',
-  harder: '4',
-  insane: '5',
 }
 
 function normalizeTier(diff: string | null | undefined): string | null {
@@ -67,118 +49,23 @@ function normalizeTier(diff: string | null | undefined): string | null {
   )
 }
 
-// The explicit "this is not a demon" marker, which frees a face name from the
-// bare-tier-means-demon convention. Written by every export that has a face but
-// no star count to write (see ../sheetDifficulty.ts), and loose enough to
-// accept the hand-typed variants — parentheses optional, hyphen optional.
-const NON_DEMON_MARKER = /\(?\s*non[-\s]?demon\s*\)?$/
-
-// What a sheet's in_game_difficulty is claiming about a non-demon, or null when
-// it isn't claiming anything this scale covers.
-//
-// Two shapes, because they carry different amounts of information:
-//   * an exact star count — "5", "5★", "5 stars" — which pins the difficulty;
-//   * a face name, which pins only a band (Harder is 6 or 7 stars).
-//
-// A face only counts when it cannot also be read as a demon tier: either it
-// isn't one ("Auto", "Normal", "Harder"), or the value marks itself non-demon
-// outright ("Insane (non-demon)"). A bare "Easy" / "Hard" / "Insane" stays a
-// demon tier per the convention above — a sheet meaning the non-demon one
-// writes the star count, or the marker when there is no count to write.
-type NonDemonClaim =
-  | { kind: 'stars'; stars: number }
-  | { kind: 'face'; face: string }
-
-function nonDemonClaimFromSheetValue(
-  value: string | null | undefined
-): NonDemonClaim | null {
-  if (!value) return null
-  let v = value.trim().toLowerCase()
-  const marked = NON_DEMON_MARKER.test(v)
-  if (marked) v = v.replace(NON_DEMON_MARKER, '').trim()
-
-  const numeric = v.match(/^(\d+)\s*(?:★|\*|stars?)?$/)
-  if (numeric) {
-    const n = Number(numeric[1])
-    return n >= 1 && n <= MAX_NON_DEMON_STARS
-      ? { kind: 'stars', stars: n }
-      : null
-  }
-
-  if (v === 'auto' || v === 'normal' || v === 'harder') {
-    return { kind: 'face', face: v }
-  }
-  // Marked, so even a face that doubles as a demon tier is non-demon here.
-  if (marked && faceToStarRange(v)) return { kind: 'face', face: v }
-  return null
-}
-
 /** A candidate's difficulty, from either the DB or a RobTop search hit. */
 interface DifficultyFacts {
   inGameDifficulty: string | null
-  stars: number | null
-  // DB candidates only — a RobTop hit has no id here, and RobTop never serves
-  // an official level anyway, so its absence is always the right answer.
-  inGameId?: string
-}
-
-// RobTop's own main levels carry bespoke star awards that ignore the difficulty
-// bands — Dry Out is 4 stars but Normal, Time Machine 8 but Harder — so for
-// those rows the count and the label are BOTH true and routinely disagree.
-// Neither may veto the other, or a sheet naming an official level by its real
-// face stops resolving. Same exemption services/levels/difficulty.ts applies on
-// the read side.
-function isOfficial(level: DifficultyFacts): boolean {
-  return level.inGameId != null && OFFICIAL_LEVELS_BY_ID.has(level.inGameId)
 }
 
 // Builds a hard difficulty predicate from the spreadsheet's in_game_difficulty.
-// Returns null when the value claims nothing recognizable, in which case
-// difficulty simply isn't used to filter.
+// Returns null when the value names no demon tier, in which case difficulty
+// simply isn't used to filter — including for the non-demon faces a sheet
+// written before demons-only may still carry, which now match nothing and so
+// must not be allowed to rule every candidate out.
 //
-// Each claim is matched against whichever field the candidate actually has,
-// preferring `stars` since that is the canonical identifier for a non-demon
-// (see starDifficulty.ts). A candidate carrying only a label is still testable —
-// un-enriched stubs and hand-added rows can have one without the other — because
-// a label pins a BAND, so it can rule a count in or out even though it could
-// never produce one. Only a candidate with neither field gets the benefit of the
-// doubt, the way an unknown-difficulty candidate always has.
+// A candidate with no difficulty at all — an un-enriched stub, a hand-added row
+// — gets the benefit of the doubt, as an unknown-difficulty candidate always
+// has.
 function difficultyPredicate(
   inGameDifficulty: string | null | undefined
 ): ((level: DifficultyFacts) => boolean) | null {
-  const claim = nonDemonClaimFromSheetValue(inGameDifficulty)
-
-  // An exact count: the candidate must be that count, or carry a label whose
-  // band contains it.
-  if (claim?.kind === 'stars') {
-    return (level) => {
-      const byLabel =
-        level.inGameDifficulty != null &&
-        faceMatchesStars(level.inGameDifficulty, claim.stars)
-      if (isOfficial(level)) return level.stars === claim.stars || byLabel
-      if (level.stars != null) return level.stars === claim.stars
-      if (level.inGameDifficulty == null) return true
-      return byLabel
-    }
-  }
-
-  // A face: the candidate's count must fall in that face's band, or its label
-  // must name the same face. Cannot narrow within the band — the sheet didn't.
-  if (claim?.kind === 'face') {
-    return (level) => {
-      const byLabel =
-        level.inGameDifficulty?.trim().toLowerCase() === claim.face
-      if (isOfficial(level))
-        return (
-          byLabel ||
-          (level.stars != null && faceMatchesStars(claim.face, level.stars))
-        )
-      if (level.stars != null) return faceMatchesStars(claim.face, level.stars)
-      if (level.inGameDifficulty == null) return true
-      return byLabel
-    }
-  }
-
   const tier = normalizeTier(inGameDifficulty)
   if (!tier || !DEMON_TIER_FILTERS[tier]) return null
   return (level) => {
@@ -189,28 +76,19 @@ function difficultyPredicate(
 }
 
 // Maps a spreadsheet in_game_difficulty to GD search API diff/demonFilter params.
+//
+// `diff=-2` is GD's Demon bucket and is sent for every name search, difficulty
+// column or not: the cache admits no rated non-demon, so searching the rest of
+// GD's library only turns up levels that would be refused. The consequence is
+// that an UNRATED level whose vote-derived face isn't a demon one cannot be
+// resolved by name — such a row needs a level_id (see docs/IMPORT_EXPORT.md).
 function toDiffFilter(diff: string | null | undefined): {
-  diff?: string
+  diff: string
   demonFilter?: string
 } {
-  // Both claim shapes resolve to a face, since GD's diff buckets are per-face:
-  // asking for 4 stars and asking for 5 stars are the same query (`diff=3`).
-  const claim = nonDemonClaimFromSheetValue(diff)
-  if (claim) {
-    const face =
-      claim.kind === 'face'
-        ? claim.face
-        : starsToFace(claim.stars)?.toLowerCase()
-    const bucket = face ? FACE_TO_GD_DIFF[face] : undefined
-    if (bucket) return { diff: bucket }
-    return {}
-  }
-
   const tier = normalizeTier(diff)
-  if (!tier) return {}
-  const demonFilter = DEMON_TIER_FILTERS[tier]
-  if (!demonFilter) return {}
-  return { diff: '-2', demonFilter }
+  const demonFilter = tier ? DEMON_TIER_FILTERS[tier] : undefined
+  return demonFilter ? { diff: '-2', demonFilter } : { diff: '-2' }
 }
 
 /**
@@ -229,8 +107,6 @@ type DbCandidate = {
   inGameId: string
   creator: string | null
   inGameDifficulty: string | null
-  // The canonical difficulty identifier for a non-demon.
-  stars: number | null
 }
 
 // Resolve from already-fetched DB candidates for a name. Returns a unique match,
@@ -273,8 +149,11 @@ async function resolveViaRobtop(
   )
   // Compare trimmed: RobTop stores some names with trailing/leading whitespace.
   const wantName = name.trim().toLowerCase()
+  // isAdmissible is a backstop: toDiffFilter already restricts the search to
+  // GD's Demon bucket, but nothing is resolved (and then cached) on that alone.
   let rtCandidates = rtResults.filter(
-    (r) => r.level.name?.trim().toLowerCase() === wantName
+    (r) =>
+      r.level.name?.trim().toLowerCase() === wantName && isAdmissible(r.level)
   )
   if (matchesDifficulty) {
     rtCandidates = rtCandidates.filter((r) => matchesDifficulty(r.level))
@@ -317,7 +196,6 @@ export async function resolveByName(
       inGameId: true,
       creator: true,
       inGameDifficulty: true,
-      stars: true,
     },
   })
   const db = resolveFromDbCandidates(dbLevels, creator, inGameDifficulty)
@@ -356,7 +234,6 @@ export async function resolveNamesBatch(
         name: true,
         creator: true,
         inGameDifficulty: true,
-        stars: true,
       },
     })
     for (const r of rows) {
@@ -386,6 +263,59 @@ export async function resolveNamesBatch(
     )
   }
   return results
+}
+
+// ── Admission screening ────────────────────────────────────────────────────
+
+/** What {@link screenUncachedIds} learned about the ids it was given. */
+export interface ScreeningResult {
+  /** Ids GD reports as rated non-demons. Nothing may be written for these. */
+  refused: Set<string>
+  /** GD's snapshot for the ids that passed, so callers need not re-fetch. */
+  resolved: Map<string, RobtopLevel>
+}
+
+/**
+ * Asks GD about level ids this cache has never seen, so a rated non-demon is
+ * refused BEFORE the import writes anything that references it.
+ *
+ * A row naming a level by id otherwise goes straight to a placeholder row, with
+ * GD consulted later by the seed worker — too late, since the row's progress
+ * would already reference the level.
+ *
+ * Each lookup is paced by the shared RobTop limiter, so the pass is budgeted.
+ * Ids the budget cuts off, and ids GD can't answer for, come back in neither
+ * set: the caller falls back to the placeholder + seed-queue path, which is the
+ * one documented way a non-demon can still end up cached.
+ *
+ * @param levelIds - Ids named by the batch; already-cached ones are skipped.
+ * @param budgetMs - Wall-clock ceiling on the whole pass.
+ */
+export async function screenUncachedIds(
+  levelIds: string[],
+  budgetMs: number
+): Promise<ScreeningResult> {
+  const refused = new Set<string>()
+  const resolved = new Map<string, RobtopLevel>()
+  if (!levelIds.length) return { refused, resolved }
+
+  const cached = await prisma.level.findMany({
+    where: { inGameId: { in: levelIds } },
+    select: { inGameId: true },
+  })
+  const cachedIds = new Set(cached.map((l) => l.inGameId))
+  const deadline = Date.now() + budgetMs
+
+  for (const id of levelIds) {
+    if (cachedIds.has(id)) continue
+    if (Date.now() >= deadline) break
+    const res = await fetchRobtopLevelResult(id)
+    if (res.status !== 'found') continue
+    if (isAdmissible(res.level)) resolved.set(id, res.level)
+    else refused.add(id)
+  }
+
+  return { refused, resolved }
 }
 
 // ── Stub level creation ────────────────────────────────────────────────────

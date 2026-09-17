@@ -19,17 +19,23 @@ import { logger } from '../../../utils/logger'
 import { type RobtopLevel } from '../../../utils/robtop'
 import { buildRobtopRefreshData } from '../../levels/robtopMapping'
 import { checkCommunityForSeededLevels } from '../../levels/communitySync'
+import { NOT_A_DEMON_MESSAGE } from '../../levels/admission'
 
 // Wall-clock ceiling on this batch's community-list pass — see the call site
 // below.
 const COMMUNITY_IMPORT_BUDGET_MS = 20_000
-import { resolveLevelDifficulty } from '../../levels/difficulty'
+// Wall-clock ceiling on the admission lookups — see screenUncachedIds. Sized
+// with the community pass above and the flush transaction to stay inside
+// importWorker's REMAINING_TIME_SAFETY_MS (60s), which the worker only checks
+// BETWEEN batches: overrun it and the Lambda dies mid-job with no reinvoke.
+const ADMISSION_LOOKUP_BUDGET_MS = 20_000
 import { fetchGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
 import {
   enqueueSeedIds,
   ensureStubLevels,
   resolveByName,
+  screenUncachedIds,
 } from './levelResolution'
 import {
   deriveEventKey,
@@ -114,12 +120,36 @@ export async function processImportJobBatch(
     }
   }
 
-  const allKnownIds = [
+  const namedIds = [
     ...new Set([
       ...rows.filter((r) => r.data.levelId).map((r) => r.data.levelId!),
       ...resolvedIds.values(),
     ]),
   ]
+
+  // ── Admission: ask GD about ids this cache has never seen ─────────────
+  // Rows naming a level by id skip resolveByName entirely, so this is where a
+  // rated non-demon is refused — before anything referencing it is written.
+  // A name-resolved id already carries GD's answer from resolveByName, which
+  // refuses a non-demon itself.
+  const screened = await screenUncachedIds(
+    namedIds.filter((id) => !resolvedRobtopData.has(id)),
+    ADMISSION_LOOKUP_BUDGET_MS
+  )
+  // Already in hand — the flush below upgrades the stub from this rather than
+  // queueing another lookup for the seed worker.
+  for (const [id, level] of screened.resolved) resolvedRobtopData.set(id, level)
+
+  for (const row of rows) {
+    const id = row.data.levelId ?? resolvedIds.get(row.rowIndex)
+    if (id && screened.refused.has(id)) {
+      resolutionFailures.set(row.rowIndex, NOT_A_DEMON_MESSAGE)
+    }
+  }
+
+  // Refused ids get no stub, no prefetch and no writes: every row naming one
+  // already failed above.
+  const allKnownIds = namedIds.filter((id) => !screened.refused.has(id))
 
   // ── Pre-fetch existing state (batched, outside the transaction) ───────
   // Two findMany calls replace the per-row reads the old per-row commit did,
@@ -162,12 +192,9 @@ export async function processImportJobBatch(
 
   const levelRows = await prisma.level.findMany({
     where: { inGameId: { in: allKnownIds } },
-    // stars is canonical for a non-demon, so the snapshot has to be resolved
-    // rather than read straight off the (display-copy) label column.
     select: {
       inGameId: true,
       inGameDifficulty: true,
-      stars: true,
       coins: true,
       // The cached community tier, read by the GDDL autofill below.
       gddlTier: true,
@@ -175,15 +202,16 @@ export async function processImportJobBatch(
     },
   })
   const levelDiff = new Map<string, string | null>(
-    levelRows.map((l) => [l.inGameId, resolveLevelDifficulty(l)])
+    levelRows.map((l) => [l.inGameId, l.inGameDifficulty])
   )
   const levelCoins = new Map<string, number | null>(
     levelRows.map((l) => [l.inGameId, l.coins])
   )
-  // Name-resolved levels are created/enriched as stubs below; surface their
-  // RobTop difficulty + coin count now for the completion snapshot / coin gate.
+  // Levels resolved from GD above (by name, or by the admission lookup) are
+  // created/enriched below; surface their difficulty + coin count now for the
+  // completion snapshot / coin gate.
   for (const [id, rt] of resolvedRobtopData) {
-    levelDiff.set(id, resolveLevelDifficulty({ ...rt, inGameId: id }))
+    levelDiff.set(id, rt.inGameDifficulty)
     levelCoins.set(id, rt.coins)
   }
 
@@ -700,7 +728,10 @@ export async function processImportJobBatch(
   // comes straight out of the margin it reserved to self-reinvoke. Overrun it
   // and the Lambda dies after these rows were already committed, with no
   // reinvoke — leaving the job stuck at `running` forever.
-  await checkCommunityForSeededLevels(seededFromRobtop, COMMUNITY_IMPORT_BUDGET_MS)
+  await checkCommunityForSeededLevels(
+    seededFromRobtop,
+    COMMUNITY_IMPORT_BUDGET_MS
+  )
 
   // Enqueue remaining stub IDs (not pre-enriched) for async RobTop enrichment.
   if (newStubIds.length) {

@@ -31,6 +31,7 @@ const {
   mockResolveByName,
   mockEnsureStubLevels,
   mockEnqueueSeedIds,
+  mockScreenUncachedIds,
   mockFetchGddlTier,
   mockRemoveFromWantToBeat,
   mockPlanCompletion,
@@ -40,6 +41,11 @@ const {
   mockResolveByName: vi.fn(),
   mockEnsureStubLevels: vi.fn(),
   mockEnqueueSeedIds: vi.fn(),
+  // The admission screen; every test here is about rows whose levels pass it.
+  mockScreenUncachedIds: vi.fn(async () => ({
+    refused: new Set<string>(),
+    resolved: new Map(),
+  })),
   mockFetchGddlTier: vi.fn(),
   mockRemoveFromWantToBeat: vi.fn(),
   mockPlanCompletion: vi.fn(),
@@ -51,6 +57,7 @@ vi.mock('./levelResolution', () => ({
   resolveByName: mockResolveByName,
   ensureStubLevels: mockEnsureStubLevels,
   enqueueSeedIds: mockEnqueueSeedIds,
+  screenUncachedIds: mockScreenUncachedIds,
 }))
 vi.mock('../../../utils/gddl', () => ({ fetchGddlTier: mockFetchGddlTier }))
 vi.mock('../../collections', () => ({
@@ -510,9 +517,7 @@ describe('processImportJobBatch — GDDL tier autofill', () => {
   })
 
   it('fetches a cached level whose community check never answered', async () => {
-    prisma.level.findMany.mockResolvedValue([
-      cachedLevel(null, null),
-    ] as never)
+    prisma.level.findMany.mockResolvedValue([cachedLevel(null, null)] as never)
     mockFetchGddlTier.mockResolvedValue(18)
 
     await run([row('completion', 0, { levelId: '12345' })])

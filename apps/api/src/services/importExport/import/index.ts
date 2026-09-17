@@ -20,6 +20,7 @@ export {
   resolveNamesBatch,
   ensureStubLevels,
   enqueueSeedIds,
+  screenUncachedIds,
   type ResolveResult,
 } from './levelResolution'
 export { processImportJobBatch, commitImportBatch } from './processBatch'

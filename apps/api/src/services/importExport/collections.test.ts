@@ -26,17 +26,27 @@ vi.mock('../../utils/logger', () => ({
   logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }))
 
-const { mockResolveNamesBatch, mockEnsureStubLevels, mockEnqueueSeedIds } =
-  vi.hoisted(() => ({
-    mockResolveNamesBatch: vi.fn(),
-    mockEnsureStubLevels: vi.fn(),
-    mockEnqueueSeedIds: vi.fn(),
-  }))
+const {
+  mockResolveNamesBatch,
+  mockEnsureStubLevels,
+  mockEnqueueSeedIds,
+  mockScreenUncachedIds,
+} = vi.hoisted(() => ({
+  mockResolveNamesBatch: vi.fn(),
+  mockEnsureStubLevels: vi.fn(),
+  mockEnqueueSeedIds: vi.fn(),
+  // The admission screen; every level in these tests passes it.
+  mockScreenUncachedIds: vi.fn(async () => ({
+    refused: new Set<string>(),
+    resolved: new Map(),
+  })),
+}))
 
 vi.mock('../importExport/import', () => ({
   resolveNamesBatch: mockResolveNamesBatch,
   ensureStubLevels: mockEnsureStubLevels,
   enqueueSeedIds: mockEnqueueSeedIds,
+  screenUncachedIds: mockScreenUncachedIds,
 }))
 
 const { classifyCollection, commitImportCollections } =
