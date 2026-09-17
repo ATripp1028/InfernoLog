@@ -1,10 +1,6 @@
 // Prisma selects for the cached-level wire shape, and the mapper that turns a
 // selected row into that shape.
 
-import {
-  resolveLevelDifficulty,
-  type LevelDifficultyFields,
-} from './difficulty'
 import { toNum, type DecimalLike } from '../../utils/decimal'
 
 /**
@@ -44,8 +40,6 @@ export const levelDetailSelect = {
   description: true,
   creatorPlayerId: true,
   creatorAccountId: true,
-  stars: true,
-  starsRequested: true,
   partialDiff: true,
   downloads: true,
   likes: true,
@@ -82,22 +76,17 @@ export const levelPageSelect = {
 
 /**
  * Serializes a {@link levelDetailSelect} / {@link levelPageSelect} row for the
- * wire, resolving `inGameDifficulty` against `stars` — the canonical difficulty
- * for a non-demon, which outranks the stored label. The row-summary equivalent
- * is mapLevel in row.ts; every detail response must go through one of the two,
- * or a stale label reaches the client.
+ * wire.
  *
- * It also converts `enjoyment`, a Decimal(5,2) column, to a plain number when
- * the select carries it. Prisma hands Decimal columns back as Decimal
- * instances, which JSON-serialize as STRINGS — so a detail response that
- * skipped this would ship "59.39" where the wire contract promises 59.39.
- * Being the one function every detail response already goes through is exactly
- * what makes it the right place.
+ * It converts `enjoyment`, a Decimal(5,2) column, to a plain number when the
+ * select carries it. Prisma hands Decimal columns back as Decimal instances,
+ * which JSON-serialize as STRINGS — so a detail response that skipped this
+ * would ship "59.39" where the wire contract promises 59.39. Being the one
+ * function every detail response already goes through is exactly what makes it
+ * the right place.
  */
-export function mapLevelDetail<T extends LevelDifficultyFields>(
-  level: T
-): LevelDetailWire<T> {
-  const wire = { ...level, inGameDifficulty: resolveLevelDifficulty(level) }
+export function mapLevelDetail<T extends object>(level: T): LevelDetailWire<T> {
+  const wire = { ...level }
   if ('enjoyment' in wire) {
     Object.assign(wire, {
       enjoyment: toNum(wire.enjoyment as DecimalLike | number | null),

@@ -5,7 +5,6 @@
 
 import type { Prisma } from '@prisma/client'
 import { OFFICIAL_LEVELS_BY_ID } from '../../data/officialLevels'
-import { resolveLevelDifficulty } from './difficulty'
 
 /**
  * Level identity columns for a row (LevelListSummarySchema). Shared by the
@@ -18,9 +17,6 @@ export const levelSummarySelect = {
   creator: true,
   levelType: true,
   inGameDifficulty: true,
-  // The canonical difficulty for a non-demon: mapLevel resolves the label
-  // against it, and rows render it directly as "5★ Harder".
-  stars: true,
   isDemon: true,
   isRated: true,
   featured: true,
@@ -108,26 +104,13 @@ export function completionAttempts(updates: CompletionRefs): number | null {
 /**
  * Serializes a level row for the wire.
  *
- * Two fixups, both of which every summary view needs, so they live here rather
- * than being repeated per call site:
- *
- * 1. `inGameDifficulty` is resolved against `stars`, which is canonical for a
- *    non-demon (see starDifficulty.ts) — so a stale label never reaches a
- *    client, and clients keep reading one field without knowing the rule.
- * 2. Official levels (ids 1–38) aren't served by RobTop, so their release
- *    version and secret-coin count come from our data file, not the cache.
+ * One fixup, which every summary view needs, so it lives here rather than being
+ * repeated per call site: official levels aren't served by RobTop, so their
+ * release version and secret-coin count come from our data file, not the cache.
  */
 export function mapLevel(level: LevelRow) {
-  const withDifficulty = {
-    ...level,
-    inGameDifficulty: resolveLevelDifficulty(level),
-  }
   const official = OFFICIAL_LEVELS_BY_ID.get(level.inGameId)
   return official
-    ? {
-        ...withDifficulty,
-        gameVersion: official.gameVersion,
-        coins: official.coins,
-      }
-    : withDifficulty
+    ? { ...level, gameVersion: official.gameVersion, coins: official.coins }
+    : level
 }

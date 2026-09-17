@@ -11,7 +11,6 @@
 
 import { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
-import { resolveLevelDifficulty } from './difficulty'
 import { LEVEL_RANGE_FIELDS } from '@infernolog/core'
 import type {
   LevelBrowseQuery,
@@ -35,8 +34,9 @@ const LENGTH_LABELS: Record<string, string> = {
 
 // Difficulty face rank from Level.partialDiff — the canonical GD difficulty
 // order (Auto < Easy < … < Insane < Easy Demon < … < Extreme Demon). Drives the
-// 'stars' sort's primary key so results order by face first; star count only
-// breaks convention on RobTop's official levels, so it's the tiebreaker.
+// 'difficulty' sort. The non-demon faces are kept because an UNRATED level
+// still carries the one its player votes gave it; a rated non-demon is never
+// cached (see services/levels/admission.ts).
 const DIFFICULTY_RANK = Prisma.sql`(CASE "partialDiff"
   WHEN 'demon-extreme' THEN 11
   WHEN 'demon-insane' THEN 10
@@ -165,12 +165,8 @@ function sortDef(
             : nullsLast(Prisma.sql`"downloads"`, dir),
         type: 'num',
       }
-    case 'stars':
-      // Difficulty face first (× 1000), star count as the tiebreaker.
-      return {
-        expr: Prisma.sql`((${DIFFICULTY_RANK}) * 1000 + COALESCE("stars", 0))::float8`,
-        type: 'num',
-      }
+    case 'difficulty':
+      return { expr: Prisma.sql`(${DIFFICULTY_RANK})::float8`, type: 'num' }
     case 'gddlTier':
       return { expr: nullsLast(Prisma.sql`"gddlTier"`, dir), type: 'num' }
     case 'aredlRank':
@@ -381,7 +377,7 @@ export async function browseLevels(
     Array<LevelBrowseResult & { _sortval: number | string }>
   >(Prisma.sql`
     SELECT "inGameId", "name", "creator", "songName", "inGameDifficulty",
-           "stars", "featured", "epicValue", "isRated",
+           "featured", "epicValue", "isRated",
            "likes", "downloads", "length", "coins", "coinsVerified",
            "twoPlayer", "isDemon", "levelType",
            "objectCount", "gddlTier", "aredlRank", "aredlStatus", "sheetTier",
@@ -402,12 +398,10 @@ export async function browseLevels(
     hasMore && last ? encodeCursor(last._sortval, last.inGameId) : null
 
   const data = page.map((row): LevelBrowseResult => {
-    // Strip the internal keyset value; the rest is the wire row, except that a
-    // non-demon's difficulty is keyed on "stars", which outranks the stored
-    // label (see starDifficulty.ts).
+    // Strip the internal keyset value; the rest is the wire row.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _sortval, ...rest } = row
-    return { ...rest, inGameDifficulty: resolveLevelDifficulty(rest) }
+    return rest
   })
   return { data, nextCursor }
 }

@@ -49,9 +49,6 @@ app.get('/me/progress/:levelId', async (c) => {
           creator: true,
           levelType: true,
           inGameDifficulty: true,
-          // Canonical difficulty for a non-demon; also rendered beside the
-          // face ("5★ Harder").
-          stars: true,
           isDemon: true,
           isRated: true,
           featured: true,
