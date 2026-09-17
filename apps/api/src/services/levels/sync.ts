@@ -19,6 +19,7 @@ import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { buildRobtopRefreshData } from './robtopMapping'
+import { isAdmissible, purgeIfUnused } from './admission'
 import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
 import {
   checkAndPersistCommunity,
@@ -82,6 +83,9 @@ export interface SyncBatchResult {
   repaired: number
   // Confirmed gone (missing past the confirmation window) and delisted this run.
   delisted: number
+  // Levels GD has now rated as non-demons, which the cache doesn't admit, and
+  // that nothing referenced — deleted this run. See the purge in syncOneLevel.
+  purged: number
   // Seen missing (RobTop not-found) but NOT delisted — either the first sighting
   // (missingSince just stamped) or still inside the confirmation window. Extends
   // the circuit-breaker streak but writes no delistedAt.
@@ -114,7 +118,6 @@ export interface SyncBatchResult {
 const compareSelect = {
   isRated: true,
   inGameDifficulty: true,
-  stars: true,
   name: true,
   creator: true,
   songName: true,
@@ -212,6 +215,29 @@ async function syncOneLevel(
 
   const robtop = robtopResult.level
 
+  // A level cached while GD had not rated it, now rated — as a NON-DEMON, which
+  // the cache never admits (see admission.ts). Remove it rather than keep
+  // refreshing something that could not be added today. One that someone has
+  // since logged or collected stays, exactly like a demon GD demoted: deleting
+  // it would take their data with it, so it falls through to the diff below and
+  // keeps its metadata current.
+  if (!current.isRated && !isAdmissible(robtop)) {
+    if (await purgeIfUnused(levelId)) {
+      result.purged++
+      logger.info(
+        { levelId, inGameDifficulty: robtop.inGameDifficulty },
+        'levelSync: GD rated this as a non-demon; purged from the cache'
+      )
+      // GD answered, so this is evidence RobTop is healthy — the circuit
+      // breaker must not count it as a miss.
+      return 'synced'
+    }
+    logger.info(
+      { levelId },
+      'levelSync: GD rated this as a non-demon, but it is in use; kept'
+    )
+  }
+
   // Found: diff against the cached snapshot and write only what changed.
   const now = new Date()
   const data: Prisma.LevelUpdateInput = { lastCheckedAt: now }
@@ -238,26 +264,13 @@ async function syncOneLevel(
     data.communityCheckedAt = null
   }
 
-  // `stars` is the CANONICAL difficulty for a non-demon — every read path
-  // resolves the label against it and the count wins (starDifficulty.ts). So it
-  // cannot be left behind when the label moves: a level rerated 4-star Hard →
-  // 7-star Harder would keep serving "Hard" off the stale count, republishing
-  // the very difficulty this sync just corrected. Compared on its own rather
-  // than folded into `ratingChanged` for two reasons: a rerate INSIDE one face
-  // (4 → 5 stars, still "Hard") changes no label and would otherwise be
-  // invisible, and backfilling a count onto a row that never had one is not
-  // news about when the level was rated, so it must not bump
-  // `ratingStatusSince` (which orders the "recently rated" sort).
-  const starsChanged = robtop.stars !== current.stars
-  if (starsChanged) data.stars = robtop.stars
-
   // Text drift. A null from RobTop for any of these is "the response didn't
   // carry it", not a rename to nothing (see PRESERVE_IF_NULL in
   // robtopMapping.ts), and the cached value can be the only one that exists —
   // a name from GDDL metadata, a creator/song typed in on a manual level. So a
   // null is no news: keep what's there. Same rule the repair path below gets
   // from buildRobtopRefreshData.
-  let changed = ratingChanged || starsChanged
+  let changed = ratingChanged
   for (const field of ['name', 'creator', 'songName', 'songAuthor'] as const) {
     const next = robtop[field]
     if (next === null || next === current[field]) continue
@@ -334,6 +347,7 @@ export async function syncLevelBatch(
     ratingChanged: 0,
     repaired: 0,
     delisted: 0,
+    purged: 0,
     missing: 0,
     unreachable: 0,
     errors: 0,
