@@ -6,6 +6,7 @@ import {
   ProgressInputSchema,
   DropInputSchema,
   EditProgressInputSchema,
+  ManualLevelDifficultySchema,
   ManualLevelInputSchema,
   RatingScoreInputSchema,
   LevelSearchResultSchema,
@@ -74,6 +75,7 @@ export type CompletionInput = z.infer<typeof CompletionInputSchema>
 export type ProgressInput = z.infer<typeof ProgressInputSchema>
 export type DropInput = z.infer<typeof DropInputSchema>
 export type EditProgressInput = z.infer<typeof EditProgressInputSchema>
+export type ManualLevelDifficulty = z.infer<typeof ManualLevelDifficultySchema>
 export type ManualLevelInput = z.infer<typeof ManualLevelInputSchema>
 export type RatingScoreInput = z.infer<typeof RatingScoreInputSchema>
 export type LevelSearchResult = z.infer<typeof LevelSearchResultSchema>

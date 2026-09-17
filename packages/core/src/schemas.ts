@@ -62,8 +62,6 @@ export const LevelSchema = z.object({
   description: z.string().nullable(),
   creatorPlayerId: z.string().nullable(),
   creatorAccountId: z.string().nullable(),
-  stars: z.number().int().nullable(),
-  starsRequested: z.number().int().nullable(),
   partialDiff: z.string().nullable(),
   downloads: z.number().int().nullable(),
   likes: z.number().int().nullable(),
@@ -422,8 +420,6 @@ export const CompletionInputSchema = z.object({
   // enjoyment is logged per-event on the ProgressUpdate (see schema.prisma).
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
   // LevelProgress fields — one current value per level, not per event.
-  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-  // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // Per-category scores. Stored raw; the weighted average is never
   // pre-computed.
@@ -531,9 +527,8 @@ export const EditProgressInputSchema = z
       .max(MAX_GDDL_TIER)
       .nullable()
       .optional(),
-    // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-    // no separate paired field. Level-scoped: the user's read of the LEVEL, not
-    // of one run, so it is editable from any entry on the level.
+    // Level-scoped: the user's read of the LEVEL, not of one run, so it is
+    // editable from any entry on the level.
     difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
     // ProgressUpdate fields
     date: z.coerce.date().nullable().optional(),
@@ -577,6 +572,19 @@ export const EditProgressInputSchema = z
     }
   })
 
+// The difficulties the manual-entry form offers, as the in-game labels they are
+// stored as. A rated non-demon is never cached, so the only choices are the five
+// demon tiers and "Unrated" — which is also why the level's isDemon and isRated
+// flags are derived from this value rather than sent alongside it.
+export const ManualLevelDifficultySchema = z.enum([
+  'Easy Demon',
+  'Medium Demon',
+  'Hard Demon',
+  'Insane Demon',
+  'Extreme Demon',
+  'Unrated',
+])
+
 // MANUAL LEVEL METADATA — the autofill-fallback form submit. The user-entered
 // difficulty BECOMES the level's in-game difficulty (the one sanctioned
 // exception to in-game-difficulty-is-read-only). Stored data_source=manual,
@@ -585,19 +593,7 @@ export const ManualLevelInputSchema = z.object({
   inGameId: LevelIdSchema,
   name: z.string().min(1).max(200),
   creator: z.string().min(1).max(200),
-  difficulty: z.string().min(1).max(100),
-  // The awarded star count, for a rated non-demon. Sent separately from
-  // `difficulty` because the face does NOT determine it — a "Hard" level is 4
-  // or 5 stars — and the count is the canonical identifier, so the form asks
-  // for it directly rather than guessing (see starDifficulty.ts). Omitted for
-  // demons (always 10) and unrated levels (no stars).
-  stars: z.number().int().min(1).max(10).nullable().optional(),
-  // Whether the user picked a demon tier vs "Not a demon" on the manual form.
-  // autofill was unavailable, so the client tells us; defaults to false.
-  isDemon: z.boolean().optional(),
-  // Whether the level is rated (has stars). Drives the rated-star badge.
-  // Defaults to false; demons/autos are always rated, set by the client.
-  isRated: z.boolean().optional(),
+  difficulty: ManualLevelDifficultySchema,
   songName: z.string().max(200).nullable().optional(),
   songAuthor: z.string().max(200).nullable().optional(),
   length: z.string().max(100).nullable().optional(),
@@ -613,8 +609,6 @@ export const LevelSearchResultSchema = z.object({
   creator: z.string().nullable(),
   songName: z.string().nullable(),
   inGameDifficulty: z.string().nullable(),
-  // Star count (null for unrated). Rendered alongside the difficulty in a row.
-  stars: z.number().int().nullable(),
   // Drives the difficulty-face showcase glow in result rows.
   featured: z.boolean().nullable(),
   epicValue: z.number().int().nullable(),
@@ -649,15 +643,10 @@ export const GdSearchResponseSchema = z.discriminatedUnion('status', [
 // ─────────────────────────────────────────────
 
 // Difficulty tokens exactly as stored on Level.partialDiff (see deriveDifficulty
-// in apps/api/src/utils/robtop.ts). 'na' (unrated) is deliberately omitted here —
-// the unrated case is expressed through the rate-status filter instead.
+// in apps/api/src/utils/robtop.ts). Demon tiers only: rated non-demons are never
+// cached, and unrated levels — whatever face their votes give them — are
+// expressed through the rate-status filter instead.
 export const LevelDifficultySchema = z.enum([
-  'auto',
-  'easy',
-  'normal',
-  'hard',
-  'harder',
-  'insane',
   'demon-easy',
   'demon-medium',
   'demon-hard',
@@ -699,8 +688,8 @@ export const LevelTypeFilterSchema = z.enum(['CLASSIC', 'PLATFORMER'])
 export const LevelSearchBySchema = z.enum(['name', 'creator'])
 
 // Result ordering. 'relevance' requires a query (falls back to downloads with an
-// empty query); the rest sort on stored, user-independent columns. 'stars' sorts
-// by difficulty face then star count, and 'duration' falls back to the level's
+// empty query); the rest sort on stored, user-independent columns. 'difficulty'
+// sorts by difficulty face, and 'duration' falls back to the level's
 // length band where the exact duration is unknown (see browseLevels). 'levelId'
 // is the in-game id compared as a number — upload order, and the default order
 // of an unordered collection; the /search page doesn't offer it.
@@ -709,7 +698,7 @@ export const LevelSortSchema = z.enum([
   'relevance',
   'likes',
   'downloads',
-  'stars',
+  'difficulty',
   'gddlTier',
   'aredlRank',
   'sheetTier',
@@ -921,15 +910,8 @@ export const LevelListSummarySchema = z.object({
   name: z.string().nullable(),
   creator: z.string().nullable(),
   levelType: z.nativeEnum(LevelType),
-  // Resolved server-side, not the raw column: for a non-demon `stars` is
-  // canonical and wins over the stored label (deriveInGameDifficulty). Always a
-  // face name — "Harder", "Extreme Demon" — so clients rendering just a label
-  // need not know which field it came from.
+  // Always a face name — "Extreme Demon", or "Unrated".
   inGameDifficulty: z.string().nullable(),
-  // Awarded star count, and the canonical difficulty identifier for a
-  // non-demon: 1-9 there, 10 for a demon, 0/null when unrated. Rendered
-  // alongside the face for non-demons ("7★ Harder").
-  stars: z.number().int().nullable(),
   isDemon: z.boolean(),
   isRated: z.boolean(),
   featured: z.boolean().nullable(),
@@ -1358,8 +1340,6 @@ export const ImportCompletionRowSchema = z.object({
   fps: z.number().int().positive().max(MAX_FPS).nullable().optional(),
   // 0-100 internal scale — no conversion on write. See the block comment above.
   enjoyment: z.number().int().min(0).max(100).nullable().optional(),
-  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-  // no separate paired field.
   difficultyOpinion: z.nativeEnum(DifficultyOpinion).nullable().optional(),
   // User-coin collection as a bitmask (bit 0 = coin 1 … bit 2 = coin 3).
   // Ignored server-side for levels that have no user coins.
