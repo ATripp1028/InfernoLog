@@ -16,6 +16,10 @@
 // throw. Run them AFTER any transaction commits: they are outbound HTTP calls
 // and must not be held open by one.
 
+// ⚠️ ADMISSION: a rated non-demon must never reach a create. Every create path
+// checks isAdmissible (services/levels/admission.ts) against the snapshot
+// first; this module maps whatever it is given.
+
 import type { Prisma } from '@prisma/client'
 import type { RobtopLevel } from '../../utils/robtop'
 
@@ -31,11 +35,6 @@ type RobtopLevelFields = Omit<Prisma.LevelUncheckedCreateInput, 'inGameId'>
  * `dataSource`/`verified` are pinned to `robtop_autofill`/`true`: reaching this
  * function at all means GD's servers answered with a real level, which is
  * exactly what "verified" records.
- *
- * Both `inGameDifficulty` and `stars` are written straight from the snapshot.
- * For a rated non-demon the two say the same thing and `stars` is the canonical
- * one (see starDifficulty.ts) — but they are written together, from the same
- * response, so this is the one place they cannot drift.
  *
  * @param gd - Normalized level from {@link fetchRobtopLevel}.
  * @returns Column values, without `inGameId` — use {@link buildRobtopCreateData}
@@ -55,8 +54,6 @@ function robtopLevelFields(gd: RobtopLevel): RobtopLevelFields {
     description: gd.description,
     creatorPlayerId: gd.creatorPlayerId,
     creatorAccountId: gd.creatorAccountId,
-    stars: gd.stars,
-    starsRequested: gd.starsRequested,
     partialDiff: gd.partialDiff,
     downloads: gd.downloads,
     likes: gd.likes,

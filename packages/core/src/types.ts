@@ -24,6 +24,7 @@ import {
   LevelBrowseResultSchema,
   LevelBrowseResponseSchema,
   ResolveLevelResponseSchema,
+  NotADemonResponseSchema,
   ExistingCompletionSchema,
   LevelListSummarySchema,
   LevelProgressListEntrySchema,
@@ -94,6 +95,7 @@ export type LevelBrowseQuery = z.infer<typeof LevelBrowseQuerySchema>
 export type LevelBrowseResult = z.infer<typeof LevelBrowseResultSchema>
 export type LevelBrowseResponse = z.infer<typeof LevelBrowseResponseSchema>
 export type ResolveLevelResponse = z.infer<typeof ResolveLevelResponseSchema>
+export type NotADemonResponse = z.infer<typeof NotADemonResponseSchema>
 export type ExistingCompletion = z.infer<typeof ExistingCompletionSchema>
 
 export type LevelListSummary = z.infer<typeof LevelListSummarySchema>

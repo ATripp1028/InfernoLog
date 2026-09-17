@@ -7,16 +7,18 @@
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
-import { fetchRobtopLevelResult } from '../../utils/robtop'
+import { fetchRobtopLevelResult, type RobtopLevel } from '../../utils/robtop'
+import { isAdmissible } from './admission'
 import { checkSfhNongIfDue } from '../levels/sfhSync'
 import { checkCommunityIfDue } from './communitySync'
 import { buildRobtopCreateData } from './robtopMapping'
 
 /**
  * Outcome of a cache-or-fetch level lookup. `not_found` is terminal (GD
- * answered; nothing was cached, so a later visit re-resolves) while
- * `unreachable` is retryable and says nothing about whether the level exists —
- * callers surface them as 404 and 503 respectively.
+ * answered; nothing was cached, so a later visit re-resolves), `unreachable` is
+ * retryable and says nothing about whether the level exists, and `not_a_demon`
+ * is a level GD has but the cache refuses — callers surface them as 404, 503
+ * and 422 respectively.
  */
 export type FindOrResolveResult<T> =
   | { status: 'found'; level: T }
@@ -26,6 +28,9 @@ export type FindOrResolveResult<T> =
   // The GD call itself couldn't complete — retryable, says nothing about
   // whether the level exists.
   | { status: 'unreachable' }
+  // GD reports a rated non-demon, which the cache never admits — terminal,
+  // nothing is cached. Carries what GD said so the caller can name the level.
+  | { status: 'not_a_demon'; level: RobtopLevel }
 
 /**
  * Find the cached level, or resolve it from GD once and persist it. On a fresh
@@ -58,6 +63,7 @@ export async function findOrResolveLevel<T extends Prisma.LevelSelect>(
   const gd = await fetchRobtopLevelResult(levelId)
   if (gd.status === 'not_found') return { status: 'not_found' }
   if (gd.status === 'unreachable') return { status: 'unreachable' }
+  if (!isAdmissible(gd.level)) return { status: 'not_a_demon', level: gd.level }
 
   await prisma.level.create({ data: buildRobtopCreateData(levelId, gd.level) })
 

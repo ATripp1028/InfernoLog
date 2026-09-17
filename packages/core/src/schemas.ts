@@ -893,6 +893,21 @@ export const ResolveLevelResponseSchema = z.object({
   existingCompletion: ExistingCompletionSchema.nullable(),
 })
 
+// 422 from GET /v1/levels/:levelId/resolve and GET /v1/levels/:levelId/page when
+// GD reports the level as a RATED NON-DEMON, which the level cache never admits.
+// Nothing was cached. `level` is what GD said, so the client can tell the user
+// which level it was and what it is rated rather than only that it was refused.
+export const NotADemonResponseSchema = z.object({
+  error: z.string(),
+  reason: z.literal('not_a_demon'),
+  level: z.object({
+    inGameId: z.string(),
+    name: z.string().nullable(),
+    creator: z.string().nullable(),
+    inGameDifficulty: z.string().nullable(),
+  }),
+})
+
 // ─────────────────────────────────────────────
 // THE LIST — the List page wire contract.
 //

@@ -4,8 +4,9 @@
 // Direction A — GDDL → InfernoLog:
 //   Levels that are in the GDDL list but absent from the InfernoLog collection
 //   are added (appended at the end). If the level is not yet in the Level cache
-//   it is seeded from RobTop first; if RobTop also cannot supply it the level is
-//   skipped and listed in `skipped`.
+//   it is seeded from RobTop first; if RobTop also cannot supply it, or reports
+//   a rated non-demon the cache doesn't admit, the level is skipped and listed
+//   in `skipped`.
 //
 // Direction B — InfernoLog → GDDL:
 //   GDDL caps its non-custom lists at 4 entries. We sync the top 4 InfernoLog
@@ -25,6 +26,7 @@ import {
 import { fetchRobtopLevel } from '../../utils/robtop'
 import { bisectIndices } from '../../utils/fractionalIndex'
 import { checkCommunityIfDue } from '../levels/communitySync'
+import { isAdmissible, purgeIfUnused } from '../levels/admission'
 import {
   buildRobtopCreateData,
   buildRobtopRefreshData,
@@ -54,8 +56,9 @@ export interface GddlListSyncResult {
 // left behind by a prior import that couldn't reach RobTop at the time), retry
 // the RobTop fetch and upgrade it in place rather than treating "row exists"
 // as "already handled". Returns true if the level is (now) cached — even as
-// an unupgraded stub — false only if it could not be found at all and was
-// skipped.
+// an unupgraded stub — false if it could not be found at all, or if RobTop
+// reports a rated non-demon, which the cache doesn't admit (a stub found to be
+// one is purged unless something else references it).
 async function ensureLevelCached(levelId: string): Promise<boolean> {
   const existing = await prisma.level.findUnique({
     where: { inGameId: levelId },
@@ -64,6 +67,15 @@ async function ensureLevelCached(levelId: string): Promise<boolean> {
   if (existing?.verified) return true
 
   const gd = await fetchRobtopLevel(levelId)
+
+  if (gd && !isAdmissible(gd)) {
+    const purged = existing ? await purgeIfUnused(levelId) : false
+    logger.info(
+      { levelId, purgedStub: purged },
+      'gddlListSync: GDDL lists a rated non-demon; skipped'
+    )
+    return false
+  }
 
   if (existing) {
     // Already cached as a stub — upgrade it if RobTop has data now, otherwise

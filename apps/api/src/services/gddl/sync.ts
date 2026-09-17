@@ -1,6 +1,7 @@
 import type { GddlSyncResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
+import { isAdmissible, NOT_A_DEMON_MESSAGE } from '../levels/admission'
 import { checkCommunityForSeededLevels } from '../levels/communitySync'
 
 // Wall-clock ceiling on this run's community-list pass — see the call site in
@@ -114,7 +115,10 @@ async function createGddlStub(
 
 // Ensures the level exists in the cache. On a cache miss, tries RobTop first,
 // then falls back to the GDDL metadata. Returns the level's inGameDifficulty.
-// Throws if no usable name can be found (caller skips the submission).
+// Throws if no usable name can be found, or if RobTop reports a rated non-demon
+// the cache doesn't admit (caller skips the submission either way). GDDL rates
+// demons, so the second means a demon GD has since demoted; one already cached
+// is a cache hit and stays loggable.
 //
 // `skipRobtop` is set once the caller's circuit breaker has tripped: RobTop is
 // failing the whole run, so we go straight to the GDDL-metadata stub and let
@@ -163,6 +167,7 @@ async function getOrCreateLevel(
   const res = await fetchRobtopLevelResult(levelId)
 
   if (res.status === 'found') {
+    if (!isAdmissible(res.level)) throw new Error(NOT_A_DEMON_MESSAGE)
     // Prefer RobTop's name; fall back to GDDL metadata if RobTop returned null
     // (happens for deleted/anonymized levels that still exist in GD's index).
     const name = res.level.name ?? submission.Level?.Meta?.Name?.trim() ?? null

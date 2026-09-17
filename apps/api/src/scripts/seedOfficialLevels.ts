@@ -1,4 +1,4 @@
-// Seeds the official Geometry Dash levels into the shared `levels` cache.
+// Seeds the official Geometry Dash demons into the shared `levels` cache.
 //
 // Official/main levels aren't served by RobTop's getGJLevels21, so they never
 // enter the cache via autofill — this script writes them directly so they
@@ -20,12 +20,9 @@ async function main() {
   let updated = 0
 
   for (const level of OFFICIAL_LEVELS) {
-    const song =
-      level.officialSongId != null
-        ? OFFICIAL_SONGS[level.officialSongId]
-        : undefined
-    const songName = level.songName ?? song?.name ?? null
-    const songAuthor = level.songAuthor ?? song?.author ?? null
+    const song = OFFICIAL_SONGS[level.officialSongId]
+    const songName = song?.name ?? null
+    const songAuthor = song?.author ?? null
 
     const existing = await prisma.level.findUnique({
       where: { inGameId: level.inGameId },
@@ -37,9 +34,9 @@ async function main() {
       name: level.name,
       creator: 'RobTop',
       inGameDifficulty: level.inGameDifficulty,
-      isDemon: level.isDemon,
-      isRated: level.stars > 0,
-      stars: level.stars,
+      // Every seeded official level is a rated demon; see officialLevels.ts.
+      isDemon: true,
+      isRated: true,
       length: level.length,
       gameVersion: level.gameVersion,
       coins: level.coins,

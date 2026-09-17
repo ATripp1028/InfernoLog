@@ -30,8 +30,8 @@ export interface OrderingTargets {
 // Scoped to CLASSIC to match what the demon list board itself offers: the
 // platformer ranking is a separate list, and without this filter a Ranking tab
 // naming a platformer completion would inject it into the classic demon list,
-// where nothing downstream filters it back out. Non-demons are in scope — the
-// classic demon list accepts them on every path (see services/demonList).
+// where nothing downstream filters it back out. No demon filter is needed: the
+// level cache admits no rated non-demon (see services/levels/admission.ts).
 export async function resolveOrderingTargets(
   userId: string
 ): Promise<OrderingTargets> {

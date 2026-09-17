@@ -118,8 +118,6 @@ export interface RobtopLevel {
   description: string | null
   creatorPlayerId: string | null
   creatorAccountId: string | null
-  stars: number | null
-  starsRequested: number | null
   partialDiff: string | null
   downloads: number | null
   likes: number | null
@@ -341,6 +339,9 @@ function buildRobtopLevel(
   )
 
   const lengthVal = int(L['15'])
+  // The awarded star count. Read only to tell rated from unrated: a rated level
+  // the cache admits is a demon, and every demon awards 10, so the count itself
+  // is not kept.
   const stars = int(L['18'])
   const featureScore = int(L['19'])
   const likes = int(L['14'])
@@ -371,8 +372,6 @@ function buildRobtopLevel(
     description: decodeDescription(L['3']),
     creatorPlayerId: L['6'] || null,
     creatorAccountId: creator?.accountId ?? null,
-    stars,
-    starsRequested: int(L['39']),
     partialDiff,
     downloads: int(L['10']),
     likes,
