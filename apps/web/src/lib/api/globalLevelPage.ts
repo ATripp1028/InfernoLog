@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import type { LevelProgressStatus } from '@infernolog/core'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError, apiFetch } from './client'
-import type { Level } from './logging'
+import { notADemonMessage, type Level } from './logging'
 
 export { ApiError }
 
@@ -36,6 +36,7 @@ export interface GlobalLevelPageData extends Level {
  */
 export type LevelPageErrorKind =
   | 'not_found'
+  | 'not_a_demon'
   | 'unreachable'
   | 'rate_limited'
   | 'unknown'
@@ -43,8 +44,9 @@ export type LevelPageErrorKind =
 /**
  * Classifies a failed Global Level Page fetch into the states the page renders.
  *
- * @returns `not_found` for 404, `unreachable` for 503, and `rate_limited` for
- * 429 — each terminal, with its own copy and manual Retry. Everything else is
+ * @returns `not_found` for 404, `not_a_demon` for the 422 the cache refuses a
+ * rated non-demon with, `unreachable` for 503, and `rate_limited` for 429 —
+ * each terminal, with its own copy and manual Retry. Everything else is
  * `unknown` and worth retrying automatically.
  */
 export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
@@ -52,6 +54,9 @@ export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
     if (error.status === 404) return 'not_found'
     if (error.status === 503) return 'unreachable'
     if (error.status === 429) return 'rate_limited'
+    if (error.status === 422 && notADemonMessage(error) !== null) {
+      return 'not_a_demon'
+    }
   }
   return 'unknown'
 }
@@ -59,7 +64,8 @@ export function levelPageErrorKind(error: unknown): LevelPageErrorKind {
 /**
  * Fetches the Global Level Page for a level. A cache miss resolves the level
  * from GD server-side (the /page endpoint does this); the two known failure
- * modes arrive as distinct HTTP statuses (404 not-found vs 503 unreachable) so
+ * modes arrive as distinct HTTP statuses (404 not-found, 422 rated non-demon,
+ * 503 unreachable) so
  * the page can render different terminal/retryable states. Those two surface
  * immediately as states rather than being retried away (each offers a manual
  * Retry); everything else — a 500, a network failure — is likely transient
@@ -76,11 +82,15 @@ export function useGlobalLevelPage(levelId: string) {
   return useQuery({
     queryKey: ['global-level-page', levelId],
     enabled: isAuthenticated && !!levelId,
-    // 404/503/429 are meaningful states, not failures to retry; retry the rest.
+    // 404/422/503/429 are meaningful states, not failures to retry; retry the
+    // rest. The 422 matters as much as the 429 does: it is only ever produced
+    // by a cache MISS, so each automatic retry would be another uncached GD
+    // lookup off the user's budget for an answer that cannot change.
     retry: (failureCount, error) => {
       const kind = levelPageErrorKind(error)
       if (
         kind === 'not_found' ||
+        kind === 'not_a_demon' ||
         kind === 'unreachable' ||
         kind === 'rate_limited'
       ) {

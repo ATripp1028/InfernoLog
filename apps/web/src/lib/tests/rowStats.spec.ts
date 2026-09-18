@@ -18,7 +18,6 @@ function level(overrides: Partial<LevelBrowseResult> = {}): LevelBrowseResult {
     creator: 'Creator',
     songName: null,
     inGameDifficulty: 'Extreme Demon',
-    stars: 10,
     featured: false,
     epicValue: 0,
     isRated: true,

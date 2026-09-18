@@ -58,8 +58,7 @@ export interface FlowDraft {
   // Worst fail date/time mirror `date`/`time`/`timezone` at submit time —
   // the DateTimeField is hidden while this is on.
   worstFailSameDay: boolean
-  // The non-demon star values (AUTO..NINE_STAR) carry their own star count —
-  // no separate paired field.
+  // One value: a demon tier, or NOT_DEMON_WORTHY.
   difficultyOpinion: DifficultyOpinion | null
   // Ratings — 0–100 internally regardless of display scale.
   enjoyment: number | null

@@ -290,5 +290,11 @@ export const E2E_SEED_LEVELS: E2eFixtureLevel[] = [
   ...E2E_FILLER_LEVELS,
 ]
 
-/** Every fixture level ID, in the order they are declared above. */
-export const E2E_LEVEL_IDS = Object.values(E2E_LEVELS).map((l) => l.inGameId)
+/**
+ * Every seeded fixture level ID, in the order they are declared above.
+ *
+ * The fillers are in it deliberately: the /search spec's cursor assertions need
+ * more fixtures than one page holds, so a stage missing them fails that spec
+ * rather than the pre-run presence check that exists to catch it.
+ */
+export const E2E_LEVEL_IDS = E2E_SEED_LEVELS.map((l) => l.inGameId)

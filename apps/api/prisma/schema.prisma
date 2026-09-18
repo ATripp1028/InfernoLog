@@ -790,7 +790,7 @@ model Level {
   songSize         Float?
 
   // Data provenance
-  dataSource String  @default("manual") // "robtop_autofill" | "manual" | "official"
+  dataSource String  @default("manual") // see src/data/dataSources.ts
   // False for `manual` rows until a later RobTop sync backfills/verifies
   // (and may override) the manually-entered metadata.
   verified   Boolean @default(false)

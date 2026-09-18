@@ -440,7 +440,10 @@ export async function syncGddlSubmissions(
   // before the enqueue below AND before the caller marks the job finished, so
   // the stubs stay unenriched and the UI spins on a job that never resolves.
   // Whatever the budget cuts off is picked up by the cron rotation.
-  await checkCommunityForSeededLevels([...seededFromRobtopIds], COMMUNITY_SYNC_BUDGET_MS)
+  await checkCommunityForSeededLevels(
+    [...seededFromRobtopIds],
+    COMMUNITY_SYNC_BUDGET_MS
+  )
 
   if (seedIds.size) {
     try {

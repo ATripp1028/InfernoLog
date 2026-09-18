@@ -62,7 +62,7 @@ The logging flow's level-entry field accepts **either an ID or a name** (one fie
 
 `Enjoyment` is rescaled at ingestion onto the **0–100 scale EDEL uses, to two decimal places** — `rescaleGddlEnjoyment` multiplies by ten and hands off to `roundEnjoyment` (`apps/api/src/utils/enjoyment.ts`), the same rounding EDEL's own scores go through. So 4.954022988505747 is stored as 49.54. Both sources share one `Decimal(5,2)` column and one stat card, so a GDDL figure is stored exactly as an EDEL one would be and nothing about its precision gives away its origin. Clamped to 0–100, since the range is upstream's promise rather than ours.
 
-**The path is `/levels/` — plural.** `/level/{id}` (singular) responds `404 Cannot GET` for *every* id in existence. The suggested-tier lookup used that spelling from the day it was written and therefore returned `null` in production for its entire life; every test passed because `fetch` was mocked. If a GDDL lookup ever silently produces nothing, check the spelling first.
+**The path is `/levels/` — plural.** `/level/{id}` (singular) responds `404 Cannot GET` for _every_ id in existence. The suggested-tier lookup used that spelling from the day it was written and therefore returned `null` in production for its entire life; every test passed because `fetch` was mocked. If a GDDL lookup ever silently produces nothing, check the spelling first.
 
 **"Not found" is HTTP 200 with body `{}`**, not a 404. Mapping only 404 to "not indexed" would file every un-indexed level under "the call failed" and keep it permanently due for a re-check. GDDL echoes the level id back as `ID`, so one identity check settles both cases: a body without a matching `ID` is a not-found, whatever the status line said.
 
@@ -167,7 +167,7 @@ One request returns what would otherwise take three integrations. `additional_in
 
 The array is often **empty** — a rated level on none of the three lists is normal, not an error. GSV also carries `length.seconds` (the level's duration) and `stats.object_count`.
 
-**Why keep GSV now that we call GDDL and AREDL directly:** it is the only source of a trustworthy object count, and it is the fallback for everything the other two carry. Its coverage is also the widest — every *rated* level (~58.6k), where GDDL is demons only and AREDL is ~1600 extremes. Its showcase coverage, though, is thin: `showcase_url` is null for plenty of levels GDDL has a video for.
+**Why keep GSV now that we call GDDL and AREDL directly:** it is the only source of a trustworthy object count, and it is the fallback for everything the other two carry. Its coverage is also the widest — every _rated_ level (~58.6k), where GDDL is demons only and AREDL is ~1600 extremes. Its showcase coverage, though, is thin: `showcase_url` is null for plenty of levels GDDL has a video for.
 
 **`SHEET` is two spreadsheets on one ladder.** Tiers 0–13 are the Non-Listworthy sheet, 14–21 the Listworthy one, and nothing on the wire says which; the threshold is the whole of that knowledge, and it lives in `packages/core/src/sheetTier.ts` (shared, because the AREDL client needs the same table to turn a tier NAME back into an index). **Tier 0 ("Fuck") is a real tier** — a level whose skillset is too niche to rank reliably, _not_ one easier than Beginner. Every guard on a sheet tier is `!= null`, never truthiness, or tier-0 levels vanish from the UI.
 
@@ -179,12 +179,12 @@ The array is often **empty** — a rated level on none of the three lists is nor
 **Auth:** None (public endpoints)
 **Client:** `apps/api/src/utils/aredl.ts`
 
-| Endpoint | Returns |
-| -------- | ------- |
-| `GET /v2/api/aredl/levels` | The whole list in one ~840KB request: **1606 rows** (1573 `MainList`, 33 `Legacy`). Carries `position`, `level_id`, `status`, `edel_enjoyment`, `is_edel_pending`, `gddl_tier`, `nlw_tier`. **No `verifications`** — no showcase. |
-| `GET /v2/api/aredl/levels/{id}` | One level, adding `verifications[].video_url` / `hide_video`. `404` when the level is not on the list. |
+| Endpoint                        | Returns                                                                                                                                                                                                                           |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v2/api/aredl/levels`      | The whole list in one ~840KB request: **1606 rows** (1573 `MainList`, 33 `Legacy`). Carries `position`, `level_id`, `status`, `edel_enjoyment`, `is_edel_pending`, `gddl_tier`, `nlw_tier`. **No `verifications`** — no showcase. |
+| `GET /v2/api/aredl/levels/{id}` | One level, adding `verifications[].video_url` / `hide_video`. `404` when the level is not on the list.                                                                                                                            |
 
-**⚠️ THE PER-LEVEL PATH SEGMENT RESOLVES AS EITHER A LEVEL ID OR A LIST POSITION.** `GET /v2/api/aredl/levels/128` does not 404 — it returns HTTP 200 for the level at *position* 128 (`level_id` 132751236), a completely different level in a perfectly well-formed body. (`/levels/pending` errors with "invalid digit found in string", confirming the segment is parsed as a number first.) Every GD level id low enough to also be a valid position is a live mis-identification hazard. **The client rejects any response whose `level_id` doesn't echo the requested id**, treating it as a not-found. Do not remove that check, and never assume a 200 is about the level you asked for.
+**⚠️ THE PER-LEVEL PATH SEGMENT RESOLVES AS EITHER A LEVEL ID OR A LIST POSITION.** `GET /v2/api/aredl/levels/128` does not 404 — it returns HTTP 200 for the level at _position_ 128 (`level_id` 132751236), a completely different level in a perfectly well-formed body. (`/levels/pending` errors with "invalid digit found in string", confirming the segment is parsed as a number first.) Every GD level id low enough to also be a valid position is a live mis-identification hazard. **The client rejects any response whose `level_id` doesn't echo the requested id**, treating it as a not-found. Do not remove that check, and never assume a 200 is about the level you asked for.
 
 **`nlw_tier` is a tier NAME, and it is what makes tier 0 reportable.** "Relentless" resolves to index 9 via `sheetTierFromName`, cross-checked against GSV on the same levels (Sonic Wave: GSV `SHEET: 9`, AREDL `"Relentless"`; Bloodbath: GSV `5`, AREDL `"Very Hard"`). The names span **0–14 only** (`Fuck` … `Merciless`) and AREDL sends `null` for a listworthy level, so **AREDL cannot be the sole source of a sheet tier** — 15–21 still come from GSV through the merge's fallback.
 
@@ -198,16 +198,16 @@ There is no public pending-placement endpoint (`/aredl/submissions` is `401`).
 
 Per column, the first source that **answered** and had a value:
 
-| Column | Priority |
-| --- | --- |
-| `showcaseUrl` | AREDL → GSV → GDDL (all normalized to `https://www.youtube.com/watch?v=<id>`) |
-| `durationSeconds` | GDDL `Meta.seconds` → GSV `length.seconds` |
-| `gddlTier` | GDDL `Rating` → GSV's GDDL list value |
-| `aredlRank` | AREDL `position` → GSV's AREDL list value |
-| `sheetTier` | AREDL `nlw_tier` → GSV's SHEET value |
-| `objectCount` | GSV only, and only when it has one |
-| `aredlRank` / `aredlStatus` | AREDL only |
-| `enjoyment` | **Chosen by difficulty, not priority** — see below |
+| Column                      | Priority                                                                      |
+| --------------------------- | ----------------------------------------------------------------------------- |
+| `showcaseUrl`               | AREDL → GSV → GDDL (all normalized to `https://www.youtube.com/watch?v=<id>`) |
+| `durationSeconds`           | GDDL `Meta.seconds` → GSV `length.seconds`                                    |
+| `gddlTier`                  | GDDL `Rating` → GSV's GDDL list value                                         |
+| `aredlRank`                 | AREDL `position` → GSV's AREDL list value                                     |
+| `sheetTier`                 | AREDL `nlw_tier` → GSV's SHEET value                                          |
+| `objectCount`               | GSV only, and only when it has one                                            |
+| `aredlRank` / `aredlStatus` | AREDL only                                                                    |
+| `enjoyment`                 | **Chosen by difficulty, not priority** — see below                            |
 
 **Enjoyment is one column fed by two lists, and the difficulty decides which — never a fallback.**
 
@@ -224,7 +224,7 @@ The consequence to know about: **a level whose difficulty moves across that line
 
 **A provisional EDEL score is stored as null.** EDEL marks a score it is still collecting with `is_edel_pending` and sends the provisional number anyway — 71 of the 1606 list entries at time of writing, Society and Thinking Space II among them. Rather than carry that flag in a second column, the AREDL client drops the number: null already means "no settled score", so a separate flag would only repeat it. Those levels show no enjoyment until EDEL settles them.
 
-**The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source *did not answer*, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
+**The no-downgrade rule.** Each source answers with a result, a not-found (**authoritative** — "I don't have this level", and cacheable), or a failure (**no opinion at all**). For each column the merge walks its priority order: if the highest-priority applicable source _did not answer_, the column is left exactly as it was; if it answered with nothing, the walk falls through to the next source. Without this, one AREDL timeout would rewrite `showcaseUrl` to GDDL's copy and rewrite it back on the next pass — and since the three sources emit different URL formats, every flap would be a real write and a visible change.
 
 Normalizing all three showcase forms to one canonical watch URL is part of the same guarantee: AREDL sends a full watch URL, GSV sends a `youtu.be` short link, GDDL sends a bare video id.
 
@@ -250,7 +250,7 @@ Same golden rule as RobTop / SFH: a community source being slow/down/erroring is
 - **Some answered** → what was learned is written, and the timestamp is **backdated** so the level comes round again in `PARTIAL_RETRY_HOURS` rather than a full cadence.
 - **All answered** → written and stamped with `now()`.
 
-Withholding the stamp on a partial failure is the tempting rule and it is a trap: GDDL applies to every demon in the cache and is the one source with a hard rate limit, so a throttled run would leave all of those rows permanently in the eligible set, the lap would never shorten, and the next run would hit GDDL exactly as hard. The no-downgrade rule already makes a partial pass a *freshness* event rather than a data-loss one, so backdating gets the retry without the storm.
+Withholding the stamp on a partial failure is the tempting rule and it is a trap: GDDL applies to every demon in the cache and is the one source with a hard rate limit, so a throttled run would leave all of those rows permanently in the eligible set, the lap would never shorten, and the next run would hit GDDL exactly as hard. The no-downgrade rule already makes a partial pass a _freshness_ event rather than a data-loss one, so backdating gets the retry without the storm.
 
 A not-found deliberately does **not** clear placements a source can't speak to — a level dropping out of GSV's index is far more likely an upstream gap than a real de-listing from all three lists at once.
 
@@ -348,4 +348,3 @@ Both are now live integrations — see **Community lists (GSV + GDDL + AREDL)** 
 AREDL rank is surfaced for extreme demons and, through the Legacy tier, the levels demoted out of extreme. Pointercrate was evaluated and **cut from v1** — its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
 
 The NLW/LW spreadsheets still have no API of their own. Their tiers reach InfernoLog two ways: GSV's `SHEET` entry (1–21) and AREDL's `nlw_tier` name (0–14, and the only source of tier 0).
-

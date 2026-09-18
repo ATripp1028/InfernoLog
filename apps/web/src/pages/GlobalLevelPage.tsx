@@ -18,6 +18,7 @@ import {
 import {
   DelistedBanner,
   NotFoundState,
+  NotADemonState,
   RateLimitedState,
   ResolveFailedState,
   GenericErrorState,
@@ -36,6 +37,7 @@ export function GlobalLevelPage() {
     isLoading,
     errorKind,
     retryAfterSeconds,
+    notADemonText,
     retry,
     goToList,
     level,
@@ -61,6 +63,17 @@ export function GlobalLevelPage() {
         levelId={levelId}
         onCheckId={back.onClick}
         onBack={goToList}
+      />
+    )
+  }
+  // 422 — GD has the level, the cache refuses it. Terminal: nothing was
+  // cached, and a retry can only get the same answer back.
+  if (errorKind === 'not_a_demon' && notADemonText) {
+    return (
+      <NotADemonState
+        message={notADemonText}
+        onBack={back.onClick}
+        onSearch={goToList}
       />
     )
   }

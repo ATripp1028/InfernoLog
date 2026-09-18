@@ -263,7 +263,7 @@ export async function commitImportCollections(
     ADMISSION_LOOKUP_BUDGET_MS
   )
   if (refused.size) {
-    for (const g of groups.values()) {
+    for (const [key, g] of groups) {
       g.entries = g.entries.filter((e) => {
         if (!refused.has(e.levelId)) return true
         skipped.push({
@@ -273,6 +273,11 @@ export async function commitImportCollections(
         })
         return false
       })
+      // Every row this collection had was refused, so the sheet says nothing
+      // about it that can be written. Drop the group rather than let the commit
+      // below create it empty and clear whatever it already holds — the same
+      // reason a group is never created for a name that resolves nowhere.
+      if (g.entries.length === 0) groups.delete(key)
     }
   }
 

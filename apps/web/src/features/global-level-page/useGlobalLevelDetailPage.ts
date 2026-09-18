@@ -11,6 +11,7 @@ import {
   levelPageErrorKind,
   type GlobalLevelPageData,
 } from '@/lib/api/globalLevelPage'
+import { notADemonMessage } from '@/lib/api/logging'
 import { useGoBack } from '@/lib/useGoBack'
 import { useWideLayout } from '@/lib/useWideLayout'
 import { useFabActions } from '@/context/FabActionsContext'
@@ -51,6 +52,9 @@ export function useGlobalLevelDetailPage() {
   // Only meaningful alongside errorKind === 'rate_limited'; the helper falls
   // back to a sane default for every other error, so it needs no guard here.
   const retryAfterSeconds = retryAfterSecondsOf(query.error)
+  // Only meaningful alongside errorKind === 'not_a_demon' — the API's own copy,
+  // which names the level and what GD rates it. Null for every other error.
+  const notADemonText = notADemonMessage(query.error)
 
   // Want to Beat is a built-in collection — resolve its id so the FAB can add
   // this level to it in one tap (the API enforces the "unbeaten only" rule).
@@ -162,9 +166,11 @@ export function useGlobalLevelDetailPage() {
     back,
     isWide,
     isLoading: query.isPending,
-    // 'not_found' / 'unreachable' / anything else — each gets its own render.
+    // 'not_found' / 'not_a_demon' / 'unreachable' / anything else — each gets
+    // its own render.
     errorKind,
     retryAfterSeconds,
+    notADemonText,
     retry: () => void query.refetch(),
     goToList: () => void navigate({ to: '/log' }),
     level,
