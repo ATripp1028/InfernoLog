@@ -493,9 +493,8 @@ does not rewrite a chain of `../../`.
 **A domain enum is declared once, in `lib/api/wireEnums.ts`.** The wire enums
 are mirrored from `packages/core` as string-literal unions rather than imported
 — core pins zod@3 while the API validates on zod@4, and core's nominal `enum`
-types do not narrow from the plain strings `JSON.parse` returns.
-`packages/core/src/difficultyOpinion.ts` documents the same decision from the
-other side. That mirroring is fine; doing it once per endpoint module was not.
+types do not narrow from the plain strings `JSON.parse` returns. That mirroring
+is fine; doing it once per endpoint module was not.
 `Device` had three declarations and `DifficultyOpinion` two, and a settings
 screen and a logging step imported the same enum from different files.
 

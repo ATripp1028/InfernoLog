@@ -142,7 +142,9 @@ In-progress levels are `level_progress` entries with `status = in_progress` and 
 
 ## Unrated Levels
 
-Fully supported with the same fields as rated levels, with these differences:
+Fully supported with the same fields as rated levels — and the only levels besides demons that can
+be logged at all, since the cache refuses a rated non-demon (see `LOGGING_FLOW.md` → "Scope
+Stance"). The differences:
 
 - GDDL autofill skipped (GDDL tracks rated levels only)
 - List references entered manually
@@ -150,6 +152,9 @@ Fully supported with the same fields as rated levels, with these differences:
 - Skill tags unavailable until v4
 - Appear in personal ranking with blank official tier fields
 - Toggle on ranking page to hide unrated levels (ranking numbers update for that view)
+- Not reachable through the GD-server search escalation unless the face its player votes gave it is
+  a demon one — the escalation asks GD for demons only, so anything else is added by its level ID
+- Filtering the ranking by a demon tier hides them: an unrated level has no tier of its own
 
 ---
 

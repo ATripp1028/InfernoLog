@@ -433,30 +433,26 @@ describe('import → export round-trip', () => {
 })
 
 // The export's in_game_difficulty is what a name-only reimport filters
-// candidates by, so a non-demon's cell has to say "non-demon" in a way the
-// parser hears — a bare face reads as the demon tier of that name and rules the
-// row's own level out. Each case seeds a same-named demon so the filter is load
-// bearing: without it the pair is ambiguous and nothing resolves at all.
+// candidates by. Every difficulty the cache can hold is now a demon tier, which
+// the sheet spells bare ("Hard" means Hard Demon) — so the round trip is one
+// case rather than three. The seed puts a second, same-named level at a
+// different tier so the filter is load bearing: without it the pair is
+// ambiguous and nothing resolves at all.
 describe('export → reimport by name', () => {
-  async function seedNamesake(stars: number | null) {
+  async function seedNamesakes() {
     await seedLevel(prisma, {
       inGameId: '700',
       name: 'Namesake',
       creator: 'Riot',
-      inGameDifficulty: 'Hard',
+      inGameDifficulty: 'Hard Demon',
+      isDemon: true,
       isRated: true,
     })
-    if (stars != null) {
-      await prisma.level.update({
-        where: { inGameId: '700' },
-        data: { stars },
-      })
-    }
     await seedLevel(prisma, {
       inGameId: '701',
       name: 'Namesake',
       creator: 'Riot',
-      inGameDifficulty: 'Hard Demon',
+      inGameDifficulty: 'Extreme Demon',
       isDemon: true,
       isRated: true,
     })
@@ -481,45 +477,29 @@ describe('export → reimport by name', () => {
     return fullExport(userB.id)
   }
 
-  it('round-trips a star-rated non-demon as its star count', async () => {
-    await seedNamesake(5)
+  it('round-trips a demon tier, which the sheet writes bare', async () => {
+    await seedNamesakes()
     const userA = await seedUser(prisma)
     await commitImportBatch(userA.id, randomUUID(), [
       { type: 'completion', rowIndex: 0, data: { levelId: '700' } },
     ])
 
     const expA = await fullExport(userA.id)
-    expect(expA.completions[0]!.inGameDifficulty).toBe('5★')
+    expect(expA.completions[0]!.inGameDifficulty).toBe('Hard Demon')
 
     const expB = await reimportByName(expA)
     expect(expB.completions.map((c) => c.levelId)).toEqual(['700'])
   })
 
-  it('round-trips a label-only non-demon as its marked face', async () => {
-    // Hard spans 4-5 stars, so nothing can recover the count for a row that
-    // only ever carried the label — the marker is all the cell has to work with.
-    await seedNamesake(null)
-    const userA = await seedUser(prisma)
-    await commitImportBatch(userA.id, randomUUID(), [
-      { type: 'completion', rowIndex: 0, data: { levelId: '700' } },
-    ])
-
-    const expA = await fullExport(userA.id)
-    expect(expA.completions[0]!.inGameDifficulty).toBe('Hard (non-demon)')
-
-    const expB = await reimportByName(expA)
-    expect(expB.completions.map((c) => c.levelId)).toEqual(['700'])
-  })
-
-  it('still round-trips a demon tier, which needs no marking', async () => {
-    await seedNamesake(null)
+  it('resolves the other tier of the same name to the other level', async () => {
+    await seedNamesakes()
     const userA = await seedUser(prisma)
     await commitImportBatch(userA.id, randomUUID(), [
       { type: 'completion', rowIndex: 0, data: { levelId: '701' } },
     ])
 
     const expA = await fullExport(userA.id)
-    expect(expA.completions[0]!.inGameDifficulty).toBe('Hard Demon')
+    expect(expA.completions[0]!.inGameDifficulty).toBe('Extreme Demon')
 
     const expB = await reimportByName(expA)
     expect(expB.completions.map((c) => c.levelId)).toEqual(['701'])

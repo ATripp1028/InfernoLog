@@ -9,7 +9,6 @@ import {
   levelThumbnailUrl,
   officialCoinSrc,
   showsRatedStar,
-  starCountToDifficulty,
   uncollectedCoinSrc,
   userCoinSilverSrc,
   userCoinSrc,
@@ -111,32 +110,6 @@ describe('showsRatedStar', () => {
 
   it.each([null, undefined])('treats %p as unrated', (rated) => {
     expect(showsRatedStar('Insane', rated)).toBe(false)
-  })
-})
-
-describe('starCountToDifficulty', () => {
-  it.each([
-    [1, 'Auto'],
-    [2, 'Easy'],
-    [3, 'Normal'],
-    [4, 'Hard'],
-    [5, 'Hard'],
-    [6, 'Harder'],
-    [7, 'Harder'],
-    [8, 'Insane'],
-    [9, 'Insane'],
-  ])('maps %s stars to %s', (stars, expected) => {
-    expect(starCountToDifficulty(stars)).toBe(expected)
-  })
-
-  // The picker only offers 1-9, but a hand-edited value must not fall off
-  // the end of the table.
-  it('clamps below the picker’s range', () => {
-    expect(starCountToDifficulty(0)).toBe('Auto')
-  })
-
-  it('clamps above the picker’s range', () => {
-    expect(starCountToDifficulty(10)).toBe('Insane')
   })
 })
 

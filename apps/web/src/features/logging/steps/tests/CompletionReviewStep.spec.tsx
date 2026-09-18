@@ -123,11 +123,11 @@ describe('CompletionReviewStep', () => {
     expect(rowValue('Your difficulty rating')).toHaveTextContent('Extreme')
   })
 
-  it('spells out a non-demon opinion with its star count', () => {
-    render({ draft: { difficultyOpinion: 'THREE_STAR' } })
+  it('spells out the disagreement opinion', () => {
+    render({ draft: { difficultyOpinion: 'NOT_DEMON_WORTHY' } })
 
     expect(rowValue('Your difficulty rating')).toHaveTextContent(
-      /Not demon-worthy · 3★/
+      'Not demon-worthy'
     )
   })
 

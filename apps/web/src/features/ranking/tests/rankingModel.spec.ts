@@ -8,7 +8,6 @@ import {
   renumberInView,
   sortRanking,
   toggleDifficulty,
-  NON_DEMON,
   OVERALL_SORT,
 } from '../rankingModel'
 import { makeLevel, makeListItem } from '@/utils/testUtils'
@@ -210,11 +209,12 @@ describe('filterByDifficulty', () => {
       overallRating: 80,
     })
 
+  // The last is unrated, which is the only kind of completion left with no
+  // demon tier of its own — a rated non-demon cannot be logged at all.
   const { entries } = buildRanking([
     level('x', 'Extreme Demon', true),
     level('e', 'Easy Demon', true),
-    level('h', 'Harder', false),
-    level('a', 'Auto', false),
+    level('u', 'Unrated', false),
   ])
 
   const ids = (selected: string[]) =>
@@ -223,7 +223,7 @@ describe('filterByDifficulty', () => {
       .sort()
 
   it('shows everything when nothing is selected', () => {
-    expect(ids([])).toEqual(['a', 'e', 'h', 'x'])
+    expect(ids([])).toEqual(['e', 'u', 'x'])
   })
 
   it('narrows to one difficulty', () => {
@@ -234,14 +234,19 @@ describe('filterByDifficulty', () => {
     expect(ids(['Easy Demon', 'Extreme Demon'])).toEqual(['e', 'x'])
   })
 
-  // Keyed off the level's own isDemon flag, so it stays right for a level whose
-  // difficulty string is missing or unexpected.
-  it('takes every non-demon under the aggregate', () => {
-    expect(ids([NON_DEMON])).toEqual(['a', 'h'])
+  // Picking a tier asks for levels of that difficulty, and an unrated level has
+  // none — the ranking's own "hide unrated" toggle is how those are narrowed.
+  it('hides an unrated completion under any tier', () => {
+    expect(ids(['Easy Demon', 'Extreme Demon'])).not.toContain('u')
   })
 
   it('leaves positions alone', () => {
-    expect(filterByDifficulty(entries, ['Easy Demon'])[0]?.rank).toBe(2)
+    // The row keeps its place in the WHOLE ranking, not a place renumbered
+    // within the filtered view.
+    const unfiltered = entries.find((e) => e.item.level.inGameId === 'e')!.rank
+    expect(filterByDifficulty(entries, ['Easy Demon'])[0]?.rank).toBe(
+      unfiltered
+    )
   })
 })
 
@@ -258,20 +263,8 @@ describe('toggleDifficulty', () => {
     ])
   })
 
-  // The two readings cannot both hold: "only non-demons" and "only Easy Demons"
-  // would leave nothing, so picking either clears the other.
-  it('replaces the whole selection with the non-demon aggregate', () => {
-    expect(toggleDifficulty(['Easy Demon', 'Hard Demon'], NON_DEMON)).toEqual([
-      NON_DEMON,
-    ])
-  })
-
-  it('drops the non-demon aggregate when a demon is picked', () => {
-    expect(toggleDifficulty([NON_DEMON], 'Easy Demon')).toEqual(['Easy Demon'])
-  })
-
-  it('turns the aggregate off back to All', () => {
-    expect(toggleDifficulty([NON_DEMON], NON_DEMON)).toEqual([])
+  it('turns the last one off back to All', () => {
+    expect(toggleDifficulty(['Easy Demon'], 'Easy Demon')).toEqual([])
   })
 })
 

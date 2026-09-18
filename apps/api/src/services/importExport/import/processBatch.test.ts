@@ -156,6 +156,9 @@ beforeEach(() => {
   )
 
   mockResolveByName.mockReset().mockResolvedValue({ levelId: '999' })
+  mockScreenUncachedIds
+    .mockReset()
+    .mockResolvedValue({ refused: new Set<string>(), resolved: new Map() })
   mockEnsureStubLevels.mockReset().mockResolvedValue([])
   mockEnqueueSeedIds.mockReset().mockResolvedValue(undefined)
   mockFetchGddlTier.mockReset().mockResolvedValue(null)
@@ -163,6 +166,68 @@ beforeEach(() => {
   mockPlanCompletion.mockReset().mockReturnValue({ status: 'committed' })
   mockPlanProgress.mockReset().mockReturnValue({ status: 'committed' })
   mockPlanDrop.mockReset().mockReturnValue({ status: 'committed' })
+})
+
+// ─── admission ───────────────────────────────────────────────────────────────
+
+// A row naming a level by id skips name resolution entirely, so this is the
+// only place an id the cache has never seen can be refused — and it has to
+// happen before the flush, because the alternative (learning it from the seed
+// worker later) is after the row's progress already references the level.
+describe('processImportJobBatch — admission', () => {
+  it('fails every row naming a refused level, and stubs none of them', async () => {
+    mockScreenUncachedIds.mockResolvedValue({
+      refused: new Set(['777']),
+      resolved: new Map(),
+    })
+
+    const result = await run([
+      row('completion', 0, { levelId: '777' }),
+      row('progress', 1, { levelId: '777', percentage: 40 }),
+      row('completion', 2, { levelId: '888' }),
+    ])
+
+    expect(outcomeFor(result, 0)).toMatchObject({ status: 'failed' })
+    expect(outcomeFor(result, 0).reason).toMatch(/not a demon/i)
+    expect(outcomeFor(result, 1)).toMatchObject({ status: 'failed' })
+    expect(outcomeFor(result, 2)).toMatchObject({ status: 'committed' })
+
+    // The refused id never reaches the stub creation, so nothing references it.
+    expect(mockEnsureStubLevels).toHaveBeenCalledWith(tx, ['888'])
+  })
+
+  it('upgrades a screened level from the snapshot instead of queueing a seed', async () => {
+    // GD already answered for it during the screen, so asking the seed worker
+    // to fetch the same level again would be a second call for one answer.
+    mockScreenUncachedIds.mockResolvedValue({
+      refused: new Set<string>(),
+      resolved: new Map([['888', { name: 'Screened' }]]),
+    })
+    mockEnsureStubLevels.mockResolvedValue(['888'])
+
+    await run([row('completion', 0, { levelId: '888' })])
+
+    expect(tx.level.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { inGameId: '888' } })
+    )
+    expect(mockEnqueueSeedIds).not.toHaveBeenCalled()
+  })
+
+  it('falls back to a stub for an id the screen could not answer for', async () => {
+    // GD unreachable, or the batch's lookup budget spent. The row commits and
+    // the seed worker picks the level up later — the one documented way a
+    // non-demon can still end up cached.
+    mockScreenUncachedIds.mockResolvedValue({
+      refused: new Set<string>(),
+      resolved: new Map(),
+    })
+    mockEnsureStubLevels.mockResolvedValue(['888'])
+
+    const result = await run([row('completion', 0, { levelId: '888' })])
+
+    expect(outcomeFor(result, 0)).toMatchObject({ status: 'committed' })
+    expect(mockEnqueueSeedIds).toHaveBeenCalledWith(['888'])
+  })
 })
 
 // ─── name resolution ─────────────────────────────────────────────────────────

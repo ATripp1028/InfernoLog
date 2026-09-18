@@ -2,7 +2,7 @@
 
 ## Overview
 
-Each user maintains their own demon list: a personal difficulty ordering of their completions, independent of any official list tier or star rating. Always possessive in UI copy — "my demon list", never "the Demon List", which is Pointercrate's. Demons are the expected case but not a requirement — a non-demon completion is placeable like any other (see `LOGGING_FLOW.md` → "Scope Stance"). Classic and platformer demon lists are completely separate, and that separation _is_ enforced: only `CLASSIC` completions enter the classic demon list, on every path including spreadsheet import. This document covers the classic demon list.
+Each user maintains their own demon list: a personal difficulty ordering of their completions, independent of any official list tier or star rating. Always possessive in UI copy — "my demon list", never "the Demon List", which is Pointercrate's. Placement checks no demon flag, and needs none: a rated non-demon cannot be logged in the first place, so the only non-demon that can reach the board is a demon GD demoted after it was logged, which stays placeable (see `LOGGING_FLOW.md` → "Scope Stance"). Classic and platformer demon lists are completely separate, and that separation _is_ enforced: only `CLASSIC` completions enter the classic demon list, on every path including spreadsheet import. This document covers the classic demon list.
 
 Distinct from **the Ranking** (`/ranking`), which orders the same completions by rating rather than by difficulty.
 

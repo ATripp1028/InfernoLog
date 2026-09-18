@@ -61,7 +61,6 @@ function makeRobtopLevel(over: {
   name: string
   isRated: boolean
   inGameDifficulty?: string | null
-  stars?: number | null
 }) {
   return {
     name: over.name,
@@ -77,8 +76,6 @@ function makeRobtopLevel(over: {
     description: null,
     creatorPlayerId: null,
     creatorAccountId: null,
-    stars: over.stars ?? (over.isRated ? 10 : null),
-    starsRequested: null,
     partialDiff: null,
     downloads: null,
     likes: null,
@@ -270,7 +267,6 @@ async function seedBrowseLevel(over: {
   partialDiff?: string | null
   isRated?: boolean
   isDemon?: boolean
-  stars?: number | null
   downloads?: number | null
   likes?: number | null
   coins?: number | null
@@ -300,7 +296,6 @@ async function seedBrowseLevel(over: {
       partialDiff: over.partialDiff ?? null,
       isRated: over.isRated ?? false,
       isDemon: over.isDemon ?? false,
-      stars: over.stars ?? null,
       downloads: over.downloads ?? null,
       likes: over.likes ?? null,
       coins: over.coins ?? null,
@@ -417,39 +412,22 @@ describe('GET /levels/browse (filtered cursor search)', () => {
     expect(new Set(all).size).toBe(35) // no duplicates across pages
   })
 
-  it('sorts by difficulty face first, then star count', async () => {
+  it('sorts by difficulty face, hardest first', async () => {
     const user = await seedUser(prisma)
-    // Extreme demon (rank 11), two hard demons (rank 9) differing by stars, an
-    // easy (rank 2). Expect face order, with stars breaking the demon-hard tie.
-    await seedBrowseLevel({
-      inGameId: 'ex',
-      partialDiff: 'demon-extreme',
-      stars: 2,
-    })
-    await seedBrowseLevel({
-      inGameId: 'hd-lo',
-      partialDiff: 'demon-hard',
-      stars: 5,
-    })
-    await seedBrowseLevel({
-      inGameId: 'hd-hi',
-      partialDiff: 'demon-hard',
-      stars: 10,
-    })
-    await seedBrowseLevel({ inGameId: 'ez', partialDiff: 'easy', stars: 10 })
+    // Extreme demon (rank 11), easy demon (rank 7), and an unrated level
+    // carrying the face its votes gave it (rank 2) — the one way a non-demon
+    // face still reaches this sort.
+    await seedBrowseLevel({ inGameId: 'ex', partialDiff: 'demon-extreme' })
+    await seedBrowseLevel({ inGameId: 'ed', partialDiff: 'demon-easy' })
+    await seedBrowseLevel({ inGameId: 'ez', partialDiff: 'easy' })
 
     const res = await buildApp(levelsApp, { userId: user.id }).request(
-      '/levels/browse?sort=stars'
+      '/levels/browse?sort=difficulty'
     )
     const body = (await res.json()) as BrowseBody
 
     expect(res.status).toBe(200)
-    expect(body.data.map((r) => r.inGameId)).toEqual([
-      'ex',
-      'hd-hi',
-      'hd-lo',
-      'ez',
-    ])
+    expect(body.data.map((r) => r.inGameId)).toEqual(['ex', 'ed', 'ez'])
   })
 
   it('honors an ascending sortDir override', async () => {

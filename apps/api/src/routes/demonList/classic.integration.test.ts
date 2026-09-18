@@ -172,10 +172,13 @@ describe('GET /me/demon-list/classic', () => {
     expect(data.unplaced[0]?.levelProgressId).toBe(unplaced.id)
   })
 
-  it('excludes platformer completions from unplaced but keeps non-demons', async () => {
+  // The classic/platformer split is enforced; demon-ness is not checked at all.
+  // It needs no check — a rated non-demon cannot be logged — and must not have
+  // one: a demon GD demoted after it was logged stays placeable.
+  it('excludes platformer completions from unplaced but keeps a demoted demon', async () => {
     const user = await seedUser(prisma)
-    const nonDemon = await seedCompletion(user.id, {
-      levelOverrides: { isDemon: false },
+    const demoted = await seedCompletion(user.id, {
+      levelOverrides: { isDemon: false, inGameDifficulty: 'Insane' },
     })
     await seedCompletion(user.id, {
       levelOverrides: { levelType: 'PLATFORMER' },
@@ -184,7 +187,7 @@ describe('GET /me/demon-list/classic', () => {
     const { data } = await getRanking(user.id)
 
     expect(data.placed).toHaveLength(0)
-    expect(data.unplaced.map((e) => e.levelProgressId)).toEqual([nonDemon.id])
+    expect(data.unplaced.map((e) => e.levelProgressId)).toEqual([demoted.id])
   })
 
   it('surfaces isRated and attempts on entries', async () => {

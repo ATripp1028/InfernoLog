@@ -120,8 +120,6 @@ function makeRobtop(overrides: Partial<RobtopLevel> = {}): RobtopLevel {
     description: null,
     creatorPlayerId: null,
     creatorAccountId: null,
-    stars: null,
-    starsRequested: null,
     partialDiff: null,
     downloads: null,
     likes: null,
@@ -306,7 +304,7 @@ describe('syncLevelBatch — unverified stub repair', () => {
       featureScore: null,
     })
     robtopMock.mockResolvedValue(
-      makeRobtop({ length: 'XL', coins: 3, featureScore: 1200, stars: 10 })
+      makeRobtop({ length: 'XL', coins: 3, featureScore: 1200 })
     )
 
     const result = await syncLevelBatch(['100'])
@@ -318,7 +316,6 @@ describe('syncLevelBatch — unverified stub repair', () => {
     expect(after.length).toBe('XL')
     expect(after.coins).toBe(3)
     expect(after.featureScore).toBe(1200)
-    expect(after.stars).toBe(10)
     // ...and the row is no longer a stub, so the next lap diffs it normally.
     expect(after.verified).toBe(true)
     expect(after.dataSource).toBe('robtop_autofill')
@@ -388,38 +385,39 @@ describe('syncLevelBatch — found, rating diff', () => {
     expect(result).toMatchObject({ processed: 1, updated: 1, ratingChanged: 1 })
   })
 
-  // `stars` is canonical for a non-demon on every read path, so a label the
-  // sync corrects is worthless while the count it loses to stays stale.
-  it('carries the star count over when the difficulty label moves', async () => {
-    await seedCachedLevel({
-      isDemon: false,
-      inGameDifficulty: 'Hard',
-      stars: 4,
-    })
+  // An unrated level GD has now rated — as a non-demon, which the cache never
+  // admits. It cannot be added today, so it is not kept up to date either.
+  it('purges an unused level GD has rated as a non-demon', async () => {
+    await seedCachedLevel({ isRated: false, inGameDifficulty: 'Unrated' })
     robtopMock.mockResolvedValue(
-      makeRobtop({ isDemon: false, inGameDifficulty: 'Harder', stars: 7 })
+      makeRobtop({ isRated: true, isDemon: false, inGameDifficulty: 'Harder' })
     )
 
-    await syncLevelBatch(['100'])
+    const result = await syncLevelBatch(['100'])
 
-    const after = await prisma.level.findUniqueOrThrow({
-      where: { inGameId: '100' },
-    })
-    expect(after.stars).toBe(7)
-    expect(after.inGameDifficulty).toBe('Harder')
+    await expect(
+      prisma.level.findUnique({ where: { inGameId: '100' } })
+    ).resolves.toBeNull()
+    // Counted as a healthy answer from GD: the circuit breaker must not read a
+    // purge as a level it failed to reach.
+    expect(result).toMatchObject({ processed: 1, purged: 1, unreachable: 0 })
   })
 
-  // A rerate inside one face changes no label, so the count is the only thing
-  // that says it happened — but it is not news about WHEN the level was rated.
-  it('writes a star-only rerate without re-stamping rating_status_since', async () => {
-    await seedCachedLevel({
-      isDemon: false,
-      inGameDifficulty: 'Hard',
-      stars: 4,
-      ratingStatusSince: daysAgo(200),
+  it('keeps that level, and its metadata current, when it is in use', async () => {
+    // Deleting it would take the user's progress with it — the same reason a
+    // demoted demon stays.
+    await seedCachedLevel({ isRated: false, inGameDifficulty: 'Unrated' })
+    const user = await prisma.user.create({
+      data: {
+        username: `purge-${Date.now()}`,
+        email: `purge-${Date.now()}@example.com`,
+      },
+    })
+    await prisma.levelProgress.create({
+      data: { userId: user.id, levelId: '100', status: 'IN_PROGRESS' },
     })
     robtopMock.mockResolvedValue(
-      makeRobtop({ isDemon: false, inGameDifficulty: 'Hard', stars: 5 })
+      makeRobtop({ isRated: true, isDemon: false, inGameDifficulty: 'Harder' })
     )
 
     const result = await syncLevelBatch(['100'])
@@ -427,11 +425,26 @@ describe('syncLevelBatch — found, rating diff', () => {
     const after = await prisma.level.findUniqueOrThrow({
       where: { inGameId: '100' },
     })
-    expect(after.stars).toBe(5)
-    expect(after.ratingStatusSince!.getTime()).toBeLessThan(
-      daysAgo(199).getTime()
+    expect(after.inGameDifficulty).toBe('Harder')
+    expect(result).toMatchObject({ processed: 1, purged: 0, updated: 1 })
+  })
+
+  // A demon GD demotes is the other direction, and is left alone whether or not
+  // anything references it: it was legitimately logged when it was a demon.
+  it('leaves a demoted demon in the cache', async () => {
+    await seedCachedLevel({ isDemon: true, inGameDifficulty: 'Easy Demon' })
+    robtopMock.mockResolvedValue(
+      makeRobtop({ isRated: true, isDemon: false, inGameDifficulty: 'Insane' })
     )
-    expect(result).toMatchObject({ processed: 1, updated: 1, ratingChanged: 0 })
+
+    const result = await syncLevelBatch(['100'])
+
+    const after = await prisma.level.findUniqueOrThrow({
+      where: { inGameId: '100' },
+    })
+    expect(after.isDemon).toBe(false)
+    expect(after.inGameDifficulty).toBe('Insane')
+    expect(result).toMatchObject({ processed: 1, purged: 0, ratingChanged: 1 })
   })
 
   it('stamps rating_status_since when in_game_difficulty changes', async () => {
