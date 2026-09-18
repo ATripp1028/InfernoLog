@@ -83,8 +83,8 @@ export async function resetE2eUser(email: string) {
 /**
  * Fails loudly when a fixture level is missing from the shared `levels` cache.
  *
- * The suite deliberately logs against official levels so it never depends on
- * RobTop's servers, but that only holds if they were seeded on this stage.
+ * The suite deliberately logs against seeded fixture levels so it never depends
+ * on RobTop's servers, but that only holds if they were seeded on this stage.
  */
 async function assertFixtureLevelsPresent() {
   const present = await prisma.level.findMany({
@@ -97,7 +97,7 @@ async function assertFixtureLevelsPresent() {
   if (missing.length > 0) {
     throw new Error(
       `Fixture levels missing from the levels cache: ${missing.join(', ')}. ` +
-        'Run `pnpm db:seed:official` against this stage.'
+        'Run `pnpm db:seed:e2e` against this stage.'
     )
   }
 }

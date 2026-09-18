@@ -140,10 +140,28 @@ A stage that has never run the suite needs three one-time steps, in this order:
    repoints the Cognito sub and nothing else. Changing the defaults needs no
    re-provision, because `resetE2eUser` re-seeds the rating categories from
    `DEFAULT_RATING_CATEGORIES` on every run.
-3. **`pnpm db:seed:official`** from `apps/api` — the fixture levels
-   (`src/scripts/e2eFixtures.ts`, mirrored in `e2e/fixtures/levels.ts`). Their
-   in-game IDs are synthetic and fixed, so nothing in the suite depends on
-   RobTop's servers being reachable.
+3. **`pnpm db:seed:e2e`** from `apps/api` — the fixture levels
+   (`src/scripts/e2eFixtures.ts`, mirrored in `e2e/fixtures/levels.ts`). They are
+   written straight into the `levels` cache, so nothing in the suite depends on
+   RobTop's servers being reachable. It needs `E2E_STAGE` and `DATABASE_URL`.
+
+   The suite used to log against the official levels for the same reason. It
+   cannot any more: all but three of them are non-demons, and the level cache
+   admits no rated non-demon. The fixtures are demons of our own instead —
+   `E2E Ashfall`, `E2E Nightjar` and so on, all by `InfernoLogE2E`, plus twenty
+   fillers whose only job is to push a creator search past one page of results
+   for the `/search` spec.
+
+   **These rows must never exist in production.** The seed refuses to run when
+   `E2E_STAGE` is `production`, their in-game IDs (`990000001`+) sit above every
+   real GD level ID so they can never collide with a level someone logs, and
+   they carry `dataSource = 'e2e_fixture'`, which is both how the level sync and
+   the community rotation know to skip them and how you would find any that
+   turned up where they shouldn't:
+
+   ```sql
+   SELECT "inGameId", "name" FROM "levels" WHERE "dataSource" = 'e2e_fixture';
+   ```
 
 `e2e:provision` needs `E2E_STAGE`, `E2E_USER_EMAIL`, `E2E_USER_PASSWORD`,
 `DATABASE_URL` and `COGNITO_USER_POOL_ID`:

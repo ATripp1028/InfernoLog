@@ -1,11 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
 import { levelResultRow, logCompletion, openQuickAction } from './flows'
-import {
-  FINGERDASH,
-  STEREO_MADNESS,
-  type FixtureLevel,
-} from './fixtures/levels'
+import { EMBERFALL, DRIFTWOOD, type FixtureLevel } from './fixtures/levels'
 
 // Collections across the wire: a custom collection's whole lifecycle (create →
 // add a level → remove it), and the Want to Beat handoff.
@@ -64,9 +60,8 @@ async function openCollection(page: Page, name: string) {
 /**
  * Picks a level by name in AddLevelsDialog, whichever surface opened it.
  *
- * Name search, not the ID field, for the reason logCompletion gives: the
- * fixture levels are official, so their ids are one and two digits, below the
- * four the dialog needs before it treats a typed number as a level id.
+ * Name search, not the ID field, for the reason logCompletion gives: a name
+ * search reads the cache, which is where the seeded fixtures are.
  *
  * The field is located here rather than in flows.ts even though the logging
  * flow's find step carries an identical label: `Level ID or name` is written
@@ -115,10 +110,10 @@ test.describe('collections', () => {
       .getByRole('main')
       .getByRole('button', { name: 'Add levels' })
       .click()
-    await addLevel(page, STEREO_MADNESS)
+    await addLevel(page, DRIFTWOOD)
 
     await page.reload()
-    await expect(entryRow(page, STEREO_MADNESS)).toBeVisible()
+    await expect(entryRow(page, DRIFTWOOD)).toBeVisible()
 
     // Removal is optimistic (useRemoveCollectionEntry rolls back onError), so
     // the row vanishing proves nothing on its own — and the query cache is
@@ -129,11 +124,11 @@ test.describe('collections', () => {
         r.request().method() === 'DELETE' &&
         /\/v1\/me\/collections\/[^/]+\/entries\//.test(r.url())
     )
-    await entryRow(page, STEREO_MADNESS).click()
+    await entryRow(page, DRIFTWOOD).click()
     expect((await removed).status()).toBe(200)
 
     await page.reload()
-    await expect(entryRow(page, STEREO_MADNESS)).toBeHidden()
+    await expect(entryRow(page, DRIFTWOOD)).toBeHidden()
   })
 
   test('drops a level from Want to Beat when its completion is logged', async ({
@@ -142,22 +137,22 @@ test.describe('collections', () => {
     // /log keeps the default FAB actions, so Want to Beat is one tap away.
     await page.goto('/log')
     await openQuickAction(page, 'Add to Want to Beat')
-    await addLevel(page, FINGERDASH)
+    await addLevel(page, EMBERFALL)
 
     // Assert it landed before completing it. Without this the spec could pass
     // on an add that silently failed — the closing assertion is an absence, and
     // an absence is true of a level that was never there.
     await openCollection(page, 'Want to Beat')
-    await expect(entryRow(page, FINGERDASH)).toBeVisible()
+    await expect(entryRow(page, EMBERFALL)).toBeVisible()
 
     await page.goto('/log')
-    await logCompletion(page, FINGERDASH, '203')
+    await logCompletion(page, EMBERFALL, '203')
     await page.getByRole('button', { name: 'Place later' }).click()
 
     // Nothing in the client removed this row — the completion's transaction
     // did, and the frontend only invalidated ['collections'] afterwards. So
     // this is the server's answer, re-fetched on a fresh navigation.
     await openCollection(page, 'Want to Beat')
-    await expect(entryRow(page, FINGERDASH)).toBeHidden()
+    await expect(entryRow(page, EMBERFALL)).toBeHidden()
   })
 })

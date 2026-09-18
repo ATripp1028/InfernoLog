@@ -7,7 +7,7 @@ import {
   logRun,
   openQuickAction,
 } from './flows'
-import { POWER_TRIP, VIKING_ARENA } from './fixtures/levels'
+import { KILNWAKE, JACKDAW } from './fixtures/levels'
 
 // Saved List views across the wire: POST / PATCH / DELETE
 // /v1/me/log-presets, and the view a stored preset drives once it is read
@@ -141,7 +141,7 @@ test.describe('list presets', () => {
     // they are only fixtures, so nothing beyond the status they leave behind
     // is filled in or asserted.
     await openQuickAction(page, 'Log progress')
-    await findLevel(page, VIKING_ARENA)
+    await findLevel(page, JACKDAW)
     const runLogged = page.waitForResponse(
       (r) =>
         r.request().method() === 'POST' && r.url().endsWith('/v1/me/progress')
@@ -152,7 +152,7 @@ test.describe('list presets', () => {
     expect((await runLogged).status()).toBe(201)
 
     await openQuickAction(page, 'Drop a level')
-    await findLevel(page, POWER_TRIP)
+    await findLevel(page, KILNWAKE)
     const dropped = page.waitForResponse(
       (r) => r.request().method() === 'POST' && r.url().endsWith('/v1/me/drops')
     )
@@ -162,12 +162,12 @@ test.describe('list presets', () => {
 
     // The default view holds both — the baseline every later assertion is
     // read against.
-    await expect(levelCard(page, VIKING_ARENA)).toBeVisible()
-    await expect(levelCard(page, POWER_TRIP)).toBeVisible()
+    await expect(levelCard(page, JACKDAW)).toBeVisible()
+    await expect(levelCard(page, KILNWAKE)).toBeVisible()
 
     await toggleProgressFilters(page, ['In Progress'])
-    await expect(levelCard(page, VIKING_ARENA)).toBeVisible()
-    await expect(levelCard(page, POWER_TRIP)).toBeHidden()
+    await expect(levelCard(page, JACKDAW)).toBeVisible()
+    await expect(levelCard(page, KILNWAKE)).toBeHidden()
 
     const created = await savePresetAs(page, VIEW_PRESET)
     expect(created.status()).toBe(201)
@@ -196,15 +196,15 @@ test.describe('list presets', () => {
     // an assertion about the preset rather than about a filter that was never
     // cleared.
     await coldReload(page)
-    await expect(levelCard(page, VIKING_ARENA)).toBeVisible()
-    await expect(levelCard(page, POWER_TRIP)).toBeVisible()
+    await expect(levelCard(page, JACKDAW)).toBeVisible()
+    await expect(levelCard(page, KILNWAKE)).toBeVisible()
 
     // Re-applied from the picker. Nothing in this page load has seen the
     // filter before: it came back from GET /v1/me/log-presets and drove the
     // view through cleanupPresetForCategories → applyPresetConfig.
     await selectPreset(page, VIEW_PRESET)
-    await expect(levelCard(page, VIKING_ARENA)).toBeVisible()
-    await expect(levelCard(page, POWER_TRIP)).toBeHidden()
+    await expect(levelCard(page, JACKDAW)).toBeVisible()
+    await expect(levelCard(page, KILNWAKE)).toBeHidden()
 
     // Overwrite is the same four blobs on a different verb, written by a
     // different Prisma call (a conditional `update` rather than a `create`),
@@ -230,8 +230,8 @@ test.describe('list presets', () => {
     await expect(page.getByRole('button', { name: /^Preset/ })).toContainText(
       VIEW_PRESET
     )
-    await expect(levelCard(page, POWER_TRIP)).toBeVisible()
-    await expect(levelCard(page, VIKING_ARENA)).toBeHidden()
+    await expect(levelCard(page, KILNWAKE)).toBeVisible()
+    await expect(levelCard(page, JACKDAW)).toBeHidden()
   })
 
   test('renames a saved preset and deletes it', async ({ page }) => {

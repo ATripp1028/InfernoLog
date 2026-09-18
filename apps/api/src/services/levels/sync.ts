@@ -20,6 +20,10 @@ import prisma from '../../utils/prisma'
 import { fetchRobtopLevelResult } from '../../utils/robtop'
 import { buildRobtopRefreshData } from './robtopMapping'
 import { isAdmissible, purgeIfUnused } from './admission'
+import {
+  DATA_SOURCE_E2E_FIXTURE,
+  UNSYNCABLE_DATA_SOURCES,
+} from '../../data/dataSources'
 import { checkAndPersistSfhNong, sfhCheckDue } from '../levels/sfhSync'
 import {
   checkAndPersistCommunity,
@@ -424,19 +428,21 @@ export async function syncLevelBatch(
  */
 export const SYNC_SLICE_SIZE = 50
 
-// Levels the main sweep considers, in every run: cached, not delisted, and not
-// official (getGJLevels21 never returns official levels, so syncing one always
-// looks like a not-found — it would wrongly delist a level that plainly exists).
+// Levels the main sweep considers, in every run: cached, not delisted, and from
+// a source RobTop can confirm. getGJLevels21 never returns an official level or
+// an E2E fixture, so syncing one always looks like a not-found — it would
+// wrongly delist a level that plainly exists (see data/dataSources.ts).
 const syncEligibleWhere = {
   delistedAt: null,
-  dataSource: { not: 'official' },
+  dataSource: { notIn: [...UNSYNCABLE_DATA_SOURCES] },
 } satisfies Prisma.LevelWhereInput
 
-// The reverify pass rotates over the OTHER half: already-delisted (non-official)
-// levels, re-checking whether they've come back (reuploads reuse the inGameId).
+// The reverify pass rotates over the OTHER half: already-delisted levels from a
+// syncable source, re-checking whether they've come back (reuploads reuse the
+// inGameId).
 const reverifyEligibleWhere = {
   delistedAt: { not: null },
-  dataSource: { not: 'official' },
+  dataSource: { notIn: [...UNSYNCABLE_DATA_SOURCES] },
 } satisfies Prisma.LevelWhereInput
 
 // ── Community list rotation (GSV + GDDL + AREDL) ────────────────────────────
@@ -453,7 +459,9 @@ const reverifyEligibleWhere = {
 // It also reaches levels the RobTop sweep deliberately skips: `official` rows
 // are excluded there because getGJLevels21 never returns them (a sync would
 // look like a not-found and wrongly delist a level that plainly exists), but
-// the community lists do index them, so they're eligible here.
+// the community lists do index them — GDDL rates the three official demons —
+// so they're eligible here. E2E fixtures are not: they exist on no list, and
+// checking them would spend real requests on ids no source has ever heard of.
 
 /** How many levels one community rotation slice checks. */
 export const COMMUNITY_SLICE_SIZE = 200
@@ -496,6 +504,7 @@ function communityEligibleWhere(): Prisma.LevelWhereInput {
   )
   return {
     delistedAt: null,
+    dataSource: { not: DATA_SOURCE_E2E_FIXTURE },
     OR: [{ isRated: true }, { isDemon: true }],
     AND: [
       {
