@@ -19,15 +19,14 @@ export type { LevelType, LevelRangeField }
 export { LEVEL_RANGE_FIELDS }
 
 /**
- * In-game difficulty as the browse endpoint filters on it — lowercase and hyphenated, unlike the display strings on a `Level`.
+ * In-game difficulty as the browse endpoint filters on it — lowercase and
+ * hyphenated, unlike the display strings on a `Level`.
+ *
+ * Demon tiers only. A rated non-demon is never cached, and an unrated level is
+ * filtered through the rate-status filter rather than by the face its votes
+ * gave it.
  */
 export type LevelDifficulty =
-  | 'auto'
-  | 'easy'
-  | 'normal'
-  | 'hard'
-  | 'harder'
-  | 'insane'
   | 'demon-easy'
   | 'demon-medium'
   | 'demon-hard'
@@ -67,7 +66,7 @@ export type LevelSort =
   | 'relevance'
   | 'likes'
   | 'downloads'
-  | 'stars'
+  | 'difficulty'
   | 'gddlTier'
   | 'aredlRank'
   | 'sheetTier'
@@ -290,12 +289,6 @@ export function canEscalateToGd(s: SearchPageState): boolean {
  * Difficulty filter chips, in in-game order.
  */
 export const DIFFICULTY_OPTIONS: { value: LevelDifficulty; label: string }[] = [
-  { value: 'auto', label: 'Auto' },
-  { value: 'easy', label: 'Easy' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'hard', label: 'Hard' },
-  { value: 'harder', label: 'Harder' },
-  { value: 'insane', label: 'Insane' },
   { value: 'demon-easy', label: 'Easy Demon' },
   { value: 'demon-medium', label: 'Medium Demon' },
   { value: 'demon-hard', label: 'Hard Demon' },
@@ -362,7 +355,7 @@ export const LEVEL_SORT_OPTIONS: LevelSortOption[] = [
   { value: 'relevance', label: 'Relevance' },
   { value: 'downloads', label: 'Downloads' },
   { value: 'likes', label: 'Likes' },
-  { value: 'stars', label: 'Difficulty' },
+  { value: 'difficulty', label: 'Difficulty' },
   { value: 'gddlTier', label: 'GDDL tier' },
   { value: 'aredlRank', label: 'AREDL rank', hint: 'Extreme demons only' },
   { value: 'sheetTier', label: 'Sheet tier', hint: 'Extreme demons only' },
@@ -380,12 +373,6 @@ export const LEVEL_SORT_OPTIONS: LevelSortOption[] = [
  */
 export const DIFFICULTY_FACE: Record<LevelDifficulty, { difficulty: string }> =
   {
-    auto: { difficulty: 'Auto' },
-    easy: { difficulty: 'Easy' },
-    normal: { difficulty: 'Normal' },
-    hard: { difficulty: 'Hard' },
-    harder: { difficulty: 'Harder' },
-    insane: { difficulty: 'Insane' },
     'demon-easy': { difficulty: 'Easy Demon' },
     'demon-medium': { difficulty: 'Medium Demon' },
     'demon-hard': { difficulty: 'Hard Demon' },

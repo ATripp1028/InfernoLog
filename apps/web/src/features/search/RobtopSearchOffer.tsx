@@ -18,6 +18,8 @@ interface RobtopSearchOfferProps {
  * The floating "search GD's servers" affordance, pinned to the bottom center of
  * the /search page. Shown only when the current search is a browsable GD
  * operation (see SearchPage). One request, first page only — never automatic.
+ * The request asks GD for demons only, so an unrated level whose voted face
+ * isn't a demon one has to be opened by its level ID instead.
  * Once escalated, the results/errors render in the grid (GdBrowseResults) and
  * this collapses to nothing but the in-flight spinner.
  */
@@ -64,7 +66,7 @@ export function RobtopSearchOffer({
         <Server size={16} className={disabled ? '' : 'text-primary'} />
         {disabled
           ? 'RobTop can’t search these terms'
-          : 'Not finding it? Search RobTop’s servers'}
+          : 'Not finding it? Search RobTop’s servers for demons'}
       </button>
     </div>
   )

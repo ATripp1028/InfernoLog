@@ -17,7 +17,6 @@ import type {
   DifficultyOpinion,
   EntryVisibility,
 } from '@/lib/api/wireEnums'
-import { STAR_TO_OPINION as SHARED_STAR_TO_OPINION } from '@infernolog/core'
 import { coinMaskFromFlags } from '@/lib/coinBitmask'
 
 /**
@@ -295,15 +294,6 @@ const VALID_DIFFICULTY_OPINIONS = new Set<string>([
   'extreme',
 ])
 
-// The sheet keeps two user-facing columns (difficulty_opinion +
-// difficulty_opinion_stars) for clarity, but the wire format merges them: the
-// non-demon star values carry their own star count. Shared table, see
-// packages/core/src/difficultyOpinion.ts.
-const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
-  number,
-  DifficultyOpinion
->
-
 function parseCompletionRow(
   raw: Record<string, unknown>,
   rowIndex: number,
@@ -424,9 +414,10 @@ function parseCompletionRow(
       'warning'
     )
 
-  // Difficulty opinion — the sheet keeps two columns (text opinion + a
-  // separate star number for "not demon-worthy") but the wire format merges
-  // them into one enum value.
+  // Difficulty opinion — one value: a demon tier, or "not demon-worthy". It
+  // used to carry a paired star count (difficulty_opinion_stars) saying which
+  // non-demon difficulty the user would have given the level; that column went
+  // with non-demon support and is ignored if an older sheet still has it.
   const rawDO = toStr(getField(raw, 'difficulty_opinion'))
   let rawOpinion: string | null = null
   if (rawDO) {
@@ -442,52 +433,8 @@ function parseCompletionRow(
     }
   }
 
-  // Non-demon star rating (1-9) — only meaningful with a not_demon_worthy opinion.
-  const rawStars = getField(raw, 'difficulty_opinion_stars')
-  const difficultyOpinionStars = toNum(rawStars)
-  if (rawStars != null && rawStars !== '' && difficultyOpinionStars === null)
-    pushFlag(
-      'difficulty_opinion_stars',
-      `difficulty_opinion_stars "${rawStars}" isn't a valid number — value dropped`,
-      'warning'
-    )
-  else if (
-    difficultyOpinionStars != null &&
-    (difficultyOpinionStars < 1 || difficultyOpinionStars > 9)
-  )
-    pushFlag(
-      'difficulty_opinion_stars',
-      `difficulty_opinion_stars ${difficultyOpinionStars} is outside 1-9 — value dropped`,
-      'warning'
-    )
-
-  const validStars =
-    difficultyOpinionStars != null &&
-    difficultyOpinionStars >= 1 &&
-    difficultyOpinionStars <= 9
-      ? Math.round(difficultyOpinionStars)
-      : null
-
-  // "not demon-worthy" has no bare enum value — it always resolves to a
-  // concrete star count, and with nothing to go on that means AUTO (1 star).
-  // That is a guess at the user's own opinion, so it is never applied silently:
-  // otherwise the row lands as "1★ Auto" with nothing on screen to say the
-  // sheet never claimed that. Covers both a blank column and one whose value
-  // was dropped above — they reach the same default, and "value dropped"
-  // doesn't say what replaced it.
-  if (rawOpinion === 'not_demon_worthy' && validStars == null)
-    pushFlag(
-      'difficulty_opinion_stars',
-      `difficulty_opinion is "not_demon_worthy" with no usable difficulty_opinion_stars — recorded as 1★ Auto. Set it to 1-9 to say which.`,
-      'warning'
-    )
-
   const difficultyOpinion: DifficultyOpinion | null =
-    rawOpinion == null
-      ? null
-      : rawOpinion === 'not_demon_worthy'
-        ? STAR_TO_OPINION[validStars ?? 1]!
-        : (rawOpinion.toUpperCase() as DifficultyOpinion)
+    rawOpinion == null ? null : (rawOpinion.toUpperCase() as DifficultyOpinion)
 
   // Coins — three booleans (coin_1..coin_3) folded into a bitmask (bit 0 =
   // coin 1). Null when the row specifies none; levels without user coins ignore

@@ -6,7 +6,6 @@ import { useMe } from '@/lib/api/me'
 import { formatDate, formatTimeOfDay } from '@/lib/dateFormat'
 import { useFlowBusy, useLoggingFlow } from '@/context/LoggingFlowContext'
 import { LevelHeader, StepBody, StepFooter } from '../components'
-import { difficultyLabel } from '@/lib/gdAssets'
 import { opinionLabel } from '@/lib/difficultyOpinionLabel'
 import { buildCompletionInput, loggingErrorMessage } from '../payload'
 import { formatNumber } from '@/lib/numberFormat'
@@ -89,7 +88,7 @@ export function CompletionReviewStep() {
             />
           )}
           {level.inGameDifficulty && (
-            <Row label="In-game difficulty" value={difficultyLabel(level)} />
+            <Row label="In-game difficulty" value={level.inGameDifficulty} />
           )}
           {draft.difficultyOpinion && (
             <Row

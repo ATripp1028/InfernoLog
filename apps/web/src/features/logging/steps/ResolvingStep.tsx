@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from '@/components/generic/sonner'
 import { ApiError } from '@/lib/api/client'
-import { useResolveLevel } from '@/lib/api/logging'
+import { notADemonMessage, useResolveLevel } from '@/lib/api/logging'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 import { StepBody } from '../components'
 
@@ -47,7 +47,10 @@ export function ResolvingStep() {
         }
       } catch (err) {
         toast.error(
-          err instanceof ApiError ? err.message : 'Could not load that level'
+          notADemonMessage(err) ??
+            (err instanceof ApiError
+              ? err.message
+              : 'Could not load that level')
         )
         close()
       }

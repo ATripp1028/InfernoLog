@@ -12,11 +12,11 @@ export const MAX_AGE = ONE_DAY
  * changed is fetched fresh rather than read back in its old form.
  *
  * Change it whenever a persisted query's response changes in a way the current
- * code cannot read. Last changed when `MeData` replaced `discordId` with
- * `identities`: a cached user without that array would crash the settings page
- * before the refetch landed.
+ * code cannot read. Last changed when non-demon support was removed: a cached
+ * progress list still carries `stars` on every level and can hold the old
+ * per-star difficulty opinions (AUTO..NINE_STAR), which no longer render.
  */
-export const CACHE_BUSTER = 'me-identities'
+export const CACHE_BUSTER = 'demons-only'
 
 /**
  * localStorage-backed react-query persister.

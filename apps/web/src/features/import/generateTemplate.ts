@@ -22,7 +22,6 @@ export const COMPLETION_HEADERS = [
   'device',
   'enjoyment',
   'difficulty_opinion',
-  'difficulty_opinion_stars',
   'coin_1',
   'coin_2',
   'coin_3',
@@ -98,7 +97,6 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   device: 'pc',
   enjoyment: 95,
   difficulty_opinion: 'extreme',
-  difficulty_opinion_stars: '',
   coin_1: '',
   coin_2: '',
   coin_3: '',
@@ -251,12 +249,6 @@ export const FIELD_DESCRIPTIONS = [
     'difficulty_opinion',
     'no',
     'One of: not_demon_worthy, easy, medium, hard, insane, extreme',
-  ],
-  [
-    'Completions',
-    'difficulty_opinion_stars',
-    'no',
-    'Integer 1-9 — the non-demon star rating. Required when difficulty_opinion is not_demon_worthy; leaving it blank there records 1★ Auto and warns.',
   ],
   [
     'Completions',

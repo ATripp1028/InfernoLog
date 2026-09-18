@@ -2,18 +2,15 @@
 // completion step and the level page's edit-run modal — both ask the same
 // question about the same field, so they render the same control.
 //
-// Five demon tiers as round face buttons, with the non-demon star values
-// (AUTO..NINE_STAR) kept behind a labelled "Not demon-worthy" button: most
-// non-demons logged here are still demons to someone, so that path stays
-// secondary.
+// Five demon tiers as round face buttons, plus a labelled "Not demon-worthy"
+// button: most levels logged here are demons to someone, so that path stays
+// secondary. It used to carry a star count (1-9) saying which non-demon
+// difficulty the user would have given it; that was dropped along with
+// non-demon support, and the answer is now the single NOT_DEMON_WORTHY value.
 
-import {
-  STAR_TO_OPINION as SHARED_STAR_TO_OPINION,
-  NOT_DEMON_OPINION_VALUES,
-} from '@infernolog/core'
 import { cn } from '@/lib/utils'
 import { segmentedItemVariants } from '@/components/generic/segmented'
-import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
+import { difficultyFaceSrc } from '@/lib/gdAssets'
 import type { DifficultyOpinion } from '@/lib/api/wireEnums'
 
 /**
@@ -35,26 +32,10 @@ export const DEMON_OPINIONS = [
 }>
 
 /**
- * The non-demon star values carry their own star count (1=AUTO..9=NINE_STAR)
- * rather than a separate paired field — shared table, see
- * packages/core/src/difficultyOpinion.ts.
- */
-export const STAR_TO_OPINION = SHARED_STAR_TO_OPINION as Record<
-  number,
-  DifficultyOpinion
->
-/**
- * The opinion values that mean "not demon-worthy" — the star tiers, as a membership set.
- */
-export const NOT_DEMON_OPINIONS = new Set<DifficultyOpinion>(
-  NOT_DEMON_OPINION_VALUES as DifficultyOpinion[]
-)
-
-/**
  * The difficulty-opinion picker.
  *
- * @param value - `null` when the user has not answered. Selecting a demon
- * tier clears any star value and vice versa; the two are one field.
+ * @param value - `null` when the user has not answered. One field: picking a
+ * demon tier replaces "not demon-worthy" and vice versa.
  */
 export function DifficultyOpinionSelect({
   value,
@@ -63,7 +44,7 @@ export function DifficultyOpinionSelect({
   value: DifficultyOpinion | null
   onChange: (value: DifficultyOpinion) => void
 }) {
-  const notWorthy = value != null && NOT_DEMON_OPINIONS.has(value)
+  const notWorthy = value === 'NOT_DEMON_WORTHY'
   return (
     <div className="space-y-3">
       {/* Demon difficulty faces — one row, evenly spaced across the width. */}
@@ -95,7 +76,7 @@ export function DifficultyOpinionSelect({
       <button
         type="button"
         aria-pressed={notWorthy}
-        onClick={() => onChange(STAR_TO_OPINION[1]!)}
+        onClick={() => onChange('NOT_DEMON_WORTHY')}
         className={cn(
           segmentedItemVariants({ active: notWorthy }),
           'h-10 w-full'
@@ -103,46 +84,6 @@ export function DifficultyOpinionSelect({
       >
         Not demon-worthy
       </button>
-
-      {/* Non-demon difficulty, by star count, shown when it's not demon-worthy. */}
-      {notWorthy && (
-        <div>
-          <p className="mb-1.5 text-xs text-text-tertiary">
-            What difficulty would you give it?
-          </p>
-          <div className="grid grid-cols-5 justify-items-center gap-2 sm:grid-cols-9">
-            {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
-              const active = value === STAR_TO_OPINION[n]
-              const difficulty = starCountToDifficulty(n)
-              return (
-                <button
-                  key={n}
-                  type="button"
-                  title={`${n}★ · ${difficulty}`}
-                  aria-label={`${n} star ${difficulty}`}
-                  aria-pressed={active}
-                  onClick={() => onChange(STAR_TO_OPINION[n]!)}
-                  className={cn(
-                    'flex flex-col items-center gap-0.5 rounded-md border px-2 py-1 transition-all',
-                    active
-                      ? 'border-primary bg-primary/15 ring-1 ring-primary'
-                      : 'border-border bg-bg-surface/60 hover:bg-bg-elevated/60'
-                  )}
-                >
-                  <img
-                    src={difficultyFaceSrc(difficulty)}
-                    alt=""
-                    className="size-6"
-                  />
-                  <span className="text-[10px] font-medium text-text-secondary">
-                    {n}★
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

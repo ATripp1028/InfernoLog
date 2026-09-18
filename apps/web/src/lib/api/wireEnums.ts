@@ -5,8 +5,7 @@
 // core pins zod@3 while the server validates on zod@4, and
 // core's nominal TS `enum` types do not narrow from the plain strings that
 // `JSON.parse` hands back — a string-literal union does, with an ordinary
-// `as` cast. packages/core/src/difficultyOpinion.ts documents the same
-// decision from the other side.
+// `as` cast.
 //
 // These were previously re-declared in each of lib/api/{me,logging,import}.ts
 // — three copies of `Device`, two of `GdVersion`, and so on. Add a new shared
@@ -15,26 +14,31 @@
 /**
  * The user's subjective difficulty read on a completion.
  *
- * The non-demon star values (`AUTO`..`NINE_STAR`) are a disagreement flag
- * only — the level itself stays a rated demon. Distinct from the level's
- * cached in-game difficulty. Use `opinionToStars` / `STAR_TO_OPINION` from
- * `@infernolog/core` to convert between this and a star count.
+ * `NOT_DEMON_WORTHY` is a disagreement flag only — the level itself stays a
+ * rated demon. Distinct from the level's cached in-game difficulty.
  */
 export type DifficultyOpinion =
-  | 'AUTO'
-  | 'TWO_STAR'
-  | 'THREE_STAR'
-  | 'FOUR_STAR'
-  | 'FIVE_STAR'
-  | 'SIX_STAR'
-  | 'SEVEN_STAR'
-  | 'EIGHT_STAR'
-  | 'NINE_STAR'
+  | 'NOT_DEMON_WORTHY'
   | 'EASY'
   | 'MEDIUM'
   | 'HARD'
   | 'INSANE'
   | 'EXTREME'
+
+/**
+ * The difficulties the manual-entry form may send (POST /v1/levels).
+ *
+ * The five demon tiers and "Unrated" — the only levels the cache admits, since
+ * a rated non-demon is refused. The API derives the level's isDemon/isRated
+ * flags from this rather than taking them from the client.
+ */
+export type ManualLevelDifficulty =
+  | 'Easy Demon'
+  | 'Medium Demon'
+  | 'Hard Demon'
+  | 'Insane Demon'
+  | 'Extreme Demon'
+  | 'Unrated'
 
 /** Whether an entry is visible to other users, or only to its owner. */
 export type EntryVisibility = 'PUBLIC' | 'PRIVATE'
