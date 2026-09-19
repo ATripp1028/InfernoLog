@@ -51,13 +51,13 @@ describe('sort direction', () => {
     'relevance',
     'downloads',
     'likes',
-    'stars',
     'gddlTier',
     'sheetTier',
     'enjoyment',
     'duration',
     'objectCount',
     'gameVersion',
+    'difficulty',
   ] as const)('starts a %s sort descending', (sort) => {
     expect(naturalSortDir(sort)).toBe('desc')
   })
@@ -107,7 +107,7 @@ describe('sortSelectionPatch', () => {
 
   it('replaces the difficulty selection rather than adding to it', () => {
     const next = {
-      ...state({ difficulty: ['easy', 'demon-hard'] }),
+      ...state({ difficulty: ['demon-easy', 'demon-hard'] }),
       ...sortSelectionPatch('aredlRank'),
     }
 
@@ -253,7 +253,11 @@ describe('canEscalateToGd', () => {
   it('still forwards a filter while in creator mode', () => {
     expect(
       canEscalateToGd(
-        state({ query: 'riot', searchBy: 'creator', difficulty: ['easy'] })
+        state({
+          query: 'riot',
+          searchBy: 'creator',
+          difficulty: ['demon-easy'],
+        })
       )
     ).toBe(true)
   })
@@ -287,7 +291,7 @@ describe('canEscalateToGd', () => {
     ['level type', { levelType: 'CLASSIC' }],
     ['an official-song filter', { songType: 'official' }],
     ['a NONG filter', { songType: 'nong' }],
-    ['a stars sort', { sort: 'stars' }],
+    ['a difficulty sort', { sort: 'difficulty' }],
     ['an object-count sort', { sort: 'objectCount' }],
     ['a GDDL tier sort', { sort: 'gddlTier' }],
     ['a range bound', { downloadsMin: 1000 }],
@@ -360,9 +364,27 @@ describe('validateSearchState', () => {
   describe('array filters', () => {
     it('keeps the recognized values and drops the rest', () => {
       expect(
-        validateSearchState({ difficulty: ['easy', 'nonsense', 'hard'] })
+        validateSearchState({
+          difficulty: ['demon-easy', 'nonsense', 'demon-hard'],
+        }).difficulty
+      ).toEqual(['demon-easy', 'demon-hard'])
+    })
+
+    // A link saved before demons-only. The non-demon chips are gone, so the
+    // value names no filter and is dropped like any other unknown — the page
+    // must not error on someone's bookmark.
+    it('drops a non-demon difficulty a stale URL still carries', () => {
+      expect(
+        validateSearchState({ difficulty: ['harder', 'demon-extreme'] })
           .difficulty
-      ).toEqual(['easy', 'hard'])
+      ).toEqual(['demon-extreme'])
+    })
+
+    // The same for the sort, which was renamed from `stars` to `difficulty`
+    // when the star count was dropped: a stale URL falls back to the page's
+    // default rather than sorting by a column that no longer exists.
+    it('falls back to the default sort for a renamed one', () => {
+      expect(validateSearchState({ sort: 'stars' }).sort).toBe('relevance')
     })
 
     // An array with nothing usable collapses to undefined, which is what the
@@ -534,9 +556,9 @@ describe('browseApiQueryString', () => {
   })
 
   it('repeats an array filter once per value', () => {
-    const p = params(state({ difficulty: ['easy', 'hard'] }))
+    const p = params(state({ difficulty: ['demon-easy', 'demon-hard'] }))
 
-    expect(p.getAll('difficulty')).toEqual(['easy', 'hard'])
+    expect(p.getAll('difficulty')).toEqual(['demon-easy', 'demon-hard'])
   })
 
   it.each([
@@ -609,7 +631,7 @@ describe('browseApiQueryString', () => {
       searchBy: 'creator',
       sort: 'likes',
       sortDir: 'asc',
-      difficulty: ['easy', 'hard'],
+      difficulty: ['demon-easy', 'demon-hard'],
       rateStatus: ['featured'],
       length: ['long'],
       coinCount: [1, 2],

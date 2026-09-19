@@ -97,12 +97,28 @@ describe('POST /levels', () => {
     })
   })
 
-  it('defaults the optional flags rather than writing undefined', async () => {
+  it('derives the demon and rated flags from a demon tier', async () => {
+    // The client sends neither: every tier is a rated demon, so a client that
+    // could send them could contradict the label it sent with them.
     await post(validBody())
+
+    expect(createData()).toMatchObject({ isDemon: true, isRated: true })
+  })
+
+  it('derives both flags as false for an unrated level', async () => {
+    await post(validBody({ difficulty: 'Unrated' }))
 
     expect(createData()).toMatchObject({
       isDemon: false,
       isRated: false,
+      inGameDifficulty: 'Unrated',
+    })
+  })
+
+  it('defaults the optional fields rather than writing undefined', async () => {
+    await post(validBody())
+
+    expect(createData()).toMatchObject({
       length: null,
       songName: null,
       songAuthor: null,
@@ -112,8 +128,6 @@ describe('POST /levels', () => {
   it('carries the optional fields through when supplied', async () => {
     await post(
       validBody({
-        isDemon: true,
-        isRated: true,
         length: 'Long',
         songName: 'At the Speed of Light',
         songAuthor: 'Dimrain47',
@@ -121,12 +135,19 @@ describe('POST /levels', () => {
     )
 
     expect(createData()).toMatchObject({
-      isDemon: true,
-      isRated: true,
       length: 'Long',
       songName: 'At the Speed of Light',
       songAuthor: 'Dimrain47',
     })
+  })
+
+  it('400s on a difficulty the cache would never admit', async () => {
+    // A rated non-demon. The schema refuses it, so the refusal costs no
+    // lookup and the row is never created.
+    const res = await post(validBody({ difficulty: 'Harder' }))
+
+    expect(res.status).toBe(400)
+    expect(prisma.level.create).not.toHaveBeenCalled()
   })
 })
 

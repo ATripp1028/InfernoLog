@@ -8,6 +8,7 @@ import {
   useLevelById,
   useLevelSearch,
   useResolveLevel,
+  notADemonMessage,
 } from '@/lib/api/logging'
 import { useMyProgress } from '@/lib/api/log'
 import { sortAndCapSearchResults } from '@/lib/levelSearchResults'
@@ -66,7 +67,10 @@ export function FindLevelStep() {
       }
     } catch (err) {
       toast.error(
-        err instanceof ApiError ? err.message : 'Could not look up that level'
+        notADemonMessage(err) ??
+          (err instanceof ApiError
+            ? err.message
+            : 'Could not look up that level')
       )
     }
   }
@@ -92,7 +96,10 @@ export function FindLevelStep() {
       }
     } catch (err) {
       toast.error(
-        err instanceof ApiError ? err.message : 'Could not look up that level'
+        notADemonMessage(err) ??
+          (err instanceof ApiError
+            ? err.message
+            : 'Could not look up that level')
       )
     } finally {
       setSeedingId(null)
@@ -252,7 +259,7 @@ export function FindLevelStep() {
                   offer={{
                     title: `Search GD's servers for "${trimmed}"`,
                     subtitle:
-                      'One request to RobTop. Rated levels are added automatically; unrated only if you pick one.',
+                      'One request to RobTop, and it only finds demons — add anything else by its level ID. Rated levels are added automatically; unrated only if you pick one.',
                   }}
                 />
               </div>

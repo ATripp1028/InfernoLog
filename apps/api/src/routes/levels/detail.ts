@@ -11,6 +11,7 @@ import { Hono } from 'hono'
 import { LevelIdSchema } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { findOrResolveLevel } from '../../services/levels/resolve'
+import { notADemonBody } from '../../services/levels/admission'
 import type { HonoVariables } from '../../types/hono'
 import {
   levelDetailSelect,
@@ -23,11 +24,13 @@ const app = new Hono<{ Variables: HonoVariables }>()
 
 // GET /v1/levels/:levelId/page — the Global Level Page's data source. Unlike
 // the bare cached-only GET below, a cache miss here resolves the level from GD
-// (autofill + SFH lookup) and caches it, matching ID entry elsewhere. The two
+// (autofill + SFH lookup) and caches it, matching ID entry elsewhere. The
 // failure modes are kept distinct so the page can branch on them:
 //   404 { reason: 'not_found' }   — GD has no such level (terminal; nothing
 //                                   cached, so a later visit re-resolves)
 //   503 { reason: 'unreachable' } — GD couldn't be reached (retryable)
+//   422 { reason: 'not_a_demon' } — GD rates it a non-demon, which the cache
+//                                   never admits (terminal; nothing cached)
 //   429 { reason: 'rate_limited' }— this user has spent their RobTop budget
 //                                   (only reachable on a cache miss)
 app.get('/levels/:levelId/page', async (c) => {
@@ -59,6 +62,9 @@ app.get('/levels/:levelId/page', async (c) => {
       503
     )
   }
+  if (resolved.status === 'not_a_demon') {
+    return c.json(notADemonBody(levelId, resolved.level), 422)
+  }
 
   // Status and beaten-or-not ONLY — the page renders no progress values. The
   // row's presence drives the cross-link to the user's own page for this level
@@ -84,8 +90,6 @@ app.get('/levels/:levelId/page', async (c) => {
 
   return c.json({
     data: {
-      // Same resolution every other detail response applies — `stars` is
-      // canonical for a non-demon and outranks the stored label.
       ...mapLevelDetail(resolved.level),
       userProgressStatus: progress?.status ?? null,
       userHasCompletion: (progress?.progressUpdates.length ?? 0) > 0,

@@ -178,8 +178,9 @@ export async function getClassicDemonList(userId: string) {
         status: 'COMPLETED',
         classicDemonList: { is: null },
         // Classic only — the platformer ranking is a separate list. Demon-ness
-        // is deliberately NOT filtered: a non-demon completion is rankable like
-        // any other (see "Scope Stance" in LOGGING_FLOW.md).
+        // needs no filter: the level cache admits no rated non-demon, and a demon
+        // GD demoted after it was logged stays placeable (see
+        // services/levels/admission.ts).
         level: { levelType: 'CLASSIC' },
       },
       orderBy: { updatedAt: 'desc' },
@@ -215,9 +216,10 @@ export async function getClassicDemonList(userId: string) {
 
 /**
  * PLACE — an unplaced completion enters the demon list. Validates the entry is one
- * of the caller's COMPLETED classic levels and not already placed. Non-demons
- * are accepted: the demon list is the user's own difficulty order, and nothing
- * about it depends on the level carrying GD's demon flag.
+ * of the caller's COMPLETED classic levels and not already placed. It does not
+ * check GD's demon flag: the level cache admits no rated non-demon, so a
+ * completion can only be of one if GD demoted the level after it was logged,
+ * and that stays placeable.
  */
 export async function placeCompletion(
   userId: string,

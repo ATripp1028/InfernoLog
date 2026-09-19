@@ -1,8 +1,6 @@
-import { AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/generic/button'
 import { Input } from '@/components/generic/input'
-import { Card } from '@/components/generic/card'
 import { Switch } from '@/components/generic/switch'
 import { Label } from '@/components/generic/label'
 import {
@@ -42,22 +40,6 @@ export function CompletionBasicsStep() {
     <>
       <StepBody>
         <LevelHeader level={level} />
-
-        {!level.isDemon && (
-          <Card variant="accent" className="flex gap-3 p-4">
-            <AlertTriangle size={18} className="mt-0.5 shrink-0 text-accent" />
-            <div>
-              <p className="text-sm font-semibold text-text-primary">
-                This isn&apos;t a demon
-              </p>
-              <p className="text-sm text-text-secondary">
-                InfernoLog is built for demon tracking, so you&apos;ll see it
-                framed that way in places. Everything still works — log it, rate
-                it, rank it like any other completion.
-              </p>
-            </div>
-          </Card>
-        )}
 
         <div>
           <FieldLabel htmlFor="c-date">Date</FieldLabel>
@@ -181,7 +163,7 @@ export function CompletionBasicsStep() {
           <FieldHint>
             What you think it deserves — separate from the in-game rating shown
             above. Pick &quot;Not demon-worthy&quot; if you don&apos;t think it
-            earns a demon face, then say what difficulty you&apos;d give it.
+            earns a demon face at all.
           </FieldHint>
         </div>
 

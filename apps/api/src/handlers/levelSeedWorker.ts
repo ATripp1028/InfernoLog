@@ -4,6 +4,9 @@
 // unavailable or level not found) the stub stands — this is NOT an error;
 // the DLQ is just a safety net for infra failures.
 //
+// A stub GD reports as a rated non-demon is not enriched but deleted, unless
+// something already references it — see the admission check below.
+//
 // Pacing against RobTop is handled by the shared rate limiter every caller
 // of fetchRobtopLevel goes through (see utils/robtopRateLimit.ts) — this
 // worker doesn't need (and no longer does) its own local sleep-based pacing
@@ -13,6 +16,7 @@
 import prisma from '../utils/prisma'
 import { fetchRobtopLevelResult, type RobtopFetchResult } from '../utils/robtop'
 import { buildRobtopRefreshData } from '../services/levels/robtopMapping'
+import { isAdmissible, purgeIfUnused } from '../services/levels/admission'
 import { checkCommunityForSeededLevels } from '../services/levels/communitySync'
 import { logger } from '../utils/logger'
 import * as Sentry from '@sentry/aws-serverless'
@@ -128,6 +132,21 @@ export const handler = async (event: SQSEvent): Promise<void> => {
           // which is exactly what happened to the 2026-07-21 GDDL import.
           // Defer to SQS instead of deciding now.
           unreachable.push(levelId)
+          continue
+        }
+
+        // The stub turns out to be a rated non-demon, which the cache doesn't
+        // admit. The import that created it screens ids against GD itself
+        // (screenUncachedIds), so reaching here means that screen was skipped —
+        // GD was unreachable, or the batch's lookup budget ran out. Drop the
+        // row unless the import's own rows now reference it, in which case it
+        // stays rather than taking the user's data with it.
+        if (!isAdmissible(res.level)) {
+          const purged = await purgeIfUnused(levelId)
+          logger.info(
+            { levelId, purged },
+            'levelSeedWorker: stub is a rated non-demon; not enriched'
+          )
           continue
         }
 

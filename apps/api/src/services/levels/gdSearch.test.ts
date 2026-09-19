@@ -39,18 +39,22 @@ const { runGdSearch } = await import('./gdSearch')
 
 const prisma = prismaMock as unknown as DeepMockProxy<PrismaClient>
 
-function hit(levelId: string, isRated = true): RobtopSearchResult {
+function hit(
+  levelId: string,
+  isRated = true,
+  isDemon = true
+): RobtopSearchResult {
   return {
     levelId,
     level: {
       name: `Level ${levelId}`,
       creator: 'Riot',
       songName: null,
-      inGameDifficulty: 'Extreme Demon',
-      stars: 10,
+      inGameDifficulty: isDemon ? 'Extreme Demon' : 'Harder',
       featured: true,
       epicValue: 0,
       isRated,
+      isDemon,
     } as unknown as RobtopLevel,
   }
 }
@@ -85,14 +89,16 @@ beforeEach(() => {
 // ─── filter mapping ──────────────────────────────────────────────────────────
 
 describe('runGdSearch — filter mapping', () => {
-  it('forwards non-demon difficulties as GD diff codes', async () => {
-    await search('x', { difficulty: ['easy', 'hard'] })
+  it('asks GD for demons even when no difficulty is selected', async () => {
+    // -2 is GD's Demon bucket. Sent on every escalation, so a rated non-demon
+    // never comes back just to be refused.
+    await search('x')
 
-    expect(forwarded().diff).toBe('1,3')
+    expect(forwarded().diff).toBe('-2')
     expect(forwarded()).not.toHaveProperty('demonFilter')
   })
 
-  it('adds the demon bucket and narrows when exactly one tier is chosen', async () => {
+  it('narrows to the tier when exactly one is chosen', async () => {
     await search('x', { difficulty: ['demon-extreme'] })
 
     expect(forwarded().diff).toBe('-2')
@@ -106,13 +112,6 @@ describe('runGdSearch — filter mapping', () => {
 
     expect(forwarded().diff).toBe('-2')
     expect(forwarded()).not.toHaveProperty('demonFilter')
-  })
-
-  it('combines demon and non-demon selections', async () => {
-    await search('x', { difficulty: ['easy', 'demon-hard'] })
-
-    expect(forwarded().diff).toBe('1,-2')
-    expect(forwarded().demonFilter).toBe('3')
   })
 
   it('forwards lengths as GD length numbers', async () => {
@@ -227,6 +226,22 @@ describe('runGdSearch — outcomes', () => {
     expect(outcome.unrated.map((r) => r.inGameId)).toEqual(['2'])
   })
 
+  it('drops a rated non-demon GD returns anyway', async () => {
+    // The Demon bucket above should make this unreachable; the admission check
+    // is the backstop, because nothing is cached on the strength of a filter.
+    mockSearchResult.mockResolvedValue({
+      status: 'ok',
+      results: [hit('1', true, true), hit('2', true, false)],
+    })
+
+    const outcome = await search()
+
+    expect(outcome.status).toBe('ok')
+    if (outcome.status !== 'ok') return
+    expect(outcome.rated.map((r) => r.inGameId)).toEqual(['1'])
+    expect(prisma.level.upsert).toHaveBeenCalledTimes(1)
+  })
+
   it('seeds the rated survivors and leaves the unrated alone', async () => {
     // Unrated levels are only cached if the user actually selects one.
     mockSearchResult.mockResolvedValue({
@@ -315,7 +330,6 @@ describe('runGdSearch — outcomes', () => {
       creator: 'Riot',
       songName: null,
       inGameDifficulty: 'Extreme Demon',
-      stars: 10,
       featured: true,
       epicValue: 0,
       isRated: true,

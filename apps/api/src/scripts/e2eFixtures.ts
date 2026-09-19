@@ -84,75 +84,217 @@ export function describeDatabaseUrl(url: string | undefined): string {
   }
 }
 
+/** A fixture level as the seed writes it into the `levels` cache. */
+export interface E2eFixtureLevel {
+  inGameId: string
+  name: string
+  /** A demon tier: the cache admits no rated non-demon. */
+  inGameDifficulty: string
+  /** Secret coins, so the edit modal renders its coin picker. */
+  coins: number
+}
+
 /**
- * Levels the suite logs against. Official levels (see data/officialLevels.ts)
- * on purpose: their IDs are fixed and synthetic, they are seeded by
- * `pnpm db:seed:official` rather than fetched, so nothing in the suite depends
- * on RobTop's servers being reachable.
+ * The creator every seeded fixture carries. Distinctive on purpose: a creator
+ * search for it is how the /search spec gets a result set it owns, and it makes
+ * a fixture obvious wherever one turns up. One word, because the /search spec
+ * puts it straight into a query string.
+ */
+export const E2E_CREATOR = 'InfernoLogE2E'
+
+/**
+ * The id every fixture level sits above.
+ *
+ * Real GD level ids are nowhere near this, so a fixture can never collide with
+ * a level someone actually logs, and an id in this range is self-evidently not
+ * a real level. Paired with `dataSource = 'e2e_fixture'`, which is what the
+ * level sync and the community rotation key their exclusions on.
+ */
+export const E2E_LEVEL_ID_FLOOR = 990_000_000
+
+/**
+ * Levels the suite logs against.
+ *
+ * Seeded by `pnpm db:seed:e2e` rather than fetched, so nothing in the suite
+ * depends on RobTop's servers being reachable — the same reason the suite used
+ * to log against official levels. It no longer can: all but three official
+ * levels are non-demons, which the cache no longer admits.
+ *
+ * ⚠️ These rows must never exist in production. The seed refuses to run against
+ * it; see scripts/seedE2eLevels.ts.
  */
 export const E2E_LEVELS = {
-  /** Demon. The level the completion + ranking flows log against. */
-  clubstep: { inGameId: '14', name: 'Clubstep' },
-  /** Demon. A second demon list entry, so inserts have something to sort against. */
-  theoryOfEverything2: { inGameId: '18', name: 'Theory of Everything 2' },
-  /** Demon. The third demon list entry, and the one placement reorders against. */
-  deadlocked: { inGameId: '20', name: 'Deadlocked' },
-  /** Non-demon, for a custom collection that is not about difficulty. */
-  stereoMadness: { inGameId: '1', name: 'Stereo Madness' },
+  /**
+   * The completion + demon list flows' three levels. The first is what the
+   * completion flow logs against; the other two give inserts something to sort
+   * against, and the third is the one placement reorders against.
+   */
+  completion: {
+    inGameId: '990000001',
+    name: 'E2E Ashfall',
+    inGameDifficulty: 'Extreme Demon',
+    coins: 3,
+  },
+  listSecond: {
+    inGameId: '990000002',
+    name: 'E2E Blackglass',
+    inGameDifficulty: 'Insane Demon',
+    coins: 3,
+  },
+  listThird: {
+    inGameId: '990000003',
+    name: 'E2E Cinderpath',
+    inGameDifficulty: 'Hard Demon',
+    coins: 3,
+  },
+  /** For a custom collection that is not about difficulty. */
+  collection: {
+    inGameId: '990000004',
+    name: 'E2E Driftwood',
+    inGameDifficulty: 'Easy Demon',
+    coins: 3,
+  },
   /**
    * The Want to Beat handoff's level, and nothing else's. That spec logs a
-   * completion for it, so it deliberately does not share one with the specs
+   * completion for it, so it deliberately does not share one with the levels
    * above: an already-completed level sinks below actionable ones in the find
    * step (lib/levelSearchResults.ts) and reopens the wizard on the existing
    * completion rather than a fresh one.
    */
-  fingerdash: { inGameId: '21', name: 'Fingerdash' },
+  wantToBeat: {
+    inGameId: '990000005',
+    name: 'E2E Emberfall',
+    inGameDifficulty: 'Insane Demon',
+    coins: 3,
+  },
   /**
    * The progress path's level, and nothing else's. That spec logs a run
    * against it and then edits the run, so it has to stay unbeaten for the
-   * same reason fingerdash is not shared.
+   * same reason the handoff level is not shared.
    */
-  electrodynamix: { inGameId: '15', name: 'Electrodynamix' },
+  progress: {
+    inGameId: '990000006',
+    name: 'E2E Flintlock',
+    inGameDifficulty: 'Hard Demon',
+    coins: 3,
+  },
   /** The drop path's level, and nothing else's. */
-  hexagonForce: { inGameId: '16', name: 'Hexagon Force' },
+  drop: {
+    inGameId: '990000007',
+    name: 'E2E Gravemind',
+    inGameDifficulty: 'Extreme Demon',
+    coins: 3,
+  },
   /**
    * The level page's edit path. Completed and then deleted by the spec that
-   * owns it, so it is shared with nothing.
+   * owns it, so it is shared with nothing. It carries coins because the edit
+   * modal renders its coin picker only for a level that has any.
    */
-  blastProcessing: { inGameId: '17', name: 'Blast Processing' },
+  pageEdit: {
+    inGameId: '990000008',
+    name: 'E2E Hollowpoint',
+    inGameDifficulty: 'Insane Demon',
+    coins: 3,
+  },
   /**
    * The level page's entry-deletion path. Two runs are logged against it and
    * both are deleted, which removes the level entry itself.
    */
-  geometricalDominator: { inGameId: '19', name: 'Geometrical Dominator' },
+  pageDelete: {
+    inGameId: '990000009',
+    name: 'E2E Ironvein',
+    inGameDifficulty: 'Hard Demon',
+    coins: 3,
+  },
   /**
    * The list-preset spec's pair, and nothing else's. One ends up unbeaten and
    * one dropped, so the saved view's status filter has a row to keep as well
    * as a row to hide — a preset whose only visible effect is an absence
    * cannot tell "the filter applied" from "the list failed to load".
    */
-  vikingArena: { inGameId: '24', name: 'Viking Arena' },
-  powerTrip: { inGameId: '38', name: 'Power Trip' },
+  presetA: {
+    inGameId: '990000010',
+    name: 'E2E Jackdaw',
+    inGameDifficulty: 'Easy Demon',
+    coins: 3,
+  },
+  presetB: {
+    inGameId: '990000011',
+    name: 'E2E Kilnwake',
+    inGameDifficulty: 'Easy Demon',
+    coins: 3,
+  },
   /**
    * The spreadsheet import spec's pair, and nothing else's. One is completed
    * through the UI before the import runs, so the sheet's row for it
    * conflicts with a stored completion; the other is only ever named by the
    * sheet, so the same import also covers a plain insert.
    */
-  airborneRobots: { inGameId: '25', name: 'Airborne Robots' },
-  payload: { inGameId: '26', name: 'Payload' },
+  importA: {
+    inGameId: '990000012',
+    name: 'E2E Longshadow',
+    inGameDifficulty: 'Insane Demon',
+    coins: 3,
+  },
+  importB: {
+    inGameId: '990000013',
+    name: 'E2E Mourningstar',
+    inGameDifficulty: 'Hard Demon',
+    coins: 3,
+  },
   /**
    * The ranking spec's pair, and nothing else's. Each is logged with a rating
    * of its own, so neither can be shared: a completed level reopens the
    * wizard on the existing completion rather than a fresh one.
    *
-   * Both are Normal difficulty, which the spec filters the ranking down to in
-   * order to read exact positions out of a population it fully controls. See
+   * Both are MEDIUM DEMON, and the only fixtures that are. The spec filters
+   * the ranking down to that tier to read exact positions out of a population
+   * it fully controls, so giving any other fixture that tier breaks it. See
    * the note beside them in apps/web/e2e/fixtures/levels.ts.
    */
-  polargeist: { inGameId: '3', name: 'Polargeist' },
-  machina: { inGameId: '28', name: 'Machina' },
-} as const
+  rankingA: {
+    inGameId: '990000014',
+    name: 'E2E Nightjar',
+    inGameDifficulty: 'Medium Demon',
+    coins: 3,
+  },
+  rankingB: {
+    inGameId: '990000015',
+    name: 'E2E Oxbow',
+    inGameDifficulty: 'Medium Demon',
+    coins: 3,
+  },
+} as const satisfies Record<string, E2eFixtureLevel>
 
-/** Every fixture level ID, in the order they are declared above. */
-export const E2E_LEVEL_IDS = Object.values(E2E_LEVELS).map((l) => l.inGameId)
+/**
+ * Filler fixtures, which no spec names.
+ *
+ * They exist so a creator search for {@link E2E_CREATOR} overflows one page of
+ * results (browse.ts's PAGE_SIZE is 30) on any stage, whatever else is cached
+ * there. That overflow is the whole subject of the /search spec's cursor
+ * assertions, and it used to come free from the 38 seeded official levels.
+ */
+export const E2E_FILLER_LEVELS: E2eFixtureLevel[] = Array.from(
+  { length: 20 },
+  (_, i) => ({
+    inGameId: String(990_000_100 + i),
+    name: `E2E Filler ${String(i + 1).padStart(2, '0')}`,
+    inGameDifficulty: 'Extreme Demon',
+    coins: 0,
+  })
+)
+
+/** Every fixture level the seed writes: the named ones plus the fillers. */
+export const E2E_SEED_LEVELS: E2eFixtureLevel[] = [
+  ...Object.values(E2E_LEVELS),
+  ...E2E_FILLER_LEVELS,
+]
+
+/**
+ * Every seeded fixture level ID, in the order they are declared above.
+ *
+ * The fillers are in it deliberately: the /search spec's cursor assertions need
+ * more fixtures than one page holds, so a stage missing them fails that spec
+ * rather than the pre-run presence check that exists to catch it.
+ */
+export const E2E_LEVEL_IDS = E2E_SEED_LEVELS.map((l) => l.inGameId)

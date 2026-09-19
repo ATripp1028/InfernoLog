@@ -215,7 +215,7 @@ export function AddToCollectionDialog({
                 offer={{
                   title: `Search GD's servers for "${trimmed}"`,
                   subtitle:
-                    'One request to RobTop. Levels already in your cache are omitted.',
+                    'One request to RobTop, and it only finds demons — add anything else by its level ID. Levels already in your cache are omitted.',
                 }}
               />
             </div>

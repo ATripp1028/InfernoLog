@@ -247,4 +247,35 @@ describe('GET /levels/:levelId/page', () => {
     const cached = await prisma.level.findUnique({ where: { inGameId: '814' } })
     expect(cached).toBeNull()
   })
+
+  it('returns 422 with reason=not_a_demon for a rated non-demon', async () => {
+    // The page resolves a cache miss the same way the logging flow does, so it
+    // refuses the same levels — and cached nothing, so opening the page cannot
+    // be a way around the rule.
+    const user = await seedUser(prisma)
+    robtopResultMock.mockResolvedValue({
+      status: 'found',
+      level: {
+        name: 'Stereo Madness',
+        creator: 'RobTop',
+        inGameDifficulty: 'Easy',
+        isRated: true,
+        isDemon: false,
+      },
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/815/page'
+    )
+    const body = (await res.json()) as {
+      reason?: string
+      level?: { name: string | null }
+    }
+
+    expect(res.status).toBe(422)
+    expect(body.reason).toBe('not_a_demon')
+    expect(body.level?.name).toBe('Stereo Madness')
+    const cached = await prisma.level.findUnique({ where: { inGameId: '815' } })
+    expect(cached).toBeNull()
+  })
 })

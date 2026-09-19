@@ -10,7 +10,7 @@ import {
   openLevelPage,
   openQuickAction,
 } from './flows'
-import { BLAST_PROCESSING, GEOMETRICAL_DOMINATOR } from './fixtures/levels'
+import { HOLLOWPOINT, IRONVEIN } from './fixtures/levels'
 
 // The level page's own write paths — the ones reached from the page rather
 // than from the logging flow, and the ones no other spec touches:
@@ -135,10 +135,10 @@ test.describe('level page', () => {
     // A completion rather than a run: the modal's GDDL tier and coin sections
     // render only for a beaten level, and they are half the payload this spec
     // is here to pin.
-    await logCompletion(page, BLAST_PROCESSING, '1337')
+    await logCompletion(page, HOLLOWPOINT, '1337')
     await page.getByRole('button', { name: 'Place later' }).click()
 
-    await openLevelPage(page, BLAST_PROCESSING)
+    await openLevelPage(page, HOLLOWPOINT)
 
     const dialog = await openEditLevel(page)
 
@@ -183,7 +183,7 @@ test.describe('level page', () => {
     const saved = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        r.url().endsWith(`/v1/me/progress/${BLAST_PROCESSING.inGameId}`)
+        r.url().endsWith(`/v1/me/progress/${HOLLOWPOINT.inGameId}`)
     )
     await dialog.getByRole('button', { name: 'Save changes' }).click()
     expect((await saved).status()).toBe(200)
@@ -238,13 +238,13 @@ test.describe('level page', () => {
     const deleted = await confirmDelete(
       page,
       'Delete this level?',
-      new RegExp(`/v1/me/progress/${BLAST_PROCESSING.inGameId}$`)
+      new RegExp(`/v1/me/progress/${HOLLOWPOINT.inGameId}$`)
     )
     expect(deleted.status()).toBe(200)
 
     await expect(page).toHaveURL(/\/log$/)
     await page.reload()
-    await expect(levelCard(page, BLAST_PROCESSING)).toBeHidden()
+    await expect(levelCard(page, HOLLOWPOINT)).toBeHidden()
   })
 
   test('deletes one logged entry, then the last one', async ({ page }) => {
@@ -252,10 +252,10 @@ test.describe('level page', () => {
 
     // The first run goes in through the Log's FAB, which walks the find step.
     await openQuickAction(page, 'Log progress')
-    await findLevel(page, GEOMETRICAL_DOMINATOR)
+    await findLevel(page, IRONVEIN)
     await logRun(page, FIRST_RUN, FIRST_RUN_DATE)
 
-    await openLevelPage(page, GEOMETRICAL_DOMINATOR)
+    await openLevelPage(page, IRONVEIN)
 
     // The second goes in through the level page's own FAB, which resolves the
     // level it is already on (openForEdit → ResolvingStep) and skips the find
@@ -277,7 +277,7 @@ test.describe('level page', () => {
     // run's. Which one actually went is asserted below rather than assumed.
     await page.getByRole('button', { name: 'Delete entry' }).first().click()
     const updatesUrl = new RegExp(
-      `/v1/me/progress/${GEOMETRICAL_DOMINATOR.inGameId}/updates/`
+      `/v1/me/progress/${IRONVEIN.inGameId}/updates/`
     )
     const removedOne = await confirmDelete(
       page,
@@ -306,6 +306,6 @@ test.describe('level page', () => {
 
     await expect(page).toHaveURL(/\/log$/)
     await page.reload()
-    await expect(levelCard(page, GEOMETRICAL_DOMINATOR)).toBeHidden()
+    await expect(levelCard(page, IRONVEIN)).toBeHidden()
   })
 })

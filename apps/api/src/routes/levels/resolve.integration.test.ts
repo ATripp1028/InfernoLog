@@ -46,9 +46,8 @@ const { default: levelsApp } = await import('./index')
 const { fetchRobtopLevel } = await import('../../utils/robtop')
 const { fetchGddlTier, fetchGddlLevel } = await import('../../utils/gddl')
 const { fetchSongFileHubNong } = await import('../../utils/songFileHub')
-const { fetchGlobalStatsViewerLevel } = await import(
-  '../../utils/globalStatsViewer'
-)
+const { fetchGlobalStatsViewerLevel } =
+  await import('../../utils/globalStatsViewer')
 const { fetchAredlLevel } = await import('../../utils/aredl')
 
 const prisma = getTestPrisma()
@@ -173,6 +172,68 @@ describe('GET /levels/:levelId/resolve', () => {
     expect(res.status).toBe(200)
     expect(gddlLevelMock).not.toHaveBeenCalled()
     expect(body.suggestedGddlTier).toBeNull()
+  })
+
+  it('422s a rated non-demon and caches nothing', async () => {
+    // The refusal that keeps every other write path honest: progress and
+    // collection entries reference `levels`, so a level that never enters the
+    // cache can never be logged. The body names the level, because "not a
+    // demon" alone reads as a mistake to someone who typed an id they trust.
+    const user = await seedUser(prisma)
+    robtopMock.mockResolvedValue({
+      name: 'Stereo Madness',
+      creator: 'RobTop',
+      inGameDifficulty: 'Easy',
+      length: 'Long',
+      songName: 'Song',
+      songAuthor: 'Author',
+      isRated: true,
+      isDemon: false,
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/444/resolve'
+    )
+    const body = (await res.json()) as {
+      reason: string
+      level: { inGameId: string; name: string; inGameDifficulty: string }
+    }
+
+    expect(res.status).toBe(422)
+    expect(body.reason).toBe('not_a_demon')
+    expect(body.level).toMatchObject({
+      inGameId: '444',
+      name: 'Stereo Madness',
+      inGameDifficulty: 'Easy',
+    })
+    await expect(
+      prisma.level.findUnique({ where: { inGameId: '444' } })
+    ).resolves.toBeNull()
+  })
+
+  it('resolves an unrated level, whatever face its votes gave it', async () => {
+    // Unrated levels stay loggable: GD has not decided what they are, and the
+    // hardest levels in the game spend time here before they are rated.
+    const user = await seedUser(prisma)
+    robtopMock.mockResolvedValue({
+      name: 'Brand New',
+      creator: 'Someone',
+      inGameDifficulty: 'Harder',
+      length: 'Long',
+      songName: 'Song',
+      songAuthor: 'Author',
+      isRated: false,
+      isDemon: false,
+    })
+
+    const res = await buildApp(levelsApp, { userId: user.id }).request(
+      '/levels/445/resolve'
+    )
+
+    expect(res.status).toBe(200)
+    await expect(
+      prisma.level.findUnique({ where: { inGameId: '445' } })
+    ).resolves.not.toBeNull()
   })
 
   it('returns the manual-fallback signal (200, not 500) when RobTop is down', async () => {

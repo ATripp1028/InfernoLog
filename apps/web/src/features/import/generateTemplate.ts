@@ -22,7 +22,6 @@ export const COMPLETION_HEADERS = [
   'device',
   'enjoyment',
   'difficulty_opinion',
-  'difficulty_opinion_stars',
   'coin_1',
   'coin_2',
   'coin_3',
@@ -98,7 +97,6 @@ const COMPLETION_EXAMPLE: Record<string, string | number | boolean> = {
   device: 'pc',
   enjoyment: 95,
   difficulty_opinion: 'extreme',
-  difficulty_opinion_stars: '',
   coin_1: '',
   coin_2: '',
   coin_3: '',
@@ -254,12 +252,6 @@ export const FIELD_DESCRIPTIONS = [
   ],
   [
     'Completions',
-    'difficulty_opinion_stars',
-    'no',
-    'Integer 1-9 — the non-demon star rating. Required when difficulty_opinion is not_demon_worthy; leaving it blank there records 1★ Auto and warns.',
-  ],
-  [
-    'Completions',
     'coin_1',
     'no',
     'TRUE or FALSE — was the 1st user coin collected? Ignored for levels without coins.',
@@ -292,7 +284,7 @@ export const FIELD_DESCRIPTIONS = [
     'Completions',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — since "Easy" alone always means Easy Demon; when the count is unknown, mark the face instead ("Hard (non-demon)"). Used to filter name resolution when level_id is blank; otherwise autofilled from the GD servers.',
+    'e.g. "Easy" (Demon is implied), which is the only thing a bare tier name can mean. Used to filter name resolution when level_id is blank; otherwise autofilled from the GD servers.',
   ],
   [
     'Completions',
@@ -424,7 +416,7 @@ export const FIELD_DESCRIPTIONS = [
     'Dropped',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — or mark the face when the count is unknown ("Hard (non-demon)"). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied), which is the only thing a bare tier name can mean. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Dropped',
@@ -523,7 +515,7 @@ export const FIELD_DESCRIPTIONS = [
     'Lists',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — or mark the face when the count is unknown ("Hard (non-demon)"). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied), which is the only thing a bare tier name can mean. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Lists',
@@ -560,7 +552,7 @@ export const FIELD_DESCRIPTIONS = [
     'Ratings',
     'in_game_difficulty',
     'no',
-    'e.g. "Easy" (Demon is implied). For a non-demon, write its star count — "5★" — or mark the face when the count is unknown ("Hard (non-demon)"). Used to filter name resolution when level_id is blank.',
+    'e.g. "Easy" (Demon is implied), which is the only thing a bare tier name can mean. Used to filter name resolution when level_id is blank.',
   ],
   [
     'Ratings',

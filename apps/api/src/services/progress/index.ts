@@ -9,7 +9,6 @@
 import prisma from '../../utils/prisma'
 import type { Prisma, ProgressUpdateKind } from '@prisma/client'
 import { removeFromWantToBeat } from '../collections'
-import { resolveLevelDifficulty } from '../levels/difficulty'
 import type {
   CompletionInput,
   ProgressInput,
@@ -260,9 +259,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
     // client (it is read-only difficulty data).
     const level = await tx.level.findUnique({
       where: { inGameId: input.levelId },
-      // stars is canonical for a non-demon, so snapshot the resolved label
-      // rather than the raw column, which may be a stale display copy.
-      select: { inGameDifficulty: true, stars: true },
+      select: { inGameDifficulty: true },
     })
 
     const updateFields = {
@@ -278,9 +275,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       highlightUrl: input.highlightUrl ?? null,
       notes: input.notes ?? null,
       enjoyment: input.enjoyment ?? null,
-      inGameDifficulty: level
-        ? resolveLevelDifficulty({ ...level, inGameId: input.levelId })
-        : null,
+      inGameDifficulty: level?.inGameDifficulty ?? null,
       twoPlayerSolo: input.twoPlayerSolo ?? null,
       twoPlayerPartner: input.twoPlayerPartner ?? null,
       device: input.device ?? null,

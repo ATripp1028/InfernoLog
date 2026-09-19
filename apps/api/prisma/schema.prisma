@@ -257,18 +257,11 @@ enum ModerationActionType {
 
 // The user's subjective difficulty read on a completion — the ONLY difficulty
 // field the user edits. Distinct from the level's cached in-game difficulty
-// (Level.inGameDifficulty). The non-demon star values (AUTO..NINE_STAR) are a
-// disagreement flag only; the level stays a rated demon. See LOGGING_FLOW.md.
+// (Level.inGameDifficulty). NOT_DEMON_WORTHY is a disagreement flag only; the
+// level stays a rated demon. It carried a star count (AUTO..NINE_STAR) until
+// 2026-09-16 — see the collapse_not_demon_worthy migration. See LOGGING_FLOW.md.
 enum DifficultyOpinion {
-  AUTO
-  TWO_STAR
-  THREE_STAR
-  FOUR_STAR
-  FIVE_STAR
-  SIX_STAR
-  SEVEN_STAR
-  EIGHT_STAR
-  NINE_STAR
+  NOT_DEMON_WORTHY
   EASY
   MEDIUM
   HARD
@@ -593,10 +586,14 @@ model Level {
   inGameId  String    @id
   levelType LevelType @default(CLASSIC)
   isRated   Boolean   @default(false)
-  // Whether GD classifies this as a demon. Cached from GDBrowser's `demon`
-  // flag. Drives the informational non-demon notice in the logging flow and
-  // demon-first display ordering; it gates no capability — a non-demon can be
-  // logged, rated and ranked exactly like a demon.
+  // Whether GD classifies this as a demon, from RobTop's `demon` flag. With
+  // isRated, it is what admits a level to this cache: a RATED NON-DEMON is
+  // never cached, and the purge_rated_non_demons migration removed the ones
+  // that were. Unrated levels are admitted whatever this says. Two kinds of
+  // rated non-demon can still exist here: a demon GD later demoted, which the
+  // sync leaves in place, and an unrated level GD later rated as a non-demon,
+  // which the sync purges unless progress or a collection entry references
+  // it. No filter or display accommodates either.
   isDemon   Boolean   @default(false)
 
   // Core metadata — populated by GDBrowser autofill
@@ -604,22 +601,14 @@ model Level {
   creator          String?
   // The level's actual rated difficulty (e.g. "Insane Demon"), cached from
   // GDBrowser and read-only in the UI — EXCEPT on the manual-entry fallback,
-  // where the user-entered difficulty becomes this value (data_source=manual).
+  // where the user-entered difficulty becomes this value (data_source=manual),
+  // limited there to the five demon tiers and "Unrated".
   //
-  // For a NON-DEMON this is the display copy, not the identifier: `stars` is
-  // canonical and wins wherever the two disagree — see deriveInGameDifficulty
-  // in packages/core, which every read path goes through. The face is a BAND
-  // over the star range (Hard is 4-5, Harder 6-7, Insane 8-9), so the count
-  // determines the label but the label does NOT determine the count — which is
-  // exactly why the count is the canonical one. Both are written together from
-  // the same RobTop snapshot, so they only diverge if something writes one
-  // alone.
+  // An unrated level can carry a non-demon face ("Hard"): RobTop derives it
+  // from player votes. That is the only way a non-demon label is expected here.
   //
-  // For DEMONS and UNRATED levels this column is the only representation there
-  // is: all five demon tiers share 10 stars, and "Unrated" has no stars at all.
-  //
-  // The per-user difficulty *opinion* lives on LevelProgress.difficultyOpinion,
-  // and is on a DIFFERENT, subjective 1-9 star scale. Don't mix the two.
+  // The per-user difficulty *opinion* lives on LevelProgress.difficultyOpinion.
+  // Don't mix the two.
   inGameDifficulty String?
   // Human-readable level length (e.g. "Long", "XL"), cached from GDBrowser or
   // entered on the manual-entry fallback.
@@ -764,14 +753,10 @@ model Level {
   // Creator identity beyond the display name.
   creatorPlayerId  String?
   creatorAccountId String?
-  // Rating / difficulty detail. stars is the awarded star/moon count (0 when
-  // unrated → isRated) and, for a non-demon, the CANONICAL identifier of its
-  // difficulty: 1-9, banded onto the six faces (see starDifficulty.ts), with
-  // inGameDifficulty above as the display copy. Demons are always 10 regardless
-  // of tier. partialDiff is GDBrowser's machine-readable difficulty token
-  // ("demon-extreme", "demon-extreme-featured").
-  stars            Int?
-  starsRequested   Int?
+  // GDBrowser's machine-readable difficulty token ("demon-extreme",
+  // "demon-extreme-featured"). There is no star count: a rated level here is a
+  // demon, and every demon awards 10, so stars/starsRequested were dropped on
+  // 2026-09-16 (drop_level_stars).
   partialDiff      String?
   // Engagement / stats.
   downloads        Int?
@@ -805,7 +790,7 @@ model Level {
   songSize         Float?
 
   // Data provenance
-  dataSource String  @default("manual") // "robtop_autofill" | "manual" | "official"
+  dataSource String  @default("manual") // see src/data/dataSources.ts
   // False for `manual` rows until a later RobTop sync backfills/verifies
   // (and may override) the manually-entered metadata.
   verified   Boolean @default(false)
@@ -896,8 +881,7 @@ model LevelProgress {
   // logging or via the edit form. Null when the user has not given an opinion.
   userGddlTier      Int?
   // The user's subjective difficulty opinion (the only difficulty they edit).
-  // Non-demon opinions carry their own star count (AUTO..NINE_STAR) rather
-  // than a separate paired field. See LOGGING_FLOW.md.
+  // See LOGGING_FLOW.md.
   //
   // Level-scoped, not per-event: this is the user's read of the LEVEL, not of
   // one run — the same classification the activity log has always given it

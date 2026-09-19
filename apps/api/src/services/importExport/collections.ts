@@ -11,7 +11,9 @@
 // Level identity resolves like the completion tabs — a collected level need not
 // be completed (want-to-beat levels usually aren't), so unknown levels are
 // stubbed and queued for async enrichment. Want to Beat only accepts levels
-// without a completion; completed levels are skipped with a reason.
+// without a completion; completed levels are skipped with a reason. A level GD
+// reports as a rated non-demon is skipped too — the cache never admits one (see
+// services/levels/admission.ts).
 
 import type { Prisma } from '@prisma/client'
 import prisma from '../../utils/prisma'
@@ -20,9 +22,17 @@ import {
   resolveNamesBatch,
   ensureStubLevels,
   enqueueSeedIds,
+  screenUncachedIds,
 } from '../importExport/import'
+import { NOT_A_DEMON_MESSAGE } from '../levels/admission'
 import { computeListMerge } from '../../utils/listMerge'
 import { logger } from '../../utils/logger'
+
+// Wall-clock ceiling on the admission lookups below. The Lists tab commits in
+// one call from importWorker (not per batch like the completion tabs), so this
+// budget is spent once per job and is sized to stay well inside the worker's
+// REMAINING_TIME_SAFETY_MS.
+const ADMISSION_LOOKUP_BUDGET_MS = 10_000
 
 type Tx = Prisma.TransactionClient
 type CollectionType =
@@ -239,6 +249,38 @@ export async function commitImportCollections(
   entries: ImportCollectionEntry[]
 ): Promise<ImportCollectionsResult> {
   const { groups, skipped } = await resolveCollectionEntries(entries)
+
+  // Ask GD about ids the cache has never seen, so a rated non-demon is refused
+  // before a collection entry references it. Name-resolved ids already carry
+  // GD's answer (resolveNamesBatch refuses a non-demon itself), but they are
+  // cheap to include: screenUncachedIds skips anything already cached.
+  const { refused } = await screenUncachedIds(
+    [
+      ...new Set(
+        [...groups.values()].flatMap((g) => g.entries.map((e) => e.levelId))
+      ),
+    ],
+    ADMISSION_LOOKUP_BUDGET_MS
+  )
+  if (refused.size) {
+    for (const [key, g] of groups) {
+      g.entries = g.entries.filter((e) => {
+        if (!refused.has(e.levelId)) return true
+        skipped.push({
+          list: g.target.name,
+          label: e.label,
+          reason: NOT_A_DEMON_MESSAGE,
+        })
+        return false
+      })
+      // Every row this collection had was refused, so the sheet says nothing
+      // about it that can be written. Drop the group rather than let the commit
+      // below create it empty and clear whatever it already holds — the same
+      // reason a group is never created for a name that resolves nowhere.
+      if (g.entries.length === 0) groups.delete(key)
+    }
+  }
+
   const allLevelIds = new Set(
     [...groups.values()].flatMap((g) => g.entries.map((e) => e.levelId))
   )

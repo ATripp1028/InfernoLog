@@ -174,15 +174,6 @@ function categoryScore(entry: RankedEntry, categoryId: string): number | null {
   )
 }
 
-/**
- * The pseudo-difficulty for "anything that is not a demon".
- *
- * Not a real `inGameDifficulty` value, so it cannot collide with one. It keys
- * off the level's own `isDemon` flag rather than matching difficulty strings,
- * which is what makes it correct for a level whose difficulty is unset.
- */
-export const NON_DEMON = 'non-demon'
-
 /** The five demon difficulties, hardest last. */
 export const DEMON_DIFFICULTIES = [
   'Easy Demon',
@@ -192,23 +183,12 @@ export const DEMON_DIFFICULTIES = [
   'Extreme Demon',
 ] as const
 
-/** The six non-demon difficulties, hardest last. */
-export const NON_DEMON_DIFFICULTIES = [
-  'Auto',
-  'Easy',
-  'Normal',
-  'Hard',
-  'Harder',
-  'Insane',
-] as const
-
 /**
  * Narrows a ranked list to the selected difficulties.
  *
  * An empty selection is "All" — the default, and the only state in which every
- * row shows. {@link NON_DEMON} is exclusive: it means "only levels that are not
- * demons", which cannot be combined with picking particular demon difficulties
- * without one of the two meaning nothing.
+ * row shows. Only the demon tiers are selectable, so an unrated completion (no
+ * difficulty of its own) shows under "All" and under no tier.
  *
  * Positions are untouched, as with search and sort: a row keeps its place in
  * the whole ranking however the view is narrowed.
@@ -218,9 +198,6 @@ export function filterByDifficulty(
   selected: readonly string[]
 ): RankedEntry[] {
   if (selected.length === 0) return [...entries]
-  if (selected.includes(NON_DEMON)) {
-    return entries.filter((e) => !e.item.level.isDemon)
-  }
   return entries.filter((e) =>
     selected.includes(e.item.level.inGameDifficulty ?? '')
   )
@@ -229,23 +206,15 @@ export function filterByDifficulty(
 /**
  * Adds or removes one difficulty from the selection.
  *
- * Picking {@link NON_DEMON} replaces the whole selection, and picking anything
- * else drops it — the two are mutually exclusive by construction rather than by
- * the caller remembering to enforce it.
- *
  * @returns The new selection. Empty means "All".
  */
 export function toggleDifficulty(
   selected: readonly string[],
   difficulty: string
 ): string[] {
-  if (difficulty === NON_DEMON) {
-    return selected.includes(NON_DEMON) ? [] : [NON_DEMON]
-  }
-  const withoutNonDemon = selected.filter((d) => d !== NON_DEMON)
-  return withoutNonDemon.includes(difficulty)
-    ? withoutNonDemon.filter((d) => d !== difficulty)
-    : [...withoutNonDemon, difficulty]
+  return selected.includes(difficulty)
+    ? selected.filter((d) => d !== difficulty)
+    : [...selected, difficulty]
 }
 
 /**

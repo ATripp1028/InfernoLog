@@ -15,7 +15,6 @@ import { MAX_SEARCH_QUERY_LENGTH } from '@infernolog/core'
 import type { LevelSearchResult } from '@infernolog/core'
 import prisma from '../../utils/prisma'
 import { runGdSearch } from '../../services/levels/gdSearch'
-import { resolveLevelDifficulty } from '../../services/levels/difficulty'
 import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 import { browseLevels } from '../../services/levels/browse'
 import { parseBrowseQuery } from '../../utils/browseQuery'
@@ -47,20 +46,13 @@ app.get('/levels/search', async (c) => {
   const likePattern = `%${q.replace(/[\\%_]/g, '\\$&')}%`
 
   const results = await prisma.$queryRaw<LevelSearchResult[]>(Prisma.sql`
-    SELECT "inGameId", "name", "creator", "inGameDifficulty", "stars", "featured", "epicValue", "songName", "isRated"
+    SELECT "inGameId", "name", "creator", "inGameDifficulty", "featured", "epicValue", "songName", "isRated"
     FROM "levels"
     WHERE "name" ILIKE ${likePattern} OR "name" % ${q}
     ORDER BY similarity("name", ${q}) DESC, "name" ASC
     LIMIT 20
   `)
-  // "stars" is canonical for a non-demon, so resolve the two difficulty fields
-  // the same way every other path does rather than trusting the label column.
-  return c.json({
-    data: results.map((r) => ({
-      ...r,
-      inGameDifficulty: resolveLevelDifficulty(r),
-    })),
-  })
+  return c.json({ data: results })
 })
 
 // GET /v1/levels/browse — the /search page's cursor-paginated, filtered cache

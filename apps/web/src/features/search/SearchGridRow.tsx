@@ -3,7 +3,7 @@ import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { RowStatChip } from '@/components/data/RowStatChip'
 import { ThumbnailWash } from '@/components/data/ThumbnailWash'
 import { formatNumber } from '@/lib/numberFormat'
-import { gdStatIconSrc, difficultyLabel } from '@/lib/gdAssets'
+import { gdStatIconSrc } from '@/lib/gdAssets'
 import { backOriginState } from '@/lib/backOrigin'
 import type { LevelBrowseResult } from '@/lib/levelSearchParams'
 import { rowStats, type RowStatKey } from '@/lib/rowStats'
@@ -43,7 +43,7 @@ export function SearchGridRow({
   level: LevelBrowseResult
   statKeys: RowStatKey[]
 }) {
-  const difficulty = difficultyLabel(level)
+  const difficulty = level.inGameDifficulty ?? 'Unrated'
   const likes = level.likes ?? 0
   // RobTop's official levels aren't online levels, so their download/like counts
   // are always 0 — hide those stats for them (same 'robtop' heuristic the Stats

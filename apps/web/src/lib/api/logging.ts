@@ -21,6 +21,7 @@ import type {
   EntryVisibility,
   GdVersion,
   LevelType,
+  ManualLevelDifficulty,
 } from './wireEnums'
 
 /**
@@ -77,8 +78,6 @@ export interface Level {
   description: string | null
   creatorPlayerId: string | null
   creatorAccountId: string | null
-  stars: number | null
-  starsRequested: number | null
   partialDiff: string | null
   downloads: number | null
   likes: number | null
@@ -112,7 +111,6 @@ export interface LevelSearchResult {
   creator: string | null
   songName: string | null
   inGameDifficulty: string | null
-  stars: number | null
   featured: boolean | null
   epicValue: number | null
   isRated: boolean
@@ -175,14 +173,11 @@ export interface ManualLevelInput {
   inGameId: string
   name: string
   creator: string
-  difficulty: string
   /**
-   * Awarded star count, for a rated non-demon. Separate from `difficulty`
-   * because a face spans two counts (Hard is 4 or 5) — see starDifficulty.ts.
+   * One of the five demon tiers or "Unrated" — the only difficulties the cache
+   * admits. The API derives isDemon/isRated from it.
    */
-  stars?: number | null
-  isDemon?: boolean
-  isRated?: boolean
+  difficulty: ManualLevelDifficulty
   songName?: string | null
   songAuthor?: string | null
   length?: string | null
@@ -412,10 +407,36 @@ export function useGdSearch() {
 }
 
 /**
+ * The message for a level the cache refuses: GD has it, but it is a rated
+ * non-demon (422 from a resolve or the Global Level Page).
+ *
+ * Names the level and what GD rates it, since "not a demon" on its own reads as
+ * a mistake when the user typed an id they believe in.
+ *
+ * @returns The message, or null when this isn't that refusal.
+ */
+export function notADemonMessage(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.status !== 422) return null
+  const body = error.body as
+    | {
+        reason?: string
+        level?: { name?: string | null; inGameDifficulty?: string | null }
+      }
+    | null
+    | undefined
+  if (body?.reason !== 'not_a_demon') return null
+  const name = body.level?.name ?? 'That level'
+  const difficulty = body.level?.inGameDifficulty
+  const rating = difficulty ? ` is rated ${difficulty} and` : ''
+  return `${name}${rating} isn't a demon. InfernoLog tracks demons and unrated levels.`
+}
+
+/**
  * Resolves a level id against the cache, falling back to RobTop.
  *
  * Returns a {@link ResolveLevelResponse} rather than throwing when the level
- * does not exist — check `fallbackToManual`.
+ * does not exist — check `fallbackToManual`. A rated non-demon is refused with
+ * a 422, which rejects: see {@link notADemonMessage}.
  */
 export function useResolveLevel() {
   const { getIdToken } = useAuth()

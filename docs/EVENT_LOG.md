@@ -104,6 +104,15 @@ editable field means adding one line to it.
 `highlight_url`. They are edited on the same form but are administrative rather
 than part of the story a feed tells. A save that touched only those emits nothing.
 
+**Stored values are the enum as text**, so a value the enum stops holding outlives
+it in the log. The one time that has happened, the migration rewrote the history
+too: `collapse_not_demon_worthy` (2026-09-16) mapped the nine star-count
+difficulty opinions onto `NOT_DEMON_WORTHY`, deleted the field changes that turned
+into no-ops (a 7★ → 8★ edit now says nothing), and deleted the `LOG_EDIT` events
+those left empty — a field change records a field that actually changed, and an
+event with none records nothing. Rewriting history is the exception, not the
+pattern: the alternative was a feed rendering values no part of the app can read.
+
 ### Filter on `category`, never on `fieldName`
 
 `category` is the tag every filter is meant to key off. That is the entire reason

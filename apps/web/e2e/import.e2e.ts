@@ -2,7 +2,7 @@ import type { Page, Response } from '@playwright/test'
 import * as XLSX from 'xlsx'
 import { expect, test } from './testBase'
 import { logCompletion } from './flows'
-import { AIRBORNE_ROBOTS, PAYLOAD } from './fixtures/levels'
+import { LONGSHADOW, MOURNINGSTAR } from './fixtures/levels'
 
 // The spreadsheet import across the wire, end to end: POST
 // /v1/me/import/check → POST /v1/me/import/start → GET /v1/me/import/status
@@ -135,14 +135,14 @@ function buildWorkbook(): Buffer {
     // Conflicts: this level already has a completion, logged by the test with
     // a different attempts count.
     {
-      level_id: AIRBORNE_ROBOTS.inGameId,
-      level_name: AIRBORNE_ROBOTS.name,
+      level_id: LONGSHADOW.inGameId,
+      level_name: LONGSHADOW.name,
       attempts: IMPORTED_ATTEMPTS,
     },
     // Plain insert: nothing in the account refers to this level yet.
     {
-      level_id: PAYLOAD.inGameId,
-      level_name: PAYLOAD.name,
+      level_id: MOURNINGSTAR.inGameId,
+      level_name: MOURNINGSTAR.name,
       attempts: INSERTED_ATTEMPTS,
     },
     // Name-only, and the name resolves nowhere — the worker flags it. A
@@ -219,7 +219,7 @@ test.describe('spreadsheet import', () => {
     // sheet and a completion written by the ordinary logging path — the two
     // producers whose disagreement the /check pass exists to describe.
     await page.goto('/log')
-    await logCompletion(page, AIRBORNE_ROBOTS, String(LOGGED_ATTEMPTS))
+    await logCompletion(page, LONGSHADOW, String(LOGGED_ATTEMPTS))
     await page.getByRole('button', { name: 'Place later' }).click()
 
     await page.goto('/settings')
@@ -260,8 +260,8 @@ test.describe('spreadsheet import', () => {
     expect(checkBody.completionConflicts).toEqual([
       {
         rowIndex: 0,
-        levelId: AIRBORNE_ROBOTS.inGameId,
-        levelName: AIRBORNE_ROBOTS.name,
+        levelId: LONGSHADOW.inGameId,
+        levelName: LONGSHADOW.name,
         matchedId: null,
         fields: [
           {
@@ -286,7 +286,7 @@ test.describe('spreadsheet import', () => {
     // subtitle is the level id the server matched on, which is what ties the
     // row being resolved to the row in the response.
     await expect(
-      dialog.getByText(`ID ${AIRBORNE_ROBOTS.inGameId}`, { exact: true })
+      dialog.getByText(`ID ${LONGSHADOW.inGameId}`, { exact: true })
     ).toBeVisible()
     await dialog.getByRole('button', { name: 'Use imported for all' }).click()
 
@@ -406,16 +406,14 @@ test.describe('spreadsheet import', () => {
     // that proves the overwrite landed rather than merely being reported as
     // landed. The count here is the sheet's, not the one logged through the
     // wizard.
-    expect(byLevel.get(AIRBORNE_ROBOTS.inGameId)?.attempts).toBe(
-      IMPORTED_ATTEMPTS
-    )
+    expect(byLevel.get(LONGSHADOW.inGameId)?.attempts).toBe(IMPORTED_ATTEMPTS)
 
     // The inserted row. Its name comes from the levels cache rather than from
     // the sheet, so it also says the import wrote against the real level
     // instead of creating a stub out of the row's own text.
-    const inserted = byLevel.get(PAYLOAD.inGameId)
+    const inserted = byLevel.get(MOURNINGSTAR.inGameId)
     expect(inserted?.attempts).toBe(INSERTED_ATTEMPTS)
-    expect(inserted?.levelName).toBe(PAYLOAD.name)
+    expect(inserted?.levelName).toBe(MOURNINGSTAR.name)
 
     // The workbook itself is built in the browser out of those sections, so the
     // download firing is what says the last step of the export path ran at all

@@ -16,11 +16,12 @@
 // to filter name resolution on the way back in, and it is matched against the
 // cache as it is then — a stale snapshot could only rule the row's own level
 // out. Import re-snapshots from the cache itself and never stores this cell, so
-// nothing is lost by it. See ./sheetDifficulty.ts for how the value is spelled.
+// nothing is lost by it. A bare demon tier name is how the sheet spells every
+// difficulty — "Easy" means Easy Demon, the convention the template documents —
+// and the cache holds nothing else to spell (services/levels/admission.ts).
 
 import prisma from '../../utils/prisma'
 import type { ExportSection } from '@infernolog/core'
-import { toSheetDifficulty } from './sheetDifficulty'
 import { zonedDateString } from '../../utils/timezone'
 import { toNum } from '../../utils/decimal'
 
@@ -60,13 +61,10 @@ async function exportCompletions(userId: string, skip: number, take: number) {
       userGddlTier: true,
       difficultyOpinion: true,
       coinsCollected: true,
-      // stars + the label together resolve the difficulty cell; see
-      // toSheetDifficulty.
       level: {
         select: {
           name: true,
           creator: true,
-          stars: true,
           inGameDifficulty: true,
         },
       },
@@ -102,10 +100,7 @@ async function exportCompletions(userId: string, skip: number, take: number) {
         levelId: lp.levelId,
         levelName: lp.level.name,
         creator: lp.level.creator,
-        inGameDifficulty: toSheetDifficulty({
-          ...lp.level,
-          inGameId: lp.levelId,
-        }),
+        inGameDifficulty: lp.level.inGameDifficulty,
         date: iso(pu.date, pu.dateTimezone),
         dateUncertain: pu.dateUncertain,
         attempts: pu.attempts,
@@ -215,8 +210,6 @@ async function exportDropped(userId: string, skip: number, take: number) {
               name: true,
               creator: true,
               inGameDifficulty: true,
-              // Canonical for a non-demon — the label is the display copy.
-              stars: true,
             },
           },
           // The level's single most recent update — used below to tell
@@ -243,10 +236,7 @@ async function exportDropped(userId: string, skip: number, take: number) {
       levelId: lp.levelId,
       levelName: lp.level.name,
       creator: lp.level.creator,
-      inGameDifficulty: toSheetDifficulty({
-        ...lp.level,
-        inGameId: lp.levelId,
-      }),
+      inGameDifficulty: lp.level.inGameDifficulty,
       bestProgress: isCurrentDrop ? lp.worstFail : null,
       attemptsAtDrop: u.attempts,
       droppedAt: iso(u.date, u.dateTimezone),
@@ -296,13 +286,10 @@ async function exportRatings(userId: string, skip: number, take: number) {
     take,
     select: {
       levelId: true,
-      // stars + the label together resolve the difficulty cell; see
-      // toSheetDifficulty.
       level: {
         select: {
           name: true,
           creator: true,
-          stars: true,
           inGameDifficulty: true,
         },
       },
@@ -320,10 +307,7 @@ async function exportRatings(userId: string, skip: number, take: number) {
       levelId: lp.levelId,
       levelName: lp.level.name,
       creator: lp.level.creator,
-      inGameDifficulty: toSheetDifficulty({
-        ...lp.level,
-        inGameId: lp.levelId,
-      }),
+      inGameDifficulty: lp.level.inGameDifficulty,
       scores,
     }
   })

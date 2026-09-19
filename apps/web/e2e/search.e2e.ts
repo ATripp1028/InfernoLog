@@ -1,6 +1,6 @@
 import type { Locator, Page, Response } from '@playwright/test'
 import { expect, test } from './testBase'
-import { CLUBSTEP, STEREO_MADNESS } from './fixtures/levels'
+import { ASHFALL, DRIFTWOOD } from './fixtures/levels'
 
 // The /search page's cache browse across the wire: GET /v1/levels/browse, and
 // the keyset cursor it pages with.
@@ -26,8 +26,8 @@ import { CLUBSTEP, STEREO_MADNESS } from './fixtures/levels'
 // gives about counts of the user's own rows.
 //
 // Cache only, deliberately. GET /v1/levels/gd-search and POST /v1/levels both
-// reach RobTop's servers, whose reachability is exactly what the official-level
-// fixtures were chosen to keep out of this suite. Nothing here clicks the
+// reach RobTop's servers, whose reachability is exactly what the seeded fixture
+// levels were chosen to keep out of this suite. Nothing here clicks the
 // RobTop offer — and `forbiddenCalls` fails the test if a request reaches
 // either endpoint anyway.
 
@@ -44,12 +44,13 @@ interface BrowsePage {
   nextCursor: string | null
 }
 
-// Every level `pnpm db:seed:official` writes carries this creator verbatim, and
-// there are more of them than a page holds (38 against browse.ts's PAGE_SIZE of
-// 30). So a creator search for it is the one query on a shared stage that
-// overflows into a second page without depending on what anyone else has
-// cached. Read off a fixture level so the two spellings cannot drift.
-const OFFICIAL_CREATOR = STEREO_MADNESS.creator
+// Every level `pnpm db:seed:e2e` writes carries this creator verbatim, and there
+// are more of them than a page holds (35 against browse.ts's PAGE_SIZE of 30 —
+// the filler fixtures exist for exactly this). So a creator search for it is the
+// one query on a shared stage that overflows into a second page without
+// depending on what anyone else has cached. Read off a fixture level so the two
+// spellings cannot drift.
+const FIXTURE_CREATOR = DRIFTWOOD.creator
 
 // Requests to the two endpoints that would take this spec to RobTop's servers,
 // collected per test and asserted empty afterwards. Safe as module state: the
@@ -138,7 +139,7 @@ async function browsePastTheFirstPage(page: Page, search: string) {
   const first = (await firstResponse.json()) as BrowsePage
   expect(
     first.nextCursor,
-    `no second page for "${search}" — the levels cache holds less than a full page of ${OFFICIAL_CREATOR} levels. Run \`pnpm db:seed:official\` against this stage.`
+    `no second page for "${search}" — the levels cache holds less than a full page of ${FIXTURE_CREATOR} levels. Run \`pnpm db:seed:e2e\` against this stage.`
   ).not.toBeNull()
 
   // Every row the server sent is on screen before anything is scrolled, so the
@@ -184,9 +185,9 @@ test.describe('search / browse', () => {
   test('pages the cache with the keyset cursor, breaking ties by level id', async ({
     page,
   }) => {
-    // Sorted by downloads, which official levels do not have: the seed never
-    // writes the column (they are not online levels), so browse.ts's
-    // COALESCE("downloads", -1) collapses all 38 of them to the same sort
+    // Sorted by downloads, which the fixture levels do not have: the seed
+    // deliberately never writes the column, so browse.ts's
+    // COALESCE("downloads", -1) collapses all of them to the same sort
     // value. That makes this the tie case — the page boundary falls inside one
     // run of equal values, so the second page can only be found through the
     // keyset's `(value = cursor.value AND "inGameId" > cursor.id)` arm. A
@@ -194,15 +195,15 @@ test.describe('search / browse', () => {
     // here, and one that compared inclusively returns the first page again.
     const { first, second, rows } = await browsePastTheFirstPage(
       page,
-      `query=${OFFICIAL_CREATOR}&searchBy=creator&sort=downloads&sortDir=desc`
+      `query=${FIXTURE_CREATOR}&searchBy=creator&sort=downloads&sortDir=desc`
     )
 
-    // The creator search matched the official set at all — asserted against a
+    // The creator search matched the fixture set at all — asserted against a
     // named level rather than a count, so nothing else in the cache can move
     // it. Without this, a filter that silently matched everything would still
     // satisfy every assertion below.
     const ids = [...first.data, ...second.data].map((r) => r.inGameId)
-    expect(ids).toContain(CLUBSTEP.inGameId)
+    expect(ids).toContain(ASHFALL.inGameId)
 
     expectNoOverlap(first, second)
 
@@ -271,7 +272,7 @@ test.describe('search / browse', () => {
     // separately from the numeric sort above.
     const { first, second } = await browsePastTheFirstPage(
       page,
-      `query=${OFFICIAL_CREATOR}&searchBy=creator&sort=name&sortDir=asc`
+      `query=${FIXTURE_CREATOR}&searchBy=creator&sort=name&sortDir=asc`
     )
 
     // A text cursor that broke comes back as an empty second page or a repeat

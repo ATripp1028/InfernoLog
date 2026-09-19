@@ -18,7 +18,6 @@ function level(overrides: Partial<LevelBrowseResult> = {}): LevelBrowseResult {
     creator: 'Creator',
     songName: null,
     inGameDifficulty: 'Extreme Demon',
-    stars: 10,
     featured: false,
     epicValue: 0,
     isRated: true,
@@ -51,7 +50,7 @@ describe('rowStatKeys', () => {
 
   // Downloads, likes and length are always on the row; the face shows the
   // difficulty. Repeating them would only crowd it.
-  it.each(['relevance', 'downloads', 'likes', 'stars', 'name'] as const)(
+  it.each(['relevance', 'downloads', 'likes', 'difficulty', 'name'] as const)(
     'adds nothing for a %s sort the row already shows',
     (sort) => {
       expect(rowStatKeys(state({ sort }))).toEqual([])

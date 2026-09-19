@@ -117,14 +117,12 @@ describe('browseLevels — sorting', () => {
     expect(lastSql().text).toContain('similarity(COALESCE("creator"')
   })
 
-  it('ranks the stars sort by difficulty face first', async () => {
-    // Star count only breaks convention on RobTop's official levels, so the
-    // face is the primary key and stars merely the tiebreaker.
-    await browseLevels(query({ sort: 'stars' }))
+  it('ranks the difficulty sort by difficulty face', async () => {
+    // The face is all there is to order by: every rated level in the cache is
+    // a demon, and a demon has no star count that distinguishes it.
+    await browseLevels(query({ sort: 'difficulty' }))
 
-    const { text } = lastSql()
-    expect(text).toContain('partialDiff')
-    expect(text).toContain('* 1000')
+    expect(lastSql().text).toContain('partialDiff')
   })
 
   it.each([

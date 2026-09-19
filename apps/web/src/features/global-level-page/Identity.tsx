@@ -1,6 +1,5 @@
 import { DifficultyFace } from '@/components/data/DifficultyFace'
 import { CopyableId } from '@/components/data/CopyableId'
-import { ratedStarSrc } from '@/lib/gdAssets'
 import { cn } from '@/lib/utils'
 import type { GlobalLevelPageData } from '@/lib/api/globalLevelPage'
 
@@ -22,7 +21,6 @@ interface IdentityProps {
  */
 export function Identity({ level, variant }: IdentityProps) {
   const isMobile = variant === 'mobile'
-  const showStarCount = level.isRated && level.stars != null && level.stars > 0
   const description = level.description?.trim()
 
   return (
@@ -51,17 +49,12 @@ export function Identity({ level, variant }: IdentityProps) {
         </p>
 
         {/* Chip row. No difficulty pill (the face communicates difficulty) and
-            no showcase pill (the face's glow communicates that) — the id, star
-            count and game mode are the things the face doesn't already say. */}
+            no showcase pill (the face's glow communicates that) — the id and
+            game mode are the things the face doesn't already say. The star
+            count went with non-demon support: every rated level here is a
+            demon, and every demon is 10 stars. */}
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <CopyableId id={level.inGameId} label="Level ID" />
-
-          {showStarCount && (
-            <Pill>
-              {level.stars}
-              <img src={ratedStarSrc} alt="" aria-hidden className="size-3" />
-            </Pill>
-          )}
 
           {/* Always shown, for both modes. Classic is the overwhelming default,
               so a chip only on platformers would read as a badge for something

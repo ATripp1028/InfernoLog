@@ -1,6 +1,6 @@
 import { expect, test } from './testBase'
 import { findLevel, onScreen, openLevelPage, openQuickAction } from './flows'
-import { ELECTRODYNAMIX, HEXAGON_FORCE } from './fixtures/levels'
+import { FLINTLOCK, GRAVEMIND } from './fixtures/levels'
 
 // The two write paths a completion does not cover: POST /v1/me/progress (a run
 // on a level that is not beaten yet) and POST /v1/me/drops, plus the edit of
@@ -57,7 +57,7 @@ test.describe('progress and drops', () => {
   test('logs a run on an unbeaten level and edits it', async ({ page }) => {
     await page.goto('/log')
     await openQuickAction(page, 'Log progress')
-    await findLevel(page, ELECTRODYNAMIX)
+    await findLevel(page, FLINTLOCK)
 
     // Step 1 of 2 — the run itself. "63" parses as a run from 0%, which is
     // the `mode: 'from_zero'` arm of ProgressInputSchema; the edit below
@@ -83,7 +83,7 @@ test.describe('progress and drops', () => {
 
     // A fresh navigation, so what is rendered is the server's answer rather
     // than the cache the mutation just primed.
-    await openLevelPage(page, ELECTRODYNAMIX)
+    await openLevelPage(page, FLINTLOCK)
     // Exact, because the runs graph below the timeline labels the same run
     // "63% from 0" — a substring match would find two elements and fail on
     // strictness rather than on the entry.
@@ -119,7 +119,7 @@ test.describe('progress and drops', () => {
     const edited = page.waitForResponse(
       (r) =>
         r.request().method() === 'PATCH' &&
-        r.url().endsWith(`/v1/me/progress/${ELECTRODYNAMIX.inGameId}`)
+        r.url().endsWith(`/v1/me/progress/${FLINTLOCK.inGameId}`)
     )
     await dialog.getByRole('button', { name: 'Save changes' }).click()
     expect((await edited).status()).toBe(200)
@@ -150,7 +150,7 @@ test.describe('progress and drops', () => {
   test('drops a level', async ({ page }) => {
     await page.goto('/log')
     await openQuickAction(page, 'Drop a level')
-    await findLevel(page, HEXAGON_FORCE)
+    await findLevel(page, GRAVEMIND)
 
     // The drop is a single step. Its date is left time-less on purpose: that
     // sends the other half of the date convention the run above covers — a
@@ -172,7 +172,7 @@ test.describe('progress and drops', () => {
     expect((await dropped).status()).toBe(201)
     await expect(page.getByRole('dialog')).toBeHidden()
 
-    await openLevelPage(page, HEXAGON_FORCE)
+    await openLevelPage(page, GRAVEMIND)
     await expect(onScreen(page.getByText('Dropped'))).toBeVisible()
     await expect(onScreen(page.getByText(DROP_REASON))).toBeVisible()
     await expect(onScreen(page.getByText('8,000 attempts'))).toBeVisible()

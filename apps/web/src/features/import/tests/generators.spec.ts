@@ -347,27 +347,24 @@ describe('downloadExport', () => {
       expect([cells.coin_1, cells.coin_2, cells.coin_3]).toEqual(['', '', ''])
     })
 
-    // The wire format merges "not demon-worthy" with a star count; the sheet
-    // keeps them as two columns for clarity.
-    it('splits a non-demon opinion into an opinion and a star count', () => {
-      const cells = cellsFor({ difficultyOpinion: 'THREE_STAR' })
+    // One column, lowercased to match what the template documents and what the
+    // parser reads back.
+    it('writes the disagreement opinion as the template spells it', () => {
+      const cells = cellsFor({ difficultyOpinion: 'NOT_DEMON_WORTHY' })
 
       expect(cells.difficulty_opinion).toBe('not_demon_worthy')
-      expect(cells.difficulty_opinion_stars).toBe(3)
     })
 
-    it('writes a demon opinion lowercased, with no star count', () => {
+    it('writes a demon opinion lowercased', () => {
       const cells = cellsFor({ difficultyOpinion: 'EXTREME' })
 
       expect(cells.difficulty_opinion).toBe('extreme')
-      expect(cells.difficulty_opinion_stars).toBe('')
     })
 
-    it('leaves both opinion columns blank when none was recorded', () => {
+    it('leaves the opinion column blank when none was recorded', () => {
       const cells = cellsFor({ difficultyOpinion: null })
 
       expect(cells.difficulty_opinion).toBe('')
-      expect(cells.difficulty_opinion_stars).toBe('')
     })
 
     it('lowercases the visibility enum', () => {

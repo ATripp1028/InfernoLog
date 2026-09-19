@@ -4,10 +4,8 @@ import userEvent from '@testing-library/user-event'
 import {
   DEMON_OPINIONS,
   DifficultyOpinionSelect,
-  NOT_DEMON_OPINIONS,
-  STAR_TO_OPINION,
 } from '../DifficultyOpinionSelect'
-import { difficultyFaceSrc, starCountToDifficulty } from '@/lib/gdAssets'
+import { difficultyFaceSrc } from '@/lib/gdAssets'
 import { renderWithProviders } from '@/utils/testUtils'
 
 describe('DEMON_OPINIONS', () => {
@@ -68,70 +66,13 @@ describe('DEMON_OPINIONS', () => {
     }
   })
 
-  // The two halves are one field, so an opinion cannot be both.
-  it('shares no value with the non-demon tiers', () => {
-    for (const { value } of DEMON_OPINIONS) {
-      expect(NOT_DEMON_OPINIONS.has(value)).toBe(false)
-    }
-  })
-})
-
-describe('STAR_TO_OPINION', () => {
-  it('covers the full 1-9 star range the picker renders', () => {
-    for (const stars of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      expect(STAR_TO_OPINION[stars]).toBeTruthy()
-    }
-  })
-
-  it('maps each star count to its own opinion', () => {
-    const values = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => STAR_TO_OPINION[n])
-
-    expect(new Set(values).size).toBe(9)
-  })
-
-  // Every star value is a non-demon opinion — that is what the "not
-  // demon-worthy" path means.
-  it('produces only non-demon opinions', () => {
-    for (const stars of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      expect(NOT_DEMON_OPINIONS.has(STAR_TO_OPINION[stars]!)).toBe(true)
-    }
-  })
-
-  // The "Not demon-worthy" button seeds the picker at one star.
-  it('has a value at the star count that button opens on', () => {
-    expect(STAR_TO_OPINION[1]).toBeTruthy()
-  })
-
-  it('labels every star button with a real difficulty', () => {
-    for (const stars of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      expect(starCountToDifficulty(stars).length).toBeGreaterThan(0)
-    }
-  })
-})
-
-describe('NOT_DEMON_OPINIONS', () => {
-  it('holds exactly the star values', () => {
-    const fromStars = new Set(
-      [1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => STAR_TO_OPINION[n]!)
-    )
-
-    expect(NOT_DEMON_OPINIONS).toEqual(fromStars)
-  })
-
-  // The picker uses this to decide whether to open the star row, so a demon
-  // value leaking in would open it on a demon selection.
-  it('rejects a demon tier', () => {
-    expect(NOT_DEMON_OPINIONS.has('EXTREME')).toBe(false)
-  })
-
-  it('is non-empty', () => {
-    expect(NOT_DEMON_OPINIONS.size).toBeGreaterThan(0)
+  // One field: "not demon-worthy" is a sixth value, not a second axis.
+  it('does not carry the not-demon-worthy value', () => {
+    expect(DEMON_OPINIONS.map((o) => o.value)).not.toContain('NOT_DEMON_WORTHY')
   })
 })
 
 describe('DifficultyOpinionSelect', () => {
-  const starRow = () => screen.queryByText('What difficulty would you give it?')
-
   it('offers the five demon tiers as named controls', () => {
     renderWithProviders(
       <DifficultyOpinionSelect value={null} onChange={vi.fn()} />
@@ -168,26 +109,17 @@ describe('DifficultyOpinionSelect', () => {
     expect(onChange).toHaveBeenCalledWith('EXTREME')
   })
 
-  it('keeps the star row behind the not-demon-worthy choice', () => {
-    const { unmount } = renderWithProviders(
-      <DifficultyOpinionSelect value={null} onChange={vi.fn()} />
-    )
-    expect(starRow()).not.toBeInTheDocument()
-    unmount()
-
-    const { unmount: unmount2 } = renderWithProviders(
-      <DifficultyOpinionSelect value="EXTREME" onChange={vi.fn()} />
-    )
-    expect(starRow()).not.toBeInTheDocument()
-    unmount2()
-
+  it('presses the not-demon-worthy button when it is the answer', () => {
     renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[3]!} onChange={vi.fn()} />
+      <DifficultyOpinionSelect value="NOT_DEMON_WORTHY" onChange={vi.fn()} />
     )
-    expect(starRow()).toBeInTheDocument()
+
+    expect(
+      screen.getByRole('button', { name: 'Not demon-worthy' })
+    ).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('opens the star path at one star', async () => {
+  it('emits the not-demon-worthy value when that button is clicked', async () => {
     const onChange = vi.fn()
     renderWithProviders(
       <DifficultyOpinionSelect value={null} onChange={onChange} />
@@ -197,67 +129,12 @@ describe('DifficultyOpinionSelect', () => {
       screen.getByRole('button', { name: 'Not demon-worthy' })
     )
 
-    expect(onChange).toHaveBeenCalledWith(STAR_TO_OPINION[1])
+    expect(onChange).toHaveBeenCalledWith('NOT_DEMON_WORTHY')
   })
 
-  it('presses the not-demon-worthy button for any star value', () => {
+  it('leaves the demon tiers unpressed while not-demon-worthy is the answer, since the two are one field', () => {
     renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[7]!} onChange={vi.fn()} />
-    )
-
-    expect(
-      screen.getByRole('button', { name: 'Not demon-worthy' })
-    ).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('names each star button by count and difficulty', () => {
-    renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[1]!} onChange={vi.fn()} />
-    )
-
-    for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9]) {
-      expect(
-        screen.getByRole('button', {
-          name: `${n} star ${starCountToDifficulty(n)}`,
-        })
-      ).toBeInTheDocument()
-    }
-  })
-
-  it('emits the star opinion for the count clicked', async () => {
-    const onChange = vi.fn()
-    renderWithProviders(
-      <DifficultyOpinionSelect
-        value={STAR_TO_OPINION[1]!}
-        onChange={onChange}
-      />
-    )
-
-    await userEvent.click(
-      screen.getByRole('button', {
-        name: `5 star ${starCountToDifficulty(5)}`,
-      })
-    )
-
-    expect(onChange).toHaveBeenCalledWith(STAR_TO_OPINION[5])
-  })
-
-  it('presses only the selected star count', () => {
-    renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[5]!} onChange={vi.fn()} />
-    )
-
-    expect(
-      screen.getByRole('button', { name: `5 star ${starCountToDifficulty(5)}` })
-    ).toHaveAttribute('aria-pressed', 'true')
-    expect(
-      screen.getByRole('button', { name: `4 star ${starCountToDifficulty(4)}` })
-    ).toHaveAttribute('aria-pressed', 'false')
-  })
-
-  it('leaves the demon tiers unpressed while a star value is selected, since the two are one field', () => {
-    renderWithProviders(
-      <DifficultyOpinionSelect value={STAR_TO_OPINION[5]!} onChange={vi.fn()} />
+      <DifficultyOpinionSelect value="NOT_DEMON_WORTHY" onChange={vi.fn()} />
     )
 
     for (const { label } of DEMON_OPINIONS) {

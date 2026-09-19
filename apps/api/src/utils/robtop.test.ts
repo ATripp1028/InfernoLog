@@ -88,8 +88,9 @@ describe('parseGetGJLevels21', () => {
     expect(level.isDemon).toBe(true)
     expect(level.inGameDifficulty).toBe('Extreme Demon')
     expect(level.partialDiff).toBe('demon-extreme')
+    // The star count itself is not kept — key 18 is read only to decide
+    // isRated, since every level the cache admits is a demon or unrated.
     expect(level.isRated).toBe(true)
-    expect(level.stars).toBe(10)
     expect(level.platformer).toBe(false)
     expect(level.length).toBe('Long')
 
@@ -166,7 +167,6 @@ describe('parseGetGJLevels21', () => {
     expect(level.partialDiff).toBe('insane')
     expect(level.isRated).toBe(false)
     expect(level.isDemon).toBe(false)
-    expect(level.stars).toBe(0)
     expect(level.creator).toBe('Cyclic')
   })
 

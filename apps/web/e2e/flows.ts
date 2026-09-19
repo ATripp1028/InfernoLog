@@ -124,10 +124,9 @@ export function levelResultRow(page: Page, level: FixtureLevel): Locator {
 /**
  * Picks a level in the logging flow's find step, whichever path opened it.
  *
- * Search by NAME, not by ID. The find step only previews a typed ID at four
- * or more digits, and below that treats it as an unknown level to fetch live
- * from RobTop's servers — the fixture levels are official, so their IDs are
- * one and two digits. A name search hits the cache, which is where they are.
+ * Search by NAME, not by ID. A name search reads the cache, which is where the
+ * seeded fixtures are; typing an ID would work too, but the name is what makes
+ * these specs readable.
  *
  * Selecting a row resolves the level against the API, so the step that follows
  * is what the caller should wait on.

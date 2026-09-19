@@ -1,11 +1,16 @@
 // GD-server name-search escalation (opt-in, on explicit confirm only). Runs a
-// single unfiltered getGJLevels21 name query, drops levels already in the
+// single getGJLevels21 name query — always restricted to GD's Demon difficulty
+// bucket, since the level cache admits no rated non-demon (see
+// services/levels/admission.ts) — drops levels already in the
 // cache, partitions the survivors into rated/unrated, and seeds the rated ones
 // automatically (data_source=robtop_autofill — same trustworthiness as any
 // other autofill, so no seeded-vs-logged distinction is stored). Unrated
 // survivors are returned but NOT seeded; the client seeds one only if the user
 // selects it (by navigating to its Global Level Page, which resolves+caches on
 // the miss). See the SpecNote decision record for the locked reasoning.
+//
+// ⚠️ An unrated level only comes back here if its (vote-derived) face is a demon
+// one. Any other unrated level is still loggable, but has to be added by its ID.
 
 import type {
   LevelSearchResult,
@@ -13,9 +18,9 @@ import type {
   LevelSort,
 } from '@infernolog/core'
 import prisma from '../../utils/prisma'
-import { resolveLevelDifficulty } from './difficulty'
 import { searchRobtopByNameResult, type RobtopLevel } from '../../utils/robtop'
 import { buildRobtopCreateData } from '../levels/robtopMapping'
+import { isAdmissible } from './admission'
 import { checkCommunityForSeededLevels } from './communitySync'
 
 // Wall-clock ceiling on the community pass below. Sized against the route's 25s
@@ -26,14 +31,6 @@ const COMMUNITY_SEARCH_BUDGET_MS = 6_000
 // Only the subset GD's schema can express is forwarded; everything else (exact
 // coin count, coinsVerified, creator search, NONG, object count) is dropped and
 // stays a cache-only refinement. See the /search plan's mapping notes.
-const NONDEMON_DIFF: Record<string, string> = {
-  auto: '-3',
-  easy: '1',
-  normal: '2',
-  hard: '3',
-  harder: '4',
-  insane: '5',
-}
 const DEMON_FILTER: Record<string, string> = {
   'demon-easy': '1',
   'demon-medium': '2',
@@ -56,18 +53,15 @@ function buildRobtopParams(
 ): { type?: string; extraParams: Record<string, string> } {
   const p: Record<string, string> = {}
 
-  if (filters.difficulty?.length) {
-    const diffs: string[] = []
-    const demonTiers: string[] = []
-    for (const d of filters.difficulty) {
-      if (d.startsWith('demon-')) demonTiers.push(DEMON_FILTER[d]!)
-      else diffs.push(NONDEMON_DIFF[d]!)
-    }
-    // Any demon tier means adding the -2 (Demon) diff bucket; GD's demonFilter
-    // narrows to a single tier, so only forward it when exactly one is chosen.
-    if (demonTiers.length) diffs.push('-2')
-    if (diffs.length) p.diff = diffs.join(',')
-    if (demonTiers.length === 1) p.demonFilter = demonTiers[0]!
+  // Demons only, whatever the filters say: -2 is GD's Demon difficulty bucket,
+  // so a rated non-demon never comes back just to be refused. Not a browse
+  // intent in its own right — the route still requires a query, filter or sort.
+  p.diff = '-2'
+  // demonFilter narrows to a single tier, so it is only forwarded when exactly
+  // one is chosen; several tiers fall back to the whole bucket and the cache
+  // filter narrows the rest.
+  if (filters.difficulty?.length === 1) {
+    p.demonFilter = DEMON_FILTER[filters.difficulty[0]!]!
   }
 
   if (filters.length?.length) {
@@ -123,10 +117,7 @@ function toRow(inGameId: string, level: RobtopLevel): LevelSearchResult {
     name: level.name,
     creator: level.creator,
     songName: level.songName,
-    // Same normalization the cache paths apply, so an escalated row and a
-    // cached row of the same level render identically.
-    inGameDifficulty: resolveLevelDifficulty({ ...level, inGameId }),
-    stars: level.stars,
+    inGameDifficulty: level.inGameDifficulty,
     featured: level.featured,
     epicValue: level.epicValue,
     isRated: level.isRated,
@@ -176,7 +167,11 @@ export async function runGdSearch(
     select: { inGameId: true },
   })
   const cachedIds = new Set(cached.map((c) => c.inGameId))
-  const survivors = results.filter((r) => !cachedIds.has(r.levelId))
+  // isAdmissible is a backstop: the Demon bucket above should already exclude
+  // every rated non-demon, but nothing is cached on the strength of that alone.
+  const survivors = results.filter(
+    (r) => !cachedIds.has(r.levelId) && isAdmissible(r.level)
+  )
 
   if (survivors.length === 0) return { status: 'nothing_new', totalFound }
 

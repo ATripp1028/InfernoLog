@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
 import { coldReload, logCompletion } from './flows'
-import { MACHINA, POLARGEIST, type FixtureLevel } from './fixtures/levels'
+import { OXBOW, NIGHTJAR, type FixtureLevel } from './fixtures/levels'
 
 // The Ranking page, which is ordered by the rating each completion was logged
 // with rather than arranged by hand.
@@ -77,27 +77,9 @@ async function numberInView(page: Page) {
   await expect(toggle).toBeChecked()
 }
 
-/**
- * Filters by one of the non-demon difficulties, which live in the strip's
- * collapsed drawer (this is a demon tracker; the five demon difficulties are
- * the ones on show).
- *
- * The drawer is held open by two independent inputs — the chevron pins it, the
- * pointer hovers it — so closing it takes both, and it has to be closed:
- * it drops *over* the top of the ranked list, and the rows this spec reads
- * next are the ones underneath it.
- */
-async function filterByNonDemonDifficulty(page: Page, difficulty: string) {
-  const drawer = page.getByRole('button', {
-    name: 'Show non-demon difficulties',
-  })
-  const button = page.getByRole('button', { name: difficulty, exact: true })
-
-  await drawer.click()
-  await button.click()
-  await drawer.click()
-  await page.mouse.move(0, 0)
-  await expect(button).toBeHidden()
+/** Filters the ranking to one demon difficulty. */
+async function filterByDifficulty(page: Page, difficulty: string) {
+  await page.getByRole('button', { name: difficulty, exact: true }).click()
 }
 
 test.describe('ranking', () => {
@@ -106,10 +88,10 @@ test.describe('ranking', () => {
   }) => {
     await page.goto('/log')
 
-    await logCompletion(page, POLARGEIST, '212', TOP_RATING)
+    await logCompletion(page, NIGHTJAR, '212', TOP_RATING)
     await page.getByRole('button', { name: 'Place later' }).click()
 
-    await logCompletion(page, MACHINA, '46', LOW_RATING)
+    await logCompletion(page, OXBOW, '46', LOW_RATING)
     await page.getByRole('button', { name: 'Place later' }).click()
 
     // Cold, because the ranking is a second view over the Log's `['log']`
@@ -122,26 +104,26 @@ test.describe('ranking', () => {
     // The rating first: this is the number typed into the wizard, rounded into
     // the internal 0–100 integer on the way in and computed back into an
     // overall on the way out.
-    await expect(row(page, POLARGEIST)).toContainText(TOP_RATING)
-    await expect(row(page, MACHINA)).toContainText(LOW_RATING)
+    await expect(row(page, NIGHTJAR)).toContainText(TOP_RATING)
+    await expect(row(page, OXBOW)).toContainText(LOW_RATING)
 
     // Then the order it earned. Both rows are known to exist by now, so an
     // index of -1 cannot sneak past this comparison.
     const order = await rankedLevelIds(page)
-    expect(order.indexOf(POLARGEIST.inGameId)).toBeLessThan(
-      order.indexOf(MACHINA.inGameId)
+    expect(order.indexOf(NIGHTJAR.inGameId)).toBeLessThan(
+      order.indexOf(OXBOW.inGameId)
     )
 
     // Exact positions need a view whose population this spec owns, which is
-    // what the difficulty filter buys: these two are the only completed Normal
-    // levels in the suite (fixtures/levels.ts), and "Number in view"
+    // what the difficulty filter buys: these two are the only Medium Demon
+    // fixtures in the suite (fixtures/levels.ts), and "Number in view"
     // renumbers what is on screen 1..n instead of quoting each row's place in
     // a ranking that carries every other spec's leftovers.
     await numberInView(page)
-    await filterByNonDemonDifficulty(page, 'Normal')
+    await filterByDifficulty(page, 'Medium Demon')
 
-    await expect(rankedRow(page, 1, POLARGEIST)).toBeVisible()
-    await expect(rankedRow(page, 2, MACHINA)).toBeVisible()
+    await expect(rankedRow(page, 1, NIGHTJAR)).toBeVisible()
+    await expect(rankedRow(page, 2, OXBOW)).toBeVisible()
 
     // And the filter in the other direction, on the same two rows rather than
     // on a count: a difficulty neither level has takes both of them away. The
@@ -150,7 +132,7 @@ test.describe('ranking', () => {
     await page.getByRole('button', { name: 'All', exact: true }).click()
     await page.getByRole('button', { name: 'Easy Demon', exact: true }).click()
 
-    await expect(row(page, POLARGEIST)).toBeHidden()
-    await expect(row(page, MACHINA)).toBeHidden()
+    await expect(row(page, NIGHTJAR)).toBeHidden()
+    await expect(row(page, OXBOW)).toBeHidden()
   })
 })

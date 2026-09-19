@@ -57,8 +57,6 @@ function makeRobtop(overrides: Partial<RobtopLevel> = {}): RobtopLevel {
     description: null,
     creatorPlayerId: null,
     creatorAccountId: null,
-    stars: null,
-    starsRequested: null,
     partialDiff: null,
     downloads: null,
     likes: null,

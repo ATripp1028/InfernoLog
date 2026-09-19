@@ -145,6 +145,40 @@ export function ResolveFailedState({
 }
 
 /**
+ * "Not a demon" — terminal (422). GD has the level; the shared cache refuses
+ * it, so nothing was written and a retry can only get the same answer. The
+ * copy comes from the API's own payload, which names the level and what GD
+ * rates it, because "not a demon" alone reads as a mistake to someone who
+ * typed an id they believe in.
+ */
+export function NotADemonState({
+  message,
+  onBack,
+  onSearch,
+}: {
+  message: string
+  onBack: () => void
+  onSearch: () => void
+}) {
+  return (
+    <CenteredState
+      icon={<SearchX size={38} className="text-text-tertiary" />}
+      title="Not a demon"
+      body={message}
+      note="Unrated levels are tracked too — it's rated non-demons that aren't."
+    >
+      <Button variant="default" onClick={onSearch}>
+        Search the cache
+      </Button>
+      <Button variant="outline" onClick={onBack}>
+        <ArrowLeft size={16} />
+        Go back
+      </Button>
+    </CenteredState>
+  )
+}
+
+/**
  * "Slow down" — the per-user GD-lookup budget is spent (429).
  *
  * Deliberately NOT worded as an error and deliberately not blaming GD: the

@@ -3,7 +3,9 @@
 //
 // Cache hit returns cached; miss calls RobTop once and caches it. RobTop being
 // down or returning nothing is an EXPECTED branch, not an error: it responds
-// 200 with the manual-fallback signal rather than a 500. Always includes the
+// 200 with the manual-fallback signal rather than a 500. A miss that GD reports
+// as a rated non-demon is refused with 422 { reason: 'not_a_demon' } and nothing
+// is cached (see services/levels/admission.ts). Always includes the
 // user's existing completion (or null) so the client can pre-populate the edit
 // form — "edit, not replace".
 
@@ -14,6 +16,7 @@ import { fetchRobtopLevel } from '../../utils/robtop'
 import { checkSfhNongIfDue } from '../../services/levels/sfhSync'
 import { checkCommunityIfDue } from '../../services/levels/communitySync'
 import { buildRobtopCreateData } from '../../services/levels/robtopMapping'
+import { isAdmissible, notADemonBody } from '../../services/levels/admission'
 import type { HonoVariables } from '../../types/hono'
 import {
   levelDetailSelect,
@@ -114,6 +117,9 @@ app.get('/levels/:levelId/resolve', async (c) => {
         suggestedGddlTier: null,
         existingCompletion: await loadExistingCompletion(userId, levelId),
       })
+    }
+    if (!isAdmissible(gd)) {
+      return c.json(notADemonBody(levelId, gd), 422)
     }
     level = await prisma.level.create({
       data: buildRobtopCreateData(levelId, gd),

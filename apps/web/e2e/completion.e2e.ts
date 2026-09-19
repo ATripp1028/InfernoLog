@@ -2,9 +2,9 @@ import type { Page } from '@playwright/test'
 import { expect, test } from './testBase'
 import { levelCard, logCompletion } from './flows'
 import {
-  CLUBSTEP,
-  DEADLOCKED,
-  THEORY_OF_EVERYTHING_2,
+  ASHFALL,
+  CINDERPATH,
+  BLACKGLASS,
   type FixtureLevel,
 } from './fixtures/levels'
 
@@ -66,13 +66,13 @@ test.describe('completion', () => {
   test('logs a completion and shows it on the log', async ({ page }) => {
     await page.goto('/log')
 
-    await logCompletion(page, CLUBSTEP, '1337')
+    await logCompletion(page, ASHFALL, '1337')
     await page.getByRole('button', { name: 'Place later' }).click()
 
     // Reload rather than trusting the post-mutation cache: what this spec is
     // for is the server's view of what was written.
     await page.reload()
-    await expect(levelCard(page, CLUBSTEP)).toBeVisible()
+    await expect(levelCard(page, ASHFALL)).toBeVisible()
   })
 
   test('places completions on the demon list and reorders them', async ({
@@ -83,21 +83,21 @@ test.describe('completion', () => {
     // Two completions, not one: placement always drops a level in at #1, and
     // `move` is a no-op at either end of the list — so a single placed entry
     // can never be reordered and the PATCH would never be exercised.
-    await logCompletion(page, THEORY_OF_EVERYTHING_2, '42')
+    await logCompletion(page, BLACKGLASS, '42')
     await page.getByRole('button', { name: 'Place now' }).click()
     await expect(page).toHaveURL(/\/demon-list/)
-    await placeFromUnplaced(page, THEORY_OF_EVERYTHING_2)
-    await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
+    await placeFromUnplaced(page, BLACKGLASS)
+    await expect(rankedRow(page, 1, BLACKGLASS)).toBeVisible()
 
     // "Place later" just closes the modal, leaving us on /demon-list with the new
     // completion sitting in Unplaced.
-    await logCompletion(page, DEADLOCKED, '7')
+    await logCompletion(page, CINDERPATH, '7')
     await page.getByRole('button', { name: 'Place later' }).click()
-    await placeFromUnplaced(page, DEADLOCKED)
+    await placeFromUnplaced(page, CINDERPATH)
 
     // Newest placement goes on top, pushing the first one down.
-    await expect(rankedRow(page, 1, DEADLOCKED)).toBeVisible()
-    await expect(rankedRow(page, 2, THEORY_OF_EVERYTHING_2)).toBeVisible()
+    await expect(rankedRow(page, 1, CINDERPATH)).toBeVisible()
+    await expect(rankedRow(page, 2, BLACKGLASS)).toBeVisible()
 
     // Reordering is a PATCH to a different endpoint than the POST that placed
     // them, so it is its own contract. Note there is no "Edit" click here:
@@ -117,7 +117,7 @@ test.describe('completion', () => {
     expect((await reordered).status()).toBe(200)
 
     await page.reload()
-    await expect(rankedRow(page, 1, THEORY_OF_EVERYTHING_2)).toBeVisible()
-    await expect(rankedRow(page, 2, DEADLOCKED)).toBeVisible()
+    await expect(rankedRow(page, 1, BLACKGLASS)).toBeVisible()
+    await expect(rankedRow(page, 2, CINDERPATH)).toBeVisible()
   })
 })
