@@ -67,6 +67,42 @@ import {
   RankHistoryEntryKindSchema,
   RankHistoryEntrySchema,
   RankHistoryResponseSchema,
+  ExportPageResponseSchema,
+  ExportResponseSchema,
+  ExportRatingSchema,
+  ExportCollectionSchema,
+  ExportRankingSchema,
+  ExportDroppedSchema,
+  ExportProgressSchema,
+  ExportCompletionSchema,
+  ImportStatusResponseSchema,
+  ImportFlaggedRowSchema,
+  ImportStartResponseSchema,
+  ImportStartRequestSchema,
+  ImportRatingsResponseSchema,
+  ImportRatingsRequestSchema,
+  ImportRatingEntrySchema,
+  ImportCollectionsResponseSchema,
+  ImportCollectionsRequestSchema,
+  ImportCollectionEntrySchema,
+  ImportRankingResponseSchema,
+  ImportRankingRequestSchema,
+  ImportRankingEntrySchema,
+  ImportCommitRowSchema,
+  ImportCommitResponseSchema,
+  ImportCommitRequestSchema,
+  ImportCheckResponseSchema,
+  ImportCheckRequestSchema,
+  ImportListMergeSchema,
+  ImportListEntrySchema,
+  ImportRatingConflictSchema,
+  ImportDuplicateRowSchema,
+  ImportRowConflictSchema,
+  ImportFieldDiffSchema,
+  ImportConflictActionSchema,
+  ImportCompletionRowSchema,
+  ImportProgressRowSchema,
+  ImportDroppedRowSchema
 } from './schemas'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -150,6 +186,47 @@ export type CollectionBrowseResult = z.infer<
 export type CollectionBrowseResponse = z.infer<
   typeof CollectionBrowseResponseSchema
 >
+
+export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
+export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
+export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
+export type ImportConflictAction = z.infer<typeof ImportConflictActionSchema>
+export type ImportFieldDiff = z.infer<typeof ImportFieldDiffSchema>
+export type ImportRowConflict = z.infer<typeof ImportRowConflictSchema>
+export type ImportDuplicateRow = z.infer<typeof ImportDuplicateRowSchema>
+export type ImportRatingConflict = z.infer<typeof ImportRatingConflictSchema>
+export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
+export type ImportListMerge = z.infer<typeof ImportListMergeSchema>
+export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
+export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
+export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
+export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
+export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
+export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
+export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
+export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
+export type ImportCollectionEntry = z.infer<typeof ImportCollectionEntrySchema>
+export type ImportCollectionsRequest = z.infer<
+  typeof ImportCollectionsRequestSchema
+>
+export type ImportCollectionsResponse = z.infer<
+  typeof ImportCollectionsResponseSchema
+>
+export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
+export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
+export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
+export type ImportStartRequest = z.infer<typeof ImportStartRequestSchema>
+export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
+export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
+export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
+export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
+export type ExportProgress = z.infer<typeof ExportProgressSchema>
+export type ExportDropped = z.infer<typeof ExportDroppedSchema>
+export type ExportRanking = z.infer<typeof ExportRankingSchema>
+export type ExportCollection = z.infer<typeof ExportCollectionSchema>
+export type ExportRating = z.infer<typeof ExportRatingSchema>
+export type ExportResponse = z.infer<typeof ExportResponseSchema>
+export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
 
 export type ActivityFieldChange = z.infer<typeof ActivityFieldChangeSchema>
 export type ActivityLevelImpact = z.infer<typeof ActivityLevelImpactSchema>

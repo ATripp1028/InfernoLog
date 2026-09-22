@@ -14,6 +14,8 @@ import {
 } from './enums'
 import { MAX_SHEET_TIER } from './sheetTier'
 
+// TODO: upgrade to zod 4 (NOT TRIVIAL: zod 4's nativeEnum() is stricter than zod 3's, so we need to audit every enum usage and ensure the wire values are always valid before we can upgrade)
+
 export const LevelSchema = z.object({
   inGameId: z.string(),
   levelType: z.nativeEnum(LevelType),
@@ -42,6 +44,7 @@ export const LevelSchema = z.object({
   // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
   // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
+  sheetTier: z.number().int().nullable(),
   // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
   // its Legacy tier to the end of the position sequence, so for a Legacy level
   // this is a list index and rendering it as "#n" states something false.
@@ -52,7 +55,6 @@ export const LevelSchema = z.object({
   // is derivable from the difficulty (isExtremeDemon) and so is deliberately
   // not sent. Null also covers an EDEL score still marked provisional.
   enjoyment: z.number().nullable(),
-  sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
   // Level duration in whole seconds. Distinct from `length` above, which is
   // RobTop's coarse band ("Long") and all GD itself exposes.
@@ -1906,47 +1908,6 @@ export const ExportPageResponseSchema = z.object({
   items: z.array(z.unknown()),
   hasMore: z.boolean(),
 })
-
-export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
-export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
-export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
-export type ImportConflictAction = z.infer<typeof ImportConflictActionSchema>
-export type ImportFieldDiff = z.infer<typeof ImportFieldDiffSchema>
-export type ImportRowConflict = z.infer<typeof ImportRowConflictSchema>
-export type ImportDuplicateRow = z.infer<typeof ImportDuplicateRowSchema>
-export type ImportRatingConflict = z.infer<typeof ImportRatingConflictSchema>
-export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
-export type ImportListMerge = z.infer<typeof ImportListMergeSchema>
-export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
-export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
-export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
-export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
-export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
-export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
-export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
-export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
-export type ImportCollectionEntry = z.infer<typeof ImportCollectionEntrySchema>
-export type ImportCollectionsRequest = z.infer<
-  typeof ImportCollectionsRequestSchema
->
-export type ImportCollectionsResponse = z.infer<
-  typeof ImportCollectionsResponseSchema
->
-export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
-export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
-export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
-export type ImportStartRequest = z.infer<typeof ImportStartRequestSchema>
-export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
-export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
-export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
-export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
-export type ExportProgress = z.infer<typeof ExportProgressSchema>
-export type ExportDropped = z.infer<typeof ExportDroppedSchema>
-export type ExportRanking = z.infer<typeof ExportRankingSchema>
-export type ExportCollection = z.infer<typeof ExportCollectionSchema>
-export type ExportRating = z.infer<typeof ExportRatingSchema>
-export type ExportResponse = z.infer<typeof ExportResponseSchema>
-export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
 
 // ─────────────────────────────────────────────
 // ACTIVITY LOG — the Log page feed and the level-page rank history.

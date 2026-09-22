@@ -1,8 +1,8 @@
 // Import API client — background job model: POST /v1/me/import/start
 // persists the dataset and kicks off a worker; GET /v1/me/import/status is
 // polled for live progress, flagged rows, and (once done) the outcome
-// summary. Types are mirrored from @infernolog/core (web pins zod@3, core is
-// on zod@4).
+// summary. Types are mirrored from @infernolog/core (web pins zod@4, core is
+// on zod@3).
 //
 // The conflict types below power one git-merge-style resolution UI reused
 // across every tab that can conflict: Completions/Progress/Dropped share

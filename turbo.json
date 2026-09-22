@@ -3,7 +3,7 @@
   "ui": "tui",
   "tasks": {
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["^build"],// Core is not built, but we have this here in case we ever add a build step to core. This will ensure that all packages that depend on core will be rebuilt if core is rebuilt.
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": ["dist/**"]
     },
