@@ -1,7 +1,7 @@
 // Request bodies and error codes for the email-and-password auth routes.
 //
 // ⚠️ CREDENTIALS — these schemas carry passwords and verification codes. See
-// credentials.ts and CLAUDE.md "Credential handling".
+// credentials.ts.
 
 import { z } from 'zod'
 import { EmailSchema, PASSWORD_MAX_LENGTH, PasswordSchema } from './credentials'
@@ -16,7 +16,6 @@ export const VerificationCodeSchema = z
 export const PasswordSignupStartSchema = z.object({
   email: EmailSchema,
 })
-export type PasswordSignupStartBody = z.infer<typeof PasswordSignupStartSchema>
 
 /** POST /v1/auth/password-signup/verify */
 export const PasswordSignupVerifySchema = z.object({
@@ -24,9 +23,6 @@ export const PasswordSignupVerifySchema = z.object({
   verificationCode: VerificationCodeSchema,
   password: PasswordSchema,
 })
-export type PasswordSignupVerifyBody = z.infer<
-  typeof PasswordSignupVerifySchema
->
 
 /**
  * A Google re-confirmation: the ID token from signing in with Google moments
@@ -43,14 +39,12 @@ export const ChangePasswordSchema = z.object({
   newPassword: PasswordSchema,
   signOutOthers: z.boolean(),
 })
-export type ChangePasswordBody = z.infer<typeof ChangePasswordSchema>
 
 /** POST /v1/me/password/setup/start */
 export const PasswordSetupStartSchema = z.object({
   email: EmailSchema,
   googleProof: GoogleProofSchema,
 })
-export type PasswordSetupStartBody = z.infer<typeof PasswordSetupStartSchema>
 
 /** POST /v1/me/password/setup */
 export const PasswordSetupSchema = z.object({
@@ -60,13 +54,11 @@ export const PasswordSetupSchema = z.object({
   // Required only when `email` is not already the account's email.
   verificationCode: VerificationCodeSchema.optional(),
 })
-export type PasswordSetupBody = z.infer<typeof PasswordSetupSchema>
 
 /** POST /v1/me/identities/google */
 export const ConnectGoogleSchema = z.object({
   googleProof: GoogleProofSchema,
 })
-export type ConnectGoogleBody = z.infer<typeof ConnectGoogleSchema>
 
 /**
  * POST /v1/me/email/start. Proves who is asking with the current password when
@@ -78,14 +70,12 @@ export const EmailChangeStartSchema = z.object({
   currentPassword: z.string().min(1).max(PASSWORD_MAX_LENGTH).optional(),
   googleProof: GoogleProofSchema.optional(),
 })
-export type EmailChangeStartBody = z.infer<typeof EmailChangeStartSchema>
 
 /** POST /v1/me/email/verify */
 export const EmailChangeVerifySchema = z.object({
   newEmail: EmailSchema,
   verificationCode: VerificationCodeSchema,
 })
-export type EmailChangeVerifyBody = z.infer<typeof EmailChangeVerifySchema>
 
 /**
  * Machine-readable `code` values on auth route errors, which the frontend

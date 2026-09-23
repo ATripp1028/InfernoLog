@@ -102,8 +102,20 @@ import {
   ImportConflictActionSchema,
   ImportCompletionRowSchema,
   ImportProgressRowSchema,
-  ImportDroppedRowSchema
+  ImportDroppedRowSchema,
+  GlobalLevelPageSchema,
+  GddlSyncResultSchema
 } from './schemas'
+import { 
+  ChangePasswordSchema, 
+  ConnectGoogleSchema, 
+  EmailChangeStartSchema, 
+  EmailChangeVerifySchema, 
+  PasswordSetupSchema, 
+  PasswordSetupStartSchema, 
+  PasswordSignupStartSchema, 
+  PasswordSignupVerifySchema 
+} from './auth'
 
 export type Level = z.infer<typeof LevelSchema>
 export type PublicUserProfile = z.infer<typeof PublicUserProfileSchema>
@@ -242,3 +254,18 @@ export type ActivityImpactRole = z.infer<typeof ActivityImpactRoleSchema>
 export type RankHistoryEntryKind = z.infer<typeof RankHistoryEntryKindSchema>
 export type RankHistoryEntry = z.infer<typeof RankHistoryEntrySchema>
 export type RankHistoryResponse = z.infer<typeof RankHistoryResponseSchema>
+
+export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
+export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
+
+export type PasswordSignupStartBody = z.infer<typeof PasswordSignupStartSchema>
+export type PasswordSignupVerifyBody = z.infer<
+  typeof PasswordSignupVerifySchema
+>
+export type ChangePasswordBody = z.infer<typeof ChangePasswordSchema>
+export type PasswordSetupStartBody = z.infer<typeof PasswordSetupStartSchema>
+export type PasswordSetupBody = z.infer<typeof PasswordSetupSchema>
+export type ConnectGoogleBody = z.infer<typeof ConnectGoogleSchema>
+export type EmailChangeStartBody = z.infer<typeof EmailChangeStartSchema>
+export type EmailChangeVerifyBody = z.infer<typeof EmailChangeVerifySchema>
+  

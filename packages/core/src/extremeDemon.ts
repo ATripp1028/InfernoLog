@@ -2,7 +2,7 @@
 // have to answer identically. See isExtremeDemon.
 
 /** The fields {@link isExtremeDemon} reads. */
-export interface ExtremeDemonSource {
+interface ExtremeDemonSource {
   /** RobTop's machine-readable difficulty token ("demon-extreme"). */
   partialDiff: string | null
   /** The display label ("Extreme Demon"), for rows cached before the token. */

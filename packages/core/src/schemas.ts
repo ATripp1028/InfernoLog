@@ -111,7 +111,6 @@ export const GlobalLevelPageSchema = LevelSchema.extend({
   userProgressStatus: z.nativeEnum(LevelProgressStatus).nullable(),
   userHasCompletion: z.boolean(),
 })
-export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 
 export const PublicUserProfileSchema = z.object({
   id: z.string().uuid(),
@@ -1235,7 +1234,6 @@ export const GddlSyncResultSchema = z.object({
   skipped: z.number().int(),
   errors: z.array(z.object({ levelId: z.string(), reason: z.string() })),
 })
-export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
 
 // ─────────────────────────────────────────────
 // LIST PRESETS — saved view configurations for the List page.
