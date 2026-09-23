@@ -9,9 +9,8 @@
 //     `currentPassword`, `newPassword`, `verificationCode`. Never a bare
 //     `code`, which already means error codes and level codes in this repo.
 //
-// See CLAUDE.md "Credential handling". This module is the shared half: the
-// password policy both apps validate against, and the field names both apps
-// scrub from logs and error reports.
+// This module is the shared half: the password policy both apps validate
+// against, and the field names both apps scrub from logs and error reports.
 
 import { z } from 'zod'
 

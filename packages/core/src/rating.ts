@@ -1,6 +1,6 @@
 // Overall-rating computation for a single progress update. Shared by
 // apps/api (query-time serialization) and apps/web (client-side preview
-// before an edit is saved) so the two never drift — see docs/RATING_SYSTEM.md.
+// before an edit is saved) so the two never drift.
 //
 // The displayed/filtered rating is computed at query time and never stored. It
 // is the weighted average of the user's per-category scores:

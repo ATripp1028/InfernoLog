@@ -14,8 +14,7 @@
 // A ranked position is only comparable inside one rating-config era. Weights,
 // category priority and the set of categories all feed this order, and a change
 // to any of them reshuffles it — which is why a rank recorded before a config
-// change was measured on a scale that no longer applies. See
-// docs/RATING_SYSTEM.md and docs/EVENT_LOG.md.
+// change was measured on a scale that no longer applies.
 
 /**
  * One level's inputs to the rating order.

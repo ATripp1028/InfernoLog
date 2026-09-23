@@ -297,7 +297,7 @@ export const RatingConfigSchema = z
 // ─────────────────────────────────────────────
 // LOGGING FLOW — entry-creation request bodies
 // The three FAB paths (completion / progress / drop) plus the level-entry
-// support endpoints. See LOGGING_FLOW.md and apps/api/prisma/schema.prisma.
+// support endpoints. See apps/api/prisma/schema.prisma.
 //
 // Ratings/enjoyment are integers 0–100 internally — the frontend converts at
 // the display layer, showing scores on 0–10 and enjoyment on 0–100. The
@@ -915,8 +915,7 @@ export const NotADemonResponseSchema = z.object({
 // GET /v1/me/progress returns the authed user's full level-progress list in one
 // payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
 // and column selection happen client-side, so each row carries the raw fields
-// every filter/column needs rather than pre-filtered results. See
-// docs/API_DESIGN.md and the list page design.
+// every filter/column needs rather than pre-filtered results.
 // ─────────────────────────────────────────────
 
 // Trimmed level metadata for a list row — the difficulty face, name/creator,
@@ -1054,8 +1053,8 @@ export const ClassicDemonListEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
-  // The row's community-list chips, and the pre-scroll hint's tier. A "list
-  // reference" in DEMON_LIST.md's sense — a convenience, never a placement.
+  // The row's community-list chips, and the pre-scroll hint's tier. A list
+  // reference — a convenience, never a placement.
   communityTiers: CommunityTiersSchema,
 })
 
@@ -1323,10 +1322,10 @@ export const LogPresetSchema = z.object({
 // normalized JSON payload. The server re-validates ranges/enums/required
 // fields only — it trusts the ISO date strings from the client.
 //
-// Rating SCORES in the import format are 0-10 (sheet scale per
-// IMPORT_EXPORT.md); the server multiplies by 10 to convert to the 0-100
-// internal scale. Enjoyment is 0-100 already — it is shown on that scale in
-// the app, so the sheet carries it unconverted and nothing scales it.
+// Rating SCORES in the import format are 0-10 (the sheet scale); the server
+// multiplies by 10 to convert to the 0-100 internal scale. Enjoyment is 0-100
+// already — it is shown on that scale in the app, so the sheet carries it
+// unconverted and nothing scales it.
 // ─────────────────────────────────────────────
 
 export const ImportCompletionRowSchema = z.object({
@@ -1909,9 +1908,8 @@ export const ExportPageResponseSchema = z.object({
 
 // ─────────────────────────────────────────────
 // ACTIVITY LOG — the Log page feed and the level-page rank history.
-// See docs/EVENT_LOG.md → "Surfaces". Both are scoped to the authenticated
-// user's own data; activity_log.visibility is inert and there is no public
-// equivalent of either.
+// Both are scoped to the authenticated user's own data;
+// activity_log.visibility is inert and there is no public equivalent of either.
 // ─────────────────────────────────────────────
 
 // Every user-facing event type, mirroring the ActivityEventType enum in
@@ -1933,8 +1931,8 @@ export const FEED_EVENT_TYPES = FeedEventTypeSchema.options
 // The filter key for field-change rows, mirroring ActivityFieldCategory in
 // schema.prisma. The feed's category filter keys off THIS and never off
 // fieldName, so a newly editable field only needs a category rather than an
-// entry in a hardcoded list on both sides of the wire. See docs/EVENT_LOG.md,
-// "Filter on category, never on fieldName".
+// entry in a hardcoded list on both sides of the wire. Filter on category,
+// never on fieldName.
 export const ActivityFieldCategorySchema = z.enum([
   'RATING',
   'SESSION_DETAIL',
@@ -1951,7 +1949,7 @@ export const ActivityImpactRoleSchema = z.enum(['MOVER', 'NEIGHBOR'])
 // Event logging shipped on this date and history cannot be backfilled — the
 // previous values simply were not written down. Every activity surface has a
 // hard floor here, and an empty one means "nothing since then", not
-// "nothing ever". See docs/EVENT_LOG.md.
+// "nothing ever".
 export const ACTIVITY_LOG_EPOCH = new Date('2026-08-24T00:00:00.000Z')
 
 /** One field a save changed, as the feed renders it. */
@@ -2003,7 +2001,7 @@ export const ActivityFeedEventSchema = z.object({
 
 // A progress_updates row. These are NOT duplicated into activity_log — they are
 // already events (kind + loggedAt) and the feed merges the two tables at read
-// time. See docs/EVENT_LOG.md, "Deliberately not tracked".
+// time.
 export const ActivityFeedProgressSchema = z.object({
   source: z.literal('PROGRESS'),
   id: z.string().uuid(),
@@ -2091,8 +2089,8 @@ export const ActivityFeedResponseSchema = z.object({
 //   DIRECT       — the user moved this level, so the event carries its own
 //                  impact row and the positions are read straight off it.
 //   INDIRECT     — the level shifted because something else moved past it.
-//                  Reconstructed: such shifts have no rows of their own (see
-//                  docs/DEMON_LIST.md, "direct events only").
+//                  Reconstructed: such shifts have no rows of their own —
+//                  only direct events are recorded.
 //   UNATTRIBUTED — a shift the reconstruction can prove happened but cannot
 //                  name a cause for, because the entry that caused it has since
 //                  been deleted and took its events with it. The stored

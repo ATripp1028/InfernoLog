@@ -41,8 +41,8 @@ export enum ProgressUpdateKind {
 
 // The user's subjective difficulty read on a completion. NOT_DEMON_WORTHY is a
 // disagreement flag only — the level stays a rated demon. Distinct from the
-// level's cached in-game difficulty. See LOGGING_FLOW.md and the
-// DifficultyOpinion enum in apps/api/prisma/schema.prisma.
+// level's cached in-game difficulty. See the DifficultyOpinion enum in
+// apps/api/prisma/schema.prisma.
 export enum DifficultyOpinion {
   NOT_DEMON_WORTHY = 'NOT_DEMON_WORTHY',
   EASY = 'EASY',
