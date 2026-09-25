@@ -1,6 +1,6 @@
 InfernoLog aims to protect its users' data to the best of its ability. However, I recognize that I may unintentionally introduce security vulnerabilities in updates.
 
-If you find any vulnerabilities in my code, whether by searching the code or some other method, please notify me at contact@infernolog.com. Do not disclose this publicly, whether it be on Twitter, Discord, GitHub, or an other platform until I have informed you that the vulnerability has been patched. This is to ensure that your good-faith reporting doesn't get the attention of malicious actors. I will aim to respond to your concern within 48 hours of your email.
+If you find any vulnerabilities in my code, whether by searching the code or some other method, please notify me at contact@infernolog.com. Do not disclose this publicly, whether it be on Twitter, Discord, GitHub, or an other platform until I have informed you that the vulnerability has been patched. This is to ensure that your good-faith reporting doesn't get the attention of malicious actors, who may abuse your finding to harm others. I will aim to respond to your concern within 48 hours of your email.
 
 In your report, please disclose the following to the best of your ability:
 
