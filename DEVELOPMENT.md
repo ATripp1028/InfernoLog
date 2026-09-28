@@ -18,14 +18,14 @@ cp apps/web/.env.example apps/web/.env.local   # then fill in the VITE_* values
 
 ## Important Commands
 
-| Command | What it does
-| :------- | :------------
-| `pnpm dev` | Vite on :5173 + sst dev (live Lambda)
-| `pnpm build` / `pnpm typecheck` / `pnpm lint` | Fan out via Turbo
-| `pnpm test` | All three workspace suites
-| `pnpm format` / `format:check` | Prettier on branch-changed files (bypasses Turbo)
-| `pnpm deploy:staging` / `deploy:prod` | deploys api then web, in that order
-| `pnpm remove:staging` | Tear down the staging stack
+| Command                                       | What it does                                      |
+| :-------------------------------------------- | :------------------------------------------------ |
+| `pnpm dev`                                    | Vite on :5173 + sst dev (live Lambda)             |
+| `pnpm build` / `pnpm typecheck` / `pnpm lint` | Fan out via Turbo                                 |
+| `pnpm test`                                   | All three workspace suites                        |
+| `pnpm format` / `format:check`                | Prettier on branch-changed files (bypasses Turbo) |
+| `pnpm deploy:staging` / `deploy:prod`         | deploys api then web, in that order               |
+| `pnpm remove:staging`                         | Tear down the staging stack                       |
 
 ## Stages & Deployment
 
@@ -43,6 +43,7 @@ Three stages:
 ## PR Checks
 
 All PR checks must pass before a branch can be merged. These include:
+
 - CI
 - Analyze (AKA CodeQL via. default GitHub config)
 - A successful deployment to stage for relevant apps (including e2e tests if applicable)
@@ -55,11 +56,22 @@ API always deploys before Web because Web's SST config reads the API's SSM outpu
 ## Testing
 
 Three different test suites:
+
 - Unit (DB mocked on backend, Frontend only tests logic and component rendering): `pnpm test:unit`
 - Integration (Spins up test DB, Backend): `test:integration`
 - [E2E](./apps/web/e2e/README.md) (Uses and resets test user, tests entire workflows): `test:e2e`
 
 CI enforces coverage on branches (statements 94 / branches 88 / functions 95 / lines 95). To see your branch's coverage, run `test:coverage`. Note that `--project unit --coverage` alone will trip this, since that assumes both projects ran.
+
+## packages/tsconfig
+
+This directory contains the TypeScript rules that govern the repository.
+
+- `base.json`: Basic TS rules all other packages copy from.
+- `package.json`: wraps directory into package.
+- `api.json` and `web.json`: contain extra rules for the API and Web respectively.
+
+**Note about API**: The API contains another file, `tsconfig.infra.json`, which declares TS rules that override the API and generic rules for the Infrastructure specifically.
 
 ## Can I run this without AWS access?
 

@@ -9,6 +9,7 @@ If you're interested in contributing to InfernoLog, please see [DEVELOPMENT.md](
 ## Monorepo Structure
 
 This project is a monorepo for the InfernoLog webapp and the API it uses. Here's a bird's eye view:
+
 ```
 ├── LICENSE
 ├── README.md
@@ -24,7 +25,7 @@ This project is a monorepo for the InfernoLog webapp and the API it uses. Here's
 ├── legal                   # Same documents in the footer on the web
 │   ├── DMCA.md
 │   ├── PRIVACY_POLICY.md
-│   └── TERMS_AND_CONDITIONS.md 
+│   └── TERMS_AND_CONDITIONS.md
 ├── package.json            # Repo-wide commands and package definition
 ├── packages                # Utilities shared between both apps
 │   ├── core                # Core utilities
@@ -44,6 +45,7 @@ This project is a monorepo for the InfernoLog webapp and the API it uses. Here's
 ## Documentation
 
 Per-area documentation:
+
 - [E2E Test Suite](./apps/web/e2e/README.md)
 - [Core Utilities](./packages/core/README.md)
 

@@ -1,13 +1,17 @@
 # Core Utilities
 
-This package is dedicated to utilities used across both the Web Application and API. This includes zod schemas, types, functions, and constants. To import something from here, use the following syntax: 
+This package is dedicated to utilities used across both the Web Application and API. This includes zod schemas, types, functions, and constants. To import something from here, use the following syntax:
+
 ```typescript
 import { <insert-utilities-here> } from '@infernolog/core'
 ```
+
 If you need a type, remember to include 'type' in your import as follows:
+
 ```typescript
 import type { <insert-types-here> } from '@infernolog/core'
 ```
+
 It is preferable to avoid mixing type imports with functional imports.
 
 `index.ts`: The entry file. You can ignore this unless you create a new file, in which case you would add it here to expose it to the other apps.
@@ -22,7 +26,7 @@ It is preferable to avoid mixing type imports with functional imports.
 
 Both of these files handle authentication utilities. **Never print or log passwords, codes, or other authentication items under any circumstance**. Ideally, these things would be handled entirely by cognito, but due to constraints surrounding sending emails through cognito, we are forced to use the backend to handle certain authentication operations. They are currently the only files in the package to carry tests due to their importance.
 
-`auth.ts`: Contains request bodies and error codes for email and password authentication, including verification codes.   
+`auth.ts`: Contains request bodies and error codes for email and password authentication, including verification codes.
 
 `credentials.ts`: Password rules, such as permitted characters and lengths. Also provides scrubbing utilities to Pino and Sentry. If you need to add a sensitive field name, this is where you would look. The password rules mirror the Cognito pool policy. Also contains EmailSchema, including validation.
 

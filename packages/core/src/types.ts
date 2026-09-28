@@ -104,17 +104,17 @@ import {
   ImportProgressRowSchema,
   ImportDroppedRowSchema,
   GlobalLevelPageSchema,
-  GddlSyncResultSchema
+  GddlSyncResultSchema,
 } from './schemas'
-import { 
-  ChangePasswordSchema, 
-  ConnectGoogleSchema, 
-  EmailChangeStartSchema, 
-  EmailChangeVerifySchema, 
-  PasswordSetupSchema, 
-  PasswordSetupStartSchema, 
-  PasswordSignupStartSchema, 
-  PasswordSignupVerifySchema 
+import {
+  ChangePasswordSchema,
+  ConnectGoogleSchema,
+  EmailChangeStartSchema,
+  EmailChangeVerifySchema,
+  PasswordSetupSchema,
+  PasswordSetupStartSchema,
+  PasswordSignupStartSchema,
+  PasswordSignupVerifySchema,
 } from './auth'
 
 export type Level = z.infer<typeof LevelSchema>
@@ -268,4 +268,3 @@ export type PasswordSetupBody = z.infer<typeof PasswordSetupSchema>
 export type ConnectGoogleBody = z.infer<typeof ConnectGoogleSchema>
 export type EmailChangeStartBody = z.infer<typeof EmailChangeStartSchema>
 export type EmailChangeVerifyBody = z.infer<typeof EmailChangeVerifySchema>
-  
