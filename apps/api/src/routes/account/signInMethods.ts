@@ -5,7 +5,7 @@
 //
 // Connecting happens only here, under the account's own session, with a fresh
 // Google re-confirmation proving the caller controls that Google account —
-// never by matching an email (CLAUDE.md, Auth flow). Discord is linked and
+// never by matching an email (SECURITY.md, Auth flow). Discord is linked and
 // unlinked through routes/account/discord.ts instead, since it cannot sign in.
 //
 // INVARIANT: an account always keeps at least one identity it can sign in

@@ -2,7 +2,7 @@
 // can be resent without asking again) and the typed code in React state until
 // the dialog closes. Never logged, never written to storage. A Google proof
 // for an account without a password waits in sessionStorage between its
-// callback and here, and is removed once used. See CLAUDE.md "Credential
+// callback and here, and is removed once used. See SECURITY.md "Credential
 // handling".
 
 import { useState } from 'react'

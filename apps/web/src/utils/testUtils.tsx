@@ -575,7 +575,7 @@ export function setViewport(viewport: 'desktop' | 'mobile') {
  * sessionStorage — keys or values, which also covers the persisted query cache.
  *
  * ⚠️ CREDENTIALS — every flow that handles a password or verification code gets
- * a spec calling this after exercising the flow. See CLAUDE.md "Credential
+ * a spec calling this after exercising the flow. See SECURITY.md "Credential
  * handling".
  *
  * @param sentinels - The fake credentials the spec typed, e.g. `Leak-Canary-…`.

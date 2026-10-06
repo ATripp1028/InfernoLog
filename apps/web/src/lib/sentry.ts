@@ -64,7 +64,7 @@ function isExpectedFailure(error: unknown): boolean {
  * fails if either changes: `sendDefaultPii` stays false, and no Session Replay
  * integration is added. Credential fields (passwords, verification codes) are
  * scrubbed from every event and breadcrumb — a safety net only; never put a
- * credential into an error or a Sentry call. See CLAUDE.md "Credential
+ * credential into an error or a Sentry call. See SECURITY.md "Credential
  * handling".
  *
  * @param sentryDsn - The browser DSN baked in at build time.

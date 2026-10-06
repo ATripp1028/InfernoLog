@@ -238,7 +238,7 @@ moment it is parsed, call `.reveal()` only at the Cognito SDK or HMAC call that
 needs the plaintext, and name credential variables with `password` or
 `verificationCode` so `eslint.credentials.mjs` can see them. Every route that
 receives one needs a leak test built on `src/test/captureLeaks.ts`. The full
-rules, and what enforces each, are in CLAUDE.md "Credential handling".
+rules, and what enforces each, are in SECURITY.md "Credential handling".
 
 ### 3. Request handling
 
@@ -675,7 +675,7 @@ It is never written to localStorage, sessionStorage, or the persisted query cach
 and never logged or put in an error. The shared lint rule
 (`eslint.credentials.mjs`) catches logging and error messages, provided the
 variable is named with `password` or `verificationCode`; storage needs a spec
-proving the flow leaves no sentinel behind. See CLAUDE.md "Credential handling".
+proving the flow leaves no sentinel behind. See SECURITY.md "Credential handling".
 
 **The persisted query cache belongs to an account, not a browser.**
 `lib/persister.ts` writes one fixed localStorage key holding `MeData` (email,

@@ -7,7 +7,7 @@
  * mocked.
  *
  * ⚠️ CREDENTIALS — tests that send the current password or a code also assert
- * neither reaches a log line or a Sentry call. See CLAUDE.md "Credential
+ * neither reaches a log line or a Sentry call. See SECURITY.md "Credential
  * handling".
  */
 

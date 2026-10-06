@@ -7,7 +7,7 @@
  *
  * ⚠️ CREDENTIALS — every test here also asserts that the password and the
  * verification code never reach a log line or a Sentry call, on the success
- * path, every expected failure, and a forced 500. See CLAUDE.md "Credential
+ * path, every expected failure, and a forced 500. See SECURITY.md "Credential
  * handling".
  */
 

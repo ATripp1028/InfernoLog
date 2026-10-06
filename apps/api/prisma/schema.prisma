@@ -531,7 +531,7 @@ enum VerificationPurpose {
   PASSWORD_SETUP
 }
 
-// ⚠️ CREDENTIALS — one emailed verification code. See CLAUDE.md "Credential
+// ⚠️ CREDENTIALS — one emailed verification code. See SECURITY.md "Credential
 // handling".
 //
 // The API issues and checks these itself rather than using Cognito's

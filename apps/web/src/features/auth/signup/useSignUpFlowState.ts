@@ -1,7 +1,7 @@
 // ⚠️ CREDENTIALS — the signup flow holds the chosen password in memory between
 // the credentials step and the code step (the API needs it at verify, after
 // the address is proven), plus the typed code. React state only: never logged,
-// never written to storage, and gone when the page unmounts. See CLAUDE.md
+// never written to storage, and gone when the page unmounts. See SECURITY.md
 // "Credential handling".
 
 import { useRef, useState } from 'react'

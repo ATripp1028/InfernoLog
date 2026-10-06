@@ -4,7 +4,7 @@
 # default rules add the generic cases GitHub's provider patterns miss:
 # hardcoded passwords, API keys and private keys.
 #
-# ⚠️ CREDENTIALS — see CLAUDE.md "Credential handling". Never allowlist a real
+# ⚠️ CREDENTIALS — see SECURITY.md "Credential handling". Never allowlist a real
 # value to make this pass: remove it from the code, rotate it, and purge it
 # from history.
 

@@ -1,7 +1,7 @@
 // ⚠️ CREDENTIALS — the verification-code template is the one place a code is
 // revealed on purpose, into the body of the email that delivers it. A built
 // message therefore holds the plaintext: pass it straight to `sendEmail` and
-// nowhere else. Never log a message or put one in an error. See CLAUDE.md
+// nowhere else. Never log a message or put one in an error. See SECURITY.md
 // "Credential handling".
 
 import type { VerificationPurpose } from '@prisma/client'

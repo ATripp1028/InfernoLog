@@ -4,7 +4,7 @@
 // Never log a credential, never put one in an error message, never persist
 // one. Unwrap with `.reveal()` only at the call that genuinely needs the
 // plaintext (the Cognito SDK call, the HMAC), and never inside a logger,
-// console, or Sentry call — lint rejects that. See CLAUDE.md "Credential
+// console, or Sentry call — lint rejects that. See SECURITY.md "Credential
 // handling".
 
 import { inspect } from 'util'

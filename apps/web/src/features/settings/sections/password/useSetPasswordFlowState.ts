@@ -3,7 +3,7 @@
 // only: never logged, never written to storage, gone when Settings unmounts.
 // The Google re-confirmation it uses waits in sessionStorage between the
 // callback and here (lib/googleProof.ts), and is removed once used. See
-// CLAUDE.md "Credential handling".
+// SECURITY.md "Credential handling".
 
 import { useState } from 'react'
 import { AuthErrorCode } from '@infernolog/core'

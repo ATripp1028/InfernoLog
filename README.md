@@ -13,7 +13,7 @@ This project is a monorepo for the InfernoLog webapp and the API it uses. Here's
 ```
 ├── LICENSE
 ├── README.md
-├── SECURITY.md             # Handling discovered vulnerabilities
+├── SECURITY.md             # Security posture of the repo
 ├── DEVELOPMENT.md          # Guide for starting development in this repo
 ├── .github                 # Contains all GitHub actions flows
 ├── apps

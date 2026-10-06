@@ -1,6 +1,6 @@
 // ⚠️ CREDENTIALS — holds the current and new passwords in component state until
 // submitted, then clears them. Never log them, never persist them. See
-// CLAUDE.md "Credential handling".
+// SECURITY.md "Credential handling".
 
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'
