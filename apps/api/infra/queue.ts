@@ -33,6 +33,13 @@ import { sharedNodeOptions } from './defaults'
 // + 5s fetch, plus backoff) — timeout sized well above that per-batch worst
 // case.
 // ─────────────────────────────────────────────
+
+/**
+ * The dead-letter queue for the level seed queue. 
+ * Contains messages that failed to process after 3 attempts. 
+ * The worker logs the message and the error, 
+ * so the DLQ is just a safety net for messages that can't be processed.
+ */
 const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')
 
 export const levelSeedQueue = new sst.aws.Queue('LevelSeedQueue', {

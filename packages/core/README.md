@@ -18,7 +18,7 @@ It is preferable to avoid mixing type imports with functional imports.
 
 ## Important Notes
 
-**The zod 3 / zod 4 split**: This package is on zod 3, `apps/api` is on zod 4, and `apps/web` uses this package's zod. You can `.safeParse()` a cor schema from the API, but composing one into a locally-declared zod 4 schema (.extend(), z.object({...Schema.shape})) breaks type inference. This is why some parts of the apps (eg. [requestBody.ts](../../apps/api/src/utils/requestBody.ts)) declare their schema param structurally instead of importing a zod type.
+**The zod 3 / zod 4 split**: This package is on zod 3, `apps/api` is on zod 4, and `apps/web` uses this package's zod. You can `.safeParse()` a core schema from the API, but composing one into a locally-declared zod 4 schema (.extend(), z.object({...Schema.shape})) breaks type inference. This is why some parts of the apps (eg. [requestBody.ts](../../apps/api/src/utils/requestBody.ts)) declare their schema param structurally instead of importing a zod type.
 
 **There is no build step**: There is nothing to compile in this package, as both apps consume this package via the pnpm workspace symlink.
 
