@@ -16,7 +16,7 @@
 //
 // Me-scoped: the user comes from the JWT, never a path segment. The planned
 // cross-user read (GET /v1/users/{usernameOrId}/ranking/classic) will land
-// here as a public.ts sibling — see docs/API_DESIGN.md.
+// here as a public.ts sibling — see docs/ROADMAP.md.
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'

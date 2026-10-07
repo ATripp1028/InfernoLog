@@ -30,7 +30,7 @@
 // These routes have no cross-user counterpart by design: an account's own
 // settings are not something another user reads. The planned public profile
 // (GET /v1/users/{usernameOrId}) is a different, much narrower payload and
-// belongs in routes/users.ts — see docs/API_DESIGN.md.
+// belongs in routes/users/ — see docs/ROADMAP.md.
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'

@@ -99,7 +99,7 @@ Goal: Deepen the core logging experience. No new platform features.
 
 ### Platformer Support
 
-- [ ] Separate platformer log and ranking
+- [ ] Separate platformer log and ranking — a platformer demon list beside the classic one, with the same place / reorder / unplace surface (only `ClassicDemonList` exists in the schema)
 - [ ] Completion time field (replaces percentage for platformer)
 - [ ] Platformer-specific list integrations (Pemonlist, others TBD)
 - [ ] Platformer attempt count convention TBD
@@ -124,7 +124,8 @@ Goal: Deepen the core logging experience. No new platform features.
 
 ### Infrastructure
 
-- [ ] Public API (`/v1/` routes, OpenAPI spec generated from Zod schemas)
+- [ ] Public API — open the API to community developers, not just the first-party frontend. Needs general per-user rate limits and a decision on which level-cache reads can drop authentication
+- [ ] OpenAPI spec as the API contract, with generated frontend types and a served `/docs` (the contract is the Zod schemas in `packages/core`)
 - [ ] Geode mod groundwork (API surface sufficient for mod integration)
 
 ---
@@ -143,9 +144,9 @@ Goal: Make the app actively useful rather than a passive record.
 
 ### Infrastructure
 
-- [ ] `/v2/` API routes if breaking changes accumulated
-- [ ] API keys — up to 5 named scoped keys per user, key management UI, settings page integration
-- [ ] Geode mod (C++ via Geode framework, uses public API)
+- [ ] `/v2/` API routes if breaking changes accumulated, with a deprecation period for `/v1/`
+- [ ] API keys — up to 5 named scoped keys per user, key management UI, settings page integration. Third-party tools send the key in a request header and it resolves to a user plus a scope set; creating, listing, rotating, and revoking keys stays first-party (signed-in session only). An unused `ApiKey` model is already in the schema
+- [ ] Geode mod (C++ via Geode framework, uses public API) — authenticates with a user's API key and auto-logs a completion when a level is beaten, passing the attempt count the game exposes. No mod-specific endpoints expected
 
 ---
 
@@ -156,7 +157,7 @@ Goal: Open InfernoLog to the public as a community platform.
 ### Features
 
 - [ ] Public profiles (`/[username]`)
-- [ ] View other users' completions, rankings, lists
+- [ ] View other users' completions, rankings, lists — read-only API endpoints addressed by username or id. Writes stay on the signed-in user's own routes. These reads enforce the profile-level and per-entry visibility settings that are already stored, answer a private profile with 403 (not 404, so "private" and "nonexistent" are distinguishable), and are paginated and filterable server-side rather than returned whole
 - [ ] Independent skill tag voting system (community votes on level skillsets)
 - [ ] Level Picker Discovery Mode (post-launch, after database population)
 - [ ] Verification system (Pointercrate stats viewer profile or similar criteria)
@@ -169,6 +170,7 @@ Goal: Open InfernoLog to the public as a community platform.
 - [ ] Moderation dashboard (reports queue, appeals queue)
 - [ ] Report auto-exclusion for reported moderator
 - [ ] Warn, suspend, ban with audit log
+- [ ] Moderator and admin access to private profiles through internal admin routes, not the public API
 - [ ] One appeal per ban
 - [ ] account_status, role fields on users table from day one
 
@@ -185,6 +187,7 @@ Goal: Open InfernoLog to the public as a community platform.
 - NLW scrape feasibility
 - Platformer attempt count convention
 - Specific public API rate limits (determined from beta data)
+- Exporting another user's data — whether it should be possible at all is an open privacy question
 - Verification badge exact criteria and thresholds
 - Level Picker Discovery Mode question set (designed after v4 launch)
 - Mobile app (if platform grows to justify it)

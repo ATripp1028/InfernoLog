@@ -136,7 +136,7 @@ This models how GD players actually experience levels, and mirrors the GDDL's ap
 > | `TIME_MACHINE.md` | Historical ranking visualization, retroactive placement |
 > | `LEVEL_PICKER.md` | Akinator-style guided level selection |
 > | `IMPORT_EXPORT.md` | Spreadsheet import template, export format, date handling |
-> | `API_DESIGN.md` | Public API shape, versioning, scopes, pagination |
+> | `API_DESIGN.md` | The implemented API: auth, rate limits, response shape, pagination, every endpoint |
 > | `EXTERNAL_APIS.md` | GD servers (RobTop), GDDL, levelthumbs, EventBridge sync |
 > | `MODERATION.md` | Internal mod team policy, reports, appeals |
 > | `COMMUNITY_POLICY.md` | Public-facing content rules |
