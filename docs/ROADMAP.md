@@ -84,11 +84,11 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 ### React Libraries (v1)
 
-- [x] TanStack Query, TanStack Table
+- [x] TanStack Query, TanStack Table, TanStack Router
 - [x] Tailwind CSS + shadcn/ui
 - [x] dnd-kit
-- [x] Recharts (basic stats)
-- [x] React Hook Form + Zod
+- [ ] Recharts (basic stats) — not installed; nothing charts with it yet
+- [x] TanStack Form + Zod
 - [x] date-fns
 - [x] SheetJS (import + export)
 
