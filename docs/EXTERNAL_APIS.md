@@ -108,7 +108,7 @@ GDDL placements update extremely frequently. InfernoLog does **not** maintain li
 
 ### Record submission
 
-`POST /v1/me/gddl-records/{levelId}` submits the user's existing completion of a level to GDDL (`POST /submissions`). It is an explicit action from the level page, blocks, and reports GDDL's verdict. Logging a completion never submits anything.
+`POST /v1/me/gddl-records/{levelId}` submits the user's existing completion of a level to GDDL (`POST /submissions`). It is always an explicit user action — offered on a card right after a completion saves, and available from the level page — and it blocks and reports GDDL's verdict. Saving a completion never submits anything by itself.
 
 ### Favorites / Least Favorites sync
 

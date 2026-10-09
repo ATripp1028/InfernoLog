@@ -120,6 +120,7 @@ Goal: Deepen the core logging experience. No new platform features.
 ### Features
 
 - [ ] Custom named lists beyond favorites/least favorites
+- [ ] FAB collection workflows — "Add to Want to Beat" (search, pick a level, add; no log entry is created) and "Add to a Collection" (pick a level, then multi-select across built-in and custom collections, with a create-new option). Both menu items are already shown and do nothing
 - [ ] Level Picker — Personal Mode (Want to Beat collection, dynamic question ordering, 5-level threshold)
 - [ ] Non-completion entries on the demon list (toggle, off by default) — in-progress and dropped levels placed alongside completions. The page already shows a disabled placeholder chip for it
 - [ ] Visx added for Time Machine groundwork

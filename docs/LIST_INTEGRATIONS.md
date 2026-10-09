@@ -46,7 +46,7 @@ A user can pull their GDDL records in. The sync runs as a background job, reads 
 
 ### Record submission
 
-From a level's page, a user can submit their existing completion to GDDL as a record. It is an explicit action that reports GDDL's answer; logging a completion never submits anything on its own.
+A user can submit a completion to GDDL as a record: the logging flow offers it on a card right after a completion saves, and the level's page offers it afterwards. It is always an explicit action that reports GDDL's answer; saving a completion never submits anything on its own.
 
 ### Favorites and Least Favorites sync
 

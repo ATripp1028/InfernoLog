@@ -115,7 +115,7 @@ When `kind = completion`:
 - A classic level becomes eligible for the demon list (placed manually — see `DEMON_LIST.md`), and the last step of the flow offers to place it now
 - The level counts on the Ranking page, which orders completions by rating
 
-Nothing is sent to GDDL. Submitting the completion as a GDDL record is a separate, explicit action on the level's page (see `EXTERNAL_APIS.md` → "Record submission").
+Saving a completion sends nothing to GDDL by itself. A user with a GDDL key connected is then offered a "Submit to GDDL?" card, and the same action is available later from the level's page (see `EXTERNAL_APIS.md` → "Record submission").
 
 **One completion per level per user, and it is edit-not-replace.** Choosing "Log a completion" for a level that already has one **routes the user to edit the existing completion** rather than creating or overwriting a second. There is no replace path.
 
