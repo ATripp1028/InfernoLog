@@ -56,7 +56,8 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 - [x] Google OAuth via AWS Cognito
 - [x] Account linking (connect both to one account)
-- [x] Username with 30-day cooldown, old username held
+- [x] Username with 30-day cooldown
+- [ ] Hold the old username for the cooldown period so nobody else can claim it and impersonate a recently-renamed account (the previous name is recorded but not reserved)
 - [x] Public/private profile toggle
 - [x] Discord visibility toggle
 - [x] Per-entry visibility (public/private per level_progress)
@@ -145,7 +146,7 @@ Goal: Make the app actively useful rather than a passive record.
 ### Infrastructure
 
 - [ ] `/v2/` API routes if breaking changes accumulated, with a deprecation period for `/v1/`
-- [ ] API keys — up to 5 named scoped keys per user, key management UI, settings page integration. Third-party tools send the key in a request header and it resolves to a user plus a scope set; creating, listing, rotating, and revoking keys stays first-party (signed-in session only). An unused `ApiKey` model is already in the schema
+- [ ] API keys — up to 5 named scoped keys per user, key management UI, settings page integration. Third-party tools send the key in a request header and it resolves to a user plus a scope set; creating, listing, rotating, and revoking keys stays first-party (signed-in session only). Keys don't expire but can be revoked or rotated (rotation replaces the key atomically), are shown once at creation with only a hash stored, and are rate-limited per key. Scopes are read and write for each of completions, drops, and lists, plus profile read. An unused `ApiKey` model is already in the schema
 - [ ] Geode mod (C++ via Geode framework, uses public API) — authenticates with a user's API key and auto-logs a completion when a level is beaten, passing the attempt count the game exposes. No mod-specific endpoints expected
 
 ---
@@ -172,7 +173,8 @@ Goal: Open InfernoLog to the public as a community platform.
 - [ ] Warn, suspend, ban with audit log
 - [ ] Moderator and admin access to private profiles through internal admin routes, not the public API
 - [ ] One appeal per ban
-- [ ] account_status, role fields on users table from day one
+- [x] account_status, role fields on users table from day one (banned and suspended accounts are already refused by the API)
+- [ ] Role-gated routes — moderators get the moderation dashboard, reports queue, and appeals queue; admins add verification management and moderator promotion/demotion. The role is checked server-side, and the frontend's admin area is gated on it
 
 ### Infrastructure
 
@@ -192,3 +194,4 @@ Goal: Open InfernoLog to the public as a community platform.
 - Level Picker Discovery Mode question set (designed after v4 launch)
 - Mobile app (if platform grows to justify it)
 - Rebeat handling (v3 placeholder, full design TBD)
+- Discord as a sign-in method — shelved over Cognito's pricing for OIDC providers; Discord stays a linked account that cannot sign in
