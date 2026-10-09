@@ -145,7 +145,7 @@ Goal: Make the app actively useful rather than a passive record.
 - [ ] Time Machine — multi-line graph (Visx), draggable range slider, retroactive placement, top N configurable, mirror portal icon
 - [ ] Skill tags — sourced from GDDL/AREDL APIs, per-level (global), displayed on completion entries and filterable
 - [ ] Stats page — comprehensive personal statistics (completion rate over time, attempts per tier, list progress percentages, skill type breakdown, etc.)
-- [ ] Rating reference notes (user-defined descriptions per whole-number score per category)
+- [ ] Rating reference notes — user-defined descriptions per whole-number score per category (e.g. "a 7 in Decoration means polished but not innovative"), to keep a user's ratings consistent over time
 - [ ] Level Picker — Discovery Mode delayed until after v4 initial release
 
 ### Infrastructure
@@ -163,6 +163,7 @@ Goal: Open InfernoLog to the public as a community platform.
 ### Features
 
 - [ ] Public profiles (`/[username]`), including a "Currently Attempting" section of in-progress levels, possibly capped (10 was the working number)
+- [ ] Per-category rating breakdowns shown on public profiles
 - [ ] View other users' completions, rankings, lists — read-only API endpoints addressed by username or id. Writes stay on the signed-in user's own routes. These reads enforce the profile-level and per-entry visibility settings that are already stored, answer a private profile with 403 (not 404, so "private" and "nonexistent" are distinguishable), and are paginated and filterable server-side rather than returned whole
 - [ ] Independent skill tag voting system (community votes on level skillsets)
 - [ ] Level Picker Discovery Mode (post-launch, after database population)
