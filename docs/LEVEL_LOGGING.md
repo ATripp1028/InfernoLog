@@ -11,10 +11,12 @@ LevelProgress (one per user per level)
       ├── 44% with run range 44-87           (kind = progress)
       ├── 76% on stream, notes about the attempt (kind = progress)
       ├── dropped, reason in notes           (kind = drop)
-      └── 100%                               (kind = completion) ← appears in ranking + stats
+      └── 100%                               (kind = completion) ← can be placed on the demon list
 ```
 
-This mirrors how the GDDL handles progress — players can log ratings and progress on levels they haven't beaten. Non-completion entries are hidden throughout the UI by default, revealed only when the user enables the "show non-completions" toggle (except for on the individual level page, where they are shown without the option to toggle them off).
+This mirrors how the GDDL handles progress — players can log ratings and progress on levels they haven't beaten.
+
+Two tables hold it. `LevelProgress` is the user's relationship to the level and carries everything that has **one current value per level**: status, rating scores, difficulty opinion, the user's GDDL tier, worst fail, coins collected, level notes, and visibility. `ProgressUpdate` is one logged event and carries what belongs to **that session**: percentage or run range, date, attempts, enjoyment, FPS, device, notes, and video links. See `schema.prisma` for the columns.
 
 ---
 
@@ -23,60 +25,74 @@ This mirrors how the GDDL handles progress — players can log ratings and progr
 When a user enters a level ID, the following fires automatically:
 
 ```
-User enters Level ID
+User enters Level ID (or picks a level by name)
         │
         ▼
-  GD servers API ─────────────────► name, creator, song, length
+  Level in InfernoLog's cache?
+    ├── Yes → use it (no external call)
+    └── No  → GD servers ──────────► name, creator, song, length, difficulty
+                 ├── rated non-demon → refused, nothing is logged
+                 └── unreachable / no such level → manual entry
         │
         ▼
-  Is level rated?
-    ├── Yes → GDDL API ────────────► suggested GDDL tier
-    └── No  → skip GDDL
+  Community lists (first resolve only) ► GDDL tier, AREDL rank, sheet tier
+        │
+        ▼
+  Rated level? → its community GDDL tier pre-fills the user's own tier
         │
         ▼
   levelthumbs.prevter.me ─────────► thumbnail (best-effort, silent fallback)
 ```
 
-**Fallback:** If the GD servers are unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability.
+**Fallback:** If the GD servers are unavailable, the user proceeds with manual entry. The logging flow is never blocked by API unavailability. See `EXTERNAL_APIS.md` for each source.
+
+**Only demons and unrated levels can be logged.** The cache refuses a rated non-demon (see `LOGGING_FLOW.md` → "Scope Stance").
 
 ---
 
-## Progress Update Fields
+## Fields
 
-All fields are optional except the level ID. The user logs whatever is relevant to them at that moment.
+All fields are optional except the level. The user logs whatever is relevant to them at that moment. "Per event" fields live on the `ProgressUpdate`; "per level" fields live on the `LevelProgress` and hold one current value however many times the level is logged.
 
-| Field                | Type                           | Notes                                                                                                                                                                    |
-| -------------------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Level ID             | Required                       | Triggers autofill on entry                                                                                                                                               |
-| Percentage           | Decimal 0-100                  | Progress path only (Best progress). Classic only. **Omitted on completions** (100% implied)                                                                              |
-| Run range            | e.g. 30-63                     | Progress path only, "From a run" mode. Start and end of best run (0-100 each). **Not used on completions** (always 0→100)                                                |
-| Completion time      | Duration                       | Platformer only (v2)                                                                                                                                                     |
-| Date                 | Date                           | Checkbox to flag as uncertain                                                                                                                                            |
-| Attempts             | Integer                        | Cumulative. See convention below                                                                                                                                         |
-| On stream            | Boolean                        | Was this session streamed live                                                                                                                                           |
-| FPS                  | Integer                        | e.g. 60, 120, 240. Pre-filled from the user's default FPS preference                                                                                                     |
-| Peak heart rate      | Integer                        | BPM from heart rate monitor (v2)                                                                                                                                         |
-| Enjoyment            | Integer 0-100                  | Whole numbers on 0-100, per event. See `RATING_SYSTEM.md` → Scales                                                                                                       |
-| Rating               | 0-10 score per rating category | Combined into a weighted average. One category ("Overall") by default                                                                                                    |
-| In-game difficulty   | Cached, read-only              | The level's actual rating, cached on `levels` from the GD servers (e.g. "Insane Demon"). Displayed, never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
-| Difficulty opinion   | Pill selector                  | Per-completion. The user's subjective read: Not demon-worthy / Easy / Medium / Hard / Insane / Extreme. The only difficulty field the user edits                         |
-| List references      | Per-list tier/rank             | GDDL tier, AREDL rank (extreme demons only), NLW tier                                                                                                                    |
-| Notes                | Text                           | Freeform. Venting encouraged, see Community Policy                                                                                                                       |
-| Completion video URL | URL                            |                                                                                                                                                                          |
-| Highlight video URL  | URL                            | Independent of On Stream                                                                                                                                                 |
-| Kind                 | progress / drop / completion   | Set by which FAB path was chosen — never a user-facing toggle mid-form                                                                                                   |
+| Field                | Scope     | Type                           | Notes                                                                                                                                             |
+| -------------------- | --------- | ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Level                | —         | Required                       | An ID or a name. Triggers autofill                                                                                                                |
+| Kind                 | Per event | progress / drop / completion   | Set by which FAB path was chosen — never a user-facing toggle mid-form                                                                            |
+| Percentage           | Per event | Decimal, above 0 up to 100     | Progress path only ("From 0%"). **Omitted on completions** (100% implied)                                                                         |
+| Run range            | Per event | e.g. 30-63                     | Progress path only, "From a run" mode. Integers 0-100, end above start. **Not used on completions**                                               |
+| Percentage version   | Per event | 2.1 / 2.2                      | Which game version's percentage system the figure is in. Pre-filled from the user's default                                                       |
+| Date                 | Per event | Date, optional time + timezone | Checkbox to flag as uncertain. A time is stored with the timezone it was entered in                                                               |
+| Attempts             | Per event | Integer                        | Cumulative. See convention below                                                                                                                  |
+| On stream            | Per event | Boolean                        | Was this session streamed live                                                                                                                    |
+| FPS                  | Per event | Integer                        | e.g. 60, 120, 240. Pre-filled from the user's default FPS                                                                                         |
+| Device               | Per event | pc / mobile                    | Pre-filled from the user's default device                                                                                                         |
+| Enjoyment            | Per event | Integer 0-100                  | Whole numbers on 0-100. See `RATING_SYSTEM.md` → Scales                                                                                           |
+| Notes                | Per event | Text                           | Freeform. Venting encouraged, see Community Policy                                                                                                |
+| Completion video URL | Per event | URL                            | Completions only                                                                                                                                  |
+| Highlight video URL  | Per event | URL                            | Independent of On Stream                                                                                                                          |
+| 2-player             | Per event | Solo / with a partner + name   | Completions of 2-player levels only                                                                                                               |
+| In-game difficulty   | Per event | Snapshot, read-only            | Copied from the cached level when the event is logged (e.g. "Insane Demon"). Never user-edited. See `LOGGING_FLOW.md` → "Two Difficulty Concepts" |
+| Rating               | Per level | 0-10 score per rating category | Combined into a weighted average. One category ("Overall") by default                                                                             |
+| Difficulty opinion   | Per level | Pill selector                  | The user's subjective read: Not demon-worthy / Easy / Medium / Hard / Insane / Extreme. The only difficulty field the user edits                  |
+| GDDL tier            | Per level | Integer                        | The user's own tier opinion, pre-filled from the level's community tier                                                                           |
+| Worst fail           | Per level | Integer 0-100, optional date   | Best run from 0% before beating or dropping the level                                                                                             |
+| Coins collected      | Per level | Up to three coins              | Only for levels that have coins                                                                                                                   |
+| Level notes          | Per level | Text                           | About the level overall, separate from a session's notes                                                                                          |
+| Visibility           | Per level | public / private               | Stored per entry, default public. See "Per-entry visibility" below                                                                                |
+
+The level's community placements (GDDL tier, AREDL rank, sheet tier) are properties of the level, not of the user's entry, and are not logged — see `EXTERNAL_APIS.md` → "Community lists".
 
 ### Attempt Count Convention
 
-Attempts represent **cumulative attempts across all uploads and copies of the level**, not just the current upload. This is an honor-system convention the app cannot enforce. It is documented in the UI tooltip on the attempts field. Two-digit years are interpreted as 2000s given GD's 2013 release.
+Attempts represent **cumulative attempts across all uploads and copies of the level**, not just the current upload. This is an honor-system convention the app cannot enforce. It is stated in a hint under the attempts field.
 
-### Worst Fail vs. Percentage
+### Worst Fail
 
-In InfernoLog, percentage is used for both progress logging and worst fail tracking. The user's highest non-100% logged percentage serves as their worst fail record. No separate "worst fail" field is needed — it emerges naturally from the progress history.
+Worst fail is its own stored field on the level entry, with an optional date. The completion and drop forms ask for it; it is not derived from the progress history. The Level Page shows it as its own milestone in the timeline.
 
 ### Run Range Format
 
-Run range represents the start and end percentage of the player's best run, e.g. `30-63` meaning they started at 30% and reached 63%. Both values are integers between **0 and 100** (a run from the start of the level is **0%**, not 1%).
+Run range represents the start and end percentage of the player's best run, e.g. `30-63` meaning they started at 30% and reached 63%. Both values are integers between **0 and 100** (a run from the start of the level is **0%**, not 1%), and the end must be above the start.
 
 Run range applies **only to the progress path**, and only in "From a run" mode. A completion is by definition a 0→100 run, so it has **no run-range fields** — there is nothing to log. See `LOGGING_FLOW.md` for the progress path's "From 0%" / "From a run" segmented control.
 
@@ -86,7 +102,7 @@ Run range applies **only to the progress path**, and only in "From a run" mode. 
 
 The logging flow is a FAB-triggered, multi-step modal. **The path — log a completion, log progress, or drop a level — is chosen at the FAB before the modal opens**, so each path is a purpose-built form rather than one generic form with a mid-flow completion toggle. There is **no mid-form "Is this your completion?" decision** and **no auto-placement**: every completion starts unplaced and is placed manually, prompted _after_ submit.
 
-See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, the three paths, field reference, and post-submit ranking placement). It supersedes this section.
+See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, the three paths, field reference, and post-submit placement).
 
 ---
 
@@ -94,49 +110,56 @@ See **`LOGGING_FLOW.md`** for the full specification (entry point, modal shape, 
 
 When `kind = completion`:
 
-- The `level_progress.status` is updated to `completed`
-- The entry becomes eligible for the personal difficulty ranking (placed manually — see `DEMON_LIST.md`)
-- Top 5 tracking snapshot is evaluated
-- The GDDL record submission option appears (if API key configured)
-- The post-submit "Place in ranking now?" prompt is offered
+- `LevelProgress.status` becomes `COMPLETED`
+- The level is removed from Want to Beat, in the same transaction
+- A classic level becomes eligible for the demon list (placed manually — see `DEMON_LIST.md`), and the last step of the flow offers to place it now
+- The level counts on the Ranking page, which orders completions by rating
 
-**One completion per level per user in v1, and it is edit-not-replace.** Rebeat handling is a v3 feature. Choosing "Log a completion" for a level that already has a completion **routes the user to edit the existing completion** rather than creating or overwriting a second one. There is no replace path in v1.
+Nothing is sent to GDDL. Submitting the completion as a GDDL record is a separate, explicit action on the level's page (see `EXTERNAL_APIS.md` → "Record submission").
+
+**One completion per level per user, and it is edit-not-replace.** Choosing "Log a completion" for a level that already has one **routes the user to edit the existing completion** rather than creating or overwriting a second. There is no replace path.
+
+**A completion ends the level's history.** A progress update dated after the completion is refused; one dated before it, on the same day, or undated is backfill and is accepted. The spreadsheet import enforces the same rule.
 
 ---
 
 ## Dropped Levels
 
-A dropped level is a `level_progress` entry with `status = dropped`, and the drop itself is a `progress_update` with `kind = drop`. It is not a separate entity — the full progress history is preserved.
+A dropped level is a `LevelProgress` entry with `status = DROPPED`, and the drop itself is a `ProgressUpdate` with `kind = drop`. It is not a separate entity — the full progress history is preserved.
 
 ```
-level_progress.status transitions:
-  (none) → dropped          (drop-from-scratch — dropping a never-logged level)
-  in_progress → dropped     (user marks as dropped)
-  dropped → in_progress     (automatic when the user logs new progress)
-  in_progress → completed   (user logs completion)
-  dropped → completed       (user beats it after dropping)
+LevelProgress.status transitions:
+  (none) → DROPPED          (drop-from-scratch — dropping a never-logged level)
+  IN_PROGRESS → DROPPED     (user marks as dropped)
+  DROPPED → IN_PROGRESS     (automatic when the user logs new progress)
+  IN_PROGRESS → COMPLETED   (user logs completion)
+  DROPPED → COMPLETED       (user beats it after dropping)
 ```
 
 A level can be dropped without ever having been logged ("drop-from-scratch"): the
-`level_progress` row is created directly at `status = dropped`, with no prior
-`in_progress` row. Conversely, logging a progress update on a dropped level
-**automatically** flips it back to `in_progress` — see `LOGGING_FLOW_RECONCILIATION.md`.
+`LevelProgress` row is created directly at `DROPPED`, with no prior
+`IN_PROGRESS` row. Conversely, logging a progress update on a dropped level
+**automatically** flips it back to `IN_PROGRESS` — see `LOGGING_FLOW_RECONCILIATION.md`.
 
-When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing `level_progress` entry. The drop history remains intact as its own `progress_update` row(s) — not merged into or overwritten by the completion.
+When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing entry. The drop history remains intact as its own `ProgressUpdate` row(s) — not merged into or overwritten by the completion.
 
-The drop screen collects date, attempts, and a reason — stored on the `kind = drop` row using the same `date`/`attempts`/`notes` columns every other progress update uses, not drop-specific fields. A level can be dropped more than once (drop → resume → drop again); each drop is its own row, so earlier drops' reasons and dates aren't lost when a later one is logged.
+The drop screen collects date, attempts, worst fail, and a reason — the reason and date stored on the `kind = drop` row using the same `date`/`attempts`/`notes` columns every other progress update uses, not drop-specific fields. A level can be dropped more than once (drop → resume → drop again); each drop is its own row, so earlier drops' reasons and dates aren't lost when a later one is logged.
+
+Deleting a single logged event re-derives the status from what remains. Deleting the last one deletes the whole entry.
 
 ---
 
 ## In-Progress Levels
 
-In-progress levels are `level_progress` entries with `status = in_progress` and no `kind = completion` update. They appear in a dedicated "Currently Attempting" section of the user's profile.
+In-progress levels are `LevelProgress` entries with `status = IN_PROGRESS` and no `kind = completion` update. They appear in the Log alongside everything else, and the Log's status filter narrows to them. There is no limit on how many a user can have.
 
-- Up to **10 simultaneous in-progress levels** (soft cap, subject to revision)
-- Progress is a manually updated snapshot — the user logs updates whenever they have something worth recording
-- Per-entry privacy — each in-progress entry can be set public or private independently
+Progress is a manually updated snapshot — the user logs updates whenever they have something worth recording.
 
-**Motivating example for per-entry privacy:** A well-known player may want to hide a completion entry until their video goes live (e.g. KrMaL verifying Low Death in mid-March but holding the video until April 1st). Per-entry privacy supports this without requiring the entire profile to go private.
+### Per-entry visibility
+
+Each level entry has a public/private setting, independent of the account's profile visibility. It is stored and editable, and **nothing enforces it**, because no part of the app shows one user's data to another.
+
+**Motivating example:** A well-known player may want to hide a completion entry until their video goes live (e.g. KrMaL verifying Low Death in mid-March but holding the video until April 1st). Per-entry privacy is what will let that happen without taking the whole profile private.
 
 ---
 
@@ -146,58 +169,35 @@ Fully supported with the same fields as rated levels — and the only levels bes
 be logged at all, since the cache refuses a rated non-demon (see `LOGGING_FLOW.md` → "Scope
 Stance"). The differences:
 
-- GDDL autofill skipped (GDDL tracks rated levels only)
-- List references entered manually
+- No GDDL tier is pre-filled (GDDL tracks rated levels only); the user can still enter their own
 - Thumbnails best-effort via levelthumbs (covers significant unrated levels)
-- Skill tags unavailable until v4
-- Appear in personal ranking with blank official tier fields
-- Toggle on ranking page to hide unrated levels (ranking numbers update for that view)
+- Appear on the demon list with blank community tier fields
+- A toggle on the demon list page hides unrated levels (rank numbers update for that view)
 - Not reachable through the GD-server search escalation unless the face its player votes gave it is
   a demon one — the escalation asks GD for demons only, so anything else is added by its level ID
-- Filtering the ranking by a demon tier hides them: an unrated level has no tier of its own
+- Filtering by a demon tier hides them: an unrated level has no tier of its own
 
 ---
 
 ## Platformer Levels
 
-Tracked in a separate log and ranking. Classic and platformer are entirely independent systems. Platformer-specific details are a v2 design concern. Known v2 differences:
-
-- **Percentage omitted** — not meaningful for platformer
-- **Completion time added** — the platformer equivalent of worst fail / progress percentage
-- **Separate ranking page** — `/[username]/ranking/platformer`
-- **Different list references** — Pemonlist and others TBD
-- **Attempt count** — applicability TBD in v2
-
-Schema accommodates platformer from day one via `level_type: ENUM (classic, platformer)` on the `levels` table.
+The schema distinguishes them — `Level.levelType` is `CLASSIC` or `PLATFORMER`, and `LevelProgress.completionTime` exists for a platformer completion's time — but there is no platformer-specific logging UI. A platformer level can be logged with the same fields as a classic one. It is excluded from the demon list, which holds classic levels only, and the Log can filter by level type.
 
 ---
 
-## Non-Completion Entries: Visibility Rules
+## Where Non-Completions Appear
 
-```
-Toggle OFF (default)          Toggle ON
-─────────────────────         ─────────────────────
-Completion entries only       All progress updates shown
-                              Non-completions visually
-                              distinguished (badge/tint)
-
-Applies to:
-  - The Log
-  - The Ranking view
-  - Stats
-  - Export (user chooses at export time)
-  - API responses for list/ranking endpoints
-
-Does NOT apply to:
-  - The Level Page timeline — the Level Page always shows the
-    full history unconditionally. The per-entry privacy
-    (level_progress.visibility) is still enforced independently.
-```
-
-Non-completion entries, even if they carry enjoyment scores or ratings, are never surfaced in community averages (v4) unless `kind = completion`. This mirrors GDDL's approach.
+| Surface         | Non-completion entries                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------- |
+| The Log         | Shown. Every logged level is listed; the status filter narrows to completed, in progress, or dropped |
+| The Level Page  | Shown. The timeline is always the full history                                                       |
+| The Events feed | Shown. Every progress update is an entry                                                             |
+| The demon list  | Not shown — only completions can be placed                                                           |
+| The Ranking     | Not shown — it ranks completions by rating                                                           |
+| Export          | Included, on the Progress and Dropped tabs                                                           |
 
 ---
 
 ## Level Data Sync
 
-The RobTop sync jobs (see `EXTERNAL_APIS.md`) keep the shared `levels` cache current with GD's servers on two cadences (weekly volatile + monthly standard). When a level's cached metadata (name, creator, difficulty, rating status, song) changes upstream, the sync overwrites the cache row **directly and silently** — there is no notification, no nudge, and no accept/dismiss step. A level RobTop no longer returns is flagged `delisted` and frozen at its last-known values. Per-user progress data (including each completion's difficulty snapshot) is never affected.
+The level-cache sync (see `EXTERNAL_APIS.md` → "Level-Cache Sync") keeps the shared `levels` cache current with GD's servers, re-checking a slice of the cache every 6 hours. When a level's cached metadata (name, creator, difficulty, rating status, song) changes upstream, the sync overwrites the cache row **directly and silently** — there is no notification, no nudge, and no accept/dismiss step. A level GD no longer returns is flagged delisted, once that has been confirmed on a later pass, and frozen at its last-known values. Per-user progress data (including each event's difficulty snapshot) is never affected.

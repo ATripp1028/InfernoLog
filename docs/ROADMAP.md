@@ -8,7 +8,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 
 - [x] Level progress model — every interaction with a level is a progress update. Completion = `kind = completion`, drop = `kind = drop`
 - [x] All progress update fields: percentage, run range, date (with uncertainty flag), attempts, on stream, FPS, enjoyment, per-category rating scores, in-game difficulty snapshot, notes, completion video URL, highlight video URL
-- [x] Non-completion entries hidden by default, revealed by toggle
+- [x] Non-completion entries listed in the Log, filterable by status (completed / in progress / dropped)
 - [x] One completion per user per level (rebeat handling v3)
 - [x] In-progress levels (currently attempting) — per-entry privacy
 - [x] Dropped level logging — status flag on level_progress, drop reason, date, full progress history preserved
@@ -101,7 +101,7 @@ Goal: Deepen the core logging experience. No new platform features.
 ### Platformer Support
 
 - [ ] Separate platformer log and ranking — a platformer demon list beside the classic one, with the same place / reorder / unplace surface (only `ClassicDemonList` exists in the schema)
-- [ ] Completion time field (replaces percentage for platformer)
+- [ ] Completion time field (replaces percentage for platformer) — the column exists on the level entry; no form collects it
 - [ ] Platformer-specific list integrations (Pemonlist, others TBD)
 - [ ] Platformer attempt count convention TBD
 - [ ] Schema accommodated from v1 via `level_type` enum
@@ -115,6 +115,7 @@ Goal: Deepen the core logging experience. No new platform features.
 ### Additional Logging Fields
 
 - [X] NONG fields on levels: `is_nong`, `nong_song_title`, `nong_artist`, `nong_source_url`
+- [ ] Peak heart rate (BPM, from a heart rate monitor) as an optional field on a logged session
 
 ### Features
 
@@ -160,7 +161,7 @@ Goal: Open InfernoLog to the public as a community platform.
 
 ### Features
 
-- [ ] Public profiles (`/[username]`)
+- [ ] Public profiles (`/[username]`), including a "Currently Attempting" section of in-progress levels, possibly capped (10 was the working number)
 - [ ] View other users' completions, rankings, lists — read-only API endpoints addressed by username or id. Writes stay on the signed-in user's own routes. These reads enforce the profile-level and per-entry visibility settings that are already stored, answer a private profile with 403 (not 404, so "private" and "nonexistent" are distinguishable), and are paginated and filterable server-side rather than returned whole
 - [ ] Independent skill tag voting system (community votes on level skillsets)
 - [ ] Level Picker Discovery Mode (post-launch, after database population)
@@ -197,6 +198,7 @@ Goal: Open InfernoLog to the public as a community platform.
 - Level Picker Discovery Mode question set (designed after v4 launch)
 - Mobile app (if platform grows to justify it)
 - Rebeat handling (v3 placeholder, full design TBD)
+- A "show non-completions" toggle beyond the demon list (Ranking page, a stats page) — the earlier design hid non-completions everywhere by default; the Log shows them and filters by status instead
 - The spreadsheet's two reserved columns, `nlw_tier` (Completions) and `gddl_tier_at_drop` (Dropped) — both export blank and are ignored on import; give them data or remove them
 - Discord notifications for events — a mapping from event type to Discord channel. The event log needs no schema change for it; the one constraint is that the internal demon-list rebalance event is never mapped to anything
 - Event history on public profiles — each event already stores a visibility (default public) that nothing reads; decide what it means before any profile shows events
