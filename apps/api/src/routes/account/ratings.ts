@@ -131,10 +131,10 @@ app.put('/me/rating-config', async (c) => {
 
   const toDelete = [...existingIds].filter((id) => !bodyIds.has(id))
 
-  // Deleting a category has to reach into the user's saved List presets too.
+  // Deleting a category has to reach into the user's saved Log presets too.
   // Their view-config blobs reference categories by id (`cat:<id>` sorts and
   // columns, `filters.categoryRatings` keys), and no foreign key covers them —
-  // left behind, the List page renders the raw UUID where the category name
+  // left behind, the Log page renders the raw UUID where the category name
   // used to be. Read them here and rewrite the affected ones inside the same
   // transaction as the delete, so a preset can never outlive its category.
   const deletedIds = new Set(toDelete)

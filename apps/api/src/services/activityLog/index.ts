@@ -302,7 +302,7 @@ export async function recordRankingBulkReplace(
  * `REBALANCE_GAP`, carrying every entry's new `listIndex`.
  *
  * INTERNAL ONLY. The order the user sees is unchanged — only the numbers
- * underneath it move — so this must never reach a Log/timeline feed or a
+ * underneath it move — so this must never reach a Events feed or a
  * Discord channel mapping. It is the one hidden event type.
  *
  * It exists so that a level's logged index values all live in the SAME

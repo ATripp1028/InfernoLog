@@ -7,7 +7,7 @@
  * were issued in order; whether the resulting rows actually land in the right
  * order, whether deleting a category takes its rating scores with it without
  * tripping a foreign key, and whether the same delete rewrites the JSON blobs
- * of the saved List presets that referenced it, are questions only Postgres
+ * of the saved Log presets that referenced it, are questions only Postgres
  * answers.
  */
 
@@ -224,7 +224,7 @@ describe('PUT /me/rating-config — removing a category', () => {
     expect(scores.map((s) => s.categoryId)).toEqual([keep!.id])
   })
 
-  it('purges the deleted category out of the saved list presets', async () => {
+  it('purges the deleted category out of the saved Log presets', async () => {
     // The preset's view config is opaque JSON with no foreign key to the
     // category — nothing but this write path keeps the two in step.
     const user = await seedUser(prisma)

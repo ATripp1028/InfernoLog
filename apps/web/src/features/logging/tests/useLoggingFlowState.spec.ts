@@ -326,7 +326,7 @@ describe('useLoggingFlowState', () => {
     })
   })
 
-  // Handed to the ranking page's "Place now" navigation so it can scroll to
+  // Handed to the demon list page's "Place now" navigation so it can scroll to
   // the entry that was just submitted.
   describe('the last completion', () => {
     it('starts unset', () => {
@@ -341,7 +341,7 @@ describe('useLoggingFlowState', () => {
       expect(result.current.lastCompletionLevelProgressId).toBe('progress-1')
     })
 
-    it('survives closing, so the ranking page can still read it', () => {
+    it('survives closing, so the demon list page can still read it', () => {
       const { result } = opened()
       act(() => result.current.setLastCompletion('progress-1'))
 

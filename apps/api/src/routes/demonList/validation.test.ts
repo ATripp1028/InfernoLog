@@ -1,5 +1,5 @@
 /**
- * Unit tests for the classic-ranking routes' request gates and error mapping.
+ * Unit tests for the classic demon list routes' request gates and error mapping.
  *
  * The onError split is the part with teeth: a missing target is a 404 and a
  * rule violation (already placed, bad neighbours) is a caller-fixable 400,

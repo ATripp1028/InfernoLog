@@ -4,11 +4,9 @@ The event log is the record of things a user **did** that are not already
 recoverable from a timestamp somewhere else: ranking moves, edits to a log entry,
 and rating-configuration changes.
 
-The schema and its emission discipline came first; the two surfaces that read it
-are the **Log page** (`/log`, `GET /v1/me/activity`) and the **rank history**
-panel on a level page (`GET /v1/me/levels/{levelId}/rank-history`). See
-"Surfaces". Discord wiring is still later work, and the shape below is chosen so
-it can be added without a migration.
+Two surfaces read it: the **Events page** (`/events`, `GET /v1/me/activity`) and
+the **rank history** panel on a level page
+(`GET /v1/me/levels/{levelId}/rank-history`). See "Surfaces".
 
 Events have been written since 2026-08-24 regardless of what reads them, because
 history cannot be backfilled after the fact. Every surface therefore has a hard
@@ -23,15 +21,15 @@ the columns; emission lives in `apps/api/src/services/activityLog`.
 
 ## The one rule that cannot be relaxed
 
-**Every write path that touches `classic_demon_list.ranking_index` must emit an
-event.** Not most of them. A `ranking_index` written without a matching impact
+**Every write path that touches `ClassicDemonList.listIndex` must emit an
+event.** Not most of them. A `listIndex` written without a matching impact
 row is a permanent hole in that level's history — the previous value is gone and
 nothing can reconstruct it later. `services/invariants.integration.test.ts`
 sweeps the whole database for that gap after driving each write path, so a new
 path that forgets fails there rather than losing history quietly.
 
 Nothing else in this document has that property. A missed `LOG_EDIT` costs one
-feed entry; a missed ranking event corrupts every reconstruction that spans it.
+feed entry; a missed demon list event corrupts every rank history that spans it.
 
 ---
 
@@ -49,9 +47,8 @@ feed entry; a missed ranking event corrupts every reconstruction that spans it.
 
 `DEMON_LIST_REBALANCE` is **internal-only** — the one hidden type. It exists so
 every level's logged index values stay in one coordinate system; the order the
-user sees does not change, and nothing they did is described by it. It must be
-filtered out of any Log/timeline surface and excluded from any future
-event-type → Discord channel mapping.
+user sees does not change, and nothing they did is described by it. It is
+excluded from the Events feed in the query itself.
 
 **Every other type is user-facing**, `DEMON_LIST_BULK_REPLACE` included. That one
 produces rows structurally identical to a rebalance's — one event, one impact row
@@ -134,9 +131,9 @@ removed category rather than as a name that may since have moved elsewhere.
 
 ### What an edit does and does not snapshot
 
-`LOG_EDIT` captures no `ranking_index` and no classic-ranking position. Those
-belong to ranking events, and editing a rating does **not** move a level in the
-difficulty ranking — that ranking is ordered by hand, not by score.
+`LOG_EDIT` captures no `listIndex` and no demon list position. Those
+belong to demon list events, and editing a rating does **not** move a level in
+the demon list — that list is ordered by hand, not by score.
 
 A rating change does record what it did to the two things that _are_ ordered by
 score. Both are ordinary `activity_log_field_change` rows on the same event,
@@ -148,7 +145,7 @@ carrying `category = RATING`:
 | `rating_rank`      | Its 1-based position in the user's rating order, before and after. That order is defined once, by `ratingOrderComparator` in `packages/core/src/ratingOrder.ts`, and is the same one the Ranking page renders — see `RATING_SYSTEM.md` → "The Canonical Rating Order" |
 
 These are the one deliberate exception to "actually changed is measured against
-the values already stored" — nothing stores them today, so they are computed
+the values already stored" — nothing stores them, so they are computed
 inside the same transaction. `computeOverallRating` in `packages/core` does the
 arithmetic for the average; the rank is one ordered pass over that user's own
 levels, ties broken on enjoyment, then completion date, then `levelId` (always
@@ -159,10 +156,9 @@ afterwards.** The average could in principle be recomputed from the field change
 plus the config in force then; the rank cannot, because it depends on every
 _other_ level's average at that instant and nothing records those.
 
-`category = RATING` rather than a new `DERIVED` one, deliberately. `LevelProgress`
-is expected to gain stored columns for both, at which point these stop being
-derived and become ordinary field changes — and `RATING` is what they would have
-been all along. Choosing `DERIVED` now would mean migrating them back later.
+`category = RATING` rather than a separate category for derived values,
+deliberately: they are facts about the level's rating, and a "rating changes"
+filter should find them.
 
 A weight change still logs no knock-on effect on any level (see "Rating-config
 events" below), so the rating order's history has deliberate gaps: every stored
@@ -191,9 +187,9 @@ Rows it can carry:
   category that does not have one yet.
 - `include_enjoyment`, `enjoyment_weight`, `enjoyment_sort_order` — scalars.
 
-`PUT /v1/me/rating-config` is the only source. There is no rating mode to switch
-and nothing rating-shaped rides on `PATCH /v1/me`, so that route emits nothing at
-all.
+`PUT /v1/me/rating-config` is the only source. `PATCH /v1/me` emits nothing at
+all — which leaves a gap, because its schema still accepts `includeEnjoyment` and
+`enjoymentWeight`: a change made through that route is not logged.
 
 **A config change never logs its knock-on effect on levels.** Changing a weight
 shifts every level's weighted total and can reshuffle a rating-sorted view, and
@@ -211,30 +207,18 @@ comparable within a config era, not across one.
 
 **Progress logs, completions and drops.** These are already events —
 `progress_updates.kind` plus `logged_at` — and duplicating them into
-`activity_log` would create two records of one fact that can drift apart. The Log
+`activity_log` would create two records of one fact that can drift apart. The Events
 page reads both tables and merges them at read time (the "hybrid merge") — see
 "Surfaces". Nothing should start writing progress rows into `activity_log`
 instead.
 
 **Collection add/remove.** Adding a level to Want to Beat, Favorites, or a custom
-collection is not tracked at all, in any form. If it is ever wanted, it is a new
-`eventType` and (probably) no new tables.
-
-**Whole-ranking reconstruction.** The snapshot-at-T and retroactive-at-T queries
-defined in `ROADMAP.md` (v3) remain unbuilt. The rank-history walk under "Surfaces"
-answers a narrower question — one level's position over time — and is not a
-substitute for either.
+collection is not tracked at all, in any form.
 
 **Anything in the spreadsheet import or export.** Events never round-trip: the
 import template must not accept them and the export must not emit them. An import
 still _emits_ a `DEMON_LIST_BULK_REPLACE`, which is the opposite direction — the
 import producing an event, not events being carried in a file.
-
-**Discord notifications and the event-type → channel mapping.** Not built. The
-`eventType` enum is the natural key for that mapping when it lands. The only
-constraint it inherits is that `DEMON_LIST_REBALANCE` must never be mapped to
-anything — which is exactly why the import's bulk replace is its own type rather
-than sharing that one.
 
 ---
 
@@ -248,16 +232,16 @@ placement that trips a renormalization emits `DEMON_LIST_REBALANCE` and then
 stamps it per statement, so the two are a millisecond apart at best and can land
 in the same one, and the column's `DEFAULT CURRENT_TIMESTAMP` is frozen at
 transaction start for anything inserted by raw SQL. Reading those two in the
-wrong order makes a reconstruction return indices from the stale coordinate
-system.
+wrong order makes the rank-history walk return indices from the stale
+coordinate system.
 
 ### Ordering across the merge
 
-The Log page reads `activity_log` and `progress_updates` together, and keyset
+The Events page reads `activity_log` and `progress_updates` together, and keyset
 pagination over the pair needs a **total** order. `sequence` does not exist on
 `progress_updates`, so the key is three levels deep:
 
-1. **Timestamp, descending** — `created_at` for an event, `logged_at` for a
+1. **Timestamp, descending** — `createdAt` for an event, `loggedAt` for a
    progress update. Never `progress_updates.date`: that is when the user says the
    run happened, is optionally uncertain, and can be back-dated. This log records
    when a thing was written down, not when it happened. A back-dated completion
@@ -273,7 +257,7 @@ one table and a `uuid` for the other sound.
 
 Key 3 is **not** optional. The spreadsheet import writes its progress updates in
 a single `createMany` (`services/importExport/import/processBatch.ts`), so an
-entire batch shares one `logged_at` — precisely the case where a page boundary
+entire batch shares one `loggedAt` — precisely the case where a page boundary
 landing mid-batch would skip or repeat rows.
 
 ---
@@ -283,16 +267,16 @@ landing mid-batch would skip or repeat rows.
 Two read surfaces consume this schema. Both are scoped to the authenticated
 user's own data; neither has a public equivalent while `visibility` is inert.
 
-### The Log page
+### The Events page
 
-`/log` — one merged, filtered, paginated feed of `activity_log` events and
+`/events` — one merged, filtered, paginated feed of `activity_log` events and
 `progress_updates`, newest first by the order above.
 
 - **`DEMON_LIST_REBALANCE` is excluded in the query**, not styled quiet. It must
   never reach a feed response.
 - **The chips are four things a user recognises having done**, not the event
   types behind them: **Progress** (`progress_updates`, all three kinds),
-  **Ranking** (the four visible `DEMON_LIST_*` types), **Edits** (`LOG_EDIT`) and
+  **Demon list** (the four visible `DEMON_LIST_*` types), **Edits** (`LOG_EDIT`) and
   **Settings** (`RATING_CONFIG_CHANGE`). Naming no chip is "All". They are a
   hand-written list on purpose — anything that enumerated `ActivityEventType`
   and rendered what it found would grow a chip for the hidden type.
@@ -301,12 +285,13 @@ user's own data; neither has a public equivalent while `visibility` is inert.
   filter over the whole feed. A level and a date range apply across all of them;
   the range uses the same recorded-time clock the ordering does.
 - **The level filter is a union, not a column match.** A `DEMON_LIST_BULK_REPLACE`
-  has a null `level_id` and belongs to every level its impact rows touched, so
-  filtering by a level must match `activity_log.level_id` **or**
-  `activity_log_level_impact.level_id`. Without the union, an import that moved a
+  has a null `levelId` and belongs to every level its impact rows touched, so
+  filtering by a level must match `activity_log.levelId` **or**
+  `activity_log_level_impact.levelId`. Without the union, an import that moved a
   level goes missing from that level's history.
 - `RATING_CONFIG_CHANGE` is account-scoped and drops out of a level-filtered feed
-  by definition. Say so in the UI rather than leaving a silent hole.
+  by definition. The filter bar says so ("Account-wide events are hidden while
+  filtered to a level") rather than leaving a silent hole.
 
 A glossary explains this vocabulary in the user's terms. It must not name event
 types, and `DEMON_LIST_REBALANCE` must not appear in it at all.
@@ -319,8 +304,8 @@ data.
 Direct events come straight from that level's impact rows. **Indirect shifts —
 the level moving because something else was placed above it — have no rows of
 their own** (`DEMON_LIST.md` → "Direct events only"), and are reconstructed:
-walk that user's ranking events in `(created_at, sequence)` order maintaining a
-map of `level_id` → current `ranking_index`, applying every impact row; after
+walk that user's demon list events in `(createdAt, sequence)` order maintaining a
+map of `levelId` → current `orderIndex`, applying every impact row; after
 each event the level's position is 1 + the count of indices ordered above it.
 
 **This is the first reader of `DEMON_LIST_REBALANCE`.** Index comparisons are only
@@ -360,9 +345,9 @@ map is complete from their first placement.
 #### Holes a deletion leaves
 
 Where a deleted entry has left a hole (see "Deletion and privacy" below), the
-recomputed position will disagree with a stored `position_before`. Trust the
+recomputed position will disagree with a stored `positionBefore`. Trust the
 stored value and render the shift unattributed — "1 level placed above" rather
-than a name. The shift itself is never lost: a `position_before` that does not
+than a name. The shift itself is never lost: a `positionBefore` that does not
 match the reconstruction is proof that drift happened, independent of the walk.
 
 Deleting an entry removes that level's **own** events but leaves its impact rows
@@ -387,8 +372,8 @@ config save needlessly refetch the list and collections.
 
 The relationship runs one way, and `lib/api/tests/activity.spec.ts` pins it:
 `invalidateOnWrite` covers **both** sets, because a progress write is also an
-event, while the demon list mutations, the rating-config save and the rating-mode
-switch on `PATCH /v1/me` call `invalidateOnEvent` alone. A later "just add it to
+event, while the demon list mutations and the rating-config save call
+`invalidateOnEvent` alone. A later "just add it to
 the other list" edit is exactly what that test exists to catch.
 
 ---
@@ -401,6 +386,5 @@ that happen to name it survive, readable through the denormalized
 `levelName`. Deleting the account cascades everything away.
 
 `activity_log.visibility` reuses the `EntryVisibility` enum and defaults to
-`PUBLIC`. It is inert today: every route is scoped to the authenticated user's
-own data, and no public-profile route exists. It is written now so events do not
-all turn out to have been retroactively public the day a profile route ships.
+`PUBLIC`. It is inert: every route is scoped to the authenticated user's own
+data, and nothing reads the column.

@@ -96,16 +96,16 @@ Cursor-based (keyset) pagination is the standard for list endpoints. Offset pagi
 
 This is **not** universal, and the exceptions are intentional:
 
-| Endpoint                                       | Scheme                     | Why                                                                                                                                       |
-| ---------------------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /v1/levels/browse`                        | cursor (keyset)            | The standard. Stable ordering over a large cache.                                                                                         |
-| `GET /v1/me/collections/{collectionId}/levels` | cursor (keyset)            | The same browse, scoped to one collection.                                                                                                |
-| `GET /v1/me/activity`                          | cursor (keyset)            | The merged event/progress feed, newest first.                                                                                             |
-| `GET /v1/me/export`                            | `offset` + `limit`         | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive. Returns `{ items, hasMore }`.            |
-| `GET /v1/me/progress`                          | **none** — full payload    | The List page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
-| `GET /v1/me/demon-list/classic`                | **none** — full payload    | Returns placed and unplaced columns together; the demon list UI is a drag-and-drop board over the whole set.                              |
-| `GET /v1/levels/search`                        | **none** — `LIMIT 20`      | Typeahead.                                                                                                                                |
-| `GET /v1/levels/gd-search`                     | **none** — first page only | One upstream GD query; never paginated (see below).                                                                                       |
+| Endpoint                                       | Scheme                     | Why                                                                                                                                      |
+| ---------------------------------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /v1/levels/browse`                        | cursor (keyset)            | The standard. Stable ordering over a large cache.                                                                                        |
+| `GET /v1/me/collections/{collectionId}/levels` | cursor (keyset)            | The same browse, scoped to one collection.                                                                                               |
+| `GET /v1/me/activity`                          | cursor (keyset)            | The merged event/progress feed, newest first.                                                                                            |
+| `GET /v1/me/export`                            | `offset` + `limit`         | Section-by-section full drain; the client stitches the file. Stable snapshot, order-insensitive. Returns `{ items, hasMore }`.           |
+| `GET /v1/me/progress`                          | **none** — full payload    | The Log page wants every row in hand for client-side filtering and a live match counter. Hundreds to low thousands of rows for one user. |
+| `GET /v1/me/demon-list/classic`                | **none** — full payload    | Returns placed and unplaced columns together; the demon list UI is a drag-and-drop board over the whole set.                             |
+| `GET /v1/levels/search`                        | **none** — `LIMIT 20`      | Typeahead.                                                                                                                               |
+| `GET /v1/levels/gd-search`                     | **none** — first page only | One upstream GD query; never paginated (see below).                                                                                      |
 
 ---
 
@@ -194,8 +194,8 @@ GET  /v1/me/progress
 GET  /v1/me/progress/{levelId}
 ```
 
-- `GET /v1/me/progress` — Backs the List page. Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata (including the level's community GDDL / AREDL / sheet tiers), the **representative** progress update as `entry` (the completion if the level has one, otherwise the most recent), the level-scoped `userGddlTier`, `difficultyOpinion` and `ratingScores`, a query-time-computed `overallRating` (the weighted average of `ratingScores` and enjoyment — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicDemonList` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
-- `GET /v1/me/progress/{levelId}` — The Level Page payload: `level_progress` fields (including the level-scoped `ratingScores`, `difficultyOpinion`, `userGddlTier`, `coinsCollected`), level metadata, **all** progress updates newest-first, the demon-list placement (`listIndex` plus a derived 1-based `rankPosition`, both `null` when unplaced), the completion's `completionVideoUrl` / `completionHighlightUrl`, and the computed `runsGraph` array (`utils/runsGraph.ts`). `404` when the user has no entry for the level. The Level Page timeline shows complete history without the "show non-completions" toggle — that toggle governs the List and the demon list only.
+- `GET /v1/me/progress` — Backs the Log page (`/log`). Returns the authenticated user's **entire** level-progress list in one payload (both `PUBLIC` and `PRIVATE` entries), shaped per `LevelProgressListItemSchema` in `@infernolog/core`. Each row carries the trimmed level metadata (including the level's community GDDL / AREDL / sheet tiers), the **representative** progress update as `entry` (the completion if the level has one, otherwise the most recent), the level-scoped `userGddlTier`, `difficultyOpinion` and `ratingScores`, a query-time-computed `overallRating` (the weighted average of `ratingScores` and enjoyment — see `RATING_SYSTEM.md`), and a derived `needsPlacement` flag (a completed classic level with no `ClassicDemonList` row). **No query params:** all filtering, multi-key sorting, and column selection happen client-side.
+- `GET /v1/me/progress/{levelId}` — The Level Page payload: `level_progress` fields (including the level-scoped `ratingScores`, `difficultyOpinion`, `userGddlTier`, `coinsCollected`), level metadata, **all** progress updates newest-first, the demon-list placement (`listIndex` plus a derived 1-based `rankPosition`, both `null` when unplaced), the completion's `completionVideoUrl` / `completionHighlightUrl`, and the computed `runsGraph` array (`utils/runsGraph.ts`). `404` when the user has no entry for the level. The Level Page timeline shows complete history without the "show non-completions" toggle — that toggle governs the Log and the demon list only.
 
 > Ratings, difficulty opinion, and the user's GDDL tier are **one current value per level** (`LevelProgress`), not per logged event — only `enjoyment` is per-event. The old `ListReference` / `ListSource` tables are gone: community tiers are now level-global columns on `Level`, and the user's own opinion is the single `userGddlTier`.
 
@@ -274,7 +274,7 @@ GET  /v1/me/levels/{levelId}/rank-history
 
 The read side of the event log (see `EVENT_LOG.md`). Nothing here writes — events are emitted by `services/activityLog` from inside the transaction of each mutation they describe. Both are own-account only with no cross-user equivalent: `activity_log.visibility` is inert.
 
-- `GET /v1/me/activity` — The Log page's merged feed: `activity_log` events and progress updates interleaved, newest first by recorded time, keyset-paginated (`{ data, nextCursor }`, 30 per page). Optional filters: `kind` and `category` (repeated params, like `/browse`'s arrays — `category` only narrows the edits group), `levelId`, `from` / `to` (on recorded time), and `cursor`. `levelId` is a union over the event's own level and its impact rows, so a bulk import that moved a level still appears in that level's history.
+- `GET /v1/me/activity` — The Events page's (`/events`) merged feed: `activity_log` events and progress updates interleaved, newest first by recorded time, keyset-paginated (`{ data, nextCursor }`, 30 per page). Optional filters: `kind` and `category` (repeated params, like `/browse`'s arrays — `category` only narrows the edits group), `levelId`, `from` / `to` (on recorded time), and `cursor`. `levelId` is a union over the event's own level and its impact rows, so a bulk import that moved a level still appears in that level's history.
 - `GET /v1/me/levels/{levelId}/rank-history` — One level's position history in the caller's classic demon list, as `{ data, currentPosition }`. Only direct moves are stored; shifts caused by other levels being placed around it are reconstructed by replaying the user's demon-list events (`services/activityLog/rankHistory.ts`).
 
 ## Rating Configuration
@@ -286,7 +286,7 @@ PUT  /v1/me/rating-config
 
 `PUT /v1/me/rating-config` atomically replaces the user's rating configuration in a single transaction. Granular per-category endpoints were deliberately removed: the sum-must-equal-target invariant makes single-row mutations impossible to validate in isolation — you cannot change one weight without changing another. The editor submits the full config — the categories in display order plus `includeEnjoyment`, `enjoymentWeight`, and `enjoymentSortOrder`; the server diffs it against existing rows and applies create/update/delete in one transaction. It rejects an empty category list and any config whose active weights miss 1.00 (`400`), a category id that isn't the caller's (`404` — the whole request, rather than silently dropping it), and duplicate category names (`409`).
 
-Deleting a category deletes its rating scores and, in the same transaction, purges it from the user's saved List presets, whose view-config blobs reference categories by id with no foreign key. A save that changed something emits one `RATING_CONFIG_CHANGE` activity event. Returns the same payload as `GET /v1/me`.
+Deleting a category deletes its rating scores and, in the same transaction, purges it from the user's saved Log presets, whose view-config blobs reference categories by id with no foreign key. A save that changed something emits one `RATING_CONFIG_CHANGE` activity event. Returns the same payload as `GET /v1/me`.
 
 Ratings are stored as integers 0–100 internally and category weights as a fraction of 1.00; conversion happens at the display layer, which shows scores on 0–10, enjoyment on 0–100, and weights as whole percents. See `docs/RATING_SYSTEM.md`.
 
@@ -338,7 +338,7 @@ Every route that needs the key answers `400` when none is stored. KMS encrypt/de
 - `POST /v1/me/gddl-lists-sync` — Bidirectional sync of the FAVORITES and LEAST_FAVORITES collections with the corresponding GDDL user lists. Synchronous (lists are small); requires a KMS decrypt to read the stored key. `502` when GDDL itself refuses or is unreachable.
 - `POST /v1/me/gddl-records/{levelId}` — Submits the caller's existing completion of a level to GDDL as a record. Explicit and blocking, so GDDL's verdict reaches the user: `404` when there is no completion to submit, `422` with GDDL's message when it rejects the record (bad video link, duplicate). **This is the only path that submits a record** — logging a completion does not.
 
-## List Presets
+## Log Presets
 
 ```
 GET    /v1/me/log-presets
@@ -347,7 +347,7 @@ PATCH  /v1/me/log-presets/{id}
 DELETE /v1/me/log-presets/{id}
 ```
 
-Saved view configurations for the List page: a name, description and colour plus `sorts`, `filters`, `columns`, `columnOrder`, and the `hideTime` toggle. The four view-config fields are opaque JSON — stored and returned verbatim, not deeply validated. A preset id that belongs to someone else is `404`, not `403`, so it is indistinguishable from a nonexistent one.
+Saved view configurations for the Log page: a name, description and colour plus `sorts`, `filters`, `columns`, `columnOrder`, and the `hideTime` toggle. The four view-config fields are opaque JSON — stored and returned verbatim, not deeply validated. A preset id that belongs to someone else is `404`, not `403`, so it is indistinguishable from a nonexistent one.
 
 ## Import & Export
 

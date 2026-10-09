@@ -1,8 +1,8 @@
 // One end of a date range: a text box that accepts the user's own date format,
 // a calendar button that opens the native picker, and a clear button.
 //
-// Shared by the List's date-beaten bounds and the Log page's recorded-time
-// range. It was the List's private control until the second caller appeared —
+// Shared by the Log's date-beaten bounds and the Events page's recorded-time
+// range. It was the Log's private control until the second caller appeared —
 // see docs/CODE_QUALITY.md, Frontend §3.
 
 import { Calendar, X } from 'lucide-react'

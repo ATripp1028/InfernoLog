@@ -1,5 +1,5 @@
 // The authenticated user's own account — everything under /v1/me that isn't a
-// resource of its own (progress, collections, ranking, list presets, import).
+// resource of its own (progress, collections, demon list, Log presets, import).
 //
 //   profile.ts    GET    /v1/me
 //                 PATCH  /v1/me

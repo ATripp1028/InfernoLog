@@ -1,5 +1,5 @@
 // Shared row-serialization pieces for level-centric views — the classic
-// ranking, collections, and The List (GET /v1/me/progress): the
+// the demon list, collections, and the Log (GET /v1/me/progress): the
 // LevelListSummary column select, the completion-derived badge/attempts, and
 // the official-level metadata patch.
 

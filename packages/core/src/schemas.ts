@@ -910,7 +910,7 @@ export const NotADemonResponseSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// THE LIST — the List page wire contract.
+// THE LOG — the Log page wire contract.
 //
 // GET /v1/me/progress returns the authed user's full level-progress list in one
 // payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
@@ -1094,7 +1094,7 @@ export const ReorderDemonListInputSchema = z.object(demonListNeighbours)
 // ─────────────────────────────────────────────
 // COLLECTIONS — user-owned groupings of levels: the three built-ins
 // (Want to Beat / Favorites / Least Favorites) plus custom named collections.
-// Entry order is a fractional index (same pattern as the classic ranking);
+// Entry order is a fractional index (same pattern as the classic demon list);
 // reads return entries ordered by rankingIndex asc.
 // ─────────────────────────────────────────────
 
@@ -1235,7 +1235,7 @@ export const GddlSyncResultSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// LIST PRESETS — saved view configurations for the List page.
+// LOG PRESETS — saved view configurations for the Log page.
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are treated
 // as opaque JSON by the API — the frontend owns their schemas. The server stores
@@ -1907,7 +1907,7 @@ export const ExportPageResponseSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// ACTIVITY LOG — the Log page feed and the level-page rank history.
+// ACTIVITY LOG — the Events page feed and the level-page rank history.
 // Both are scoped to the authenticated user's own data;
 // activity_log.visibility is inert and there is no public equivalent of either.
 // ─────────────────────────────────────────────
@@ -2033,7 +2033,7 @@ export const ACTIVITY_IMPACT_PREVIEW = 10
 /** Feed items per page. */
 export const ACTIVITY_PAGE_SIZE = 30
 
-// The Log page's filter chips, in the order they are shown. Deliberately NOT
+// The Events page's filter chips, in the order they are shown. Deliberately NOT
 // the event-type enum: the chips are the four things a user recognises having
 // done, and one of them ("Progress") is not an activity_log row at all.
 //
@@ -2134,8 +2134,8 @@ export const RankHistoryEntrySchema = z.object({
 export const RankHistoryResponseSchema = z.object({
   // Newest first, the same direction the feed reads.
   data: z.array(RankHistoryEntrySchema),
-  // The level's live position in the classic ranking, or null when it is not
-  // placed. Read from classic_ranking rather than from the walk, so the panel
+  // The level's live position in the classic demon list, or null when it is not
+  // placed. Read from classic_demon_list rather than from the walk, so the panel
   // header states a fact rather than a reconstruction.
   currentPosition: z.number().int().nullable(),
 })

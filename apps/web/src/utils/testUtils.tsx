@@ -332,7 +332,7 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
 }
 
 /**
- * A `LogItem` — one row of the List, as the progress query returns it.
+ * A `LogItem` — one row of the Log, as the progress query returns it.
  *
  * `entry` holds the per-run fields the row renders; pass `entry: null` for the
  * rare status row with no progress updates. Dates are real `Date`s and the

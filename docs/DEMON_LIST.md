@@ -157,7 +157,7 @@ matters most about them: whether the user can see what happened.
 
 - **`DEMON_LIST_REBALANCE`** — the inline renormalization. Indices move, order does
   not; the user saw nothing and did nothing. It exists purely so logged index
-  values stay in one coordinate system. It is excluded from the Log feed in the query
+  values stay in one coordinate system. It is excluded from the Events feed in the query
   itself, and is the **only** hidden event type.
 
 Do not merge them back together on the grounds that the row shapes match.

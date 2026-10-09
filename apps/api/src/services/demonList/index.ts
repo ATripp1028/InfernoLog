@@ -1,4 +1,4 @@
-// Classic-ranking service — the personal difficulty-ordering page.
+// Classic demon list service — the personal difficulty-ordering page.
 //
 // Reads (getClassicDemonList) and the three placement writes (place / reorder /
 // unplace) live here; routes/demonList.ts stays a thin HTTP shell, mirroring the
@@ -140,7 +140,7 @@ async function computeIndex(
 }
 
 /**
- * The classic-ranking page: the user's placed completions in difficulty order,
+ * The classic demon list page: the user's placed completions in difficulty order,
  * plus the completions still waiting to be placed.
  *
  * Placed rows come back listIndex DESC, so index 0 is #1 — the hardest.

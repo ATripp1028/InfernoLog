@@ -3,11 +3,11 @@
 import { authedRoute } from '../api'
 
 // ─────────────────────────────────────────────
-// PROGRESS — the List page and per-level history, plus the entry-creation
+// PROGRESS — the Log page and per-level history, plus the entry-creation
 // writes. (Completions live in infra/routes/gddl.ts: they need KMS access to
 // optionally submit a GDDL record.)
 // ─────────────────────────────────────────────
-// The List page — the user's full level-progress list.
+// The Log page — the user's full level-progress list.
 authedRoute('GET /v1/me/progress')
 // Edit the most recent progress update + level metadata for an entry.
 authedRoute('PATCH /v1/me/progress/{levelId}')
@@ -23,7 +23,7 @@ authedRoute('POST /v1/me/progress')
 authedRoute('POST /v1/me/drops')
 
 // ─────────────────────────────────────────────
-// CLASSIC RANKING — the personal difficulty-ordering page.
+// CLASSIC DEMON LIST — the personal difficulty-ordering page.
 // ─────────────────────────────────────────────
 // Placed + unplaced columns in one payload; place / reorder / unplace.
 authedRoute('GET /v1/me/demon-list/classic')

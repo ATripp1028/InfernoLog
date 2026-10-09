@@ -6,7 +6,7 @@ import { INVALIDATE_ON_WRITE, invalidateOnWrite } from '../logging'
 // The second invalidation set, and the relationship between the two that keeps
 // them from drifting: a progress write is also an event, so invalidateOnWrite
 // has to cover both sets — but not the reverse, since a ranking move or a
-// rating-config save emits an event without touching the List or collections.
+// rating-config save emits an event without touching the Log or collections.
 // That asymmetry is the whole reason there are two sets rather than one wide
 // one, and it is exactly what a later "just add it to the other list" edit
 // would quietly undo.

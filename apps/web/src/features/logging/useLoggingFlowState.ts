@@ -26,7 +26,7 @@ interface FlowState {
   // Set by openForEdit: the level the `resolving` step should auto-resolve.
   pendingEditLevelId: string | null
   // The level_progress id of the just-submitted completion — handed to the
-  // ranking page's "Place now" navigation so it can highlight/scroll to it.
+  // demon list page's "Place now" navigation so it can highlight/scroll to it.
   lastCompletionLevelProgressId: string | null
   // True while the current step has a write in flight. Steps own their own
   // mutations, so the shell can only know it's mid-save if they say so — see

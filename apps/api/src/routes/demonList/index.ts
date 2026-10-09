@@ -1,4 +1,4 @@
-// The user's personal difficulty ranking — their own ordering of completed
+// The user's demon list — their own ordering of completed
 // levels, independent of any community list.
 //
 //   classic.ts  GET    /v1/me/demon-list/classic

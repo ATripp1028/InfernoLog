@@ -170,11 +170,11 @@ enum EntryVisibility {
 //     touched are its impact rows.
 //
 //   DEMON_LIST_REBALANCE — INTERNAL ONLY. The renormalisation inside
-//     services/ranking, which rewrites every index while leaving the ORDER
+//     services/demonList, which rewrites every index while leaving the ORDER
 //     untouched. It exists so every level's logged listIndex history stays
 //     in one coordinate system and reconstruction can't silently drift. The
 //     user saw nothing and did nothing, so it must be filtered out of any
-//     Log/timeline surface and out of any future Discord event-type → channel
+//     Events feed and out of any future Discord event-type → channel
 //     mapping. It is the only hidden type in this enum.
 enum ActivityEventType {
   DEMON_LIST_PLACEMENT
@@ -1479,8 +1479,8 @@ model ImportJobRow {
 }
 
 // ─────────────────────────────────────────────
-// LIST PRESETS
-// Saved view configurations for the List page.
+// LOG PRESETS
+// Saved view configurations for the Log page.
 // Each preset stores column visibility, column order, sort specs,
 // and filter state so the user can switch between named views.
 // ─────────────────────────────────────────────

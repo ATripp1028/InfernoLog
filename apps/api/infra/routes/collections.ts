@@ -19,7 +19,7 @@ authedRoute('PATCH /v1/me/collections/{collectionId}/entries/{entryId}')
 authedRoute('DELETE /v1/me/collections/{collectionId}/entries/{entryId}')
 
 // ─────────────────────────────────────────────
-// LIST PRESETS — saved view configurations for the List page.
+// LOG PRESETS — saved view configurations for the Log page.
 // ─────────────────────────────────────────────
 authedRoute('GET /v1/me/log-presets')
 authedRoute('POST /v1/me/log-presets')

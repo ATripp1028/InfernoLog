@@ -1,4 +1,4 @@
-// The Log page's merged feed — the read half of the activity log.
+// The Events page's merged feed — the read half of the activity log.
 //
 // One page of activity_log events and progress_updates interleaved, newest
 // first. The two tables are merged at read time rather than one being copied

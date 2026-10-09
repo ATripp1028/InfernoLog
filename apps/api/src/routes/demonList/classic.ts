@@ -1,4 +1,4 @@
-// The classic-mode personal difficulty ranking:
+// The classic demon list:
 //
 //   GET    /v1/me/demon-list/classic                    — placed + unplaced columns
 //   POST   /v1/me/demon-list/classic                    — place an unplaced entry
@@ -29,7 +29,7 @@ import { parseJsonBody } from '../../utils/requestBody'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
-// Both columns in one payload — no pagination, no query params. The ranking UI
+// Both columns in one payload — no pagination, no query params. The demon list UI
 // is a drag-and-drop board over the whole set.
 app.get('/me/demon-list/classic', async (c) => {
   const userId = c.get('userId')

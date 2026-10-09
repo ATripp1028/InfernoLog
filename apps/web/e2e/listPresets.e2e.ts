@@ -129,7 +129,7 @@ async function savePresetAs(page: Page, name: string) {
   return created
 }
 
-test.describe('list presets', () => {
+test.describe('Log presets', () => {
   test('saves the current view as a preset and re-applies it after a reload', async ({
     page,
   }) => {

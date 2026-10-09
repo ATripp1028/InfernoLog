@@ -1,5 +1,5 @@
 // The rank-history panel on the user's own level page — where this level has
-// sat in their classic ranking, and what moved it.
+// sat in their classic demon list, and what moved it.
 //
 // The user's OWN level page only. This is personal data and there is no
 // cross-user equivalent, so the Global Level Page must never render it.

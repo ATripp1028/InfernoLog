@@ -1,5 +1,5 @@
 /**
- * The Log page's vocabulary and grouping.
+ * The Events page's vocabulary and grouping.
  *
  * The rules with teeth are the ones a rendered feed would hide. Days group on
  * RECORDED time, so a back-dated completion has to sit under the day it was

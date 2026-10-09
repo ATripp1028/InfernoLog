@@ -1,5 +1,5 @@
 /**
- * The Log page's filter vocabulary and range arithmetic.
+ * The Events page's filter vocabulary and range arithmetic.
  *
  * The chip list is asserted rather than derived because the hidden event type
  * must never acquire a chip — something that enumerated the event-type enum and

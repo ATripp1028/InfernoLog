@@ -1,6 +1,6 @@
 // How a stored DifficultyOpinion reads to a person.
 //
-// Extracted from the completion review step when the Log page's field-change
+// Extracted from the completion review step when the Events page's field-change
 // rows needed the same mapping — two copies of a value→label table is exactly
 // the duplication that goes stale the next time the enum gains a member.
 

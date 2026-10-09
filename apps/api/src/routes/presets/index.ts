@@ -1,4 +1,4 @@
-// Saved List-page view configurations — a preset bundles the sorts, filters,
+// Saved Log-page view configurations — a preset bundles the sorts, filters,
 // visible columns, column order and the hideTime toggle so a user can switch
 // between named views of their list.
 //

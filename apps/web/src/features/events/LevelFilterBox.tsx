@@ -1,4 +1,4 @@
-// The Log page's level filter: a search box over the user's own levels.
+// The Events page's level filter: a search box over the user's own levels.
 //
 // A plain Select was the wrong control here — a few hundred entries is more
 // than a dropdown can be scanned, and the user knows the name of the level they

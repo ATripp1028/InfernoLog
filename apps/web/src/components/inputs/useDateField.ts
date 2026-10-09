@@ -1,6 +1,6 @@
 // Draft state, parsing and clamping for {@link DatePickerField}.
 //
-// Moved out of features/list when the Log page's date range needed the same
+// Moved out of features/log when the Events page's date range needed the same
 // control. The parsing is the part worth sharing: a date box that accepts the
 // user's own format has to know which of DD/MM and MM/DD they meant, and has to
 // reject Feb 30 rather than letting it wrap to Mar 2.

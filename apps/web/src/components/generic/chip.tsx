@@ -1,7 +1,7 @@
 import { forwardRef } from 'react'
 import { cn } from '@/lib/utils'
 
-// A toggle pill used by the List filter panel (progress, list source, level
+// A toggle pill used by the Log filter panel (progress, list source, level
 // type, rating status, status flags). Selected = solid primary fill; unselected
 // = subtle outlined. Render as a button so it's keyboard-accessible.
 interface ChipProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {

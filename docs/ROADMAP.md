@@ -197,4 +197,8 @@ Goal: Open InfernoLog to the public as a community platform.
 - Level Picker Discovery Mode question set (designed after v4 launch)
 - Mobile app (if platform grows to justify it)
 - Rebeat handling (v3 placeholder, full design TBD)
+- Discord notifications for events — a mapping from event type to Discord channel. The event log needs no schema change for it; the one constraint is that the internal demon-list rebalance event is never mapped to anything
+- Event history on public profiles — each event already stores a visibility (default public) that nothing reads; decide what it means before any profile shows events
+- Tracking collection changes (adding or removing a level) as events — not recorded in any form
+- Storing a level's overall rating and rating rank as columns instead of computing them at save time for the event log
 - Discord as a sign-in method — shelved over Cognito's pricing for OIDC providers; Discord stays a linked account that cannot sign in

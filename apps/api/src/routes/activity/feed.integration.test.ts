@@ -261,7 +261,7 @@ describe('GET /v1/me/activity', () => {
     expect(data.map((r) => r.id)).toEqual([update.id])
   })
 
-  it('returns the four visible ranking types for the Ranking chip', async () => {
+  it('returns the four visible ranking types for the Demon list chip', async () => {
     // And still not the fifth. A chip that named event types by hand would be
     // one edit away from letting the hidden one through.
     const user = await seedUser(prisma)
