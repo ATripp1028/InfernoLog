@@ -1066,7 +1066,7 @@ model RatingScore {
 // The renormalization is NOT a background job (earlier comments here called it
 // "the rebalancing job"; no such cron exists). It runs inline, inside the
 // transaction of the placement or reorder that found the gap too tight — see
-// rebalance() in services/ranking. The spreadsheet import's full replace
+// rebalance() in services/demonList. The spreadsheet import's full replace
 // rewrites the same index space the same way.
 //
 // EVERY write that touches listIndex must emit an ActivityLog event

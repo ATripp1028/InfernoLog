@@ -66,8 +66,8 @@ bury everything else they have. The per-level detail lives in its impact rows,
 for a reader that wants to expand it into "42 levels reordered".
 
 The rest of the demon list half — direct-events-only, milestones as a field, the
-denormalized level name, and the snapshot-at-T / retroactive-at-T reconstruction
-definitions — is documented in `DEMON_LIST.md` → "Ranking Events". The rest
+denormalized level name, and the rank-history walk — is documented in
+`DEMON_LIST.md` → "Demon List Events" and "Rank History". The rest
 of the taxonomy is below.
 
 ---
@@ -221,7 +221,7 @@ collection is not tracked at all, in any form. If it is ever wanted, it is a new
 `eventType` and (probably) no new tables.
 
 **Whole-ranking reconstruction.** The snapshot-at-T and retroactive-at-T queries
-in `DEMON_LIST.md` remain unbuilt. The rank-history walk under "Surfaces"
+defined in `ROADMAP.md` (v3) remain unbuilt. The rank-history walk under "Surfaces"
 answers a narrower question — one level's position over time — and is not a
 substitute for either.
 

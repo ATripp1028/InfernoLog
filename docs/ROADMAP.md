@@ -120,7 +120,7 @@ Goal: Deepen the core logging experience. No new platform features.
 
 - [ ] Custom named lists beyond favorites/least favorites
 - [ ] Level Picker — Personal Mode (Want to Beat collection, dynamic question ordering, 5-level threshold)
-- [ ] Non-completion entries in ranking (toggle, off by default)
+- [ ] Non-completion entries on the demon list (toggle, off by default) — in-progress and dropped levels placed alongside completions. The page already shows a disabled placeholder chip for it
 - [ ] Visx added for Time Machine groundwork
 
 ### Infrastructure
@@ -137,6 +137,9 @@ Goal: Make the app actively useful rather than a passive record.
 
 ### Features
 
+- [ ] Whole-demon-list reconstruction at a past date, from the event log. Two views, already defined so they aren't re-argued, and a screen showing either must say which:
+  - **Snapshot** — "what my demon list looked like that day": each level's most recently logged index at or before the date, including levels since removed. Reads the event log only
+  - **Retroactive** — "where the levels I'd beaten by then sit in the list I hold today": the current list filtered to levels completed by the date, excluding anything since removed. Reads the current list and completion dates only
 - [ ] Time Machine — multi-line graph (Visx), draggable range slider, retroactive placement, top N configurable, mirror portal icon
 - [ ] Skill tags — sourced from GDDL/AREDL APIs, per-level (global), displayed on completion entries and filterable
 - [ ] Stats page — comprehensive personal statistics (completion rate over time, attempts per tier, list progress percentages, skill type breakdown, etc.)
