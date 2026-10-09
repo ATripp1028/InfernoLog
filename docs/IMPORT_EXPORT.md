@@ -4,7 +4,9 @@
 
 InfernoLog supports importing data from spreadsheets and exporting data back to spreadsheets. The import and export formats are **identical** — a user can export their data, modify it, and re-import it cleanly. This also means the import template is simply a blank copy of the export format.
 
-Spreadsheet import is a **v1 feature** because onboarding friction is the biggest risk to early adoption. Players with years of existing spreadsheet data should be able to bring that history into InfernoLog on day one, including full Time Machine reconstruction from historical completion dates.
+Import exists because onboarding friction is the biggest risk to adoption: players with years of spreadsheet data can bring that history in on day one, dates included. It is offered both in Settings and as a step of the onboarding wizard.
+
+The spreadsheet is read and written entirely in the browser (`apps/web/src/features/import/`); the API only ever sees parsed rows. The commit logic is `apps/api/src/services/importExport/`.
 
 ---
 
@@ -17,11 +19,11 @@ Spreadsheet import is a **v1 feature** because onboarding friction is the bigges
 | `Completions` | All completion progress updates (kind = completion)                                  |
 | `Progress`    | All non-completion, non-drop progress updates — session logs short of the completion |
 | `Dropped`     | All drop progress updates (kind = drop) — a level can have more than one             |
-| `Demon List`  | Your personal classic difficulty ranking, hardest → easiest                          |
+| `Demon List`  | Your demon list — classic completions in difficulty order, hardest → easiest         |
 | `Lists`       | Collection membership — Want to Beat, Favorites, Least Favorites, and custom lists   |
 | `Ratings`     | Per-category rating scores — one row per rated level, one column per category        |
 
-Import processes every tab above. A blank/omitted tab is simply left untouched on import.
+Import processes every tab above; tab names are matched case-insensitively. A blank/omitted tab is simply left untouched on import. The template and every export also carry a `Field Descriptions` tab, which import ignores.
 
 ---
 
@@ -44,7 +46,7 @@ Before uploading, the user selects their date format:
 └────────────────────────────────────────┘
 ```
 
-This selection pre-populates from the user's `date_format_preference` account setting but can be overridden per-import.
+This selection pre-populates from the user's `dateFormatPreference` account setting but can be overridden per-import.
 
 ### Silent Handling
 
@@ -63,7 +65,7 @@ Dates that can't be interpreted are flagged as a **warning** (see severities bel
 
 ### Internal Storage
 
-All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displayed back to the user in their `date_format_preference`.
+All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displayed back to the user in their `dateFormatPreference`.
 
 ---
 
@@ -95,7 +97,8 @@ All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displa
 │  7. Conflict check runs against existing data  │
 │     └── Field conflicts (Completions/Progress/ │
 │         Dropped/Ratings) and order conflicts   │
-│         (Ranking/Lists) are detected up front  │
+│         (Demon List/Lists) are detected up     │
+│         front                                  │
 │                                                 │
 │  8. User resolves any conflicts found          │
 │     ├── Field conflicts: drop / overwrite /    │
@@ -103,12 +106,26 @@ All dates stored as **ISO 8601 (YYYY-MM-DD)** regardless of input format. Displa
 │     └── Order conflicts: three-column drag     │
 │         board, git-merge style                 │
 │                                                 │
-│  9. Import commits                             │
+│  9. Import commits as a background job         │
 │     └── Flagged rows skipped with report       │
 └─────────────────────────────────────────────────┘
 ```
 
 Steps 7-8 are skipped entirely — straight from review to commit — whenever the check finds nothing to reconcile, which is the common case for a first import or an unmodified reimport.
+
+### How the commit runs
+
+Committing is a background job, not one request, so a large sheet cannot hit a request timeout and closing the tab does not lose it.
+
+- `POST /v1/me/import/check` is the read-only conflict scan behind step 7. It replays the same planning the commit would run, so the review shows exactly what would change.
+- `POST /v1/me/import/start` stores every parsed row (and the Demon List, Lists and Ratings tabs) in Postgres and invokes the import worker Lambda with just the job id.
+- The worker (`handlers/importWorker.ts`) commits the Completions / Progress / Dropped rows in batches of 50, recording each row's outcome as it goes. When it is about to run out of time it re-invokes itself and carries on from the rows still pending.
+- The Demon List, Lists and Ratings tabs are each committed in one dedicated call after the row batches, so every level they refer to already exists in the log.
+- `GET /v1/me/import/status` reports progress, outcome counts, and the rows flagged for a second look. The wizard, a toast, and Settings all poll it.
+
+There is one job per user and no history: starting a new import discards the previous job's record.
+
+**Levels the cache doesn't have.** A row naming a level by id that isn't cached is stored against a stub, and the stub is queued for background enrichment from the GD servers, so its name and metadata fill in shortly after import. A row naming a level only by name is resolved against the cache and then the GD servers, narrowed by `creator` and `in_game_difficulty`. A level GD reports as a rated non-demon is skipped — the cache only admits demons and unrated levels.
 
 ### Validation Report
 
@@ -144,7 +161,7 @@ Only rows whose data is genuinely unused are reported as _skipped_ — a modifie
 
 ## Conflict Resolution
 
-Five of the seven tabs can find their data already present in your account, under a different value or a different order. Two mechanisms cover every case, both modeled on git's own merge-conflict handling.
+Any of the six data tabs can find its data already present in your account, under a different value or a different order. Two mechanisms cover every case, both modeled on git's own merge-conflict handling.
 
 ### Field conflicts — Completions, Progress, Dropped, Ratings
 
@@ -160,11 +177,13 @@ For Progress and Dropped specifically, a row with no `progress_id`/`drop_id` is 
 
 **Imported data always wins** — a checkbox on the Review step — skips this whole step-by-step review. Every field conflict the check finds is auto-resolved as an Overwrite and every order conflict auto-picks the spreadsheet's order (see below), exactly as if you'd clicked "Use imported for all" and "Use spreadsheet order" everywhere yourself; the wizard goes straight from Review to committing. Not offered during onboarding, where there's nothing yet to conflict with.
 
-### Order conflicts — Ranking, Lists
+### Order conflicts — Demon List, Lists
 
 The Demon List tab and each collection in the Lists tab are ordered lists, so a "conflict" here means the sheet and your account disagree about relative order, not a single value. The resolution mirrors a git merge: a three-column board shows the imported order on the left, your existing order on the right, and a middle column pre-filled with everything both orderings already agree on. You drag the disputed (and any newly-added) entries into the middle to decide the final order — or, if reconciling by hand isn't worth it, two buttons above the board ("Use spreadsheet order" / "Use InfernoLog order") let you pick one side's order wholesale instead.
 
 Nothing is forced — if you leave entries unplaced in either source column, they're simply excluded from the final list once you confirm; a required checkbox makes sure that's deliberate. A pure insertion (an entry only one side has, whose position relative to the agreed order is unambiguous) never shows the board at all — it's spliced into the final order automatically, with no review needed. Only a genuine order disagreement, or an existing entry the sheet omits entirely, triggers manual review.
+
+The reconciliation happens in the browser. What the server receives is the final order, and it writes that as a full replace — of the demon list, or of each collection the sheet names.
 
 ---
 
@@ -172,8 +191,9 @@ Nothing is forced — if you leave entries unplaced in either source column, the
 
 | Column               | Required | Notes                                                                                                                                                                    |
 | -------------------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `level_id`           | Yes      | In-game level ID                                                                                                                                                         |
-| `level_name`         | No       | If blank, autofilled from the GD servers                                                                                                                                 |
+| `level_id`           | No\*     | In-game level ID                                                                                                                                                         |
+| `level_name`         | No\*     | If blank, autofilled from the GD servers                                                                                                                                 |
+| `creator`            | No       | Narrows name resolution when the name matches many levels                                                                                                                |
 | `date`               | No       | In selected date format                                                                                                                                                  |
 | `date_uncertain`     | No       | TRUE/FALSE                                                                                                                                                               |
 | `attempts`           | No       | Integer                                                                                                                                                                  |
@@ -191,13 +211,15 @@ Nothing is forced — if you leave entries unplaced in either source column, the
 | `two_player_solo`    | No       | TRUE = solo, FALSE = with a partner (blank if not a 2-player level)                                                                                                      |
 | `two_player_partner` | No       | Partner's name (only when `two_player_solo` is FALSE)                                                                                                                    |
 | `in_game_difficulty` | No       | Filters name resolution when `level_id` is blank; otherwise autofilled. A bare tier name means the DEMON tier ("Easy" = Easy Demon), which is the only thing it can mean |
-| `gddl_tier`          | No       | Whole-number tier                                                                                                                                                        |
-| `nlw_tier`           | No       | Tier name                                                                                                                                                                |
+| `gddl_tier`          | No       | Your own GDDL tier opinion for the level — a whole number (decimals are rounded)                                                                                         |
+| `nlw_tier`           | No       | Reserved. Always exports blank and is ignored on import                                                                                                                  |
 | `notes`              | No       | Text about this completion                                                                                                                                               |
 | `level_notes`        | No       | Text about the level overall (separate from `notes`)                                                                                                                     |
 | `video_url`          | No       | URL                                                                                                                                                                      |
 | `highlight_url`      | No       | URL                                                                                                                                                                      |
 | `visibility`         | No       | public or private (defaults to public)                                                                                                                                   |
+
+\* one of `level_id` / `level_name` required per row.
 
 A level's drop history — if it was ever dropped, including before being beaten — lives entirely on the `Dropped` tab, not here. Completions and drops are independent entries, so a dropped-then-completed level simply has rows on both tabs.
 
@@ -221,7 +243,7 @@ Non-completion session logs — the history short of (or alongside) the eventual
 | Column           | Required | Notes                                                                                                               |
 | ---------------- | -------- | ------------------------------------------------------------------------------------------------------------------- |
 | `progress_id`    | No       | Round-trip identity for this exact entry, auto-filled on export. Leave blank when adding a new session log by hand. |
-| `level_id`       | Yes\*    | In-game level ID                                                                                                    |
+| `level_id`       | No\*     | In-game level ID                                                                                                    |
 | `level_name`     | No\*     | If blank, autofilled from the GD servers                                                                            |
 | `creator`        | No       | Narrows name resolution when the name matches many levels                                                           |
 | `date`           | No       | In selected date format                                                                                             |
@@ -268,7 +290,7 @@ Unlike Completions, **multiple rows per level are expected** — a level can be 
 | `attempts_at_drop`   | No       |                                                                                                               |
 | `dropped_at`         | No       | Date                                                                                                          |
 | `reason`             | No       | Text                                                                                                          |
-| `gddl_tier_at_drop`  | No       | Snapshot (whole number)                                                                                       |
+| `gddl_tier_at_drop`  | No       | Reserved. Always exports blank and is ignored on import                                                       |
 
 \* one of `level_id` / `level_name` required per row.
 
@@ -281,9 +303,9 @@ Unlike Completions, **multiple rows per level are expected** — a level can be 
 
 ---
 
-## Ranking Tab Format
+## Demon List Tab Format
 
-Your personal difficulty ranking of levels you've completed. The tab is deliberately lean — the rest of each level's data lives in the log.
+Your demon list — your personal difficulty ordering of classic levels you've completed. The tab is deliberately lean — the rest of each level's data lives in the log.
 
 | Column       | Required | Notes                                                                                                                             |
 | ------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
@@ -295,10 +317,11 @@ Your personal difficulty ranking of levels you've completed. The tab is delibera
 
 Semantics:
 
-- **Merges with your existing ranking via the canonical order-conflict flow** (see Conflict Resolution above) whenever the two disagree on relative order. If you have no existing ranking, or the sheet's order and your existing order already agree once pure insertions are accounted for, the sheet's order is used directly with no review needed — the practical result is the same "sheet wins" outcome as a blind replace, just with a review step whenever something's genuinely at stake. Omit the tab (or leave it empty) to keep the account's existing ranking untouched entirely.
-- Ranking applies only to **completions** — a listed level you haven't completed (or that only appears in the Dropped tab) is skipped with a note.
+- **Merges with your existing demon list via the canonical order-conflict flow** (see Conflict Resolution above) whenever the two disagree on relative order. If you have no existing demon list, or the sheet's order and your existing order already agree once pure insertions are accounted for, the sheet's order is used directly with no review needed — the practical result is the same "sheet wins" outcome as a blind replace, just with a review step whenever something's genuinely at stake. Omit the tab (or leave it empty) to keep the account's existing demon list untouched entirely.
+- The demon list holds only **completed classic levels** — a listed level you haven't completed (or that only appears in the Dropped tab), or a platformer level, is skipped with a note.
 - Committed as one dedicated call **after** the completion/drop batches, so every ranked level already exists in your log.
-- Internally the order maps to `ClassicDemonList.rankingIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
+- Internally the order maps to `ClassicDemonList.listIndex` (higher = harder); the numbers themselves are normalized, so gaps or duplicate `rank` values are fine.
+- The replace is recorded as one `DEMON_LIST_BULK_REPLACE` event in the event log (see `EVENT_LOG.md`).
 
 ---
 
@@ -319,9 +342,9 @@ Membership of your collections — Want to Beat / Favorites / Least Favorites an
 
 Semantics:
 
-- **Merges with each collection's existing membership via the canonical order-conflict flow** (see Conflict Resolution above), one collection at a time — only collections the sheet actually mentions are ever touched; collections you don't mention are left alone. If a mentioned collection doesn't exist yet, is currently empty, or the sheet's order already agrees with what's there, the sheet's rows are used directly with no review needed. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels).
+- **Merges with each collection's existing membership via the canonical order-conflict flow** (see Conflict Resolution above), one collection at a time — only collections the sheet actually mentions are ever touched; collections you don't mention are left alone. If a mentioned collection doesn't exist yet, is currently empty, or the sheet's order already agrees with what's there, the sheet's rows are used directly with no review needed. Custom collections are created on demand by name. Rows targeting `want_to_beat` for a level you've already completed are skipped with a note (Want to Beat only holds unbeaten levels), as are rows for a level GD rates as a non-demon.
 - A listed level need not be completed — want-to-beat levels usually aren't. Unknown levels are stubbed and queued for background enrichment, so their names fill in shortly after import.
-- Committed as one dedicated call **after** the completion/drop batches (and ranking).
+- Committed as one dedicated call **after** the completion/drop batches.
 
 ---
 
@@ -342,7 +365,7 @@ Weighted per-category scores. The tab is "wide": identity columns, then **one co
 Semantics:
 
 - **Score scale**: cells are on the 0–10 scale (decimals fine) and are stored as a 0–100 integer, so `9.5` becomes `95`. A cell that exceeds 10 is out of range — it is flagged and dropped, not re-read as an already-0–100 value. See the note under Export.
-- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the account's 100% weight-sum invariant, and a weight-0 category contributes nothing to a rating until you give it one in Settings.
+- **Categories matched by name** (case-insensitive). A name with no matching category is **created with weight 0** — it never disturbs the rule that the account's weights sum to 100%, and a weight-0 category contributes nothing to a rating until you give it one in Settings.
 - **Merge, not replace**: only the categories a row names are written; a completion's other category scores are left alone.
 - **Conflict resolution per score**: if a named category already has a score for that completion, an identical incoming value is a silent no-op; a genuinely different value is surfaced as a field conflict via the canonical flow (see Conflict Resolution above) — Drop keeps the existing score, Overwrite/Merge take the sheet's value.
 - A level must be **completed** to be rated (scores attach to a completion) — rows for uncompleted levels are skipped.
@@ -354,12 +377,12 @@ Semantics:
 
 Export produces the **same workbook shape as the import template** (all tabs above + a Field Descriptions tab), so an export is itself a valid import file — export → reimport round-trips.
 
-- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `progress`, `dropped`, `ranking`, `lists`/`collections`, `ratings`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
-- **Formatting is client-side**: dates in the user's `date_format_preference`, scores on the 0–10 scale (internal `0-100 ÷ 10`, which the importer multiplies straight back), enjoyment on 0–100 (internal, unconverted — it is shown on that scale in the app), coin bitmask → `coin_1/2/3`, enum casing lowered.
-- **Each field's sheet scale is fixed, and the importer does not guess.** A score cell is always 0–10 and is always multiplied by 10; an enjoyment cell is always 0–100 and is never scaled. The importer used to infer the scale from the value (`≤ 10` meant "0–10, multiply") so that sheets exported under the old per-user `ratingDisplayScale` preference still read correctly. That heuristic is gone: it cannot tell an enjoyment of `8` from an old-scale `8` that meant 80, and there is nothing to stay compatible _with_ — v1 is unreleased, so no workbook outside development was ever written on a different scale. **Any future change to a sheet scale needs a version marker in the workbook**, not a guess from a value's magnitude — and once v1 ships, changing a scale without one silently corrupts every existing user's re-import.
+- **Endpoint**: `GET /v1/me/export?section=<section>&offset=<n>&limit=<n>`. The account's data is returned one section at a time (`completions`, `progress`, `dropped`, `ranking`, `ratings`, `collections`, `categories`) with offset pagination, so no single response can exceed API Gateway's ~6 MB cap for a large account. The client fetches every section to completion and stitches them into the workbook.
+- **Formatting is client-side** (`generateExport.ts`): dates in the user's `dateFormatPreference`, scores on the 0–10 scale (internal `0-100 ÷ 10`, which the importer multiplies straight back), enjoyment on 0–100 (internal, unconverted — it is shown on that scale in the app), coin bitmask → `coin_1/2/3`, enum casing lowered.
+- **Each field's sheet scale is fixed, and the importer does not guess.** A score cell is always 0–10 and is always multiplied by 10; an enjoyment cell is always 0–100 and is never scaled. It never infers a scale from a value's magnitude: an enjoyment of `8` and a score of `8` that means 80 are indistinguishable that way. **Changing a sheet scale therefore requires a version marker in the workbook** — without one, every existing export would re-import silently wrong.
 
 - **`in_game_difficulty` is the level's difficulty now**, taken from the shared cache rather than the snapshot each entry stored when it was logged. The column only ever filters name resolution on the way back in, and it is matched against that same cache — a snapshot that has since gone stale could only rule the row's own level out. Import re-snapshots from the cache itself and never stores this cell, so nothing round-trips away. Every difficulty it can hold is a demon tier, written bare: the star counts (`5★`) and marked faces (`Insane (non-demon)`) it used to need are gone with non-demon support, and a sheet that still carries one names no tier, so it simply stops narrowing the search.
-- **Not included** (out of the import model / user-only, so a round-trip won't restore them): rating category weights, system timestamps, and AREDL references. `nlw_tier` is a reserved column with no backing data yet (no NLW list integration) — it always exports blank and is ignored on import.
+- **Not included** (so a round-trip won't restore them): rating category weights, system timestamps, and the event log. Community list placements (GDDL, AREDL, sheet tier) belong to the level rather than the account and are not exported either. `nlw_tier` and `gddl_tier_at_drop` are reserved columns with nothing behind them — they always export blank and are ignored on import.
 - **Drop-then-completed history round-trips too**: a dropped-then-beaten level exports rows on **both** the Dropped and Completions tabs — the drop is its own independent entry (with its own `drop_id`), never merged into or overwritten by the later completion. A level dropped more than once (drop → resume → drop again) exports one Dropped-tab row per drop, each with its own date/attempts/reason. The Level Page timeline and runs graph show every drop as its own entry, regardless of the level's current status.
 
 ---
@@ -370,7 +393,7 @@ A blank template file is always available for download from the import screen. I
 
 - All column headers with correct names
 - One example row (clearly marked as example, to be deleted)
-- A second tab with field descriptions and valid value ranges
+- A `Field Descriptions` tab with each column's meaning and valid values
 
 The template is identical to an export file, making the workflow for existing spreadsheet users:
 

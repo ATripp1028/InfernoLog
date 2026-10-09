@@ -197,6 +197,7 @@ Goal: Open InfernoLog to the public as a community platform.
 - Level Picker Discovery Mode question set (designed after v4 launch)
 - Mobile app (if platform grows to justify it)
 - Rebeat handling (v3 placeholder, full design TBD)
+- The spreadsheet's two reserved columns, `nlw_tier` (Completions) and `gddl_tier_at_drop` (Dropped) — both export blank and are ignored on import; give them data or remove them
 - Discord notifications for events — a mapping from event type to Discord channel. The event log needs no schema change for it; the one constraint is that the internal demon-list rebalance event is never mapped to anything
 - Event history on public profiles — each event already stores a visibility (default public) that nothing reads; decide what it means before any profile shows events
 - Tracking collection changes (adding or removing a level) as events — not recorded in any form
