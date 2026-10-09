@@ -121,7 +121,7 @@ enum LevelType {
 //   survives even though `status` only reflects the current state.
 // - COMPLETED is left untouched by further progress logs in v1 (rebeat is a
 //   future feature).
-// - See docs/LOGGING_FLOW_RECONCILIATION.md for the dropped -> in_progress
+// - See docs/LEVEL_LOGGING.md for the dropped -> in_progress
 //   auto-flip and drop-from-scratch decisions.
 enum LevelProgressStatus {
   IN_PROGRESS

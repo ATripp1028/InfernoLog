@@ -6,8 +6,8 @@ lightweight list-management workflows that share the same entry point.
 
 It supersedes the "Logging Flow" section of `LEVEL_LOGGING.md` and intersects with
 `DEMON_LIST.md` (placement) and `DESIGN_LANGUAGE.md` (the FAB, modal, thumbnail
-treatment). Where this document and those disagree, this document is the newer decision —
-see `LOGGING_FLOW_RECONCILIATION.md` for the specific contradictions to resolve.
+treatment). The rules for what a logged event does to a level's status, and for progress
+on a beaten level, are in `LEVEL_LOGGING.md`.
 
 ---
 
@@ -219,7 +219,7 @@ attempts, run range, FPS) — not every field, to avoid noise.
   not merely a placement convenience. Optional. **AREDL rank only appears for extreme demons**
   (AREDL = All Rated Extreme Demons List — it lists extreme demons only), keyed off the level's
   cached rated difficulty. The GDDL record submission toggle appears here only when a GDDL key
-  is configured. (Pointercrate is cut from v1 — see `LOGGING_FLOW_RECONCILIATION.md`.)
+  is configured. (Pointercrate has no integration — see `EXTERNAL_APIS.md`.)
 - **One completion per level per user in v1**, and it is **edit, not replace.** If a completion
   already exists for the level, "Log a completion" routes the user to **edit the existing
   completion** rather than create or overwrite a second one. (A small inline note — "You've already

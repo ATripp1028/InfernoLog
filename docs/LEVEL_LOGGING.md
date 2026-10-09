@@ -119,7 +119,29 @@ Nothing is sent to GDDL. Submitting the completion as a GDDL record is a separat
 
 **One completion per level per user, and it is edit-not-replace.** Choosing "Log a completion" for a level that already has one **routes the user to edit the existing completion** rather than creating or overwriting a second. There is no replace path.
 
-**A completion ends the level's history.** A progress update dated after the completion is refused; one dated before it, on the same day, or undated is backfill and is accepted. The spreadsheet import enforces the same rule.
+### Progress on a beaten level
+
+**A progress entry may never be dated after the level's completion.** Backfill — a session dated before it, or on the same day — is always allowed.
+
+A completion records the run that beat the level, so nothing logged after it can be progress toward beating it; a later entry either duplicates the completion or is a lower number that means nothing. What a completed level _can_ hold is everything logged on the way there, which is why the rule is an ordering rather than "a beaten level has no progress rows". Backfilling never un-completes a level: its status stays `COMPLETED`.
+
+**One rule, one comparator.** `isDatedAfterCompletion` (`apps/api/src/services/progress/completionOrder.ts`) is the whole of it, and every path that can put a progress entry on a completed level calls it:
+
+| Path                             | Enforced in                    | On violation                       |
+| -------------------------------- | ------------------------------ | ---------------------------------- |
+| `POST /v1/me/progress`           | `applyProgress`                | 409 `ProgressAfterCompletionError` |
+| `PATCH /v1/me/progress/:levelId` | `applyEdit` (PROGRESS targets) | 409 `ProgressAfterCompletionError` |
+| Spreadsheet import, Progress tab | `planProgress`                 | Row skipped, reason reported       |
+
+Both sides are compared as calendar days, each read back through its own timezone; the raw instants are never compared. Undated on either side, or the same day, is not a violation — grinding a level and beating it in one sitting is the ordinary case, and refusing what cannot be placed would reject real history over a blank date field.
+
+The completion is found by looking for a `kind = completion` update, not by reading `status`, so a level dropped after being beaten is covered too.
+
+**Not policed:** editing the _completion's_ date earlier, which can strand existing sessions after it. Only an edit can reach that state, and refusing it would leave the user unable to correct a mistyped completion date without deleting the sessions first.
+
+**Deleting an event** re-derives the status from what remains, and a stray progress entry after a completion does not un-complete the level there either — rows that predate this rule can still be in that shape.
+
+**Both level pages drop the "Log progress" action once a level is beaten** (`resolveLevelOwnership`, `useGlobalLevelDetailPage`), which is stricter than the rule: in-app backfill has no entry point, so backfilling a beaten level's history is an import job. That is a UI decision, not the rule — the endpoint accepts a backfilled session from any caller.
 
 ---
 
@@ -138,8 +160,13 @@ LevelProgress.status transitions:
 
 A level can be dropped without ever having been logged ("drop-from-scratch"): the
 `LevelProgress` row is created directly at `DROPPED`, with no prior
-`IN_PROGRESS` row. Conversely, logging a progress update on a dropped level
-**automatically** flips it back to `IN_PROGRESS` — see `LOGGING_FLOW_RECONCILIATION.md`.
+`IN_PROGRESS` row. This is deliberate, not an oversight.
+
+Conversely, logging a progress update on a dropped level **automatically** flips it
+back to `IN_PROGRESS` (`applyProgress` in `apps/api/src/services/progress/index.ts`).
+Logging fresh progress implies the user has picked the level back up, and without the
+flip a "dropped" level would keep accumulating progress updates while still displaying
+as dropped. A level created by a progress log starts `IN_PROGRESS`.
 
 When a dropped level is eventually beaten, the completion is logged as a normal progress update on the existing entry. The drop history remains intact as its own `ProgressUpdate` row(s) — not merged into or overwritten by the completion.
 

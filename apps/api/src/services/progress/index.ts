@@ -401,7 +401,7 @@ export async function applyProgress(userId: string, input: ProgressInput) {
     // STATUS DECISION: logging progress on a DROPPED level flips it back to
     // IN_PROGRESS — logging progress implies active play. COMPLETED is left
     // untouched: backfilling the grind that led to a completion doesn't
-    // un-complete it. See LOGGING_FLOW_RECONCILIATION.md.
+    // un-complete it. See docs/LEVEL_LOGGING.md.
     const status = lp.status === 'DROPPED' ? 'IN_PROGRESS' : lp.status
 
     const base = {
