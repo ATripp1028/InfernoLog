@@ -9,7 +9,7 @@ import { sharedNodeOptions } from './defaults'
 // Two producers: spreadsheet import (the import endpoint commits stub levels
 // immediately and enqueues their IDs) and GDDL sync (which can find
 // existing-but-unverified stub levels — see getOrCreateLevel's needsSeed in
-// services/gddlSync.ts). Both workers live in infra/workers.ts.
+// services/gddl/sync.ts). Both workers live in infra/workers.ts.
 //
 // Concurrency is bounded twice, and the two bounds are not redundant:
 // `concurrency.reserved` is an ACCOUNT-level reservation (this function can
@@ -28,7 +28,7 @@ import { sharedNodeOptions } from './defaults'
 // that limiter is explicitly safe under concurrent callers (an atomic row
 // UPDATE), so a modest concurrency here just lets more batches make progress
 // in parallel while still bottlenecked by the same shared ceiling. Each batch
-// can carry up to 8 level IDs (BATCH_SIZE in services/import.ts), each needing
+// can carry up to 8 level IDs (BATCH_SIZE in services/importExport/import/levelResolution.ts), each needing
 // up to ~49s in the worst case (3 retries, each up to a 10s rate-limiter wait
 // + 5s fetch, plus backoff) — timeout sized well above that per-batch worst
 // case.

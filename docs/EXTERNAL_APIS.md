@@ -19,7 +19,19 @@ User-Agent:                      ← MUST be empty (Cloudflare returns HTTP 1020
 type=0&str={levelId}&secret=Wmfd2893gb7&gameVersion=22&binaryVersion=42
 ```
 
-The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). Rate limits are ~2 req/s for data endpoints; our usage is per-user cache-miss only.
+The response is a raw delimited blob (not JSON): `levels # creators # songs # pageInfo # hash`, where the level is colon/`:`-paired keys, creators are `playerID:username:accountID`, and songs are `~|~`-delimited objects separated by `~:~`. `parseGetGJLevels21` (unit-tested in `robtop.test.ts`) joins the level to its creator and song and derives the human-readable difficulty from the raw keys (`8`/`9`/`17`/`25`/`43`). GD's data endpoints tolerate roughly 2 requests/second per IP.
+
+### Who calls it, and how it is paced
+
+- **User requests, on a cache miss only** — `GET /v1/levels/{levelId}/resolve` and `/page`, and every `GET /v1/levels/gd-search`. A level already in the cache never causes a call.
+- **The level-cache sync cron** — see "Level-Cache Sync" below.
+- **The level-seed queue** — an SQS consumer (`handlers/levelSeedWorker.ts`) that enriches stub levels left by a spreadsheet import or a GDDL sync, upgrading them to `data_source = robtop_autofill`, `verified = true`. A stub GD reports as a rated non-demon is deleted instead, unless something references it.
+- **The GDDL sync worker and the import pre-flight check**, when they need a level the cache doesn't have.
+- **The reachability canary** — see below.
+
+Every one of these goes through one shared token bucket, `utils/robtopRateLimit.ts`: 1.5 requests/second with a burst of 3, held in a Postgres row because Lambda invocations share no memory. A caller waits for a slot (10 seconds by default) and gives up as "unreachable" if none comes. The bucket is per stage — each stage has its own database — which is why the cron and canary are deployed to production only.
+
+In front of that sits a **per-user budget** (`utils/robtopUserBudget.ts`): 200 calls per user, refilling over an hour, charged only when a user request is about to call out. It exists because the shared bucket has no idea who is spending it, so one account iterating ids GD has no level for (a not-found is never cached) could starve everyone else. An exhausted budget is a `429` with `Retry-After`.
 
 `-1` (or empty/malformed) means not found → the client returns `null`. Custom (Newgrounds) songs come from the response; **official/built-in tracks** are resolved name/author from a static table in `robtop.ts` (the level object only carries the official-song index). A few fields GDBrowser used to compute (creator points, orbs, diamonds, difficulty face, "large level", editor time) aren't in the raw level object at all — they don't exist as `levels` columns, rather than being stored permanently `null`.
 
@@ -29,9 +41,9 @@ The response is a raw delimited blob (not JSON): `levels # creators # songs # pa
 
 If the servers are unavailable, the user is notified and may proceed with fully manual data entry. The logging flow is never blocked by the servers being down.
 
-**Being blocked is a distinct failure from being down.** Two upstream statuses mean "stop calling", and both open the shared cooldown in `robtopRateLimit.ts` so every consumer backs off together rather than only the one that got hit: a **429** (RobTop rate-limiting our IP — honours `Retry-After`) and a **403** (Cloudflare's block page, from a WAF rule or the egress IP's reputation, with no `Retry-After` — fixed 5-minute backoff, since continuing to hit a block helps keep it). Anything else, including a 5xx, is logged as unreachable but opens no cooldown. Every non-OK response is logged with `cf-ray`, `cf-mitigated`, `server`, and a body snippet: those are what distinguish a UA/WAF block from an IP block after the fact, and a 403 run is not diagnosable without them.
+**Being blocked is a distinct failure from being down.** Two upstream statuses mean "stop calling", and both open the shared cooldown in `robtopRateLimit.ts` so every consumer backs off together rather than only the one that got hit: a **429** (RobTop rate-limiting our IP — honours `Retry-After`, 60 seconds when it sends none, capped at 5 minutes) and a **403** (Cloudflare's block page, from a WAF rule or the egress IP's reputation, with no `Retry-After` — fixed 5-minute backoff, since continuing to hit a block helps keep it). Anything else, including a 5xx, is logged as unreachable but opens no cooldown. Every non-OK response is logged with `cf-ray`, `cf-mitigated`, `server`, and a body snippet: those are what distinguish a UA/WAF block from an IP block after the fact, and a 403 run is not diagnosable without them.
 
-**Reachability canary.** A production-only cron (`RobtopCanary`, every 15 minutes, `handlers/robtopCanaryWorker.ts` → `services/levels/canary.ts`) makes one `getGJLevels21` call for a known-good level (`128`, a constant in `canary.ts`) and alerts to Sentry when it comes back unreachable. It exists because the level-cache sync runs every 6 hours, so without it the first sign that GD's servers have cut us off is a circuit-breaker log up to a full interval later — how the Aug 2026 Cloudflare block was found. It skips its check entirely while a cooldown is open, and reports a deleted canary level as a config problem rather than an outage.
+**Reachability canary.** A production-only cron (`RobtopCanary`, every 15 minutes, `handlers/robtopCanaryWorker.ts` → `services/levels/canary.ts`) makes one `getGJLevels21` call for a known-good level (`128`, a constant in `canary.ts`) and alerts to Sentry when it comes back unreachable. It exists because the level-cache sync runs only every 6 hours, so without it the first sign that GD's servers have cut us off is a circuit-breaker log up to a full interval later — how the Aug 2026 Cloudflare block was found. It skips its check entirely while a cooldown is open, and reports a deleted canary level as a config problem rather than an outage.
 
 **It alerts on a failed _pair_, never a single failure.** RobTop answers in ~300ms against a 5s timeout, so a lone request overrunning it is upstream noise; on 15-minute runs that noise pages roughly every couple of days, and an alarm that cries wolf is worse than no alarm. On a failed sample the canary waits 3s and samples again, alerting only if both fail (`recovered` is logged, never alerted). This was not theoretical: on 2026-08-27 a single `AbortError` between 191 healthy checks paged as an outage. A real refusal fails both samples, so detection speed is unchanged.
 
@@ -39,21 +51,24 @@ If the servers are unavailable, the user is notified and may proceed with fully 
 
 **Telling an egress block from a bad request.** The logs establish _that_ Cloudflare refused us; they cannot establish _why us_. The block page carries no numeric error code, and `cf-ray` resolves only inside RobTop's Cloudflare account, not ours. The one thing that separates "our egress IP is blocked" from "our request shape is wrong" is running the identical request from somewhere else at the same moment: `pnpm probe:robtop [levelId]` (from `apps/api`) does exactly that, sharing the request builder in `utils/robtopRequest.ts` so it cannot drift from what production sends. It needs no database or AWS credentials, and both the canary and sync circuit-breaker alerts name it. Run it **while an alert is firing** — a block that has cleared is no longer diagnosable.
 
-**Auto-fallback to manual entry.** When the fetch fails or returns nothing (down/timed out, or an unrated/brand-new level), the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields autofill would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"). The form offers only the five demon tiers and "Unrated", so it cannot create a level the cache would refuse from GD, and `is_demon`/`is_rated` follow from the choice. Manually-sourced rows are stored with `data_source = manual` and `verified = false` so a later sync can backfill and verify/override them. See `LOGGING_FLOW.md` and the `Level` model in `schema.prisma`.
+**Auto-fallback to manual entry.** When the fetch fails or GD has no such level, the flow **automatically** falls back to a manual entry view — there is no "enter manually" escape hatch in the happy path, and the view never appears when autofill succeeds. It collects the fields autofill would normally provide: level name, creator, in-game difficulty, song name, song author, length. These map to the shared `levels` cache columns. Crucially, with no cached value to defer to, **the difficulty the user picks becomes the level's `in_game_difficulty`** (the one exception to "in-game difficulty is always cached and read-only"). The form offers only the five demon tiers and "Unrated", so it cannot create a level the cache would refuse from GD, and `is_demon`/`is_rated` follow from the choice. Manually-sourced rows are stored with `data_source = manual` and `verified = false`; the sync rewrites such a row wholesale the first time GD returns the level. See `LOGGING_FLOW.md` and the `Level` model in `schema.prisma`.
+
+**Rated non-demons are refused, not cached.** The cache admits demons and unrated levels only (`services/levels/admission.ts`). A lookup that GD answers with a rated non-demon returns `422 { reason: 'not_a_demon' }` and writes nothing.
 
 ### Cache-Backed Name Search
 
 The logging flow's level-entry field accepts **either an ID or a name** (one field, disambiguated by `^\d+$` → ID lookup, else → name search). Name search resolves against **InfernoLog's own `levels` cache**, not GD's live search — this controls the result set, costs nothing externally, and is fast (local Postgres). A level enters the cache when anyone logs it, enters its ID, or reaches it via the opt-in GD-server search escalation; entering a raw ID routes through autofill and **populates the cache**, seeding the search index for next time. See `LOGGING_FLOW.md` and `LEVEL_PICKER.md`.
 
-**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (the same `type=0` search the ID lookup uses, with a name as the search string instead of an id; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. Backend: `services/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
+**GD-server name search escalation.** When a cache name search comes up short (zero results or partial hits), the user can opt in — on explicit confirmation, never on keystroke — to a single `getGJLevels21` name query (the same `type=0` search the ID lookup uses, with a name as the search string instead of an id; `parseGetGJLevels21` handles the plural response). Levels already in the cache are omitted from the results; rated matches are seeded automatically (`data_source = robtop_autofill`, same as any other autofill — no seeded-vs-logged distinction is stored), unrated matches are seeded only if selected. Routed through the shared RobTop client (`searchRobtopByNameResult`), so throttling and the not-found/unreachable split apply. The query is always scoped to GD's Demon difficulty bucket, since the cache admits no rated non-demon. Backend: `services/levels/gdSearch.ts` + `GET /v1/levels/gd-search`. Available at every cache-search call site: the toolbar, the logging-flow entry step, and collections add.
 
 ---
 
 ## GDDL API
 
-**Purpose:** GDDL tier autofill suggestion + optional record submission  
-**Auth:** Per-user API key (stored encrypted, used server-side only)  
-**Called from:** Lambda only  
+**Base URL:** `https://gdladder.com/api` (override via `GDDL_API_BASE_URL`)
+**Purpose:** Community tier and enjoyment for demons; importing a user's GDDL records; record submission; favorites sync
+**Auth:** None for the level lookup. Everything per-user uses that user's API key (stored encrypted, used server-side only)
+**Called from:** Lambda only. Client: `apps/api/src/utils/gddl.ts`
 **License:** Free platform — minimize load, never poll for live tier updates
 
 ### Public level endpoint
@@ -73,27 +88,35 @@ x-ratelimit-limit: 100
 x-ratelimit-reset: 60
 ```
 
-100 requests per 60s per IP — a 600ms floor — against a NAT egress IP shared by the sync cron, `/resolve`, the GD search escalation and the import worker. Each path individually looks well-behaved; their sum is what trips it. `apps/api/src/utils/gddlRateLimit.ts` is a Postgres token bucket on the `robtop_rate_limit` model, gated inside `fetchGddlLevel`. **It denies rather than waits**: a denied call returns `undefined`, the merge reads that as "GDDL had no opinion this pass", and the level comes round again. A 429 opens a shared cooldown honouring `Retry-After`.
+100 requests per 60s per IP — a 600ms floor — against an egress IP shared by the sync cron, `/resolve`, the GD search escalation and the import worker. Each path individually looks well-behaved; their sum is what trips it. `apps/api/src/utils/gddlRateLimit.ts` is a Postgres token bucket (its own `GddlRateLimit` row, 1.4 requests/second with a burst of 3), gated inside `fetchGddlLevel`. **It denies rather than waits**: a denied call returns `undefined`, the merge reads that as "GDDL had no opinion this pass", and the level comes round again. A 429 opens a shared cooldown honouring `Retry-After`.
 
-### Autofill
+### Suggested tier in the logging flow
 
-Called after the level-metadata fetch when a rated level is detected. Returns the current GDDL tier as a **suggested value** — the user confirms or overrides before saving. This value becomes a snapshot on the completion record.
+When a rated level is resolved, the logging flow pre-fills the user's own GDDL tier with the level's community tier. The user confirms or overrides it, and what they save is stored as their own opinion (`LevelProgress.userGddlTier`) — it does not track GDDL afterwards.
 
 `GET /v1/levels/:levelId/resolve` does **not** fetch this separately: the community check on the same request already wrote `levels.gddlTier` from the same endpoint and the same rounding, so the route reads it back from the row. Two calls to gdladder.com for one level, in one request, is how a user-facing route becomes the thing that throttles the sync job.
 
-GDDL placements update extremely frequently. InfernoLog does **not** maintain live parity with GDDL tiers. The snapshot approach is intentional and respectful of GDDL's free infrastructure.
+GDDL placements update extremely frequently. InfernoLog does **not** maintain live parity with GDDL tiers; the cached community tier is refreshed on the rotation described under "Community lists".
 
-### Record Submission
+### Connecting an account
 
-Optional. Triggered by user action during completion logging (not automatic). Requires the user to have provided and saved their GDDL API key. Submitted server-side via Lambda using the encrypted stored key.
+`PUT /v1/me/gddl-key` checks the key against `GET /user/me` before storing it, and saves the GDDL username it belongs to. One GDDL account can be connected to only one InfernoLog account. See `AUTH.md` → "GDDL API Key Storage".
 
-### Favorites / Least Favorites Sync
+### Record import (GDDL sync)
 
-On initial GDDL connection, users can optionally import their GDDL favorites/least favorites into InfernoLog lists. When marking a favorite in InfernoLog, users can optionally sync that action to their GDDL account.
+`POST /v1/me/gddl-sync` starts a job in the `GddlSyncWorker` Lambda (`services/gddl/sync.ts`). It pages through the user's GDDL submissions (`GET /user/{id}/submissions`) and creates a completion for each level they have a record on. A level the cache doesn't hold is looked up on RobTop; when RobTop can't be reached the level is stored as a stub and handed to the level-seed queue. A run of consecutive unreachable lookups stops the worker calling RobTop for the rest of the job, mirroring the level sync's circuit breaker. A completion created here removes the level from Want to Beat, like any other.
 
-### Known Limitation
+### Record submission
 
-GDDL records cannot be deleted via the API. Users are warned of this in the completion delete confirmation modal.
+`POST /v1/me/gddl-records/{levelId}` submits the user's existing completion of a level to GDDL (`POST /submissions`). It is an explicit action from the level page, blocks, and reports GDDL's verdict. Logging a completion never submits anything.
+
+### Favorites / Least Favorites sync
+
+`POST /v1/me/gddl-lists-sync` syncs the Favorites and Least Favorites collections with the matching GDDL user lists in both directions (`services/gddl/listSync.ts`). User-triggered and synchronous — the lists are small.
+
+### Known limitation
+
+GDDL records cannot be deleted via the API. `DELETE /v1/me/progress/{levelId}` returns a `gddlCaveat` message saying so; the web client does not currently display it.
 
 ---
 
@@ -108,13 +131,13 @@ GDDL records cannot be deleted via the API. Users are warned of this in the comp
 
 The response is an array of song objects; we persist the canonical one (highest `downloads`) to the `levels` cache (`sfh*` columns). `isNong` is derived from SFH alone.
 
-**The `states` filter mirrors the GD level's rating status:** rated levels query `states=rated`, unrated levels `states=unrated`. Both catalogs are curated the same way (mashups/remixes of Newgrounds-hosted songs are excluded), so a non-empty result from either is a **legitimate NONG**.
+**The `states` filter mirrors the GD level's rating status:** rated levels query `states=rated`, unrated levels `states=unrated`. A non-empty result from either marks the level as a NONG — the code treats the two catalogs identically.
 
 The state is chosen at check time from the level's `is_rated` (in the sync job, from the value RobTop just returned).
 
 ### Re-check Cadence
 
-A level's song — and therefore its NONG status — changing is vanishingly rare (e.g. Slaughterhouse gaining a NONG on a rework, Battle of the Shades being unrated after repeated reworks). So a successful check is trusted and **re-checked at most once every ~6 months** (`SFH_RECHECK_DAYS` in `services/sfhSync.ts`), not on every sync pass. `sfhCheckDue(sfhCheckedAt)` is the single gate both call sites use:
+A level's song — and therefore its NONG status — changing is vanishingly rare (e.g. Slaughterhouse gaining a NONG on a rework, Battle of the Shades being unrated after repeated reworks). So a successful check is trusted and **re-checked at most once every ~6 months** (`SFH_RECHECK_DAYS`, 182, in `services/levels/sfhSync.ts`), not on every sync pass. `sfhCheckDue(sfhCheckedAt)` is the single gate both call sites use:
 
 - **`sfh_checked_at IS NULL`** (never succeeded — including a first check that failed) → always due, so failed checks retry every run until one succeeds and a transient outage never costs 6 months.
 - **`sfh_checked_at` older than the cadence** → due again; catches the rare after-the-fact NONG add/remove or a rating flip that moves a level between catalogs.
@@ -130,18 +153,18 @@ SFH being slow/down/erroring is an **expected branch**, never a blocking error �
 - `null` when the call succeeded but the array was empty (a valid, cacheable "checked, no NONG"),
 - `undefined` when the call itself failed (network/timeout/non-2xx).
 
-The shared write step (`services/sfhSync.ts`) stamps `sfh_checked_at = now()` on found **and** empty (both are "checked"); a failure writes nothing and leaves `sfh_checked_at` null so a later run retries. A failed SFH call never sets `is_nong` and never surfaces a 5xx.
+The shared write step (`services/levels/sfhSync.ts`) stamps `sfh_checked_at = now()` on found **and** empty (both are "checked"); a failure writes nothing and leaves `sfh_checked_at` null so a later run retries. A failed SFH call never sets `is_nong` and never surfaces a 5xx.
 
 ### Decision Log
 
 - **No manual NONG entry.** SFH is the sole source of truth; the speculative `nong_song_title` / `nong_artist` / `nong_source_url` columns (never built into any UI) were dropped.
 - **`is_nong` is derived from SFH only** — `true` when a match is found, `false` when SFH confirms none.
 - **Re-checked at most once per ~6 months**, not one-and-done: cheap insurance against the rare song change, without flooding a community API for data that almost never moves.
-- **When checked:** at resolve time (best-effort, non-blocking, same contract as the GDDL suggested-tier fetch) and opportunistically during the RobTop sync jobs (see below), for any level currently due.
+- **When checked:** when a level is first resolved (`/resolve` and `/page` — best-effort and non-blocking) and opportunistically during the level-cache sync (see below), for any level currently due.
 
 ### Sync-Job Integration
 
-`syncLevelBatch` (the shared core behind both sync schedules — see below) also runs an SFH check for any level in its batch that is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at < now() - SFH_RECHECK_DAYS)`). It piggybacks on the levels each job already pulls in (no new schedule, no new query — just a per-level filter). SFH calls are paced sequentially (~670ms) like the RobTop calls, since SFH is community infrastructure. A level that RobTop reports **delisted in the same run** skips its SFH check for that run.
+`syncLevelBatch` (the core of the level-cache sync — see below) also runs an SFH check for any level in its batch that is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at < now() - SFH_RECHECK_DAYS)`). It piggybacks on the levels each slice already pulls in (no new schedule, no new query — just a per-level filter). SFH calls are paced sequentially (~670ms) like the RobTop calls, since SFH is community infrastructure. A level that RobTop reports **delisted in the same run** skips its SFH check for that run.
 
 ---
 
@@ -256,10 +279,11 @@ A not-found deliberately does **not** clear placements a source can't speak to �
 
 ### When It Runs
 
-**Never on page view.** Three paths write it:
+**Never on page view of a cached level.** These paths write it:
 
-- **First resolve** — `findOrResolveLevel` runs `checkCommunityIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
-- **The bulk AREDL pass** — `runAredlListSync` in `services/levels/sync.ts`, once per cron invocation. One request refreshes every placed level's rank, status and enjoyment, and clears the levels that have fallen off the list. That set difference is the **only** way a removal is ever detected: per-level polling sees a removed level as a 404, which is indistinguishable from never having been placed. It also hands the rotation its membership oracle. It writes no `sheetTier` — that column is merged with GSV's SHEET entry, and this pass holds no GSV opinion to merge against — and it touches `enjoyment` only on extremes, since below that the column holds GDDL's score and an AREDL pass owns neither writing nor clearing it.
+- **First resolve** — `/resolve` and `/page` run `checkCommunityIfDue` alongside the SFH check (in parallel; they hit unrelated hosts) so a level opened for the first time shows its tiers immediately.
+- **After seeding** — the level-seed worker and the GDDL sync run `checkCommunityForSeededLevels` over the levels they just enriched, paced at 700ms.
+- **The bulk AREDL pass** — `runAredlListSync` in `services/levels/sync.ts`, once per `LevelSync` cron invocation. One request refreshes every placed level's rank, status and enjoyment, and clears the levels that have fallen off the list. That set difference is the **only** way a removal is ever detected: per-level polling sees a removed level as a 404, which is indistinguishable from never having been placed. It also hands the rotation its membership oracle. It writes no `sheetTier` — that column is merged with GSV's SHEET entry, and this pass holds no GSV opinion to merge against — and it touches `enjoyment` only on extremes, since below that the column holds GDDL's score and an AREDL pass owns neither writing nor clearing it.
 - **The per-level rotation** — `runCommunitySyncSlice`, driven by the same `LevelSync` cron, with its own `level_sync_cursor` key (`community`), a 200-level slice and **700ms** pacing.
 
 **Why a separate rotation rather than piggybacking on the RobTop sweep** (the way the SFH check does): the RobTop slice is 50 levels/run, sized by RobTop's per-IP rate limit and the 670ms pacing — about 200 levels/day of turnover. List placements, GDDL tiers especially, move far faster than that. These are different hosts under looser limits, so the rotation walks the cache several times faster while remaining a bounded cron slice. It also reaches levels the RobTop sweep deliberately skips: `official` rows are excluded there (getGJLevels21 never returns them, so a sync would look like a not-found and wrongly delist a level that plainly exists), but the community lists do index them.
@@ -279,72 +303,72 @@ The re-check cadence is `COMMUNITY_RECHECK_DAYS` (7), applied as a SQL filter so
 **License:** Apache 2.0 — hotlinking permitted within rate limits  
 **Called from:** Frontend (image src, no proxy needed)
 
-Thumbnails are constructed as a deterministic URL on the frontend — no API call, no storage, no caching required.
+Thumbnails are a deterministic URL built on the frontend — no API call, no storage, no caching. `levelThumbnailUrl` in `apps/web/src/lib/gdAssets.ts` is the one place that builds it.
 
-```javascript
-const getThumbnailUrl = (levelId: string) =>
-  `https://levelthumbs.prevter.me/thumbnail/${levelId}`;
-```
-
-Covers rated levels and some significant unrated levels. Silently falls back to a placeholder image on `onError`.
-
-```jsx
-<img
-  src={getThumbnailUrl(levelId)}
-  onError={(e) => {
-    e.currentTarget.src = '/placeholder-level.png'
-  }}
-  alt={levelName}
-/>
-```
+Coverage is partial: rated levels and some significant unrated ones. A thumbnail may 404, so every `<img>` that uses one handles `onError` itself and degrades quietly.
 
 Respect rate limits. Do not prefetch thumbnails in bulk or load them outside of visible UI.
 
 ---
 
-## RobTop Level-Cache Sync Jobs
+## Level-Cache Sync
 
-**Infrastructure:** AWS EventBridge Scheduler → Lambda (two schedules)
-**Purpose:** Keep the shared `levels` cache current with RobTop's servers, and detect levels pruned from those servers.
+**Infrastructure:** EventBridge Scheduler → Lambda. One cron, `LevelSync`, every 6 hours (`infra/cron.ts` → `handlers/levelSyncWorker.ts`). **Production only** — a per-stage cron would multiply an uncoordinated request rate from one egress IP.
+**Purpose:** Keep the shared `levels` cache current with RobTop's servers and the community lists, and detect levels removed from GD.
 
-Both schedules run one shared fetch/compare/write **core** (`apps/api/src/services/levelSync.ts`, `syncLevelBatch`). There is **no** staging, no pending fields, and no notification: a detected diff is written to the shared cache **silently**. Per-user progress data (including `progress_updates.in_game_difficulty_snapshot`) is never touched — this is a `levels` cache change only.
+All logic is in `apps/api/src/services/levels/sync.ts`. There is **no** staging, no pending fields, and no notification: a detected diff is written to the shared cache **silently**. Per-user progress data is never touched — this is a `levels` cache change only.
 
-### The Two Schedules
+### One run, four passes
 
-| Job               | Cadence                            | Query (levels passed to the shared core)                                                                                              |
-| ----------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| **Volatile sync** | Weekly (Mondays, midnight UTC)     | `delisted_at IS NULL` AND (`is_rated = false` OR `rating_status_since >= now() - interval '14 days'`)                                 |
-| **Standard sync** | First of every month, midnight UTC | `is_rated = true` AND `delisted_at IS NULL` AND (`rating_status_since IS NULL` OR `rating_status_since < now() - interval '14 days'`) |
+Each run does a bounded amount of work and picks up where the last one stopped. Three of the passes are rotations over the cache ordered by level id, each with its own cursor row in `level_sync_cursor`, wrapping at the end.
 
-The queries are complementary: the weekly job covers never-rated levels (a rating can appear at any time) and rated levels whose rating status changed within the last 14 days (the volatile window, most likely to be revised soon). The monthly job covers everything else that's rated and not delisted — including rated levels whose `rating_status_since` was never stamped (e.g. cached via import/resolve rather than a sync). No level is processed by both jobs in the same window.
+| Pass               | Function                   | Size per run            | Covers                                                         |
+| ------------------ | -------------------------- | ----------------------- | -------------------------------------------------------------- |
+| RobTop sweep       | `runLevelSyncSlice`        | 50 levels, 670ms apart  | Every level that isn't delisted and that RobTop can answer for |
+| Delisted reverify  | `runDelistedReverifySlice` | 20 levels               | Already-delisted levels, to notice a reupload                  |
+| AREDL list         | `runAredlListSync`         | One bulk request        | Every level placed on AREDL                                    |
+| Community rotation | `runCommunitySyncSlice`    | 200 levels, 700ms apart | Rated or demon levels due a community check                    |
 
-### Shared Core Behavior (per level)
+Fifty levels a run is about 200 a day. The slice is sized by RobTop's per-IP limit rather than by how fresh the cache should be: an earlier design ran the whole rated set in one weekly and one monthly batch, which reliably tripped the limit.
 
-The core calls `fetchRobtopLevel`, then:
+`official` levels and end-to-end test fixtures are excluded from both RobTop passes (`UNSYNCABLE_DATA_SOURCES`): `getGJLevels21` never returns them, so a sync would read as a not-found and delist a level that plainly exists. Official levels are still eligible for the community rotation.
 
-**Not found** (RobTop `-1`/empty → `null`, the same contract the `/resolve` endpoint uses):
+The reverify pass is skipped when the RobTop sweep aborted, since RobTop was failing. The two community passes run last and regardless — they talk to different hosts.
 
-- Set `delisted_at = now()` (and `last_checked_at`); `delisted` on the wire is derived as `delisted_at != null` — no separate boolean column.
-- Freeze all metadata (`name`, `creator`, `in_game_difficulty`, `song_name`, `song_author`, `is_rated`) at last-known values.
-- Run no diff logic. Delisted rows are excluded from both jobs thereafter (there is no un-delist path, so the timestamp alone is authoritative).
+### RobTop sweep, per level
+
+`fetchRobtopLevelResult` separates three answers, and the difference is the point:
+
+**Unreachable** (rate-limited, blocked, timed out, unparseable) says nothing about whether the level exists. The row is left entirely untouched and retried on a later run. Treating this as a not-found is what once mass-delisted live levels during a throttled batch.
+
+**Not found** is not trusted on one sighting either — GD returns `-1` under load too:
+
+- First sighting stamps `missingSince` and nothing else.
+- A level still missing 36 hours later (`DELIST_CONFIRM_MS`) is delisted: `delistedAt = now()`, with all metadata frozen at its last-known values. `delisted` on the wire is derived as `delistedAt != null`.
+- A level that reappears in the meantime clears `missingSince`.
 
 **Found** — diff against the cached row, writing only what changed:
 
-- If `is_rated` or `in_game_difficulty` changed → write the new value(s) directly **and** stamp `rating_status_since = now()` (this is the only thing that drives the volatile window).
-- If `name`, `creator`, `song_name`, or `song_author` changed → write the new value(s) directly (no timestamp tracking).
-- `last_checked_at = now()` on every level processed, found or not.
-- After a **found** level is reconciled, run the Song File Hub NONG check if the level is due (`delisted_at IS NULL AND (sfh_checked_at IS NULL OR sfh_checked_at older than the re-check cadence)`). A level **delisted this run** skips it. See the Song File Hub section above.
+- If `isRated` or `inGameDifficulty` changed → write them with `isDemon` and `partialDiff`, stamp `ratingStatusSince`, and clear `communityCheckedAt` so the community rotation re-checks the level (the enjoyment source depends on the difficulty).
+- If `name`, `creator`, `songName`, or `songAuthor` changed → write the new value. A null from RobTop is "the response didn't carry it", never a rename to nothing, so it leaves the cached value alone.
+- **An unverified row is repaired, not diffed.** A stub that never received a full RobTop snapshot (`verified = false`) is incomplete rather than drifting, so the whole snapshot is written and the row becomes `robtop_autofill` / verified.
+- **A level GD has since rated as a non-demon** is deleted from the cache if nothing references it. One that someone has logged or collected stays and keeps being refreshed.
+- `lastCheckedAt = now()` on every level that got an answer, found or not.
+- Then the Song File Hub check, if the level is due and wasn't delisted. See the Song File Hub section above.
 
-### Infrastructure Note
+### Safeguards
 
-EventBridge Scheduler is serverless and costs essentially nothing at InfernoLog's scale. The sync Lambdas pace their RobTop calls (~670ms/level) and run under a 15-minute timeout. No always-on infrastructure is required.
+- **Circuit breaker.** Five levels in a row coming back missing, unreachable, or throwing aborts the sweep (`CIRCUIT_BREAKER_STREAK`). An id-ordered batch does not have five genuinely deleted levels back to back, so a streak means RobTop is failing the run.
+- **The cursor advances to the last level attempted, not the end of the slice**, so an aborted run leaves its untouched tail in front of the cursor for next time.
+- **Mass-delist alarm.** A run that delists 10 or more levels is reported to Sentry (`MASS_DELIST_ALERT`).
+- **Reuploads.** A delisted level that RobTop returns again is un-delisted by the reverify pass; reuploads reuse the level id. That pass has no circuit breaker, because a run of not-founds is its expected case and it makes no destructive writes.
+
+`scripts/undelistFalsePositives.ts` exists to repair the damage from the mass-delist incident these safeguards were built after.
 
 ---
 
-## AREDL / NLW
+## Lists without an integration of their own
 
-Both are now live integrations — see **Community lists (GSV + GDDL + AREDL)** above for endpoints, the position-vs-level-id trap, and how their values are merged with the Global Stats Viewer's.
+**Pointercrate** was evaluated and cut: its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
 
-AREDL rank is surfaced for extreme demons and, through the Legacy tier, the levels demoted out of extreme. Pointercrate was evaluated and **cut from v1** — its coverage is largely mirrored by the top ~150 of AREDL, and a separate integration was not worth the development burden.
-
-The NLW/LW spreadsheets still have no API of their own. Their tiers reach InfernoLog two ways: GSV's `SHEET` entry (1–21) and AREDL's `nlw_tier` name (0–14, and the only source of tier 0).
+**The NLW/LW spreadsheets** have no API. Their tiers reach InfernoLog two ways: GSV's `SHEET` entry (1–21) and AREDL's `nlw_tier` name (0–14, and the only source of tier 0). See "Community lists" above.

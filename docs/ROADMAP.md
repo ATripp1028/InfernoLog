@@ -77,7 +77,7 @@ Goal: A complete, shippable replacement for a personal demon tracking spreadshee
 - [x] AWS S3 + CloudFront (frontend)
 - [x] AWS Route 53 + ACM
 - [x] AWS Cognito
-- [x] AWS EventBridge Scheduler (RobTop level-cache sync: weekly + monthly)
+- [x] AWS EventBridge Scheduler (level-cache sync every 6 hours, rotating through the cache)
 - [x] AWS CloudWatch + Sentry
 - [x] GitHub Actions CI/CD (path-based independent deploys)
 - [x] Manual database migrations
@@ -110,7 +110,7 @@ Goal: Deepen the core logging experience. No new platform features.
 
 - [x] AREDL API integration
 - [ ] Record acceptance tracking for AREDL (not just GDDL)
-- [ ] GDDL favorites sync (push InfernoLog favorites to GDDL)
+- [x] GDDL favorites sync (Favorites and Least Favorites, both directions)
 
 ### Additional Logging Fields
 
