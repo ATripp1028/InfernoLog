@@ -6,7 +6,7 @@ import { gddlTierTextColor } from '@/lib/tierBadges'
  *
  * Fixed-size so a column of them lines up, with an em dash standing in for a
  * level that has no GDDL reference logged — the cell still has to occupy its
- * slot. That makes it The List's treatment specifically; a tier shown inside a
+ * slot. That makes it the Log's treatment specifically; a tier shown inside a
  * row of other chips is `TierChip`, which hugs its content, carries the list's
  * icon, and renders nothing at all when the level has no placement.
  *

@@ -1,4 +1,4 @@
-// Purging deleted rating categories out of saved List presets.
+// Purging deleted rating categories out of saved Log presets.
 //
 // A preset's four view-config fields are opaque JSON to the rest of the API —
 // `routes/presets/presets.ts` stores and returns them verbatim. This module is
@@ -7,7 +7,7 @@
 // the frontend encodes a per-category sort/column as the string `cat:<id>`
 // and a per-category range filter as a `filters.categoryRatings` key. Deleting
 // the category takes its `rating_scores` with it, but nothing would touch the
-// preset, so the List page would keep rendering a raw UUID where the category
+// preset, so the Log page would keep rendering a raw UUID where the category
 // name used to be. See `apps/web/src/features/list/presets.ts` for the
 // producing side of these shapes.
 //

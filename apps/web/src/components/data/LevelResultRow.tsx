@@ -68,7 +68,7 @@ export function LevelResultRow({
   // Fades the row without blocking it. The GD escalation results use this to
   // mark unrated levels, which stay selectable.
   dimmed?: boolean
-  // Tightens the row for a narrow container — the Log page's level filter
+  // Tightens the row for a narrow container — the Events page's level filter
   // popover is 320px wide, where the song name and the full-width padding
   // leave the name nowhere to go. Drops the song and pulls the face in; the
   // dialogs and the search page, which have room, leave it off.

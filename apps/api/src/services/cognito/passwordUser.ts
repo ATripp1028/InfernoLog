@@ -1,6 +1,6 @@
 // ⚠️ CREDENTIALS — this module sets passwords on Cognito users, so it holds
 // plaintext passwords (as `Sensitive`) for the length of one SDK call. Never log
-// one, never put one in an error. See CLAUDE.md "Credential handling".
+// one, never put one in an error. See SECURITY.md "Credential handling".
 //
 // A PASSWORD sign-in method is its own native Cognito user, keyed by email
 // (the pool's `usernames: ['email']`). It is created here, by the API, already

@@ -1,7 +1,7 @@
 import type { StaticSortKey, SortKey, SortSpec } from './types'
 
 /**
- * The List's sortable columns. Distinct from `LEVEL_SORT_OPTIONS`, which sorts levels on the search page rather than logged rows.
+ * The Log's sortable columns. Distinct from `LEVEL_SORT_OPTIONS`, which sorts levels on the search page rather than logged rows.
  */
 export const LIST_SORT_OPTIONS: { key: StaticSortKey; label: string }[] = [
   { key: 'date', label: 'Date' },

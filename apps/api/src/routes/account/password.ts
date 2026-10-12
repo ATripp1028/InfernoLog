@@ -2,7 +2,7 @@
 // codes. Both are wrapped in `Sensitive` the moment the body is parsed and
 // unwrapped only for the Cognito call or the HMAC. Never log either, never put
 // either in an error or a response. Every path through here is covered by
-// password.integration.test.ts's leak tests. See CLAUDE.md "Credential
+// password.integration.test.ts's leak tests. See SECURITY.md "Credential
 // handling".
 //
 // An account's email-and-password sign-in, from Settings:

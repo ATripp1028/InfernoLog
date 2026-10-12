@@ -1,6 +1,6 @@
 // ⚠️ CREDENTIALS — verification codes are credentials. Never log one, never put
 // one in an error message, never store one: only the HMAC reaches the
-// database. Codes cross this module as `Sensitive` values. See CLAUDE.md
+// database. Codes cross this module as `Sensitive` values. See SECURITY.md
 // "Credential handling".
 //
 // Why the API issues codes instead of Cognito: Cognito can only send an

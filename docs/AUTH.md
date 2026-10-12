@@ -27,7 +27,7 @@ An account (`users` row) is who someone is; an identity (`auth_identities` row) 
 | ---------- | ---------------------------------------------------------------- | ----------- | ------------------------------------- |
 | `GOOGLE`   | Sign up, or Settings with a Google proof, via Cognito federation | Yes         | Cognito sub                           |
 | `PASSWORD` | Sign up with a verified email, or Settings with a Google proof   | Yes         | Cognito sub                           |
-| `DISCORD`  | Linked from Settings, via Discord OAuth                          | Not yet     | Discord user id (`providerAccountId`) |
+| `DISCORD`  | Linked from Settings, via Discord OAuth                          | No          | Discord user id (`providerAccountId`) |
 
 Each Cognito-backed identity is its own Cognito user, so deleting an account deletes every one of them. An account holds at most one Discord identity and at most one Google identity; one Discord account can be linked to only one InfernoLog account.
 
@@ -47,7 +47,7 @@ This split is a **COPPA compliance requirement, not a UX preference.** Nothing a
 
 ### Email addresses
 
-An account's email is what it signs in with and how a forgotten password is recovered, and it is **never shown to other users** — no public read includes it, and until onboarding is finished an account appears in no public read at all (`publicUserWhere` in `services/user/publicUser.ts`). Every stored email is lowercase, enforced by CHECK constraints on `users` and `auth_identities` (migration `lowercase_emails`), so normalize with core's `EmailSchema` before writing.
+An account's email is what it signs in with and how a forgotten password is recovered, and it is **never shown to other users** — no endpoint returns another user's data at all. `publicUserWhere` in `services/user/publicUser.ts` is the filter any read of other users must apply; it excludes accounts that haven't finished onboarding, whose placeholder username is built from the email's local part. Every stored email is lowercase, enforced by CHECK constraints on `users` and `auth_identities` (migration `lowercase_emails`), so normalize with core's `EmailSchema` before writing.
 
 A connected Google account's email is recorded on its identity as a record of what Google asserted. It is never the account's email, and it may coincide with another account's without consequence.
 
@@ -76,7 +76,7 @@ The proof is the resulting Cognito ID token. `apps/api/src/utils/googleProof.ts`
 
 ### Where the API handles passwords
 
-Four routes hold a plaintext password, each for one Cognito call, wrapped in `Sensitive` the whole way (see CLAUDE.md "Credential handling"):
+Four routes hold a plaintext password, each for one Cognito call, wrapped in `Sensitive` the whole way (see SECURITY.md "Credential handling"):
 
 | Route                                  | What it does with it                                                      |
 | -------------------------------------- | ------------------------------------------------------------------------- |
@@ -97,76 +97,42 @@ Checking a current password uses `InfernoLogServerClient`, a Cognito app client 
 
 ---
 
-## API Keys (Third-Party Access) _(v3)_
-
-API keys are not built in v1 or v2. They are introduced in v3 to coincide with the Geode mod launch. The `ApiKey` model already exists in `schema.prisma` for reference (a migration ran ahead of the feature), but no route or service code reads or writes it — it should stay unused until v3.
-
-API keys allow third-party tools (e.g. the Geode mod, community tools) to perform operations on behalf of a user.
-
-### Rules
-
-- Maximum **5 API keys** per user
-- Keys do not expire but can be **revoked or rotated** at any time from the settings page
-- Each key has a **name** (e.g. "Geode Mod", "Community Dashboard") and a set of **scopes**
-- Keys are shown to the user only once at creation. Only a hash is stored server-side
-- All API key operations go through Lambda — keys are never exposed to the frontend after creation
-
-### Scopes
-
-| Scope               | Permission                       |
-| ------------------- | -------------------------------- |
-| `completions:read`  | Read user's completions          |
-| `completions:write` | Create and update completions    |
-| `drops:read`        | Read user's dropped levels       |
-| `drops:write`       | Create and update dropped levels |
-| `lists:read`        | Read user's custom lists         |
-| `lists:write`       | Create and update custom lists   |
-| `profile:read`      | Read user's profile data         |
-
-### Key Lifecycle
-
-- **Revoke:** Immediately invalidates the key. A new key must be created to restore access
-- **Rotate:** Invalidates the old key and issues a new one atomically. Useful when a key is accidentally exposed
-- **Rate limiting:** API Gateway enforces per-key rate limits to protect backend and database from abuse
-
----
-
 ## Username Rules
 
-- Usernames must be unique
-- Users may change their username with a **30-day cooldown** between changes
-- The **old username is held** for the full 30-day cooldown period and cannot be claimed by anyone else, preventing impersonation of recently-renamed accounts
-- Public API routes accept both `username` and `UUID`. Username resolves to UUID server-side. The UUID is the canonical stable identifier
+- Usernames are 2–32 characters of letters, digits, `_` and `-`, and `admin`, `moderator` and `infernolog` are reserved (`UsernameSchema` in `@infernolog/core`)
+- Usernames are unique, compared case-insensitively
+- A new account gets a placeholder username built from its email's local part; the onboarding wizard replaces it
+- Users may change their username with a **30-day cooldown** between changes (`PATCH /v1/me/username`). The change made in onboarding starts the clock
+- The previous username is recorded on the account (`User.previousUsername`) but **not reserved**: once changed, the old name is free for anyone to claim
 
 ---
 
-## Roles & Permissions
+## Account Status
 
-| Role        | Capabilities                                                                       |
-| ----------- | ---------------------------------------------------------------------------------- |
-| `user`      | Standard access to own data and public profiles                                    |
-| `moderator` | Access to moderation dashboard, reports queue, appeals queue                       |
-| `admin`     | All moderator capabilities + verification management, moderator promotion/demotion |
+`authMiddleware` refuses every authenticated request from an account that is `BANNED`, or `SUSPENDED` with an end date still ahead (or none), with a `403`. A suspension whose end date has passed is treated as served. The check lives in the middleware so that no route can omit it.
 
-Role is stored on the `users` table and checked server-side on all privileged routes. The `/admin` route on the frontend is gated behind a role check.
+Nothing in the API sets these columns — there are no moderation routes — so a ban or suspension is applied directly in the database.
+
+`User.role` (`USER` / `MODERATOR` / `ADMIN`) and `User.verifiedAt` are stored and nothing reads `role` or writes either. `GET /v1/me` reports `isVerified`.
 
 ---
 
 ## GDDL API Key Storage
 
-Users may optionally provide their personal GDDL API key to enable record submission. This key:
+Users may optionally provide their personal GDDL API key, which enables syncing their GDDL records and favorites and submitting completions as GDDL records. This key:
 
-- Is stored **encrypted at rest** in the database using AWS KMS
-- Is **never returned to the frontend** after initial submission
-- Is used exclusively by Lambda functions when making GDDL API calls on behalf of the user
+- Is checked against GDDL before it is stored, and the GDDL username it belongs to is saved with it; one GDDL account can be connected to only one InfernoLog account
+- Is stored **encrypted at rest** in the database using AWS KMS, and is never logged
+- Is **never returned to the frontend** after initial submission — responses carry only a `hasGddlApiKey` flag
+- Is decrypted only by the Lambda functions that call GDDL on the user's behalf; KMS permission is granted per route (`infra/routes/gddl.ts`), not to the API as a whole
 - Can be removed by the user at any time from the Connected Accounts settings panel
 
 ---
 
-## Privacy Model
+## Privacy Settings
 
 See `PRIVACY.md` for full details. Auth-relevant summary:
 
 - Profile visibility (public/private) is a user setting, default public
-- Private profiles return **HTTP 403 Forbidden** on all API requests, including from authenticated users who are not the profile owner
 - Discord account visibility is independently togglable, default public
+- Both are stored and editable, and neither is enforced anywhere, because no endpoint returns another user's data

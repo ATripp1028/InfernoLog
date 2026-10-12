@@ -56,7 +56,7 @@ describe('useMediaQuery', () => {
     expect(mqls.has(MD)).toBe(true)
   })
 
-  // Resizing across the breakpoint has to re-render, or the List panel stays
+  // Resizing across the breakpoint has to re-render, or the Log panel stays
   // docked after the window shrinks.
   it('follows the viewport across the breakpoint', () => {
     const { result } = renderHook(() => useMediaQuery(MD))

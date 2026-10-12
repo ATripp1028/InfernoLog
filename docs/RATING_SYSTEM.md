@@ -29,17 +29,16 @@ that into Gameplay/Decoration/Song, or anything else, is a settings change
 rather than a mode switch.
 
 Rating (`rating_scores`) is **one current set of values per level**, not per
-logged event — it lives on `level_progress` and is editable from any
-progress-editing surface (the completion flow, or the edit form for any entry),
-not gated to completions specifically. `enjoyment` is the exception: it's logged
-per-event on `progress_updates`, mirroring the GDDL's approach, since a
-session's enjoyment can genuinely differ beat-to-beat in a way a level's overall
-rating doesn't. Non-completion entries (and the enjoyment they carry) are hidden
-unless the "show non-completions" toggle is active.
+logged event — it lives on `level_progress`. It is entered in the completion
+flow and can be edited afterwards from the level's page or inline on the Ranking
+page; it is not gated to completions, so an in-progress or dropped level can
+carry a rating too. `enjoyment` is the exception: it's logged per-event on
+`progress_updates`, mirroring the GDDL's approach, since a session's enjoyment
+can genuinely differ beat-to-beat in a way a level's overall rating doesn't.
 
 ### Scales
 
-The scale is fixed per field, matching the convention the GD community already uses. There is no user preference — one existed (`users.ratingDisplayScale`) and was removed, since a second unit for every figure only created a second way to read it wrong.
+The scale is fixed per field, matching the convention the GD community already uses. There is no user preference: a second unit for every figure would only create a second way to read it wrong.
 
 | Field                                                                          | Shown as                        |
 | ------------------------------------------------------------------------------ | ------------------------------- |
@@ -84,8 +83,13 @@ A new account gets one category:
 - **Active weights must total exactly 100%** — the categories, plus enjoyment
   when it is opted in. Validated in integer percents so floating point cannot
   drift a valid config into an invalid one.
+- **Category names are unique** within an account.
 - Categories can be added, renamed, reweighted, reordered and removed freely.
-  Removing one deletes its `rating_scores` rows in the same transaction.
+  Removing one deletes its `rating_scores` rows in the same transaction, and
+  removes it from any saved Log preset that sorted, filtered or showed a column
+  by it.
+- Every save that changes something is recorded as one `RATING_CONFIG_CHANGE`
+  event (see `EVENT_LOG.md`).
 - The spreadsheet import is the one path that creates categories implicitly: an
   unrecognized column name is created **at weight 0**, which leaves the 100%
   total undisturbed. Set its weight in Settings afterwards.
@@ -117,6 +121,14 @@ Enjoyment (`progress_updates.enjoyment`) is a standalone field by default and is
 `users.include_enjoyment`. When opted in, it factors in with
 `users.enjoyment_weight` and counts toward the 100% total.
 
+Because enjoyment is per event and the rating is per level, the enjoyment that
+feeds a level's average is the one on its **representative** update: the
+completion if there is one, otherwise the most recently logged update.
+
+These two settings are part of the rating config and belong on
+`PUT /v1/me/rating-config`. `PATCH /v1/me` also still accepts them, without the
+100% check and without recording an event — see `API_DESIGN.md`.
+
 ---
 
 ## Data storage
@@ -138,13 +150,14 @@ and a wholesale config replace.
 
 ## Display rules
 
-| Context                             | Shown as                                                                                    |
-| ----------------------------------- | ------------------------------------------------------------------------------------------- |
-| Completion entry card               | Weighted average, with the per-category breakdown on hover                                  |
-| Log list view                       | Weighted average column, plus an optional column per category                               |
-| Sorting                             | By computed weighted average (see "The Canonical Rating Order")                             |
-| No rating entered                   | Blank (not 0)                                                                               |
-| Non-completion entry (progress log) | Row hidden unless "show non-completions" is on; the level's rating still shows when visible |
+| Context              | Shown as                                                                                    |
+| -------------------- | ------------------------------------------------------------------------------------------- |
+| Log page             | Weighted average column, plus an optional column per category                               |
+| Ranking page         | Completions in rating order, with the average and an inline editor for the scores           |
+| Level page           | The average and the per-category scores                                                     |
+| Sorting              | By computed weighted average (see "The Canonical Rating Order")                             |
+| No rating entered    | Blank (not 0)                                                                               |
+| Non-completion entry | Listed in the Log like any other, showing its rating if it has one; absent from the Ranking |
 
 ---
 
@@ -185,25 +198,18 @@ would make a logged rank depend on the row order Postgres happened to return.
 
 Two consequences worth knowing:
 
-- Sorting the Log page by rating **descending** reproduces the Ranking page's
-  order exactly. Ascending is the exact reverse, except that unrated rows stay
+- Sorting the Log page by rating **descending** uses the same order as the
+  Ranking page. Ascending is the exact reverse, except that unrated rows stay
   pinned to the bottom in both directions, as every other column's blanks do.
+- **The order is shared; the population is not.** The Ranking page ranks
+  completions only, while the Log's rating sort and the logged `rating_rank` run
+  over every logged level. A user with a rated in-progress or dropped level will
+  see a position on the Ranking page that is higher than the one the Events feed
+  quotes for the same level.
 - A ranked position is only comparable inside one rating-config era. Weights,
   category priority and the set of categories all feed this order, so any
-  config change reshuffles it — and a reweight is deliberately not logged (see
-  `EVENT_LOG.md`). A rank recorded before such a change was measured on a scale
-  that no longer applies. Reordering categories is itself a
-  `RATING_CONFIG_CHANGE`, since `sortOrder` is part of the logged config.
-
-The category link used to live on the Log page alone, applied after its rating
-sort rather than as part of any shared definition — which is exactly why the
-three surfaces could disagree. Folding it into the canonical chain keeps the
-weighted convention and makes the Ranking page and `rating_rank` observe it too.
-
----
-
-## v2/v3 Ideas (Do Not Implement in v1)
-
-- **Rating reference notes:** User-defined descriptions for each whole-number score per category (e.g. "A 7 in Decoration means polished but not innovative"). Gives ratings personal consistency over time
-- **Public rating breakdowns:** Show per-category scores on public profiles (v3+)
-- **Community rating aggregates:** Average enjoyment and ratings across all users for a level (v4, non-completion entries excluded from community averages)
+  config change reshuffles it — and while the config change itself is logged,
+  its effect on each level's position deliberately is not (see `EVENT_LOG.md`).
+  A rank recorded before such a change was measured on a scale that no longer
+  applies. Reordering categories is itself a `RATING_CONFIG_CHANGE`, since
+  `sortOrder` is part of the logged config.

@@ -53,7 +53,7 @@ jobs:
   # This repo is public, so a pushed secret is a published secret. GitHub's
   # secret scanning and push protection (enabled on the repo) catch known
   # provider tokens; gitleaks adds generic ones and the hardcoded-password rules
-  # in .gitleaks.toml. See CLAUDE.md "Credential handling".
+  # in .gitleaks.toml. See SECURITY.md "Credential handling".
   #
   # The pinned image rather than a marketplace action, so the exact scanner
   # version is reviewed in this file. The safe.directory env stops git refusing

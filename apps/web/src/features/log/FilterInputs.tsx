@@ -1,5 +1,5 @@
 // The From/To date pair FilterPanel's date filter is built from. The date box
-// itself is shared with the Log page's range and lives in
+// itself is shared with the Events page's range and lives in
 // components/inputs/DatePickerField; the range slider moved to
 // components/inputs/RangeRow when the /search filters needed it too.
 

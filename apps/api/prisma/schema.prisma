@@ -121,7 +121,7 @@ enum LevelType {
 //   survives even though `status` only reflects the current state.
 // - COMPLETED is left untouched by further progress logs in v1 (rebeat is a
 //   future feature).
-// - See docs/LOGGING_FLOW_RECONCILIATION.md for the dropped -> in_progress
+// - See docs/LEVEL_LOGGING.md for the dropped -> in_progress
 //   auto-flip and drop-from-scratch decisions.
 enum LevelProgressStatus {
   IN_PROGRESS
@@ -170,11 +170,11 @@ enum EntryVisibility {
 //     touched are its impact rows.
 //
 //   DEMON_LIST_REBALANCE — INTERNAL ONLY. The renormalisation inside
-//     services/ranking, which rewrites every index while leaving the ORDER
+//     services/demonList, which rewrites every index while leaving the ORDER
 //     untouched. It exists so every level's logged listIndex history stays
 //     in one coordinate system and reconstruction can't silently drift. The
 //     user saw nothing and did nothing, so it must be filtered out of any
-//     Log/timeline surface and out of any future Discord event-type → channel
+//     Events feed and out of any future Discord event-type → channel
 //     mapping. It is the only hidden type in this enum.
 enum ActivityEventType {
   DEMON_LIST_PLACEMENT
@@ -531,7 +531,7 @@ enum VerificationPurpose {
   PASSWORD_SETUP
 }
 
-// ⚠️ CREDENTIALS — one emailed verification code. See CLAUDE.md "Credential
+// ⚠️ CREDENTIALS — one emailed verification code. See SECURITY.md "Credential
 // handling".
 //
 // The API issues and checks these itself rather than using Cognito's
@@ -1066,7 +1066,7 @@ model RatingScore {
 // The renormalization is NOT a background job (earlier comments here called it
 // "the rebalancing job"; no such cron exists). It runs inline, inside the
 // transaction of the placement or reorder that found the gap too tight — see
-// rebalance() in services/ranking. The spreadsheet import's full replace
+// rebalance() in services/demonList. The spreadsheet import's full replace
 // rewrites the same index space the same way.
 //
 // EVERY write that touches listIndex must emit an ActivityLog event
@@ -1479,8 +1479,8 @@ model ImportJobRow {
 }
 
 // ─────────────────────────────────────────────
-// LIST PRESETS
-// Saved view configurations for the List page.
+// LOG PRESETS
+// Saved view configurations for the Log page.
 // Each preset stores column visibility, column order, sort specs,
 // and filter state so the user can switch between named views.
 // ─────────────────────────────────────────────

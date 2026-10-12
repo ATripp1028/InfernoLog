@@ -2,7 +2,7 @@
 // verification code. Both are wrapped in `Sensitive` the moment the body is
 // parsed and unwrapped only for the Cognito call or the HMAC. Never log either,
 // never put either in an error or a response. Every path is covered by
-// email.integration.test.ts's leak tests. See CLAUDE.md "Credential handling".
+// email.integration.test.ts's leak tests. See SECURITY.md "Credential handling".
 //
 // Changing the account's email, from Settings:
 //

@@ -5,7 +5,7 @@
 // and the computed runsGraph array (see computeRunsGraph).
 //
 // The Level Page timeline shows complete history without the "show
-// non-completions" toggle — that toggle governs The List and The Ranking only.
+// non-completions" toggle — that toggle governs the Log and the demon list only.
 
 import { Hono } from 'hono'
 import prisma from '../../utils/prisma'

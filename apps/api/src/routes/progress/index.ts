@@ -18,7 +18,7 @@
 // All routes are me-scoped: the user comes from the JWT (c.get('userId')),
 // never from a path segment or payload. The planned cross-user reads
 // (GET /v1/users/{usernameOrId}/progress) will land here as a public.ts
-// sibling — see docs/API_DESIGN.md.
+// sibling — see docs/ROADMAP.md.
 
 import { Hono } from 'hono'
 import type { HonoVariables } from '../../types/hono'

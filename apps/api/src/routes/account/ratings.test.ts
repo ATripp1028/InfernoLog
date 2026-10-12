@@ -6,7 +6,7 @@
  * things worth pinning: ids in the body must belong to the caller (a foreign id
  * is rejected outright, not silently dropped), removing a category takes its
  * rating scores with it (and every `cat:` reference to it in the caller's saved
- * List presets), and sortOrder is written in two phases so final positions
+ * Log presets), and sortOrder is written in two phases so final positions
  * never collide. Prisma is mocked.
  */
 
@@ -377,7 +377,7 @@ describe('PUT /me/rating-config — applying the config', () => {
     })
   })
 
-  it('purges the dropped category out of the caller’s list presets', async () => {
+  it('purges the dropped category out of the caller’s Log presets', async () => {
     userOwns(CAT_A, CAT_B)
     prisma.logPreset.findMany.mockResolvedValue([
       {

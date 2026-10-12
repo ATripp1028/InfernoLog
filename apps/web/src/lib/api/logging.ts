@@ -489,7 +489,7 @@ export function useCreateManualLevel() {
  * "write failed" error.
  */
 export async function invalidateOnWrite(queryClient: QueryClient) {
-  // A progress write is also an event — it puts a row in the Log page's feed —
+  // A progress write is also an event — it puts a row in the Events page's feed —
   // so the activity surfaces refetch alongside the rest. They stay a SEPARATE
   // constant because the reverse is not true: a ranking move or a rating-config
   // save emits an event without touching the list, ranking or collections. See

@@ -61,7 +61,7 @@ const MASS_DELIST_ALERT = 10
 // been re-confirmed on a later rotation) do we actually delist. At the current
 // ~daily rotation this is ~2 independent checks — enough that a transient RobTop
 // "-1"/rate-limit blip for a live level clears on the next `found` instead of
-// delisting it. Tune alongside the cron cadence in sst.config.ts.
+// delisting it. Tune alongside the cron cadence in infra/cron.ts.
 const DELIST_CONFIRM_MS = 36 * 60 * 60 * 1000 // 36 hours
 
 // Per-level result, so syncLevelBatch can drive the circuit breaker. 'synced'
@@ -423,7 +423,7 @@ export async function syncLevelBatch(
  * RobTop's rate-limit tolerance (the Aug 2026 incident tripped it after ~165
  * sequential requests), so a single slice can't provoke a throttle, and the
  * long gap between runs gives the egress IP ample recovery time. Bumping this
- * (or the cron frequency in sst.config.ts) tightens the re-check cadence as the
+ * (or the cron frequency in infra/cron.ts) tightens the re-check cadence as the
  * cache grows.
  */
 export const SYNC_SLICE_SIZE = 50
