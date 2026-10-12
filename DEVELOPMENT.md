@@ -36,6 +36,10 @@ Three stages:
 | `staging` | PR → `main`
 | `production` | push to `main`
 
+Each app deploys only when something it depends on changed. The deploy workflows filter on paths: a change under `apps/web` deploys the frontend alone, a change under `apps/api` deploys the backend alone, and a change to `packages/core`, `packages/tsconfig`, or the lockfile deploys both.
+
+Production is served from `infernolog.com` (the frontend, on S3 + CloudFront) and `api.infernolog.com` (API Gateway). DNS is Route 53.
+
 ## Note on `.env`
 
 `sst dev` reads SST secrets, not `.env`. They are set per-stage by me, using either `npx sst secret set NAME value --stage X` for one stage or [export-sst-env.sh](./apps/api/export-sst-env.sh) for multiple.

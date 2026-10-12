@@ -46,8 +46,41 @@ This project is a monorepo for the InfernoLog webapp and the API it uses. Here's
 
 Per-area documentation:
 
+- [API](./apps/api/README.md)
+- [Web](./apps/web/README.md)
 - [E2E Test Suite](./apps/web/e2e/README.md)
 - [Core Utilities](./packages/core/README.md)
+
+How the app works, in [`docs/`](./docs):
+
+| Document                                            | Contents                                                                              |
+| :-------------------------------------------------- | :------------------------------------------------------------------------------------ |
+| [schema.prisma](./apps/api/prisma/schema.prisma)    | The data model. Its inline comments are the source of truth                           |
+| [API_DESIGN.md](./docs/API_DESIGN.md)               | The API: auth, rate limits, response shape, pagination, every endpoint                |
+| [AUTH.md](./docs/AUTH.md)                           | Cognito, sign-in methods, verification codes, username rules, account status          |
+| [LEVEL_LOGGING.md](./docs/LEVEL_LOGGING.md)         | The progress entry model, its fields, and the rules for completions, drops and status |
+| [LOGGING_FLOW.md](./docs/LOGGING_FLOW.md)           | The logging modal: completion, progress and drop paths                                |
+| [DEMON_LIST.md](./docs/DEMON_LIST.md)               | The user's own demon list: manual placement, demon list events, rank history          |
+| [RATING_SYSTEM.md](./docs/RATING_SYSTEM.md)         | Weighted-average rating and configurable categories                                   |
+| [LIST_INTEGRATIONS.md](./docs/LIST_INTEGRATIONS.md) | The two GDDL tiers, community list placements, and the GDDL account integration       |
+| [EXTERNAL_APIS.md](./docs/EXTERNAL_APIS.md)         | Every outside service, and the level-cache sync                                       |
+| [EVENT_LOG.md](./docs/EVENT_LOG.md)                 | The event log: what is tracked, and what deliberately is not                          |
+| [IMPORT_EXPORT.md](./docs/IMPORT_EXPORT.md)         | Spreadsheet import and export: tabs, columns, conflict resolution                     |
+| [PRIVACY.md](./docs/PRIVACY.md)                     | Per-entry privacy and profile visibility                                              |
+| [DESIGN_LANGUAGE.md](./docs/DESIGN_LANGUAGE.md)     | Visual identity, iconography, colour system and typography                            |
+| [TERMINOLOGY.md](./docs/TERMINOLOGY.md)             | The canonical terms used in code, docs and UI                                         |
+| [CODE_QUALITY.md](./docs/CODE_QUALITY.md)           | How code is written: conventions for the backend, the frontend and tests              |
+| [COMMUNITY_POLICY.md](./docs/COMMUNITY_POLICY.md)   | Public-facing content rules                                                           |
+| [IMAGE_SOURCES.md](./docs/IMAGE_SOURCES.md)         | Where the bundled Geometry Dash sprites come from                                     |
+
+What is planned rather than built:
+
+| Document                                  | Contents                                                 |
+| :---------------------------------------- | :------------------------------------------------------- |
+| [ROADMAP.md](./docs/ROADMAP.md)           | Everything not yet built, by version                     |
+| [TIME_MACHINE.md](./docs/TIME_MACHINE.md) | Design for a historical view of the demon list           |
+| [LEVEL_PICKER.md](./docs/LEVEL_PICKER.md) | Design for a guided level picker                         |
+| [MODERATION.md](./docs/MODERATION.md)     | Internal moderation policy. No moderation tooling exists |
 
 ## Stack
 
