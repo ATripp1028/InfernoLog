@@ -14,6 +14,8 @@ import {
 } from './enums'
 import { MAX_SHEET_TIER } from './sheetTier'
 
+// TODO: upgrade to zod 4 (NOT TRIVIAL: zod 4's nativeEnum() is stricter than zod 3's, so we need to audit every enum usage and ensure the wire values are always valid before we can upgrade)
+
 export const LevelSchema = z.object({
   inGameId: z.string(),
   levelType: z.nativeEnum(LevelType),
@@ -42,6 +44,7 @@ export const LevelSchema = z.object({
   // tier 0-21, where >= 14 is listworthy; tier 0 is a real tier ("Fuck"), so
   // never test it for truthiness.
   gddlTier: z.number().int().nullable(),
+  sheetTier: z.number().int().nullable(),
   // ⚠️ aredlRank is only a RANK while aredlStatus is "MainList". AREDL appends
   // its Legacy tier to the end of the position sequence, so for a Legacy level
   // this is a list index and rendering it as "#n" states something false.
@@ -52,7 +55,6 @@ export const LevelSchema = z.object({
   // is derivable from the difficulty (isExtremeDemon) and so is deliberately
   // not sent. Null also covers an EDEL score still marked provisional.
   enjoyment: z.number().nullable(),
-  sheetTier: z.number().int().nullable(),
   showcaseUrl: z.string().nullable(),
   // Level duration in whole seconds. Distinct from `length` above, which is
   // RobTop's coarse band ("Long") and all GD itself exposes.
@@ -109,7 +111,6 @@ export const GlobalLevelPageSchema = LevelSchema.extend({
   userProgressStatus: z.nativeEnum(LevelProgressStatus).nullable(),
   userHasCompletion: z.boolean(),
 })
-export type GlobalLevelPage = z.infer<typeof GlobalLevelPageSchema>
 
 export const PublicUserProfileSchema = z.object({
   id: z.string().uuid(),
@@ -296,7 +297,7 @@ export const RatingConfigSchema = z
 // ─────────────────────────────────────────────
 // LOGGING FLOW — entry-creation request bodies
 // The three FAB paths (completion / progress / drop) plus the level-entry
-// support endpoints. See LOGGING_FLOW.md and apps/api/prisma/schema.prisma.
+// support endpoints. See apps/api/prisma/schema.prisma.
 //
 // Ratings/enjoyment are integers 0–100 internally — the frontend converts at
 // the display layer, showing scores on 0–10 and enjoyment on 0–100. The
@@ -909,13 +910,12 @@ export const NotADemonResponseSchema = z.object({
 })
 
 // ─────────────────────────────────────────────
-// THE LIST — the List page wire contract.
+// THE LOG — the Log page wire contract.
 //
 // GET /v1/me/progress returns the authed user's full level-progress list in one
 // payload (both PUBLIC and PRIVATE entries). All filtering, multi-key sorting,
 // and column selection happen client-side, so each row carries the raw fields
-// every filter/column needs rather than pre-filtered results. See
-// docs/API_DESIGN.md and the list page design.
+// every filter/column needs rather than pre-filtered results.
 // ─────────────────────────────────────────────
 
 // Trimmed level metadata for a list row — the difficulty face, name/creator,
@@ -1053,8 +1053,8 @@ export const ClassicDemonListEntrySchema = z.object({
   level: LevelListSummarySchema,
   // Attempts on the completion update (null when not logged).
   attempts: z.number().int().nullable(),
-  // The row's community-list chips, and the pre-scroll hint's tier. A "list
-  // reference" in DEMON_LIST.md's sense — a convenience, never a placement.
+  // The row's community-list chips, and the pre-scroll hint's tier. A list
+  // reference — a convenience, never a placement.
   communityTiers: CommunityTiersSchema,
 })
 
@@ -1094,7 +1094,7 @@ export const ReorderDemonListInputSchema = z.object(demonListNeighbours)
 // ─────────────────────────────────────────────
 // COLLECTIONS — user-owned groupings of levels: the three built-ins
 // (Want to Beat / Favorites / Least Favorites) plus custom named collections.
-// Entry order is a fractional index (same pattern as the classic ranking);
+// Entry order is a fractional index (same pattern as the classic demon list);
 // reads return entries ordered by rankingIndex asc.
 // ─────────────────────────────────────────────
 
@@ -1233,10 +1233,9 @@ export const GddlSyncResultSchema = z.object({
   skipped: z.number().int(),
   errors: z.array(z.object({ levelId: z.string(), reason: z.string() })),
 })
-export type GddlSyncResult = z.infer<typeof GddlSyncResultSchema>
 
 // ─────────────────────────────────────────────
-// LIST PRESETS — saved view configurations for the List page.
+// LOG PRESETS — saved view configurations for the Log page.
 //
 // The four view-config fields (sorts, filters, columns, columnOrder) are treated
 // as opaque JSON by the API — the frontend owns their schemas. The server stores
@@ -1323,10 +1322,10 @@ export const LogPresetSchema = z.object({
 // normalized JSON payload. The server re-validates ranges/enums/required
 // fields only — it trusts the ISO date strings from the client.
 //
-// Rating SCORES in the import format are 0-10 (sheet scale per
-// IMPORT_EXPORT.md); the server multiplies by 10 to convert to the 0-100
-// internal scale. Enjoyment is 0-100 already — it is shown on that scale in
-// the app, so the sheet carries it unconverted and nothing scales it.
+// Rating SCORES in the import format are 0-10 (the sheet scale); the server
+// multiplies by 10 to convert to the 0-100 internal scale. Enjoyment is 0-100
+// already — it is shown on that scale in the app, so the sheet carries it
+// unconverted and nothing scales it.
 // ─────────────────────────────────────────────
 
 export const ImportCompletionRowSchema = z.object({
@@ -1907,52 +1906,10 @@ export const ExportPageResponseSchema = z.object({
   hasMore: z.boolean(),
 })
 
-export type ImportCompletionRow = z.infer<typeof ImportCompletionRowSchema>
-export type ImportProgressRow = z.infer<typeof ImportProgressRowSchema>
-export type ImportDroppedRow = z.infer<typeof ImportDroppedRowSchema>
-export type ImportConflictAction = z.infer<typeof ImportConflictActionSchema>
-export type ImportFieldDiff = z.infer<typeof ImportFieldDiffSchema>
-export type ImportRowConflict = z.infer<typeof ImportRowConflictSchema>
-export type ImportDuplicateRow = z.infer<typeof ImportDuplicateRowSchema>
-export type ImportRatingConflict = z.infer<typeof ImportRatingConflictSchema>
-export type ImportListEntry = z.infer<typeof ImportListEntrySchema>
-export type ImportListMerge = z.infer<typeof ImportListMergeSchema>
-export type ImportCheckRequest = z.infer<typeof ImportCheckRequestSchema>
-export type ImportCheckResponse = z.infer<typeof ImportCheckResponseSchema>
-export type ImportCommitRequest = z.infer<typeof ImportCommitRequestSchema>
-export type ImportCommitResponse = z.infer<typeof ImportCommitResponseSchema>
-export type ImportCommitRow = z.infer<typeof ImportCommitRowSchema>
-export type ImportRankingEntry = z.infer<typeof ImportRankingEntrySchema>
-export type ImportRankingRequest = z.infer<typeof ImportRankingRequestSchema>
-export type ImportRankingResponse = z.infer<typeof ImportRankingResponseSchema>
-export type ImportCollectionEntry = z.infer<typeof ImportCollectionEntrySchema>
-export type ImportCollectionsRequest = z.infer<
-  typeof ImportCollectionsRequestSchema
->
-export type ImportCollectionsResponse = z.infer<
-  typeof ImportCollectionsResponseSchema
->
-export type ImportRatingEntry = z.infer<typeof ImportRatingEntrySchema>
-export type ImportRatingsRequest = z.infer<typeof ImportRatingsRequestSchema>
-export type ImportRatingsResponse = z.infer<typeof ImportRatingsResponseSchema>
-export type ImportStartRequest = z.infer<typeof ImportStartRequestSchema>
-export type ImportStartResponse = z.infer<typeof ImportStartResponseSchema>
-export type ImportFlaggedRow = z.infer<typeof ImportFlaggedRowSchema>
-export type ImportStatusResponse = z.infer<typeof ImportStatusResponseSchema>
-export type ExportCompletion = z.infer<typeof ExportCompletionSchema>
-export type ExportProgress = z.infer<typeof ExportProgressSchema>
-export type ExportDropped = z.infer<typeof ExportDroppedSchema>
-export type ExportRanking = z.infer<typeof ExportRankingSchema>
-export type ExportCollection = z.infer<typeof ExportCollectionSchema>
-export type ExportRating = z.infer<typeof ExportRatingSchema>
-export type ExportResponse = z.infer<typeof ExportResponseSchema>
-export type ExportPageResponse = z.infer<typeof ExportPageResponseSchema>
-
 // ─────────────────────────────────────────────
-// ACTIVITY LOG — the Log page feed and the level-page rank history.
-// See docs/EVENT_LOG.md → "Surfaces". Both are scoped to the authenticated
-// user's own data; activity_log.visibility is inert and there is no public
-// equivalent of either.
+// ACTIVITY LOG — the Events page feed and the level-page rank history.
+// Both are scoped to the authenticated user's own data;
+// activity_log.visibility is inert and there is no public equivalent of either.
 // ─────────────────────────────────────────────
 
 // Every user-facing event type, mirroring the ActivityEventType enum in
@@ -1974,8 +1931,8 @@ export const FEED_EVENT_TYPES = FeedEventTypeSchema.options
 // The filter key for field-change rows, mirroring ActivityFieldCategory in
 // schema.prisma. The feed's category filter keys off THIS and never off
 // fieldName, so a newly editable field only needs a category rather than an
-// entry in a hardcoded list on both sides of the wire. See docs/EVENT_LOG.md,
-// "Filter on category, never on fieldName".
+// entry in a hardcoded list on both sides of the wire. Filter on category,
+// never on fieldName.
 export const ActivityFieldCategorySchema = z.enum([
   'RATING',
   'SESSION_DETAIL',
@@ -1992,7 +1949,7 @@ export const ActivityImpactRoleSchema = z.enum(['MOVER', 'NEIGHBOR'])
 // Event logging shipped on this date and history cannot be backfilled — the
 // previous values simply were not written down. Every activity surface has a
 // hard floor here, and an empty one means "nothing since then", not
-// "nothing ever". See docs/EVENT_LOG.md.
+// "nothing ever".
 export const ACTIVITY_LOG_EPOCH = new Date('2026-08-24T00:00:00.000Z')
 
 /** One field a save changed, as the feed renders it. */
@@ -2044,7 +2001,7 @@ export const ActivityFeedEventSchema = z.object({
 
 // A progress_updates row. These are NOT duplicated into activity_log — they are
 // already events (kind + loggedAt) and the feed merges the two tables at read
-// time. See docs/EVENT_LOG.md, "Deliberately not tracked".
+// time.
 export const ActivityFeedProgressSchema = z.object({
   source: z.literal('PROGRESS'),
   id: z.string().uuid(),
@@ -2076,7 +2033,7 @@ export const ACTIVITY_IMPACT_PREVIEW = 10
 /** Feed items per page. */
 export const ACTIVITY_PAGE_SIZE = 30
 
-// The Log page's filter chips, in the order they are shown. Deliberately NOT
+// The Events page's filter chips, in the order they are shown. Deliberately NOT
 // the event-type enum: the chips are the four things a user recognises having
 // done, and one of them ("Progress") is not an activity_log row at all.
 //
@@ -2132,8 +2089,8 @@ export const ActivityFeedResponseSchema = z.object({
 //   DIRECT       — the user moved this level, so the event carries its own
 //                  impact row and the positions are read straight off it.
 //   INDIRECT     — the level shifted because something else moved past it.
-//                  Reconstructed: such shifts have no rows of their own (see
-//                  docs/DEMON_LIST.md, "direct events only").
+//                  Reconstructed: such shifts have no rows of their own —
+//                  only direct events are recorded.
 //   UNATTRIBUTED — a shift the reconstruction can prove happened but cannot
 //                  name a cause for, because the entry that caused it has since
 //                  been deleted and took its events with it. The stored
@@ -2177,8 +2134,8 @@ export const RankHistoryEntrySchema = z.object({
 export const RankHistoryResponseSchema = z.object({
   // Newest first, the same direction the feed reads.
   data: z.array(RankHistoryEntrySchema),
-  // The level's live position in the classic ranking, or null when it is not
-  // placed. Read from classic_ranking rather than from the walk, so the panel
+  // The level's live position in the classic demon list, or null when it is not
+  // placed. Read from classic_demon_list rather than from the walk, so the panel
   // header states a fact rather than a reconstruction.
   currentPosition: z.number().int().nullable(),
 })

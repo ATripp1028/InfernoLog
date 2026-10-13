@@ -11,13 +11,14 @@
 #   scripts/format-branch.sh --check         # report what would change, don't write
 #   scripts/format-branch.sh --lint          # also run `eslint --fix` on .ts/.tsx/.js/.jsx under apps/*/src or packages/*/src
 
-set -euo pipefail
+set -euo pipefail # Exit on error, unset variable, or failed pipe
 
 BASE="main"
 MODE="branch"
 WRITE_FLAG="--write"
 RUN_LINT=0
 
+# Argument parsing
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --all) MODE="all"; shift ;;
@@ -32,7 +33,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-cd "$(git rev-parse --show-toplevel)"
+cd "$(git rev-parse --show-toplevel)" # cd to repo root
 
 EXT_REGEX='\.(ts|tsx|js|jsx|mjs|cjs|json|md|css|html|yml|yaml)$'
 

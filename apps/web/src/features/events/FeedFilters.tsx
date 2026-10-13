@@ -1,4 +1,4 @@
-// The Log page's filter row: the kind chips, a level, and a date range.
+// The Events page's filter row: the kind chips, a level, and a date range.
 //
 // The chips are the four things a user recognises having done, not the event
 // types behind them — one of them ("Progress") is not an activity_log row at

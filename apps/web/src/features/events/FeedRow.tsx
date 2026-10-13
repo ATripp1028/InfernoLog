@@ -1,4 +1,4 @@
-// One row of the Log page's feed.
+// One row of the Events page's feed.
 //
 // Both tables the feed merges land here: an activity_log event and a
 // progress_updates row render as the same kind of line, because from the user's

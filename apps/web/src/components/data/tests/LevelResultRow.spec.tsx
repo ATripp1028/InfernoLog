@@ -131,7 +131,7 @@ describe('LevelResultRow', () => {
   })
 
   it('drops the song when compact, keeping the creator', () => {
-    // The Log page's level filter is a 320px popover; the song is what pushes
+    // The Events page's level filter is a 320px popover; the song is what pushes
     // the name out of it.
     renderWithProviders(
       <LevelResultRow level={level()} onSelect={vi.fn()} compact />

@@ -1,6 +1,6 @@
 // ⚠️ CREDENTIALS — lint rules that keep passwords and verification codes out of
 // logs, error reports, and error messages. Shared by apps/api and apps/web;
-// see CLAUDE.md "Credential handling".
+// see SECURITY.md "Credential handling".
 //
 // The rules key off names, so they depend on one convention: a variable or
 // field holding a credential is named with `password` or `verificationCode`
@@ -26,7 +26,7 @@ const SINKS = [
 ]
 
 const MESSAGE =
-  'Credentials (passwords, verification codes) must never reach a log, console, Sentry call, or error message. See CLAUDE.md "Credential handling".'
+  'Credentials (passwords, verification codes) must never reach a log, console, Sentry call, or error message. See SECURITY.md "Credential handling".'
 
 /**
  * The `no-restricted-syntax` entries enforcing the credential rules.

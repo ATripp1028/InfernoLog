@@ -6,7 +6,7 @@
  * database behaviour. Cognito, SES and JWT verification are mocked.
  *
  * ⚠️ CREDENTIALS — every test that sends a password or code also asserts
- * neither reaches a log line or a Sentry call. See CLAUDE.md "Credential
+ * neither reaches a log line or a Sentry call. See SECURITY.md "Credential
  * handling".
  */
 

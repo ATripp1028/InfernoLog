@@ -1,7 +1,7 @@
 // ⚠️ CREDENTIALS — the reset flow holds the emailed code and the new password
 // in React state for as long as the page is open. Never logged, never written
 // to storage. The code and password go straight to Cognito: the API is not
-// involved in a password reset at all. See CLAUDE.md "Credential handling".
+// involved in a password reset at all. See SECURITY.md "Credential handling".
 
 import { useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'

@@ -3,7 +3,7 @@
 // Every route that receives a password or verification code gets a leak test:
 // send unique sentinel values through its success path, each expected failure,
 // and a forced 500, then assert no sentinel appears in anything logged or
-// reported. See CLAUDE.md "Credential handling".
+// reported. See SECURITY.md "Credential handling".
 //
 // Usage — mock the logger and Sentry with the shared capture, then check it:
 //

@@ -1,4 +1,4 @@
-// "What the log shows" — the glossary behind the Log page header button.
+// "What the log shows" — the glossary behind the Events page header button.
 //
 // User-facing language only. No event type is named here, and the internal-only
 // index renormalisation does not appear at all: the user neither did it nor saw

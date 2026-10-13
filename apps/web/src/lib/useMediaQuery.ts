@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
 /**
- * Tracks whether a CSS media query currently matches. Used to switch the List
+ * Tracks whether a CSS media query currently matches. Used to switch the Log
  * filter panel between a docked aside (md+) and an overlay sheet (mobile).
  *
  * The first value is read synchronously during the initial render rather than

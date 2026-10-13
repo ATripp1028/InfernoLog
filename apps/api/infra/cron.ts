@@ -5,7 +5,7 @@ import { sharedNodeOptions } from './defaults'
 
 // ─────────────────────────────────────────────
 // ROBTOP LEVEL-CACHE SYNC — a single frequent EventBridge Scheduler cron
-// over the shared fetch/compare/write core (services/levelSync.ts). Each run
+// over the shared fetch/compare/write core (services/levels/sync.ts). Each run
 // processes one bounded round-robin slice of the level cache, advancing a
 // cursor and wrapping at the end, so every level is re-checked over a full
 // rotation without any single run being large enough to trip RobTop's rate

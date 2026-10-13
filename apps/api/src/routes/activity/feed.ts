@@ -1,4 +1,4 @@
-// GET /v1/me/activity — the Log page's merged feed.
+// GET /v1/me/activity — the Events page's merged feed.
 //
 // One page of activity_log events and progress_updates interleaved, newest
 // first by recorded time. Filters and the keyset cursor arrive as query params;

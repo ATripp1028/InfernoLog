@@ -4,7 +4,7 @@ import { Button } from '@/components/generic/button'
 import { useLoggingFlow } from '@/context/LoggingFlowContext'
 
 /**
- * Screen 09. "Place now" routes to the ranking page, passing the new
+ * Screen 09. "Place now" routes to the demon list page, passing the new
  * completion's level_progress id so the page highlights it in Unplaced and
  * pre-scrolls the ranked list to its GDDL-reference tier.
  */

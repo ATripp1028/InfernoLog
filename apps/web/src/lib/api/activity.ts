@@ -1,4 +1,4 @@
-// The two surfaces that read the activity log: the Log page's merged feed and
+// The two surfaces that read the activity log: the Events page's merged feed and
 // the level page's rank history.
 //
 // This module also owns INVALIDATE_ON_EVENT, which is deliberately a SECOND set
@@ -6,7 +6,7 @@
 // "affected by a completion/progress/drop write"; the event surfaces are
 // affected by a superset — ranking moves and rating-config saves emit events
 // too, and a config save invalidates the `me` query alone today. Widening the
-// older set would make a config save needlessly refetch the List and
+// older set would make a config save needlessly refetch the Log and
 // collections. See docs/EVENT_LOG.md, "Keeping the surfaces fresh".
 
 import {
@@ -24,7 +24,7 @@ import type {
 import { useAuth } from '@/context/AuthContext'
 import { apiFetch } from './client'
 
-/** The Log page's feed. Prefix key: one entry per filter combination. */
+/** The Events page's feed. Prefix key: one entry per filter combination. */
 export const activityQueryKey = ['activity'] as const
 
 /**
@@ -72,7 +72,7 @@ export function useInvalidateOnEvent() {
   return () => invalidateOnEvent(queryClient)
 }
 
-/** The Log page's filter state, as the feed query consumes it. */
+/** The Events page's filter state, as the feed query consumes it. */
 export interface ActivityFilters {
   /** The chips. Empty means "All" — the whole feed. */
   kinds: ActivityFeedKind[]
@@ -102,7 +102,7 @@ export interface FeedPage {
 }
 
 /**
- * The Log page's feed, one keyset page at a time.
+ * The Events page's feed, one keyset page at a time.
  *
  * The cursor is opaque and encodes the feed's full three-part sort key, so a
  * page boundary landing inside a spreadsheet import's single-timestamp batch
@@ -131,7 +131,7 @@ export function useActivityFeed(filters: ActivityFilters) {
   })
 }
 
-/** One level's rank history, plus its live position in the classic ranking. */
+/** One level's rank history, plus its live position in the classic demon list. */
 export interface RankHistory {
   data: RankHistoryEntry[]
   currentPosition: number | null

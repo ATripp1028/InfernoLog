@@ -332,7 +332,7 @@ export function makeMe(overrides: Partial<MeData> = {}): MeData {
 }
 
 /**
- * A `LogItem` — one row of the List, as the progress query returns it.
+ * A `LogItem` — one row of the Log, as the progress query returns it.
  *
  * `entry` holds the per-run fields the row renders; pass `entry: null` for the
  * rare status row with no progress updates. Dates are real `Date`s and the
@@ -575,7 +575,7 @@ export function setViewport(viewport: 'desktop' | 'mobile') {
  * sessionStorage — keys or values, which also covers the persisted query cache.
  *
  * ⚠️ CREDENTIALS — every flow that handles a password or verification code gets
- * a spec calling this after exercising the flow. See CLAUDE.md "Credential
+ * a spec calling this after exercising the flow. See SECURITY.md "Credential
  * handling".
  *
  * @param sentinels - The fake credentials the spec typed, e.g. `Leak-Canary-…`.

@@ -1,4 +1,4 @@
-// List preset CRUD:
+// Log preset CRUD:
 //
 //   GET    /v1/me/log-presets       — the authed user's saved presets
 //   POST   /v1/me/log-presets       — create a new preset

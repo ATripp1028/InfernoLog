@@ -5,7 +5,7 @@
 // infra/email.ts supplies the environment below.
 //
 // ⚠️ CREDENTIALS — a message may carry a verification code. Never log a message,
-// its body, or its recipient. See CLAUDE.md "Credential handling".
+// its body, or its recipient. See SECURITY.md "Credential handling".
 
 import { SESv2Client, SendEmailCommand } from '@aws-sdk/client-sesv2'
 import type { EmailContent } from './templates'

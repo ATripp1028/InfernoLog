@@ -1,5 +1,5 @@
 -- ⚠️ CREDENTIALS — emailed verification codes, stored only as an HMAC.
--- See the EmailVerification model in schema.prisma and CLAUDE.md
+-- See the EmailVerification model in schema.prisma and SECURITY.md
 -- "Credential handling".
 
 

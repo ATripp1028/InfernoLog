@@ -1,6 +1,6 @@
 // ⚠️ CREDENTIALS — this hook holds the typed password in component state and
 // hands it to Cognito through AuthContext. Never log it, never persist it.
-// See CLAUDE.md "Credential handling".
+// See SECURITY.md "Credential handling".
 
 import { useEffect, useState, type FormEvent } from 'react'
 import { useNavigate } from '@tanstack/react-router'

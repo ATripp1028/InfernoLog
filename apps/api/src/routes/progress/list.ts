@@ -1,4 +1,4 @@
-// GET /v1/me/progress — the authed user's full level-progress list (The List).
+// GET /v1/me/progress — the authed user's full level-progress list (the Log page).
 //
 // Returns every row in one payload, both PUBLIC and PRIVATE, with no query
 // params: all filtering, multi-key sorting, and column selection happen

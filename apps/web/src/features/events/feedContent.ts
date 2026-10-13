@@ -1,4 +1,4 @@
-// The Log page's vocabulary, and the pure shaping the feed rows read from.
+// The Events page's vocabulary, and the pure shaping the feed rows read from.
 //
 // One sentence shape and one color family per kind of entry, kept here rather
 // than inline in the row components so the wording is in one place. The event

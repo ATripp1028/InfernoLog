@@ -767,15 +767,15 @@ export function useUpdateRatingConfig() {
       // (single save click, no rapid-fire races) so we can safely write the
       // response straight to the cache without the scope/isLastPending dance.
       queryClient.setQueryData(meQueryKey, data)
-      // Deleting a category also rewrites every saved List preset that sorted,
+      // Deleting a category also rewrites every saved Log preset that sorted,
       // filtered, or showed a column by it — server-side, in the same
       // transaction. Nothing in this response reflects that, so the presets
-      // have to be refetched or the List keeps rendering the stale copy.
+      // have to be refetched or the Log keeps rendering the stale copy.
       void queryClient.invalidateQueries({ queryKey: presetsQueryKey })
-      // The save emits a RATING_CONFIG_CHANGE, which belongs in the Log feed.
+      // The save emits a RATING_CONFIG_CHANGE, which belongs in the Events feed.
       // This is exactly the case INVALIDATE_ON_EVENT exists for: widening the
       // older INVALIDATE_ON_WRITE set instead would make a config save refetch
-      // the List and collections for nothing.
+      // the Log and collections for nothing.
       void invalidateOnEvent(queryClient)
     },
   })

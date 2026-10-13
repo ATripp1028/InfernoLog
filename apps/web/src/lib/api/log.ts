@@ -91,7 +91,7 @@ export function useDeleteProgress() {
     },
     // Deleting a level's entire progress can remove a Ranking entry and/or
     // affect Collections (e.g. Want to Beat), and if the level's own page is
-    // open it needs to know the entry is gone — not just the List. Awaited
+    // open it needs to know the entry is gone — not just the Log. Awaited
     // (allSettled) so callers relying on mutateAsync/isPending stay pending
     // until the refetch actually lands, rather than seeing stale data with no
     // indication a refetch is in flight.

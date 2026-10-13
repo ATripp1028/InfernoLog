@@ -24,7 +24,7 @@ export type {
 export const demonListQueryKey = ['demon-list'] as const
 
 /**
- * The classic-ranking board: the placed list hardest-first, plus the unplaced pile.
+ * The classic demon list board: the placed list hardest-first, plus the unplaced pile.
  */
 export function useClassicDemonList() {
   const { isAuthenticated, getIdToken } = useAuth()
@@ -139,9 +139,9 @@ export function usePlaceOnDemonList() {
     },
     onSuccess: (data) => {
       qc.setQueryData(demonListQueryKey, data)
-      // Every ranking write emits an activity event, so the Log page and every
-      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
-      // does not touch the List or collections.
+      // Every demon list write emits an activity event, so the Events page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a demon list move
+      // does not touch the Log or collections.
       void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {
@@ -199,9 +199,9 @@ export function useReorderDemonList() {
     },
     onSuccess: (data) => {
       qc.setQueryData(demonListQueryKey, data)
-      // Every ranking write emits an activity event, so the Log page and every
-      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
-      // does not touch the List or collections.
+      // Every demon list write emits an activity event, so the Events page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a demon list move
+      // does not touch the Log or collections.
       void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {
@@ -249,9 +249,9 @@ export function useRemoveFromDemonList() {
     },
     onSuccess: (data) => {
       qc.setQueryData(demonListQueryKey, data)
-      // Every ranking write emits an activity event, so the Log page and every
-      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a ranking move
-      // does not touch the List or collections.
+      // Every demon list write emits an activity event, so the Events page and every
+      // level's rank history are stale. Not INVALIDATE_ON_WRITE: a demon list move
+      // does not touch the Log or collections.
       void invalidateOnEvent(qc)
     },
     onError: (_e, _v, ctx) => {

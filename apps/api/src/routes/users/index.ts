@@ -10,7 +10,7 @@
 // GET /v1/users/{usernameOrId} and the cross-user progress/collections/ranking
 // reads, which resolve the subject from the path and enforce profilePublic
 // plus per-entry visibility. Those are reads only — every write stays on /me,
-// where the JWT is authoritative. See docs/API_DESIGN.md.
+// where the JWT is authoritative.
 //
 // ⚠️ When GET /v1/users/{usernameOrId} is added, it must be mounted AFTER
 // checkUsername: Hono matches by registration order, not static-over-param, so

@@ -151,8 +151,8 @@ export function useEditProgress(levelId: string) {
         body: payload,
       })
     },
-    // Edits can change fields shown on the Ranking board (e.g. attempts) or
-    // Collections (e.g. visibility), not just this level's own page/the List.
+    // Edits can change fields shown on the demon list board (e.g. attempts) or
+    // Collections (e.g. visibility), not just this level's own page/the Log.
     onSuccess: invalidate,
   })
 }
