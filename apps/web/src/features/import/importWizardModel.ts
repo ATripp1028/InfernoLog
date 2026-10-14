@@ -230,7 +230,7 @@ export function getValidRatingRows(
   return (parseResult?.ratings ?? []).filter(
     (r) =>
       !r.flags.some((f) => f.severity === 'error') &&
-      (r.levelId || r.levelName) &&
+      !!(r.levelId || r.levelName) &&
       Object.keys(r.scores).length > 0
   )
 }

@@ -13,6 +13,7 @@ import {
   disableAll,
   resolveFabActions,
 } from './fabActionResolution'
+import { isNullOrUndefined } from '@infernolog/core'
 
 /**
  * The one action shape shared by every page's FAB: an icon, a name, and a
@@ -66,7 +67,7 @@ export function FabActionsProvider({ children }: { children: ReactNode }) {
       setOverrideState(actions)
       // A header only makes sense alongside an override's own action set —
       // 'pending' renders the defaults, which a page's name must not label.
-      setSheetHeader(actions && actions !== 'pending' ? header : null)
+      setSheetHeader((isNullOrUndefined(actions) || actions === 'pending') ? null : header)
     },
     []
   )

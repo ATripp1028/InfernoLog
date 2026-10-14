@@ -35,13 +35,14 @@ export function buildCheckRequest({
   const ratingRows = getValidRatingRows(parseResult)
   const rankingRows = (parseResult.ranking ?? []).filter(
     (r) =>
-      !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+      !r.flags.some((f) => f.severity === 'error') &&
+      !!(r.levelId || r.levelName)
   )
   const listRows = (parseResult.lists ?? []).filter(
     (r) =>
       !r.flags.some((f) => f.severity === 'error') &&
-      r.list &&
-      (r.levelId || r.levelName)
+      !!r.list &&
+      !!(r.levelId || r.levelName)
   )
 
   const request = {

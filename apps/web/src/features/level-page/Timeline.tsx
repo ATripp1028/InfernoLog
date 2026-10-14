@@ -178,7 +178,9 @@ function ProgressEntry({
 
   const label = rangeLabel(update)
   const { highlightHref, videoHref } = chipLinks(update)
-  const hasExtra = update.notes || highlightHref || videoHref || update.onStream
+  const hasExtra = Boolean(
+    update.notes || highlightHref || videoHref || update.onStream
+  )
 
   return (
     <div className="relative ml-8 overflow-hidden rounded-card border border-border-subtle bg-bg-inset">

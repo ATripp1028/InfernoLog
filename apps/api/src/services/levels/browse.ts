@@ -279,11 +279,11 @@ export async function browseLevels(
     )
   }
 
-  if (query.difficulty?.length) {
+  if (query.difficulty && query.difficulty.length > 0) {
     conds.push(Prisma.sql`"partialDiff" IN (${Prisma.join(query.difficulty)})`)
   }
 
-  if (query.rateStatus?.length) {
+  if (query.rateStatus && query.rateStatus.length > 0) {
     const rs = query.rateStatus.map((s) => {
       switch (s) {
         case 'unrated':
@@ -306,13 +306,13 @@ export async function browseLevels(
   if (query.twoPlayer !== undefined) {
     conds.push(Prisma.sql`"twoPlayer" = ${query.twoPlayer}`)
   }
-  if (query.coinCount?.length) {
+  if (query.coinCount && query.coinCount.length > 0) {
     conds.push(Prisma.sql`"coins" IN (${Prisma.join(query.coinCount)})`)
   }
   if (query.coinsVerified !== undefined) {
     conds.push(Prisma.sql`"coinsVerified" = ${query.coinsVerified}`)
   }
-  if (query.length?.length) {
+  if (query.length && query.length.length > 0) {
     const labels = query.length.map((l) => LENGTH_LABELS[l])
     conds.push(Prisma.sql`"length" IN (${Prisma.join(labels)})`)
   }

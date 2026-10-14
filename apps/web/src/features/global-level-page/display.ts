@@ -101,7 +101,9 @@ export function coinDisplay(level: GlobalLevelPageData): CoinDisplay | null {
  * means "unknown" and must not render as a count.
  */
 export function knownObjectCount(level: GlobalLevelPageData): number | null {
-  return level.objectCount ? level.objectCount : null
+  return level.objectCount != null && level.objectCount > 0
+    ? level.objectCount
+    : null
 }
 
 /**

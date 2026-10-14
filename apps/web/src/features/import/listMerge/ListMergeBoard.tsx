@@ -75,7 +75,7 @@ const EntryCard = forwardRef<HTMLDivElement, EntryCardProps>(
         )}
       />
       <div className="pointer-events-none absolute inset-0 bg-bg-surface/70" />
-      {handle && <span className="relative z-10">{handle}</span>}
+      {Boolean(handle) && <span className="relative z-10">{handle}</span>}
       <span className="relative z-10 min-w-0 flex-1 truncate">
         {entryLabel(entry)}
       </span>

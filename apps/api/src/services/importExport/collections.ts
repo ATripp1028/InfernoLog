@@ -150,7 +150,7 @@ async function resolveCollectionEntries(
   // DB misses), so a large name-only tab isn't one query per row.
   const nameOnly = entries
     .map((e, index) => ({ e, index }))
-    .filter(({ e }) => !e.levelId && e.levelName)
+    .filter(({ e }) => !e.levelId && !!e.levelName)
   const resolvedByIndex = new Map<
     number,
     Awaited<ReturnType<typeof resolveNamesBatch>>[number]

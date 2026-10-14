@@ -116,7 +116,10 @@ export function formatDisplayValue(
   format: FieldFormatType
 ): string {
   if (value == null || value === '') return '(blank)'
-  if (format === 'boolean') return value ? 'Yes' : 'No'
+  if (format === 'boolean') {
+    const yes = Boolean(value)
+    return yes ? 'Yes' : 'No'
+  }
   if (format === 'percent') return `${value}%`
   if (format === 'rating10') return `${Number(value).toFixed(1)} / 10`
   if (format === 'rating100') return `${Math.round(Number(value))} / 100`

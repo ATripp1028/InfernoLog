@@ -128,7 +128,7 @@ async function assertOwnedCategories(
   userId: string,
   scores: ReadonlyArray<{ categoryId: string }> | undefined
 ): Promise<void> {
-  if (!scores?.length) return
+  if (!scores || scores.length === 0) return
   const ids = [...new Set(scores.map((s) => s.categoryId))]
   const owned = await tx.ratingCategory.count({
     where: { userId, id: { in: ids } },
@@ -310,7 +310,7 @@ export async function applyCompletion(userId: string, input: CompletionInput) {
       progressUpdateId = created.id
     }
 
-    if (input.ratingScores?.length) {
+    if (input.ratingScores && input.ratingScores.length > 0) {
       await tx.ratingScore.createMany({
         data: input.ratingScores.map((r) => ({
           levelProgressId: lp.id,

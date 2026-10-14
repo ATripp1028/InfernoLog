@@ -348,13 +348,13 @@ export async function checkImportConflicts(
 
   const progressRows = (req.progress ?? []).filter(
     (r) =>
-      r.data.levelId &&
+      !!r.data.levelId &&
       (!r.data.progressId ||
         resolvableProgress.get(r.data.progressId) !== r.data.levelId)
   )
   const droppedRows = (req.dropped ?? []).filter(
     (r) =>
-      r.data.levelId &&
+      !!r.data.levelId &&
       (!r.data.dropId || resolvableDrops.get(r.data.dropId) !== r.data.levelId)
   )
   const progressLevelIds = [

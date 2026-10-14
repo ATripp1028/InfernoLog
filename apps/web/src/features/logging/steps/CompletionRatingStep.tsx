@@ -11,7 +11,7 @@ import {
 } from '@/lib/ratingScale'
 import { computeOverallRating } from '@infernolog/core'
 import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
-import { isEmptyOrNullObject, isNullOrUndefined } from '@/lib/utils'
+import { isEmptyOrNullObject, isNullOrUndefined } from '@infernolog/core'
 import { useEffect } from 'react'
 
 /**

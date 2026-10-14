@@ -22,6 +22,35 @@ export default tseslint.config(
     },
   },
   {
+    // Type-aware rules. Scoped to src because tsconfig.json — the project these
+    // rules read types from — does not include infra/** or sst.config.ts.
+    files: ['src/**/*.ts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          // credentialLint.test.ts lints snippets under this path; the file
+          // never exists on disk, so no tsconfig can include it.
+          allowDefaultProject: ['src/credentialLintFixture.ts'],
+        },
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // A truthiness check on a nullable number treats a legitimate 0 as missing
+      // (an enjoyment of 0 was once reset to the default this way). Compare
+      // against null instead. Strings, booleans and objects are left alone.
+      '@typescript-eslint/strict-boolean-expressions': [
+        'error',
+        {
+          allowNullableBoolean: true,
+          allowNullableString: true,
+          allowNullableEnum: true,
+          allowAny: true,
+        },
+      ],
+    },
+  },
+  {
     // SST supplies its globals ($config, $app, sst, aws, $interpolate) through
     // a triple-slash reference — that is the documented mechanism and there is
     // no import form of it. The rule's autofixer rewrites the reference into a

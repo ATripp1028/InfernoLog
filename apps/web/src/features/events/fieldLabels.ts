@@ -193,7 +193,7 @@ export function configSummary(changes: ActivityFieldChange[]): string {
 
   if (mode) {
     const to = mode.newValue === 'WEIGHTED' ? 'weighted' : 'simple'
-    const count = after?.length
+    const count = after?.length ?? 0
     return count
       ? `Switched to ${to} ratings — ${count} categor${count === 1 ? 'y' : 'ies'}`
       : `Switched to ${to} ratings`

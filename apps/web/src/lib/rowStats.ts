@@ -74,7 +74,7 @@ export function rowStatKeys(state: SearchPageState): RowStatKey[] {
     }
   }
   if (state.sheetTier !== undefined) add('sheetTier')
-  if (state.coinCount?.length || state.coinsVerified !== undefined) {
+  if ((state.coinCount?.length ?? 0) > 0 || state.coinsVerified !== undefined) {
     add('coins')
   }
   if (state.twoPlayer !== undefined) add('twoPlayer')

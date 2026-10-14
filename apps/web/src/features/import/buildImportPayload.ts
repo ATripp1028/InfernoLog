@@ -137,7 +137,7 @@ export function buildImportPayload({
         .filter(
           (r) =>
             !r.flags.some((f) => f.severity === 'error') &&
-            (r.levelId || r.levelName)
+            !!(r.levelId || r.levelName)
         )
         .map((r) => ({ levelId: r.levelId, levelName: r.levelName }))
 
@@ -152,8 +152,8 @@ export function buildImportPayload({
     .filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        r.list &&
-        (r.levelId || r.levelName) &&
+        !!r.list &&
+        !!(r.levelId || r.levelName) &&
         !resolvedCollectionNames.has(classifyCollectionName(r.list!))
     )
     .map((r) => ({

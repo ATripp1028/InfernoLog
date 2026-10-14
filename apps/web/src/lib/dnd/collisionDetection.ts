@@ -82,7 +82,7 @@ export function useMultiContainerCollisionDetection(
   const collisionDetection: CollisionDetection = useCallback(
     (args) => {
       if (recentlyMoved.current) {
-        return lastOverId.current ? [{ id: lastOverId.current }] : []
+        return lastOverId.current !== null ? [{ id: lastOverId.current }] : []
       }
 
       const rowHits = (

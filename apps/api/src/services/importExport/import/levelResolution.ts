@@ -18,6 +18,7 @@ import {
   type RobtopLevel,
 } from '../../../utils/robtop'
 import { isAdmissible } from '../../levels/admission'
+import { isNullOrUndefined } from '@infernolog/core'
 
 type Tx = Prisma.TransactionClient
 
@@ -199,7 +200,7 @@ export async function resolveByName(
     },
   })
   const db = resolveFromDbCandidates(dbLevels, creator, inGameDifficulty)
-  if (db) return db // unique match or 'ambiguous'
+  if (!isNullOrUndefined(db)) return db // unique match or 'ambiguous'
   return resolveViaRobtop(name, creator, inGameDifficulty)
 }
 

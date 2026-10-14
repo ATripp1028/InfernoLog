@@ -15,6 +15,11 @@ export default tseslint.config(
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
+      // strict-boolean-expressions needs type information.
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
     },
     plugins: {
       'react-hooks': reactHooks,
@@ -27,6 +32,18 @@ export default tseslint.config(
       // Passwords and verification codes never reach a log, console, Sentry
       // call, or error message. See eslint.credentials.mjs.
       ...credentialRules,
+      // A truthiness check on a nullable number treats a legitimate 0 as missing
+      // (an enjoyment of 0 was once reset to the default this way). Compare
+      // against null instead. Strings, booleans and objects are left alone.
+      '@typescript-eslint/strict-boolean-expressions': [
+        'error',
+        {
+          allowNullableBoolean: true,
+          allowNullableString: true,
+          allowNullableEnum: true,
+          allowAny: true,
+        },
+      ],
     },
   },
   {

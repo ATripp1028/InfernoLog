@@ -52,7 +52,7 @@ export function SettingRow({
     <div className="flex items-start justify-between gap-6">
       <div className="flex-1 space-y-1">
         <div className="text-sm font-medium text-foreground">{label}</div>
-        {description && (
+        {Boolean(description) && (
           <p className="text-xs text-muted-foreground">{description}</p>
         )}
         {error && <p className="text-xs text-danger">{error}</p>}

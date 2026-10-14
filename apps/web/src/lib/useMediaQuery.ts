@@ -25,6 +25,7 @@ export function useMediaQuery(query: string): boolean {
 
 /** `matchMedia` guarded for environments that lack it, so a read during render is safe. */
 function matchesNow(query: string): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function')
+    return false
   return window.matchMedia(query).matches
 }

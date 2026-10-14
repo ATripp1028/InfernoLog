@@ -136,10 +136,10 @@ function Row({
             {headline}
             {badge}
           </div>
-          {meta && (
+          {Boolean(meta) && (
             <div className="mt-0.5 text-xs text-text-secondary">{meta}</div>
           )}
-          {detail && open && (
+          {Boolean(detail) && open && (
             <div className="mt-2.5 border-t border-border-subtle pt-2.5">
               {detail}
             </div>
@@ -149,7 +149,7 @@ function Row({
           <span className="text-[11px] tabular-nums text-text-tertiary">
             {time}
           </span>
-          {detail && (
+          {Boolean(detail) && (
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}

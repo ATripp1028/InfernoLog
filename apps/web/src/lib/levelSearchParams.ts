@@ -243,10 +243,10 @@ export function reconcileExtremeSort(
  */
 export function hasActiveFilters(s: LevelSearchFilters): boolean {
   return (
-    !!s.difficulty?.length ||
-    !!s.rateStatus?.length ||
-    !!s.length?.length ||
-    !!s.coinCount?.length ||
+    (s.difficulty?.length ?? 0) > 0 ||
+    (s.rateStatus?.length ?? 0) > 0 ||
+    (s.length?.length ?? 0) > 0 ||
+    (s.coinCount?.length ?? 0) > 0 ||
     s.twoPlayer !== undefined ||
     s.coinsVerified !== undefined ||
     s.levelType !== undefined ||
@@ -273,9 +273,9 @@ export function canEscalateToGd(s: SearchPageState): boolean {
   const hasNameQuery = s.searchBy === 'name' && !!s.query?.trim()
   return (
     hasNameQuery ||
-    !!s.difficulty?.length ||
-    !!s.rateStatus?.length ||
-    !!s.length?.length ||
+    (s.difficulty?.length ?? 0) > 0 ||
+    (s.rateStatus?.length ?? 0) > 0 ||
+    (s.length?.length ?? 0) > 0 ||
     s.twoPlayer !== undefined ||
     !!s.coinCount?.some((v) => v > 0) ||
     s.songType === 'custom' ||
@@ -484,7 +484,7 @@ export function validateSearchState(
       difficulty: arrOf(raw.difficulty, DIFFICULTY_VALUES),
       rateStatus: arrOf(raw.rateStatus, RATE_STATUS_VALUES),
       length: arrOf(raw.length, LENGTH_VALUES),
-      coinCount: coinCount?.length ? coinCount : undefined,
+      coinCount: coinCount && coinCount.length > 0 ? coinCount : undefined,
       twoPlayer: boolOf(raw.twoPlayer),
       coinsVerified: boolOf(raw.coinsVerified),
       levelType: oneOf(raw.levelType, LEVEL_TYPE_VALUES),

@@ -58,33 +58,33 @@ export function useReviewStep() {
     const validCompletions = (parseResult?.completions ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        (r.data.levelId || r.data.levelName)
+        !!(r.data.levelId || r.data.levelName)
     )
     const validProgress = (parseResult?.progress ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        (r.data.levelId || r.data.levelName)
+        !!(r.data.levelId || r.data.levelName)
     )
     const validDropped = (parseResult?.dropped ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        (r.data.levelId || r.data.levelName)
+        !!(r.data.levelId || r.data.levelName)
     )
     const totalRanked = (parseResult?.ranking ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        (r.levelId || r.levelName)
+        !!(r.levelId || r.levelName)
     ).length
     const totalListed = (parseResult?.lists ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        r.list &&
-        (r.levelId || r.levelName)
+        !!r.list &&
+        !!(r.levelId || r.levelName)
     ).length
     const totalRated = (parseResult?.ratings ?? []).filter(
       (r) =>
         !r.flags.some((f) => f.severity === 'error') &&
-        (r.levelId || r.levelName) &&
+        !!(r.levelId || r.levelName) &&
         Object.keys(r.scores).length > 0
     ).length
     const totalValid =

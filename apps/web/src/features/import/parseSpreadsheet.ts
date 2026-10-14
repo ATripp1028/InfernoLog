@@ -1087,7 +1087,8 @@ function parseRatingRow(
 function orderRankingRows(rows: ParsedRankingRow[]): ParsedRankingRow[] {
   const candidates = rows.filter(
     (r) =>
-      !r.flags.some((f) => f.severity === 'error') && (r.levelId || r.levelName)
+      !r.flags.some((f) => f.severity === 'error') &&
+      !!(r.levelId || r.levelName)
   )
   const allHaveRank =
     candidates.length > 0 && candidates.every((r) => r.rank != null)
@@ -1167,7 +1168,7 @@ export function parseSpreadsheet(
     })[0] ?? []) as unknown[]
     ratingCategories = headerRow
       .map((h) => (h == null ? '' : String(h).trim()))
-      .filter((h) => h && !RESERVED_RATING_COLS.has(normalizeKey(h)))
+      .filter((h) => h !== '' && !RESERVED_RATING_COLS.has(normalizeKey(h)))
     ratings = rawRatings.map((r, i) => parseRatingRow(r, i, ratingCategories))
   }
 

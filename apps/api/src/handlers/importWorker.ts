@@ -22,6 +22,7 @@ import type {
   ImportCollectionEntry,
   ImportRatingEntry,
 } from '@infernolog/core'
+import { isNullOrUndefined } from '@infernolog/core'
 
 interface WorkerEvent {
   jobId: string
@@ -142,24 +143,27 @@ export const handler = async (
 
     // All rows processed — run the one-shot ranking/collections/ratings
     // passes (each only if the sheet had that tab).
-    const rankingResult = job.rankingPayload
-      ? await commitImportRanking(
-          job.userId,
-          job.rankingPayload as unknown as ImportRankingEntry[]
-        )
-      : null
-    const collectionsResult = job.collectionsPayload
-      ? await commitImportCollections(
-          job.userId,
-          job.collectionsPayload as unknown as ImportCollectionEntry[]
-        )
-      : null
-    const ratingsResult = job.ratingsPayload
-      ? await commitImportRatings(
-          job.userId,
-          job.ratingsPayload as unknown as ImportRatingEntry[]
-        )
-      : null
+    const rankingResult =
+      isNullOrUndefined(job.rankingPayload)
+        ? await commitImportRanking(
+            job.userId,
+            job.rankingPayload as unknown as ImportRankingEntry[]
+          )
+        : null
+    const collectionsResult =
+      isNullOrUndefined(job.collectionsPayload)
+        ? await commitImportCollections(
+            job.userId,
+            job.collectionsPayload as unknown as ImportCollectionEntry[]
+          )
+        : null
+    const ratingsResult =
+      isNullOrUndefined(job.ratingsPayload)
+        ? await commitImportRatings(
+            job.userId,
+            job.ratingsPayload as unknown as ImportRatingEntry[]
+          )
+        : null
 
     await prisma.importJob.update({
       where: { id: jobId },

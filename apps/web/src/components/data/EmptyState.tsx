@@ -46,10 +46,10 @@ export function EmptyState({
       >
         {title}
       </p>
-      {description && (
+      {Boolean(description) && (
         <p className="mt-1 text-sm text-text-secondary">{description}</p>
       )}
-      {action && <div className="mt-4">{action}</div>}
+      {Boolean(action) && <div className="mt-4">{action}</div>}
     </div>
   )
 }

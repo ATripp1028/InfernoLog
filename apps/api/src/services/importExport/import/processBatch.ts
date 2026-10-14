@@ -95,7 +95,7 @@ export async function processImportJobBatch(
   const resolvedRobtopData = new Map<string, RobtopLevel>() // levelId → full data
   const resolutionFailures = new Map<number, string>() // rowIndex → reason
 
-  const nameOnlyRows = rows.filter((r) => !r.data.levelId && r.data.levelName)
+  const nameOnlyRows = rows.filter((r) => !r.data.levelId && !!r.data.levelName)
   for (const row of nameOnlyRows) {
     // Both tabs carry in_game_difficulty purely to disambiguate name resolution.
     const result = await resolveByName(
@@ -228,7 +228,7 @@ export async function processImportJobBatch(
   const idsToFetchGddl: string[] = []
   const idsNeedingGddl = new Set(
     rows
-      .filter((r) => r.type === 'completion' && !r.data.userGddlTier)
+      .filter((r) => r.type === 'completion' && r.data.userGddlTier == null)
       .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
       .filter((id): id is string => !!id)
   )
@@ -568,9 +568,10 @@ export async function processImportJobBatch(
     let flagged = false
     try {
       if (row.type === 'completion') {
-        const autoGddlTier = !row.data.userGddlTier
-          ? (gddlTierCache.get(effectiveLevelId) ?? null)
-          : null
+        const autoGddlTier =
+          row.data.userGddlTier == null
+            ? (gddlTierCache.get(effectiveLevelId) ?? null)
+            : null
         const result = planCompletion(
           ctx,
           effectiveLevelId,
