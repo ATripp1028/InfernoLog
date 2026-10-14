@@ -70,6 +70,7 @@ export function createErrorHandler(
       `${moduleLabel} route error`
     )
     Sentry.captureException(error)
+    console.error(`${moduleLabel} route error`, error)
     return c.json({ error: 'Internal server error' }, 500)
   }
 }

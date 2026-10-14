@@ -94,7 +94,7 @@ app.get('/levels/gd-search', async (c) => {
   // liked, optionally filtered). Without a term, a filter, or such a sort there
   // is nothing to ask GD for.
   const hasBrowseIntent =
-    isNullOrUndefined(filters.difficulty) ||
+    !isNullOrUndefined(filters.difficulty) ||
     (filters.rateStatus?.length ?? 0) > 0 ||
     (filters.length?.length ?? 0) > 0 ||
     filters.twoPlayer !== undefined ||

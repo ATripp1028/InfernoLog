@@ -52,5 +52,5 @@ export function actionsSignature(
   // A sentinel, not a set — it never collides with a real signature because
   // a real one always contains a ':'.
   if (actions === 'pending') return 'pending'
-  return actions.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|')
+  return actions?.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|') ?? null
 }
