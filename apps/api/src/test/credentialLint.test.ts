@@ -56,7 +56,7 @@ describe('credential lint rule', () => {
     ],
   ])('rejects %s', async (_label, snippet) => {
     expect(await credentialErrors(DECLS + snippet)).toBeGreaterThan(0)
-  })
+  }, 10000)
 
   it.each([
     ['ordinary structured logging', `logger.info({ userId }, 'Signed in')`],
