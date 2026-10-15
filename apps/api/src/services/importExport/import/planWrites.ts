@@ -20,7 +20,7 @@ import type {
   ImportCompletionRow,
   ImportConflictAction,
 } from '@infernolog/core'
-import { roundGddlTier } from '../../../utils/gddl'
+import { sheetGddlTier } from '../../../utils/gddl'
 import type { ExistingEventSnapshot } from './planEvents'
 
 // ── Write planning (in-memory) ─────────────────────────────────────────────
@@ -379,9 +379,7 @@ export function planCompletion(
   // GDDL tier: explicit row value wins; else the autofilled value. Both are
   // rounded to a whole number — GDDL tiers are never stored as decimals.
   const userGddlTier: number | null =
-    row.userGddlTier != null
-      ? roundGddlTier(row.userGddlTier)
-      : (autoGddlTier ?? null)
+    sheetGddlTier(row.userGddlTier) ?? autoGddlTier ?? null
 
   // User-coin collection only applies to levels that actually have coins;
   // ignore the spreadsheet's coin columns otherwise (matches the logging flow).

@@ -29,7 +29,7 @@ const COMMUNITY_IMPORT_BUDGET_MS = 20_000
 // importWorker's REMAINING_TIME_SAFETY_MS (60s), which the worker only checks
 // BETWEEN batches: overrun it and the Lambda dies mid-job with no reinvoke.
 const ADMISSION_LOOKUP_BUDGET_MS = 20_000
-import { fetchGddlTier } from '../../../utils/gddl'
+import { fetchGddlTier, sheetGddlTier } from '../../../utils/gddl'
 import { removeFromWantToBeat } from '../../collections'
 import {
   enqueueSeedIds,
@@ -228,7 +228,10 @@ export async function processImportJobBatch(
   const idsToFetchGddl: string[] = []
   const idsNeedingGddl = new Set(
     rows
-      .filter((r) => r.type === 'completion' && r.data.userGddlTier == null)
+      .filter(
+        (r) =>
+          r.type === 'completion' && sheetGddlTier(r.data.userGddlTier) == null
+      )
       .map((r) => r.data.levelId ?? resolvedIds.get(r.rowIndex))
       .filter((id): id is string => !!id)
   )
@@ -569,7 +572,7 @@ export async function processImportJobBatch(
     try {
       if (row.type === 'completion') {
         const autoGddlTier =
-          row.data.userGddlTier == null
+          sheetGddlTier(row.data.userGddlTier) == null
             ? (gddlTierCache.get(effectiveLevelId) ?? null)
             : null
         const result = planCompletion(

@@ -19,7 +19,6 @@ import { chargeRobtopBudget } from '../../utils/robtopUserBudget'
 import { browseLevels } from '../../services/levels/browse'
 import { parseBrowseQuery } from '../../utils/browseQuery'
 import type { HonoVariables } from '../../types/hono'
-import { isNullOrUndefined } from '@infernolog/core'
 
 const app = new Hono<{ Variables: HonoVariables }>()
 
@@ -94,7 +93,7 @@ app.get('/levels/gd-search', async (c) => {
   // liked, optionally filtered). Without a term, a filter, or such a sort there
   // is nothing to ask GD for.
   const hasBrowseIntent =
-    !isNullOrUndefined(filters.difficulty) ||
+    (filters.difficulty?.length ?? 0) > 0 ||
     (filters.rateStatus?.length ?? 0) > 0 ||
     (filters.length?.length ?? 0) > 0 ||
     filters.twoPlayer !== undefined ||

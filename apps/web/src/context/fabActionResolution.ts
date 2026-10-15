@@ -2,7 +2,6 @@
 // render. Pure — FabActionsContext owns the state, this owns the arithmetic.
 
 import type { FabAction } from './FabActionsContext'
-import { isNullOrUndefined } from '@infernolog/core'
 
 /**
  * The FAB itself plus the stack that fans out above it.
@@ -48,9 +47,9 @@ export function disableAll(actions: readonly FabAction[]): FabAction[] {
 export function actionsSignature(
   actions: readonly FabAction[] | 'pending' | null
 ): string | null {
-  if (isNullOrUndefined(actions)) return null
+  if (actions == null) return null
   // A sentinel, not a set — it never collides with a real signature because
   // a real one always contains a ':'.
   if (actions === 'pending') return 'pending'
-  return actions?.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|') ?? null
+  return actions.map((a) => `${a.key}:${a.disabled}:${a.danger}`).join('|')
 }

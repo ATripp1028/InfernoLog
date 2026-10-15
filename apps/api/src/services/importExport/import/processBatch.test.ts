@@ -59,7 +59,10 @@ vi.mock('./levelResolution', () => ({
   enqueueSeedIds: mockEnqueueSeedIds,
   screenUncachedIds: mockScreenUncachedIds,
 }))
-vi.mock('../../../utils/gddl', () => ({ fetchGddlTier: mockFetchGddlTier }))
+vi.mock('../../../utils/gddl', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../utils/gddl')>()
+  return { ...actual, fetchGddlTier: mockFetchGddlTier }
+})
 vi.mock('../../collections', () => ({
   removeFromWantToBeat: mockRemoveFromWantToBeat,
 }))

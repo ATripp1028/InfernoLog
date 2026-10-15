@@ -90,6 +90,17 @@ export function roundGddlTier(rating: number): number {
 }
 
 /**
+ * A spreadsheet's `gddl_tier` cell as the tier the user chose, or null when
+ * they chose none. GDDL tiers start at 1, so a 0 is a sheet's "unrated"
+ * placeholder, not a tier — it falls through to the community autofill.
+ */
+export function sheetGddlTier(value: number | null | undefined): number | null {
+  if (value == null) return null
+  const tier = roundGddlTier(value)
+  return tier >= 1 ? tier : null
+}
+
+/**
  * Rescales a GDDL enjoyment rating (0-10, e.g. 4.954022988505747) onto the
  * 0-100 scale EDEL reports, to two decimal places — so 4.954 becomes 49.54.
  *

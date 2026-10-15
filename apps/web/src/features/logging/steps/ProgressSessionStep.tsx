@@ -20,7 +20,6 @@ import {
 import { buildProgressInput, loggingErrorMessage } from '../payload'
 import { digitsOnly, maxValueError, MAX_FPS } from '@/lib/numberFormat'
 import { DevicePicker } from '@/components/inputs/pickers'
-import { isNullOrUndefined } from '@infernolog/core'
 
 /**
  * Progress step 2: enjoyment plus the same run-describing fields the completion path collects, then the submit.
@@ -90,14 +89,12 @@ export function ProgressSessionStep() {
               inputMode="numeric"
               value={draft.fps}
               onChange={(e) => patchDraft({ fps: digitsOnly(e.target.value) })}
-              placeholder={
-                isNullOrUndefined(defaultFps) ? String(defaultFps) : undefined
-              }
+              placeholder={defaultFps != null ? String(defaultFps) : undefined}
             />
             {fpsError ? (
               <FieldError>{fpsError}</FieldError>
             ) : (
-              !isNullOrUndefined(defaultFps) && (
+              defaultFps != null && (
                 <FieldHint>Defaults to your setting ({defaultFps}).</FieldHint>
               )
             )}
