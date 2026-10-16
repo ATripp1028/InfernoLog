@@ -24,7 +24,7 @@ globalThis.fetch = (input: RequestInfo | URL) => {
 }
 
 // jsdom implements neither, and dnd-kit's sensors touch both on mount.
-if (!window.matchMedia) {
+if (typeof window.matchMedia !== 'function') {
   window.matchMedia = ((query: string) => ({
     matches: false,
     media: query,
@@ -37,7 +37,7 @@ if (!window.matchMedia) {
   })) as typeof window.matchMedia
 }
 
-if (!globalThis.ResizeObserver) {
+if (typeof globalThis.ResizeObserver === 'undefined') {
   globalThis.ResizeObserver = class {
     observe() {}
     unobserve() {}

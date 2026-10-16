@@ -64,7 +64,7 @@ function buildRobtopParams(
     p.demonFilter = DEMON_FILTER[filters.difficulty[0]!]!
   }
 
-  if (filters.length?.length) {
+  if (filters.length && filters.length.length > 0) {
     p.len = filters.length.map((l) => LEN_NUM[l]!).join(',')
   }
   if (filters.twoPlayer === true) p.twoPlayer = '1'

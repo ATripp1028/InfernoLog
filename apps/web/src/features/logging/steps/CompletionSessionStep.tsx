@@ -55,7 +55,7 @@ export function CompletionSessionStep() {
               inputMode="numeric"
               value={draft.fps}
               onChange={(e) => patchDraft({ fps: digitsOnly(e.target.value) })}
-              placeholder={defaultFps ? String(defaultFps) : undefined}
+              placeholder={defaultFps != null ? String(defaultFps) : undefined}
             />
             {fpsError ? (
               <FieldError>{fpsError}</FieldError>

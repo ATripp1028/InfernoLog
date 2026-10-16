@@ -142,24 +142,27 @@ export const handler = async (
 
     // All rows processed — run the one-shot ranking/collections/ratings
     // passes (each only if the sheet had that tab).
-    const rankingResult = job.rankingPayload
-      ? await commitImportRanking(
-          job.userId,
-          job.rankingPayload as unknown as ImportRankingEntry[]
-        )
-      : null
-    const collectionsResult = job.collectionsPayload
-      ? await commitImportCollections(
-          job.userId,
-          job.collectionsPayload as unknown as ImportCollectionEntry[]
-        )
-      : null
-    const ratingsResult = job.ratingsPayload
-      ? await commitImportRatings(
-          job.userId,
-          job.ratingsPayload as unknown as ImportRatingEntry[]
-        )
-      : null
+    const rankingResult =
+      job.rankingPayload != null
+        ? await commitImportRanking(
+            job.userId,
+            job.rankingPayload as unknown as ImportRankingEntry[]
+          )
+        : null
+    const collectionsResult =
+      job.collectionsPayload != null
+        ? await commitImportCollections(
+            job.userId,
+            job.collectionsPayload as unknown as ImportCollectionEntry[]
+          )
+        : null
+    const ratingsResult =
+      job.ratingsPayload != null
+        ? await commitImportRatings(
+            job.userId,
+            job.ratingsPayload as unknown as ImportRatingEntry[]
+          )
+        : null
 
     await prisma.importJob.update({
       where: { id: jobId },

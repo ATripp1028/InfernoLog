@@ -41,7 +41,7 @@ export function useMutationBurstNotifier(
   useEffect(() => {
     const cache = queryClient.getMutationCache()
     return cache.subscribe((event) => {
-      if (!event || !event.mutation) return
+      if (!event.mutation) return
       if (!isTracked(event.mutation.options.mutationKey)) return
       if (event.mutation.state.status === 'error') {
         sessionRef.current.hadError = true

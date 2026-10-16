@@ -11,9 +11,3 @@ import { twMerge } from 'tailwind-merge'
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
-
-export function isEmptyOrNullObject(
-  obj: Record<string, unknown> | undefined
-): boolean {
-  return obj == null || Object.keys(obj).length === 0
-}

@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   verifyGddlApiKey,
   roundGddlTier,
+  sheetGddlTier,
   fetchGddlTier,
   fetchGddlLevel,
   rescaleGddlEnjoyment,
@@ -268,6 +269,22 @@ describe('roundGddlTier', () => {
   })
 })
 
+// ─── sheetGddlTier ───────────────────────────────────────────────────────────
+
+describe('sheetGddlTier', () => {
+  it('rounds a chosen tier', () => {
+    expect(sheetGddlTier(18.43)).toBe(18)
+    expect(sheetGddlTier(1)).toBe(1)
+  })
+
+  it('treats a blank or 0 cell as no chosen tier', () => {
+    expect(sheetGddlTier(null)).toBeNull()
+    expect(sheetGddlTier(undefined)).toBeNull()
+    expect(sheetGddlTier(0)).toBeNull()
+    expect(sheetGddlTier(0.4)).toBeNull()
+  })
+})
+
 // ─── fetchGddlTier ────────────────────────────────────────────────────────────
 
 // ─── fetchGddlLevel / fetchGddlTier ──────────────────────────────────────────
@@ -357,13 +374,16 @@ describe('fetchGddlLevel', () => {
     ['too short', 'abc'],
     ['too long', 'Dfm_LegCN9Q_extra'],
     ['not a video id at all', 'https://example.com/x'],
-  ])('rejects a %s showcase rather than building a bogus URL', async (_l, id) => {
-    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ Showcase: id })))
+  ])(
+    'rejects a %s showcase rather than building a bogus URL',
+    async (_l, id) => {
+      mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ Showcase: id })))
 
-    await expect(
-      fetchGddlLevel('26681070').then((r) => r?.showcaseUrl)
-    ).resolves.toBeNull()
-  })
+      await expect(
+        fetchGddlLevel('26681070').then((r) => r?.showcaseUrl)
+      ).resolves.toBeNull()
+    }
+  )
 
   it('opens the shared cooldown on a 429 and reports no opinion', async () => {
     mockFetch.mockResolvedValueOnce({
@@ -425,7 +445,9 @@ describe('fetchGddlLevel', () => {
 
 describe('fetchGddlTier', () => {
   it('returns the rounded tier from Rating', async () => {
-    mockFetch.mockResolvedValueOnce(resp(200, gddlLevel({ ID: 12345, Rating: 18.43 })))
+    mockFetch.mockResolvedValueOnce(
+      resp(200, gddlLevel({ ID: 12345, Rating: 18.43 }))
+    )
     await expect(fetchGddlTier('12345')).resolves.toBe(18)
   })
 

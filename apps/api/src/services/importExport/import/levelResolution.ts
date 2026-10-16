@@ -199,7 +199,7 @@ export async function resolveByName(
     },
   })
   const db = resolveFromDbCandidates(dbLevels, creator, inGameDifficulty)
-  if (db) return db // unique match or 'ambiguous'
+  if (db != null) return db // unique match or 'ambiguous'
   return resolveViaRobtop(name, creator, inGameDifficulty)
 }
 

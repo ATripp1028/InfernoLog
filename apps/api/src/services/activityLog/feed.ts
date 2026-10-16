@@ -111,7 +111,7 @@ const FALSE = Prisma.sql`false`
 // docs/EVENT_LOG.md, "Filter on category, never on fieldName".
 function editsArm(categories: ActivityFieldCategory[] | undefined): Prisma.Sql {
   const edit = Prisma.sql`a."eventType" = ${ActivityEventType.LOG_EDIT}::"ActivityEventType"`
-  if (!categories?.length) return edit
+  if (!categories || categories.length === 0) return edit
   return Prisma.sql`(${edit} AND EXISTS (
     SELECT 1 FROM "activity_log_field_change" f
     WHERE f."eventId" = a."id"
@@ -194,7 +194,7 @@ export async function readActivityFeed(
   // names chips without PROGRESS drops the progress branch outright rather than
   // filtering it, and one that names PROGRESS alone does the same to the event
   // branch. Naming no chip is the "All" chip and adds nothing.
-  const kinds = query.kind?.length ? new Set(query.kind) : null
+  const kinds = query.kind && query.kind.length > 0 ? new Set(query.kind) : null
   if (kinds) {
     const arms: Prisma.Sql[] = []
     if (kinds.has('DEMON_LIST')) {
@@ -217,7 +217,7 @@ export async function readActivityFeed(
       arms.length ? Prisma.sql`(${Prisma.join(arms, ' OR ')})` : FALSE
     )
     if (!kinds.has('PROGRESS')) progressConds.push(FALSE)
-  } else if (query.category?.length) {
+  } else if (query.category && query.category.length > 0) {
     // A category with no chip behind it still reads as "narrow the edits",
     // which is the only thing a category can narrow.
     eventConds.push(

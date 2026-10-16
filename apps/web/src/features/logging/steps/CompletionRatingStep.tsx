@@ -11,7 +11,7 @@ import {
 } from '@/lib/ratingScale'
 import { computeOverallRating } from '@infernolog/core'
 import { overallRatingConfig, ratingScoresFromDraft } from '@/lib/ratingConfig'
-import { isEmptyOrNullObject } from '@/lib/utils'
+import { isEmptyOrNullObject } from '@infernolog/core'
 import { useEffect } from 'react'
 
 /**
@@ -30,7 +30,7 @@ export function CompletionRatingStep() {
         ),
       })
     }
-    if (!draft.enjoyment) {
+    if (draft.enjoyment == null) {
       patchDraft({ enjoyment: 50 })
     }
   }, [draft.ratingScores, patchDraft, me.data, draft.enjoyment])

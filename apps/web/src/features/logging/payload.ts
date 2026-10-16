@@ -123,7 +123,7 @@ export function buildCompletionInput(
     enjoyment: draft.enjoyment,
     ...(ratingScores.length ? { ratingScores } : {}),
     userGddlTier: userGddlTier,
-    coinsCollected: level.coins ? draft.coinsCollected : null,
+    coinsCollected: (level.coins ?? 0) > 0 ? draft.coinsCollected : null,
     twoPlayerSolo: level.twoPlayer ? draft.twoPlayerSolo : null,
     twoPlayerPartner:
       level.twoPlayer && draft.twoPlayerSolo === false

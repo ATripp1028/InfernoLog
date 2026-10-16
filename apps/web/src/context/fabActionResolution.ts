@@ -47,7 +47,7 @@ export function disableAll(actions: readonly FabAction[]): FabAction[] {
 export function actionsSignature(
   actions: readonly FabAction[] | 'pending' | null
 ): string | null {
-  if (!actions) return null
+  if (actions == null) return null
   // A sentinel, not a set — it never collides with a real signature because
   // a real one always contains a ':'.
   if (actions === 'pending') return 'pending'

@@ -105,17 +105,17 @@ export function useImportFlowState({
       completions: result.completions.filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
-          (r.data.levelId || r.data.levelName)
+          !!(r.data.levelId || r.data.levelName)
       ),
       progress: result.progress.filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
-          (r.data.levelId || r.data.levelName)
+          !!(r.data.levelId || r.data.levelName)
       ),
       dropped: result.dropped.filter(
         (r) =>
           !r.flags.some((f) => f.severity === 'error') &&
-          (r.data.levelId || r.data.levelName)
+          !!(r.data.levelId || r.data.levelName)
       ),
     }),
     []

@@ -91,11 +91,13 @@ export function Modal({
         )}
       >
         <div className="min-w-0">
-          {eyebrow && <SectionLabel tone="primary">{eyebrow}</SectionLabel>}
+          {Boolean(eyebrow) && (
+            <SectionLabel tone="primary">{eyebrow}</SectionLabel>
+          )}
           <Dialog.Title className="text-lg font-semibold text-text-primary">
             {title}
           </Dialog.Title>
-          {subtitle && (
+          {Boolean(subtitle) && (
             <p className="mt-0.5 text-sm text-text-secondary">{subtitle}</p>
           )}
         </div>
@@ -113,7 +115,7 @@ export function Modal({
         {children}
       </div>
 
-      {footer && (
+      {Boolean(footer) && (
         <div className="border-t border-border px-5 py-4">{footer}</div>
       )}
     </DialogSurface>

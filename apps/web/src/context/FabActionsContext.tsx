@@ -66,7 +66,7 @@ export function FabActionsProvider({ children }: { children: ReactNode }) {
       setOverrideState(actions)
       // A header only makes sense alongside an override's own action set —
       // 'pending' renders the defaults, which a page's name must not label.
-      setSheetHeader(actions && actions !== 'pending' ? header : null)
+      setSheetHeader(actions == null || actions === 'pending' ? null : header)
     },
     []
   )

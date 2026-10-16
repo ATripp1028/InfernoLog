@@ -19,7 +19,7 @@ import type {
   ImportCheckRequest,
   ImportCheckResponse,
 } from '@infernolog/core'
-import { roundGddlTier } from '../../../utils/gddl'
+import { sheetGddlTier } from '../../../utils/gddl'
 import { checkRatingConflicts } from '../../importExport/ratings'
 import { checkCollectionsMerge } from '../../importExport/collections'
 import { checkRankingMerge } from '../../importExport/demonList'
@@ -123,11 +123,7 @@ function diffCompletionFields(
   )
   push('visibility', existing.visibility, row.visibility ?? null)
   push('levelNotes', existing.levelNotes, row.levelNotes ?? null)
-  push(
-    'userGddlTier',
-    existing.userGddlTier,
-    row.userGddlTier != null ? roundGddlTier(row.userGddlTier) : null
-  )
+  push('userGddlTier', existing.userGddlTier, sheetGddlTier(row.userGddlTier))
 
   return diffs
 }
@@ -348,13 +344,13 @@ export async function checkImportConflicts(
 
   const progressRows = (req.progress ?? []).filter(
     (r) =>
-      r.data.levelId &&
+      !!r.data.levelId &&
       (!r.data.progressId ||
         resolvableProgress.get(r.data.progressId) !== r.data.levelId)
   )
   const droppedRows = (req.dropped ?? []).filter(
     (r) =>
-      r.data.levelId &&
+      !!r.data.levelId &&
       (!r.data.dropId || resolvableDrops.get(r.data.dropId) !== r.data.levelId)
   )
   const progressLevelIds = [

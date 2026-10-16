@@ -40,7 +40,7 @@ function Section({
   return (
     <section className="mt-10">
       <h2 className="text-xl font-semibold text-foreground">{title}</h2>
-      {intro && (
+      {Boolean(intro) && (
         <p className="mt-2 text-sm italic leading-relaxed text-muted-foreground">
           {intro}
         </p>
