@@ -57,7 +57,10 @@ export const MAX_SHEET_TIER = SHEET_TIER_NAMES.length - 1
 /** Whether a value is a tier the sheets actually define (0-21). */
 export function isSheetTier(tier: number | null | undefined): tier is number {
   return (
-    tier != null && Number.isInteger(tier) && tier >= 0 && tier <= MAX_SHEET_TIER
+    tier != null &&
+    Number.isInteger(tier) &&
+    tier >= 0 &&
+    tier <= MAX_SHEET_TIER
   )
 }
 

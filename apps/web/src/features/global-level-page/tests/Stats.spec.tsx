@@ -8,7 +8,9 @@ describe('Stats', () => {
   describe('the Length card', () => {
     it('leads with the duration and keeps the band underneath', () => {
       render(
-        <Stats level={makeGlobalLevel({ durationSeconds: 121, length: 'Long' })} />
+        <Stats
+          level={makeGlobalLevel({ durationSeconds: 121, length: 'Long' })}
+        />
       )
 
       expect(screen.getByText('2:01')).toBeInTheDocument()
@@ -19,7 +21,9 @@ describe('Stats', () => {
     // and none will if all three sources are unreachable.
     it('falls back to the band when no source has timed the level', () => {
       render(
-        <Stats level={makeGlobalLevel({ durationSeconds: null, length: 'XL' })} />
+        <Stats
+          level={makeGlobalLevel({ durationSeconds: null, length: 'XL' })}
+        />
       )
 
       expect(screen.getByText('XL')).toBeInTheDocument()
@@ -27,7 +31,9 @@ describe('Stats', () => {
 
     it('shows a dash when neither is known', () => {
       render(
-        <Stats level={makeGlobalLevel({ durationSeconds: null, length: null })} />
+        <Stats
+          level={makeGlobalLevel({ durationSeconds: null, length: null })}
+        />
       )
 
       expect(screen.getAllByText('—').length).toBeGreaterThan(0)
@@ -104,22 +110,21 @@ describe('Stats', () => {
         { partialDiff: 'demon-extreme', enjoyment: 50 },
         /Extreme Demon Enjoyment List/,
       ],
-      [
-        'GDDL',
-        { partialDiff: 'demon-insane', enjoyment: 50 },
-        /GDDL/,
-      ],
-    ])('names %s as the source in its popover', async (_label, props, matcher) => {
-      const user = userEvent.setup()
-      render(<Stats level={makeGlobalLevel(props)} />)
+      ['GDDL', { partialDiff: 'demon-insane', enjoyment: 50 }, /GDDL/],
+    ])(
+      'names %s as the source in its popover',
+      async (_label, props, matcher) => {
+        const user = userEvent.setup()
+        render(<Stats level={makeGlobalLevel(props)} />)
 
-      await user.click(
-        screen.getByRole('button', {
-          name: 'Where does the enjoyment rating come from?',
-        })
-      )
+        await user.click(
+          screen.getByRole('button', {
+            name: 'Where does the enjoyment rating come from?',
+          })
+        )
 
-      expect(screen.getByText(matcher)).toBeInTheDocument()
-    })
+        expect(screen.getByText(matcher)).toBeInTheDocument()
+      }
+    )
   })
 })

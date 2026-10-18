@@ -265,7 +265,10 @@ describe('enjoymentDisplay', () => {
     partialDiff: 'demon-extreme',
     inGameDifficulty: 'Extreme Demon',
   }
-  const insane = { partialDiff: 'demon-insane', inGameDifficulty: 'Insane Demon' }
+  const insane = {
+    partialDiff: 'demon-insane',
+    inGameDifficulty: 'Insane Demon',
+  }
 
   it('labels an extreme’s score as EDEL’s', () => {
     const level = makeGlobalLevel({ ...extreme, enjoyment: 59.39 })
@@ -296,15 +299,18 @@ describe('enjoymentDisplay', () => {
     ['Extreme Demon', 'EDEL'],
     ['EXTREME_DEMON', 'EDEL'],
     ['Insane Demon', 'GDDL'],
-  ])('falls back to the %s label when partialDiff is absent', (label, source) => {
-    const level = makeGlobalLevel({
-      partialDiff: null,
-      inGameDifficulty: label,
-      enjoyment: 50,
-    })
+  ])(
+    'falls back to the %s label when partialDiff is absent',
+    (label, source) => {
+      const level = makeGlobalLevel({
+        partialDiff: null,
+        inGameDifficulty: label,
+        enjoyment: 50,
+      })
 
-    expect(enjoymentDisplay(level)?.source).toBe(source)
-  })
+      expect(enjoymentDisplay(level)?.source).toBe(source)
+    }
+  )
 
   it('returns null when the level has no rating', () => {
     const level = makeGlobalLevel({ ...insane, enjoyment: null })

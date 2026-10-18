@@ -15,7 +15,11 @@ import {
   useRemoveFromDemonList,
 } from '@/lib/api/demonList'
 import { neighboursAround } from '@/lib/neighbours'
-import { filterPlaced, filterUnplaced, reorderDisabled } from '@/lib/ordering/filters'
+import {
+  filterPlaced,
+  filterUnplaced,
+  reorderDisabled,
+} from '@/lib/ordering/filters'
 
 /**
  * State and the reorder/place/unplace writes for the mobile ranking list.

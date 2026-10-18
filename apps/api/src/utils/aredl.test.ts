@@ -75,7 +75,10 @@ describe('fetchAredlLevel', () => {
   // nothing settled", so no separate flag is carried alongside it.
   it('drops a score EDEL still marks as pending', async () => {
     mockFetch.mockResolvedValueOnce(
-      resp(200, aredlLevel({ edel_enjoyment: 63.33333333, is_edel_pending: true }))
+      resp(
+        200,
+        aredlLevel({ edel_enjoyment: 63.33333333, is_edel_pending: true })
+      )
     )
 
     await expect(
@@ -88,7 +91,9 @@ describe('fetchAredlLevel', () => {
     [50.0, 50],
     [0.004, 0],
   ])('rounds an EDEL score of %s to %s', async (raw, expected) => {
-    mockFetch.mockResolvedValueOnce(resp(200, aredlLevel({ edel_enjoyment: raw })))
+    mockFetch.mockResolvedValueOnce(
+      resp(200, aredlLevel({ edel_enjoyment: raw }))
+    )
 
     await expect(
       fetchAredlLevel('82172844').then((r) => r?.enjoyment)

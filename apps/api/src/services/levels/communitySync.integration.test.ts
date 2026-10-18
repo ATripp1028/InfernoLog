@@ -47,9 +47,8 @@ const {
   PARTIAL_RETRY_HOURS,
 } = await import('./communitySync')
 const { runCommunitySyncSlice, runAredlListSync } = await import('./sync')
-const { fetchGlobalStatsViewerLevel } = await import(
-  '../../utils/globalStatsViewer'
-)
+const { fetchGlobalStatsViewerLevel } =
+  await import('../../utils/globalStatsViewer')
 const { fetchGddlLevel } = await import('../../utils/gddl')
 const { fetchAredlLevel, fetchAredlList } = await import('../../utils/aredl')
 
@@ -237,7 +236,9 @@ describe('checkAndPersistCommunity', () => {
   // showcase to GDDL's copy and rewrite it back on the next pass — a real write
   // and a visible change every time a source blinks.
   it('leaves a column untouched when its top source did not answer', async () => {
-    await seedLevel({ showcaseUrl: 'https://www.youtube.com/watch?v=aredlaredla' })
+    await seedLevel({
+      showcaseUrl: 'https://www.youtube.com/watch?v=aredlaredla',
+    })
     gsvMock.mockResolvedValue(gsvResult())
     gddlMock.mockResolvedValue(gddlResult())
     aredlMock.mockResolvedValue(undefined) // AREDL down
@@ -245,7 +246,9 @@ describe('checkAndPersistCommunity', () => {
     await checkAndPersistCommunity('86407629')
 
     const level = await readLevel('86407629')
-    expect(level.showcaseUrl).toBe('https://www.youtube.com/watch?v=aredlaredla')
+    expect(level.showcaseUrl).toBe(
+      'https://www.youtube.com/watch?v=aredlaredla'
+    )
     // aredlRank and sheetTier are AREDL-topped too, so they hold as well.
     expect(level.aredlRank).toBeNull()
     // GDDL answered, so its own columns are written as normal.
@@ -576,7 +579,11 @@ describe('runAredlListSync', () => {
   })
 
   it('clears an extreme’s enjoyment when it falls off the list', async () => {
-    await seedLevel({ aredlRank: 216, aredlStatus: 'MainList', enjoyment: 59.4 })
+    await seedLevel({
+      aredlRank: 216,
+      aredlStatus: 'MainList',
+      enjoyment: 59.4,
+    })
     aredlListMock.mockResolvedValue(new Map())
 
     await runAredlListSync()

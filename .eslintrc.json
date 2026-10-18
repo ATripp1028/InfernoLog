@@ -1,6 +1,13 @@
 {
   "root": true,
-  "ignorePatterns": ["node_modules/", "dist/", "build/", ".turbo/", ".sst/", "docs/"],
+  "ignorePatterns": [
+    "node_modules/",
+    "dist/",
+    "build/",
+    ".turbo/",
+    ".sst/",
+    "docs/"
+  ],
   "parser": "@typescript-eslint/parser",
   "plugins": ["@typescript-eslint", "react-hooks"],
   "extends": [
