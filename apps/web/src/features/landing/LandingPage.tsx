@@ -272,6 +272,13 @@ export function LandingPage() {
             >
               DMCA
             </Link>
+            <Link
+              to="/changelog"
+              state={backOriginState(location.href)}
+              className="hover:text-foreground"
+            >
+              Changelog
+            </Link>
           </nav>
           <p className="max-w-[652px] text-xs text-text-tertiary">
             Site made by MrSp0rkMan (Alex). InfernoLog is an unofficial fan
