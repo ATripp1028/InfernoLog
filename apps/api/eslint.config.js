@@ -27,11 +27,6 @@ export default tseslint.config(
     files: ['src/**/*.ts'],
     languageOptions: {
       parserOptions: {
-        projectService: {
-          // credentialLint.test.ts lints snippets under this path; the file
-          // never exists on disk, so no tsconfig can include it.
-          allowDefaultProject: ['src/credentialLintFixture.ts'],
-        },
         tsconfigRootDir: import.meta.dirname,
       },
     },

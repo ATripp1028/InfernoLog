@@ -13,7 +13,15 @@ import { fileURLToPath } from 'url'
 import { dirname, resolve } from 'path'
 
 const apiRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..')
-const eslint = new ESLint({ cwd: apiRoot })
+const eslint = new ESLint({
+  cwd: apiRoot,
+  overrideConfig: {
+    files: ['src/credentialLintFixture.ts'],
+    languageOptions: { parserOptions: { projectService: false } },
+    rules: { '@typescript-eslint/strict-boolean-expressions': 'off' },
+  },
+})
+
 
 async function credentialErrors(code: string): Promise<number> {
   const [result] = await eslint.lintText(code, {
@@ -56,7 +64,7 @@ describe('credential lint rule', () => {
     ],
   ])('rejects %s', async (_label, snippet) => {
     expect(await credentialErrors(DECLS + snippet)).toBeGreaterThan(0)
-  }, 10000)
+  })
 
   it.each([
     ['ordinary structured logging', `logger.info({ userId }, 'Signed in')`],
