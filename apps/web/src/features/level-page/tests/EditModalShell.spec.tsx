@@ -4,7 +4,9 @@ import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/utils/testUtils'
 import { EditModalShell } from '../EditModalShell'
 
-function renderShell(props: Partial<Parameters<typeof EditModalShell>[0]> = {}) {
+function renderShell(
+  props: Partial<Parameters<typeof EditModalShell>[0]> = {}
+) {
   const onClose = vi.fn()
   renderWithProviders(
     <EditModalShell

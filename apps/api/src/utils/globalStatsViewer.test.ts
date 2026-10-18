@@ -136,15 +136,18 @@ describe('fetchGlobalStatsViewerLevel', () => {
     ['an extreme demon', 12],
     ['an insane demon', 11],
     ['a non-demon', 2],
-  ])('leaves a missing sheet entry missing for %s', async (_label, difficulty) => {
-    mockFetch.mockResolvedValueOnce(
-      resp(200, gsvLevel({ difficulty, additional_info: { lists: [] } }))
-    )
+  ])(
+    'leaves a missing sheet entry missing for %s',
+    async (_label, difficulty) => {
+      mockFetch.mockResolvedValueOnce(
+        resp(200, gsvLevel({ difficulty, additional_info: { lists: [] } }))
+      )
 
-    await expect(
-      fetchGlobalStatsViewerLevel('123').then((r) => r?.sheetTier)
-    ).resolves.toBeNull()
-  })
+      await expect(
+        fetchGlobalStatsViewerLevel('123').then((r) => r?.sheetTier)
+      ).resolves.toBeNull()
+    }
+  )
 
   it('tolerates a missing length without failing the whole record', async () => {
     mockFetch.mockResolvedValueOnce(resp(200, gsvLevel({ length: null })))

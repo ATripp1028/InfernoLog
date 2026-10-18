@@ -69,4 +69,4 @@ This policy may be updated as the platform grows. Significant changes will be co
 
 ---
 
-*Last updated: See repository commit history for infernolog-docs.*
+_Last updated: See repository commit history for infernolog-docs._

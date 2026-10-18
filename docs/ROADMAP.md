@@ -114,7 +114,7 @@ Goal: Deepen the core logging experience. No new platform features.
 
 ### Additional Logging Fields
 
-- [X] NONG fields on levels: `is_nong`, `nong_song_title`, `nong_artist`, `nong_source_url`
+- [x] NONG fields on levels: `is_nong`, `nong_song_title`, `nong_artist`, `nong_source_url`
 - [ ] Peak heart rate (BPM, from a heart rate monitor) as an optional field on a logged session
 
 ### Features

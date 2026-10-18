@@ -35,9 +35,9 @@ import { sharedNodeOptions } from './defaults'
 // ─────────────────────────────────────────────
 
 /**
- * The dead-letter queue for the level seed queue. 
- * Contains messages that failed to process after 3 attempts. 
- * The worker logs the message and the error, 
+ * The dead-letter queue for the level seed queue.
+ * Contains messages that failed to process after 3 attempts.
+ * The worker logs the message and the error,
  * so the DLQ is just a safety net for messages that can't be processed.
  */
 const levelSeedDlq = new sst.aws.Queue('LevelSeedDlq')

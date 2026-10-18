@@ -75,7 +75,7 @@ export function OrderingBoard({
               const item = itemsById.get(id)
               return item ? (
                 <SortablePlacedRow
-            listLabel={listLabel}
+                  listLabel={listLabel}
                   key={id}
                   rank={i + 1}
                   item={item}
@@ -157,7 +157,7 @@ export function OrderingBoard({
             <UnplacedCard item={activeItem} />
           ) : (
             <PlacedRow
-            listLabel={listLabel}
+              listLabel={listLabel}
               rank={containers.placed.indexOf(activeItem.levelProgressId) + 1}
               item={activeItem}
             />
@@ -231,7 +231,7 @@ function StaticPlaced({
     <div className="space-y-2">
       {entries.map((e) => (
         <PlacedRow
-            listLabel={listLabel}
+          listLabel={listLabel}
           key={e.levelProgressId}
           rank={e.rank}
           item={e}

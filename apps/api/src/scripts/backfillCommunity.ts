@@ -79,9 +79,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 async function main() {
   const { default: prisma } = await import('../utils/prisma')
-  const { checkAndPersistCommunity } = await import(
-    '../services/levels/communitySync'
-  )
+  const { checkAndPersistCommunity } =
+    await import('../services/levels/communitySync')
 
   console.log(
     `Community backfill → target=${target} host=${maskHost(connectionString!)} ` +

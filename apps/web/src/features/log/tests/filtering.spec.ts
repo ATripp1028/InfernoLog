@@ -750,17 +750,19 @@ describe('sortItems', () => {
     it('falls through to the highest-priority category', () => {
       const rows = [tied('low', 10, 90), tied('high', 90, 10)]
 
-      expect(
-        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
-      ).toEqual(['high', 'low'])
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)).toEqual([
+        'high',
+        'low',
+      ])
     })
 
     it('moves to the next category when the first also ties', () => {
       const rows = [tied('low', 50, 10), tied('high', 50, 90)]
 
-      expect(
-        sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)
-      ).toEqual(['high', 'low'])
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }], cats)).toEqual([
+        'high',
+        'low',
+      ])
     })
 
     it('reads the categories in priority order, not declaration order', () => {
@@ -770,9 +772,10 @@ describe('sortItems', () => {
         { id: 'gameplay', sortOrder: 1 },
       ]
 
-      expect(
-        sorted(rows, [{ key: 'rating', dir: 'desc' }], reversed)
-      ).toEqual(['a', 'b'])
+      expect(sorted(rows, [{ key: 'rating', dir: 'desc' }], reversed)).toEqual([
+        'a',
+        'b',
+      ])
     })
 
     it('breaks ties in the sort’s own direction', () => {
@@ -798,9 +801,10 @@ describe('sortItems', () => {
     it('does not break ties on any other column', () => {
       const rows = [tied('first', 10, 90), tied('second', 90, 10)]
 
-      expect(
-        sorted(rows, [{ key: 'attempts', dir: 'desc' }], cats)
-      ).toEqual(['first', 'second'])
+      expect(sorted(rows, [{ key: 'attempts', dir: 'desc' }], cats)).toEqual([
+        'first',
+        'second',
+      ])
     })
   })
 

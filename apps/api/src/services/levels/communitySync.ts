@@ -101,7 +101,9 @@ const DAY_MS = 24 * 60 * 60 * 1000
  */
 export function communityCheckDue(communityCheckedAt: Date | null): boolean {
   if (communityCheckedAt === null) return true
-  return communityCheckedAt < new Date(Date.now() - COMMUNITY_RECHECK_DAYS * DAY_MS)
+  return (
+    communityCheckedAt < new Date(Date.now() - COMMUNITY_RECHECK_DAYS * DAY_MS)
+  )
 }
 
 /** The level fields that decide which sources apply to it. */
@@ -332,7 +334,8 @@ export async function checkAndPersistCommunity(
     answeredCount === applicableCount
       ? new Date()
       : new Date(
-          Date.now() - (COMMUNITY_RECHECK_DAYS * 24 - PARTIAL_RETRY_HOURS) * 60 * 60 * 1000
+          Date.now() -
+            (COMMUNITY_RECHECK_DAYS * 24 - PARTIAL_RETRY_HOURS) * 60 * 60 * 1000
         )
 
   await prisma.level.update({ where: { inGameId: levelId }, data })

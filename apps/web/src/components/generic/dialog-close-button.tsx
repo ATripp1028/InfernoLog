@@ -7,8 +7,7 @@ import { cn } from '@/lib/utils'
  * icon size. `className` is merged onto the base styles rather than replacing
  * them, so each dialog keeps its own sizing/hover tokens.
  */
-export interface DialogCloseButtonProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+export interface DialogCloseButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   /** Lucide icon size in px. Defaults to 16, which is what most headers use. */
   iconSize?: number
 }

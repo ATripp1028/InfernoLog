@@ -78,14 +78,14 @@ Verifies Google proof ID tokens in `utils/googleProof.ts`, separately from the g
   - `defaults.ts`: shared node options for Lambdas.
   - `routes/`: HTTP routes via api.route/authedRoute.
 
-| Tier | Files |
-| :--- | :---- |
-Tier 0 | secrets.ts, defaults.ts, kms.ts, email.ts (no infra imports)
-Tier 1 | auth.ts ← secrets
-Tier 2 | api.ts ← auth, defaults, secrets
-Tier 3 | queue.ts, cron.ts, outputs.ts ← api, defaults, auth
-Tier 4 | workers.ts ← api, defaults, kms, queue
-Tier 5 | routes/* ← api, auth, defaults, email, secrets, kms, workers
+| Tier   | Files                                                         |
+| :----- | :------------------------------------------------------------ |
+| Tier 0 | secrets.ts, defaults.ts, kms.ts, email.ts (no infra imports)  |
+| Tier 1 | auth.ts ← secrets                                             |
+| Tier 2 | api.ts ← auth, defaults, secrets                              |
+| Tier 3 | queue.ts, cron.ts, outputs.ts ← api, defaults, auth           |
+| Tier 4 | workers.ts ← api, defaults, kms, queue                        |
+| Tier 5 | routes/\* ← api, auth, defaults, email, secrets, kms, workers |
 
 ### Cognito Clients
 
@@ -98,4 +98,3 @@ There are three Cognito clients that do different jobs:
 ## Endpoints
 
 All 47 endpoints point to `src/index.handler`. Each endpoint corresponds to a route backed by its own lambda. All of them run the same bundle, with Hono dispatching internally.
-

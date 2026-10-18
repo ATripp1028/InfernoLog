@@ -207,7 +207,10 @@ app.post('/me/email/verify', async (c) => {
     throw error
   }
 
-  logger.info({ userId, movedSignIn: previousSignInEmail !== null }, 'Changed account email')
+  logger.info(
+    { userId, movedSignIn: previousSignInEmail !== null },
+    'Changed account email'
+  )
 
   // The change has happened; a failed notice is reported rather than failing
   // the request the user would then retry.
