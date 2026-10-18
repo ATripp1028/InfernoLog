@@ -22,7 +22,6 @@ const eslint = new ESLint({
   },
 })
 
-
 async function credentialErrors(code: string): Promise<number> {
   const [result] = await eslint.lintText(code, {
     filePath: resolve(apiRoot, 'src/credentialLintFixture.ts'),
